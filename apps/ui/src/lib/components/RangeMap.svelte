@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import { _ } from 'svelte-i18n';
+  import type { Map as LeafletMap } from 'leaflet';
+
+  type LeafletApi = typeof import('leaflet');
 
   export let tileUrl: string;
   export let opacity: number = 0.65;
@@ -9,8 +12,8 @@
   export let heightClass: string = 'h-[220px]';
 
   let mapElement: HTMLElement;
-  let map: any;
-  let L: any;
+  let map: LeafletMap | null = null;
+  let L: LeafletApi | null = null;
   let resizeObserver: ResizeObserver | null = null;
 
   onDestroy(() => {
@@ -28,7 +31,7 @@
     if (typeof window === 'undefined') return;
 
     const leafletModule = await import('leaflet');
-    L = leafletModule.default;
+    L = leafletModule.default as unknown as LeafletApi;
     await import('leaflet/dist/leaflet.css');
 
     initMap();
@@ -36,6 +39,7 @@
 
   function initMap() {
     if (!mapElement || map) return;
+    if (!L) return;
 
     map = L.map(mapElement, {
       attributionControl: false,
@@ -85,7 +89,7 @@
       type="button"
       onclick={zoomIn}
       aria-label={$_('common.zoom_in')}
-      class="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 shadow border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      class="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 shadow border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-accent-500"
     >
       +
     </button>
@@ -93,7 +97,7 @@
       type="button"
       onclick={zoomOut}
       aria-label={$_('common.zoom_out')}
-      class="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 shadow border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+      class="w-8 h-8 rounded-full bg-white/90 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 shadow border border-slate-200/70 dark:border-slate-700/70 flex items-center justify-center hover:bg-white focus:outline-none focus:ring-2 focus:ring-accent-500"
     >
       −
     </button>

@@ -159,6 +159,42 @@ class FrigateClient:
         clip, _ = await self.get_clip_with_error(event_id)
         return clip
 
+    async def get_recording_clip_with_error(
+        self, camera: str, after: int, before: int, timeout: float = 20.0
+    ) -> tuple[Optional[bytes], Optional[str]]:
+        """Fetch a clip from Frigate's continuous recording for a camera/time window.
+
+        Unlike the per-event clip, this reads the continuous recording, which usually
+        still covers a briefly-tracked object even when the event snapshot/clip is gone.
+        """
+        try:
+            resp = await self.get(f"api/{camera}/start/{after}/end/{before}/clip.mp4", timeout=timeout)
+            if resp.status_code == 200:
+                return resp.content, None
+            if resp.status_code == 404:
+                log.warning("Recording clip not found", camera=camera, after=after, before=before)
+                return None, "clip_not_found"
+            if resp.status_code == 400:
+                try:
+                    payload = resp.json()
+                except Exception:
+                    payload = None
+                message = str((payload or {}).get("message") or "")
+                if "No recordings found for the specified time range" in message:
+                    log.warning("Recording not retained for window", camera=camera, after=after, before=before)
+                    return None, "clip_not_retained"
+            log.warning("Failed to fetch recording clip", camera=camera, status=resp.status_code)
+            return None, f"clip_http_{resp.status_code}"
+        except httpx.TimeoutException:
+            log.warning("Recording clip fetch timed out", camera=camera, after=after, before=before)
+            return None, "clip_timeout"
+        except httpx.RequestError as e:
+            log.error("Error fetching recording clip", camera=camera, error=str(e))
+            return None, "clip_request_error"
+        except Exception as e:
+            log.error("Unexpected error fetching recording clip", camera=camera, error=str(e))
+            return None, "clip_unknown_error"
+
     async def get_thumbnail(self, event_id: str) -> Optional[bytes]:
         """Fetch thumbnail image for an event."""
         try:

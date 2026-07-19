@@ -34,6 +34,7 @@
     import DetectionModal from '../components/DetectionModal.svelte';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import { toLocalYMD } from '../utils/date-only';
+    import { getErrorMessage } from '../utils/error-handling';
 
     import { getBirdNames } from '../naming';
 
@@ -104,6 +105,7 @@
     let eventsSyncFrame: number | null = null;
     let reclassifyCompletionRefreshTimeout: number | null = null;
     let eventMetadataRefreshTimeout: number | null = null;
+    let eventsLoadGeneration = 0;
     let handledVisibleReclassifyCompletions = $state<Record<string, number>>({});
     let refreshingFilterOptions = $state(false);
 
@@ -151,7 +153,7 @@
             display_name: item.display_name,
             scientific_name: item.scientific_name ?? undefined,
             common_name: item.common_name ?? undefined
-        } as any, showCommon, preferSci);
+        }, showCommon, preferSci);
         return naming.secondary ? `${naming.primary} (${naming.secondary})` : naming.primary;
     }
 
@@ -166,6 +168,7 @@
     });
 
     async function loadEvents() {
+        const loadGeneration = ++eventsLoadGeneration;
         loading = true;
         error = null;
         try {
@@ -182,7 +185,8 @@
                     includeHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
-                    fields: 'list'
+                    fields: 'list',
+                    requestKey: 'events-page:list'
                 }),
                 fetchEventsCount({
                     startDate: range.start,
@@ -191,9 +195,11 @@
                     camera: cameraFilter || undefined,
                     includeHidden: showHidden,
                     favoritesOnly,
-                    audioConfirmedOnly
+                    audioConfirmedOnly,
+                    requestKey: 'events-page:count'
                 })
             ]);
+            if (loadGeneration !== eventsLoadGeneration) return;
             events = newEvents;
             totalCount = countRes.count;
             if (pendingEventId) {
@@ -205,6 +211,7 @@
                 }
             }
         } catch (e) {
+            if (loadGeneration !== eventsLoadGeneration) return;
             if (e instanceof Error && e.name === 'AbortError') {
                 // Request cancellation is expected when filter changes trigger a newer fetch.
                 return;
@@ -213,7 +220,7 @@
             error = $_('events.load_failed');
             console.error('Failed to load events', e);
         } finally {
-            loading = false;
+            if (loadGeneration === eventsLoadGeneration) loading = false;
         }
     }
 
@@ -296,7 +303,14 @@
     onMount(async () => {
         const params = new URLSearchParams(window.location.search);
         if (params.get('species')) speciesFilter = params.get('species')!;
-        if (params.get('date')) datePreset = params.get('date') as any;
+        const requestedDatePreset = params.get('date');
+        if (
+            requestedDatePreset === 'all' ||
+            requestedDatePreset === 'today' ||
+            requestedDatePreset === 'week' ||
+            requestedDatePreset === 'month' ||
+            requestedDatePreset === 'custom'
+        ) datePreset = requestedDatePreset;
         if (params.get('favorites') === '1' || params.get('favorites') === 'true') favoritesOnly = true;
         if (params.get('audio') === '1' || params.get('audio') === 'true') audioConfirmedOnly = true;
         const deepLinkedEvent = params.get('event');
@@ -578,10 +592,11 @@
             if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {
                 toastStore.warning($_('notifications.reclassify_fallback'));
             }
-        } catch (e: any) {
+        } catch (e) {
+            const message = getErrorMessage(e);
             detectionsStore.dismissReclassification(eventId);
-            console.error('Failed to start reclassification', e.message);
-            toastStore.error($_('notifications.reclassify_failed', { values: { message: e.message || 'Unknown error' } }));
+            console.error('Failed to start reclassification', message);
+            toastStore.error($_('notifications.reclassify_failed', { values: { message } }));
         }
     }
 
@@ -878,8 +893,8 @@
                     })
                 );
             }
-        } catch (e: any) {
-            toastStore.error($_('notifications.reclassify_failed', { values: { message: e?.message || 'Unknown error' } }));
+        } catch (e) {
+            toastStore.error($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
         } finally {
             bulkTagPendingId = null;
             bulkTagging = false;
@@ -912,10 +927,11 @@
             }
             selectedEventIds = [];
             await refreshEventMetadata(true, false);
-        } catch (e: any) {
+        } catch (e) {
+            const message = getErrorMessage(e);
             toastStore.error($_('events.bulk_delete_failed', {
-                values: { message: e?.message || 'Unknown error' },
-                default: `Delete failed: ${e?.message || 'Unknown error'}`
+                values: { message },
+                default: `Delete failed: ${message}`
             }));
         } finally {
             bulkDeleting = false;
@@ -965,10 +981,9 @@
             {#if authStore.hasOwnerAccess}
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors
-                        {selectionMode
-                            ? 'bg-cyan-100 text-cyan-700 border-cyan-300 dark:bg-cyan-500/20 dark:text-cyan-100 dark:border-cyan-400/60'
-                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
+                    class="btn px-3 py-2 text-xs {selectionMode
+                        ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
+                        : 'btn-secondary'}"
                     onclick={toggleSelectionMode}
                 >
                     <span>{selectionMode ? $_('common.cancel') : $_('common.multi_select', { default: 'Multi Select' })}</span>
@@ -978,12 +993,12 @@
     </div>
 
     {#if authStore.hasOwnerAccess && selectionMode}
-        <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-cyan-200/80 dark:border-cyan-500/30 bg-cyan-50/70 dark:bg-cyan-500/10">
+        <div class="card-base rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 border border-brand-200/80 dark:border-brand-500/30 bg-brand-50/70 dark:bg-brand-500/10">
             <div>
-                <p class="text-sm font-black uppercase tracking-widest text-cyan-700 dark:text-cyan-100">
+                <p class="text-sm font-semibold text-brand-800 dark:text-brand-100">
                     {$_('common.multi_select', { default: 'Multi-Select' })}
                 </p>
-                <p class="text-xs text-cyan-700/80 dark:text-cyan-100/80">
+                <p class="text-xs text-brand-700/80 dark:text-brand-100/80">
                     {selectedEventIds.length
                         ? `${selectedEventIds.length} ${$_('common.selected', { default: 'selected' })}`
                         : $_('common.select', { default: 'Select' }) + ' events to act on.'}
@@ -992,7 +1007,7 @@
             <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800"
+                    class="btn btn-ghost px-3 py-2 text-xs"
                     onclick={() => selectedEventIds = []}
                     disabled={selectedEventIds.length === 0}
                 >
@@ -1000,7 +1015,7 @@
                 </button>
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-indigo-600 text-white border-indigo-500 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="btn btn-primary px-3 py-2 text-xs"
                     onclick={handleBulkReclassify}
                     disabled={selectedEventIds.length === 0 || bulkReclassifying || bulkDeleting}
                 >
@@ -1008,7 +1023,7 @@
                 </button>
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-cyan-600 text-white border-cyan-500 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="btn btn-secondary px-3 py-2 text-xs"
                     onclick={() => showBulkTagModal = true}
                     disabled={selectedEventIds.length === 0 || bulkDeleting || bulkReclassifying}
                 >
@@ -1016,7 +1031,7 @@
                 </button>
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-widest transition-colors bg-red-600 text-white border-red-500 hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="btn btn-danger px-3 py-2 text-xs"
                     onclick={handleBulkDelete}
                     disabled={selectedEventIds.length === 0 || bulkDeleting || bulkReclassifying}
                 >
@@ -1026,22 +1041,22 @@
         </div>
     {/if}
 
-    <div class="card-base rounded-2xl p-4 space-y-3">
+    <section data-events-filter-bar class="space-y-3 border-y border-slate-200 py-4 dark:border-slate-700">
         <div class="grid gap-3 lg:grid-cols-3">
-            <select bind:value={datePreset} onchange={loadEvents} class="select-base min-w-0 w-full">
+            <select bind:value={datePreset} onchange={loadEvents} aria-label={$_('events.filters.all_time')} class="select-base min-w-0 w-full shadow-none">
                 <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
             </select>
-            <select bind:value={speciesFilter} onchange={loadEvents} class="select-base min-w-0 w-full">
+            <select bind:value={speciesFilter} onchange={loadEvents} aria-label={$_('events.filters.all_species')} class="select-base min-w-0 w-full shadow-none">
                 <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s.value}>{formatSpeciesLabel(s)}</option>{/each}
             </select>
-            <select bind:value={cameraFilter} onchange={loadEvents} class="select-base min-w-0 w-full">
+            <select bind:value={cameraFilter} onchange={loadEvents} aria-label={$_('events.filters.all_cameras')} class="select-base min-w-0 w-full shadow-none">
                 <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
             </select>
         </div>
         <div class="flex flex-wrap gap-3">
             <button
             type="button"
-            class="inline-flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors
                 {refreshingFilterOptions
                     ? 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1064,7 +1079,7 @@
             </button>
             <button
             type="button"
-            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
                 {favoritesOnly
                     ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/50'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1083,7 +1098,7 @@
             </button>
             <button
             type="button"
-            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
                 {audioConfirmedOnly
                     ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/20 dark:text-blue-200 dark:border-blue-500/50'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1103,7 +1118,7 @@
             {#if authStore.hasOwnerAccess && (hiddenCount > 0 || showHidden)}
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors
+                    class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
                         {showHidden
                             ? 'bg-slate-800 text-white border-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-200'
                             : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
@@ -1126,13 +1141,13 @@
                         </svg>
                     {/if}
                     <span>{$_('events.filters.hidden', { default: 'Hidden' })}</span>
-                    <span class="inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none {showHidden ? 'bg-white/20 text-white dark:bg-slate-900/15 dark:text-slate-900' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}">
+                    <span class="inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none {showHidden ? 'bg-white/20 text-white dark:bg-slate-900/15 dark:text-slate-900' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}">
                         {hiddenCount}
                     </span>
                 </button>
             {/if}
         </div>
-    </div>
+    </section>
 
     <Pagination {currentPage} {totalPages} totalItems={totalCount} itemsPerPage={pageSize} onPageChange={handlePageChange} onPageSizeChange={handlePageSizeChange} />
 
@@ -1144,13 +1159,13 @@
     {/if}
 
     {#if !loading && timelineBuckets.length > 0}
-        <div class="card-base rounded-2xl p-3">
+        <section data-events-timeline class="border-y border-slate-200 py-3 dark:border-slate-700">
             <div class="flex flex-wrap items-center gap-2">
                 <button
                     type="button"
-                    class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest border transition-colors
+                    class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                         {selectedTimelineBucket === 'all'
-                            ? 'bg-cyan-100/90 dark:bg-cyan-500/20 border-cyan-300/80 dark:border-cyan-400/60 text-cyan-700 dark:text-cyan-100 shadow-sm'
+                            ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                             : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                     onclick={() => selectedTimelineBucket = 'all'}
                 >
@@ -1159,9 +1174,9 @@
                         <path d="M4.5 10h11"></path>
                     </svg>
                     <span>{$_('common.all', { default: 'All' })}</span>
-                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black normal-case tracking-normal
+                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
                         {selectedTimelineBucket === 'all'
-                            ? 'bg-cyan-200/80 dark:bg-cyan-400/25 text-cyan-800 dark:text-cyan-100'
+                            ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
                             : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
                     >
                         <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
@@ -1174,9 +1189,9 @@
                 {#each timelineBuckets as bucket}
                     <button
                         type="button"
-                        class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-widest border transition-colors
+                        class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
                             {selectedTimelineBucket === bucket.key
-                                ? 'bg-cyan-100/90 dark:bg-cyan-500/20 border-cyan-300/80 dark:border-cyan-400/60 text-cyan-700 dark:text-cyan-100 shadow-sm'
+                                ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                                 : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                         onclick={() => selectedTimelineBucket = bucket.key}
                     >
@@ -1185,9 +1200,9 @@
                             <path d="M3 8h14"></path>
                         </svg>
                         <span>{bucket.label}</span>
-                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black normal-case tracking-normal
+                        <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
                             {selectedTimelineBucket === bucket.key
-                                ? 'bg-cyan-200/80 dark:bg-cyan-400/25 text-cyan-800 dark:text-cyan-100'
+                                ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
                                 : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
                         >
                             <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
@@ -1199,19 +1214,22 @@
                     </button>
                 {/each}
             </div>
-            <p class="mt-2 inline-flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+            <p class="mt-2 hidden items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 sm:inline-flex">
                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                     <path d="M6 7h8M6 10h8M6 13h5"></path>
                     <rect x="3" y="4" width="14" height="12" rx="2"></rect>
                 </svg>
                 {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
             </p>
-        </div>
+        </section>
     {/if}
 
     {#if !loading && visibleEvents.length === 0}
-        <div class="card-base rounded-3xl p-10 text-center">
-            <div class="text-5xl mb-3">🪶</div>
+        <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700">
+            <svg class="mx-auto mb-4 h-10 w-10 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.5 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.3-2.3L2 20" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3m4-3.25V21M7 18a6 6 0 0 0 3.8-10.6" />
+            </svg>
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h3>
             <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
         </div>
@@ -1317,7 +1335,7 @@
         <div class="w-full max-w-md mx-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden" aria-busy={bulkTagging}>
             <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
                 <div>
-                    <h4 class="text-sm font-black text-slate-800 dark:text-slate-100 uppercase tracking-widest">
+                    <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">
                         {$_('actions.manual_tag')}
                     </h4>
                     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -1339,7 +1357,7 @@
                     bind:value={bulkTagSearchQuery}
                     disabled={bulkTagging}
                     placeholder={$_('detection.tagging.search_placeholder')}
-                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-teal-500 focus:border-transparent outline-none"
+                    class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none"
                 />
             </div>
             <div class="max-h-72 overflow-y-auto overscroll-contain p-1">
@@ -1350,12 +1368,12 @@
                         type="button"
                         onclick={() => applyBulkManualTag(result)}
                         disabled={bulkTagging}
-                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-teal-50 dark:hover:bg-teal-900/20 hover:text-teal-600 dark:hover:text-teal-400 disabled:opacity-60 disabled:cursor-wait text-slate-600 dark:text-slate-300"
+                        class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-600 dark:hover:text-brand-400 disabled:opacity-60 disabled:cursor-wait text-slate-600 dark:text-slate-300"
                     >
                         <span class="block text-sm leading-tight">
                             {names.primary}
                             {#if isPending}
-                                <span class="ml-2 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-teal-500">
+                                <span class="ml-2 inline-flex items-center gap-1 text-[10px] font-semibold text-brand-500">
                                     <span class="inline-block h-2 w-2 rounded-full border border-current border-t-transparent animate-spin"></span>
                                     {$_('common.saving')}
                                 </span>

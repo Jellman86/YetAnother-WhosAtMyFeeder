@@ -174,14 +174,17 @@ def test_aggregate_results_reports_accuracy_and_unknown_bug_counts() -> None:
     assert model_summary["abstention_topk_rate"] == 0.5
 
 
-def test_settings_restored_after_evaluation_failure(monkeypatch) -> None:
+def test_diagnostic_overrides_and_active_model_restored_after_evaluation_failure(monkeypatch) -> None:
     class _Settings:
         class classification:
             crop_model_overrides = {"medium_birds": "on"}
             crop_source_overrides = {"medium_birds": "high_quality"}
+            bird_model_region_override = "eu"
 
     class _Manager:
         active_model_id = "medium_birds"
+        _diagnostic_crop_model_overrides = {"medium_birds": "on"}
+        _diagnostic_crop_source_overrides = {"medium_birds": "high_quality"}
 
         async def activate_model(self, model_id: str) -> bool:
             self.active_model_id = model_id
@@ -197,9 +200,12 @@ def test_settings_restored_after_evaluation_failure(monkeypatch) -> None:
             model_id="small_birds",
             crop_mode="off",
             source_mode="standard",
+            region_override="na",
         ):
             assert manager.active_model_id == "small_birds"
-            assert settings.classification.crop_model_overrides["small_birds"] == "off"
+            assert manager._diagnostic_crop_model_overrides["small_birds"] == "off"
+            assert manager._diagnostic_crop_source_overrides["small_birds"] == "standard"
+            assert settings.classification.bird_model_region_override == "na"
             raise RuntimeError("stop")
 
     try:
@@ -208,6 +214,9 @@ def test_settings_restored_after_evaluation_failure(monkeypatch) -> None:
         pass
 
     assert manager.active_model_id == "medium_birds"
+    assert manager._diagnostic_crop_model_overrides == {"medium_birds": "on"}
+    assert manager._diagnostic_crop_source_overrides == {"medium_birds": "high_quality"}
+    assert settings.classification.bird_model_region_override == "eu"
     assert settings.classification.crop_model_overrides == {"medium_birds": "on"}
     assert settings.classification.crop_source_overrides == {"medium_birds": "high_quality"}
 
@@ -240,6 +249,66 @@ def test_evaluate_case_uses_classifier_service_and_includes_crop_diagnostics(tmp
 
     assert result.top1_correct is True
     assert result.crop_diagnostics["crop_reason"] == "no_candidate"
+
+
+def test_validate_crop_execution_rejects_crop_on_when_detector_failed() -> None:
+    row = SimpleNamespace(
+        crop_diagnostics={
+            "crop_attempted": True,
+            "crop_applied": False,
+            "crop_reason": "load_failed",
+        }
+    )
+
+    try:
+        harness.validate_crop_execution([row], model_id="small_birds", crop_mode="on")
+    except RuntimeError as exc:
+        assert "load_failed" in str(exc)
+    else:
+        raise AssertionError("crop-on evaluation accepted an unavailable detector")
+
+
+def test_validate_crop_execution_requires_crop_on_to_apply_at_least_once() -> None:
+    rows = [
+        SimpleNamespace(
+            crop_diagnostics={
+                "crop_attempted": True,
+                "crop_applied": False,
+                "crop_reason": "no_candidate",
+            }
+        )
+    ]
+
+    try:
+        harness.validate_crop_execution(rows, model_id="small_birds", crop_mode="on")
+    except RuntimeError as exc:
+        assert "did not apply a crop" in str(exc)
+    else:
+        raise AssertionError("crop-on evaluation accepted a no-op comparison")
+
+
+def test_validate_crop_execution_accepts_real_crop_on_and_clean_crop_off() -> None:
+    crop_on_rows = [
+        SimpleNamespace(
+            crop_diagnostics={
+                "crop_attempted": True,
+                "crop_applied": True,
+                "crop_reason": "selected",
+            }
+        )
+    ]
+    crop_off_rows = [
+        SimpleNamespace(
+            crop_diagnostics={
+                "crop_attempted": False,
+                "crop_applied": False,
+                "crop_reason": "crop_disabled",
+            }
+        )
+    ]
+
+    harness.validate_crop_execution(crop_on_rows, model_id="small_birds", crop_mode="on")
+    harness.validate_crop_execution(crop_off_rows, model_id="small_birds", crop_mode="off")
 
 
 def _create_detection_db(path: Path) -> None:

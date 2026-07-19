@@ -11,7 +11,6 @@
         type SpeciesStats,
         type SpeciesInfo,
         type EbirdNearbyResult,
-        type EbirdNotableResult,
         type Detection,
         getThumbnailUrl
     } from '../api';
@@ -28,6 +27,7 @@
     import { trapFocus } from '../utils/focus-trap';
     import { toAppPath } from '../app/url-base';
     import { formatDate as formatDateValue, formatDateTime, formatTime } from '../utils/datetime';
+    import { getErrorMessage } from '../utils/error-handling';
 
     interface Props {
         speciesName: string;
@@ -76,10 +76,6 @@
     let error = $state<string | null>(null);
     let isUnknownBird = $state(false);
 
-    // Wikipedia thumbnails vary wildly in composition. Cropping a little from the top of
-    // the hero image tends to preserve more of the bird's body in the default view.
-    const HERO_IMAGE_CROP_TOP_PX = 75;
-
     // Enrichment (eBird)
     let ebirdNearby = $state<EbirdNearbyResult | null>(null);
     let ebirdNearbyLoading = $state(false);
@@ -121,11 +117,6 @@
             ? enrichmentSingleProviderSetting
             : (settingsStore.settings?.enrichment_seasonality_source ?? authStore.enrichmentSeasonalitySource ?? 'disabled')
     );
-    const enrichmentRarityProvider = $derived(
-        enrichmentModeSetting === 'single'
-            ? enrichmentSingleProviderSetting
-            : (settingsStore.settings?.enrichment_rarity_source ?? authStore.enrichmentRaritySource ?? 'disabled')
-    );
     const ebirdEnabled = $derived(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled ?? false);
     const ebirdRadius = $derived(settingsStore.settings?.ebird_default_radius_km ?? 25);
     const ebirdDaysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
@@ -138,8 +129,7 @@
         enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
     );
     const showEbirdNearbyCard = $derived(showEbirdNearby && ebirdEnabled);
-    const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
-    const rangeMapHeightClass = $derived(ebirdEnabled ? 'h-[400px] lg:h-full' : 'h-[1200px] lg:h-full');
+    const rangeMapHeightClass = 'h-[280px] sm:h-[360px] lg:h-[420px]';
     const enrichmentLinksProviders = $derived(
         enrichmentModeSetting === 'single'
             ? [enrichmentSingleProviderSetting]
@@ -168,7 +158,7 @@
                 scientific_name: stats.scientific_name,
                 common_name: stats.common_name
             };
-            return getBirdNames(item as any, showCommon, preferSci);
+            return getBirdNames(item, showCommon, preferSci);
         }
         if (info) {
             const item = {
@@ -176,7 +166,7 @@
                 scientific_name: info.scientific_name,
                 common_name: null // info doesn't always have common name separate
             };
-            return getBirdNames(item as any, showCommon, preferSci);
+            return getBirdNames(item, showCommon, preferSci);
         }
         return { primary: speciesName, secondary: null };
     });
@@ -222,13 +212,13 @@
         try {
             const res = await fetchEbirdNearby(name, sciName);
             if (res.status === 'error') {
-                ebirdNearbyError = (res as any).message || 'Failed to load eBird sightings';
+                ebirdNearbyError = res.message || 'Failed to load eBird sightings';
                 ebirdNearby = null;
             } else {
                 ebirdNearby = res;
             }
-        } catch (e: any) {
-            ebirdNearbyError = e?.message || 'Failed to load eBird sightings';
+        } catch (e) {
+            ebirdNearbyError = getErrorMessage(e) || 'Failed to load eBird sightings';
         } finally {
             ebirdNearbyLoading = false;
         }
@@ -260,8 +250,8 @@
                 rangeMap = null;
                 rangeMapError = res.message || 'Range map unavailable';
             }
-        } catch (e: any) {
-            rangeMapError = e?.message || 'Range map unavailable';
+        } catch (e) {
+            rangeMapError = getErrorMessage(e) || 'Range map unavailable';
             rangeMap = null;
         } finally {
             rangeMapLoading = false;
@@ -269,52 +259,59 @@
     }
 
 
-    // Async work is kicked off separately so onMount can return a cleanup function.
-    onMount(() => {
-        (async () => {
-            // Check if this is an unknown bird detection
-            isUnknownBird = isUnknownLabel(speciesName);
+    async function loadSpeciesDetails() {
+        loading = true;
+        error = null;
+        stats = null;
+        info = null;
+        ebirdNearby = null;
+        seasonality = null;
+        rangeMap = null;
+        rangeMapError = null;
+        isUnknownBird = isUnknownLabel(speciesName);
 
-            try {
-                // Always fetch stats
-                const statsData = await fetchSpeciesStats(isUnknownBird ? UNKNOWN_SPECIES_NAME : speciesName);
-                stats = statsData;
+        try {
+            const statsData = await fetchSpeciesStats(isUnknownBird ? UNKNOWN_SPECIES_NAME : speciesName);
+            stats = statsData;
 
-                // Fetch summary only when enabled. If seasonality is enabled, we may need taxa_id.
-                if (!isUnknownBird) {
-                    const statsTaxaId = statsData?.recent_sightings?.[0]?.taxa_id ?? null;
-                    if (summaryEnabled || (seasonalityEnabled && !statsTaxaId)) {
-                        const infoData = await fetchSpeciesInfo(speciesName);
-                        info = infoData;
-                    }
+            if (!isUnknownBird) {
+                const statsTaxaId = statsData?.recent_sightings?.[0]?.taxa_id ?? null;
+                if (summaryEnabled || (seasonalityEnabled && !statsTaxaId)) {
+                    info = await fetchSpeciesInfo(speciesName);
                 }
+            }
 
-                const sciName = info?.scientific_name || stats?.scientific_name || undefined;
+            const sciName = info?.scientific_name || stats?.scientific_name || undefined;
 
-                if (!isUnknownBird && ebirdEnabled && showEbirdNearby) {
-                    void loadEbirdNearby(speciesName, sciName);
-                }
+            if (!isUnknownBird && ebirdEnabled && showEbirdNearby) {
+                void loadEbirdNearby(speciesName, sciName);
+            }
 
-                // Fetch seasonality if we have a taxa_id (from stats or info)
-                // Note: stats.taxa_id might be missing if not in detections table yet, but info.taxa_id might be there
-                const taxonId = info?.taxa_id || stats?.recent_sightings?.[0]?.taxa_id;
-                if (seasonalityEnabled && taxonId) {
-                    void loadSeasonality(taxonId);
-                }
-            } catch (e: any) {
-                console.error('Failed to load species details', e);
-                if (!isUnknownBird) {
-                    error = e.message || 'Failed to load species details';
-                }
-            } finally {
-                loading = false;
+            const taxonId = info?.taxa_id || stats?.recent_sightings?.[0]?.taxa_id;
+            if (seasonalityEnabled && taxonId) {
+                void loadSeasonality(taxonId);
             }
 
             if (!isUnknownBird) {
-                const sciName = info?.scientific_name || stats?.scientific_name || undefined;
                 void loadRangeMap(speciesName, sciName);
             }
-        })();
+        } catch (e) {
+            console.error('Failed to load species details', e);
+            error = getErrorMessage(e) || 'Failed to load species details';
+        } finally {
+            loading = false;
+        }
+    }
+
+    // Async work is kicked off separately so onMount can return a cleanup function.
+    onMount(() => {
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        void loadSpeciesDetails();
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
     });
 
     function formatDate(dateStr: string | null): string {
@@ -349,7 +346,7 @@
 
             // Check if backend used a different strategy (fallback occurred)
             if (result.actual_strategy && result.actual_strategy !== strategy) {
-                toastStore.warning(`⚠️ Video not available - snapshot used instead`);
+                toastStore.warning('Video not available — snapshot used instead');
             }
 
             toastStore.success(`Reclassification complete: ${result.new_species} (${(result.new_score * 100).toFixed(0)}%)`);
@@ -358,10 +355,10 @@
             setTimeout(() => {
                 onclose();
             }, 2000);
-        } catch (e: any) {
+        } catch (e) {
             detectionsStore.dismissReclassification(eventId);
             console.error('Failed to reclassify', e);
-            toastStore.error(`Failed to reclassify: ${e.message || 'Unknown error'}`);
+            toastStore.error(`Failed to reclassify: ${getErrorMessage(e)}`);
         } finally {
             reclassifying = false;
         }
@@ -372,54 +369,52 @@
 
 <!-- Backdrop -->
 <div
-    class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-0 backdrop-blur-sm sm:p-4"
     onclick={(e) => {
         if (e.target === e.currentTarget) {
             onclose();
         }
     }}
-    onkeydown={(e) => e.key === 'Escape' && onclose()}
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="modal-title"
-    tabindex="-1"
+    role="presentation"
 >
     <!-- Modal Container -->
     <div
         bind:this={modalElement}
-        class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden
-               border border-slate-200 dark:border-slate-700 animate-fade-in"
-        role="document"
+        class="animate-fade-in h-[100dvh] w-full max-w-6xl overflow-hidden bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900 sm:h-auto sm:max-h-[92dvh] sm:rounded-3xl sm:border sm:border-white/10"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
         tabindex="-1"
     >
         <!-- Header -->
-        <div data-species-modal-header class="flex items-start justify-between p-6 border-b border-slate-200 dark:border-slate-700">
-            <div>
-                <h2 id="modal-title" class="text-2xl font-bold text-slate-900 dark:text-white">
+        <header data-species-modal-header class="flex min-h-[76px] items-center justify-between gap-4 border-b border-brand-100 bg-gradient-to-r from-brand-50 via-accent-50/70 to-white px-4 py-3 dark:border-slate-800 dark:from-brand-950/40 dark:via-accent-950/20 dark:to-slate-900 sm:px-6">
+            <div class="min-w-0">
+                <h2 id="modal-title" class="truncate text-xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
                     {primaryName}
                 </h2>
                 {#if subName && subName !== primaryName}
-                    <p class="text-sm italic text-slate-500 dark:text-slate-400 mt-1">
+                    <p class="mt-0.5 truncate text-sm italic text-slate-500 dark:text-slate-400">
                         {subName}
                     </p>
                 {/if}
+                {#if info?.description}
+                    <p class="mt-1 hidden truncate text-sm text-slate-600 dark:text-slate-300 sm:block">{info.description}</p>
+                {/if}
             </div>
-            <div class="flex items-center gap-2">
-                <button
-                    type="button"
-                    onclick={onclose}
-                    class="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                    aria-label={$_('shortcuts.close_modal')}
-                >
-                    <svg class="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-            </div>
-        </div>
+            <button
+                type="button"
+                onclick={onclose}
+                class="flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-white/80 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-white"
+                aria-label={$_('shortcuts.close_modal')}
+            >
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </header>
 
         <!-- Content -->
-        <div class="overflow-y-auto max-h-[calc(90vh-140px)] p-6 space-y-6">
+        <div class="max-h-[calc(100dvh-76px)] space-y-8 overflow-y-auto p-4 sm:max-h-[calc(92dvh-76px)] sm:p-6 lg:p-8">
             {#if loading}
                 <!-- Loading Skeleton -->
                 <div class="space-y-6 animate-pulse">
@@ -438,11 +433,15 @@
                     </div>
                 </div>
             {:else if error}
-                <div class="text-center py-8">
-                    <p class="text-red-500 dark:text-red-400">{error}</p>
+                <div class="mx-auto max-w-lg py-16 text-center" role="alert">
+                    <div class="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/40 dark:text-red-300">
+                        <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 4h.01M5.07 19h13.86a2 2 0 001.74-2.99L13.74 4a2 2 0 00-3.48 0L3.33 16.01A2 2 0 005.07 19z" /></svg>
+                    </div>
+                    <p class="mt-4 text-sm text-slate-600 dark:text-slate-300">{error}</p>
                     <button
-                        onclick={() => window.location.reload()}
-                        class="mt-4 px-4 py-2 text-teal-600 hover:text-teal-700 underline"
+                        type="button"
+                        onclick={loadSpeciesDetails}
+                        class="btn btn-secondary mt-5 min-h-11 px-4"
                     >
                         {$_('common.retry')}
                     </button>
@@ -450,7 +449,7 @@
             {:else}
                 <!-- Unknown Bird Message and Reclassify Options -->
                 {#if isUnknownBird}
-                    <section class="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-6 border-2 border-amber-200 dark:border-amber-800">
+                    <section class="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-900/20 sm:p-6">
                         <div class="flex items-start gap-4">
                             <!-- Icon -->
                             <div class="flex-shrink-0 w-12 h-12 rounded-full bg-amber-500 flex items-center justify-center">
@@ -471,7 +470,7 @@
                                     <button
                                         onclick={() => handleReclassify('snapshot')}
                                         disabled={reclassifying || !stats?.recent_sightings?.[0]}
-                                        class="px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors shadow-md flex items-center gap-2"
+                                        class="flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -482,7 +481,7 @@
                                     <button
                                         onclick={() => handleReclassify('video')}
                                         disabled={reclassifying || !stats?.recent_sightings?.[0]?.has_clip || !stats?.recent_sightings?.[0]}
-                                        class="px-4 py-2 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-colors shadow-md flex items-center gap-2"
+                                        class="flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                                         title={!stats?.recent_sightings?.[0]?.has_clip ? $_('species_detail.video_unavailable') : ''}
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -494,7 +493,7 @@
                                     <button
                                         type="button"
                                         onclick={handleOpenExplorer}
-                                        class="px-4 py-2 bg-white/80 dark:bg-slate-900/40 border border-amber-200 dark:border-amber-700 text-amber-800 dark:text-amber-100 font-semibold rounded-lg transition-colors shadow-sm flex items-center gap-2"
+                                        class="flex min-h-11 items-center gap-2 rounded-lg border border-amber-200 bg-white/80 px-4 py-2 font-semibold text-amber-800 shadow-sm transition-colors hover:border-amber-300 dark:border-amber-700 dark:bg-slate-900/40 dark:text-amber-100"
                                     >
                                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
@@ -513,43 +512,122 @@
                     </section>
                 {/if}
 
+                {#if stats}
+                    <section data-species-record-summary aria-labelledby="species-record-heading">
+                        <div class="mb-3 flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-2.5">
+                                <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 19V9m5 10V5m5 14v-7m5 7V3" />
+                                    </svg>
+                                </span>
+                                <h3 id="species-record-heading" class="text-base font-semibold text-slate-900 dark:text-white">{$_('common.statistics')}</h3>
+                            </div>
+                            <span class="text-xs font-medium text-brand-700 dark:text-brand-300">{$_('common.detections')}</span>
+                        </div>
+                        <dl class="grid grid-cols-2 overflow-hidden border-y border-slate-200 dark:border-slate-700 sm:grid-cols-4">
+                            <div class="border-b border-r border-slate-200 px-3 py-4 dark:border-slate-700 sm:border-b-0 sm:px-4">
+                                <dt class="text-xs font-medium text-slate-500 dark:text-slate-400">{$_('common.detections')}</dt>
+                                <dd class="mt-1 text-2xl font-bold tracking-tight text-brand-700 dark:text-brand-300">{stats.total_sightings}</dd>
+                            </div>
+                            <div class="border-b border-slate-200 px-3 py-4 dark:border-slate-700 sm:border-b-0 sm:border-r sm:px-4">
+                                <dt class="text-xs font-medium text-slate-500 dark:text-slate-400">{$_('species_detail.avg_confidence')}</dt>
+                                <dd class="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-white">{(stats.avg_confidence * 100).toFixed(0)}%</dd>
+                            </div>
+                            <div class="border-r border-slate-200 px-3 py-4 dark:border-slate-700 sm:px-4">
+                                <dt class="text-xs font-medium text-slate-500 dark:text-slate-400">{$_('species_detail.first_seen')}</dt>
+                                <dd class="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">{formatDate(stats.first_seen)}</dd>
+                            </div>
+                            <div class="px-3 py-4 sm:px-4">
+                                <dt class="text-xs font-medium text-slate-500 dark:text-slate-400">{$_('species_detail.last_seen')}</dt>
+                                <dd class="mt-1 text-sm font-semibold text-slate-800 dark:text-slate-100">{formatDate(stats.last_seen)}</dd>
+                            </div>
+                        </dl>
+                    </section>
+
+                    {#if stats.recent_sightings.length > 0}
+                        <section data-species-recent-sightings aria-labelledby="recent-sightings-heading">
+                            <div class="mb-4 flex items-center gap-2.5">
+                                <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h2l1.25-2h7.5L17 5h2a2 2 0 012 2v11a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.5 12.5a3.5 3.5 0 11-7 0 3.5 3.5 0 017 0z" />
+                                    </svg>
+                                </span>
+                                <h3 id="recent-sightings-heading" class="text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.recent_sightings')}</h3>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+                                {#each stats.recent_sightings as sighting}
+                                    <button
+                                        type="button"
+                                        class="group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left transition-colors hover:border-brand-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-default dark:border-slate-700 dark:bg-slate-800/50 dark:hover:border-brand-700"
+                                        aria-label={sighting.has_clip
+                                            ? $_('detection.play_video', { values: { species: sighting.display_name } })
+                                            : $_('species_detail.video_unavailable')}
+                                        disabled={!sighting.has_clip}
+                                        onclick={() => {
+                                            selectedSighting = sighting as Detection;
+                                            if (sighting.has_clip) showVideo = true;
+                                        }}
+                                    >
+                                        <div class="relative aspect-[4/3] bg-slate-200 dark:bg-slate-700">
+                                            <img
+                                                src={getThumbnailUrl(sighting.frigate_event)}
+                                                alt={sighting.display_name}
+                                                class="h-full w-full object-cover"
+                                                loading="lazy"
+                                                onerror={(e) => {
+                                                    const target = e.target as HTMLImageElement;
+                                                    target.style.display = 'none';
+                                                }}
+                                            />
+                                            {#if sighting.has_clip}
+                                                <span class="absolute bottom-2 right-2 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-brand-700 shadow-sm transition-transform group-hover:scale-105 group-focus-visible:scale-105 dark:bg-slate-900/90 dark:text-brand-300">
+                                                    <svg class="ml-0.5 h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                                                </span>
+                                            {/if}
+                                        </div>
+                                        <div class="px-3 py-2.5">
+                                            <p class="text-xs font-medium text-slate-700 dark:text-slate-200">{formatDate(sighting.detection_time)}</p>
+                                            <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{formatTime(sighting.detection_time)} · {(sighting.score * 100).toFixed(0)}%</p>
+                                        </div>
+                                    </button>
+                                {/each}
+                            </div>
+                        </section>
+                    {/if}
+                {/if}
+
                 {#if summaryEnabled && stats}
-                    <!-- Hero Image from Wikipedia -->
+                    <!-- Reference image: preserve the full animal rather than filling a panoramic crop. -->
                     {#if info?.thumbnail_url}
-                        <section class="relative -mx-6 -mt-6 mb-6">
-                            <div class="relative h-48 sm:h-64 overflow-hidden">
-                                <img
-                                    src={info.thumbnail_url}
-                                    alt={primaryName}
-                                    class="block w-full object-cover object-top"
-                                    style={`height: calc(100% + ${HERO_IMAGE_CROP_TOP_PX}px); transform: translateY(-${HERO_IMAGE_CROP_TOP_PX}px);`}
-                                    onerror={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        target.parentElement?.classList.add('hidden');
-                                    }}
-                                />
-                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                                <div class="absolute bottom-4 right-4">
-                                    {#if info.source_url}
-                                        <a
-                                            href={info.source_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            class="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/70 text-slate-600 text-[10px] font-black uppercase tracking-widest backdrop-blur-sm border border-white/60"
-                                        >
-                                            {info.source || $_('common.source')}
-                                        </a>
-                                    {/if}
-                                </div>
-                                <div class="absolute bottom-4 left-6 right-6">
-                                    <h3 class="text-2xl font-bold text-white drop-shadow-lg">{primaryName}</h3>
-                                    {#if subName && subName !== primaryName}
-                                        <p class="text-sm italic text-white/80 mt-0.5 drop-shadow">{subName}</p>
-                                    {/if}
-                                    {#if info.description}
-                                        <p class="text-sm text-white/90 mt-1 drop-shadow">{info.description}</p>
-                                    {/if}
-                                </div>
+                        <section
+                            data-species-hero-image
+                            class="relative mx-auto aspect-[4/3] w-full max-w-2xl overflow-hidden rounded-2xl bg-slate-100 shadow-sm ring-1 ring-slate-200/80 dark:bg-slate-950/40 dark:ring-slate-700"
+                        >
+                            <img
+                                src={info.thumbnail_url}
+                                alt={primaryName}
+                                class="block h-full w-full object-contain"
+                                onerror={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.parentElement?.classList.add('hidden');
+                                }}
+                            />
+                            <div class="absolute bottom-3 right-3 sm:bottom-4 sm:right-4">
+                                {#if info.source_url}
+                                    <a
+                                        href={info.source_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-white/60 bg-white/85 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm backdrop-blur-sm transition-colors hover:border-brand-300 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                                    >
+                                        {info.source || $_('common.source')}
+                                        <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5h5m0 0v5m0-5L10 14M8 7H6a2 2 0 00-2 2v9a2 2 0 002 2h9a2 2 0 002-2v-2" />
+                                        </svg>
+                                    </a>
+                                {/if}
                             </div>
                         </section>
                     {/if}
@@ -557,17 +635,15 @@
 
                 <!-- Species Description -->
                 {#if summaryEnabled && info}
-                    <section class="card-base rounded-3xl p-6 relative overflow-hidden">
-                        <div class="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-teal-400/40 to-transparent"></div>
-                        
-                        <div class="relative flex items-center justify-between gap-3 mb-4">
+                    <section data-species-reference class="border-t border-slate-200 pt-8 dark:border-slate-700">
+                        <div class="mb-4 flex items-center justify-between gap-3">
                             <div class="flex items-center gap-2">
-                                <div class="p-1.5 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/>
+                                <div data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
+                                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5.5A2.5 2.5 0 016.5 3H11v17H6.5A2.5 2.5 0 014 17.5v-12zM20 5.5A2.5 2.5 0 0017.5 3H13v17h4.5a2.5 2.5 0 002.5-2.5v-12z" />
                                     </svg>
                                 </div>
-                                <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('actions.species_info')}</h4>
+                                <h3 class="text-base font-semibold text-slate-900 dark:text-white">{$_('actions.species_info')}</h3>
                             </div>
                             
                             {#if infoSourceChips.length}
@@ -578,7 +654,7 @@
                                                 href={chip.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                class="badge bg-white/90 dark:bg-slate-800/80 border-slate-200/80 dark:border-slate-700/60 text-slate-500 hover:text-teal-600 dark:hover:text-teal-400 hover:border-teal-500/40 transition-colors shadow-sm"
+                                                class="badge border-slate-200/80 bg-white/90 text-slate-500 shadow-sm transition-colors hover:border-brand-500/40 hover:text-brand-600 dark:border-slate-700/60 dark:bg-slate-800/80 dark:hover:text-brand-400"
                                             >
                                                 {chip.label}
                                                 <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -595,23 +671,17 @@
                             {/if}
                         </div>
 
-                        <div class="relative">
-                            {#if info.extract}
-                                <p class="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                                    {info.extract}
-                                </p>
-                            {:else}
-                                <p class="text-sm text-slate-500 dark:text-slate-400 italic">
-                                    {$_('species_detail.no_info')}
-                                </p>
-                            {/if}
-                        </div>
+                        {#if info.extract}
+                            <p class="max-w-3xl text-sm leading-7 text-slate-600 dark:text-slate-300">{info.extract}</p>
+                        {:else}
+                            <p class="text-sm italic text-slate-500 dark:text-slate-400">{$_('species_detail.no_info')}</p>
+                        {/if}
                     </section>
                 {/if}
 
                 {#if !isUnknownBird && (showEbirdNearby || seasonality || rangeMap || rangeMapLoading || rangeMapError)}
                     {#if showEbirdNearby && !ebirdEnabled}
-                        <div class="group relative overflow-hidden rounded-2xl border border-sky-200/60 dark:border-sky-800/40 bg-white/70 dark:bg-slate-900/40 p-4 sm:p-5 transition-all duration-300">
+                        <div class="border-l-2 border-sky-300 bg-sky-50/60 px-4 py-3 dark:border-sky-700 dark:bg-sky-950/20">
                             <div class="flex items-start gap-3">
                                 <div class="p-2 rounded-xl bg-sky-500/10 text-sky-600 dark:text-sky-400">
                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -626,9 +696,9 @@
                             </div>
                         </div>
                     {/if}
-                    <section class={`grid grid-cols-1 ${showEbirdNearbyCard ? 'lg:grid-cols-2' : 'lg:grid-cols-1'} gap-4 items-stretch`}>
+                    <section data-species-wild-context class={`grid grid-cols-1 ${showEbirdNearbyCard ? 'lg:grid-cols-2' : 'lg:grid-cols-1'} items-start gap-8 border-t border-slate-200 pt-8 dark:border-slate-700`}>
                         {#if showEbirdNearbyCard}
-                            <div class="group relative overflow-hidden rounded-2xl border border-sky-200/60 dark:border-sky-800/40 bg-sky-50/30 dark:bg-sky-900/10 p-5 hover:bg-sky-50/50 dark:hover:bg-sky-900/20 transition-all duration-300">
+                            <div>
                                 <div class="flex items-center justify-between gap-3 mb-4">
                                     <div class="flex items-center gap-2">
                                         <div class="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
@@ -638,11 +708,9 @@
                                             </svg>
                                         </div>
                                         <div class="flex flex-col">
-                                        <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-700 dark:text-sky-400">{$_('species_detail.recent_sightings')}</h4>
+                                        <h3 class="text-sm font-semibold text-slate-900 dark:text-white">eBird · {$_('species_detail.recent_sightings')}</h3>
                                             <div class="flex items-center gap-1.5 mt-0.5">
-                                                <span class="text-[9px] font-bold text-sky-600/60 dark:text-sky-500/60 uppercase tracking-wider">eBird</span>
-                                                <span class="w-0.5 h-0.5 rounded-full bg-sky-300"></span>
-                                                <span class="text-[9px] font-medium text-slate-400">{ebirdRadius}km · {ebirdDaysBack}d</span>
+                                                <span class="text-xs font-medium text-slate-500 dark:text-slate-400">{ebirdRadius}km · {ebirdDaysBack}d</span>
                                             </div>
                                         </div>
                                     </div>
@@ -698,14 +766,14 @@
                                                     <div class="min-w-0">
                                                         <p class="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{obs.location_name || $_('common.unknown_location')}</p>
                                                         <div class="flex items-center gap-2 mt-0.5">
-                                                            <p class="text-[10px] font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
+                                                            <p class="text-xs font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
                                                             {#if obs.obs_valid}
-                                                                <span class="w-1 h-1 rounded-full bg-emerald-400" title="{$_('species_detail.valid_observation')}"></span>
+                                                                <span class="w-1 h-1 rounded-full bg-accent-400" title="{$_('species_detail.valid_observation')}"></span>
                                                             {/if}
                                                         </div>
                                                     </div>
                                                     {#if obs.how_many}
-                                                        <span class="flex-shrink-0 px-2 py-1 rounded-lg bg-sky-100 dark:bg-sky-900/40 text-[10px] font-black text-sky-700 dark:text-sky-300">
+                                                        <span class="flex-shrink-0 rounded-lg bg-sky-100 px-2 py-1 text-xs font-bold text-sky-700 dark:bg-sky-900/40 dark:text-sky-300">
                                                             x{obs.how_many}
                                                         </span>
                                                     {/if}
@@ -717,9 +785,9 @@
                             </div>
                         {/if}
 
-                        <div class="space-y-4 h-full flex flex-col">
+                        <div class="flex h-full flex-col gap-8">
                             {#if seasonality}
-                                <div class="group relative overflow-hidden rounded-2xl border border-indigo-200/60 dark:border-indigo-800/40 bg-indigo-50/30 dark:bg-indigo-900/10 p-5 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20 transition-all duration-300 lg:flex-1 lg:flex lg:flex-col">
+                                <div class="border-b border-slate-200 pb-8 dark:border-slate-700 lg:flex lg:flex-1 lg:flex-col">
                                     <div class="flex items-center gap-2 mb-3">
                                         <div class="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
                                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -727,10 +795,10 @@
                                             </svg>
                                         </div>
                                         <div>
-                                            <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-indigo-700 dark:text-indigo-400">
+                                            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">
                                                 {seasonality.local ? $_('species_detail.seasonality_local') : $_('species_detail.seasonality_global')}
-                                            </h4>
-                                            <p class="text-[9px] font-medium text-slate-400">{$_('species_detail.inat_observations')}</p>
+                                            </h3>
+                                            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">{$_('species_detail.inat_observations')}</p>
                                         </div>
                                     </div>
                                     <div class="h-[140px] sm:h-[160px] lg:flex-1">
@@ -738,23 +806,23 @@
                                             data={seasonality.month_counts}
                                             labels={MONTH_LABELS}
                                             title=""
+                                            ariaLabel={seasonality.local ? $_('species_detail.seasonality_local') : $_('species_detail.seasonality_global')}
                                             showEveryNthLabel={2}
-                                            color="#6366f1"
                                         />
                                     </div>
                                 </div>
                             {/if}
 
                             {#if rangeMapLoading || rangeMap || rangeMapError}
-                                <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300 lg:flex-1 lg:flex lg:flex-col">
+                                <div class="lg:flex lg:flex-1 lg:flex-col">
                                     <div class="relative flex items-center justify-between gap-3 mb-3">
                                         <div class="flex items-center gap-2">
-                                            <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                                            <div class="p-1.5 rounded-lg bg-accent-500/10 text-accent-600 dark:text-accent-400">
                                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3" />
                                                 </svg>
                                             </div>
-                                            <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('species_detail.range_map')}</h4>
+                                            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('species_detail.range_map')}</h3>
                                         </div>
                                         {#if rangeMap?.source}
                                             {#if rangeMap.sourceUrl}
@@ -762,7 +830,7 @@
                                                     href={rangeMap.sourceUrl}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500 hover:text-emerald-600 dark:hover:text-emerald-400 hover:border-emerald-500/30 transition-colors shadow-sm"
+                                                    class="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 shadow-sm transition-colors hover:border-accent-500/30 hover:text-accent-600 dark:border-slate-700 dark:bg-slate-800 dark:hover:text-accent-400"
                                                 >
                                                     {rangeMap.source}
                                                     <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -770,7 +838,7 @@
                                                     </svg>
                                                 </a>
                                             {:else}
-                                                <span class="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500">
+                                                <span class="flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-500 dark:border-slate-700 dark:bg-slate-800">
                                                     {rangeMap.source}
                                                 </span>
                                             {/if}
@@ -785,7 +853,7 @@
                                         {:else}
                                             <RangeMap tileUrl={rangeMap.tileUrl} heightClass={rangeMapHeightClass} />
                                         {/if}
-                                        <p class="mt-2 text-[10px] uppercase tracking-widest text-slate-400">{$_('species_detail.range_map_hint')}</p>
+                                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{$_('species_detail.range_map_hint')}</p>
                                     {:else}
                                         <p class="text-xs text-slate-500 italic">{rangeMapError || $_('species_detail.range_unavailable')}</p>
                                     {/if}
@@ -796,95 +864,73 @@
                 {/if}
 
                 {#if stats}
-                <!-- Quick Facts -->
-                <section>
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 font-display">{$_('common.statistics')}</h3>
-                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        <div class="rounded-2xl p-4 bg-gradient-to-br from-teal-500 to-emerald-600 text-white shadow-lg">
-                            <p class="text-3xl font-black">{stats.total_sightings}</p>
-                            <p class="text-[11px] uppercase tracking-widest opacity-90">{$_('common.detections')}</p>
-                        </div>
-                        <div class="card-base rounded-2xl p-4">
-                            <p class="text-2xl font-black text-slate-900 dark:text-white">
-                                {(stats.avg_confidence * 100).toFixed(0)}%
-                            </p>
-                            <p class="text-[11px] uppercase tracking-widest text-slate-500">{$_('species_detail.avg_confidence')}</p>
-                        </div>
-                        <div class="card-base rounded-2xl p-4">
-                            <p class="text-sm font-semibold text-slate-900 dark:text-white">
-                                {formatDate(stats.first_seen)}
-                            </p>
-                            <p class="text-[11px] uppercase tracking-widest text-slate-500">{$_('species_detail.first_seen')}</p>
-                        </div>
-                        <div class="card-base rounded-2xl p-4">
-                            <p class="text-sm font-semibold text-slate-900 dark:text-white">
-                                {formatDate(stats.last_seen)}
-                            </p>
-                            <p class="text-[11px] uppercase tracking-widest text-slate-500">{$_('species_detail.last_seen')}</p>
-                        </div>
-                    </div>
-                </section>
-
                 <!-- Time Distribution Charts -->
-                <section>
-                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 font-display">{$_('species_detail.activity_patterns')}</h3>
+                <section data-species-activity class="border-t border-slate-200 pt-8 dark:border-slate-700">
+                    <div class="mb-4 flex items-center gap-2.5">
+                        <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12h4l2.5-6 5 12 2.5-6h4" />
+                            </svg>
+                        </span>
+                        <h3 class="text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.activity_patterns')}</h3>
+                    </div>
 
                     <!-- Hourly chart - full width for better visibility -->
-                    <div class="card-base rounded-2xl p-4 mb-4 relative overflow-hidden">
-                        <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/6 via-transparent to-teal-500/6 opacity-60"></div>
-                        <div class="relative flex items-center gap-2 mb-3">
-                            <div class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                    <div class="mb-6 border-b border-slate-200 pb-6 dark:border-slate-700">
+                        <div class="mb-3 flex items-center gap-2">
+                            <div class="p-1.5 rounded-lg bg-accent-500/10 text-accent-600 dark:text-accent-400">
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
                             </div>
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('species_detail.time_of_day')}</p>
+                            <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">{$_('species_detail.time_of_day')}</h4>
                         </div>
-                        <div class="relative">
+                        <div>
                             <SimpleBarChart
                                 data={stats.hourly_distribution}
                                 labels={HOUR_LABELS}
                                 title=""
+                                ariaLabel={$_('species_detail.time_of_day')}
                                 showEveryNthLabel={6}
                             />
                         </div>
                     </div>
 
                     <!-- Weekly and Monthly side by side -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="card-base rounded-2xl p-4 relative overflow-hidden">
-                            <div class="absolute inset-0 bg-gradient-to-br from-sky-500/6 via-transparent to-indigo-500/6 opacity-60"></div>
-                            <div class="relative flex items-center gap-2 mb-3">
+                    <div class="grid grid-cols-1 gap-8 sm:grid-cols-2">
+                        <div class="min-w-0">
+                            <div class="mb-3 flex items-center gap-2">
                                 <div class="p-1.5 rounded-lg bg-sky-500/10 text-sky-600 dark:text-sky-400">
                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9h18M9 21V9m6 12V9M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
                                 </div>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('species_detail.day_of_week')}</p>
+                                <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">{$_('species_detail.day_of_week')}</h4>
                             </div>
-                            <div class="relative">
+                            <div>
                                 <SimpleBarChart
                                     data={stats.daily_distribution}
                                     labels={DAY_LABELS}
                                     title=""
+                                    ariaLabel={$_('species_detail.day_of_week')}
                                 />
                             </div>
                         </div>
-                        <div class="card-base rounded-2xl p-4 relative overflow-hidden">
-                            <div class="absolute inset-0 bg-gradient-to-br from-amber-500/6 via-transparent to-rose-500/6 opacity-60"></div>
-                            <div class="relative flex items-center gap-2 mb-3">
+                        <div class="min-w-0 border-t border-slate-200 pt-6 dark:border-slate-700 sm:border-l sm:border-t-0 sm:pl-8 sm:pt-0">
+                            <div class="mb-3 flex items-center gap-2">
                                 <div class="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
                                     <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
                                 </div>
-                                <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('species_detail.month')}</p>
+                                <h4 class="text-sm font-semibold text-slate-800 dark:text-slate-100">{$_('species_detail.month')}</h4>
                             </div>
-                            <div class="relative">
+                            <div>
                                 <SimpleBarChart
                                     data={stats.monthly_distribution}
                                     labels={MONTH_LABELS}
                                     title=""
+                                    ariaLabel={$_('species_detail.month')}
                                 />
                             </div>
                         </div>
@@ -893,21 +939,28 @@
 
                 <!-- Camera Breakdown -->
                 {#if stats.cameras.length > 0}
-                    <section>
-                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 font-display">{$_('species_detail.camera_breakdown')}</h3>
+                    <section class="border-t border-slate-200 pt-8 dark:border-slate-700">
+                        <div class="mb-4 flex items-center gap-2.5">
+                            <span data-species-section-icon class="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
+                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.5-2.25A1 1 0 0121 8.65v6.7a1 1 0 01-1.5.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                            </span>
+                            <h3 class="text-base font-semibold text-slate-900 dark:text-white">{$_('species_detail.camera_breakdown')}</h3>
+                        </div>
                         <div class="space-y-3">
                             {#each stats.cameras as camera}
-                                <div class="flex items-center gap-3">
-                                    <span class="text-sm font-medium text-slate-700 dark:text-slate-300 w-32 truncate" title={camera.camera_name}>
+                                <div class="grid grid-cols-[minmax(5rem,9rem)_minmax(0,1fr)_5rem] items-center gap-3">
+                                    <span class="truncate text-sm font-medium text-slate-700 dark:text-slate-300" title={camera.camera_name}>
                                         {camera.camera_name}
                                     </span>
-                                    <div class="flex-1 h-4 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                                    <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
                                         <div
-                                            class="h-full bg-teal-500 rounded-full transition-all duration-500"
+                                            class="h-full rounded-full bg-brand-500 transition-all duration-500"
                                             style="width: {camera.percentage}%"
                                         ></div>
                                     </div>
-                                    <span class="text-sm text-slate-500 dark:text-slate-400 w-20 text-right">
+                                    <span class="text-right text-sm tabular-nums text-slate-500 dark:text-slate-400">
                                         {camera.count} ({camera.percentage.toFixed(0)}%)
                                     </span>
                                 </div>
@@ -916,72 +969,10 @@
                     </section>
                 {/if}
 
-                <!-- Recent Sightings -->
-                {#if stats.recent_sightings.length > 0}
-                    <section>
-                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4 font-display">{$_('species_detail.recent_sightings')}</h3>
-                        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-                            {#each stats.recent_sightings as sighting}
-                                <button
-                                    type="button"
-                                    class="card-base rounded-2xl overflow-hidden group cursor-pointer relative text-left"
-                                    aria-label="{$_('detection.play_video', { values: { species: sighting.display_name } })}"
-                                    onclick={() => {
-                                        selectedSighting = sighting as Detection;
-                                        if (sighting.has_clip) {
-                                            showVideo = true;
-                                        }
-                                    }}
-                                >
-                                    <div class="aspect-square bg-slate-200 dark:bg-slate-700 relative">
-                                        <img
-                                            src={getThumbnailUrl(sighting.frigate_event)}
-                                            alt={sighting.display_name}
-                                            class="w-full h-full object-cover"
-                                            loading="lazy"
-                                            onerror={(e) => {
-                                                const target = e.target as HTMLImageElement;
-                                                target.style.display = 'none';
-                                            }}
-                                        />
-                                        {#if sighting.has_clip}
-                                            <!-- Play button overlay -->
-                                            <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 bg-black/20">
-                                                <div class="w-12 h-12 rounded-full bg-white/90 dark:bg-slate-800/90 flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition-transform duration-200">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-teal-600 dark:text-teal-400 ml-1" viewBox="0 0 24 24" fill="currentColor">
-                                                        <path d="M8 5v14l11-7z"/>
-                                                    </svg>
-                                                </div>
-                                            </div>
-                                        {/if}
-                                    </div>
-                                    <div class="p-2.5">
-                                        <p class="text-xs text-slate-600 dark:text-slate-300">
-                                            {formatDate(sighting.detection_time)}
-                                        </p>
-                                        <p class="text-xs text-slate-500 dark:text-slate-400">
-                                            {formatTime(sighting.detection_time)} - {(sighting.score * 100).toFixed(0)}%
-                                        </p>
-                                    </div>
-                                </button>
-                            {/each}
-                        </div>
-                    </section>
-                {/if}
                 {/if}
             {/if}
         </div>
 
-        <!-- Footer -->
-        <div class="flex justify-end p-4 border-t border-slate-200 dark:border-slate-700">
-            <button
-                type="button"
-                onclick={onclose}
-                class="btn btn-secondary px-4 py-2 text-sm"
-            >
-                {$_('common.close')}
-            </button>
-        </div>
     </div>
 </div>
 
@@ -1010,6 +1001,12 @@
         to {
             opacity: 1;
             transform: scale(1);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .animate-fade-in {
+            animation: none;
         }
     }
 

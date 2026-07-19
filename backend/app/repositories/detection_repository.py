@@ -92,7 +92,7 @@ class TimezoneRepairRow:
     display_name: str
 
 
-def _parse_datetime(value) -> datetime:
+def _parse_datetime(value: object) -> datetime:
     """Parse datetime from SQLite storage format."""
     if isinstance(value, datetime):
         return value
@@ -198,7 +198,7 @@ def _extract_birdnet_source_name(sensor_id: str | None, raw_data: str | None) ->
     return None
 
 
-def _row_to_detection(row) -> Detection:
+def _row_to_detection(row: aiosqlite.Row) -> Detection:
     """Convert a database row to a Detection object."""
     d = Detection(
         id=row[0],
@@ -276,7 +276,7 @@ def _row_to_detection(row) -> Detection:
 
 
 class DetectionRepository:
-    def __init__(self, db: aiosqlite.Connection):
+    def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
         self._table_exists_cache: dict[str, bool] = {}
 
@@ -820,7 +820,7 @@ class DetectionRepository:
         backend: Optional[str] = None,
         model_id: Optional[str] = None,
         blocked: bool = False,
-    ):
+    ) -> None:
         """Update video classification results for an event."""
         now = utc_naive_now()
         await self.db.execute(
@@ -842,7 +842,7 @@ class DetectionRepository:
         )
         await self.db.commit()
 
-    async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None):
+    async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None) -> None:
         """Update just the video classification status."""
         now = utc_naive_now()
         await self.db.execute(
@@ -876,7 +876,7 @@ class DetectionRepository:
         await self.db.commit()
         return changed
 
-    async def mark_notified(self, frigate_event: str, timestamp: Optional[datetime] = None):
+    async def mark_notified(self, frigate_event: str, timestamp: Optional[datetime] = None) -> None:
         """Mark a detection as notified."""
         if timestamp is None:
             timestamp = utc_naive_now()
@@ -1029,7 +1029,7 @@ class DetectionRepository:
         await self.db.commit()
         return changed > 0
 
-    async def create(self, detection: Detection):
+    async def create(self, detection: Detection) -> None:
         sub_label = normalize_sub_label(detection.sub_label)
         checked_at = utc_naive_now()
         try:
@@ -1080,7 +1080,7 @@ class DetectionRepository:
             else:
                 raise
 
-    async def update(self, detection: Detection):
+    async def update(self, detection: Detection) -> None:
         sub_label = normalize_sub_label(detection.sub_label)
         checked_at = utc_naive_now()
         await self.db.execute(
@@ -1647,6 +1647,42 @@ class DetectionRepository:
         async with self.db.execute("SELECT frigate_event FROM detections") as cursor:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
+
+    async def apply_manual_species_tag(
+        self,
+        *,
+        frigate_event: str,
+        display_name: str,
+        category_name: str,
+        scientific_name: str | None,
+        common_name: str | None,
+        taxa_id: int | None,
+        audio_confirmed: bool,
+        audio_species: str | None,
+        audio_score: float | None,
+    ) -> None:
+        """Persist the database fields owned by a manual species correction."""
+        await self.db.execute(
+            """
+            UPDATE detections
+            SET display_name = ?, category_name = ?,
+                scientific_name = ?, common_name = ?, taxa_id = ?,
+                audio_confirmed = ?, audio_species = ?, audio_score = ?,
+                manual_tagged = 1
+            WHERE frigate_event = ?
+            """,
+            (
+                display_name,
+                category_name,
+                scientific_name,
+                common_name,
+                taxa_id,
+                int(audio_confirmed),
+                audio_species,
+                audio_score,
+                frigate_event,
+            ),
+        )
 
     async def get_favorite_frigate_event_ids(self) -> set[str]:
         """Get Frigate event IDs that are marked as favorites."""

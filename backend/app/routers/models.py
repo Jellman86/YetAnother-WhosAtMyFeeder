@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 from typing import List, Optional
 from app.config import settings
 from app.services.model_manager import model_manager
+from app.services.model_validation import run_validation_probe
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 from app.services.classifier_service import get_classifier
 from app.auth import require_owner, AuthContext
@@ -13,6 +14,26 @@ router = APIRouter()
 class ModelActionResponse(BaseModel):
     status: str
     message: str
+
+
+class ModelValidateDevice(BaseModel):
+    device: str
+    provider: str
+    ok: bool
+    latency_ms: Optional[float] = None
+
+
+class ModelValidateResponse(BaseModel):
+    model_id: str
+    ok: bool
+    provider: str
+    reason: str
+    latency_ms: Optional[float] = None
+    devices: List[ModelValidateDevice] = []
+    # When the host swept multiple devices, the fastest one that passed — set as the
+    # inference provider so the model runs on the best hardware for this machine.
+    best_provider: Optional[str] = None
+    provider_set: bool = False
 
 
 @router.get("/models/available", response_model=List[ModelMetadata])
@@ -27,8 +48,10 @@ async def get_installed_models(auth: AuthContext = Depends(require_owner)):
     return await model_manager.list_installed_models()
 
 
-@router.get("/models/families/resolved")
-async def get_resolved_model_families(auth: AuthContext = Depends(require_owner)):
+@router.get("/models/families/resolved", response_model=dict[str, dict[str, JsonValue]])
+async def get_resolved_model_families(
+    _auth: AuthContext = Depends(require_owner),
+) -> dict[str, dict[str, JsonValue]]:
     """Resolve regional bird-model families from settings. Owner only."""
     return await model_manager.get_resolved_bird_model_families(
         country=settings.location.country,
@@ -53,9 +76,61 @@ async def get_download_status(model_id: str, auth: AuthContext = Depends(require
     return status
 
 
+@router.post("/models/{model_id}/validate", response_model=ModelValidateResponse)
+async def validate_model(model_id: str, auth: AuthContext = Depends(require_owner)):
+    """Validate an installed model on this host and pick its fastest inference device.
+
+    Sweeps this model's OpenVINO devices (CPU / Intel GPU / NPU), records which passed,
+    and — when a faster accelerator wins — sets it as the inference provider so the
+    model runs on the best hardware for this machine. On a CPU-only / CUDA host it runs
+    one frame on the resolved provider instead. Clears the selection gate on success and
+    restores the previously active model. Owner only.
+    """
+    installed = await model_manager.list_installed_models()
+    target = next((m for m in installed if m.id == model_id), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Model not installed")
+    if not target.ready:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Model install is incomplete ({target.reason}); download it before validating.",
+        )
+
+    # The probe trial-activates the candidate and restores the previously active model
+    # before returning, so no extra reconciliation is needed here.
+    result = await run_validation_probe(model_id)
+
+    # Apply the fastest validated device as the inference provider, but never override
+    # a working setup with a worse one: only change it when the probe chose a provider
+    # and it differs from what is configured.
+    provider_set = False
+    best = result.get("best_provider")
+    if result.get("ok") and best and best != settings.classification.inference_provider:
+        settings.classification.inference_provider = best
+        await settings.save()
+        provider_set = True
+    result["provider_set"] = provider_set
+    return result
+
+
 @router.post("/models/{model_id}/activate", response_model=ModelActionResponse)
 async def activate_model(model_id: str, background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
-    """Set a specific model as the active classifier. Owner only."""
+    """Set a specific model as the active classifier. Owner only.
+
+    Post-install selection gate: a model this host has never validated cannot be
+    activated through the API — the caller must run `/validate` first. This guards
+    every path (Model Manager, the settings picker, a raw POST), not just the UI.
+    """
+    installed = await model_manager.list_installed_models()
+    target = next((m for m in installed if m.id == model_id), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail="Model not installed")
+    if not target.validated:
+        raise HTTPException(
+            status_code=409,
+            detail="This model has not been validated on your hardware yet. Run validation before selecting it.",
+        )
+
     success = await model_manager.activate_model(model_id)
     if not success:
         raise HTTPException(status_code=404, detail="Model not installed")

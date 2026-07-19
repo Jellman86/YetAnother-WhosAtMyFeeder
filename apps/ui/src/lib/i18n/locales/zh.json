@@ -9,6 +9,7 @@
     "dashboard": "仪表盘",
     "explorer": "探索",
     "leaderboard": "排行榜",
+    "audio_history": "音频历史",
     "settings": "设置",
     "about": "关于",
     "toggle_menu": "切换菜单",
@@ -94,8 +95,11 @@
       "empty_title": "缓冲区中没有音频检测",
       "empty_subtitle": "缓冲区每5分钟清空",
       "unknown_sensor": "未知传感器",
+      "open_history": "打开音频历史",
       "open_birdnet": "打开 BirdNET-Go",
-      "open_in_birdnet": "在 BirdNET-Go 中打开此检测"
+      "open_in_birdnet": "在 BirdNET-Go 中打开此检测",
+      "heard_today": "次听测",
+      "species": "个物种"
     },
     "top_visitors_title": "常见访客",
     "top_visitors_empty": "今天还没有记录到访客。",
@@ -144,6 +148,9 @@
     "all": "全部",
     "available": "可用",
     "clear": "清除",
+    "apply": "应用",
+    "previous": "上一页",
+    "next": "下一页",
     "clearing": "清除中...",
     "disabled": "已禁用",
     "enabled": "已启用",
@@ -157,7 +164,14 @@
     "no": "否",
     "download": "下载",
     "skip_to_content": "跳到主要内容",
-    "working": "处理中…"
+    "working": "处理中…",
+    "language_load_error": "无法加载该语言。请检查网络连接后重试。"
+  },
+  "route_load": {
+    "loading": "正在打开{page}…",
+    "error_title": "无法打开此页面",
+    "error_description": "页面文件未能加载。请检查网络连接后重试。",
+    "retry": "重新打开"
   },
   "settings": {
     "title": "设置",
@@ -188,11 +202,21 @@
       "accessibility": "辅助功能",
       "debug": "调试",
       "enrichment": "增强信息",
-      "ai": "人工智能"
+      "ai": "人工智能",
+      "groups": {
+        "pipeline": "喂食器流程",
+        "intelligence": "分析与共享",
+        "operations": "运维",
+        "interface": "界面"
+      }
     },
     "debug": {
       "title": "调试工具",
       "subtitle": "用于测试和诊断的额外开关。",
+      "model_eval_title": "模型评估工具",
+      "model_eval_desc": "使用经过分类学验证的鸟类图像评估已安装的分类器。产物保存在 /config/yawamf-eval/ 下。",
+      "model_eval_action_desc": "对每个已安装模型运行准确率、延迟和健全性检查。仅限所有者。",
+      "model_eval_open": "打开",
       "llm_prompts_title": "LLM 提示模板",
       "llm_prompts_subtitle": "自定义 AI 分析与对话的 Markdown 结构和语气。",
       "llm_prompt_style_label": "提示风格",
@@ -450,6 +474,8 @@
       "payload_nvidia_gpu_detected": "检测到 NVIDIA GPU",
       "payload_openvino_available": "OpenVINO 可用",
       "payload_intel_gpu_available": "Intel GPU 可用",
+      "payload_intel_npu_available": "Intel NPU 可用",
+      "dashboard_link": "查看公开遥测面板",
       "payload_openvino_compile": "OpenVINO GPU 编译",
       "payload_openvino_device": "OpenVINO 设备",
       "payload_gpu_fallback": "GPU 回退活动",
@@ -666,6 +692,7 @@
       "clear_feedback_confirm": "确定要清除所有个性化重排序数据吗?这会将 AI 还原为基线准确度,且无法撤销。"
     },
     "data": {
+      "tools_title": "设置、备份与维护",
       "title": "数据管理",
       "records": "记录总数",
       "oldest": "最早记录",
@@ -795,13 +822,15 @@
       "backfill_validation_order": "开始日期必须早于或等于结束日期。",
       "backfill_validation_select_both": "请选择开始日期和结束日期。",
       "batch_analysis_recent_failures": "最近失败",
-      "cache_high_quality_event_snapshots": "HQ 事件快照",
-      "cache_high_quality_event_snapshots_help": "稍后用主码流剪辑中的一帧替换 Frigate 快照。",
-      "cache_high_quality_event_snapshot_bird_crop": "HQ 鸟类裁剪快照",
-      "cache_high_quality_event_snapshot_bird_crop_help": "对 HQ 帧使用鸟类裁剪检测器。若未找到裁剪，则回退到完整 HQ 帧。",
+      "cache_high_quality_event_snapshots": "最佳可用事件快照",
+      "cache_high_quality_event_snapshots_help": "事件结束后，自动选择主码流中最清晰的画面和最佳可用裁剪。无法生成可靠裁剪时保留完整画面。",
+      "cache_crop_detector_ready": "裁剪检测器已就绪",
+      "cache_crop_fallback_ready": "Frigate 跟踪回退已就绪",
+      "cache_crop_detector_ready_help": "自动评估 Frigate 跟踪提示和裁剪检测器。",
+      "cache_crop_fallback_ready_help": "自动使用 Frigate 跟踪提示；安装模型后也会加入检测器裁剪候选。",
       "batch_analysis_complete": "批量分析已完成",
       "advanced_title": "维护与媒体完整性",
-      "cache_advanced_title": "高质量快照与画质"
+      "cache_advanced_title": "快照质量"
     },
     "security": {
       "title": "安全",
@@ -911,6 +940,20 @@
       "model_manager_runtime_tflite": "TFLite 运行时状态",
       "model_manager_runtime_onnx": "ONNX 运行时状态",
       "model_manager_refresh": "刷新",
+      "model_manager_select_label": "选择识别模型",
+      "model_manager_best_fit": "最适合",
+      "model_manager_download_size": "下载和内存",
+      "model_manager_technical_details": "技术详情",
+      "model_manager_crop_policy_automatic": "图像准备会自动完成",
+      "model_manager_crop_policy_automatic_desc": "YA-WAMF 会使用此模型经过测试的裁剪策略。切换模型时无需调整。",
+      "model_manager_thumbnail_crop_title": "裁剪缩略图",
+      "model_manager_thumbnail_crop_quality": "自动最佳质量",
+      "model_manager_thumbnail_crop_desc": "YA-WAMF 会自动评估高精度检测器、快速回退和 Frigate 跟踪提示；仅在三者都无法生成可靠裁剪时使用清晰的完整画面。",
+      "model_manager_runtime_health": "运行时状态",
+      "model_manager_image_preparation": "图像准备",
+      "model_manager_detector_ready": "就绪",
+      "model_manager_detector_missing": "需要下载",
+      "model_manager_download_detector": "下载检测器",
       "model_manager_lineup_title": "分层模型阵容",
       "model_manager_lineup_desc": "推荐模型会优先显示。高级选项在你展开前保持隐藏。",
       "model_manager_hide_advanced": "隐藏高级模型",
@@ -935,6 +978,26 @@
       "model_manager_redownload": "重新下载",
       "model_manager_download": "下载",
       "model_manager_activate_error": "无法启用模型",
+      "model_manager_validate_to_enable": "验证以启用",
+      "model_manager_download_setup": "下载并设置",
+      "model_manager_install_title": "设置模型",
+      "model_manager_install_subtitle": "下载、在您的硬件上验证并启用此模型。",
+      "model_manager_install_note": "每个步骤都在您的硬件上运行。在验证通过之前不会激活任何模型。",
+      "model_manager_install_stage_download": "下载模型",
+      "model_manager_device_sweeping": "正在比较您的设备…",
+      "model_manager_device_set": "最快设备：{provider}{ms} — 已设为推理设备。",
+      "model_manager_installing_pct": "下载中… {pct}%",
+      "model_manager_install_downloaded": "已下载并验证。",
+      "model_manager_install_already_downloaded": "已下载。",
+      "model_manager_validate_failed": "验证失败。",
+      "model_manager_validation_needed": "已下载，但尚未在您的硬件上验证。请先验证以确认它能在此运行，然后再选择它。",
+      "model_manager_validate_title": "验证并启用模型",
+      "model_manager_validate_subtitle": "确认此模型可在您的硬件上运行，然后启用以供选择。",
+      "model_manager_validate_note": "验证会试加载模型并处理一帧图像，然后恢复您当前的模型。",
+      "model_manager_validate_stage_run": "在此硬件上验证并调优",
+      "model_manager_validate_stage_enable": "启用以供选择",
+      "model_manager_validate_ran_ok": "已在 {provider}{ms} 上运行并生成了有效输出。",
+      "model_manager_validate_enabled": "此模型现已激活。",
       "model_manager_load_error": "无法加载模型",
       "model_manager_status_unavailable": "下载状态不可用",
       "model_manager_status_refresh_failed": "无法刷新下载状态",
@@ -1019,11 +1082,11 @@
       "enabled": "切换 AI 洞察",
       "test_connection": "测试 AI 连接",
       "recommended_model": "推荐：{model}",
-      "get_gemini_key": "Get Google Gemini Key →",
-      "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_gemini_key": "获取 Google Gemini 密钥 →",
+      "get_openai_key": "获取 OpenAI 密钥 →",
+      "get_claude_key": "获取 Anthropic Claude 密钥 →",
       "get_openrouter_key": "获取 OpenRouter 密钥 →",
-      "openrouter_model_hint": "输入任意 OpenRouter 模型 ID(例如 google/gemini-2.5-flash)。可在 openrouter.ai/models 浏览模型。"
+      "openrouter_model_hint": "输入任意 OpenRouter 模型 ID（例如 google/gemini-3.1-flash-lite）。可在 openrouter.ai/models 浏览模型。"
     },
     "ai": {
       "usage_title": "AI 使用情况",
@@ -1053,6 +1116,24 @@
       "table_cost": "费用",
       "view_reference_pricing": "查看参考定价 →",
       "usage_load_error": "加载 AI 使用情况失败。",
+      "test_title": "AI 模型诊断",
+      "test_subtitle": "检查与检测分析相同的多帧视觉格式。",
+      "test_stage_configuration": "配置",
+      "test_stage_provider": "提供商可用性",
+      "test_stage_vision": "视觉输入",
+      "test_stage_multiframe": "多帧请求",
+      "test_stage_response": "模型响应",
+      "test_configuration_ok": "提供商、模型和凭据均已设置。",
+      "test_contacting": "正在发送受限的诊断请求…",
+      "test_pending": "正在等待提供商响应。",
+      "test_multiframe_ok": "单个请求已接受 {count} 个 JPEG 帧。",
+      "test_stage_ok": "已通过",
+      "test_skipped": "因前一阶段失败而未运行。",
+      "test_running": "测试中",
+      "test_retry_after": "提供商建议在 {seconds} 秒后重试。",
+      "test_probe_note": "测试会发送五个具有代表性的 1280×720 JPEG 帧，以匹配真实分析请求的帧数、尺寸和大致负载大小。",
+      "test_retry": "再次运行测试",
+      "test_network_error": "诊断请求无法连接到 YA-WAMF。",
       "advanced_title": "价格与提示词模板"
     }
   },
@@ -1070,9 +1151,17 @@
     "secure_access": "YA-WAMF 安全访问",
     "public_view": "公开视图",
     "public_viewing_mode": "公开浏览模式",
-    "loading_status": "正在加载身份验证状态…",
-    "status_unavailable_desc": "如果容器仍在启动,或在更改模型后正在重启,请稍候再试。",
-    "status_unavailable_title": "无法连接到 YA-WAMF 后端。"
+    "loading_status": "正在启动 YA-WAMF",
+    "loading_status_desc": "正在检查服务和访问设置，随后将打开喂食器。",
+    "status_check_eyebrow": "服务连接",
+    "status_checking_badge": "正在检查",
+    "status_unavailable_badge": "暂无响应",
+    "status_unavailable_title": "YA-WAMF 暂时没有响应",
+    "status_unavailable_desc": "更新或更换模型后，服务可能仍在启动。恢复在线期间，喂食器数据会保持安全。",
+    "status_unavailable_auto_retry": "YA-WAMF 每五秒自动重新检查一次。",
+    "status_unavailable_help": "如果仍然离线，请检查容器健康状态和启动日志。",
+    "status_checking_again": "正在重新检查…",
+    "status_check_again": "重新检查"
   },
   "status": {
     "audio_active": "音频分析活跃",
@@ -1431,7 +1520,39 @@
     "classification_legend": "分类来源：手动、视频、快照",
     "timeline_keyboard_hint": "时间线快捷键：[ 前一天，] 后一天，0 重置"
   },
+  "audio": {
+    "chart": {
+      "heard": "听测", "daily_title": "活动趋势", "daily_sub": "每日 BirdNET-Go 听测次数",
+      "hourly_title": "时段", "species_title": "物种构成", "empty": "此时间范围内没有活动。"
+    },
+    "stat": {
+      "heard": "听测", "heard_sub": "当前显示的 BirdNET 检测", "species": "物种",
+      "species_sub": "通过音频识别的物种", "peak_hour": "高峰时段",
+      "peak_hour_sub": "{count} 次检测", "no_activity": "尚无活动", "sources": "来源",
+      "sources_sub": "麦克风或音频流"
+    },
+    "filter": {
+      "window": "时间范围", "24h": "24 小时", "7d": "7 天", "30d": "30 天",
+      "90d": "90 天", "1y": "1 年", "species": "物种", "source": "来源",
+      "min_confidence": "最低置信度"
+    },
+    "top_species": "听测次数最多的物种",
+    "card": { "last_heard": "最近听测", "avg": "平均", "max": "最高" },
+    "history": {
+      "title": "检测历史", "sub": "已保存的 BirdNET-Go 检测，与视觉访问记录分开。",
+      "empty": "没有符合这些筛选条件的 BirdNET 检测。",
+      "showing": "显示第 {from}-{to} 项，共 {total} 项"
+    },
+    "table": {
+      "sound": "声音", "time": "时间", "species": "物种", "source": "来源",
+      "confidence": "置信度", "open_birdnet": "在 BirdNET-Go 中打开", "unknown_source": "未知来源"
+    },
+    "sources": { "title": "来源", "empty": "尚无来源。" }
+  },
   "leaderboard": {
+    "source_toggle": "检测来源", "source_seen": "看到", "source_heard": "听到",
+    "source_both": "两者", "audio_only": "仅音频",
+    "audio_only_desc": "BirdNET-Go 已听测到，但摄像头未看到",
     "title": "物种排行榜",
     "species_count": "{count} 个物种",
     "detections_count": "{count} 次检测",
@@ -1712,6 +1833,7 @@
     "previous_page": "上一页",
     "next_page": "下一页",
     "page_number": "第 {number} 页",
+    "showing": "显示第 {from}-{to} 项，共 {total} 项",
     "page_size_label": "显示:",
     "page_size_aria": "每页项目数"
   },
@@ -1857,6 +1979,9 @@
     "no_video_support": "你的浏览器不支持视频播放。"
   },
   "jobs": {
+    "frigate_media_advisory_title": "Frigate 经常没有检测对应的快照",
+    "frigate_media_advisory_body": "近期检测中有 {percent}%（{started} 次中的 {dropped} 次）因 Frigate 没有快照、缩略图或录像而被丢弃。这通常是因为鸟只被短暂跟踪，未能保留为 Frigate 事件，或录像保留时间过短。",
+    "frigate_media_advisory_link": "如何减少此类情况 →",
     "title": "任务",
     "subtitle": "跟踪活跃的后台任务与最近结果。",
     "open": "打开任务",
@@ -2037,21 +2162,42 @@
   "errors": {
     "stack_trace": "堆栈跟踪："
   },
+  "update_banner": {
+    "title": "YA-WAMF {version} 已发布",
+    "title_dev": "有更新的开发版本可用（{version}）",
+    "body": "当前运行的是 {current}。请从容器管理器拉取新镜像以更新。",
+    "release_notes": "发行说明 →",
+    "dismiss": "忽略",
+    "sidebar_title": "有可用更新：{version}",
+    "sidebar_label": "有可用更新"
+  },
   "header": {
+    "cameras_all_offline": "所有摄像头均已离线",
+    "cameras_all_online": "所有摄像头均在线",
+    "cameras_checking": "正在检查摄像头…",
     "cameras_empty": "尚未配置摄像头。请在 设置 → 连接 中添加。",
+    "cameras_frame_alt": "{camera} 的最新画面",
+    "cameras_frame_unavailable": "画面不可用",
     "cameras_label": "摄像头状态",
+    "cameras_next": "下一个摄像头",
     "cameras_no_frame": "无画面",
     "cameras_none": "尚未配置摄像头",
     "cameras_online": "台摄像头在线",
+    "cameras_previous": "上一个摄像头",
+    "cameras_retry": "重试",
     "cameras_role_feeder": "喂食器",
     "cameras_role_feeder_help": "喂食器摄像头 — 每个 Frigate 事件视为一次全新访问。",
     "cameras_role_nest": "巢箱",
     "cameras_role_nest_help": "巢箱摄像头 — 在配置的时间窗口内合并重复检测。",
-    "cameras_status_offline": "没有最近的画面",
+    "cameras_some_online": "部分摄像头需要检查",
+    "cameras_status_offline": "离线",
     "cameras_status_online": "在线",
-    "cameras_title": "摄像头"
+    "cameras_status_unavailable": "无法获取摄像头状态",
+    "cameras_title": "摄像头",
+    "cameras_viewer": "实时摄像头查看器"
   },
   "page_subtitle": {
+    "audio_history": "浏览已保存的 BirdNET-Go 检测和纯音频活动。",
     "about": "版本、变更日志、贡献者和支持链接。",
     "dashboard": "实时检测、近期活动和喂食器状态一览。",
     "events": "浏览、筛选并管理每一次已分类的访问。",

@@ -36,6 +36,9 @@ cp .env.example .env
 nano .env
 ```
 
+Keep `YAWAMF_MONALITHIC_TAG=latest` for the stable release channel. Set it to
+`dev` only when you intentionally want development builds.
+
 **Key variables to set:**
 - `DOCKER_NETWORK`: The name of the Docker network Frigate is using.
 - `FRIGATE_URL`: The full URL to your Frigate instance (e.g., `http://192.168.1.10:5000`).
@@ -126,7 +129,11 @@ Open your browser to `http://<your-ip>:9852`. You should see the dashboard! Once
 
 ![Events List](../images/frontend_events.png)
 
-Authentication is disabled by default for first-time setup and backward compatibility. Before exposing YA-WAMF outside your trusted network, go to **Settings > Security**, set a password, and enable **Require Authentication**. To force the initial setup wizard on a fresh config volume instead, start the container with `AUTH__ENABLED=true`.
+A fresh installation opens the guided setup wizard automatically. In its
+**Admin account & access** step, set an owner password before exposing YA-WAMF
+outside your trusted network. You may explicitly choose to run without a
+password on a trusted network. The wizard can be reopened later from
+**Settings → Data**.
 
 ### 5. (Optional) Enable Guest Mode
 If you want to share a read‑only public view:

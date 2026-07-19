@@ -14,10 +14,11 @@ export interface FetchEventsOptions {
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
     fields?: 'list' | 'detail' | string;
+    requestKey?: string | null;
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly, audioConfirmedOnly, fields } = options;
+    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly, audioConfirmedOnly, fields, requestKey } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
@@ -46,7 +47,9 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
         String(offset)
     ].join('-');
 
-    return fetchWithAbort<Detection[]>(filterKey, `${API_BASE}/events?${params.toString()}`);
+    return fetchWithAbort<Detection[]>(requestKey === undefined ? filterKey : requestKey, `${API_BASE}/events?${params.toString()}`, {
+        timeoutMs: 15_000
+    });
 }
 
 export type EventClassificationStatusResponse =
@@ -80,12 +83,13 @@ export interface EventsCountOptions {
     includeHidden?: boolean;
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
+    requestKey?: string | null;
 }
 
 export type EventsCountResponse = paths['/api/events/count']['get']['response'];
 
 export async function fetchEventsCount(options: EventsCountOptions = {}): Promise<EventsCountResponse> {
-    const { startDate, endDate, species, camera, includeHidden, favoritesOnly, audioConfirmedOnly } = options;
+    const { startDate, endDate, species, camera, includeHidden, favoritesOnly, audioConfirmedOnly, requestKey } = options;
     const params = new URLSearchParams();
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
@@ -95,8 +99,21 @@ export async function fetchEventsCount(options: EventsCountOptions = {}): Promis
     if (favoritesOnly) params.set('favorites', 'true');
     if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
 
-    const response = await apiFetch(`${API_BASE}/events/count?${params.toString()}`);
-    return handleResponse<EventsCountResponse>(response);
+    const filterKey = [
+        'events-count',
+        species || 'all',
+        camera || 'all',
+        includeHidden ? 'hidden' : 'visible',
+        favoritesOnly ? 'favorites' : 'all',
+        audioConfirmedOnly ? 'audio' : 'all',
+        startDate || 'none',
+        endDate || 'none'
+    ].join('-');
+    return fetchWithAbort<EventsCountResponse>(
+        requestKey === undefined ? filterKey : requestKey,
+        `${API_BASE}/events/count?${params.toString()}`,
+        { timeoutMs: 15_000 }
+    );
 }
 
 export async function deleteDetection(frigateEventId: string): Promise<{ status: string }> {

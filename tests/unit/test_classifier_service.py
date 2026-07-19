@@ -7,7 +7,7 @@ from PIL import Image
 @pytest.fixture
 def sample_image():
     """Create a sample PIL Image for testing."""
-    return Image.new('RGB', (224, 224), color='red')
+    return Image.new("RGB", (224, 224), color="red")
 
 
 @pytest.fixture
@@ -15,16 +15,12 @@ def mock_tflite_interpreter():
     """Mock TFLite interpreter."""
     interpreter = MagicMock()
     interpreter.allocate_tensors = MagicMock()
-    interpreter.get_input_details = MagicMock(return_value=[{
-        'index': 0,
-        'shape': [1, 224, 224, 3],
-        'dtype': np.float32
-    }])
-    interpreter.get_output_details = MagicMock(return_value=[{
-        'index': 0,
-        'dtype': np.float32,
-        'quantization_parameters': {}
-    }])
+    interpreter.get_input_details = MagicMock(
+        return_value=[{"index": 0, "shape": [1, 224, 224, 3], "dtype": np.float32}]
+    )
+    interpreter.get_output_details = MagicMock(
+        return_value=[{"index": 0, "dtype": np.float32, "quantization_parameters": {}}]
+    )
     interpreter.set_tensor = MagicMock()
     interpreter.invoke = MagicMock()
     interpreter.get_tensor = MagicMock(return_value=np.random.rand(1, 10))
@@ -38,10 +34,11 @@ class TestModelInstance:
         """Test successful model loading."""
         from app.services.classifier_service import ModelInstance
 
-        with patch('app.services.classifier_service.tflite') as mock_tflite, \
-             patch('builtins.open', mock_open(read_data="label1\nlabel2\nlabel3")), \
-             patch('os.path.exists', return_value=True):
-
+        with (
+            patch("app.services.classifier_service.tflite") as mock_tflite,
+            patch("builtins.open", mock_open(read_data="label1\nlabel2\nlabel3")),
+            patch("os.path.exists", return_value=True),
+        ):
             mock_tflite.Interpreter = MagicMock(return_value=mock_tflite_interpreter)
 
             model = ModelInstance("test", "/path/to/model.tflite", "/path/to/labels.txt")
@@ -56,9 +53,10 @@ class TestModelInstance:
         """Test model loading when file doesn't exist."""
         from app.services.classifier_service import ModelInstance
 
-        with patch('builtins.open', mock_open(read_data="label1\nlabel2")), \
-             patch('os.path.exists', side_effect=[True, False]):  # labels exist, model doesn't
-
+        with (
+            patch("builtins.open", mock_open(read_data="label1\nlabel2")),
+            patch("os.path.exists", side_effect=[True, False]),
+        ):  # labels exist, model doesn't
             model = ModelInstance("test", "/path/to/nonexistent.tflite", "/path/to/labels.txt")
             result = model.load()
 
@@ -71,10 +69,11 @@ class TestModelInstance:
         """Test model cleanup releases resources."""
         from app.services.classifier_service import ModelInstance
 
-        with patch('app.services.classifier_service.tflite') as mock_tflite, \
-             patch('builtins.open', mock_open(read_data="label1\nlabel2")), \
-             patch('os.path.exists', return_value=True):
-
+        with (
+            patch("app.services.classifier_service.tflite") as mock_tflite,
+            patch("builtins.open", mock_open(read_data="label1\nlabel2")),
+            patch("os.path.exists", return_value=True),
+        ):
             mock_tflite.Interpreter = MagicMock(return_value=mock_tflite_interpreter)
 
             model = ModelInstance("test", "/path/to/model.tflite", "/path/to/labels.txt")
@@ -93,10 +92,11 @@ class TestModelInstance:
         """Test classification with a loaded model."""
         from app.services.classifier_service import ModelInstance
 
-        with patch('app.services.classifier_service.tflite') as mock_tflite, \
-             patch('builtins.open', mock_open(read_data="bird1\nbird2\nbird3")), \
-             patch('os.path.exists', return_value=True):
-
+        with (
+            patch("app.services.classifier_service.tflite") as mock_tflite,
+            patch("builtins.open", mock_open(read_data="bird1\nbird2\nbird3")),
+            patch("os.path.exists", return_value=True),
+        ):
             mock_tflite.Interpreter = MagicMock(return_value=mock_tflite_interpreter)
 
             model = ModelInstance("test", "/path/to/model.tflite", "/path/to/labels.txt")
@@ -105,7 +105,7 @@ class TestModelInstance:
             results = model.classify(sample_image)
 
             assert len(results) > 0
-            assert all('label' in r and 'score' in r and 'index' in r for r in results)
+            assert all("label" in r and "score" in r and "index" in r for r in results)
 
 
 class TestClassifierService:
@@ -122,13 +122,12 @@ class TestClassifierService:
         settings.classification.image_execution_mode = "in_process"
 
         try:
-            with patch('app.services.classifier_service.ModelInstance') as MockModel, \
-                 patch('app.services.model_manager.model_manager') as mock_manager:
-
+            with (
+                patch("app.services.classifier_service.ModelInstance") as MockModel,
+                patch("app.services.model_manager.model_manager") as mock_manager,
+            ):
                 # Mock model manager
-                mock_manager.get_active_model_paths = MagicMock(
-                    return_value=("/model.tflite", "/labels.txt", 224)
-                )
+                mock_manager.get_active_model_paths = MagicMock(return_value=("/model.tflite", "/labels.txt", 224))
                 mock_manager.active_model_id = "test-model"
 
                 # Mock model instance
@@ -157,7 +156,7 @@ class TestClassifierService:
         finally:
             settings.classification.image_execution_mode = original_mode
 
-    @patch('cv2.VideoCapture')
+    @patch("cv2.VideoCapture")
     def test_classify_video_releases_capture_on_error(self, mock_video_capture):
         """Test that VideoCapture is always released even on error (memory leak fix)."""
         from app.services.classifier_service import ClassifierService
@@ -178,12 +177,11 @@ class TestClassifierService:
         mock_video_capture.return_value = mock_cap
 
         try:
-            with patch('app.services.classifier_service.ModelInstance') as MockModel, \
-                 patch('app.services.model_manager.model_manager') as mock_manager:
-
-                mock_manager.get_active_model_paths = MagicMock(
-                    return_value=("/model.tflite", "/labels.txt", 224)
-                )
+            with (
+                patch("app.services.classifier_service.ModelInstance") as MockModel,
+                patch("app.services.model_manager.model_manager") as mock_manager,
+            ):
+                mock_manager.get_active_model_paths = MagicMock(return_value=("/model.tflite", "/labels.txt", 224))
                 mock_manager.active_model_id = "test-model"
 
                 mock_model = MagicMock()
@@ -203,7 +201,7 @@ class TestClassifierService:
         finally:
             settings.classification.image_execution_mode = original_mode
 
-    @patch('cv2.VideoCapture')
+    @patch("cv2.VideoCapture")
     def test_classify_video_releases_capture_on_success(self, mock_video_capture):
         """Test that VideoCapture is released on successful classification."""
         from app.services.classifier_service import ClassifierService
@@ -224,12 +222,11 @@ class TestClassifierService:
         mock_video_capture.return_value = mock_cap
 
         try:
-            with patch('app.services.classifier_service.ModelInstance') as MockModel, \
-                 patch('app.services.model_manager.model_manager') as mock_manager:
-
-                mock_manager.get_active_model_paths = MagicMock(
-                    return_value=("/model.tflite", "/labels.txt", 224)
-                )
+            with (
+                patch("app.services.classifier_service.ModelInstance") as MockModel,
+                patch("app.services.model_manager.model_manager") as mock_manager,
+            ):
+                mock_manager.get_active_model_paths = MagicMock(return_value=("/model.tflite", "/labels.txt", 224))
                 mock_manager.active_model_id = "test-model"
 
                 mock_model = MagicMock()
@@ -242,14 +239,14 @@ class TestClassifierService:
                 service = ClassifierService()
 
                 # Call classify_video
-                result = service.classify_video("/tmp/test.mp4", max_frames=5)
+                service.classify_video("/tmp/test.mp4", max_frames=5)
 
                 # Verify release() was called (memory leak fix)
                 mock_cap.release.assert_called_once()
         finally:
             settings.classification.image_execution_mode = original_mode
 
-    @patch('cv2.VideoCapture')
+    @patch("cv2.VideoCapture")
     def test_classify_video_releases_capture_when_no_frames(self, mock_video_capture):
         """Test that VideoCapture is released when video has no frames."""
         from app.services.classifier_service import ClassifierService
@@ -267,12 +264,11 @@ class TestClassifierService:
         mock_video_capture.return_value = mock_cap
 
         try:
-            with patch('app.services.classifier_service.ModelInstance') as MockModel, \
-                 patch('app.services.model_manager.model_manager') as mock_manager:
-
-                mock_manager.get_active_model_paths = MagicMock(
-                    return_value=("/model.tflite", "/labels.txt", 224)
-                )
+            with (
+                patch("app.services.classifier_service.ModelInstance") as MockModel,
+                patch("app.services.model_manager.model_manager") as mock_manager,
+            ):
+                mock_manager.get_active_model_paths = MagicMock(return_value=("/model.tflite", "/labels.txt", 224))
                 mock_manager.active_model_id = "test-model"
 
                 mock_model = MagicMock()

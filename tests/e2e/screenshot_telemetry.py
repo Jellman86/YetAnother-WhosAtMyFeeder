@@ -3,8 +3,10 @@
 Screenshot the telemetry banner using the Playwright service.
 This creates a fresh browser context to ensure the banner is visible.
 """
+
 from playwright.sync_api import sync_playwright
 import time
+
 
 def main():
     with sync_playwright() as p:
@@ -12,10 +14,7 @@ def main():
         browser = p.chromium.connect("ws://playwright-service:3000/")
 
         # Create fresh context with no localStorage (simulates first-time user)
-        context = browser.new_context(
-            viewport={"width": 1920, "height": 1080},
-            locale="en-US"
-        )
+        context = browser.new_context(viewport={"width": 1920, "height": 1080}, locale="en-US")
         page = context.new_page()
 
         try:
@@ -28,7 +27,7 @@ def main():
 
             # Check if banner is visible
             try:
-                banner = page.locator('text=Help improve YA-WAMF')
+                banner = page.locator("text=Help improve YA-WAMF")
                 is_visible = banner.is_visible(timeout=5000)
 
                 if is_visible:
@@ -51,11 +50,13 @@ def main():
         except Exception as e:
             print(f"Error: {e}")
             import traceback
+
             traceback.print_exc()
         finally:
             context.close()
             browser.close()
             print("Done!")
+
 
 if __name__ == "__main__":
     main()

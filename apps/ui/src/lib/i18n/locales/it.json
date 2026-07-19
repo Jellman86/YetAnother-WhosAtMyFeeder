@@ -9,6 +9,7 @@
     "dashboard": "Dashboard",
     "explorer": "Esplora",
     "leaderboard": "Classifica",
+    "audio_history": "Cronologia audio",
     "settings": "Impostazioni",
     "about": "Informazioni",
     "toggle_menu": "Attiva/disattiva menu",
@@ -94,8 +95,11 @@
       "empty_title": "Nessuna rilevazione audio nel buffer",
       "empty_subtitle": "Il buffer si svuota ogni 5 min",
       "unknown_sensor": "Sensore sconosciuto",
+      "open_history": "Apri cronologia audio",
       "open_birdnet": "Apri BirdNET-Go",
-      "open_in_birdnet": "Apri il rilevamento in BirdNET-Go"
+      "open_in_birdnet": "Apri il rilevamento in BirdNET-Go",
+      "heard_today": "ascoltate",
+      "species": "specie"
     },
     "top_visitors_title": "Visitatori frequenti",
     "top_visitors_empty": "Nessun visitatore registrato oggi.",
@@ -144,6 +148,9 @@
     "all": "Tutto",
     "available": "Disponibile",
     "clear": "Cancella",
+    "apply": "Applica",
+    "previous": "Precedente",
+    "next": "Successivo",
     "clearing": "Cancellazione...",
     "disabled": "Disattivato",
     "enabled": "Attivato",
@@ -157,7 +164,8 @@
     "no": "No",
     "download": "Scarica",
     "skip_to_content": "Vai al contenuto",
-    "working": "In corso…"
+    "working": "In corso…",
+    "language_load_error": "Impossibile caricare la lingua. Controlla la connessione e riprova."
   },
   "error": {
     "boundary_title": "Qualcosa è andato storto",
@@ -166,6 +174,12 @@
     "try_again": "Riprova",
     "copy_details": "Copia dettagli errore",
     "reload_page": "Ricarica pagina"
+  },
+  "route_load": {
+    "loading": "Apertura di {page}…",
+    "error_title": "Impossibile aprire questa pagina",
+    "error_description": "Il file della pagina non è arrivato. Controlla la connessione e riprova.",
+    "retry": "Prova ad aprire di nuovo"
   },
   "settings": {
     "title": "Impostazioni",
@@ -196,11 +210,21 @@
       "accessibility": "Accessibilità",
       "debug": "Debug",
       "enrichment": "Arricchimento",
-      "ai": "IA"
+      "ai": "IA",
+      "groups": {
+        "pipeline": "Flusso della mangiatoia",
+        "intelligence": "Analisi e condivisione",
+        "operations": "Operazioni",
+        "interface": "Interfaccia"
+      }
     },
     "debug": {
       "title": "Strumenti di debug",
       "subtitle": "Interruttori extra per test e diagnostica.",
+      "model_eval_title": "Strumento di valutazione dei modelli",
+      "model_eval_desc": "Valuta i classificatori installati con immagini di uccelli verificate tassonomicamente. Gli artefatti vengono salvati in /config/yawamf-eval/.",
+      "model_eval_action_desc": "Esegui controlli di accuratezza, latenza e coerenza su ogni modello installato. Solo per il proprietario.",
+      "model_eval_open": "Apri",
       "llm_prompts_title": "Modelli di prompt LLM",
       "llm_prompts_subtitle": "Personalizza la struttura Markdown e il tono per analisi IA e conversazioni.",
       "llm_prompt_style_label": "Stile del prompt",
@@ -458,6 +482,8 @@
       "payload_nvidia_gpu_detected": "GPU NVIDIA rilevata",
       "payload_openvino_available": "OpenVINO disponibile",
       "payload_intel_gpu_available": "GPU Intel disponibile",
+      "payload_intel_npu_available": "NPU Intel disponibile",
+      "dashboard_link": "Visualizza la dashboard pubblica della telemetria",
       "payload_openvino_compile": "Compilazione GPU OpenVINO",
       "payload_openvino_device": "Dispositivo OpenVINO",
       "payload_gpu_fallback": "Fallback GPU attivo",
@@ -674,6 +700,7 @@
       "clear_feedback_confirm": "Sei sicuro di voler cancellare tutti i dati di re-ranking personalizzato? L'IA tornerà alla sua precisione di base e l'operazione non può essere annullata."
     },
     "data": {
+      "tools_title": "Configurazione, backup e manutenzione",
       "title": "Gestione dati",
       "records": "Totale record",
       "oldest": "Più vecchio",
@@ -803,13 +830,15 @@
       "backfill_validation_order": "La data di inizio deve essere precedente o uguale alla data di fine.",
       "backfill_validation_select_both": "Seleziona sia la data di inizio sia quella di fine.",
       "batch_analysis_recent_failures": "Errori recenti",
-      "cache_high_quality_event_snapshots": "Snapshot HQ degli eventi",
-      "cache_high_quality_event_snapshots_help": "Sostituisce in seguito gli snapshot di Frigate con un fotogramma del clip del flusso principale.",
-      "cache_high_quality_event_snapshot_bird_crop": "Ritagli HQ degli uccelli",
-      "cache_high_quality_event_snapshot_bird_crop_help": "Usa il rilevatore di ritaglio degli uccelli sui fotogrammi HQ. Se non trova un ritaglio, usa il fotogramma HQ completo.",
+      "cache_high_quality_event_snapshots": "Migliori snapshot disponibili",
+      "cache_high_quality_event_snapshots_help": "Al termine di un evento sceglie il fotogramma più nitido del flusso principale e il miglior ritaglio disponibile. Mantiene il fotogramma completo se non è possibile creare un ritaglio affidabile.",
+      "cache_crop_detector_ready": "Rilevatore di ritaglio pronto",
+      "cache_crop_fallback_ready": "Tracciamento Frigate di riserva pronto",
+      "cache_crop_detector_ready_help": "Gli indizi di tracciamento Frigate e i rilevatori di ritaglio vengono valutati automaticamente.",
+      "cache_crop_fallback_ready_help": "Gli indizi di tracciamento Frigate vengono usati automaticamente; i ritagli del rilevatore si aggiungono quando è installato un modello.",
       "batch_analysis_complete": "Analisi batch completata",
       "advanced_title": "Manutenzione e integrità dei media",
-      "cache_advanced_title": "Snapshot ad alta qualità e qualità"
+      "cache_advanced_title": "Qualità snapshot"
     },
     "security": {
       "title": "Sicurezza",
@@ -919,6 +948,20 @@
       "model_manager_runtime_tflite": "Stato runtime TFLite",
       "model_manager_runtime_onnx": "Stato runtime ONNX",
       "model_manager_refresh": "Aggiorna",
+      "model_manager_select_label": "Scegli il modello di identificazione",
+      "model_manager_best_fit": "Uso consigliato",
+      "model_manager_download_size": "Download e memoria",
+      "model_manager_technical_details": "Dettagli tecnici",
+      "model_manager_crop_policy_automatic": "La preparazione dell’immagine è automatica",
+      "model_manager_crop_policy_automatic_desc": "YA-WAMF usa la politica di ritaglio testata per questo modello. Non è necessario regolare nulla quando si cambia modello.",
+      "model_manager_thumbnail_crop_title": "Miniature ritagliate",
+      "model_manager_thumbnail_crop_quality": "Migliore qualità automatica",
+      "model_manager_thumbnail_crop_desc": "YA-WAMF valuta automaticamente il rilevatore accurato, il ripiego rapido e gli indizi di tracciamento Frigate; usa il fotogramma completo nitido solo se nessuno produce un ritaglio affidabile.",
+      "model_manager_runtime_health": "Stato del runtime",
+      "model_manager_image_preparation": "Preparazione dell’immagine",
+      "model_manager_detector_ready": "Pronto",
+      "model_manager_detector_missing": "Download necessario",
+      "model_manager_download_detector": "Scarica rilevatore",
       "model_manager_lineup_title": "Gamma di modelli a livelli",
       "model_manager_lineup_desc": "I modelli consigliati vengono mostrati per primi. Le opzioni avanzate restano nascoste finché non le apri.",
       "model_manager_hide_advanced": "Nascondi modelli avanzati",
@@ -943,6 +986,26 @@
       "model_manager_redownload": "Scarica di nuovo",
       "model_manager_download": "Scarica",
       "model_manager_activate_error": "Impossibile attivare il modello",
+      "model_manager_validate_to_enable": "Convalida per abilitare",
+      "model_manager_download_setup": "Scarica e configura",
+      "model_manager_install_title": "Configura modello",
+      "model_manager_install_subtitle": "Scarica, convalida sul tuo hardware e abilita questo modello.",
+      "model_manager_install_note": "Ogni passaggio viene eseguito sul tuo hardware. Nulla diventa attivo finché la convalida non è superata.",
+      "model_manager_install_stage_download": "Scarica modello",
+      "model_manager_device_sweeping": "Confronto dei tuoi dispositivi…",
+      "model_manager_device_set": "Dispositivo più veloce: {provider}{ms} — impostato come dispositivo di inferenza.",
+      "model_manager_installing_pct": "Download… {pct}%",
+      "model_manager_install_downloaded": "Scaricato e verificato.",
+      "model_manager_install_already_downloaded": "Già scaricato.",
+      "model_manager_validate_failed": "Convalida non riuscita.",
+      "model_manager_validation_needed": "Scaricato ma non ancora convalidato sul tuo hardware. Convalidalo per confermare che funziona qui prima di selezionarlo.",
+      "model_manager_validate_title": "Convalida e abilita modello",
+      "model_manager_validate_subtitle": "Conferma che questo modello funziona sul tuo hardware, poi abilitalo per la selezione.",
+      "model_manager_validate_note": "La convalida carica il modello di prova e vi fa passare un fotogramma, poi ripristina il modello attuale.",
+      "model_manager_validate_stage_run": "Convalida e ottimizza su questo hardware",
+      "model_manager_validate_stage_enable": "Abilita per la selezione",
+      "model_manager_validate_ran_ok": "Eseguito su {provider}{ms} e ha prodotto un output valido.",
+      "model_manager_validate_enabled": "Questo modello è ora attivo.",
       "model_manager_load_error": "Impossibile caricare i modelli",
       "model_manager_status_unavailable": "Stato download non disponibile",
       "model_manager_status_refresh_failed": "Impossibile aggiornare lo stato del download",
@@ -1027,11 +1090,11 @@
       "enabled": "Attiva analisi IA",
       "test_connection": "Testa connessione IA",
       "recommended_model": "Consigliato: {model}",
-      "get_gemini_key": "Get Google Gemini Key →",
-      "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_gemini_key": "Ottieni una chiave Google Gemini →",
+      "get_openai_key": "Ottieni una chiave OpenAI →",
+      "get_claude_key": "Ottieni una chiave Anthropic Claude →",
       "get_openrouter_key": "Ottieni la chiave OpenRouter →",
-      "openrouter_model_hint": "Inserisci qualsiasi ID modello OpenRouter (es. google/gemini-2.5-flash). Sfoglia i modelli su openrouter.ai/models."
+      "openrouter_model_hint": "Inserisci qualsiasi ID modello OpenRouter (es. google/gemini-3.1-flash-lite). Sfoglia i modelli su openrouter.ai/models."
     },
     "ai": {
       "usage_title": "Dashboard utilizzo IA",
@@ -1061,6 +1124,24 @@
       "table_cost": "Costo",
       "view_reference_pricing": "Visualizza prezzi di riferimento →",
       "usage_load_error": "Impossibile caricare l'utilizzo IA.",
+      "test_title": "Diagnostica del modello IA",
+      "test_subtitle": "Verifica lo stesso formato visivo multi-fotogramma usato nell'analisi dei rilevamenti.",
+      "test_stage_configuration": "Configurazione",
+      "test_stage_provider": "Disponibilità del provider",
+      "test_stage_vision": "Input visivo",
+      "test_stage_multiframe": "Richiesta multi-fotogramma",
+      "test_stage_response": "Risposta del modello",
+      "test_configuration_ok": "Provider, modello e credenziale sono presenti.",
+      "test_contacting": "Invio della richiesta diagnostica limitata…",
+      "test_pending": "In attesa della risposta del provider.",
+      "test_multiframe_ok": "{count} fotogrammi JPEG sono stati accettati in una sola richiesta.",
+      "test_stage_ok": "Superato",
+      "test_skipped": "Non eseguito perché una fase precedente non è riuscita.",
+      "test_running": "Test in corso",
+      "test_retry_after": "Il provider suggerisce di riprovare dopo {seconds} secondi.",
+      "test_probe_note": "Il test invia cinque immagini JPEG rappresentative da 1280 × 720, riproducendo numero, dimensioni e peso approssimativo di una vera richiesta di analisi.",
+      "test_retry": "Esegui di nuovo il test",
+      "test_network_error": "La richiesta diagnostica non ha potuto raggiungere YA-WAMF.",
       "advanced_title": "Prezzi e modelli di prompt"
     }
   },
@@ -1078,9 +1159,17 @@
     "secure_access": "Accesso Sicuro YA-WAMF",
     "public_view": "Vista pubblica",
     "public_viewing_mode": "Modalità vista pubblica",
-    "loading_status": "Caricamento stato di autenticazione…",
-    "status_unavailable_desc": "Se il container è ancora in avvio o si sta riavviando dopo modifiche al modello, attendi un momento e riprova.",
-    "status_unavailable_title": "Impossibile raggiungere il backend YA-WAMF."
+    "loading_status": "Avvio di YA-WAMF",
+    "loading_status_desc": "Verifica del servizio e delle impostazioni di accesso prima di aprire la mangiatoia.",
+    "status_check_eyebrow": "Connessione al servizio",
+    "status_checking_badge": "Verifica in corso",
+    "status_unavailable_badge": "Nessuna risposta",
+    "status_unavailable_title": "YA-WAMF non risponde ancora",
+    "status_unavailable_desc": "Il servizio potrebbe essere ancora in avvio dopo un aggiornamento o un cambio di modello. I dati della mangiatoia restano al sicuro mentre torna online.",
+    "status_unavailable_auto_retry": "YA-WAMF ricontrolla automaticamente la connessione ogni cinque secondi.",
+    "status_unavailable_help": "Se resta offline, controlla lo stato del container e i log di avvio.",
+    "status_checking_again": "Nuova verifica…",
+    "status_check_again": "Controlla di nuovo"
   },
   "status": {
     "audio_active": "Analisi Audio Attiva",
@@ -1439,7 +1528,42 @@
     "classification_legend": "Fonti di classificazione: Manuale, Video, Istantanea",
     "timeline_keyboard_hint": "Tastiera timeline: [ giorno precedente, ] giorno successivo, 0 reimposta"
   },
+  "audio": {
+    "chart": {
+      "heard": "Ascoltate", "daily_title": "Attività nel tempo",
+      "daily_sub": "Rilevamenti BirdNET-Go ascoltati al giorno", "hourly_title": "Ora del giorno",
+      "species_title": "Distribuzione delle specie", "empty": "Nessuna attività in questo periodo."
+    },
+    "stat": {
+      "heard": "Ascoltate", "heard_sub": "Rilevamenti BirdNET visualizzati", "species": "Specie",
+      "species_sub": "Specie identificate dall'audio", "peak_hour": "Ora di punta",
+      "peak_hour_sub": "{count} rilevamenti", "no_activity": "Nessuna attività per ora",
+      "sources": "Fonti", "sources_sub": "Microfoni o flussi"
+    },
+    "filter": {
+      "window": "Periodo", "24h": "24 ore", "7d": "7 giorni", "30d": "30 giorni",
+      "90d": "90 giorni", "1y": "1 anno", "species": "Specie", "source": "Fonte",
+      "min_confidence": "Confidenza minima"
+    },
+    "top_species": "Specie più ascoltate",
+    "card": { "last_heard": "Ultimo ascolto", "avg": "media", "max": "max" },
+    "history": {
+      "title": "Cronologia rilevamenti",
+      "sub": "Rilevamenti BirdNET-Go salvati, separati dalle visite visive.",
+      "empty": "Nessun rilevamento BirdNET corrisponde a questi filtri.",
+      "showing": "Visualizzati {from}-{to} di {total}"
+    },
+    "table": {
+      "sound": "Suono", "time": "Ora", "species": "Specie", "source": "Fonte",
+      "confidence": "Confidenza", "open_birdnet": "Apri in BirdNET-Go",
+      "unknown_source": "Fonte sconosciuta"
+    },
+    "sources": { "title": "Fonti", "empty": "Ancora nessuna fonte." }
+  },
   "leaderboard": {
+    "source_toggle": "Fonte del rilevamento", "source_seen": "Viste", "source_heard": "Ascoltate",
+    "source_both": "Entrambe", "audio_only": "Solo audio",
+    "audio_only_desc": "Ascoltata su BirdNET-Go, non vista dalla telecamera",
     "title": "Classifica Specie",
     "species_count": "{count} specie",
     "detections_count": "{count} rilevamenti",
@@ -1720,6 +1844,7 @@
     "previous_page": "Pagina precedente",
     "next_page": "Pagina successiva",
     "page_number": "Pagina {number}",
+    "showing": "Visualizzati {from}-{to} di {total}",
     "page_size_label": "Mostra:",
     "page_size_aria": "Elementi per pagina"
   },
@@ -1857,6 +1982,9 @@
     "no_video_support": "Il tuo browser non supporta la riproduzione video."
   },
   "jobs": {
+    "frigate_media_advisory_title": "Spesso Frigate non ha un'istantanea per un rilevamento",
+    "frigate_media_advisory_body": "Il {percent}% dei rilevamenti recenti ({dropped} su {started}) è stato scartato perché Frigate non disponeva di un'istantanea, un'anteprima o una registrazione. Di solito si tratta di uccelli seguiti per poco tempo che non persistono come eventi Frigate oppure di una conservazione breve delle registrazioni.",
+    "frigate_media_advisory_link": "Come ridurre il problema →",
     "title": "Attività",
     "subtitle": "Monitora i processi in background attivi e i risultati recenti.",
     "open": "Apri attività",
@@ -2037,21 +2165,42 @@
   "errors": {
     "stack_trace": "Traccia dello stack:"
   },
+  "update_banner": {
+    "title": "È disponibile YA-WAMF {version}",
+    "title_dev": "È disponibile una build di sviluppo più recente ({version})",
+    "body": "Stai usando {current}. Scarica la nuova immagine dal gestore dei container per aggiornare.",
+    "release_notes": "Note di rilascio →",
+    "dismiss": "Ignora",
+    "sidebar_title": "Aggiornamento disponibile: {version}",
+    "sidebar_label": "Aggiornamento disponibile"
+  },
   "header": {
+    "cameras_all_offline": "Tutte le telecamere sono offline",
+    "cameras_all_online": "Tutte le telecamere sono online",
+    "cameras_checking": "Verifica delle telecamere…",
     "cameras_empty": "Nessuna telecamera configurata. Aggiungi telecamere in Impostazioni → Connessione.",
+    "cameras_frame_alt": "Ultimo fotogramma da {camera}",
+    "cameras_frame_unavailable": "Fotogramma non disponibile",
     "cameras_label": "Stato telecamere",
+    "cameras_next": "Telecamera successiva",
     "cameras_no_frame": "Nessun fotogramma",
     "cameras_none": "Nessuna telecamera configurata",
     "cameras_online": "telecamere online",
+    "cameras_previous": "Telecamera precedente",
+    "cameras_retry": "Riprova",
     "cameras_role_feeder": "Mangiatoia",
     "cameras_role_feeder_help": "Telecamera mangiatoia — ogni evento Frigate è una nuova visita.",
     "cameras_role_nest": "Nido",
     "cameras_role_nest_help": "Telecamera per nido — i rilevamenti ripetuti vengono deduplicati entro la finestra configurata.",
-    "cameras_status_offline": "Nessun fotogramma recente",
+    "cameras_some_online": "Alcune telecamere richiedono attenzione",
+    "cameras_status_offline": "Offline",
     "cameras_status_online": "Online",
-    "cameras_title": "Telecamere"
+    "cameras_status_unavailable": "Stato delle telecamere non disponibile",
+    "cameras_title": "Telecamere",
+    "cameras_viewer": "Visualizzatore live delle telecamere"
   },
   "page_subtitle": {
+    "audio_history": "Sfoglia i rilevamenti BirdNET-Go salvati e l'attività solo audio.",
     "about": "Versione, changelog, collaboratori e link al supporto.",
     "dashboard": "Rilevamenti in tempo reale, attività recente e salute della mangiatoia a colpo d'occhio.",
     "events": "Sfoglia, filtra e gestisci ogni visita classificata.",

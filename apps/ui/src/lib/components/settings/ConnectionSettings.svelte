@@ -2,7 +2,10 @@
     import { onDestroy } from 'svelte';
     import { _ } from 'svelte-i18n';
     import type { VersionInfo } from '../../api';
-    import type { RecordingClipCapability } from '../../api/system';
+    import { testFrigateConnection, type RecordingClipCapability } from '../../api/system';
+    import { testMQTTPublish } from '../../api/maintenance';
+    import DiagnosticDialog from '../DiagnosticDialog.svelte';
+    import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
     import { appApiPath } from '../../app/url-base';
     import { authStore } from '../../stores/auth.svelte';
     import { FRIGATE_LOGO_URL } from '../../assets';
@@ -34,12 +37,10 @@
         recordingClipCapability = null,
         recordingClipCapabilityLoading = false,
         camerasLoading,
-        testing,
         telemetryInstallationId,
         telemetryPlatform,
         telemetryPayloadPreview,
         versionInfo,
-        testConnection,
         loadCameras,
         toggleCamera
     }: {
@@ -63,15 +64,52 @@
         recordingClipCapability: RecordingClipCapability | null;
         recordingClipCapabilityLoading: boolean;
         camerasLoading: boolean;
-        testing: boolean;
         telemetryInstallationId: string | undefined;
         telemetryPlatform: string | undefined;
         telemetryPayloadPreview: Record<string, unknown> | undefined;
         versionInfo: VersionInfo;
-        testConnection: () => Promise<void>;
         loadCameras: () => Promise<void>;
         toggleCamera: (camera: string) => void;
     } = $props();
+
+    // Connection test uses the shared DiagnosticDialog: two genuinely independent
+    // checks — reaching the Frigate API, then publishing to the MQTT broker.
+    let fcTestOpen = $state(false);
+    let fcRunning = $state(false);
+    let fcStages = $state<DiagnosticStage[]>([]);
+    let fcResult = $state<DiagnosticResult | null>(null);
+    let fcRunId = $state(0);
+
+    async function runConnectionDiagnostic(): Promise<void> {
+        fcTestOpen = true;
+        fcRunning = true;
+        fcResult = null;
+        fcRunId += 1;
+        fcResult = await runSequentialDiagnostic(
+            [
+                {
+                    id: 'frigate',
+                    label: $_('settings.frigate.stage_frigate', { default: 'Frigate API' }),
+                    run: async () => {
+                        const r = await testFrigateConnection();
+                        return {
+                            status: r.status,
+                            message: r.status === 'ok'
+                                ? $_('settings.frigate.stage_frigate_ok', { default: 'Connected to Frigate {version}', values: { version: `v${r.version}` } })
+                                : $_('settings.frigate.stage_frigate_bad', { default: 'Frigate returned an unexpected status.' })
+                        };
+                    }
+                },
+                {
+                    id: 'mqtt',
+                    label: $_('settings.frigate.stage_mqtt', { default: 'MQTT broker publish' }),
+                    run: testMQTTPublish
+                }
+            ],
+            (stages) => (fcStages = stages)
+        );
+        fcRunning = false;
+    }
 
     let previewCamera = $state<string | null>(null);
     let previewVisible = $state(false);
@@ -226,6 +264,9 @@
     {#snippet frigateIcon()}
         <img src={FRIGATE_LOGO_URL} alt="Frigate Logo" class="w-6 h-6 object-contain" />
     {/snippet}
+    {#snippet camerasIcon()}
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" /><circle cx="12" cy="13" r="3" /></svg>
+    {/snippet}
 
     <SettingsCard title={$_('settings.frigate.title')} iconSnippet={frigateIcon}>
         <SettingsRow
@@ -246,12 +287,12 @@
         <div class="grid grid-cols-2 gap-3">
             <button
                 type="button"
-                onclick={testConnection}
-                disabled={testing}
+                onclick={runConnectionDiagnostic}
+                disabled={fcRunning}
                 aria-label={$_('settings.frigate.test_connection')}
-                class="px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 dark:focus:ring-offset-slate-900 disabled:opacity-50"
+                class="px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-brand-500 hover:bg-brand-600 text-white transition-all shadow-lg shadow-brand-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50"
             >
-                {testing ? $_('common.testing') : $_('settings.frigate.test_connection')}
+                {fcRunning ? $_('common.testing') : $_('settings.frigate.test_connection')}
             </button>
             <button
                 type="button"
@@ -351,6 +392,10 @@
             />
         </SettingsRow>
 
+        <AdvancedSection
+            id="connection-full-visit"
+            title={$_('settings.connection.full_visit_advanced_title', { default: 'Full-visit clips (from recordings)' })}
+        >
         <SettingsRow
             labelId="setting-recording-clips"
             label={$_('settings.frigate.full_visit_clips', { default: 'Full-visit clips' })}
@@ -365,17 +410,17 @@
             />
         </SettingsRow>
 
-        <div class="rounded-2xl border px-4 py-3 text-xs space-y-2 {recordingClipCapability?.supported ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200' : 'border-amber-400/30 bg-amber-500/10 text-amber-800 dark:text-amber-200'}">
+        <div class="rounded-2xl border px-4 py-3 text-xs space-y-2 {recordingClipCapability?.supported ? 'border-accent-400/30 bg-accent-500/10 text-accent-800 dark:text-accent-200' : 'border-amber-400/30 bg-amber-500/10 text-amber-800 dark:text-amber-200'}">
             <div class="flex items-center justify-between gap-3">
-                <span class="font-black uppercase tracking-widest text-[10px]">
+                <span class="font-black uppercase tracking-widest text-xs">
                     {$_('settings.frigate.full_visit_capability', { default: 'Capability' })}
                 </span>
                 {#if recordingClipCapabilityLoading}
-                    <span class="text-[10px] font-semibold uppercase tracking-widest">{$_('common.loading', { default: 'Loading' })}</span>
+                    <span class="text-xs font-semibold uppercase tracking-widest">{$_('common.loading', { default: 'Loading' })}</span>
                 {:else if recordingClipCapability?.supported}
-                    <span class="text-[10px] font-semibold uppercase tracking-widest">{$_('common.enabled', { default: 'Enabled' })}</span>
+                    <span class="text-xs font-semibold uppercase tracking-widest">{$_('common.enabled', { default: 'Enabled' })}</span>
                 {:else}
-                    <span class="text-[10px] font-semibold uppercase tracking-widest">{$_('common.disabled', { default: 'Disabled' })}</span>
+                    <span class="text-xs font-semibold uppercase tracking-widest">{$_('common.disabled', { default: 'Disabled' })}</span>
                 {/if}
             </div>
 
@@ -393,7 +438,7 @@
                     <p>{getRecordingCapabilityReason(recordingClipCapability.reason)}</p>
                 {/if}
                 {#if recordingClipCapability.eligible_cameras.length > 0}
-                    <p class="text-[11px] opacity-90">
+                    <p class="text-xs opacity-90">
                         {$_('settings.frigate.full_visit_cameras', {
                             default: 'Eligible cameras: {cameras}',
                             values: { cameras: recordingClipCapability.eligible_cameras.join(', ') }
@@ -401,7 +446,7 @@
                     </p>
                 {/if}
                 {#if recordingClipCapability.retention_days !== null}
-                    <p class="text-[11px] opacity-90">
+                    <p class="text-xs opacity-90">
                         {$_('settings.frigate.full_visit_retention', {
                             default: 'Detected recording retention: {days} day(s)',
                             values: { days: recordingClipCapability.retention_days }
@@ -414,10 +459,6 @@
         </div>
 
         {#if recordingClipEnabled}
-        <AdvancedSection
-            id="connection-advanced"
-            title={$_('settings.connection.advanced_title', { default: 'Tuning' })}
-        >
                 <div class="grid grid-cols-2 gap-3">
                     <SettingsRow
                         labelId="setting-recording-before"
@@ -450,11 +491,11 @@
                         />
                     </SettingsRow>
                 </div>
-        </AdvancedSection>
         {/if}
+        </AdvancedSection>
     </SettingsCard>
 
-    <SettingsCard icon="📷" title={$_('settings.cameras.title')}>
+    <SettingsCard accent iconSnippet={camerasIcon} title={$_('settings.cameras.title')}>
         <div class="space-y-3 max-h-[36rem] overflow-y-auto pr-2 custom-scrollbar">
             {#if availableCameras.length === 0}
                 <div class="p-8 text-center bg-slate-50 dark:bg-slate-900/30 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700">
@@ -466,69 +507,64 @@
                         {@const selected = selectedCameras.includes(camera)}
                         {@const role = cameraRoles[camera] === 'nest' ? 'nest' : 'feeder'}
                         <div
-                            role="button"
-                            tabindex="0"
-                            aria-label={selected ? $_('settings.cameras.deselect', { default: 'Deselect {camera}', values: { camera } }) : $_('settings.cameras.select', { default: 'Select {camera}', values: { camera } })}
-                            class="relative flex flex-col gap-3 p-4 rounded-2xl border-2 transition-all group cursor-pointer
+                            class="relative flex flex-col gap-3 p-4 rounded-2xl border-2 transition-all group
                                    {selected
-                                       ? 'border-teal-500 bg-teal-500/5 text-teal-700 dark:text-teal-400'
-                                       : 'border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-900/30 text-slate-500 hover:border-teal-500/30'}"
-                            onclick={() => toggleCamera(camera)}
-                            onkeydown={(e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                    e.preventDefault();
-                                    toggleCamera(camera);
-                                }
-                            }}
+                                       ? 'border-brand-500 bg-brand-500/5 text-brand-700 dark:text-brand-400'
+                                       : 'border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-900/30 text-slate-500 hover:border-brand-500/30'}"
                         >
-                            <div class="flex items-center justify-between gap-3">
-                                <div class="flex items-center gap-3">
-                                    <span class="font-bold text-sm">{camera}</span>
-                                    <button
-                                        type="button"
-                                        class="transition text-slate-500 hover:text-teal-600 dark:text-slate-400 dark:hover:text-teal-300"
-                                        aria-label={$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}
-                                        disabled={!frigateUrl}
-                                        onclick={(e) => { e.stopPropagation(); togglePreview(camera); }}
-                                    >
-                                        <svg class={`w-4 h-4 transition-transform ${previewVisible && previewCamera === camera ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </button>
-                                </div>
-                                <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all {selected ? 'bg-teal-500 border-teal-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-teal-500/50'}">
+                            <div class="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    aria-pressed={selected}
+                                    aria-label={selected ? $_('settings.cameras.deselect', { default: 'Deselect {camera}', values: { camera } }) : $_('settings.cameras.select', { default: 'Select {camera}', values: { camera } })}
+                                    class="flex min-h-11 min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950"
+                                    onclick={() => toggleCamera(camera)}
+                                >
+                                    <span class="min-w-0 truncate text-sm font-bold">{camera}</span>
+                                    <span class="w-6 h-6 shrink-0 rounded-full border-2 flex items-center justify-center transition-all {selected ? 'bg-brand-500 border-brand-500 scale-110' : 'border-slate-300 dark:border-slate-600 group-hover:border-brand-500/50'}" aria-hidden="true">
                                     {#if selected}<svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" /></svg>{/if}
-                                </div>
+                                    </span>
+                                </button>
+                                <button
+                                    type="button"
+                                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-slate-500 transition hover:bg-white hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-brand-300"
+                                    aria-label={$_('settings.cameras.preview', { default: 'Preview {camera}', values: { camera } })}
+                                    aria-expanded={previewVisible && previewCamera === camera}
+                                    disabled={!frigateUrl}
+                                    onclick={() => togglePreview(camera)}
+                                >
+                                    <svg class={`w-4 h-4 transition-transform ${previewVisible && previewCamera === camera ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
                             </div>
                             {#if selected}
-                                <div class="flex items-center justify-between gap-2 px-1" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.stopPropagation()} role="presentation">
-                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400">{$_('settings.cameras.role_label', { default: 'Role' })}</span>
+                                <div class="flex items-center justify-between gap-2 px-1">
+                                    <span class="text-xs font-black uppercase tracking-widest text-slate-400">{$_('settings.cameras.role_label', { default: 'Role' })}</span>
                                     <div class="inline-flex rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-0.5">
                                         <button
                                             type="button"
-                                            onclick={(e) => {
-                                                e.stopPropagation();
+                                            onclick={() => {
                                                 const next = { ...cameraRoles };
                                                 delete next[camera];
                                                 cameraRoles = next;
                                             }}
-                                            class="px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest transition-colors {role === 'feeder' ? 'bg-teal-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
+                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'feeder' ? 'bg-brand-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
                                             aria-pressed={role === 'feeder'}
                                             title={$_('settings.cameras.role_feeder_help', { default: 'Feeder cam — every Frigate event is treated as a fresh visit (default).' })}
                                         >
-                                            🪶 {$_('settings.cameras.role_feeder', { default: 'Feeder' })}
+                                            {$_('settings.cameras.role_feeder', { default: 'Feeder' })}
                                         </button>
                                         <button
                                             type="button"
-                                            onclick={(e) => {
-                                                e.stopPropagation();
+                                            onclick={() => {
                                                 cameraRoles = { ...cameraRoles, [camera]: 'nest' };
                                             }}
-                                            class="px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest transition-colors {role === 'nest' ? 'bg-teal-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
+                                            class="min-h-11 px-3 py-1 rounded-md text-xs font-black uppercase tracking-widest transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 {role === 'nest' ? 'bg-brand-500 text-white' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-200'}"
                                             aria-pressed={role === 'nest'}
                                             title={$_('settings.cameras.role_nest_help', { default: 'Nest box cam — collapses repeat detections of the same species into one per dedupe window so a continuously-present nesting bird does not flood the feed.' })}
                                         >
-                                            🪺 {$_('settings.cameras.role_nest', { default: 'Nest' })}
+                                            {$_('settings.cameras.role_nest', { default: 'Nest' })}
                                         </button>
                                     </div>
                                 </div>
@@ -536,16 +572,16 @@
                             {#if previewVisible && previewCamera === camera}
                                 <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-white/95 dark:bg-slate-900/95 overflow-hidden shadow-lg shadow-slate-900/10 dark:shadow-black/30">
                                     <div class="px-4 py-2 flex items-center justify-between gap-2">
-                                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
+                                        <span class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })}</span>
                                         <div class="flex items-center gap-2">
-                                            <span class="text-[9px] font-semibold text-emerald-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
+                                            <span class="text-xs font-semibold text-accent-500">{$_('settings.cameras.preview_live', { default: 'LIVE' })}</span>
                                             <button
                                                 type="button"
-                                                class="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                                                class="flex h-11 w-11 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800 dark:hover:text-slate-200"
                                                 aria-label={$_('settings.cameras.preview_close')}
                                                 onclick={() => stopPreview(camera)}
                                             >
-                                                <svg class="w-3.5 h-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                                <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                                     <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
                                                 </svg>
                                             </button>
@@ -554,15 +590,15 @@
                                     <div class="bg-slate-100 dark:bg-slate-800/60">
                                         <div class="relative w-full aspect-video">
                                             {#if previewBlobUrl}
-                                                <img class="absolute inset-0 w-full h-full object-contain" alt="" src={previewBlobUrl} />
+                                                <img class="absolute inset-0 w-full h-full object-contain" alt={$_('settings.cameras.preview_label', { default: 'Camera preview for {camera}', values: { camera } })} src={previewBlobUrl} />
                                             {/if}
                                             {#if previewLoading}
-                                                <div class="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-slate-900/70 text-[10px] font-semibold text-slate-500">
+                                                <div role="status" class="absolute inset-0 flex items-center justify-center bg-white/70 dark:bg-slate-900/70 text-xs font-semibold text-slate-500">
                                                     {$_('settings.cameras.preview_loading', { default: 'Loading preview…' })}
                                                 </div>
                                             {/if}
                                             {#if previewError}
-                                                <div class="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-900/80 text-[10px] font-semibold text-rose-500 text-center px-3">
+                                                <div role="alert" class="absolute inset-0 flex items-center justify-center bg-white/80 dark:bg-slate-900/80 text-xs font-semibold text-rose-500 text-center px-3">
                                                     {previewError}
                                                 </div>
                                             {/if}
@@ -577,8 +613,8 @@
             {#if Object.values(cameraRoles).includes('nest')}
                 <div class="rounded-xl border border-slate-200/70 dark:border-slate-700/60 bg-slate-50 dark:bg-slate-900/40 p-3 flex items-center justify-between gap-3">
                     <div class="min-w-0">
-                        <p class="text-xs font-black text-slate-700 dark:text-slate-200">🪺 {$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
-                        <p class="text-[10px] text-slate-500 font-bold mt-0.5">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
+                        <p class="text-xs font-black text-slate-700 dark:text-slate-200">{$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}</p>
+                        <p class="text-xs text-slate-500 font-bold mt-0.5">{$_('settings.cameras.nest_dedupe_help', { default: 'Collapses repeat detections of the same species on a nest cam to one per N minutes.' })}</p>
                     </div>
                     <div class="flex items-center gap-1 shrink-0">
                         <input
@@ -586,10 +622,10 @@
                             min={1}
                             max={720}
                             bind:value={nestDedupeMinutes}
-                            class="w-20 h-9 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-teal-500 outline-none text-right"
+                            class="w-20 h-11 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 outline-none text-right"
                             aria-label={$_('settings.cameras.nest_dedupe_label', { default: 'Nest dedupe window' })}
                         />
-                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
+                        <span class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.cameras.nest_dedupe_unit', { default: 'min' })}</span>
                     </div>
                 </div>
             {/if}
@@ -597,8 +633,8 @@
     </SettingsCard>
 
     <div class="md:col-span-2">
-        <SettingsCard
-            icon="📊"
+        <AdvancedSection
+            id="connection-telemetry"
             title={$_('settings.telemetry.title')}
             description={$_('settings.telemetry.desc')}
         >
@@ -631,7 +667,7 @@
             {#if telemetryEnabled || telemetryHealthEnabled}
                 <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 animate-in fade-in slide-in-from-top-2">
                     <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-3">{$_('settings.telemetry.transparency')}</p>
-                    <div class="space-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
+                    <div class="space-y-2 text-xs font-mono text-slate-600 dark:text-slate-400">
                         <div class="flex justify-between"><span>{$_('settings.telemetry.install_id')}:</span><span class="text-slate-900 dark:text-white select-all">{telemetryInstallationId || '...'}</span></div>
                         <div class="flex justify-between"><span>{$_('settings.telemetry.version')}:</span><span>{versionInfo.version}</span></div>
                         <div class="flex justify-between"><span>{$_('settings.telemetry.platform')}:</span><span>{telemetryPlatform || '...'}</span></div>
@@ -646,8 +682,8 @@
                     </div>
                     {#if telemetryEnabled}
                         <div class="mt-4 pt-4 border-t border-slate-200/70 dark:border-slate-700/70">
-                            <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">{$_('settings.telemetry.runtime_snapshot')}</p>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-[10px] font-mono text-slate-600 dark:text-slate-400">
+                            <p class="text-xs font-black uppercase tracking-widest text-slate-400 mb-2">{$_('settings.telemetry.runtime_snapshot')}</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs font-mono text-slate-600 dark:text-slate-400">
                                 {#each telemetryRuntimeRows as [labelKey, valuePath]}
                                     <div class="flex justify-between gap-3 min-w-0">
                                         <span class="truncate">{$_(labelKey)}:</span>
@@ -657,7 +693,7 @@
                             </div>
                         </div>
                     {/if}
-                    <p class="text-[9px] text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
+                    <p class="text-xs text-slate-400 mt-3 italic">{$_('settings.telemetry.privacy_notice')}</p>
                     <a
                         href="https://yawamf-telemetry.ya-wamf.workers.dev/dashboard"
                         target="_blank"
@@ -668,9 +704,23 @@
                     </a>
                 </div>
             {/if}
-        </SettingsCard>
+        </AdvancedSection>
     </div>
 </div>
+
+{#if fcTestOpen}
+    <DiagnosticDialog
+        title={$_('settings.frigate.test_title', { default: 'Frigate & MQTT connection test' })}
+        subtitle={$_('settings.frigate.test_subtitle', { default: 'Checks that the Frigate API answers and that the MQTT broker accepts a publish.' })}
+        stages={fcStages}
+        busy={fcRunning}
+        result={fcResult}
+        runId={fcRunId}
+        retryLabel={$_('settings.frigate.test_connection')}
+        onClose={() => (fcTestOpen = false)}
+        onRetry={runConnectionDiagnostic}
+    />
+{/if}
 
 <style>
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }

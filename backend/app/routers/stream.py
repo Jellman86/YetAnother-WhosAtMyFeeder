@@ -11,7 +11,7 @@ router = APIRouter()
 HEARTBEAT_INTERVAL = 30  # seconds
 
 
-@router.get("/sse")
+@router.get("/sse", response_class=StreamingResponse)
 async def sse_stream(auth: AuthContext = Depends(get_auth_context_with_legacy)):
     async def event_generator():
         queue = await broadcaster.subscribe()

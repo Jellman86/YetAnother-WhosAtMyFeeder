@@ -302,6 +302,62 @@ function dashboardShell({
 
 app.get('/', (c) => c.text('YA-WAMF Telemetry Receiver is operational.'));
 
+// Channel-aware latest-version lookup for the in-app update prompt. D1 is the source of truth:
+// CI writes one row per published branch (`dev`, `main`) plus the latest release row (`stable`),
+// and installs compare only against the row for their installed branch/channel. No telemetry
+// payload — a plain GET, so installs with telemetry disabled can still learn about updates.
+type VersionChannels = {
+  stable: { version: string | null; url: string | null };
+  dev: { version: string | null; commit: string | null; url: string | null };
+  branches: Record<string, { version: string | null; commit: string | null; url: string | null }>;
+};
+const VERSION_CACHE: { data: VersionChannels | null; expires: number } = { data: null, expires: 0 };
+const VERSION_CACHE_TTL_MS = 30 * 60 * 1000;
+
+// Versions published by CI. D1 is authoritative for update checks; if the table or a branch row
+// is missing, the corresponding channel stays null instead of being guessed from GitHub.
+async function readVersionsFromD1(db: D1Database): Promise<Partial<VersionChannels>> {
+  try {
+    const { results } = await db
+      .prepare('SELECT channel, version, commit_sha, url FROM app_versions')
+      .all<{ channel: string; version: string | null; commit_sha: string | null; url: string | null }>();
+    const branches: VersionChannels['branches'] = {};
+    const out: Partial<VersionChannels> = { branches };
+    for (const row of results ?? []) {
+      if (row.channel === 'stable') out.stable = { version: row.version, url: row.url };
+      else {
+        const branchVersion = { version: row.version, commit: row.commit_sha, url: row.url };
+        branches[row.channel] = branchVersion;
+        if (row.channel === 'dev') out.dev = branchVersion;
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+app.get('/version', async (c) => {
+  const now = Date.now();
+  if (VERSION_CACHE.data && VERSION_CACHE.expires > now) {
+    return c.json(VERSION_CACHE.data, 200, { 'Cache-Control': 'public, max-age=1800' });
+  }
+  try {
+    const stored = await readVersionsFromD1(c.env.DB);
+    const payload: VersionChannels = {
+      stable: stored.stable ?? { version: null, url: null },
+      dev: stored.dev ?? { version: null, commit: null, url: null },
+      branches: stored.branches ?? {},
+    };
+    VERSION_CACHE.data = payload;
+    VERSION_CACHE.expires = now + VERSION_CACHE_TTL_MS;
+    return c.json(payload, 200, { 'Cache-Control': 'public, max-age=1800' });
+  } catch (e: any) {
+    if (VERSION_CACHE.data) return c.json(VERSION_CACHE.data, 200);
+    return c.json({ error: e?.message ?? 'fetch_failed' }, 502);
+  }
+});
+
 // Public, read-only aggregate dashboard. A short per-isolate in-memory cache keeps
 // traffic bursts off D1 so the worker stays comfortably within Cloudflare's free
 // tier (the edge Cache API is a no-op on *.workers.dev, so we cache in-process).

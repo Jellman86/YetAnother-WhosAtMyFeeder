@@ -21,7 +21,7 @@
 
 <header class="flex items-center justify-between gap-4 mb-4">
     <div class="min-w-0 flex-1">
-        <h1 class="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight truncate">{title}</h1>
+        <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight truncate">{title}</h1>
         {#if subtitle}
             <p class="text-sm text-slate-500 dark:text-slate-400 font-medium truncate">{subtitle}</p>
         {/if}

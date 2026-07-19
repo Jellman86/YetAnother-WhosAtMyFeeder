@@ -73,7 +73,7 @@
         <div class="flex shrink-0 items-center gap-2">
             {#if isComplete}
                 <div
-                    class="card-analysis-close-indicator grid h-8 w-8 place-items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 text-emerald-700 shadow-sm dark:border-emerald-300/30 dark:bg-emerald-300/10 dark:text-emerald-200"
+                    class="card-analysis-close-indicator grid h-8 w-8 place-items-center rounded-full border border-accent-500/25 bg-accent-500/10 text-accent-700 shadow-sm dark:border-accent-300/30 dark:bg-accent-300/10 dark:text-accent-200"
                     role="img"
                     aria-label={closeIndicatorLabel}
                     title={closeIndicatorLabel}
@@ -97,7 +97,7 @@
     <div class="relative space-y-3">
         <div class="overflow-hidden rounded-full bg-slate-950/12 dark:bg-white/12">
             <div
-                class="h-2 rounded-full bg-gradient-to-r from-cyan-300 via-indigo-300 to-emerald-300 transition-all duration-500"
+                class="h-2 rounded-full bg-gradient-to-r from-cyan-300 via-indigo-300 to-accent-300 transition-all duration-500"
                 style={`width: ${progressPercent}%`}
             ></div>
         </div>

@@ -9,6 +9,7 @@
     "dashboard": "Dashboard",
     "explorer": "Explorer",
     "leaderboard": "Bestenliste",
+    "audio_history": "Audioverlauf",
     "settings": "Einstellungen",
     "about": "Über uns",
     "toggle_menu": "Menü umschalten",
@@ -94,8 +95,11 @@
       "empty_title": "Keine Audio-Erkennungen im Puffer",
       "empty_subtitle": "Puffer leert sich alle 5 Min.",
       "unknown_sensor": "Unbekannter Sensor",
+      "open_history": "Audioverlauf öffnen",
       "open_birdnet": "BirdNET-Go öffnen",
-      "open_in_birdnet": "Erkennung in BirdNET-Go öffnen"
+      "open_in_birdnet": "Erkennung in BirdNET-Go öffnen",
+      "heard_today": "gehört",
+      "species": "Arten"
     },
     "top_visitors_title": "Häufigste Besucher",
     "top_visitors_empty": "Heute wurden noch keine Besucher erfasst.",
@@ -122,6 +126,9 @@
     "apply_settings": "Einstellungen übernehmen",
     "available": "Verfügbar",
     "clear": "Leeren",
+    "apply": "Anwenden",
+    "previous": "Zurück",
+    "next": "Weiter",
     "clearing": "Wird geleert...",
     "disabled": "Deaktiviert",
     "enabled": "Aktiviert",
@@ -157,7 +164,14 @@
     "no": "Nein",
     "download": "Herunterladen",
     "skip_to_content": "Zum Inhalt springen",
-    "working": "Arbeite…"
+    "working": "Arbeite…",
+    "language_load_error": "Diese Sprache konnte nicht geladen werden. Prüfe deine Verbindung und versuche es erneut."
+  },
+  "route_load": {
+    "loading": "{page} wird geöffnet…",
+    "error_title": "Diese Seite konnte nicht geöffnet werden",
+    "error_description": "Die Seitendatei ist nicht angekommen. Prüfe deine Verbindung und versuche es erneut.",
+    "retry": "Erneut öffnen"
   },
   "settings": {
     "title": "Einstellungen",
@@ -177,6 +191,7 @@
       "until": "Neuer Versuch nach: {time}"
     },
     "data": {
+      "tools_title": "Einrichtung, Sicherung und Wartung",
       "title": "Datenverwaltung",
       "records": "Gesamtdatensätze",
       "oldest": "Ältester Eintrag",
@@ -306,13 +321,15 @@
       "backfill_validation_order": "Das Startdatum muss vor oder gleich dem Enddatum liegen.",
       "backfill_validation_select_both": "Wählen Sie sowohl Start- als auch Enddatum.",
       "batch_analysis_recent_failures": "Jüngste Fehler",
-      "cache_high_quality_event_snapshots": "HQ-Ereignis-Snapshots",
-      "cache_high_quality_event_snapshots_help": "Frigate-Snapshots später durch einen Frame aus dem Hauptstream-Clip ersetzen.",
-      "cache_high_quality_event_snapshot_bird_crop": "HQ-Vogelzuschnitt-Snapshots",
-      "cache_high_quality_event_snapshot_bird_crop_help": "Verwendet den Vogel-Zuschnittsdetektor auf HQ-Frames. Fällt auf den vollständigen HQ-Frame zurück, wenn kein Zuschnitt gefunden wird.",
+      "cache_high_quality_event_snapshots": "Bestmögliche Ereignis-Snapshots",
+      "cache_high_quality_event_snapshots_help": "Wählt nach Ende eines Ereignisses den klarsten Hauptstream-Frame und den besten verfügbaren Zuschnitt. Wenn kein zuverlässiger Zuschnitt möglich ist, bleibt das Vollbild erhalten.",
+      "cache_crop_detector_ready": "Zuschnittdetektor bereit",
+      "cache_crop_fallback_ready": "Frigate-Verfolgung als Rückfall bereit",
+      "cache_crop_detector_ready_help": "Frigate-Verfolgungshinweise und Zuschnittdetektoren werden automatisch ausgewertet.",
+      "cache_crop_fallback_ready_help": "Frigate-Verfolgungshinweise werden automatisch verwendet; Detektorzuschnitte kommen hinzu, sobald ein Modell installiert ist.",
       "batch_analysis_complete": "Batch-Analyse abgeschlossen",
       "advanced_title": "Wartung & Medien-Integrität",
-      "cache_advanced_title": "Hochwertige Snapshots & Qualität"
+      "cache_advanced_title": "Snapshot-Qualität"
     },
     "security": {
       "title": "Sicherheit",
@@ -343,11 +360,21 @@
       "accessibility": "Barrierefreiheit",
       "debug": "Debug",
       "enrichment": "Anreicherung",
-      "ai": "KI"
+      "ai": "KI",
+      "groups": {
+        "pipeline": "Futterstellen-Pipeline",
+        "intelligence": "Analyse & Teilen",
+        "operations": "Betrieb",
+        "interface": "Oberfläche"
+      }
     },
     "debug": {
       "title": "Debug-Tools",
       "subtitle": "Zusätzliche Schalter für Tests und Diagnose.",
+      "model_eval_title": "Werkzeug zur Modellbewertung",
+      "model_eval_desc": "Bewerten Sie installierte Klassifikatoren mit taxonomisch geprüften Vogelbildern. Artefakte werden unter /config/yawamf-eval/ gespeichert.",
+      "model_eval_action_desc": "Führen Sie Genauigkeits-, Latenz- und Plausibilitätsprüfungen für jedes installierte Modell aus. Nur für Eigentümer.",
+      "model_eval_open": "Öffnen",
       "llm_prompts_title": "LLM-Promptvorlagen",
       "llm_prompts_subtitle": "Passen Sie die Markdown-Struktur und den Ton für KI-Analysen und Gespräche an.",
       "llm_prompt_style_label": "Prompt-Stil",
@@ -514,6 +541,24 @@
       "table_cost": "Kosten",
       "view_reference_pricing": "Referenzpreise anzeigen →",
       "usage_load_error": "KI-Nutzung konnte nicht geladen werden.",
+      "test_title": "KI-Modell-Diagnose",
+      "test_subtitle": "Prüft dasselbe Mehrbild-Vision-Format wie die Erkennungsanalyse.",
+      "test_stage_configuration": "Konfiguration",
+      "test_stage_provider": "Anbieterverfügbarkeit",
+      "test_stage_vision": "Bildeingabe",
+      "test_stage_multiframe": "Mehrbild-Anfrage",
+      "test_stage_response": "Modellantwort",
+      "test_configuration_ok": "Anbieter, Modell und Zugangsdaten sind vorhanden.",
+      "test_contacting": "Begrenzte Diagnoseanfrage wird gesendet…",
+      "test_pending": "Warten auf die Antwort des Anbieters.",
+      "test_multiframe_ok": "{count} JPEG-Bilder wurden in einer Anfrage akzeptiert.",
+      "test_stage_ok": "Bestanden",
+      "test_skipped": "Nicht ausgeführt, da eine frühere Stufe fehlgeschlagen ist.",
+      "test_running": "Test läuft",
+      "test_retry_after": "Der Anbieter empfiehlt einen neuen Versuch nach {seconds} Sekunden.",
+      "test_probe_note": "Der Test sendet fünf repräsentative JPEG-Bilder mit 1280 × 720 Pixeln und entspricht damit Anzahl, Abmessungen und ungefährer Nutzlast einer echten Analyse.",
+      "test_retry": "Test erneut ausführen",
+      "test_network_error": "Die Diagnoseanfrage konnte YA-WAMF nicht erreichen.",
       "advanced_title": "Preise & Prompt-Vorlagen"
     },
     "auth": {
@@ -650,6 +695,8 @@
       "payload_nvidia_gpu_detected": "NVIDIA-GPU erkannt",
       "payload_openvino_available": "OpenVINO verfügbar",
       "payload_intel_gpu_available": "Intel-GPU verfügbar",
+      "payload_intel_npu_available": "Intel-NPU verfügbar",
+      "dashboard_link": "Öffentliches Telemetrie-Dashboard anzeigen",
       "payload_openvino_compile": "OpenVINO-GPU-Kompilierung",
       "payload_openvino_device": "OpenVINO-Gerät",
       "payload_gpu_fallback": "GPU-Fallback aktiv",
@@ -941,6 +988,20 @@
       "model_manager_runtime_tflite": "TFLite-Laufzeitstatus",
       "model_manager_runtime_onnx": "ONNX-Laufzeitstatus",
       "model_manager_refresh": "Aktualisieren",
+      "model_manager_select_label": "Erkennungsmodell auswählen",
+      "model_manager_best_fit": "Am besten geeignet",
+      "model_manager_download_size": "Download und Arbeitsspeicher",
+      "model_manager_technical_details": "Technische Details",
+      "model_manager_crop_policy_automatic": "Die Bildvorbereitung erfolgt automatisch",
+      "model_manager_crop_policy_automatic_desc": "YA-WAMF verwendet die für dieses Modell getestete Zuschnittsrichtlinie. Beim Modellwechsel ist keine Anpassung nötig.",
+      "model_manager_thumbnail_crop_title": "Zugeschnittene Vorschaubilder",
+      "model_manager_thumbnail_crop_quality": "Automatisch beste Qualität",
+      "model_manager_thumbnail_crop_desc": "YA-WAMF wertet den präzisen Detektor, den schnellen Rückfall und Frigate-Verfolgungshinweise automatisch aus; das klare Vollbild wird nur verwendet, wenn kein zuverlässiger Zuschnitt möglich ist.",
+      "model_manager_runtime_health": "Laufzeitstatus",
+      "model_manager_image_preparation": "Bildvorbereitung",
+      "model_manager_detector_ready": "Bereit",
+      "model_manager_detector_missing": "Download erforderlich",
+      "model_manager_download_detector": "Detektor herunterladen",
       "model_manager_lineup_title": "Gestaffelte Modellreihe",
       "model_manager_lineup_desc": "Empfohlene Modelle werden zuerst angezeigt. Erweiterte Optionen bleiben eingeklappt, bis du sie öffnest.",
       "model_manager_hide_advanced": "Erweiterte Modelle ausblenden",
@@ -965,6 +1026,26 @@
       "model_manager_redownload": "Erneut herunterladen",
       "model_manager_download": "Herunterladen",
       "model_manager_activate_error": "Modell konnte nicht aktiviert werden",
+      "model_manager_validate_to_enable": "Zum Aktivieren validieren",
+      "model_manager_download_setup": "Herunterladen & einrichten",
+      "model_manager_install_title": "Modell einrichten",
+      "model_manager_install_subtitle": "Herunterladen, auf Ihrer Hardware validieren und dieses Modell aktivieren.",
+      "model_manager_install_note": "Jeder Schritt läuft auf Ihrer Hardware. Nichts wird aktiv, bevor die Validierung bestanden ist.",
+      "model_manager_install_stage_download": "Modell herunterladen",
+      "model_manager_device_sweeping": "Geräte werden verglichen…",
+      "model_manager_device_set": "Schnellstes Gerät: {provider}{ms} — als Inferenzgerät festgelegt.",
+      "model_manager_installing_pct": "Wird heruntergeladen… {pct}%",
+      "model_manager_install_downloaded": "Heruntergeladen und geprüft.",
+      "model_manager_install_already_downloaded": "Bereits heruntergeladen.",
+      "model_manager_validate_failed": "Validierung fehlgeschlagen.",
+      "model_manager_validation_needed": "Heruntergeladen, aber noch nicht auf Ihrer Hardware validiert. Validieren Sie es, um zu bestätigen, dass es hier läuft, bevor Sie es auswählen.",
+      "model_manager_validate_title": "Modell validieren und aktivieren",
+      "model_manager_validate_subtitle": "Bestätigen Sie, dass dieses Modell auf Ihrer Hardware läuft, und aktivieren Sie es dann zur Auswahl.",
+      "model_manager_validate_note": "Bei der Validierung wird das Modell probeweise geladen und ein Bild hindurchgeführt; anschließend wird Ihr aktuelles Modell wiederhergestellt.",
+      "model_manager_validate_stage_run": "Auf dieser Hardware validieren und optimieren",
+      "model_manager_validate_stage_enable": "Zur Auswahl aktivieren",
+      "model_manager_validate_ran_ok": "Auf {provider}{ms} ausgeführt und gültige Ausgabe erzeugt.",
+      "model_manager_validate_enabled": "Dieses Modell ist jetzt aktiv.",
       "model_manager_load_error": "Modelle konnten nicht geladen werden",
       "model_manager_status_unavailable": "Downloadstatus nicht verfügbar",
       "model_manager_status_refresh_failed": "Downloadstatus konnte nicht aktualisiert werden",
@@ -1049,11 +1130,11 @@
       "enabled": "KI-Einblicke umschalten",
       "test_connection": "KI-Verbindung testen",
       "recommended_model": "Empfohlen: {model}",
-      "get_gemini_key": "Get Google Gemini Key →",
-      "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_gemini_key": "Google-Gemini-Schlüssel anfordern →",
+      "get_openai_key": "OpenAI-Schlüssel anfordern →",
+      "get_claude_key": "Anthropic-Claude-Schlüssel anfordern →",
       "get_openrouter_key": "OpenRouter-Schlüssel holen →",
-      "openrouter_model_hint": "Geben Sie eine beliebige OpenRouter-Modell-ID ein (z. B. google/gemini-2.5-flash). Modelle finden Sie unter openrouter.ai/models."
+      "openrouter_model_hint": "Geben Sie eine beliebige OpenRouter-Modell-ID ein (z. B. google/gemini-3.1-flash-lite). Modelle finden Sie unter openrouter.ai/models."
     }
   },
   "auth": {
@@ -1070,9 +1151,17 @@
     "secure_access": "YA-WAMF Sicherer Zugriff",
     "public_view": "Öffentliche Ansicht",
     "public_viewing_mode": "Öffentlicher Ansichtsmodus",
-    "loading_status": "Authentifizierungsstatus wird geladen…",
-    "status_unavailable_desc": "Falls der Container gerade startet oder nach Modelländerungen neu gestartet wird, kurz warten und erneut versuchen.",
-    "status_unavailable_title": "YA-WAMF-Backend nicht erreichbar."
+    "loading_status": "YA-WAMF wird gestartet",
+    "loading_status_desc": "Der Dienst und die Zugriffseinstellungen werden geprüft, bevor der Feeder geöffnet wird.",
+    "status_check_eyebrow": "Dienstverbindung",
+    "status_checking_badge": "Wird geprüft",
+    "status_unavailable_badge": "Keine Antwort",
+    "status_unavailable_title": "YA-WAMF antwortet noch nicht",
+    "status_unavailable_desc": "Der Dienst wird möglicherweise nach einem Update oder Modellwechsel noch gestartet. Die Feeder-Daten bleiben sicher, während er wieder online geht.",
+    "status_unavailable_auto_retry": "YA-WAMF prüft die Verbindung automatisch alle fünf Sekunden erneut.",
+    "status_unavailable_help": "Bleibt der Dienst offline, prüfe den Containerstatus und die Startprotokolle.",
+    "status_checking_again": "Erneute Prüfung…",
+    "status_check_again": "Erneut prüfen"
   },
   "status": {
     "audio_active": "Audio-Analyse aktiv",
@@ -1431,7 +1520,59 @@
     "classification_legend": "Klassifizierungsquellen: Manuell, Video, Schnappschuss",
     "timeline_keyboard_hint": "Timeline-Tastatur: [ vorheriger Tag, ] nächster Tag, 0 zurücksetzen"
   },
+  "audio": {
+    "chart": {
+      "heard": "Gehört",
+      "daily_title": "Aktivität im Zeitverlauf",
+      "daily_sub": "Pro Tag gehörte BirdNET-Go-Erkennungen",
+      "hourly_title": "Tageszeit",
+      "species_title": "Artenverteilung",
+      "empty": "Keine Aktivität in diesem Zeitraum."
+    },
+    "stat": {
+      "heard": "Gehört",
+      "heard_sub": "Angezeigte BirdNET-Erkennungen",
+      "species": "Arten",
+      "species_sub": "Durch Audio erkannte Arten",
+      "peak_hour": "Aktivste Stunde",
+      "peak_hour_sub": "{count} Erkennungen",
+      "no_activity": "Noch keine Aktivität",
+      "sources": "Quellen",
+      "sources_sub": "Mikrofone oder Streams"
+    },
+    "filter": {
+      "window": "Zeitraum",
+      "24h": "24 Stunden",
+      "7d": "7 Tage",
+      "30d": "30 Tage",
+      "90d": "90 Tage",
+      "1y": "1 Jahr",
+      "species": "Art",
+      "source": "Quelle",
+      "min_confidence": "Mindestkonfidenz"
+    },
+    "top_species": "Am häufigsten gehörte Arten",
+    "card": { "last_heard": "Zuletzt gehört", "avg": "Ø", "max": "Max." },
+    "history": {
+      "title": "Erkennungsverlauf",
+      "sub": "Gespeicherte BirdNET-Go-Erkennungen, getrennt von visuellen Besuchen.",
+      "empty": "Keine BirdNET-Erkennungen entsprechen diesen Filtern.",
+      "showing": "{from}–{to} von {total} werden angezeigt"
+    },
+    "table": {
+      "sound": "Ton", "time": "Zeit", "species": "Art", "source": "Quelle",
+      "confidence": "Konfidenz", "open_birdnet": "In BirdNET-Go öffnen",
+      "unknown_source": "Unbekannte Quelle"
+    },
+    "sources": { "title": "Quellen", "empty": "Noch keine Quellen." }
+  },
   "leaderboard": {
+    "source_toggle": "Erkennungsquelle",
+    "source_seen": "Gesehen",
+    "source_heard": "Gehört",
+    "source_both": "Beides",
+    "audio_only": "Nur Audio",
+    "audio_only_desc": "In BirdNET-Go gehört, nicht von der Kamera gesehen",
     "title": "Spezies-Bestenliste",
     "species_count": "{count} Spezies",
     "detections_count": "{count} Erkennungen",
@@ -1712,6 +1853,7 @@
     "previous_page": "Vorherige Seite",
     "next_page": "Nächste Seite",
     "page_number": "Seite {number}",
+    "showing": "{from}–{to} von {total} werden angezeigt",
     "page_size_label": "Anzeigen:",
     "page_size_aria": "Elemente pro Seite"
   },
@@ -1857,6 +1999,9 @@
     "no_video_support": "Ihr Browser unterstützt keine Videowiedergabe."
   },
   "jobs": {
+    "frigate_media_advisory_title": "Frigate hat häufig keinen Schnappschuss für eine Erkennung",
+    "frigate_media_advisory_body": "{percent}% der letzten Erkennungen ({dropped} von {started}) wurden verworfen, weil Frigate weder Schnappschuss, Vorschaubild noch Aufnahme bereitstellte. Ursache sind meist nur kurz verfolgte Vögel, die nicht als Frigate-Ereignis bestehen bleiben, oder eine kurze Aufbewahrungsdauer für Aufnahmen.",
+    "frigate_media_advisory_link": "So lässt sich das reduzieren →",
     "title": "Aufträge",
     "subtitle": "Aktive Hintergrundaufgaben und aktuelle Ergebnisse verfolgen.",
     "open": "Aufträge öffnen",
@@ -2037,21 +2182,42 @@
   "errors": {
     "stack_trace": "Stack-Trace:"
   },
+  "update_banner": {
+    "title": "YA-WAMF {version} ist verfügbar",
+    "title_dev": "Ein neuerer Dev-Build ist verfügbar ({version})",
+    "body": "Installiert ist {current}. Laden Sie zum Aktualisieren das neue Image über Ihre Containerverwaltung.",
+    "release_notes": "Versionshinweise →",
+    "dismiss": "Ausblenden",
+    "sidebar_title": "Update verfügbar: {version}",
+    "sidebar_label": "Update verfügbar"
+  },
   "header": {
+    "cameras_all_offline": "Alle Kameras sind offline",
+    "cameras_all_online": "Alle Kameras sind online",
+    "cameras_checking": "Kameras werden geprüft…",
     "cameras_empty": "Keine Kameras konfiguriert. Kameras unter Einstellungen → Verbindung hinzufügen.",
+    "cameras_frame_alt": "Aktuelles Bild von {camera}",
+    "cameras_frame_unavailable": "Bild nicht verfügbar",
     "cameras_label": "Kamerastatus",
+    "cameras_next": "Nächste Kamera",
     "cameras_no_frame": "Kein Bild",
     "cameras_none": "Keine Kameras konfiguriert",
     "cameras_online": "Kameras online",
+    "cameras_previous": "Vorherige Kamera",
+    "cameras_retry": "Erneut versuchen",
     "cameras_role_feeder": "Futterstelle",
     "cameras_role_feeder_help": "Futterstellen-Kamera — jedes Frigate-Ereignis ist ein neuer Besuch.",
     "cameras_role_nest": "Nest",
     "cameras_role_nest_help": "Nestkasten-Kamera — wiederholte Erkennungen werden im konfigurierten Zeitfenster zusammengefasst.",
-    "cameras_status_offline": "Kein aktuelles Bild",
+    "cameras_some_online": "Einige Kameras benötigen Aufmerksamkeit",
+    "cameras_status_offline": "Offline",
     "cameras_status_online": "Online",
-    "cameras_title": "Kameras"
+    "cameras_status_unavailable": "Kamerastatus nicht verfügbar",
+    "cameras_title": "Kameras",
+    "cameras_viewer": "Live-Kameraansicht"
   },
   "page_subtitle": {
+    "audio_history": "Gespeicherte BirdNET-Go-Erkennungen und reine Audioaktivität durchsuchen.",
     "about": "Version, Changelog, Mitwirkende und Support-Links.",
     "dashboard": "Live-Erkennungen, jüngste Aktivität und Futterstellen-Status auf einen Blick.",
     "events": "Jeden klassifizierten Besuch durchsuchen, filtern und verwalten.",

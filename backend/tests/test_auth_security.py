@@ -186,6 +186,19 @@ class TestInputValidation:
         assert any("at least one letter and one number" in str(err) for err in errors)
 
     @pytest.mark.asyncio
+    async def test_initial_setup_password_rejects_more_than_72_utf8_bytes(self, client: httpx.AsyncClient):
+        settings.auth.password_hash = None
+        settings.auth.initial_setup_complete = False
+
+        response = await client.post(
+            "/api/auth/initial-setup",
+            json={"username": "admin", "password": "A1" + ("é" * 36), "enable_auth": True},
+        )
+
+        assert response.status_code == 422
+        assert "72 UTF-8 bytes or fewer" in response.text
+
+    @pytest.mark.asyncio
     async def test_initial_setup_valid_password(self, client: httpx.AsyncClient):
         """Test that valid passwords are accepted."""
         settings.auth.password_hash = None

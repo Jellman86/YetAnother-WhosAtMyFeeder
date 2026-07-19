@@ -11,6 +11,7 @@ describe('App dashboard navigation refresh', () => {
 
     it('keys the dashboard component by that refresh counter', () => {
         expect(appSource).toContain('{#key dashboardRefreshKey}');
-        expect(appSource).toContain('<Dashboard onnavigate={navigate} />');
+        expect(appSource).toContain('loader={loadDashboardPage}');
+        expect(appSource).toContain('props={{ onnavigate: navigate }}');
     });
 });

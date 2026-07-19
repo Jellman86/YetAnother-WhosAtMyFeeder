@@ -37,7 +37,11 @@
     });
 </script>
 
-<SettingsCard icon="♿" title={$_('settings.accessibility.title')}>
+{#snippet accessibilityIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="4" r="2" /><path d="M4 9h16m-8 0v12m0-7-4 7m4-7 4 7" /></svg>
+{/snippet}
+
+<SettingsCard accent iconSnippet={accessibilityIcon} title={$_('settings.accessibility.title')}>
     <SettingsRow
         labelId="setting-high-contrast"
         label={$_('settings.accessibility.high_contrast')}

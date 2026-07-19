@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Inspect leaderboard images and capture failures."""
+
 import argparse
 import json
 import time
@@ -52,9 +53,7 @@ def run(url: str, output: str, wait_seconds: float) -> None:
             )
 
         def on_pageerror(err):
-            results["pageerrors"].append(
-                {"timestamp": utc_now_iso(), "message": str(err)}
-            )
+            results["pageerrors"].append({"timestamp": utc_now_iso(), "message": str(err)})
 
         def on_request_failed(request):
             failure = request.failure
@@ -113,7 +112,7 @@ def run(url: str, output: str, wait_seconds: float) -> None:
             "broken": sum(1 for i in images if i.get("complete") and i.get("width", 0) == 0),
         }
 
-        page.screenshot(path=str(out_path.with_suffix('.png')), full_page=True)
+        page.screenshot(path=str(out_path.with_suffix(".png")), full_page=True)
         browser.close()
 
     with out_path.open("w", encoding="utf-8") as f:

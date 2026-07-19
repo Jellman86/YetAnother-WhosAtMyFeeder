@@ -15,3 +15,7 @@ gaps, is in
 [`docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md`](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md).
 
 Everyday work happens on `dev`. Follow the commit rules in `CLAUDE.md` §10.
+
+Release notes follow the human-first standard in
+[`docs/development/releasing.md`](docs/development/releasing.md) and use
+[`.github/RELEASE_NOTES_TEMPLATE.md`](.github/RELEASE_NOTES_TEMPLATE.md).

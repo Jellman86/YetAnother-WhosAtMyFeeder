@@ -1,4 +1,5 @@
 import json
+from unittest.mock import AsyncMock
 
 import httpx
 import pytest
@@ -10,6 +11,7 @@ from app.main import app
 from app.routers import settings as settings_router
 from app.routers import backfill as backfill_router
 from app.services.maintenance_coordinator import maintenance_coordinator
+from app.services.ai_service import AIConnectionTestResult
 
 
 @pytest_asyncio.fixture
@@ -182,6 +184,17 @@ async def test_settings_allows_enabling_auth_with_password(client: httpx.AsyncCl
     assert settings.auth.enabled is True
     assert settings.auth.username == "root"
     assert settings.auth.password_hash is not None
+
+
+@pytest.mark.asyncio
+async def test_settings_rejects_new_password_over_72_utf8_bytes(client: httpx.AsyncClient):
+    response = await client.post(
+        "/api/settings",
+        json={"auth_password": "A1" + ("é" * 36)},
+    )
+
+    assert response.status_code == 422
+    assert "72 UTF-8 bytes or fewer" in response.text
 
 
 @pytest.mark.asyncio
@@ -1396,3 +1409,66 @@ async def test_settings_update_rejects_invalid_classification_payload(
     assert post_resp.status_code == 422, post_resp.text
     detail = post_resp.json().get("detail", [])
     assert any(item.get("loc", [])[-1] == expected_field for item in detail)
+
+
+@pytest.mark.asyncio
+async def test_llm_diagnostic_returns_structured_success(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    test_connection = AsyncMock(return_value=AIConnectionTestResult(True, "AI test succeeded.", 200))
+    monkeypatch.setattr(settings_router.AIService, "test_connection", test_connection)
+
+    response = await client.post(
+        "/api/settings/llm/test",
+        json={
+            "llm_enabled": True,
+            "llm_provider": "openrouter",
+            "llm_model": "nvidia/test-vision",
+            "llm_api_key": "sk-or-test",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "ok",
+        "message": "AI test succeeded.",
+        "provider": "openrouter",
+        "model": "nvidia/test-vision",
+        "frame_count": 5,
+        "failure_stage": None,
+        "retryable": False,
+        "retry_after_seconds": None,
+    }
+
+
+@pytest.mark.asyncio
+async def test_llm_diagnostic_preserves_retryable_503(client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    test_connection = AsyncMock(
+        return_value=AIConnectionTestResult(
+            False,
+            "No provider is currently available.",
+            503,
+            failure_stage="provider",
+            retryable=True,
+            retry_after_seconds=15,
+        )
+    )
+    monkeypatch.setattr(settings_router.AIService, "test_connection", test_connection)
+
+    response = await client.post(
+        "/api/settings/llm/test",
+        json={
+            "llm_enabled": True,
+            "llm_provider": "openrouter",
+            "llm_model": "nvidia/test-vision",
+            "llm_api_key": "sk-or-test",
+        },
+    )
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["failure_stage"] == "provider"
+    assert payload["retryable"] is True
+    assert payload["retry_after_seconds"] == 15

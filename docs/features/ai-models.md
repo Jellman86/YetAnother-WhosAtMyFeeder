@@ -8,9 +8,33 @@ You can manage models directly from the **Settings > Detection > Model Manager**
 - Wildlife-wide ONNX models for broad species coverage
 - Birds-only regional and global models for cleaner feeder-focused confidence
 - A legacy TFLite fallback for very constrained CPU-only systems
-- Separately managed bird-crop detector tiers used by crop-enabled models
+- Separately managed bird-crop detector tiers for generated thumbnails and automatic localization
 
 > **Platform note:** Raspberry Pi compatibility is currently a best-effort ARM64 target and has not yet been validated on physical Pi hardware in this project environment.
+
+### Validate before you select (post-install gate)
+
+A downloaded model is *installed* (files present) but not yet *validated* (proven to run on your
+specific hardware). Setting up a model runs through one guided wizard — the same staged dialog used
+by the connection tests — with three stages:
+
+1. **Download** — fetches the model with live progress shown in the dialog (skipped when the model
+   is already downloaded).
+2. **Run on this hardware** — trial-loads the model and pushes a few frames through it on this host,
+   checking it produces finite output (not NaN/garbage on an unsupported accelerator) and reporting
+   the per-frame inference latency.
+3. **Find fastest device** — sweeps this host's inference devices (CPU / Intel GPU / NPU) with each
+   compile isolated in a subprocess, then sets your inference provider to the fastest one that
+   passed. Hosts with no accelerator simply stay on CPU/Auto; a busy or unavailable sweep is
+   non-fatal and leaves your current setting untouched.
+4. **Enable for selection** — makes it active, restoring your previous model if validation fails.
+
+A model that has never been validated on this host shows **Validate to enable** instead of **Use
+this model**, and the API rejects activating it (`409`). The model already running and bundled
+models are grandfathered, so upgrading never blocks a working install. Validation works on every
+host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO — because it exercises the real classifier on
+whatever provider your machine resolves. On Intel/OpenVINO hosts the [device compatibility
+sweep](model-evaluation.md) also clears the gate.
 
 ## Inference Providers (CPU / CUDA / Intel OpenVINO)
 
@@ -54,7 +78,9 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 #### Recommended: RoPE ViT-B14 (Default)
 - **Format:** ONNX, 375MB
 - **Accuracy:** ~70% top-1, 87% top-5 (10,000 species)
-- **Speed:** ~474ms on Intel CPU
+- **Speed:** ~312ms on the validated Arrow Lake Intel GPU; performance varies by host
+- **Acceleration:** Intel GPU and NPU validated on Arrow Lake with OpenVINO 2026.2.1; older Intel
+  combinations must pass the built-in per-host validation before use
 - **Best for:** General-purpose wildlife identification. This is the configured default model for new installs.
 
 #### Large: ConvNeXt Large
@@ -77,8 +103,10 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - `Medium Birds` trades more RAM for stronger regional accuracy.
 
 #### Advanced Birds-Only Options
-- **FocalNet-B EU Medium:** 707-species European birds-only model with validated CPU, Intel CPU, and Intel GPU support.
-- **FlexiViT Global Birds:** compact birds-only model for global or unsupported regions, with CPU and Intel CPU validation.
+- **FocalNet-B EU Medium:** 707-species European birds-only model with validated CPU, Intel CPU,
+  Intel GPU, and Intel NPU support.
+- **FlexiViT Global Birds:** compact birds-only model for global or unsupported regions, with CPU,
+  Intel CPU, and Intel NPU validation.
 
 #### Legacy TFLite (MobileNet V2)
 - **Format:** TFLite — runs on CPU-only systems without ONNX Runtime
@@ -88,10 +116,33 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 
 #### Bird Crop Detector Tiers
 - Managed in the same Model Manager as classifier models.
+- Shown separately as **Cropped thumbnails**, not as a classifier model option. Crop generation and
+  classifier crop-on/off policy are both automatic.
 - `Fast` is the default SSD-MobileNet crop detector. It is CPU-friendly and remains the safe fallback path.
-- `Accurate` is the experimental YOLOX-Tiny crop detector tier. It is optional, CPU-first, and automatically falls back to `Fast` if the accurate artifact is missing or unhealthy.
-- Crop-enabled classifier models require at least one installed crop detector.
+- `Accurate` is the experimental YOLOX-Tiny crop detector tier. It is optional, CPU-first, and
+  automatically retries with `Fast` when the artifact is unavailable or when accurate inference
+  cannot produce a usable crop (including no candidate, low confidence, an undersized/invalid box,
+  or inference failure).
+- Generated crops try `Accurate` first and `Fast` second. Crop-enabled classifier models use the same
+  detector fallback while retaining their separately validated crop-on/off policy. The legacy tier
+  setting remains API-compatible but no longer lowers the automatic quality path.
 - The accurate tier is intended to reduce missed or clipped bird crops in busy feeder scenes, but it should still be treated as experimental until more fixture and real-world benchmarks are published.
+
+#### Best-available event snapshots
+
+**Settings → Data → Snapshot quality → Best available event snapshots** is an automatic outcome,
+not a source selector. When enabled, YA-WAMF samples up to three promising main-stream clip frames,
+builds a full-frame candidate plus every valid Frigate-hint and detector crop, reclassifies the
+candidates, and makes the strongest crop canonical. The full high-quality frame is used only when no
+crop source yields a valid image. The old `bird_crop_source_priority` and
+`media_cache_high_quality_event_snapshot_bird_crop` fields remain readable/writable for API and
+configuration compatibility, but do not override this policy.
+
+The pipeline is fail-soft: the accurate detector retries through the fast detector, a detector miss
+can still use Frigate's tracked-object box, and total crop failure keeps the clear full frame. Recent
+events without generated candidates are reconciled after restart so an in-memory queue loss does not
+permanently strand their upgrade. `/health` exposes `high_quality_snapshots.crop_policy`, selected
+source counts, outcomes, and the recovered-job total for operational verification.
 
 ## Automatic Video Analysis (Deep Analysis)
 In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background task scans the full video clip frame-by-frame (temporal ensemble) to verify the identification.
@@ -108,8 +159,17 @@ If **"Trust Frigate Sublabels"** is enabled, the system will bypass its own AI c
 For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Language Model (LLM) to generate a "Naturalist Note".
 
 - **Default Provider:** Google Gemini
-- **Settings UI recommendation:** `gemini-2.5-flash`
-- **Other current presets in the UI:** OpenAI `gpt-5.4`, Claude `claude-sonnet-4-6`, and OpenRouter `google/gemini-2.5-flash`
+- **Settings UI recommendation:** `gemini-3.1-flash-lite`
+- **Other current presets in the UI:** OpenAI `gpt-5.6`, Claude `claude-opus-4-8`, and OpenRouter `google/gemini-3.1-flash-lite`
 - **OpenRouter behavior:** the UI shows a few presets, but accepts any non-empty OpenRouter model ID.
 
 The LLM analyzes the image context (weather, behavior, plumage) and provides a short, educational summary of what the bird is doing. This feature requires an API key.
+
+Use **Settings → AI → Test AI Connection** before analyzing detections. The diagnostic opens a
+multi-stage result panel covering configuration, provider availability, vision support,
+multi-frame admission, and response generation. It sends five generated 1280×720 JPEG frames,
+matching the count, dimensions, media format, and approximate payload size of the default detection
+analysis without requiring a live event. A successful diagnostic therefore proves that the model
+accepts a representative production request, but it is not a provider load benchmark. Rate limits
+and temporary provider unavailability remain retryable; when the provider supplies `Retry-After`,
+the panel shows it.

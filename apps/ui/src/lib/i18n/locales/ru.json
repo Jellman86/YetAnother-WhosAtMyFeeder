@@ -9,6 +9,7 @@
     "dashboard": "Дашборд",
     "explorer": "Просмотр",
     "leaderboard": "Рейтинг",
+    "audio_history": "История аудио",
     "settings": "Настройки",
     "about": "О проекте",
     "toggle_menu": "Переключить меню",
@@ -94,8 +95,11 @@
       "empty_title": "Нет аудио-обнаружений в буфере",
       "empty_subtitle": "Буфер очищается каждые 5 мин",
       "unknown_sensor": "Неизвестный датчик",
+      "open_history": "Открыть историю аудио",
       "open_birdnet": "Открыть BirdNET-Go",
-      "open_in_birdnet": "Открыть обнаружение в BirdNET-Go"
+      "open_in_birdnet": "Открыть обнаружение в BirdNET-Go",
+      "heard_today": "услышано",
+      "species": "видов"
     },
     "top_visitors_title": "Частые посетители",
     "top_visitors_empty": "Сегодня посетители ещё не зафиксированы.",
@@ -144,6 +148,9 @@
     "all": "Все",
     "available": "Доступно",
     "clear": "Очистить",
+    "apply": "Применить",
+    "previous": "Назад",
+    "next": "Далее",
     "clearing": "Очистка...",
     "disabled": "Отключено",
     "enabled": "Включено",
@@ -157,7 +164,8 @@
     "no": "Нет",
     "download": "Скачать",
     "skip_to_content": "Перейти к содержимому",
-    "working": "Выполняется…"
+    "working": "Выполняется…",
+    "language_load_error": "Не удалось загрузить этот язык. Проверьте подключение и повторите попытку."
   },
   "error": {
     "boundary_title": "Что-то пошло не так",
@@ -166,6 +174,12 @@
     "try_again": "Повторить",
     "copy_details": "Скопировать сведения об ошибке",
     "reload_page": "Перезагрузить страницу"
+  },
+  "route_load": {
+    "loading": "Открывается {page}…",
+    "error_title": "Не удалось открыть эту страницу",
+    "error_description": "Файл страницы не загрузился. Проверьте подключение и повторите попытку.",
+    "retry": "Попробовать открыть снова"
   },
   "settings": {
     "title": "Настройки",
@@ -196,11 +210,21 @@
       "accessibility": "Доступность",
       "debug": "Debug",
       "enrichment": "Обогащение",
-      "ai": "ИИ"
+      "ai": "ИИ",
+      "groups": {
+        "pipeline": "Процесс кормушки",
+        "intelligence": "Аналитика и обмен",
+        "operations": "Управление",
+        "interface": "Интерфейс"
+      }
     },
     "debug": {
       "title": "Инструменты отладки",
       "subtitle": "Дополнительные переключатели для тестов и диагностики.",
+      "model_eval_title": "Инструмент оценки моделей",
+      "model_eval_desc": "Проверьте установленные классификаторы на таксономически подтверждённых изображениях птиц. Артефакты сохраняются в /config/yawamf-eval/.",
+      "model_eval_action_desc": "Запустите проверки точности, задержки и корректности для каждой установленной модели. Только для владельца.",
+      "model_eval_open": "Открыть",
       "llm_prompts_title": "Шаблоны промптов LLM",
       "llm_prompts_subtitle": "Настройте структуру Markdown и тон для AI‑анализа и бесед.",
       "llm_prompt_style_label": "Стиль промпта",
@@ -458,6 +482,8 @@
       "payload_nvidia_gpu_detected": "GPU NVIDIA обнаружен",
       "payload_openvino_available": "OpenVINO доступен",
       "payload_intel_gpu_available": "GPU Intel доступен",
+      "payload_intel_npu_available": "NPU Intel доступен",
+      "dashboard_link": "Открыть публичную панель телеметрии",
       "payload_openvino_compile": "Компиляция GPU OpenVINO",
       "payload_openvino_device": "Устройство OpenVINO",
       "payload_gpu_fallback": "Резерв GPU активен",
@@ -674,6 +700,7 @@
       "clear_feedback_confirm": "Вы действительно хотите удалить все данные персонализированного ре-ранжирования? ИИ вернётся к базовой точности, и это нельзя отменить."
     },
     "data": {
+      "tools_title": "Настройка, резервное копирование и обслуживание",
       "title": "Управление данными",
       "records": "Всего записей",
       "oldest": "Самая старая запись",
@@ -803,13 +830,15 @@
       "backfill_validation_order": "Дата начала должна быть раньше или равна дате окончания.",
       "backfill_validation_select_both": "Выберите и дату начала, и дату окончания.",
       "batch_analysis_recent_failures": "Недавние ошибки",
-      "cache_high_quality_event_snapshots": "HQ-снимки событий",
-      "cache_high_quality_event_snapshots_help": "Позже заменяет снимки Frigate кадром из клипа основного потока.",
-      "cache_high_quality_event_snapshot_bird_crop": "HQ-кадры с обрезкой птицы",
-      "cache_high_quality_event_snapshot_bird_crop_help": "Использует детектор обрезки птицы на HQ-кадрах. Если обрезка не найдена, используется полный HQ-кадр.",
+      "cache_high_quality_event_snapshots": "Лучшие доступные снимки событий",
+      "cache_high_quality_event_snapshots_help": "После завершения события выбирает самый чёткий кадр основного потока и лучшую доступную обрезку. Если надёжная обрезка невозможна, сохраняется полный кадр.",
+      "cache_crop_detector_ready": "Детектор обрезки готов",
+      "cache_crop_fallback_ready": "Резервное отслеживание Frigate готово",
+      "cache_crop_detector_ready_help": "Подсказки отслеживания Frigate и детекторы обрезки оцениваются автоматически.",
+      "cache_crop_fallback_ready_help": "Подсказки отслеживания Frigate используются автоматически; обрезки детектора добавляются после установки модели.",
       "batch_analysis_complete": "Пакетный анализ завершён",
       "advanced_title": "Обслуживание и целостность медиа",
-      "cache_advanced_title": "Высококачественные снимки и качество"
+      "cache_advanced_title": "Качество снимков"
     },
     "security": {
       "title": "Безопасность",
@@ -919,6 +948,20 @@
       "model_manager_runtime_tflite": "Статус TFLite Runtime",
       "model_manager_runtime_onnx": "Статус ONNX Runtime",
       "model_manager_refresh": "Обновить",
+      "model_manager_select_label": "Выберите модель распознавания",
+      "model_manager_best_fit": "Лучшее применение",
+      "model_manager_download_size": "Загрузка и память",
+      "model_manager_technical_details": "Технические сведения",
+      "model_manager_crop_policy_automatic": "Подготовка изображения выполняется автоматически",
+      "model_manager_crop_policy_automatic_desc": "YA-WAMF использует проверенную для этой модели политику кадрирования. При смене модели ничего настраивать не нужно.",
+      "model_manager_thumbnail_crop_title": "Кадрированные миниатюры",
+      "model_manager_thumbnail_crop_quality": "Автоматически лучшее качество",
+      "model_manager_thumbnail_crop_desc": "YA-WAMF автоматически оценивает точный детектор, быстрый резервный вариант и подсказки отслеживания Frigate; чёткий полный кадр используется только если ни один из них не даёт надёжную обрезку.",
+      "model_manager_runtime_health": "Состояние среды выполнения",
+      "model_manager_image_preparation": "Подготовка изображения",
+      "model_manager_detector_ready": "Готово",
+      "model_manager_detector_missing": "Требуется загрузка",
+      "model_manager_download_detector": "Загрузить детектор",
       "model_manager_lineup_title": "Линейка моделей по уровням",
       "model_manager_lineup_desc": "Рекомендуемые модели показываются первыми. Продвинутые варианты остаются скрытыми, пока вы их не откроете.",
       "model_manager_hide_advanced": "Скрыть продвинутые модели",
@@ -943,6 +986,26 @@
       "model_manager_redownload": "Загрузить заново",
       "model_manager_download": "Скачать",
       "model_manager_activate_error": "Не удалось активировать модель",
+      "model_manager_validate_to_enable": "Проверить для включения",
+      "model_manager_download_setup": "Загрузить и настроить",
+      "model_manager_install_title": "Настроить модель",
+      "model_manager_install_subtitle": "Загрузите, проверьте на своём оборудовании и включите эту модель.",
+      "model_manager_install_note": "Каждый шаг выполняется на вашем оборудовании. Ничего не активируется, пока проверка не пройдена.",
+      "model_manager_install_stage_download": "Загрузить модель",
+      "model_manager_device_sweeping": "Сравнение ваших устройств…",
+      "model_manager_device_set": "Самое быстрое устройство: {provider}{ms} — установлено как устройство вывода.",
+      "model_manager_installing_pct": "Загрузка… {pct}%",
+      "model_manager_install_downloaded": "Загружено и проверено.",
+      "model_manager_install_already_downloaded": "Уже загружено.",
+      "model_manager_validate_failed": "Проверка не пройдена.",
+      "model_manager_validation_needed": "Загружено, но ещё не проверено на вашем оборудовании. Проверьте, чтобы убедиться, что модель работает здесь, прежде чем выбирать её.",
+      "model_manager_validate_title": "Проверить и включить модель",
+      "model_manager_validate_subtitle": "Убедитесь, что эта модель работает на вашем оборудовании, затем включите её для выбора.",
+      "model_manager_validate_note": "При проверке модель пробно загружается и через неё пропускается один кадр, после чего восстанавливается ваша текущая модель.",
+      "model_manager_validate_stage_run": "Проверить и настроить на этом оборудовании",
+      "model_manager_validate_stage_enable": "Включить для выбора",
+      "model_manager_validate_ran_ok": "Запущено на {provider}{ms}, получен корректный вывод.",
+      "model_manager_validate_enabled": "Эта модель теперь активна.",
       "model_manager_load_error": "Не удалось загрузить модели",
       "model_manager_status_unavailable": "Статус загрузки недоступен",
       "model_manager_status_refresh_failed": "Не удалось обновить статус загрузки",
@@ -1027,11 +1090,11 @@
       "enabled": "Включить ИИ-аналитику",
       "test_connection": "Проверить подключение к ИИ",
       "recommended_model": "Рекомендуется: {model}",
-      "get_gemini_key": "Get Google Gemini Key →",
-      "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_gemini_key": "Получить ключ Google Gemini →",
+      "get_openai_key": "Получить ключ OpenAI →",
+      "get_claude_key": "Получить ключ Anthropic Claude →",
       "get_openrouter_key": "Получить ключ OpenRouter →",
-      "openrouter_model_hint": "Введите любой ID модели OpenRouter (например, google/gemini-2.5-flash). Просмотрите модели на openrouter.ai/models."
+      "openrouter_model_hint": "Введите любой ID модели OpenRouter (например, google/gemini-3.1-flash-lite). Просмотрите модели на openrouter.ai/models."
     },
     "ai": {
       "usage_title": "Панель использования ИИ",
@@ -1061,6 +1124,24 @@
       "table_cost": "Стоимость",
       "view_reference_pricing": "Открыть эталонные цены →",
       "usage_load_error": "Не удалось загрузить данные использования ИИ.",
+      "test_title": "Диагностика модели ИИ",
+      "test_subtitle": "Проверяет тот же многокадровый формат изображений, который используется при анализе обнаружений.",
+      "test_stage_configuration": "Конфигурация",
+      "test_stage_provider": "Доступность провайдера",
+      "test_stage_vision": "Ввод изображений",
+      "test_stage_multiframe": "Многокадровый запрос",
+      "test_stage_response": "Ответ модели",
+      "test_configuration_ok": "Провайдер, модель и учётные данные указаны.",
+      "test_contacting": "Отправляется ограниченный диагностический запрос…",
+      "test_pending": "Ожидание ответа провайдера.",
+      "test_multiframe_ok": "В одном запросе принято кадров JPEG: {count}.",
+      "test_stage_ok": "Пройдено",
+      "test_skipped": "Не выполнено из-за ошибки на предыдущем этапе.",
+      "test_running": "Проверка",
+      "test_retry_after": "Провайдер рекомендует повторить попытку через {seconds} секунд.",
+      "test_probe_note": "Тест отправляет пять репрезентативных JPEG-кадров 1280 × 720, повторяя количество, размеры и примерный объём реального запроса на анализ.",
+      "test_retry": "Запустить тест снова",
+      "test_network_error": "Диагностический запрос не смог связаться с YA-WAMF.",
       "advanced_title": "Цены и шаблоны промптов"
     }
   },
@@ -1078,9 +1159,17 @@
     "secure_access": "YA-WAMF Безопасный доступ",
     "public_view": "Публичный просмотр",
     "public_viewing_mode": "Режим публичного просмотра",
-    "loading_status": "Загрузка статуса аутентификации…",
-    "status_unavailable_desc": "Если контейнер всё ещё запускается или перезапускается после смены модели, подождите немного и повторите попытку.",
-    "status_unavailable_title": "Не удалось связаться с бэкендом YA-WAMF."
+    "loading_status": "Запуск YA-WAMF",
+    "loading_status_desc": "Проверяем сервис и параметры доступа перед открытием кормушки.",
+    "status_check_eyebrow": "Подключение к сервису",
+    "status_checking_badge": "Проверка",
+    "status_unavailable_badge": "Нет ответа",
+    "status_unavailable_title": "YA-WAMF пока не отвечает",
+    "status_unavailable_desc": "Возможно, сервис ещё запускается после обновления или смены модели. Данные кормушки останутся в безопасности, пока он возвращается в сеть.",
+    "status_unavailable_auto_retry": "YA-WAMF автоматически повторяет проверку каждые пять секунд.",
+    "status_unavailable_help": "Если сервис остаётся офлайн, проверьте состояние контейнера и журналы запуска.",
+    "status_checking_again": "Повторная проверка…",
+    "status_check_again": "Проверить снова"
   },
   "status": {
     "audio_active": "Аудиоанализ активен",
@@ -1439,7 +1528,42 @@
     "classification_legend": "Источник классификации: вручную, видео, снимок",
     "timeline_keyboard_hint": "Клавиши таймлайна: [ предыдущий день, ] следующий день, 0 сброс"
   },
+  "audio": {
+    "chart": {
+      "heard": "Услышано", "daily_title": "Активность во времени",
+      "daily_sub": "Аудиообнаружения BirdNET-Go по дням", "hourly_title": "Время суток",
+      "species_title": "Распределение видов", "empty": "В этом периоде нет активности."
+    },
+    "stat": {
+      "heard": "Услышано", "heard_sub": "Показанные обнаружения BirdNET", "species": "Виды",
+      "species_sub": "Виды, определённые по аудио", "peak_hour": "Пиковый час",
+      "peak_hour_sub": "{count} обнаружений", "no_activity": "Активности пока нет",
+      "sources": "Источники", "sources_sub": "Микрофоны или потоки"
+    },
+    "filter": {
+      "window": "Период", "24h": "24 часа", "7d": "7 дней", "30d": "30 дней",
+      "90d": "90 дней", "1y": "1 год", "species": "Вид", "source": "Источник",
+      "min_confidence": "Мин. уверенность"
+    },
+    "top_species": "Чаще всего услышанные виды",
+    "card": { "last_heard": "Последний раз", "avg": "сред.", "max": "макс." },
+    "history": {
+      "title": "История обнаружений",
+      "sub": "Сохранённые обнаружения BirdNET-Go, отдельно от визуальных визитов.",
+      "empty": "Нет обнаружений BirdNET, соответствующих этим фильтрам.",
+      "showing": "Показано {from}–{to} из {total}"
+    },
+    "table": {
+      "sound": "Звук", "time": "Время", "species": "Вид", "source": "Источник",
+      "confidence": "Уверенность", "open_birdnet": "Открыть в BirdNET-Go",
+      "unknown_source": "Неизвестный источник"
+    },
+    "sources": { "title": "Источники", "empty": "Источников пока нет." }
+  },
   "leaderboard": {
+    "source_toggle": "Источник обнаружения", "source_seen": "Увидено", "source_heard": "Услышано",
+    "source_both": "Оба", "audio_only": "Только аудио",
+    "audio_only_desc": "Услышано в BirdNET-Go, но не замечено камерой",
     "title": "Рейтинг видов",
     "species_count": "{count} видов",
     "detections_count": "{count} обнаружений",
@@ -1720,6 +1844,7 @@
     "previous_page": "Предыдущая страница",
     "next_page": "Следующая страница",
     "page_number": "Страница {number}",
+    "showing": "Показано {from}–{to} из {total}",
     "page_size_label": "Показать:",
     "page_size_aria": "Элементов на странице"
   },
@@ -1857,6 +1982,9 @@
     "no_video_support": "Ваш браузер не поддерживает воспроизведение видео."
   },
   "jobs": {
+    "frigate_media_advisory_title": "Для обнаружения часто нет снимка Frigate",
+    "frigate_media_advisory_body": "{percent}% недавних обнаружений ({dropped} из {started}) были отброшены, потому что в Frigate не было снимка, миниатюры или записи. Обычно это кратковременно отслеживаемые птицы, которые не сохраняются как события Frigate, либо результат короткого срока хранения записей.",
+    "frigate_media_advisory_link": "Как уменьшить число таких случаев →",
     "title": "Задачи",
     "subtitle": "Следите за активными фоновыми задачами и последними результатами.",
     "open": "Открыть задачи",
@@ -2037,21 +2165,42 @@
   "errors": {
     "stack_trace": "Трассировка стека:"
   },
+  "update_banner": {
+    "title": "Доступна YA-WAMF {version}",
+    "title_dev": "Доступна более новая сборка для разработки ({version})",
+    "body": "Сейчас используется {current}. Для обновления загрузите новый образ через менеджер контейнеров.",
+    "release_notes": "Примечания к выпуску →",
+    "dismiss": "Скрыть",
+    "sidebar_title": "Доступно обновление: {version}",
+    "sidebar_label": "Доступно обновление"
+  },
   "header": {
+    "cameras_all_offline": "Все камеры не в сети",
+    "cameras_all_online": "Все камеры в сети",
+    "cameras_checking": "Проверка камер…",
     "cameras_empty": "Камеры не настроены. Добавьте их в Настройки → Подключение.",
+    "cameras_frame_alt": "Последний кадр с камеры {camera}",
+    "cameras_frame_unavailable": "Кадр недоступен",
     "cameras_label": "Состояние камер",
+    "cameras_next": "Следующая камера",
     "cameras_no_frame": "Нет кадра",
     "cameras_none": "Камеры не настроены",
     "cameras_online": "камер в сети",
+    "cameras_previous": "Предыдущая камера",
+    "cameras_retry": "Повторить",
     "cameras_role_feeder": "Кормушка",
     "cameras_role_feeder_help": "Камера у кормушки — каждое событие Frigate — это новый визит.",
     "cameras_role_nest": "Гнездо",
     "cameras_role_nest_help": "Камера у гнездового домика — повторные обнаружения объединяются в заданном окне.",
-    "cameras_status_offline": "Нет недавнего кадра",
+    "cameras_some_online": "Некоторые камеры требуют внимания",
+    "cameras_status_offline": "Не в сети",
     "cameras_status_online": "В сети",
-    "cameras_title": "Камеры"
+    "cameras_status_unavailable": "Состояние камер недоступно",
+    "cameras_title": "Камеры",
+    "cameras_viewer": "Просмотр камер в реальном времени"
   },
   "page_subtitle": {
+    "audio_history": "Просматривайте сохранённые обнаружения BirdNET-Go и активность только по аудио.",
     "about": "Версия, журнал изменений, участники и ссылки поддержки.",
     "dashboard": "Обнаружения в реальном времени, недавняя активность и состояние кормушки одним взглядом.",
     "events": "Просматривайте, фильтруйте и управляйте каждым классифицированным визитом.",

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import { _ } from 'svelte-i18n';
   import { get } from 'svelte/store';
   import ErrorBoundary from './lib/components/ErrorBoundary.svelte';
@@ -7,20 +7,17 @@
   import Sidebar from './lib/components/Sidebar.svelte';
   import Footer from './lib/components/Footer.svelte';
   import PageHeader from './lib/components/PageHeader.svelte';
-  import TelemetryBanner from './lib/components/TelemetryBanner.svelte';
+  import UpdateBanner from './lib/components/UpdateBanner.svelte';
+  import UpdateIndicator from './lib/components/UpdateIndicator.svelte';
   import Toast from './lib/components/Toast.svelte';
   import KeyboardShortcuts from './lib/components/KeyboardShortcuts.svelte';
   import ConnectionStatus from './lib/components/ConnectionStatus.svelte';
-  import Dashboard from './lib/pages/Dashboard.svelte';
-  import Events from './lib/pages/Events.svelte';
-  import Species from './lib/pages/Species.svelte';
-  import AudioHistory from './lib/pages/AudioHistory.svelte';
-  import Settings from './lib/pages/Settings.svelte';
-  import About from './lib/pages/About.svelte';
-  import Notifications from './lib/pages/Notifications.svelte';
-  import ModelEvaluation from './lib/pages/ModelEvaluation.svelte';
+  import BackendStatusScreen from './lib/components/BackendStatusScreen.svelte';
+  import LazyRoute from './lib/components/LazyRoute.svelte';
   import Login from './lib/components/Login.svelte';
   import FirstRunWizard from './lib/pages/FirstRunWizard.svelte';
+  import WizardShell from './lib/components/setup/WizardShell.svelte';
+  import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
   import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
@@ -31,6 +28,7 @@
   import { jobProgressStore } from './lib/stores/job_progress.svelte';
   import { jobDiagnosticsStore } from './lib/stores/job_diagnostics.svelte';
   import { incidentWorkspaceStore } from './lib/stores/incident_workspace.svelte';
+  import { analysisQueueStatusStore } from './lib/stores/analysis_queue_status.svelte';
   import { toastStore } from './lib/stores/toast.svelte';
   import { notificationPolicy } from './lib/notifications/policy';
   import { announcer } from './lib/components/Announcer.svelte';
@@ -40,6 +38,7 @@
   import { logger } from './lib/utils/logger';
   import { LiveUpdateCoordinator } from './lib/app/live-updates';
   import { createDeployRecovery } from './lib/app/deploy-recovery';
+  import { createRetryablePageLoader } from './lib/app/page-loader';
   import {
       canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
@@ -48,9 +47,19 @@
       isNotificationRoute
   } from './lib/app/notifications_route';
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
+  import { createCooldownSingleFlightRunner, createSingleFlightRunner } from './lib/app/single-flight';
   import { refreshCoordinator } from './lib/stores/refresh_coordinator.svelte';
   import { pageRefreshAction } from './lib/stores/page_refresh_action.svelte';
   import { appApiPath, fromAppPath, toAppPath } from './lib/app/url-base';
+
+  const loadDashboardPage = createRetryablePageLoader(() => import('./lib/pages/Dashboard.svelte'));
+  const loadEventsPage = createRetryablePageLoader(() => import('./lib/pages/Events.svelte'));
+  const loadSpeciesPage = createRetryablePageLoader(() => import('./lib/pages/Species.svelte'));
+  const loadAudioHistoryPage = createRetryablePageLoader(() => import('./lib/pages/AudioHistory.svelte'));
+  const loadSettingsPage = createRetryablePageLoader(() => import('./lib/pages/Settings.svelte'));
+  const loadAboutPage = createRetryablePageLoader(() => import('./lib/pages/About.svelte'));
+  const loadNotificationsPage = createRetryablePageLoader(() => import('./lib/pages/Notifications.svelte'));
+  const loadModelEvaluationPage = createRetryablePageLoader(() => import('./lib/pages/ModelEvaluation.svelte'));
 
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
@@ -133,7 +142,7 @@
   // Route guard: settings page should only be accessible when authenticated
   // (or when auth is disabled entirely).
   $effect(() => {
-      if (!authStore.statusLoaded) return;
+      if (!authStore.statusLoaded || !authStore.statusHealthy) return;
       if (authStore.needsInitialSetup) return;
       const isOwnerOnly = currentRoute.startsWith('/settings') || currentRoute.startsWith('/diagnostics/model-eval');
       if (!isOwnerOnly) return;
@@ -150,7 +159,7 @@
   });
 
   $effect(() => {
-      if (!authStore.statusLoaded) return;
+      if (!authStore.statusLoaded || !authStore.statusHealthy) return;
       if (!currentRoute.startsWith('/notifications') && !currentRoute.startsWith('/jobs')) return;
 
       const allowedRoute = canonicalizeNotificationRouteForAccess(currentRoute, authStore.showSettings);
@@ -163,19 +172,20 @@
   let evtSource: EventSource | null = $state(null);
   let reconnectAttempts = $state(0);
   let reconnectTimeout: number | null = $state(null);
-  let stalePruneInterval: number | null = $state(null);
-  let staleReclassifyPollInterval: number | null = $state(null);
-  let ownerChecksInterval: number | null = $state(null);
-  let analysisQueueInterval: number | null = $state(null);
   let isReconnecting = $state(false);
   let mobileSidebarOpen = $state(false);
+  const BACKEND_STATUS_RETRY_MS = 5_000;
   const STALE_RECLASSIFY_STATUS_POLL_MS = 20_000;
   const ANALYSIS_QUEUE_POLL_MS = 5_000;
+  const ANALYSIS_QUEUE_IDLE_POLL_MS = 30_000;
+  const ANALYSIS_QUEUE_POLL_COOLDOWN_MS = 4_000;
+  const OWNER_SYSTEM_CHECK_COOLDOWN_MS = 30_000;
 
   // Keyboard shortcuts
   let showKeyboardShortcuts = $state(false);
 
   let appInitialized = $state(false);
+  let activeAccessIdentity: string | null = null;
   let canAccess = $derived(!authStore.authRequired || authStore.publicAccessEnabled || authStore.isAuthenticated);
   let requiresLogin = $derived(
       authStore.statusHealthy && (
@@ -195,11 +205,11 @@
       s.notifications?.pushover?.enabled ||
       s.notifications?.telegram?.enabled ||
       s.notifications?.email?.enabled;
-      // console.log('Notifications Active:', active);
       return active;
   });
 
-  const t = (key: string, values: Record<string, any> = {}) => get(_)(key, { values });
+  type TranslationValue = string | number | boolean | Date | null | undefined;
+  const t = (key: string, values: Record<string, TranslationValue> = {}) => get(_)(key, { values });
 
   function shouldNotify() {
       return !authStore.isGuest;
@@ -221,6 +231,11 @@
           default: 'The app was updated while this tab was open. Refresh the page to load the latest build.'
       })
   });
+
+  function handleRouteLoadError(error: unknown): void {
+      logger.error('route_load_failed', error);
+      deployRecovery.handleRuntimeFailure(error);
+  }
 
   const liveUpdates = new LiveUpdateCoordinator({
       t,
@@ -255,6 +270,79 @@
       fetchStatus: fetchEventClassificationStatus,
       jobProgress: jobProgressStore,
       logger
+  });
+
+  const reconcileReclassificationsOnce = createSingleFlightRunner(() => reclassifyRecovery.reconcile());
+  const syncAnalysisQueueStatusOnce = createCooldownSingleFlightRunner(
+      async () => {
+          const status = await liveUpdates.syncAnalysisQueueStatus();
+          if (status) analysisQueueStatusStore.ingest(status);
+      },
+      ANALYSIS_QUEUE_POLL_COOLDOWN_MS
+  );
+  const runOwnerSystemChecksOnce = createCooldownSingleFlightRunner(
+      () => liveUpdates.runOwnerSystemChecks(),
+      OWNER_SYSTEM_CHECK_COOLDOWN_MS
+  );
+
+  $effect(() => {
+      if (!authStore.statusLoaded || authStore.statusHealthy) return;
+      const retryInterval = window.setInterval(() => {
+          if (!document.hidden) void authStore.loadStatus();
+      }, BACKEND_STATUS_RETRY_MS);
+      return () => window.clearInterval(retryInterval);
+  });
+
+  function startOperationalPolling(): () => void {
+      void reconcileReclassificationsOnce();
+      void runOwnerSystemChecksOnce();
+
+      let stopped = false;
+      let analysisPollTimeout: number | null = null;
+      const scheduleAnalysisPoll = (): void => {
+          if (stopped) return;
+          const status = analysisQueueStatusStore.analysisStatus;
+          const hasActiveAnalysis = Number(status?.pending ?? 0) > 0 || Number(status?.active ?? 0) > 0;
+          const delay = document.hidden ? ANALYSIS_QUEUE_IDLE_POLL_MS
+              : hasActiveAnalysis ? ANALYSIS_QUEUE_POLL_MS
+              : ANALYSIS_QUEUE_IDLE_POLL_MS;
+          analysisPollTimeout = window.setTimeout(async () => {
+              if (stopped) return;
+              if (!document.hidden) await syncAnalysisQueueStatusOnce();
+              scheduleAnalysisPoll();
+          }, delay);
+      };
+      void syncAnalysisQueueStatusOnce().finally(scheduleAnalysisPoll);
+
+      const ownerInterval = window.setInterval(() => {
+          if (document.hidden) return;
+          void runOwnerSystemChecksOnce();
+      }, 60_000);
+      const staleInterval = window.setInterval(() => {
+          liveUpdates.pruneStaleProcessNotifications();
+          detectionsStore.pruneReclassifications();
+      }, 10_000);
+      const reclassifyInterval = window.setInterval(() => {
+          if (document.hidden) return;
+          void reconcileReclassificationsOnce();
+      }, STALE_RECLASSIFY_STATUS_POLL_MS);
+
+      return (): void => {
+          stopped = true;
+          if (analysisPollTimeout !== null) window.clearTimeout(analysisPollTimeout);
+          window.clearInterval(ownerInterval);
+          window.clearInterval(staleInterval);
+          window.clearInterval(reclassifyInterval);
+      };
+  }
+
+  $effect(() => {
+      if (!authStore.statusLoaded || !authStore.statusHealthy) return;
+
+      // Polling reads and updates reactive job state internally. Keep those reads
+      // out of this effect's dependency graph so an active job cannot make the
+      // effect tear down and recreate its own polling loop continuously.
+      return untrack(startOperationalPolling);
   });
 
   // Handle back button and initial load
@@ -313,7 +401,9 @@
                   source: 'runtime',
                   component: 'browser',
                   reasonCode: 'unhandled_rejection',
-                  message: String((payload as any).message || 'Unhandled promise rejection'),
+                  message: 'message' in payload
+                      ? String(payload.message || 'Unhandled promise rejection')
+                      : 'Unhandled promise rejection',
                   severity: 'error',
                   context: payload
               });
@@ -334,30 +424,16 @@
           }
 
           await authStore.loadStatus();
-          const accessAdjustedPath = canonicalizeNotificationRouteForAccess(currentRoute, authStore.showSettings);
-          if (accessAdjustedPath !== currentRoute) {
-              currentRoute = accessAdjustedPath;
-              window.history.replaceState(null, '', toAppPath(accessAdjustedPath));
+          if (authStore.statusHealthy) {
+              const accessAdjustedPath = canonicalizeNotificationRouteForAccess(currentRoute, authStore.showSettings);
+              if (accessAdjustedPath !== currentRoute) {
+                  currentRoute = accessAdjustedPath;
+                  window.history.replaceState(null, '', toAppPath(accessAdjustedPath));
+              }
           }
           notificationCenter.hydrate();
           jobDiagnosticsStore.hydrate();
           liveUpdates.pruneStaleProcessNotifications();
-          void reclassifyRecovery.reconcile();
-          await liveUpdates.syncAnalysisQueueStatus();
-          await liveUpdates.runOwnerSystemChecks();
-          ownerChecksInterval = window.setInterval(() => {
-              void liveUpdates.runOwnerSystemChecks();
-          }, 60_000);
-          analysisQueueInterval = window.setInterval(() => {
-              void liveUpdates.syncAnalysisQueueStatus();
-          }, ANALYSIS_QUEUE_POLL_MS);
-          stalePruneInterval = window.setInterval(() => {
-              liveUpdates.pruneStaleProcessNotifications();
-              detectionsStore.pruneReclassifications();
-          }, 10_000);
-          staleReclassifyPollInterval = window.setInterval(() => {
-              void reclassifyRecovery.reconcile();
-          }, STALE_RECLASSIFY_STATUS_POLL_MS);
 
           // Handle page visibility changes - reconnect when tab becomes visible
           const handleVisibilityChange = () => {
@@ -366,9 +442,9 @@
                   reconnectAttempts = 0; // Reset backoff when user returns to tab
                   scheduleReconnect();
               }
-              if (!document.hidden) {
-                  void reclassifyRecovery.reconcile();
-                  void liveUpdates.syncAnalysisQueueStatus();
+              if (!document.hidden && authStore.statusHealthy) {
+                  void reconcileReclassificationsOnce();
+                  void syncAnalysisQueueStatusOnce();
                   refreshCoordinator.onVisibilityChange();
               }
           };
@@ -406,30 +482,7 @@
                   mediaQuery.removeEventListener('change', updateMobile);
               }
               window.removeEventListener('scroll', syncGlobalProgressSticky);
-              if (evtSource) {
-                  evtSource.close();
-                  evtSource = null;
-              }
-              if (reconnectTimeout) {
-                  clearTimeout(reconnectTimeout);
-                  reconnectTimeout = null;
-              }
-              if (stalePruneInterval) {
-                  clearInterval(stalePruneInterval);
-                  stalePruneInterval = null;
-              }
-              if (staleReclassifyPollInterval) {
-                  clearInterval(staleReclassifyPollInterval);
-                  staleReclassifyPollInterval = null;
-              }
-              if (ownerChecksInterval) {
-                  clearInterval(ownerChecksInterval);
-                  ownerChecksInterval = null;
-              }
-              if (analysisQueueInterval) {
-                  clearInterval(analysisQueueInterval);
-                  analysisQueueInterval = null;
-              }
+              closeLiveConnection();
           };
       })();
 
@@ -449,24 +502,49 @@
           return;
       }
 
-      if (canAccess && !appInitialized) {
-          if (authStore.isAuthenticated || !authStore.authRequired) {
-              settingsStore.load();
+      const accessIdentity = `${authStore.isAuthenticated ? 'owner' : 'guest'}:${authStore.token ?? 'anonymous'}`;
+
+      if (canAccess) {
+          if (!appInitialized || activeAccessIdentity !== accessIdentity) {
+              closeLiveConnection();
+              if (authStore.isAuthenticated || !authStore.authRequired) {
+                  settingsStore.load();
+              } else {
+                  settingsStore.clear();
+              }
+              detectionsStore.loadInitial();
+              connectSSE();
+              if (authStore.showSettings) {
+                  void syncAnalysisQueueStatusOnce();
+                  void runOwnerSystemChecksOnce();
+              }
+              activeAccessIdentity = accessIdentity;
+              appInitialized = true;
           }
-          detectionsStore.loadInitial();
-          connectSSE();
-          appInitialized = true;
+          return;
       }
 
       if (!canAccess && appInitialized) {
-          if (evtSource) {
-              evtSource.close();
-              evtSource = null;
-          }
-          detectionsStore.setConnected(false);
+          closeLiveConnection();
+          settingsStore.clear();
+          activeAccessIdentity = null;
           appInitialized = false;
       }
   });
+
+  function closeLiveConnection(): void {
+      if (evtSource) {
+          evtSource.close();
+          evtSource = null;
+      }
+      if (reconnectTimeout !== null) {
+          window.clearTimeout(reconnectTimeout);
+          reconnectTimeout = null;
+      }
+      isReconnecting = false;
+      reconnectAttempts = 0;
+      detectionsStore.setConnected(false);
+  }
 
   function scheduleReconnect() {
       // Prevent multiple reconnection attempts
@@ -502,18 +580,21 @@
           const token = authStore.token;
           const sseBase = appApiPath('/api/sse');
           const sseUrl = token ? `${sseBase}?token=${encodeURIComponent(token)}` : sseBase;
-          evtSource = new EventSource(sseUrl);
+          const source = new EventSource(sseUrl);
+          evtSource = source;
 
-          evtSource.onopen = () => {
+          source.onopen = () => {
+              if (evtSource !== source) return;
               logger.sseEvent("connection_opened");
               notificationCenter.remove('system:sse-disconnected');
               refreshCoordinator.onSseReconnect();
           };
 
-          evtSource.onmessage = (event) => {
+          source.onmessage = (event) => {
+              if (evtSource !== source) return;
               try {
                  // Parse JSON with validation
-                 let payload: any;
+                 let payload: unknown;
                  try {
                      payload = JSON.parse(event.data);
                  } catch (parseError) {
@@ -523,10 +604,15 @@
 
                  // Server signals the JWT has expired — log out cleanly instead of
                  // reconnecting with a dead token and entering a reconnect loop.
-                 if (payload.type === 'session_expired') {
+                 if (
+                     typeof payload === 'object' &&
+                     payload !== null &&
+                     'type' in payload &&
+                     payload.type === 'session_expired'
+                 ) {
                      logger.warn("SSE session expired, logging out");
-                     evtSource?.close();
-                     evtSource = null;
+                     source.close();
+                     if (evtSource === source) evtSource = null;
                      void authStore.logout();
                      return;
                  }
@@ -537,17 +623,16 @@
               }
           };
 
-          evtSource.onerror = (err) => {
+          source.onerror = (err) => {
+              if (evtSource !== source) return;
               logger.warn("SSE connection issue", {
-                  type: (err as any)?.type ?? 'error',
+                  type: err.type || 'error',
                   attempt: reconnectAttempts + 1
               });
               liveUpdates.handleDisconnect(err, document.hidden);
 
-              if (evtSource) {
-                  evtSource.close();
-                  evtSource = null;
-              }
+              source.close();
+              evtSource = null;
 
               // Schedule reconnection with backoff
               scheduleReconnect();
@@ -569,34 +654,15 @@
   </a>
 
   {#if !authStore.statusLoaded}
-      <div class="min-h-screen flex items-center justify-center bg-surface-light dark:bg-surface-dark px-4">
-          <div class="text-sm font-semibold text-slate-600 dark:text-slate-300">
-              {$_('auth.loading_status', { default: 'Loading authentication status...' })}
-          </div>
-      </div>
-  {:else if authStore.needsInitialSetup}
+      <BackendStatusScreen mode="loading" />
+  {:else if authStore.needsInitialSetup || (setupWizardStore.active && setupWizardStore.mode === 'first_run')}
       <FirstRunWizard />
   {:else if !authStore.statusHealthy}
-      <div class="min-h-screen flex items-center justify-center bg-surface-light dark:bg-surface-dark px-4">
-          <div role="alert" class="w-full max-w-lg rounded-3xl border border-amber-200 bg-white/95 p-8 text-center shadow-lg dark:border-amber-700/70 dark:bg-slate-900/95">
-              <div class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-100">
-                  !
-              </div>
-              <h1 class="text-xl font-semibold text-slate-900 dark:text-amber-100">
-                  {$_('auth.status_unavailable_title', { default: 'Unable to reach the YA-WAMF backend.' })}
-              </h1>
-              <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">
-                  {$_('auth.status_unavailable_desc', { default: 'If the container is still starting or restarting after model changes, wait a moment and retry.' })}
-              </p>
-              <button
-                  type="button"
-                  class="mt-6 inline-flex items-center justify-center rounded-xl bg-brand-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-surface-900"
-                  onclick={() => void authStore.loadStatus()}
-              >
-                  {$_('common.retry', { default: 'Retry' })}
-              </button>
-          </div>
-      </div>
+      <BackendStatusScreen
+          mode="unavailable"
+          retrying={authStore.statusLoading}
+          onRetry={() => authStore.loadStatus()}
+      />
   {:else if requiresLogin}
       <Login />
   {:else}
@@ -616,23 +682,27 @@
 
       <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
           {#snippet status()}
-              <ConnectionStatus
-                  birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
-                  {notificationsActive}
-                  connected={detectionsStore.connected}
-                  className="gap-4 px-2"
-              />
+              <div class="flex items-center gap-3 px-2">
+                  <ConnectionStatus
+                      birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
+                      {notificationsActive}
+                      connected={detectionsStore.connected}
+                      className="gap-3"
+                  />
+                  <UpdateIndicator />
+              </div>
           {/snippet}
       </Sidebar>
-
-      <!-- Telemetry Banner (shown on first visit if telemetry disabled) -->
-      <TelemetryBanner />
 
       <!-- Main Content Wrapper -->
       <div
           class="flex-1 flex flex-col transition-all duration-300 {isSidebarCollapsed ? 'md:pl-20' : 'md:pl-64'}"
           style="--app-chrome-height: {isMobile ? '4rem' : '0rem'};"
       >
+          <!-- Banners live inside the content wrapper so they align to the main column and
+               respect the sidebar offset (like the footer), instead of spanning under it. -->
+          <UpdateBanner />
+
           {#if !isNotificationRoute(currentRoute) && !authStore.isGuest}
               <div class={globalProgressHasScrolled
                   ? 'sticky top-[var(--app-chrome-height)] z-30 shrink-0'
@@ -646,36 +716,80 @@
               {/if}
               {#if currentRoute === '/'}
                   {#key dashboardRefreshKey}
-                      <Dashboard onnavigate={navigate} />
+                      <LazyRoute
+                          loader={loadDashboardPage}
+                          props={{ onnavigate: navigate }}
+                          label={pageTitle}
+                          onLoadError={handleRouteLoadError}
+                      />
                   {/key}
               {:else if currentRoute.startsWith('/events')}
-                  <Events />
+                  <LazyRoute
+                      loader={loadEventsPage}
+                      props={{}}
+                      label={pageTitle}
+                      onLoadError={handleRouteLoadError}
+                  />
               {:else if currentRoute.startsWith('/species')}
-                  <Species />
+                  <LazyRoute
+                      loader={loadSpeciesPage}
+                      props={{}}
+                      label={pageTitle}
+                      onLoadError={handleRouteLoadError}
+                  />
               {:else if currentRoute.startsWith('/audio')}
-                  <AudioHistory />
+                  <LazyRoute
+                      loader={loadAudioHistoryPage}
+                      props={{}}
+                      label={pageTitle}
+                      onLoadError={handleRouteLoadError}
+                  />
               {:else if currentRoute.startsWith('/settings')}
                    {#if authStore.showSettings}
-                       <Settings onNavigate={navigate} {currentRoute} />
+                       <LazyRoute
+                           loader={loadSettingsPage}
+                           props={{ onNavigate: navigate, currentRoute }}
+                           label={pageTitle}
+                           onLoadError={handleRouteLoadError}
+                       />
                    {:else}
                        <!-- Block settings view for guests; route guard will redirect + prompt login. -->
                        <div class="h-24"></div>
                    {/if}
               {:else if currentRoute.startsWith('/notifications')}
-                  <Notifications onNavigate={navigate} {currentRoute} />
+                  <LazyRoute
+                      loader={loadNotificationsPage}
+                      props={{ onNavigate: navigate, currentRoute }}
+                      label={pageTitle}
+                      onLoadError={handleRouteLoadError}
+                  />
               {:else if currentRoute.startsWith('/diagnostics/model-eval')}
                    {#if authStore.showSettings}
-                       <ModelEvaluation />
+                       <LazyRoute
+                           loader={loadModelEvaluationPage}
+                           props={{}}
+                           label={pageTitle}
+                           onLoadError={handleRouteLoadError}
+                       />
                    {:else}
                        <div class="h-24"></div>
                    {/if}
               {:else if currentRoute.startsWith('/about')}
-                   <About />
+                   <LazyRoute
+                       loader={loadAboutPage}
+                       props={{}}
+                       label={pageTitle}
+                       onLoadError={handleRouteLoadError}
+                   />
               {/if}
           </main>
           
           <Footer />
       </div>
+
+      {#if setupWizardStore.active && setupWizardStore.mode === 'rerun'}
+          <WizardShell />
+      {/if}
   {/if}
 
   <!-- Toast Notifications -->

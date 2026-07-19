@@ -1,6 +1,6 @@
 import './app.css'
-import './lib/i18n'
-import { mount } from 'svelte' // Trigger CI rebuild
+import { i18nReady } from './lib/i18n'
+import { mount } from 'svelte'
 import App from './App.svelte'
 
 // Safari/WebKit has a bug where its internal autofill scanner throws a null
@@ -12,25 +12,38 @@ window.addEventListener('unhandledrejection', (event) => {
         event.preventDefault();
     }
 });
-import { toastStore } from './lib/stores/toast.svelte';
-import { get } from 'svelte/store';
-import { _ } from 'svelte-i18n';
 import { APP_BASE_PATH } from './lib/app/url-base';
 
-mount(App, { target: document.getElementById('app')! });
+const appTarget = document.getElementById('app');
+if (!appTarget) {
+  throw new Error('YA-WAMF application target is missing');
+}
 
-function getLabel(key: string, fallback: string) {
-  try {
-    return get(_)(key, { default: fallback });
-  } catch {
-    return fallback;
-  }
+try {
+  await i18nReady;
+  mount(App, { target: appTarget });
+} catch (error: unknown) {
+  console.error('[i18n] Application language could not be loaded.', error);
+  appTarget.setAttribute('role', 'alert');
+  appTarget.setAttribute('aria-live', 'assertive');
+  const message = document.createElement('p');
+  message.className = 'mx-auto mt-16 max-w-xl px-6 text-center text-slate-700 dark:text-slate-200';
+  message.textContent = 'YA-WAMF could not load its interface language. Check the connection and refresh the page.';
+  const retry = document.createElement('button');
+  retry.type = 'button';
+  retry.className = 'btn btn-primary mx-auto mt-5 flex';
+  retry.textContent = 'Refresh page';
+  retry.onclick = () => window.location.reload();
+  appTarget.replaceChildren(message, retry);
 }
 
 if (import.meta.env.PROD && !APP_BASE_PATH && 'serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js');
+      const serviceWorkerBuild = encodeURIComponent(__APP_VERSION__);
+      const registration = await navigator.serviceWorker.register(`/sw.js?v=${serviceWorkerBuild}`, {
+        updateViaCache: 'none'
+      });
 
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -55,6 +68,11 @@ if (import.meta.env.PROD && !APP_BASE_PATH && 'serviceWorker' in navigator) {
           }
         });
       });
+
+      // Safari can otherwise retain a worker across multiple dev deployments.
+      // An explicit uncached check makes every newly loaded tab converge on the
+      // worker associated with its exact frontend build.
+      await registration.update();
     } catch {
       // Ignore service worker registration failures
     }

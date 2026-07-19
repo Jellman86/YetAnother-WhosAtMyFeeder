@@ -49,6 +49,6 @@ export async function startWeatherBackfillJob(request: WeatherBackfillRequest): 
 
 export async function getBackfillStatus(kind?: 'detections' | 'weather'): Promise<BackfillJobStatus | null> {
     const params = kind ? `?kind=${kind}` : '';
-    const response = await apiFetch(`${API_BASE}/backfill/status${params}`);
+    const response = await apiFetch(`${API_BASE}/backfill/status${params}`, { timeoutMs: 10_000 });
     return handleResponse<BackfillJobStatus | null>(response);
 }

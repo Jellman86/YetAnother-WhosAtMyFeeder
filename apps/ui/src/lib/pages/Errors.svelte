@@ -8,16 +8,56 @@
         type JobDiagnosticBundle
     } from '../stores/job_diagnostics.svelte';
     import { formatDateTime } from '../utils/datetime';
-    import { getVideoClassifierCardState } from '../errors/health';
+    import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
+
+    const FRIGATE_MISSING_DOCS_URL =
+        'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
+
+    interface MetricGroup extends Record<string, unknown> {
+        status?: unknown;
+        pressure_level?: unknown;
+        started_events?: unknown;
+        completed_events?: unknown;
+        dropped_events?: unknown;
+        critical_failures?: unknown;
+        critical_failure_active?: unknown;
+        in_flight?: unknown;
+        in_flight_capacity?: unknown;
+        topic_liveness_reconnects?: unknown;
+        last_reconnect_reason?: unknown;
+        queued?: unknown;
+        max_concurrent?: unknown;
+        abandoned?: unknown;
+        background_throttled?: unknown;
+        dropped_jobs?: unknown;
+        queue_size?: unknown;
+        queue_max?: unknown;
+        acquire_wait_max_ms?: unknown;
+        acquire_timeouts?: unknown;
+    }
+
+    interface DiagnosticsHealth extends Record<string, unknown> {
+        event_pipeline?: MetricGroup;
+        mqtt?: MetricGroup;
+        ml?: { live_image?: MetricGroup; background_image?: MetricGroup };
+        notification_dispatcher?: MetricGroup;
+        db_pool?: MetricGroup;
+    }
 
     let currentIssues = $derived(incidentWorkspaceStore.currentIssues);
     let recentIncidents = $derived(incidentWorkspaceStore.recentIncidents);
     let workspacePayload = $derived(incidentWorkspaceStore.workspacePayload);
     let healthSnapshots = $derived(jobDiagnosticsStore.healthSnapshots);
     let bundles = $derived(jobDiagnosticsStore.bundles);
-    let health = $derived((workspacePayload?.health as Record<string, any> | null) ?? null);
+    let health = $derived(
+        workspacePayload?.health && typeof workspacePayload.health === 'object'
+            ? workspacePayload.health as DiagnosticsHealth
+            : null
+    );
     let videoClassifierCard = $derived(getVideoClassifierCardState(health));
+    let frigateMediaAdvisory = $derived(getFrigateMediaAdvisory(health));
+    let frigateMediaDropPercent = $derived(Math.round(frigateMediaAdvisory.rate * 100));
     let backendEvents = $derived(workspacePayload?.backend_diagnostics?.events ?? []);
     let startupWarnings = $derived(workspacePayload?.startup_warnings ?? []);
     let captureLabel = $state('');
@@ -158,7 +198,7 @@
     function toneClass(value: string): string {
         const normalized = value.trim().toLowerCase();
         if (['ok', 'healthy', 'normal', 'idle', 'clear', 'resolved'].includes(normalized)) {
-            return 'border-teal-200/80 bg-teal-50 text-teal-700 dark:border-teal-800/60 dark:bg-teal-900/30 dark:text-teal-300';
+            return 'border-brand-200/80 bg-brand-50 text-brand-700 dark:border-brand-800/60 dark:bg-brand-900/30 dark:text-brand-300';
         }
         if (['warning', 'degraded', 'high', 'recovering', 'queued', 'processing', 'running'].includes(normalized)) {
             return 'border-amber-200/80 bg-amber-50 text-amber-700 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-200';
@@ -325,7 +365,7 @@
                 </div>
                 <div class="flex flex-wrap items-center gap-2">
                     {#if refreshedAgoText()}
-                        <span class="text-[11px] font-semibold text-slate-400">{refreshedAgoText()}</span>
+                        <span class="text-xs font-semibold text-slate-400">{refreshedAgoText()}</span>
                     {/if}
                     <button
                         type="button"
@@ -346,7 +386,7 @@
 
         <!-- ── System Status hero ──────────────────────────────────── -->
         <div class="px-6 py-6">
-            <div class="rounded-3xl border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-br from-sky-50/80 via-white to-emerald-50/60 dark:from-slate-900/90 dark:via-slate-900/80 dark:to-slate-800/70 p-6">
+            <div class="rounded-3xl border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-br from-sky-50/80 via-white to-accent-50/60 dark:from-slate-900/90 dark:via-slate-900/80 dark:to-slate-800/70 p-6">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
@@ -368,18 +408,38 @@
                     </div>
                     <div class="grid min-w-[220px] grid-cols-2 gap-3 text-right">
                         <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_health_snapshots', { default: 'Health Snapshots' })}</p>
+                            <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_health_snapshots', { default: 'Health Snapshots' })}</p>
                             <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{healthSnapshots.length.toLocaleString()}</p>
-                            <p class="mt-1 text-[10px] text-slate-400">{$_('jobs.errors_this_session', { default: 'this session' })}</p>
+                            <p class="mt-1 text-xs text-slate-400">{$_('jobs.errors_this_session', { default: 'this session' })}</p>
                         </div>
                         <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-                            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</p>
+                            <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</p>
                             <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{bundles.length.toLocaleString()}</p>
-                            <p class="mt-1 text-[10px] text-slate-400">{$_('jobs.errors_stored_locally', { default: 'stored locally' })}</p>
+                            <p class="mt-1 text-xs text-slate-400">{$_('jobs.errors_stored_locally', { default: 'stored locally' })}</p>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {#if frigateMediaAdvisory.elevated}
+                <!-- ── Frigate media-unavailability advisory (Event Not Found guidance) ── -->
+                <div class="mt-6 rounded-2xl border border-amber-300/70 bg-amber-50/80 p-4 text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.frigate_media_advisory_title', { default: 'Frigate often has no snapshot for a detection' })}</h4>
+                            <p class="mt-1 text-sm font-semibold">{$_('jobs.frigate_media_advisory_body', { values: { percent: frigateMediaDropPercent, dropped: frigateMediaAdvisory.dropped.toLocaleString(), started: frigateMediaAdvisory.started.toLocaleString() }, default: `${frigateMediaDropPercent}% of recent detections (${frigateMediaAdvisory.dropped.toLocaleString()} of ${frigateMediaAdvisory.started.toLocaleString()}) were dropped because Frigate had no snapshot, thumbnail, or recording for them. This usually means briefly-tracked birds that never persist as Frigate events, or short recording retention.` })}</p>
+                            <a href={FRIGATE_MISSING_DOCS_URL} target="_blank" rel="noopener noreferrer" class="mt-2 inline-block text-xs font-black uppercase tracking-widest underline underline-offset-2 hover:opacity-80">
+                                {$_('jobs.frigate_media_advisory_link', { default: 'How to reduce this →' })}
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {/if}
 
             <!-- ── Subsystem cards ─────────────────────────────────── -->
             <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -569,7 +629,7 @@
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.current_issues_title', { default: 'Current Issues' })}</h3>
                     <p class="mt-1 text-xs text-slate-500">{$_('jobs.errors_active_incidents_desc', { default: 'Active incidents that need attention.' })}</p>
                 </div>
-                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{currentIssues.length.toLocaleString()} open</span>
+                <span class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{currentIssues.length.toLocaleString()} open</span>
             </div>
             <div class="space-y-3">
                 {#if currentIssues.length === 0}
@@ -581,7 +641,7 @@
                                 <span class={`inline-flex rounded-full border px-2.5 py-1 text-xs font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
                                     {incident.status}
                                 </span>
-                                <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
+                                <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
                             <p class="mt-1 text-xs text-slate-500 dark:text-slate-300">{incident.summary}</p>
@@ -591,7 +651,7 @@
 
                 {#if recentIncidents.length > 0}
                     <div class="pt-3">
-                        <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-400">{$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}</h4>
+                        <h4 class="text-xs font-black uppercase tracking-wider text-slate-400">{$_('jobs.recent_incidents_title', { default: 'Recent Incidents' })}</h4>
                         <div class="mt-3 space-y-2">
                             {#each recentIncidents.slice(0, 4) as incident (incident.id)}
                                 <article class="rounded-2xl border border-slate-200/70 bg-slate-50/70 px-4 py-3 dark:border-slate-700/50 dark:bg-slate-900/40">
@@ -599,7 +659,7 @@
                                         <span class={`inline-flex rounded-full border px-2 py-0.5 text-xs font-black uppercase tracking-[0.2em] ${severityToneClass(incident.severity)}`}>
                                             {incident.status}
                                         </span>
-                                        <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
+                                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">{formatDateTime(incident.lastSeenAt)}</span>
                                     </div>
                                     <p class="mt-2 text-sm font-semibold text-slate-900 dark:text-white">{incident.title}</p>
                                 </article>
@@ -616,7 +676,7 @@
                     <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.errors_backend_diagnostics_title', { default: 'Recent Backend Diagnostics' })}</h3>
                     <p class="mt-1 text-xs text-slate-500">{$_('jobs.errors_backend_diagnostics_desc', { default: 'Newest warnings and errors from the backend workspace snapshot.' })}</p>
                 </div>
-                <span class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">{backendEvents.length.toLocaleString()} events</span>
+                <span class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{backendEvents.length.toLocaleString()} events</span>
             </div>
             {#if backendEvents.length === 0}
                 <p class="text-xs text-slate-500">{$_('jobs.errors_empty', { default: 'No grouped errors recorded yet.' })}</p>
@@ -633,7 +693,7 @@
                                         {event.component} · {event.reason_code}
                                     </span>
                                 </div>
-                                <span class="text-[10px] font-semibold uppercase tracking-wider opacity-70">{formatDateTime(Date.parse(event.timestamp))}</span>
+                                <span class="text-xs font-semibold uppercase tracking-wider opacity-70">{formatDateTime(Date.parse(event.timestamp))}</span>
                             </div>
                             <p class="mt-2 text-sm font-semibold">{event.message}</p>
                             {#if event.event_id || event.correlation_key}
@@ -675,7 +735,7 @@
                         {$_('jobs.errors_download_snapshot_desc', { default: 'Includes workspace health, backend diagnostics, classifier status, startup warnings, incidents, and client context.' })}
                     </p>
                     <textarea
-                        class="mt-4 min-h-24 w-full rounded-3xl border border-slate-200/80 bg-white/85 px-4 py-3 text-xs font-semibold text-slate-800 shadow-inner outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-500/15 dark:border-slate-700/70 dark:bg-slate-950/50 dark:text-slate-100 dark:placeholder:text-slate-500"
+                        class="mt-4 min-h-24 w-full rounded-3xl border border-slate-200/80 bg-white/85 px-4 py-3 text-xs font-semibold text-slate-800 shadow-inner outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-slate-700/70 dark:bg-slate-950/50 dark:text-slate-100 dark:placeholder:text-slate-500"
                         bind:value={reportNotes}
                         placeholder={$_('jobs.errors_notes_placeholder', { default: 'Optional notes to include when you capture a saved bundle' })}
                     ></textarea>
@@ -685,7 +745,7 @@
                         </button>
                         <div class="flex flex-1 items-center gap-2">
                             <input
-                                class="h-10 flex-1 rounded-2xl border border-slate-200/80 bg-white/85 px-3 text-xs font-semibold text-slate-800 shadow-inner outline-none transition focus:border-teal-400 focus:ring-4 focus:ring-teal-500/15 dark:border-slate-700/70 dark:bg-slate-950/50 dark:text-slate-100 dark:placeholder:text-slate-500"
+                                class="h-10 flex-1 rounded-2xl border border-slate-200/80 bg-white/85 px-3 text-xs font-semibold text-slate-800 shadow-inner outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-slate-700/70 dark:bg-slate-950/50 dark:text-slate-100 dark:placeholder:text-slate-500"
                                 bind:value={captureLabel}
                                 placeholder={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
                             />
@@ -701,10 +761,10 @@
             <div>
                 <div class="flex items-center justify-between gap-3">
                     <div>
-                        <h4 class="text-[11px] font-black uppercase tracking-wider text-slate-500">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</h4>
+                        <h4 class="text-xs font-black uppercase tracking-wider text-slate-500">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</h4>
                         <p class="text-xs text-slate-500">{$_('jobs.errors_bundles_local_desc', { default: 'Distinct snapshots stay local until you download or delete them.' })}</p>
                     </div>
-                    <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30">
+                    <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30">
                         {bundles.length.toLocaleString()} saved
                     </span>
                 </div>
@@ -714,18 +774,18 @@
                 {:else}
                     <div class="mt-4 space-y-3">
                         {#each bundles as bundle, index (bundle.id)}
-                            <article class={`rounded-3xl border p-4 shadow-sm ${index === 0 ? 'border-emerald-200/80 bg-white dark:border-emerald-800/60 dark:bg-slate-900/60' : 'border-slate-200/80 bg-white/85 dark:border-slate-700/60 dark:bg-slate-950/40'}`}>
+                            <article class={`rounded-3xl border p-4 shadow-sm ${index === 0 ? 'border-accent-200/80 bg-white dark:border-accent-800/60 dark:bg-slate-900/60' : 'border-slate-200/80 bg-white/85 dark:border-slate-700/60 dark:bg-slate-950/40'}`}>
                                 <div class="flex items-start justify-between gap-3">
                                     <div class="min-w-0 flex-1">
                                         <div class="flex flex-wrap items-center gap-2">
                                             {#if index === 0}
-                                                <span class="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                                                <span class="inline-flex items-center rounded-full bg-accent-100 px-2.5 py-1 text-xs font-black uppercase tracking-[0.2em] text-accent-700 dark:bg-accent-900/40 dark:text-accent-300">
                                                     {$_('jobs.errors_newest_badge', { default: 'Newest' })}
                                                 </span>
                                             {/if}
                                             <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{bundle.label}</p>
                                         </div>
-                                        <p class="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                                        <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
                                             {formatDateTime(bundle.createdAt)}
                                         </p>
                                         <p class="mt-2 text-xs text-slate-500 dark:text-slate-300">{bundleSummaryText(bundle)}</p>

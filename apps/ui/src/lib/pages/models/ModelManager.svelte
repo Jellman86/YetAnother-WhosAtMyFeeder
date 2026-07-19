@@ -2,39 +2,29 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus } from '../../api';
+    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, validateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
-    import {
-        CROP_MODEL_OVERRIDE_VALUES,
-        CROP_SOURCE_OVERRIDE_VALUES,
-        getCropVariantMetadata,
-        getCropVariantOverrideEntries,
-        normalizeCropModelOverride,
-        normalizeCropSourceOverride,
-        type CropModelOverride,
-        type CropSourceOverride,
-    } from '../../settings/crop-overrides';
-
-    let {
-        cropModelOverrides = $bindable<Record<string, CropModelOverride>>({}),
-        cropSourceOverrides = $bindable<Record<string, CropSourceOverride>>({}),
-        birdCropDetectorTier = $bindable<'fast' | 'accurate' | string>('fast'),
-    }: {
-        cropModelOverrides: Record<string, CropModelOverride>;
-        cropSourceOverrides: Record<string, CropSourceOverride>;
-        birdCropDetectorTier: 'fast' | 'accurate' | string;
-    } = $props();
-
+    import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
+    import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
-    let health = $state<any>(null);
+    let health = $state<HealthStatus | null>(null);
     let classifierStatus = $state<ClassifierStatus | null>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let downloadStatuses = $state<Record<string, DownloadProgress>>({});
     let activating = $state<string | null>(null);
-    let selectedModelId = $state<string | null>(null); 
+    let selectedModelId = $state<string | null>(null);
+
+    // Guided install wizard: download (with live progress) → validate on hardware →
+    // enable. Reused for an already-downloaded model by skipping the download stage.
+    let wizardModel = $state<ModelMetadata | null>(null);
+    let wizardStages = $state<DiagnosticStage[]>([]);
+    let wizardBusy = $state(false);
+    let wizardResult = $state<DiagnosticResult | null>(null);
+    let wizardRunId = $state(0);
+    let wizardDownload = $state(false);
     let showAdvancedModels = $state(false);
     let cropDetectorStatus = $state<ClassifierStatus['crop_detector'] | null>(null);
 
@@ -59,68 +49,6 @@
         }
     }
 
-    function cropOverrideLabel(value: CropModelOverride): string {
-        switch (value) {
-            case 'on':
-                return 'Force on';
-            case 'off':
-                return 'Force off';
-            default:
-                return 'Use model default';
-        }
-    }
-
-    function cropSourceLabel(value: CropSourceOverride): string {
-        switch (value) {
-            case 'standard':
-                return 'Standard source';
-            case 'high_quality':
-                return 'High-quality snapshot';
-            default:
-                return 'Use model default';
-        }
-    }
-
-    function cropDefaultEnabledLabel(cropGenerator: ModelMetadata['crop_generator'] | undefined): string {
-        return cropGenerator?.enabled ? 'On' : 'Off';
-    }
-
-    function cropDefaultSourceLabel(cropGenerator: ModelMetadata['crop_generator'] | undefined): string {
-        return normalizeCropSourceOverride(cropGenerator?.source_preference) === 'high_quality'
-            ? 'High-quality snapshot'
-            : 'Standard source';
-    }
-
-    function getCropModelOverrideValue(key: string): CropModelOverride {
-        return normalizeCropModelOverride(cropModelOverrides[key]);
-    }
-
-    function getCropSourceOverrideValue(key: string): CropSourceOverride {
-        return normalizeCropSourceOverride(cropSourceOverrides[key]);
-    }
-
-    function setCropModelOverride(key: string, value: string): void {
-        const normalized = normalizeCropModelOverride(value);
-        const next = { ...cropModelOverrides };
-        if (normalized === 'default') {
-            delete next[key];
-        } else {
-            next[key] = normalized;
-        }
-        cropModelOverrides = next;
-    }
-
-    function setCropSourceOverride(key: string, value: string): void {
-        const normalized = normalizeCropSourceOverride(value);
-        const next = { ...cropSourceOverrides };
-        if (normalized === 'default') {
-            delete next[key];
-        } else {
-            next[key] = normalized;
-        }
-        cropSourceOverrides = next;
-    }
-
     function scopeLabel(scope: string): string {
         switch (scope) {
             case 'birds_only':
@@ -139,7 +67,7 @@
     function tierChipClass(tier: string): string {
         switch (tier) {
             case 'cpu_only':
-                return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20';
+                return 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20';
             case 'large':
                 return 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20';
             case 'advanced':
@@ -152,7 +80,7 @@
     function statusChipClass(status: string | undefined): string {
         switch (status ?? 'stable') {
             case 'stable':
-                return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20';
+                return 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20';
             case 'beta':
                 return 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/20';
             case 'experimental':
@@ -172,7 +100,8 @@
         return `~${model.estimated_ram_mb} MB RAM`;
     }
 
-    let pollInterval: any;
+    let pollInterval: ReturnType<typeof setInterval> | undefined;
+    let pollingDownloads = false;
 
     onMount(async () => {
         await loadData();
@@ -220,50 +149,56 @@
     }
 
     async function pollDownloads() {
+        if (pollingDownloads || document.hidden) return;
+        pollingDownloads = true;
         const activeIds = Object.keys(downloadStatuses).filter(id => 
             downloadStatuses[id].status === 'downloading' || downloadStatuses[id].status === 'pending'
         );
 
-        for (const id of activeIds) {
-            try {
-                const status = await fetchDownloadStatus(id);
-                const model = availableModels.find((entry) => entry.id === id);
-                if (status) {
-                    downloadStatuses[id] = status;
-                    if (model) {
-                        syncModelDownloadProgress(jobProgressStore, model, status);
+        try {
+            for (const id of activeIds) {
+                try {
+                    const status = await fetchDownloadStatus(id);
+                    const model = availableModels.find((entry) => entry.id === id);
+                    if (status) {
+                        downloadStatuses[id] = status;
+                        if (model) {
+                            syncModelDownloadProgress(jobProgressStore, model, status);
+                        }
+                        if (status.status === 'completed') {
+                            // Refresh installed list
+                            installedModels = await fetchInstalledModels();
+                        }
+                    } else {
+                        const errorStatus = {
+                            model_id: id,
+                            status: 'error' as const,
+                            progress: downloadStatuses[id]?.progress ?? 0,
+                            error: t('settings.detection.model_manager_status_unavailable', 'Download status unavailable')
+                        };
+                        downloadStatuses[id] = errorStatus;
+                        if (model) {
+                            syncModelDownloadProgress(jobProgressStore, model, errorStatus);
+                        }
                     }
-                    if (status.status === 'completed') {
-                        // Refresh installed list
-                        installedModels = await fetchInstalledModels();
-                    }
-                } else {
+                } catch (e) {
+                    console.error(`Failed to poll status for ${id}`, e);
+                    const model = availableModels.find((entry) => entry.id === id);
+                    const message = e instanceof Error ? e.message : t('settings.detection.model_manager_status_refresh_failed', 'Failed to refresh download status');
                     const errorStatus = {
                         model_id: id,
                         status: 'error' as const,
                         progress: downloadStatuses[id]?.progress ?? 0,
-                        error: t('settings.detection.model_manager_status_unavailable', 'Download status unavailable')
+                        error: message
                     };
                     downloadStatuses[id] = errorStatus;
                     if (model) {
                         syncModelDownloadProgress(jobProgressStore, model, errorStatus);
                     }
                 }
-            } catch (e) {
-                console.error(`Failed to poll status for ${id}`, e);
-                const model = availableModels.find((entry) => entry.id === id);
-                const message = e instanceof Error ? e.message : t('settings.detection.model_manager_status_refresh_failed', 'Failed to refresh download status');
-                const errorStatus = {
-                    model_id: id,
-                    status: 'error' as const,
-                    progress: downloadStatuses[id]?.progress ?? 0,
-                    error: message
-                };
-                downloadStatuses[id] = errorStatus;
-                if (model) {
-                    syncModelDownloadProgress(jobProgressStore, model, errorStatus);
-                }
             }
+        } finally {
+            pollingDownloads = false;
         }
     }
 
@@ -282,6 +217,13 @@
 
     function isActive(modelId: string): boolean {
         return installedModels.some(m => m.id === modelId && m.is_active && m.ready !== false);
+    }
+
+    function isValidated(modelId: string): boolean {
+        const installed = getInstalledModel(modelId);
+        // Default to permissive if the field is absent (older backend) so we never
+        // block selection on a contract the server does not yet report.
+        return Boolean(installed && installed.validated !== false);
     }
 
     function isCropDetectorInstalled(modelId: string): boolean {
@@ -315,7 +257,7 @@
     function providerChipClass(provider: string): string {
         switch (provider) {
             case 'cuda':
-                return 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20';
+                return 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20';
             case 'intel_gpu':
                 return 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20';
             case 'intel_cpu':
@@ -344,7 +286,7 @@
                 if (isActive) {
                     return {
                         label: `${baseLabel}: ${t('settings.detection.model_manager_provider_active_suffix', 'Active')}`,
-                        className: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20',
+                        className: 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20',
                         title: t('settings.detection.active_provider_label', 'Active')
                     };
                 }
@@ -454,41 +396,160 @@
             activating = null;
         }
     }
+
+    // Poll a download to completion, reporting percent, so the wizard can show live
+    // progress. Resolves on completion; throws on error.
+    async function pollWizardDownload(modelId: string, onPct: (pct: number) => void): Promise<void> {
+        for (;;) {
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            const status = await fetchDownloadStatus(modelId);
+            if (!status) continue;
+            onPct(status.progress ?? 0);
+            if (status.status === 'completed') return;
+            if (status.status === 'error') {
+                throw new Error(status.error || t('settings.detection.model_manager_start_failed', 'Download failed'));
+            }
+        }
+    }
+
+    // One guided flow: download the model (with progress), validate it on this
+    // hardware, then enable it. `download: false` reuses it for an already-installed
+    // model that only needs validating — the download stage is shown as skipped.
+    async function runInstallWizard(model: ModelMetadata, opts: { download: boolean }) {
+        if (wizardBusy) return;
+        wizardModel = model;
+        wizardDownload = opts.download;
+        wizardResult = null;
+        wizardBusy = true;
+        wizardRunId += 1;
+
+        const checking = t('common.testing', 'Checking…');
+        const skipped = t('diagnostics.step_skipped', 'Not run because an earlier step failed.');
+        const stages: DiagnosticStage[] = [
+            {
+                id: 'download',
+                label: t('settings.detection.model_manager_install_stage_download', 'Download model'),
+                state: opts.download ? 'pending' : 'skipped',
+                message: opts.download
+                    ? ''
+                    : t('settings.detection.model_manager_install_already_downloaded', 'Already downloaded.')
+            },
+            { id: 'validate', label: t('settings.detection.model_manager_validate_stage_run', 'Validate & tune on your hardware'), state: 'pending', message: '' },
+            { id: 'enable', label: t('settings.detection.model_manager_validate_stage_enable', 'Enable for selection'), state: 'pending', message: '' }
+        ];
+        wizardStages = stages;
+        const set = (i: number, patch: Partial<DiagnosticStage>) => {
+            stages[i] = { ...stages[i], ...patch };
+            wizardStages = [...stages];
+        };
+        const fail = async (i: number, message: string) => {
+            set(i, { state: 'failed', message });
+            for (let j = i + 1; j < stages.length; j++) set(j, { state: 'skipped', message: skipped });
+            wizardResult = { ok: false, message };
+            wizardBusy = false;
+            installedModels = await fetchInstalledModels();
+        };
+
+        // Stage 1 — download
+        if (opts.download) {
+            set(0, { state: 'running', message: t('settings.detection.model_manager_installing_pct', 'Downloading… {pct}%', { pct: 0 }) });
+            try {
+                const started = await downloadModel(model.id);
+                if (started.status !== 'pending') {
+                    throw new Error(started.message || t('settings.detection.model_manager_start_failed', 'Failed to start download'));
+                }
+                await pollWizardDownload(model.id, (pct) =>
+                    set(0, { state: 'running', message: t('settings.detection.model_manager_installing_pct', 'Downloading… {pct}%', { pct: Math.round(pct) }) })
+                );
+                set(0, { state: 'passed', message: t('settings.detection.model_manager_install_downloaded', 'Downloaded and verified.') });
+                installedModels = await fetchInstalledModels();
+            } catch (e) {
+                await fail(0, e instanceof Error ? e.message : t('settings.detection.model_manager_start_failed', 'Download failed'));
+                return;
+            }
+        }
+
+        // Stage 2 — validate on this hardware and pick the fastest device. The backend
+        // sweeps just this model's devices (CPU / Intel GPU / NPU), records what passed,
+        // and sets the fastest as the inference provider.
+        set(1, { state: 'running', message: t('settings.detection.model_manager_device_sweeping', 'Comparing your devices…') });
+        try {
+            const result = await validateModel(model.id);
+            if (!result.ok) {
+                await fail(1, result.reason);
+                return;
+            }
+            const ms = result.latency_ms ? ` · ${Math.round(result.latency_ms)} ms/frame` : '';
+            const msg = result.provider_set
+                ? t('settings.detection.model_manager_device_set', 'Fastest device: {provider}{ms} — set as your inference device.', { provider: result.provider, ms })
+                : t('settings.detection.model_manager_validate_ran_ok', 'Ran on {provider}{ms} and produced valid output.', { provider: result.provider, ms });
+            set(1, { state: 'passed', message: msg });
+        } catch (e) {
+            await fail(1, e instanceof Error ? e.message : t('settings.detection.model_manager_validate_failed', 'Validation failed.'));
+            return;
+        }
+
+        // Stage 3 — enable for selection
+        set(2, { state: 'running', message: checking });
+        try {
+            await activateModel(model.id);
+            set(2, { state: 'passed', message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.') });
+            wizardResult = { ok: true, message: t('settings.detection.model_manager_validate_enabled', 'This model is now active.') };
+        } catch (e) {
+            await fail(2, e instanceof Error ? e.message : t('settings.detection.model_manager_activate_error', 'Failed to activate model'));
+            return;
+        }
+        wizardBusy = false;
+        installedModels = await fetchInstalledModels();
+    }
+
+    function handleInstall(model: ModelMetadata) {
+        return runInstallWizard(model, { download: true });
+    }
+
+    function handleValidate(model: ModelMetadata) {
+        return runInstallWizard(model, { download: false });
+    }
+
+    function closeWizard() {
+        if (wizardBusy) return;
+        wizardModel = null;
+        wizardStages = [];
+        wizardResult = null;
+    }
 </script>
 
 <div class="space-y-6">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div class="flex flex-col gap-1"><h2 class="text-2xl font-bold text-slate-900 dark:text-white">{$_('settings.detection.model_manager_title', { default: 'Model Manager' })}</h2><p class="text-sm text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_subtitle', { default: 'Recommended models are shown by default. Lower-performing and niche options are hidden until you need them.' })}</p></div>
-        
-        {#if health}
-            <div class="flex items-center gap-2">
-                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" title={$_('settings.detection.model_manager_runtime_tflite', { default: 'TFLite Runtime Status' })}>
-                    <span class="w-2 h-2 rounded-full {health.ml.runtimes.tflite.installed ? 'bg-emerald-500' : 'bg-red-500'}"></span>
-                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">TFLite</span>
-                </div>
-                <div class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700" title={$_('settings.detection.model_manager_runtime_onnx', { default: 'ONNX Runtime Status' })}>
-                    <span class="w-2 h-2 rounded-full {health.ml.runtimes.onnx.installed ? 'bg-emerald-500' : 'bg-red-500'}"></span>
-                    <span class="text-xs font-bold text-slate-600 dark:text-slate-400">ONNX</span>
-                </div>
-                <button 
-                    onclick={loadData}
-                    class="p-2 text-slate-500 hover:text-teal-500 transition-colors"
-                    title={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
-                >
-                    <svg class="w-5 h-5 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                    </svg>
-                </button>
-            </div>
-        {/if}
-    </div>
+    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900 dark:text-white">
+                {$_('settings.detection.model_manager_title', { default: 'Model Manager' })}
+            </h2>
+            <p class="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+                {$_('settings.detection.model_manager_subtitle', { default: 'Recommended models are shown by default. Lower-performing and niche options are hidden until you need them.' })}
+            </p>
+        </div>
+        <button
+            type="button"
+            onclick={loadData}
+            class="btn btn-secondary min-h-11 px-4 self-start"
+            aria-label={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
+            title={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
+        >
+            <svg class="h-4 w-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" />
+            </svg>
+            {$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
+        </button>
+    </header>
 
     {#if loading}
-        <div class="flex justify-center py-12">
-            <div class="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+        <div class="flex min-h-32 items-center justify-center" role="status">
+            <div class="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
+            <span class="sr-only">{$_('common.loading', { default: 'Loading…' })}</span>
         </div>
     {:else if error}
-        <div class="p-4 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800">
+        <div class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300" role="alert">
             {error}
         </div>
     {:else}
@@ -496,159 +557,46 @@
             .filter((model) => (model.artifact_kind || 'classifier') === 'crop_detector')
             .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))}
         {@const classifierModels = availableModels.filter((model) => (model.artifact_kind || 'classifier') === 'classifier')}
-        {@const cropDetectorReady = Boolean(cropDetectorStatus?.enabled_for_runtime || cropDetectorModels.some((model) => isCropDetectorInstalled(model.id)))}
         {@const visibleModels = getVisibleTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
         {@const modelGroups = groupTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
         {@const advancedCount = classifierModels.filter((model) => model.advanced_only).length}
-        <div class="space-y-6">
-            {#if cropDetectorModels.length > 0}
-                {@const cropTierToModelId = (tier: string) =>
-                    cropDetectorModels.find((m) => (m.tier || '').toLowerCase() === tier.toLowerCase())?.id
-                    || cropDetectorModels[0]?.id
-                    || ''}
-                {@const selectedCropModelId = cropTierToModelId(birdCropDetectorTier)}
-                <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div class="flex-1">
-                        <h3 class="text-sm font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">{$_('settings.detection.crop_tier_title', { default: 'Bird crop detector' })}</h3>
-                        <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
-                            {$_('settings.detection.crop_tier_desc', { default: 'Fast keeps the current SSD detector as the default. Accurate uses the experimental YOLOX-Tiny tier and falls back to fast automatically when it is unavailable.' })}
+        {@const selectedCropDetector = cropDetectorModels.find((model) => (model.tier || '').toLowerCase() === 'accurate')
+            || cropDetectorModels[0]}
+        {@const selectedCropDetectorInstalled = selectedCropDetector ? isCropDetectorInstalled(selectedCropDetector.id) : false}
+        {@const selectedCropDetectorDownload = selectedCropDetector ? downloadStatuses[selectedCropDetector.id] : undefined}
+        {@const selectedCropDetectorRuntime = selectedCropDetector && cropDetectorStatus?.model_id === selectedCropDetector.id
+            ? cropDetectorStatus
+            : null}
+
+        <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 dark:border-slate-700/80 dark:bg-slate-900/70">
+            <div class="border-b border-slate-200/80 bg-gradient-to-r from-brand-50/80 via-accent-50/35 to-white p-5 dark:border-slate-700/80 dark:from-brand-950/30 dark:via-accent-950/10 dark:to-slate-900 sm:p-6">
+                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div class="max-w-2xl flex-1">
+                        <label for="classifier-model-select" class="block text-base font-bold text-slate-900 dark:text-white">
+                            {$_('settings.detection.model_manager_select_label', { default: 'Choose the identification model' })}
+                        </label>
+                        <p class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                            {$_('settings.detection.model_manager_lineup_desc', { default: 'Recommended models are shown first. Lower-performing and niche options are collapsed below.' })}
                         </p>
-                        <div class="w-full sm:max-w-md relative">
-                            <select
-                                value={selectedCropModelId}
-                                onchange={(e) => {
-                                    const id = (e.currentTarget as HTMLSelectElement).value;
-                                    const m = cropDetectorModels.find((cm) => cm.id === id);
-                                    if (m?.tier) birdCropDetectorTier = m.tier;
-                                }}
-                                aria-label={$_('settings.detection.crop_tier_title', { default: 'Bird crop detector' })}
-                                class="w-full appearance-none pl-4 pr-10 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm shadow-sm focus:border-teal-500 focus:ring-0 outline-none transition-colors"
-                            >
-                                {#each cropDetectorModels as m}
-                                    <option value={m.id}>
-                                        {m.name} {isCropDetectorInstalled(m.id) ? '— Installed' : ''}
-                                    </option>
-                                {/each}
-                            </select>
-                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                {#each cropDetectorModels.filter((m) => m.id === selectedCropModelId) as cropDetectorModel}
-                    {@const cropDetectorDownload = downloadStatuses[cropDetectorModel.id]}
-                    {@const cropDetectorInstalled = isCropDetectorInstalled(cropDetectorModel.id)}
-                    {@const runtimeSelected = cropDetectorStatus?.model_id === cropDetectorModel.id}
-                    {@const cropDetectorCardReady = Boolean((runtimeSelected && cropDetectorStatus?.enabled_for_runtime) || cropDetectorInstalled)}
-                    <div class="rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                        <div class="p-5">
-                            <div class="flex items-start justify-between gap-3">
-                                <div>
-                                    <h3 class="text-lg font-bold text-slate-900 dark:text-white">{cropDetectorModel.name}</h3>
-                                    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                        {cropDetectorModel.description}
-                                    </p>
-                                </div>
-                                <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${cropDetectorCardReady ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20' : 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20'}`}>
-                                    {cropDetectorCardReady ? 'Installed' : 'Not installed'}
-                                </span>
-                            </div>
-
-                            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Status</p>
-                                    <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
-                                        {runtimeSelected ? (cropDetectorStatus?.reason || 'installed') : (cropDetectorInstalled ? 'installed' : 'not_installed')}
-                                    </p>
-                                </div>
-                                <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Runtime</p>
-                                    <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
-                                        {runtimeSelected ? (cropDetectorStatus?.healthy ? 'Healthy' : 'Unavailable') : (cropDetectorInstalled ? 'Installed' : 'Unavailable')}
-                                    </p>
-                                </div>
-                                <div class="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-3">
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Artifact</p>
-                                    <p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-200">
-                                        {cropDetectorModel.file_size_mb} MB
-                                    </p>
-                                </div>
-                            </div>
-
-                            {#if cropDetectorDownload?.status === 'downloading' || cropDetectorDownload?.status === 'pending'}
-                                <div class="mt-4">
-                                    <div class="flex justify-between text-xs mb-1">
-                                        <span class="text-teal-600 dark:text-teal-400 font-medium">{$_('settings.detection.model_manager_downloading_detector', { default: 'Downloading detector…' })}</span>
-                                        <span class="text-slate-500">{cropDetectorDownload.progress.toFixed(0)}%</span>
-                                    </div>
-                                    <div class="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                                        <div class="bg-teal-500 h-full transition-all duration-300" style="width: {cropDetectorDownload.progress}%"></div>
-                                    </div>
-                                </div>
-                            {/if}
-
-                            <div class="mt-4 flex flex-wrap gap-3">
-                                <button
-                                    onclick={() => handleDownload(cropDetectorModel)}
-                                    disabled={cropDetectorDownload?.status === 'downloading' || cropDetectorDownload?.status === 'pending'}
-                                    class="px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-lg transition-colors disabled:opacity-50"
-                                >
-                                    {cropDetectorInstalled ? 'Re-download detector' : 'Download detector'}
-                                </button>
-                                {#if !cropDetectorReady}
-                                    <p class="text-sm text-slate-500 dark:text-slate-400">
-                                        Crop-enabled models require at least one installed bird crop detector before crop generation can be used.
-                                    </p>
-                                {/if}
-                            </div>
-                        </div>
-                    </div>
-                {/each}
-            {/if}
-
-            <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-6">
-                <div class="flex-1">
-                    <h3 class="text-sm font-black uppercase tracking-[0.24em] text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_lineup_title', { default: 'Tiered model lineup' })}</h3>
-                    <p class="text-sm text-slate-500 dark:text-slate-400 mb-3">
-                        {$_('settings.detection.model_manager_lineup_desc', { default: 'Recommended models are shown first. Lower-performing and niche options are collapsed below.' })}
-                    </p>
-                    <div class="w-full sm:max-w-md relative">
-                        <select
-                            bind:value={selectedModelId}
-                            class="w-full appearance-none pl-4 pr-10 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold text-sm shadow-sm focus:border-teal-500 focus:ring-0 outline-none transition-colors"
-                        >
+                        <select id="classifier-model-select" bind:value={selectedModelId} class="select-base mt-3 w-full sm:max-w-xl">
                             {#each modelGroups as group (group.category)}
-                                <optgroup label={`${group.info.icon}  ${group.info.label}`}>
-                                    {#each group.models as m (m.id)}
-                                        {@const installedEntry = getInstalledModel(m.id)}
-                                        <option value={m.id}>
-                                            {m.name} {isActive(m.id) ? '— Active' : installedEntry?.ready === false ? '— Repair needed' : installedEntry ? '— Installed' : ''}
+                                <optgroup label={group.info.label}>
+                                    {#each group.models as modelOption (modelOption.id)}
+                                        {@const installedOption = getInstalledModel(modelOption.id)}
+                                        <option value={modelOption.id}>
+                                            {modelOption.name} {isActive(modelOption.id) ? '— Active' : installedOption?.ready === false ? '— Repair needed' : installedOption ? '— Installed' : ''}
                                         </option>
                                     {/each}
                                 </optgroup>
                             {/each}
                         </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                        </div>
-                        {#if selectedModelId}
-                            {@const selectedModel = classifierModels.find((m) => m.id === selectedModelId)}
-                            {#if selectedModel}
-                                {@const cat = categorizeModel(selectedModel)}
-                                <p class="mt-2 text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                                    <span class="font-bold">{MODEL_CATEGORY_INFO[cat].icon} {MODEL_CATEGORY_INFO[cat].label}</span>
-                                    — {MODEL_CATEGORY_INFO[cat].hint}
-                                </p>
-                            {/if}
-                        {/if}
                     </div>
-                </div>
-                <div class="flex items-center gap-2 flex-wrap justify-start sm:justify-end pb-1">
+
                     {#if advancedCount > 0}
                         <button
-                            onclick={() => { 
-                                showAdvancedModels = !showAdvancedModels; 
+                            type="button"
+                            onclick={() => {
+                                showAdvancedModels = !showAdvancedModels;
                                 if (!showAdvancedModels) {
                                     const collapsedModels = getVisibleTieredModelLineup(classifierModels, false, selectedModelId);
                                     if (!collapsedModels.some((model) => model.id === selectedModelId)) {
@@ -656,7 +604,7 @@
                                     }
                                 }
                             }}
-                            class="px-4 py-2.5 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
+                            class="btn btn-secondary min-h-11 px-4 shrink-0"
                         >
                             {showAdvancedModels
                                 ? $_('settings.detection.model_manager_hide_advanced', { default: 'Show fewer models' })
@@ -666,346 +614,298 @@
                 </div>
             </div>
 
-            {#if !showAdvancedModels && advancedCount > 0}
-                <div class="mb-6 rounded-lg border border-slate-200 dark:border-slate-700/50 bg-slate-50/40 dark:bg-slate-800/30 px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
-                    {$_('settings.detection.model_manager_advanced_hidden', { default: 'Legacy and lower-performing models are hidden. Use "Show all models" to see every option.' })}
-                </div>
-            {/if}
-
             {#if selectedModelId}
-                {@const model = visibleModels.find(m => m.id === selectedModelId) || visibleModels[0]}
+                {@const model = visibleModels.find((entry) => entry.id === selectedModelId) || visibleModels[0]}
                 {#if model}
-                {@const installedEntry = getInstalledModel(model.id)}
-                {@const installed = Boolean(installedEntry)}
-                {@const ready = isReady(model.id)}
-                {@const active = isActive(model.id)}
-                {@const download = downloadStatuses[model.id]}
-                {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
-                {@const dynamicProviderChips = getDynamicProviderChips(model, active)}
-                {@const variantEntries = getCropVariantOverrideEntries(model)}
-                {@const cropControlsDisabled = !cropDetectorReady}
-                
-                <div class="bg-white dark:bg-slate-800 rounded-xl border-2 transition-all duration-200 flex flex-col
-                            {active ? 'border-teal-500 shadow-lg shadow-teal-500/10' : 'border-slate-200 dark:border-slate-700'}">
-                    
-                    <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <!-- Left Col: Model details -->
-                        <div class="flex flex-col gap-5">
-                            <div>
-                                <div class="flex items-center gap-3 mb-2">
-                                    <h3 class="text-2xl font-bold text-slate-900 dark:text-white leading-tight">{model.name}</h3>
-                                    {#if active}
-                                        <span class="shrink-0 px-2.5 py-1 text-[10px] font-black tracking-wider bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 rounded-full border border-teal-200 dark:border-teal-800/50">
-                                            {$_('settings.detection.model_manager_active', { default: 'ACTIVE' })}
-                                        </span>
-                                    {/if}
-                                </div>
-                                <p class="text-sm text-slate-500 dark:text-slate-400">
-                                    {model.description}
-                                </p>
-                            </div>
+                    {@const installedEntry = getInstalledModel(model.id)}
+                    {@const installed = Boolean(installedEntry)}
+                    {@const ready = isReady(model.id)}
+                    {@const active = isActive(model.id)}
+                    {@const validated = isValidated(model.id)}
+                    {@const download = downloadStatuses[model.id]}
+                    {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
+                    {@const category = categorizeModel(model)}
+                    {@const dynamicProviderChips = getDynamicProviderChips(model, active)}
 
-                            <div class="flex flex-wrap gap-2">
-                                <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${tierChipClass(model.tier)}`}>
-                                    {tierLabel(model.tier)}
-                                </span>
-                                <span class="px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-[10px] font-black tracking-tight text-slate-700 dark:text-slate-200">
-                                    {scopeLabel(model.taxonomy_scope)}
-                                </span>
-                                <span class={`px-2.5 py-1 rounded-full border text-[10px] font-black tracking-tight ${statusChipClass(model.status)}`}>
-                                    {statusLabel(model.status)}
-                                </span>
-                                {#if formatRamLabel(model)}
-                                    <span class="px-2.5 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-[10px] font-black tracking-tight text-slate-700 dark:text-slate-200">
-                                        {formatRamLabel(model)}
-                                    </span>
-                                {/if}
-                            </div>
-
-                            <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-4 space-y-3">
-                                <div>
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended For' })}</p>
-                                    <p class="mt-1.5 text-sm font-medium text-slate-700 dark:text-slate-200">{model.recommended_for}</p>
-                                </div>
-                                {#if model.notes}
-                                    <div>
-                                        <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_notes', { default: 'Notes' })}</p>
-                                        <p class="mt-1.5 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">{model.notes}</p>
-                                    </div>
-                                {/if}
-                                {#if model.recommended_threshold != null}
-                                    <div class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800/50 dark:bg-amber-900/20">
-                                        <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                        <p class="text-[10px] font-bold leading-relaxed text-amber-700 dark:text-amber-300">
-                                            {$_('settings.detection.model_manager_threshold_hint', { default: 'Recommended confidence threshold for this model:' })} <span class="font-black">{Math.round(model.recommended_threshold * 100)}%</span>
-                                        </p>
-                                    </div>
-                                {/if}
-                                {#if installedEntry?.ready === false}
-                                    <div class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-800/50 dark:bg-amber-900/20">
-                                        <svg class="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                        <p class="text-[10px] font-bold leading-relaxed text-amber-700 dark:text-amber-300">
-                                            {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to repair the missing labels or configuration before activation.' })}
-                                        </p>
-                                    </div>
-                                {/if}
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-3 text-sm text-slate-600 dark:text-slate-400">
-                                <div class="flex flex-col p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
-                                    <span class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</span>
-                                    <span class="font-bold text-slate-700 dark:text-slate-200 mt-1">{model.architecture}</span>
-                                </div>
-                                <div class="flex flex-col p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
-                                    <span class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_size', { default: 'Size' })}</span>
-                                    <span class="font-bold text-slate-700 dark:text-slate-200 mt-1">{model.file_size_mb} MB</span>
-                                </div>
-                                <div class="flex flex-col p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
-                                    <span class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</span>
-                                    <span class="font-bold mt-1 {model.accuracy_tier === 'High' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-200'}">
-                                        {model.accuracy_tier}
-                                    </span>
-                                </div>
-                                <div class="flex flex-col p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl">
-                                    <span class="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">{$_('settings.detection.model_manager_speed', { default: 'Speed' })}</span>
-                                    <span class="font-bold mt-1 {model.inference_speed === 'Fast' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-200'}">
-                                        {model.inference_speed}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Right Col: Config / Runtime -->
-                        <div class="flex flex-col gap-5">
-                            <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-4">
-                                <div class="flex items-center justify-between gap-2 mb-4">
-                                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</span>
-                                    <span class="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 shadow-sm">
-                                        {(model.runtime || 'cpu').toUpperCase()}
-                                    </span>
-                                </div>
-                                <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-3">
-                                    {$_('settings.detection.model_manager_provider_pills', { default: 'Inference Provider Pills' })}
-                                </div>
-                                {#if active}
-                                    {#if dynamicProviderChips.length > 0}
-                                        <div class="flex flex-wrap items-center gap-2 min-w-0">
-                                            {#each dynamicProviderChips as chip}
-                                                <span class={`px-3 py-1.5 rounded-lg border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${chip.className}`} title={chip.title}>
-                                                    {chip.label}
-                                                </span>
-                                            {/each}
-                                        </div>
-                                    {:else}
-                                        <p class="text-[10px] font-bold text-slate-500 dark:text-slate-400">
-                                            {$_('settings.detection.model_manager_host_verification', { default: 'OpenVINO host verification is shown for the active ONNX model.' })}
-                                        </p>
-                                    {/if}
-                                {:else}
-                                    <div class="flex flex-wrap gap-2">
-                                        {#each getProviderSupport(model) as provider}
-                                            <span class={`px-3 py-1.5 rounded-lg border text-[10px] font-black tracking-tight whitespace-normal break-words text-center ${providerChipClass(provider)}`}>
-                                                {providerLabel(provider)}
+                    <section aria-labelledby="selected-model-name">
+                        <div class="p-5 sm:p-6">
+                            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                                <div class="max-w-3xl">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <h3 id="selected-model-name" class="text-xl font-bold text-slate-900 dark:text-white">
+                                            {model.name}
+                                        </h3>
+                                        {#if active}
+                                            <span class="rounded-full bg-brand-100 px-2.5 py-1 text-xs font-semibold text-brand-800 dark:bg-brand-950/60 dark:text-brand-200">
+                                                {$_('settings.detection.model_manager_active', { default: 'Active' })}
                                             </span>
-                                        {/each}
+                                        {/if}
                                     </div>
-                                {/if}
-                            </div>
-
-                            <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-700/30 p-4">
-                                <div class="mb-4">
-                                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                        Crop behavior
-                                    </p>
-                                    <p class="mt-1.5 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">
-                                        Model default: <strong>{cropDefaultEnabledLabel(model.crop_generator)}</strong>. Force this model on or off if the shipped default does not fit your feeder.
-                                    </p>
+                                    <p class="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{model.description}</p>
                                 </div>
-                                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                                    <label class="flex flex-col gap-2">
-                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                            Crop behavior
-                                        </span>
-                                        <select
-                                            value={getCropModelOverrideValue(model.id)}
-                                            onchange={(event) => setCropModelOverride(model.id, (event.currentTarget as HTMLSelectElement).value)}
-                                            disabled={cropControlsDisabled}
-                                            class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                                        >
-                                            {#each CROP_MODEL_OVERRIDE_VALUES as option}
-                                                <option value={option}>{cropOverrideLabel(option)}</option>
-                                            {/each}
-                                        </select>
-                                    </label>
-                                    <label class="flex flex-col gap-2">
-                                        <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                            Crop source
-                                        </span>
-                                        <select
-                                            value={getCropSourceOverrideValue(model.id)}
-                                            onchange={(event) => setCropSourceOverride(model.id, (event.currentTarget as HTMLSelectElement).value)}
-                                            disabled={cropControlsDisabled}
-                                            class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                                        >
-                                            {#each CROP_SOURCE_OVERRIDE_VALUES as option}
-                                                <option value={option}>{cropSourceLabel(option)}</option>
-                                            {/each}
-                                        </select>
-                                    </label>
-                                </div>
-                                <p class="mt-3 text-xs font-medium leading-relaxed text-slate-500 dark:text-slate-400">
-                                    Source default: <strong>{cropDefaultSourceLabel(model.crop_generator)}</strong>.
-                                </p>
-                                {#if cropControlsDisabled}
-                                    <p class="mt-3 text-xs font-medium leading-relaxed text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 p-2 rounded border border-amber-200 dark:border-amber-800/50">
-                                        Crop behavior requires the bird crop detector to be installed first.
-                                    </p>
-                                {/if}
-
-                                {#if variantEntries.length > 0}
-                                    <details class="mt-4 rounded-xl border border-slate-200/80 bg-white/70 px-4 py-3 dark:border-slate-600/80 dark:bg-slate-800/60">
-                                        <summary class="cursor-pointer text-xs font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                            Regional variant overrides
-                                        </summary>
-                                        <div class="mt-4 space-y-4">
-                                            {#each variantEntries as variant}
-                                                {@const variantMeta = getCropVariantMetadata(model, variant.region)}
-                                                <div class="rounded-xl border border-slate-200/80 bg-slate-50/80 p-4 dark:border-slate-600/80 dark:bg-slate-900/40">
-                                                    <div class="mb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                                        <div>
-                                                            <p class="text-sm font-black text-slate-900 dark:text-white">{variant.label}</p>
-                                                            <p class="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                                                                {variant.id}
-                                                            </p>
-                                                        </div>
-                                                        <div class="text-left sm:text-right text-xs font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 p-2 rounded shadow-sm border border-slate-100 dark:border-slate-700">
-                                                            <div>{$_('settings.detection.model_manager_default_crop', { default: 'Default crop:' })} <span class="text-slate-700 dark:text-slate-300">{cropDefaultEnabledLabel(variantMeta?.crop_generator)}</span></div>
-                                                            <div>{$_('settings.detection.model_manager_default_source', { default: 'Default source:' })} <span class="text-slate-700 dark:text-slate-300">{cropDefaultSourceLabel(variantMeta?.crop_generator)}</span></div>
-                                                        </div>
-                                                    </div>
-                                                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
-                                                        <label class="flex flex-col gap-2">
-                                                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                                                Crop behavior
-                                                            </span>
-                                                            <select
-                                                                value={getCropModelOverrideValue(variant.id)}
-                                                                onchange={(event) => setCropModelOverride(variant.id, (event.currentTarget as HTMLSelectElement).value)}
-                                                                disabled={cropControlsDisabled}
-                                                                class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                                                            >
-                                                                {#each CROP_MODEL_OVERRIDE_VALUES as option}
-                                                                    <option value={option}>{cropOverrideLabel(option)}</option>
-                                                                {/each}
-                                                            </select>
-                                                        </label>
-                                                        <label class="flex flex-col gap-2">
-                                                            <span class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
-                                                                Crop source
-                                                            </span>
-                                                            <select
-                                                                value={getCropSourceOverrideValue(variant.id)}
-                                                                onchange={(event) => setCropSourceOverride(variant.id, (event.currentTarget as HTMLSelectElement).value)}
-                                                                disabled={cropControlsDisabled}
-                                                                class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-bold text-slate-900 shadow-sm outline-none transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
-                                                            >
-                                                                {#each CROP_SOURCE_OVERRIDE_VALUES as option}
-                                                                    <option value={option}>{cropSourceLabel(option)}</option>
-                                                                {/each}
-                                                            </select>
-                                                        </label>
-                                                    </div>
-                                                </div>
-                                            {/each}
-                                        </div>
-                                    </details>
-                                {/if}
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Bottom Bar: Actions & Progress -->
-                    <div class="p-6 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 rounded-b-xl flex flex-col gap-4">
-                        {#if inProgress}
-                            <div class="w-full">
-                                <div class="flex justify-between text-sm mb-2">
-                                    <span class="text-teal-600 dark:text-teal-400 font-bold flex items-center gap-2">
-                                        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                        </svg>
-                                        {installed
-                                            ? $_('settings.detection.model_manager_redownloading', { default: 'Re-downloading...' })
-                                            : $_('settings.detection.model_manager_downloading', { default: 'Downloading...' })}
+                                <div class="flex flex-wrap gap-2">
+                                    <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {tierChipClass(model.tier)}">
+                                        {tierLabel(model.tier)}
                                     </span>
-                                    <span class="text-slate-600 dark:text-slate-300 font-medium">{download.progress.toFixed(0)}%</span>
-                                </div>
-                                <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2.5 overflow-hidden">
-                                    <div class="bg-teal-500 h-full transition-all duration-300" style="width: {download.progress}%"></div>
+                                    <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {statusChipClass(model.status)}">
+                                        {statusLabel(model.status)}
+                                    </span>
                                 </div>
                             </div>
-                        {:else}
-                            {#if download?.status === 'error' && download.error}
-                                <div class="w-full p-3 rounded-lg border border-red-200 dark:border-red-800 bg-red-50/70 dark:bg-red-900/20 text-sm font-medium text-red-700 dark:text-red-300">
-                                    {download.error}
+
+                            <dl class="mt-6 divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700">
+                                <div class="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-5">
+                                    <dt class="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                        {$_('settings.detection.model_manager_recommended_for', { default: 'Recommended for' })}
+                                    </dt>
+                                    <dd class="text-sm font-medium text-slate-800 dark:text-slate-100">{model.recommended_for}</dd>
+                                </div>
+                                <div class="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-5">
+                                    <dt class="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                        {$_('settings.detection.model_manager_best_fit', { default: 'Best fit' })}
+                                    </dt>
+                                    <dd class="text-sm font-medium text-slate-800 dark:text-slate-100">
+                                        {MODEL_CATEGORY_INFO[category].label} · {scopeLabel(model.taxonomy_scope)} · {model.inference_speed}
+                                    </dd>
+                                </div>
+                                <div class="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-5">
+                                    <dt class="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                        {$_('settings.detection.model_manager_download_size', { default: 'Download and memory' })}
+                                    </dt>
+                                    <dd class="text-sm font-medium text-slate-800 dark:text-slate-100">
+                                        {model.file_size_mb} MB{formatRamLabel(model) ? ' · ' + formatRamLabel(model) : ''}
+                                    </dd>
+                                </div>
+                            </dl>
+
+                            {#if model.notes}
+                                <p class="mt-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{model.notes}</p>
+                            {/if}
+
+                            {#if model.recommended_threshold != null}
+                                <div class="mt-4 border-l-2 border-amber-400 pl-3 text-sm text-slate-600 dark:text-slate-300">
+                                    {$_('settings.detection.model_manager_threshold_hint', { default: 'Recommended confidence threshold for this model:' })}
+                                    <strong class="text-slate-900 dark:text-white">{Math.round(model.recommended_threshold * 100)}%</strong>
                                 </div>
                             {/if}
 
-                            <div class="flex flex-col sm:flex-row gap-3 w-full justify-end">
-                                {#if installed}
-                                    <button
-                                        onclick={() => handleDownload(model)}
-                                        class="px-6 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 rounded-xl transition-colors flex items-center justify-center gap-2"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        {ready
-                                            ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
-                                            : $_('settings.detection.model_manager_repair_download', { default: 'Repair download' })}
-                                    </button>
-                                    {#if !ready}
-                                        <button
-                                            disabled
-                                            class="px-6 py-2.5 text-sm font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 rounded-xl opacity-75 cursor-default border border-amber-200 dark:border-amber-800/50"
-                                        >
-                                            {$_('settings.detection.model_manager_repair_required', { default: 'Repair Required' })}
+                            {#if installed && !ready}
+                                <div class="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200" role="alert">
+                                    {$_('settings.detection.model_manager_repair_needed', { default: 'This model install is incomplete. Re-download it to repair the missing labels or configuration before activation.' })}
+                                </div>
+                            {:else if installed && !active && !validated}
+                                <div class="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-3 text-sm text-sky-800 dark:border-sky-800/60 dark:bg-sky-900/20 dark:text-sky-200">
+                                    {$_('settings.detection.model_manager_validation_needed', { default: 'Downloaded but not yet validated on your hardware. Validate it to confirm it runs here before you select it.' })}
+                                </div>
+                            {/if}
+                        </div>
+
+                        <details class="group border-t border-slate-200 dark:border-slate-700">
+                            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200 sm:px-6">
+                                <span>{$_('settings.detection.model_manager_technical_details', { default: 'Technical details' })}</span>
+                                <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
+                                </svg>
+                            </summary>
+                            <div class="space-y-6 border-t border-slate-200 px-5 py-5 dark:border-slate-700 sm:px-6">
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-900 dark:text-white">
+                                        {$_('settings.detection.model_manager_crop_policy_automatic', { default: 'Image preparation is automatic' })}
+                                    </h4>
+                                    <p class="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                                        {$_('settings.detection.model_manager_crop_policy_automatic_desc', { default: 'YA-WAMF uses the crop policy tested for this model. There is nothing to tune when you switch models.' })}
+                                    </p>
+                                </div>
+
+                                <dl class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                                    <div>
+                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_architecture', { default: 'Architecture' })}</dt>
+                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.architecture}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_runtime', { default: 'Runtime' })}</dt>
+                                        <dd class="mt-1 font-medium uppercase text-slate-800 dark:text-slate-100">{model.runtime}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_accuracy', { default: 'Accuracy' })}</dt>
+                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.accuracy_tier}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_runtime_health', { default: 'Runtime health' })}</dt>
+                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">
+                                            {health?.ml
+                                                ? (health.ml.runtimes.tflite.installed ? 'TFLite ✓' : 'TFLite —') + ' · ' + (health.ml.runtimes.onnx.installed ? 'ONNX ✓' : 'ONNX —')
+                                                : '—'}
+                                        </dd>
+                                    </div>
+                                </dl>
+
+                                <div>
+                                    <h4 class="text-sm font-bold text-slate-900 dark:text-white">
+                                        {$_('settings.detection.model_manager_provider_pills', { default: 'Inference providers' })}
+                                    </h4>
+                                    <div class="mt-2 flex flex-wrap gap-2">
+                                        {#if dynamicProviderChips.length > 0}
+                                            {#each dynamicProviderChips as chip}
+                                                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {chip.className}" title={chip.title}>{chip.label}</span>
+                                            {/each}
+                                        {:else}
+                                            {#each getProviderSupport(model) as provider}
+                                                <span class="rounded-full border px-2.5 py-1 text-xs font-semibold {providerChipClass(provider)}">{providerLabel(provider)}</span>
+                                            {/each}
+                                        {/if}
+                                    </div>
+                                </div>
+
+                            </div>
+                        </details>
+
+                        <div class="flex flex-col gap-4 border-t border-slate-200 bg-slate-50/60 p-5 dark:border-slate-700 dark:bg-slate-950/30 sm:p-6">
+                            {#if inProgress}
+                                <div class="w-full" role="status">
+                                    <div class="mb-2 flex justify-between text-sm">
+                                        <span class="font-semibold text-brand-700 dark:text-brand-300">
+                                            {installed
+                                                ? $_('settings.detection.model_manager_redownloading', { default: 'Re-downloading…' })
+                                                : $_('settings.detection.model_manager_downloading', { default: 'Downloading…' })}
+                                        </span>
+                                        <span class="font-medium text-slate-600 dark:text-slate-300">{download.progress.toFixed(0)}%</span>
+                                    </div>
+                                    <div class="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                        <div class="h-full bg-brand-500 transition-all duration-300" style="width: {download.progress}%"></div>
+                                    </div>
+                                </div>
+                            {:else}
+                                {#if download?.status === 'error' && download.error}
+                                    <div class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300" role="alert">
+                                        {download.error}
+                                    </div>
+                                {/if}
+                                <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                                    {#if installed}
+                                        <button type="button" onclick={() => handleDownload(model)} class="btn btn-secondary min-h-11 px-4">
+                                            {ready
+                                                ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
+                                                : $_('settings.detection.model_manager_repair_download', { default: 'Repair download' })}
                                         </button>
-                                    {:else if active}
-                                        <button
-                                            disabled
-                                            class="px-6 py-2.5 text-sm font-bold text-teal-700 dark:text-teal-300 bg-teal-50 dark:bg-teal-900/20 rounded-xl opacity-75 cursor-default border border-teal-200 dark:border-teal-800/50"
-                                        >
-                                            {$_('settings.detection.model_manager_currently_active', { default: 'Currently Active' })}
-                                        </button>
+                                        {#if ready && !active && validated}
+                                            <button
+                                                type="button"
+                                                onclick={() => handleActivate(model.id)}
+                                                disabled={activating !== null}
+                                                class="btn btn-primary min-h-11 px-4"
+                                            >
+                                                {activating === model.id
+                                                    ? $_('settings.detection.model_manager_activating', { default: 'Activating…' })
+                                                    : $_('settings.detection.model_manager_activate', { default: 'Use this model' })}
+                                            </button>
+                                        {:else if ready && !active && !validated}
+                                            <button
+                                                type="button"
+                                                onclick={() => handleValidate(model)}
+                                                disabled={wizardBusy}
+                                                class="btn btn-primary min-h-11 px-4"
+                                            >
+                                                {$_('settings.detection.model_manager_validate_to_enable', { default: 'Validate to enable' })}
+                                            </button>
+                                        {:else if active}
+                                            <span class="flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-brand-700 dark:text-brand-300">
+                                                {$_('settings.detection.model_manager_currently_active', { default: 'Currently active' })}
+                                            </span>
+                                        {/if}
                                     {:else}
-                                        <button
-                                            onclick={() => handleActivate(model.id)}
-                                            disabled={activating !== null}
-                                            class="px-6 py-2.5 text-sm font-bold text-white bg-teal-500 hover:bg-teal-600 rounded-xl transition-colors disabled:opacity-50 shadow-sm"
-                                        >
-                                            {activating === model.id
-                                                ? $_('settings.detection.model_manager_activating', { default: 'Activating...' })
-                                                : $_('settings.detection.model_manager_activate', { default: 'Activate Model' })}
+                                        <button type="button" onclick={() => handleInstall(model)} disabled={wizardBusy} class="btn btn-primary min-h-11 px-4">
+                                            {$_('settings.detection.model_manager_download_setup', { default: 'Download & set up' })}
                                         </button>
                                     {/if}
-                                {:else}
-                                    <button
-                                        onclick={() => handleDownload(model)}
-                                        class="w-full sm:w-auto px-6 py-2.5 text-sm font-bold text-white bg-slate-900 dark:bg-slate-100 dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"
-                                    >
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        {$_('settings.detection.model_manager_download', { default: 'Download Model' })}
-                                    </button>
-                                {/if}
+                                </div>
+                            {/if}
+                        </div>
+                    </section>
+                {/if}
+            {/if}
+
+            {#if selectedCropDetector}
+                <details class="group border-t border-slate-200 dark:border-slate-700">
+                    <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200 sm:px-6">
+                        <span>{$_('settings.detection.model_manager_thumbnail_crop_title', { default: 'Cropped thumbnails' })}</span>
+                        <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
+                        </svg>
+                    </summary>
+                    <div class="space-y-5 border-t border-slate-200 px-5 py-5 dark:border-slate-700 sm:px-6">
+                        <div class="grid gap-4">
+                            <div>
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">
+                                    {$_('settings.detection.model_manager_thumbnail_crop_quality', { default: 'Automatic best quality' })}
+                                </p>
+                                <p class="mt-1 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                                    {$_('settings.detection.model_manager_thumbnail_crop_desc', { default: 'YA-WAMF evaluates the accurate detector, fast fallback, and Frigate tracking hints automatically; the clear full frame is used only if none yields a reliable crop.' })}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-4 border-t border-slate-200 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="text-sm text-slate-600 dark:text-slate-300">
+                                <span class="font-semibold text-slate-900 dark:text-white">{selectedCropDetector.name}</span>
+                                · {selectedCropDetectorRuntime?.enabled_for_runtime || selectedCropDetectorInstalled
+                                    ? $_('settings.detection.model_manager_detector_ready', { default: 'Ready' })
+                                    : $_('settings.detection.model_manager_detector_missing', { default: 'Download required' })}
+                            </p>
+                            <button
+                                type="button"
+                                onclick={() => handleDownload(selectedCropDetector)}
+                                disabled={selectedCropDetectorDownload?.status === 'downloading' || selectedCropDetectorDownload?.status === 'pending'}
+                                class="btn btn-secondary min-h-11 shrink-0 px-4"
+                            >
+                                {selectedCropDetectorInstalled
+                                    ? $_('settings.detection.model_manager_redownload', { default: 'Re-download' })
+                                    : $_('settings.detection.model_manager_download_detector', { default: 'Download detector' })}
+                            </button>
+                        </div>
+                        {#if selectedCropDetectorDownload?.status === 'downloading' || selectedCropDetectorDownload?.status === 'pending'}
+                            <div role="status">
+                                <div class="mb-1 flex justify-between text-xs font-semibold">
+                                    <span class="text-brand-700 dark:text-brand-300">{$_('settings.detection.model_manager_downloading_detector', { default: 'Downloading detector…' })}</span>
+                                    <span class="text-slate-500">{selectedCropDetectorDownload.progress.toFixed(0)}%</span>
+                                </div>
+                                <div class="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                    <div class="h-full bg-brand-500 transition-all duration-300" style="width: {selectedCropDetectorDownload.progress}%"></div>
+                                </div>
                             </div>
                         {/if}
                     </div>
-                </div>
-                {/if}
+                </details>
             {/if}
         </div>
+
+        {#if !showAdvancedModels && advancedCount > 0}
+            <p class="px-1 text-sm text-slate-500 dark:text-slate-400">
+                {$_('settings.detection.model_manager_advanced_hidden', { default: 'Legacy and lower-performing models are hidden. Use “Show all models” to see every option.' })}
+            </p>
+        {/if}
     {/if}
 </div>
+
+{#if wizardModel}
+    <DiagnosticDialog
+        title={$_('settings.detection.model_manager_install_title', { default: 'Set up model' })}
+        subtitle={$_('settings.detection.model_manager_install_subtitle', {
+            default: 'Download, validate on your hardware, and enable this model.'
+        })}
+        stages={wizardStages}
+        busy={wizardBusy}
+        result={wizardResult}
+        runId={wizardRunId}
+        note={$_('settings.detection.model_manager_install_note', {
+            default: 'Each step runs on your hardware. Nothing becomes active until validation passes.'
+        })}
+        runningLabel={$_('common.working', { default: 'Working…' })}
+        onClose={closeWizard}
+        onRetry={() => wizardModel && runInstallWizard(wizardModel, { download: wizardDownload })}
+    >
+        {#snippet summary()}
+            {wizardModel?.name}
+        {/snippet}
+    </DiagnosticDialog>
+{/if}

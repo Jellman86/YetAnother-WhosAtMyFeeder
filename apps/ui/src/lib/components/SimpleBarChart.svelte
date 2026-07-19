@@ -5,12 +5,12 @@
         data: number[];
         labels: string[];
         title: string;
-        color?: string;
+        ariaLabel?: string;
         showEveryNthLabel?: number;  // For dense charts like hourly, only show every Nth label
         onclick?: (index: number) => void;  // Optional click handler for bars
     }
 
-    let { data, labels, title, color = 'bg-teal-500', showEveryNthLabel, onclick }: Props = $props();
+    let { data, labels, title, ariaLabel, showEveryNthLabel, onclick }: Props = $props();
 
     let maxValue = $derived(Math.max(...data, 1));
     let total = $derived(data.reduce((a, b) => a + b, 0));
@@ -32,56 +32,59 @@
     }
 </script>
 
+{#snippet barContent(value: number, i: number)}
+    {#if hoveredIndex === i}
+        <div class="absolute -top-7 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900 px-2 py-1 text-xs font-medium text-white shadow-lg pointer-events-none before:absolute before:left-1/2 before:top-full before:-translate-x-1/2 before:border-4 before:border-transparent before:border-t-slate-900 dark:bg-slate-700 dark:before:border-t-slate-700">
+            {labels[i]}: {value}
+        </div>
+    {/if}
+
+    <div
+        class="w-full rounded-sm transition-all duration-150 {hoveredIndex === i ? 'ring-2 ring-brand-400 ring-offset-1' : ''}"
+        class:bg-brand-500={value > 0 && hoveredIndex !== i}
+        class:bg-brand-400={value > 0 && hoveredIndex === i}
+        class:bg-slate-200={value === 0}
+        class:dark:bg-slate-600={value === 0}
+        style="height: {value > 0 ? Math.max((value / maxValue) * 100, 8) : 4}%"
+    ></div>
+{/snippet}
+
 <div class="w-full overflow-hidden">
-    <div class="flex items-center justify-between mb-2">
-        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300">{title}</h4>
+    <div class="mb-2 flex items-center {title ? 'justify-between' : 'justify-end'}">
+        {#if title}
+            <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300">{title}</h4>
+        {/if}
         <span class="text-xs text-slate-400 dark:text-slate-500">{total} total</span>
     </div>
 
     <!-- Chart container with proper overflow handling -->
-    <div class="relative" role="img" aria-label={title}>
+    <div class="relative" role="img" aria-label={ariaLabel || title}>
         <!-- Bars -->
         <div class="flex items-end gap-px h-28">
             {#each data as value, i}
-                <div
-                    class="flex-1 min-w-0 flex flex-col items-center justify-end h-full relative cursor-pointer"
-                    onmouseenter={() => hoveredIndex = i}
-                    onmouseleave={() => hoveredIndex = null}
-                    onfocus={() => hoveredIndex = i}
-                    onblur={() => hoveredIndex = null}
-                    onclick={() => onclick?.(i)}
-                    onkeydown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.preventDefault();
-                            onclick?.(i);
-                        }
-                    }}
-                    role="button"
-                    tabindex="0"
-                    aria-label="{labels[i]}: {value} {$_('common.detections', { default: 'detections' })}"
-                >
-                    <!-- Tooltip - positioned above with proper z-index -->
-                    {#if hoveredIndex === i}
-                        <div class="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md
-                                    bg-slate-900 dark:bg-slate-700 text-white text-xs font-medium
-                                    whitespace-nowrap z-20 shadow-lg pointer-events-none
-                                    before:content-[''] before:absolute before:top-full before:left-1/2
-                                    before:-translate-x-1/2 before:border-4 before:border-transparent
-                                    before:border-t-slate-900 dark:before:border-t-slate-700">
-                            {labels[i]}: {value}
-                        </div>
-                    {/if}
-
-                    <!-- Bar -->
+                {#if onclick}
+                    <button
+                        type="button"
+                        class="relative flex h-full min-w-0 flex-1 cursor-pointer flex-col items-center justify-end"
+                        onmouseenter={() => hoveredIndex = i}
+                        onmouseleave={() => hoveredIndex = null}
+                        onfocus={() => hoveredIndex = i}
+                        onblur={() => hoveredIndex = null}
+                        onclick={() => onclick(i)}
+                        aria-label="{labels[i]}: {value} {$_('common.detections', { default: 'detections' })}"
+                    >
+                        {@render barContent(value, i)}
+                    </button>
+                {:else}
                     <div
-                        class="w-full rounded-sm transition-all duration-150 {hoveredIndex === i ? 'ring-2 ring-teal-400 ring-offset-1' : ''}"
-                        class:bg-teal-500={value > 0 && hoveredIndex !== i}
-                        class:bg-teal-400={value > 0 && hoveredIndex === i}
-                        class:bg-slate-200={value === 0}
-                        class:dark:bg-slate-600={value === 0}
-                        style="height: {value > 0 ? Math.max((value / maxValue) * 100, 8) : 4}%"
-                    ></div>
-                </div>
+                        class="relative flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+                        onmouseenter={() => hoveredIndex = i}
+                        onmouseleave={() => hoveredIndex = null}
+                        role="presentation"
+                    >
+                        {@render barContent(value, i)}
+                    </div>
+                {/if}
             {/each}
         </div>
 
@@ -90,7 +93,7 @@
             {#each labels as label, i}
                 <div class="flex-1 min-w-0 text-center">
                     {#if shouldShowLabel(i)}
-                        <span class="text-[9px] leading-none text-slate-500 dark:text-slate-400
+                        <span class="text-xs leading-none text-slate-500 dark:text-slate-400
                                      {hoveredIndex === i ? 'text-slate-700 dark:text-slate-300 font-medium' : ''}">
                             {label}
                         </span>
@@ -103,7 +106,7 @@
     <!-- Screen reader accessible table alternative -->
     <div class="sr-only">
         <table>
-            <caption>{title}</caption>
+            <caption>{ariaLabel || title}</caption>
             <thead>
                 <tr>
                     <th>{$_('common.period', { default: 'Period' })}</th>

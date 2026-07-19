@@ -566,6 +566,44 @@ def evaluate_case(
     )
 
 
+def validate_crop_execution(rows: Iterable[FeederEvalResult], *, model_id: str, crop_mode: str) -> None:
+    """Prove a forced crop arm actually exercised the intended runtime path.
+
+    Accuracy numbers are misleading when a missing detector makes ``on`` silently
+    fall back to the original image. The production classifier remains fail-soft;
+    the diagnostic harness is deliberately strict so it cannot bless a no-op
+    comparison as evidence for a model policy.
+    """
+    mode = _clean(crop_mode).lower()
+    if mode not in {"on", "off"}:
+        return
+
+    evaluated = list(rows)
+    if not evaluated:
+        raise RuntimeError(f"crop-{mode} evaluation for {model_id} produced no rows")
+
+    diagnostics = [dict(row.crop_diagnostics or {}) for row in evaluated]
+    if mode == "off":
+        if any(item.get("crop_attempted") or item.get("crop_applied") for item in diagnostics):
+            raise RuntimeError(f"crop-off evaluation for {model_id} unexpectedly attempted a crop")
+        return
+
+    fatal_reasons = {"load_failed", "inference_failed", "spec_resolution_failed"}
+    observed_fatal = sorted(
+        {
+            str(item.get("crop_reason") or "").strip()
+            for item in diagnostics
+            if str(item.get("crop_reason") or "").strip() in fatal_reasons
+        }
+    )
+    if observed_fatal:
+        raise RuntimeError(
+            f"crop-on evaluation for {model_id} could not exercise the detector: {', '.join(observed_fatal)}"
+        )
+    if not any(bool(item.get("crop_applied")) for item in diagnostics):
+        raise RuntimeError(f"crop-on evaluation for {model_id} did not apply a crop to any image")
+
+
 @asynccontextmanager
 async def temporary_model_settings(
     *,
@@ -574,11 +612,13 @@ async def temporary_model_settings(
     model_id: str,
     crop_mode: str,
     source_mode: str,
+    region_override: str | None = None,
 ) -> AsyncIterator[None]:
     original_active_model_id = getattr(model_manager, "active_model_id", None)
+    original_crop_model_overrides = dict(getattr(model_manager, "_diagnostic_crop_model_overrides", {}) or {})
+    original_crop_source_overrides = dict(getattr(model_manager, "_diagnostic_crop_source_overrides", {}) or {})
     classification = settings.classification
-    original_crop_model_overrides = dict(getattr(classification, "crop_model_overrides", {}) or {})
-    original_crop_source_overrides = dict(getattr(classification, "crop_source_overrides", {}) or {})
+    original_region_override = getattr(classification, "bird_model_region_override", "auto")
 
     if model_id and model_id != original_active_model_id:
         activated = await model_manager.activate_model(model_id)
@@ -591,14 +631,17 @@ async def temporary_model_settings(
         crop_model_overrides[model_id] = crop_mode
     if source_mode != "default":
         crop_source_overrides[model_id] = source_mode
-    classification.crop_model_overrides = crop_model_overrides
-    classification.crop_source_overrides = crop_source_overrides
+    model_manager._diagnostic_crop_model_overrides = crop_model_overrides
+    model_manager._diagnostic_crop_source_overrides = crop_source_overrides
+    if region_override is not None:
+        classification.bird_model_region_override = region_override
 
     try:
         yield
     finally:
-        classification.crop_model_overrides = original_crop_model_overrides
-        classification.crop_source_overrides = original_crop_source_overrides
+        model_manager._diagnostic_crop_model_overrides = original_crop_model_overrides
+        model_manager._diagnostic_crop_source_overrides = original_crop_source_overrides
+        classification.bird_model_region_override = original_region_override
         if original_active_model_id and getattr(model_manager, "active_model_id", None) != original_active_model_id:
             await model_manager.activate_model(original_active_model_id)
 
@@ -637,6 +680,7 @@ async def run_harness(
     model_ids: list[str],
     crop_modes: list[str],
     source_mode: str,
+    region_override: str | None,
     high_confidence_unknown_threshold: float,
 ) -> dict[str, Any]:
     from app.config import settings
@@ -647,17 +691,19 @@ async def run_harness(
     rows: list[FeederEvalResult] = []
     for model_id in model_ids:
         for crop_mode in crop_modes:
+            mode_rows: list[FeederEvalResult] = []
             async with temporary_model_settings(
                 model_manager=model_manager,
                 settings=settings,
                 model_id=model_id,
                 crop_mode=crop_mode,
                 source_mode=source_mode,
+                region_override=region_override,
             ):
                 classifier = ClassifierService()
                 try:
                     for case in cases:
-                        rows.append(
+                        mode_rows.append(
                             evaluate_case(
                                 case,
                                 classifier=classifier,
@@ -668,6 +714,8 @@ async def run_harness(
                         )
                 finally:
                     await classifier.shutdown()
+            validate_crop_execution(mode_rows, model_id=model_id, crop_mode=crop_mode)
+            rows.extend(mode_rows)
 
     _write_outputs(rows, output_dir)
     return aggregate_results(rows)
@@ -778,6 +826,12 @@ def main() -> int:
         help="Optional crop source override, for example default,standard,high_quality",
     )
     parser.add_argument(
+        "--bird-model-region",
+        choices=("auto", "eu", "na"),
+        default=None,
+        help="Optional regional family override for reproducible EU/NA variant sweeps",
+    )
+    parser.add_argument(
         "--high-confidence-unknown-threshold",
         type=float,
         default=0.90,
@@ -812,6 +866,7 @@ def main() -> int:
             model_ids=model_ids,
             crop_modes=_split_csv_arg(args.crop_modes),
             source_mode=args.source_mode,
+            region_override=args.bird_model_region,
             high_confidence_unknown_threshold=args.high_confidence_unknown_threshold,
         )
     )

@@ -18,6 +18,10 @@ export interface components {
     provider: string;
     total_tokens: number;
 };
+    AIUsageClearResponse: {
+    deleted_count: number;
+    status: string;
+};
     AIUsageDaily: {
     calls: number;
     day: string;
@@ -38,6 +42,10 @@ export interface components {
     span: string;
     to_date: string;
     total_tokens: number;
+};
+    ActionStatusResponse: {
+    message: string;
+    status: "ok" | "error";
 };
     AnalysisStatusResponse: {
     active: number;
@@ -261,6 +269,17 @@ export interface components {
     end_date?: string | null;
     start_date?: string | null;
 };
+    BackfillResetCacheStats: {
+    bytes_freed: number;
+    clips_deleted: number;
+    snapshots_deleted: number;
+};
+    BackfillResetResponse: {
+    cache_stats: components['schemas']['BackfillResetCacheStats'];
+    deleted_count: number;
+    message: string;
+    status: string;
+};
     BackfillResponse: {
     error_reasons?: Record<string, number>;
     errors: number;
@@ -376,6 +395,19 @@ export interface components {
     ClassifierLabelsResponse: {
     labels: Array<string>;
 };
+    ClassifierPredictionResponse: {
+    label: string;
+    rank: number;
+    score: number;
+};
+    ClassifierTestResponse: {
+    error?: string | null;
+    image_mode?: string | null;
+    image_size?: Array<unknown> | null;
+    results?: Array<Record<string, components['schemas']['JsonValue']>>;
+    status?: string | null;
+    traceback?: string | null;
+};
     CleanupResponse: {
     cutoff_date?: string | null;
     deleted_count: number;
@@ -390,6 +422,17 @@ export interface components {
     deleted_count: number;
     message: string;
     status: string;
+};
+    ConnectivityResponse: {
+    frigate: components['schemas']['ConnectivityResult'];
+    inaturalist: components['schemas']['ConnectivityResult'];
+    telemetry: components['schemas']['ConnectivityResult'];
+};
+    ConnectivityResult: {
+    code?: number | null;
+    error?: string | null;
+    status: "ok" | "error";
+    version?: string | null;
 };
     ConversationRequest: {
     message: string;
@@ -448,6 +491,14 @@ export interface components {
     wind_avg?: number | null;
     wind_max?: number | null;
 };
+    DatabaseStatsResponse: {
+    detections: number | string;
+    taxonomy_cache: number | string;
+};
+    DeleteEventResponse: {
+    event_id: string;
+    status: "deleted";
+};
     Detection: {
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
@@ -459,7 +510,7 @@ export interface components {
     category_name: string;
     common_name?: string | null;
     detection_index: number;
-    detection_time: string;
+    detection_time: string | null;
     display_name: string;
     frigate_event: string;
     frigate_last_checked_at?: string | null;
@@ -493,6 +544,25 @@ export interface components {
     weather_wind_direction?: number | null;
     weather_wind_speed?: number | null;
 };
+    DetectionListItemResponse: {
+    audio_confirmed?: boolean;
+    audio_context_species?: Array<string> | null;
+    audio_score?: number | null;
+    audio_species?: string | null;
+    camera_name: string;
+    category_name: string;
+    detection_index: number;
+    detection_time: string | null;
+    display_name: string;
+    frigate_event: string;
+    has_clip?: boolean;
+    has_frigate_event?: boolean;
+    has_snapshot?: boolean;
+    id?: number | null;
+    is_favorite?: boolean;
+    is_hidden?: boolean;
+    score: number;
+};
     DetectionResponse: {
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
@@ -504,7 +574,7 @@ export interface components {
     category_name: string;
     common_name?: string | null;
     detection_index: number;
-    detection_time: string;
+    detection_time: string | null;
     display_name: string;
     frigate_event: string;
     frigate_last_checked_at?: string | null;
@@ -640,6 +710,32 @@ export interface components {
     progress: number;
     status: string;
 };
+    EbirdNearbyResponse: {
+    message?: string | null;
+    results: Array<components['schemas']['EbirdObservation']>;
+    species_code?: string | null;
+    species_name?: string | null;
+    status: string;
+    warning?: string | null;
+};
+    EbirdNotableResponse: {
+    message?: string | null;
+    results: Array<components['schemas']['EbirdObservation']>;
+    status: string;
+};
+    EbirdObservation: {
+    common_name?: string | null;
+    how_many?: number | null;
+    lat?: number | null;
+    lng?: number | null;
+    location_name?: string | null;
+    obs_reviewed?: boolean | null;
+    obs_valid?: boolean | null;
+    observed_at?: string | null;
+    scientific_name?: string | null;
+    species_code?: string | null;
+    thumbnail_url?: string | null;
+};
     EventFilterSpecies: {
     common_name?: string | null;
     display_name: string;
@@ -664,6 +760,17 @@ export interface components {
     backfill?: components['schemas']['BackfillFocusedDiagnosticsResponse'] | null;
     video_classifier?: components['schemas']['VideoClassifierFocusedDiagnosticsResponse'] | null;
 };
+    FrigateCameraStatusItem: {
+    camera: string;
+    camera_fps?: number | null;
+    detection_fps?: number | null;
+    process_fps?: number | null;
+    status: "online" | "offline" | "unknown";
+};
+    FrigateCameraStatusResponse: {
+    cameras: Array<components['schemas']['FrigateCameraStatusItem']>;
+    checked_at: string;
+};
     FrigateTestResponse: {
     frigate_url: string;
     status: string;
@@ -678,6 +785,21 @@ export interface components {
     HideResponse: {
     event_id: string;
     is_hidden: boolean;
+    status: string;
+};
+    ImageClassificationResponse: {
+    active_provider?: string | null;
+    error?: string | null;
+    image_size?: Array<number> | null;
+    inference_backend?: string | null;
+    inference_ms?: number | null;
+    model_id?: string | null;
+    predictions?: Array<components['schemas']['ClassifierPredictionResponse']>;
+    status: string;
+    traceback?: string | null;
+};
+    InaturalistDisconnectResponse: {
+    deleted: boolean;
     status: string;
 };
     InaturalistDraftRequest: {
@@ -706,6 +828,10 @@ export interface components {
     notes?: string | null;
     place_guess?: string | null;
 };
+    InaturalistSubmitResponse: {
+    observation_id?: number | null;
+    status: string;
+};
     InitialPasswordRequest: {
     enable_auth?: boolean;
     password?: string | null;
@@ -719,7 +845,10 @@ export interface components {
     path: string;
     ready?: boolean;
     reason?: string;
+    validated?: boolean;
+    validation_reason?: string;
 };
+    JsonValue: unknown;
     LeaderboardAnalysisRequest: {
     config: Record<string, unknown>;
     config_key?: string | null;
@@ -756,6 +885,16 @@ export interface components {
     llm_model?: string | null;
     llm_provider?: string | null;
 };
+    LlmTestResponse: {
+    failure_stage?: "configuration" | "provider" | "vision" | "multi_frame" | "response" | null;
+    frame_count: number;
+    message: string;
+    model: string;
+    provider: string;
+    retry_after_seconds?: number | null;
+    retryable?: boolean;
+    status: "ok" | "error";
+};
     LoginRequest: {
     password: string;
     username: string;
@@ -772,9 +911,30 @@ export interface components {
     retention_days: number;
     total_detections: number;
 };
+    ManualTagResponse: {
+    common_name?: string | null;
+    event_id: string;
+    new_species: string;
+    old_species?: string | null;
+    scientific_name?: string | null;
+    species?: string | null;
+    status: "updated" | "unchanged";
+    taxa_id?: number | null;
+};
+    MessageResponse: {
+    message: string;
+};
     ModelActionResponse: {
     message: string;
     status: string;
+};
+    ModelFile: {
+    name: string;
+    size_bytes: number;
+};
+    ModelFilesResponse: {
+    error?: string | null;
+    files?: Array<components['schemas']['ModelFile']>;
 };
     ModelMetadata: {
     accuracy_tier: string;
@@ -808,6 +968,22 @@ export interface components {
     tier: string;
     weights_url?: string | null;
 };
+    ModelValidateDevice: {
+    device: string;
+    latency_ms?: number | null;
+    ok: boolean;
+    provider: string;
+};
+    ModelValidateResponse: {
+    best_provider?: string | null;
+    devices?: Array<components['schemas']['ModelValidateDevice']>;
+    latency_ms?: number | null;
+    model_id: string;
+    ok: boolean;
+    provider: string;
+    provider_set?: boolean;
+    reason: string;
+};
     NotificationTestRequest: {
     api_token?: string | null;
     bot_token?: string | null;
@@ -815,6 +991,10 @@ export interface components {
     platform: string;
     user_key?: string | null;
     webhook_url?: string | null;
+};
+    OAuthAuthorizeResponse: {
+    authorization_url: string;
+    state?: string | null;
 };
     PurgeMissingMediaResponse: {
     checked: number;
@@ -853,6 +1033,17 @@ export interface components {
     country?: string | null;
     place_guess?: string | null;
     state?: string | null;
+};
+    SeasonalityResponse: {
+    local: boolean;
+    month_counts: Array<number>;
+    status: string;
+    taxon_id: number;
+    total_observations: number;
+};
+    SettingsImportResponse: {
+    changed_fields: Array<string>;
+    status: "imported";
 };
     SettingsResponse: {
     accessibility_dyslexia_font?: boolean | null;
@@ -1018,6 +1209,7 @@ export interface components {
     telemetry_platform?: string | null;
     trust_frigate_sublabel?: boolean;
     trusted_proxy_hosts?: Array<string> | null;
+    update_check_enabled?: boolean;
     video_classification_circuit_failures?: number;
     video_classification_circuit_open?: boolean;
     video_classification_circuit_until?: string | null;
@@ -1193,6 +1385,18 @@ export interface components {
     video_classification_max_retries?: number | null;
     write_frigate_sublabel?: boolean;
 };
+    SettingsUpdateResponse: {
+    status: "updated";
+};
+    SetupSectionState: {
+    detail?: string | null;
+    id: string;
+    status: "ok" | "attention" | "optional";
+};
+    SetupState: {
+    initial_setup_complete: boolean;
+    sections: Array<components['schemas']['SetupSectionState']>;
+};
     SnapshotApplyRequest: {
     candidate_id?: string | null;
     mode?: "candidate" | "auto_best" | "full_frame" | "frigate_hint_crop" | "model_crop" | "revert_original";
@@ -1254,6 +1458,30 @@ export interface components {
     original_frigate_snapshot_available?: boolean | null;
     source?: string | null;
 };
+    SpeciesCacheClearResponse: {
+    species: string;
+    status: string;
+};
+    SpeciesCountItem: {
+    avg_confidence?: number | null;
+    camera_count?: number | null;
+    common_name?: string | null;
+    count: number;
+    count_1d?: number;
+    count_30d?: number;
+    count_7d?: number;
+    days_seen_14d?: number;
+    days_seen_30d?: number;
+    first_seen?: string | null;
+    last_seen?: string | null;
+    max_confidence?: number | null;
+    min_confidence?: number | null;
+    scientific_name?: string | null;
+    species: string;
+    taxa_id?: number | null;
+    trend_delta?: number;
+    trend_percent?: number;
+};
     SpeciesInfo: {
     cached_at?: string | null;
     conservation_status?: string | null;
@@ -1276,6 +1504,13 @@ export interface components {
     source_url?: string | null;
     status: string;
     taxon_key?: number | null;
+};
+    SpeciesSearchResult: {
+    common_name?: string | null;
+    display_name: string;
+    id: string;
+    scientific_name?: string | null;
+    taxa_id?: number | null;
 };
     SpeciesStats: {
     avg_confidence: number;
@@ -1304,6 +1539,11 @@ export interface components {
     StartRunResponse: {
     run_id: string;
 };
+    SystemDebugResponse: {
+    disk_usage: Array<unknown>;
+    platform: string;
+    python: string;
+};
     TaxonomySyncStartResponse: {
     status: string;
 };
@@ -1321,6 +1561,10 @@ export interface components {
     TestEmailRequest: {
     test_message?: string;
     test_subject?: string;
+};
+    TestEmailResponse: {
+    message: string;
+    to: string;
 };
     TimezoneRepairApplyRequest: {
     confirm?: boolean;
@@ -1361,7 +1605,19 @@ export interface components {
     UpdateDetectionRequest: {
     display_name: string;
 };
+    UpdateStatusResponse: {
+    channel: string;
+    checked_at?: string | null;
+    current_version: string;
+    enabled: boolean;
+    error?: string | null;
+    latest_version?: string | null;
+    release_url: string;
+    update_available: boolean;
+};
     ValidationError: {
+    ctx?: Record<string, unknown>;
+    input?: unknown;
     loc: Array<string | number>;
     msg: string;
     type: string;
@@ -1369,6 +1625,12 @@ export interface components {
     VersionResponse: {
     base_version: string;
     version: string;
+};
+    VideoCircuitResetResponse: {
+    live_circuit: Record<string, unknown>;
+    maintenance_circuit: Record<string, unknown>;
+    message: string;
+    status: "ok";
 };
     VideoClassifierFocusedDiagnosticsResponse: {
     active: number;
@@ -1564,7 +1826,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['InitialPasswordRequest'];
-      response: unknown;
+      response: components['schemas']['MessageResponse'];
     };
   };
   "/api/auth/login": {
@@ -1582,7 +1844,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['MessageResponse'];
     };
   };
   "/api/auth/status": {
@@ -1618,7 +1880,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['BackfillResetResponse'];
     };
   };
   "/api/backfill/status": {
@@ -1629,7 +1891,7 @@ export interface paths {
     kind?: string | null;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['BackfillJobStatus'] | null;
     };
   };
   "/api/backfill/status/{job_id}": {
@@ -1687,7 +1949,7 @@ export interface paths {
     top_n?: number;
 };
       requestBody: components['schemas']['BodyClassifyImageApiClassifierClassifyPost'];
-      response: unknown;
+      response: components['schemas']['ImageClassificationResponse'];
     };
   };
   "/api/classifier/debug": {
@@ -1696,7 +1958,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/classifier/download": {
@@ -1726,7 +1988,7 @@ export interface paths {
     synthetic_image?: boolean;
 };
       requestBody: components['schemas']['BodyProbeBirdClassifierRuntimeApiClassifierProbePost'];
-      response: unknown;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/classifier/status": {
@@ -1735,7 +1997,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/classifier/test": {
@@ -1744,7 +2006,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['BodyTestBirdClassifierApiClassifierTestPost'];
-      response: unknown;
+      response: components['schemas']['ClassifierTestResponse'];
     };
   };
   "/api/classifier/wildlife/debug": {
@@ -1753,7 +2015,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/classifier/wildlife/download": {
@@ -1780,7 +2042,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/classifier/wildlife/test": {
@@ -1789,7 +2051,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['BodyTestWildlifeClassifierApiClassifierWildlifeTestPost'];
-      response: unknown;
+      response: components['schemas']['ClassifierTestResponse'];
     };
   };
   "/api/debug/config": {
@@ -1798,7 +2060,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: Record<string, unknown>;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/debug/connectivity": {
@@ -1807,7 +2069,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ConnectivityResponse'];
     };
   };
   "/api/debug/db/stats": {
@@ -1816,7 +2078,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['DatabaseStatsResponse'];
     };
   };
   "/api/debug/fs/models": {
@@ -1825,7 +2087,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ModelFilesResponse'];
     };
   };
   "/api/debug/system": {
@@ -1834,7 +2096,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['SystemDebugResponse'];
     };
   };
   "/api/diagnostics/bundle": {
@@ -1877,7 +2139,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: Record<string, unknown>;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
     post: {
       operationId: "start_run_api_diagnostics_model_eval_runs_post";
@@ -1895,7 +2157,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: Record<string, unknown>;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
     delete: {
       operationId: "delete_run_api_diagnostics_model_eval_runs__run_id__delete";
@@ -1904,7 +2166,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: Record<string, unknown>;
+      response: Record<string, string>;
     };
   };
   "/api/diagnostics/model-eval/runs/{run_id}/cancel": {
@@ -1915,7 +2177,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: Record<string, unknown>;
+      response: Record<string, components['schemas']['JsonValue']>;
     };
   };
   "/api/diagnostics/model-eval/runs/{run_id}/{artifact}": {
@@ -1967,7 +2229,7 @@ export interface paths {
     species_name?: string | null;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['EbirdNearbyResponse'];
     };
   };
   "/api/ebird/notable": {
@@ -1982,7 +2244,7 @@ export interface paths {
     max_results?: number | null;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['EbirdNotableResponse'];
     };
   };
   "/api/email/oauth/gmail/authorize": {
@@ -1991,7 +2253,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['OAuthAuthorizeResponse'];
     };
   };
   "/api/email/oauth/gmail/callback": {
@@ -2012,7 +2274,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['OAuthAuthorizeResponse'];
     };
   };
   "/api/email/oauth/outlook/callback": {
@@ -2035,7 +2297,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['MessageResponse'];
     };
   };
   "/api/email/test": {
@@ -2044,7 +2306,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['TestEmailRequest'];
-      response: unknown;
+      response: components['schemas']['TestEmailResponse'];
     };
   };
   "/api/events": {
@@ -2056,6 +2318,7 @@ export interface paths {
     camera?: string | null;
     end_date?: string | null;
     favorites?: boolean;
+    fields?: string | null;
     include_hidden?: boolean;
     limit?: number;
     offset?: number;
@@ -2064,7 +2327,7 @@ export interface paths {
     start_date?: string | null;
 };
       requestBody: unknown;
-      response: Array<components['schemas']['DetectionResponse']>;
+      response: Array<components['schemas']['DetectionResponse']> | Array<components['schemas']['DetectionListItemResponse']>;
     };
   };
   "/api/events/bulk/delete": {
@@ -2130,7 +2393,7 @@ export interface paths {
 };
       query: never;
       requestBody: components['schemas']['UpdateDetectionRequest'];
-      response: unknown;
+      response: components['schemas']['ManualTagResponse'];
     };
     delete: {
       operationId: "delete_event_api_events__event_id__delete";
@@ -2139,7 +2402,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['DeleteEventResponse'];
     };
   };
   "/api/events/{event_id}/analyze": {
@@ -2252,6 +2515,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: unknown;
+    };
+  };
+  "/api/frigate/cameras/status": {
+    get: {
+      operationId: "get_frigate_camera_status_api_frigate_cameras_status_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['FrigateCameraStatusResponse'];
     };
   };
   "/api/frigate/config": {
@@ -2440,7 +2712,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['OAuthAuthorizeResponse'];
     };
   };
   "/api/inaturalist/oauth/callback": {
@@ -2461,7 +2733,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['InaturalistDisconnectResponse'];
     };
   };
   "/api/inaturalist/seasonality": {
@@ -2475,7 +2747,7 @@ export interface paths {
     taxon_id: number;
 };
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['SeasonalityResponse'];
     };
   };
   "/api/inaturalist/status": {
@@ -2493,7 +2765,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['InaturalistSubmitRequest'];
-      response: unknown;
+      response: components['schemas']['InaturalistSubmitResponse'];
     };
   };
   "/api/leaderboard/analysis": {
@@ -2662,7 +2934,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['VideoCircuitResetResponse'];
     };
   };
   "/api/models/available": {
@@ -2691,7 +2963,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, Record<string, components['schemas']['JsonValue']>>;
     };
   };
   "/api/models/installed": {
@@ -2725,6 +2997,17 @@ export interface paths {
       response: components['schemas']['ModelActionResponse'];
     };
   };
+  "/api/models/{model_id}/validate": {
+    post: {
+      operationId: "validate_model_api_models__model_id__validate_post";
+      path: {
+    model_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ModelValidateResponse'];
+    };
+  };
   "/api/settings": {
     get: {
       operationId: "get_settings_api_settings_get";
@@ -2738,7 +3021,16 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['SettingsUpdate'];
-      response: unknown;
+      response: components['schemas']['SettingsUpdateResponse'];
+    };
+  };
+  "/api/settings/birdnet/reachability": {
+    get: {
+      operationId: "test_birdnet_reachability_api_settings_birdnet_reachability_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ActionStatusResponse'];
     };
   };
   "/api/settings/birdnet/test": {
@@ -2747,7 +3039,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ActionStatusResponse'];
     };
   };
   "/api/settings/birdweather/test": {
@@ -2756,7 +3048,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['BirdWeatherTestRequest'];
-      response: unknown;
+      response: components['schemas']['ActionStatusResponse'];
     };
   };
   "/api/settings/export": {
@@ -2774,7 +3066,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: Record<string, unknown>;
-      response: unknown;
+      response: components['schemas']['SettingsImportResponse'];
     };
   };
   "/api/settings/llm/test": {
@@ -2783,7 +3075,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['LlmTestRequest'];
-      response: unknown;
+      response: components['schemas']['LlmTestResponse'];
     };
   };
   "/api/settings/mqtt/test-publish": {
@@ -2792,7 +3084,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ActionStatusResponse'];
     };
   };
   "/api/settings/notifications/test": {
@@ -2801,7 +3093,16 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['NotificationTestRequest'];
-      response: unknown;
+      response: components['schemas']['ActionStatusResponse'];
+    };
+  };
+  "/api/setup/state": {
+    get: {
+      operationId: "get_setup_state_api_setup_state_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['SetupState'];
     };
   };
   "/api/species": {
@@ -2810,7 +3111,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Array<components['schemas']['SpeciesCountItem']>;
     };
   };
   "/api/species/search": {
@@ -2823,7 +3124,7 @@ export interface paths {
     q?: string;
 };
       requestBody: unknown;
-      response: unknown;
+      response: Array<components['schemas']['SpeciesSearchResult']>;
     };
   };
   "/api/species/{species_name}/cache": {
@@ -2834,7 +3135,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['SpeciesCacheClearResponse'];
     };
   };
   "/api/species/{species_name}/info": {
@@ -2900,7 +3201,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['AIUsageClearResponse'];
     };
   };
   "/api/stats/daily-summary": {
@@ -2945,6 +3246,15 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['DetectionsTimelineSpanResponse'];
+    };
+  };
+  "/api/update-status": {
+    get: {
+      operationId: "get_update_status_api_update_status_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['UpdateStatusResponse'];
     };
   };
   "/api/version": {

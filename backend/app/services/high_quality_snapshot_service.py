@@ -11,6 +11,7 @@ import tempfile
 import hashlib
 from io import BytesIO
 from collections import Counter, deque
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -25,16 +26,43 @@ from app.services.media_cache import media_cache
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.utils.tasks import create_background_task
+from app.utils.image_io import decode_image_bytes
 
 log = structlog.get_logger()
+
+
+def _write_temp_clip(contents: bytes) -> Path:
+    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+        tmp.write(contents)
+        return Path(tmp.name)
+
 
 HQ_HINT_CROP_EXPAND_RATIO = 0.36
 HQ_MODEL_CROP_EXTRA_EXPAND_RATIO = 0.18
 HQ_MAX_CROP_SCORING_FRAMES = 3
 HQ_MAX_PERSISTED_CANDIDATES = 8
-HQ_TINY_CROP_MIN_SHORT_EDGE = 320
-HQ_TINY_CROP_MIN_FRAME_AREA_RATIO = 0.08
-HQ_TINY_CROP_FULL_FRAME_MARGIN = 0.15
+HQ_RECONCILE_LOOKBACK_HOURS = 6
+HQ_RECONCILE_LIMIT = 100
+HQ_RECONCILE_INTERVAL_SECONDS = 300
+
+DEFAULT_CROP_SOURCE_PRIORITY = "frigate_hints_first"
+
+# Retained for compatibility with older API clients. High-quality snapshot generation now evaluates
+# every available crop source automatically; this order is only used by legacy callers.
+CROP_SOURCE_ORDERS: dict[str, tuple[str, ...]] = {
+    "frigate_hints_first": ("frigate_hint_crop", "model_crop", "full_frame"),
+    "crop_model_first": ("model_crop", "frigate_hint_crop", "full_frame"),
+    "crop_model_only": ("model_crop", "full_frame"),
+    "frigate_hints_only": ("frigate_hint_crop", "full_frame"),
+}
+
+
+def crop_source_order(priority: str) -> tuple[str, ...]:
+    """Ordered crop sources for a priority setting; unknown values use the default order."""
+    return CROP_SOURCE_ORDERS.get(
+        str(priority or "").strip().lower(),
+        CROP_SOURCE_ORDERS[DEFAULT_CROP_SOURCE_PRIORITY],
+    )
 
 
 class HighQualitySnapshotService:
@@ -56,12 +84,16 @@ class HighQualitySnapshotService:
         self._crop_event_hints: dict[str, dict[str, Any]] = {}
         self._pending_queue: asyncio.Queue[str] = asyncio.Queue(maxsize=self.MAX_PENDING_QUEUE)
         self._worker_tasks: list[asyncio.Task] = []
+        self._running = False
+        self._reconcile_task: asyncio.Task | None = None
+        self._reconciled_total = 0
         self._scheduled_total = 0
         self._duplicate_requests = 0
         self._disabled_requests = 0
         self._queue_full_rejections = 0
         self._queue_full_deferrals = 0
         self._outcomes: Counter[str] = Counter()
+        self._selected_sources: Counter[str] = Counter()
         self._last_result: dict[str, str] | None = None
 
     def enabled(self) -> bool:
@@ -70,6 +102,13 @@ class HighQualitySnapshotService:
             and settings.media_cache.cache_snapshots
             and settings.media_cache.high_quality_event_snapshots
             and (settings.frigate.clips_enabled or settings.frigate.recording_clip_enabled)
+        )
+
+    def _automatic_crop_enabled(self) -> bool:
+        """HQ snapshots always attempt the best crop; the old crop flag is compatibility-only."""
+        return bool(
+            getattr(settings.media_cache, "high_quality_event_snapshots", False)
+            or getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)
         )
 
     def schedule_replacement(self, event_id: str, event_data: Optional[dict[str, Any]] = None) -> bool:
@@ -130,6 +169,7 @@ class HighQualitySnapshotService:
                 selected_candidate.get("snapshot_source")
                 or ("high_quality_bird_crop" if crop_applied else "high_quality_snapshot")
             )
+            self._selected_sources[str(selected_candidate.get("source_mode") or "full_frame")] += 1
         else:
             try:
                 image_bytes = await asyncio.to_thread(self._extract_snapshot_from_clip, clip_bytes, event_data)
@@ -161,7 +201,7 @@ class HighQualitySnapshotService:
             return None
 
         cached_path = media_cache.get_recording_clip_path(event_id)
-        if cached_path and cached_path.exists():
+        if cached_path and await asyncio.to_thread(cached_path.exists):
             try:
                 return await asyncio.to_thread(cached_path.read_bytes)
             except Exception as e:
@@ -179,7 +219,7 @@ class HighQualitySnapshotService:
 
         try:
             cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(event_id, "en")
-            if cached_path and cached_path.exists():
+            if cached_path and await asyncio.to_thread(cached_path.exists):
                 return await asyncio.to_thread(cached_path.read_bytes)
 
             ready = await _fetch_recording_clip_ready(event_id, "en")
@@ -187,7 +227,7 @@ class HighQualitySnapshotService:
                 return None
 
             cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(event_id, "en")
-            if cached_path and cached_path.exists():
+            if cached_path and await asyncio.to_thread(cached_path.exists):
                 return await asyncio.to_thread(cached_path.read_bytes)
         except Exception as e:
             log.warning("High-quality snapshot recording fallback failed", event_id=event_id, error=str(e))
@@ -239,6 +279,7 @@ class HighQualitySnapshotService:
                     selected_candidate.get("snapshot_source")
                     or ("high_quality_bird_crop" if crop_applied else "high_quality_snapshot")
                 )
+                self._selected_sources[str(selected_candidate.get("source_mode") or "full_frame")] += 1
             else:
                 try:
                     image_bytes = await asyncio.to_thread(self._extract_snapshot_from_clip, clip_bytes, crop_event_data)
@@ -303,9 +344,7 @@ class HighQualitySnapshotService:
     ) -> dict[str, Any]:
         preferred_indices = await self._load_preferred_frame_indices(event_id, clip_variant=clip_variant)
 
-        with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-            tmp.write(clip_bytes)
-            tmp_path = Path(tmp.name)
+        tmp_path = await asyncio.to_thread(_write_temp_clip, clip_bytes)
         try:
             raw_candidates = await asyncio.to_thread(
                 self._extract_snapshot_candidate_payloads_from_clip_path,
@@ -317,7 +356,7 @@ class HighQualitySnapshotService:
             )
         finally:
             with contextlib.suppress(Exception):
-                tmp_path.unlink(missing_ok=True)
+                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
 
         scored: list[dict[str, Any]] = []
         for candidate in raw_candidates:
@@ -342,75 +381,21 @@ class HighQualitySnapshotService:
         }
 
     def _select_canonical_snapshot_candidate(self, candidates: list[dict[str, Any]]) -> Optional[dict[str, Any]]:
-        """Choose the default displayed snapshot.
-
-        The crop source priority controls whether crop-model candidates are
-        promoted to the canonical event snapshot. Otherwise preserve the
-        high-quality scene when one is available and keep crops as alternates.
-        """
+        """Choose the strongest available crop, using a full frame only when no crop exists."""
         if not candidates:
             return None
-        priority = self._bird_crop_source_priority()
-        if priority in {"crop_model_first", "crop_model_only"}:
-            best_model_crop = next(
-                (item for item in candidates if str(item.get("source_mode") or "") == "model_crop"),
-                None,
-            )
-            if best_model_crop is not None:
-                return best_model_crop
-        best_full_frame = next(
-            (item for item in candidates if str(item.get("source_mode") or "") == "full_frame"),
-            None,
-        )
-        return best_full_frame or candidates[0]
+        crops = [item for item in candidates if str(item.get("source_mode") or "full_frame") != "full_frame"]
+        pool = crops or candidates
+        return max(pool, key=lambda item: float(item.get("ranking_score") or 0.0))
 
     def _rank_snapshot_candidates(self, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Rank candidates while avoiding unusably small auto-crops.
+        """Rank candidates by score (highest first) for persistence and manual selection.
 
-        A tiny crop can score marginally higher than a full frame because it
-        removes background, but it makes a poor default event image. Keep the
-        crop available for manual selection while preferring a full-frame HQ
-        candidate unless the crop is clearly stronger.
+        The canonical event image is chosen separately by crop-source preference
+        (`_select_canonical_snapshot_candidate`); this ordering only decides which candidates are
+        persisted and the order alternates are offered in.
         """
-        ranked = sorted(candidates, key=lambda item: float(item.get("ranking_score") or 0.0), reverse=True)
-        if not ranked:
-            return []
-
-        best = ranked[0]
-        if not self._is_tiny_crop_candidate(best):
-            return ranked
-
-        best_full_frame = next((item for item in ranked if str(item.get("source_mode") or "") == "full_frame"), None)
-        if best_full_frame is None:
-            return ranked
-
-        crop_score = float(best.get("ranking_score") or 0.0)
-        full_score = float(best_full_frame.get("ranking_score") or 0.0)
-        if crop_score > full_score + HQ_TINY_CROP_FULL_FRAME_MARGIN:
-            return ranked
-
-        return [best_full_frame, *[item for item in ranked if item is not best_full_frame]]
-
-    def _is_tiny_crop_candidate(self, candidate: dict[str, Any]) -> bool:
-        source_mode = str(candidate.get("source_mode") or "full_frame")
-        if source_mode == "full_frame":
-            return False
-
-        width = int(candidate.get("image_width") or 0)
-        height = int(candidate.get("image_height") or 0)
-        frame_width = int(candidate.get("frame_width") or 0)
-        frame_height = int(candidate.get("frame_height") or 0)
-        if width <= 0 or height <= 0:
-            return False
-
-        if min(width, height) < HQ_TINY_CROP_MIN_SHORT_EDGE:
-            return True
-        if frame_width > 0 and frame_height > 0:
-            frame_area = frame_width * frame_height
-            crop_area = width * height
-            if frame_area > 0 and (crop_area / frame_area) < HQ_TINY_CROP_MIN_FRAME_AREA_RATIO:
-                return True
-        return False
+        return sorted(candidates, key=lambda item: float(item.get("ranking_score") or 0.0), reverse=True)
 
     def _extract_snapshot_candidate_payloads_from_clip_path(
         self,
@@ -509,10 +494,7 @@ class HighQualitySnapshotService:
         hint_image = hint_result.get("crop_image") if isinstance(hint_result, dict) else None
         if isinstance(hint_image, Image.Image):
             candidates.append(("frigate_hint_crop", hint_image, hint_result))
-        if (
-            bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False))
-            and self._bird_crop_model_available()
-        ):
+        if self._automatic_crop_enabled() and self._bird_crop_model_available():
             model_result = self._crop_from_bird_model(image, event_id=event_id)
             model_image = model_result.get("crop_image") if isinstance(model_result, dict) else None
             if isinstance(model_image, Image.Image):
@@ -524,7 +506,7 @@ class HighQualitySnapshotService:
         if not isinstance(image_bytes, (bytes, bytearray)) or not image_bytes:
             return None
         try:
-            image = Image.open(BytesIO(image_bytes)).convert("RGB")
+            image = await asyncio.to_thread(decode_image_bytes, bytes(image_bytes), convert_rgb=True)
         except Exception:
             return None
 
@@ -536,7 +518,8 @@ class HighQualitySnapshotService:
                 getattr(classifier_module, "_classifier_instance", None) if classifier_module is not None else None
             )
             if classifier is not None:
-                results = classifier.classify(
+                results = await asyncio.to_thread(
+                    classifier.classify,
                     image,
                     input_context={"is_cropped": candidate.get("source_mode") != "full_frame"},
                 )
@@ -645,10 +628,67 @@ class HighQualitySnapshotService:
                 return
             await asyncio.sleep(0.01)
 
+    async def start(self) -> None:
+        """Start bounded recovery for snapshot jobs lost during a restart."""
+        if self._running:
+            return
+        self._running = True
+        self._reconcile_task = create_background_task(
+            self._reconcile_loop(),
+            name="high_quality_snapshot_reconcile",
+        )
+
+    async def reconcile_recent_detections(self) -> int:
+        """Schedule recent detections that have neither HQ output nor generated candidates."""
+        if not self.enabled():
+            return 0
+        now = datetime.now(timezone.utc)
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            detections = await repo.get_recent_full_visit_candidates(
+                detected_before=now,
+                detected_after=now - timedelta(hours=HQ_RECONCILE_LOOKBACK_HOURS),
+                limit=HQ_RECONCILE_LIMIT,
+            )
+
+        scheduled = 0
+        for detection in detections:
+            event_id = str(detection.frigate_event or "").strip()
+            if not event_id:
+                continue
+            metadata = await media_cache.get_snapshot_metadata(event_id)
+            source = str((metadata or {}).get("source") or "").strip()
+            if source in {"high_quality_snapshot", "high_quality_bird_crop"} or source.startswith("hq_candidate_"):
+                continue
+            async with get_db() as db:
+                if await DetectionRepository(db).list_snapshot_candidates(event_id):
+                    continue
+            if self.schedule_replacement(event_id):
+                scheduled += 1
+        self._reconciled_total += scheduled
+        return scheduled
+
+    async def _reconcile_loop(self) -> None:
+        try:
+            await asyncio.sleep(30)
+            while self._running:
+                try:
+                    await self.reconcile_recent_detections()
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    log.warning("High-quality snapshot recovery failed", error=str(exc))
+                await asyncio.sleep(HQ_RECONCILE_INTERVAL_SECONDS)
+        except asyncio.CancelledError:
+            return
+
     async def stop(self) -> None:
         """Cancel and clear all active tasks for tests or shutdown."""
+        self._running = False
         current_loop = asyncio.get_running_loop()
         tasks = list(self._worker_tasks)
+        if self._reconcile_task is not None:
+            tasks.append(self._reconcile_task)
         cancellable_tasks = [
             t for t in tasks if self._task_belongs_to_current_open_loop(t, current_loop) and not t.done()
         ]
@@ -660,6 +700,7 @@ class HighQualitySnapshotService:
         if cancellable_tasks:
             await asyncio.gather(*cancellable_tasks, return_exceptions=True)
         self._worker_tasks.clear()
+        self._reconcile_task = None
         self._active_ids.clear()
         self._queued_ids.clear()
         self._deferred_ids.clear()
@@ -673,6 +714,8 @@ class HighQualitySnapshotService:
         self._duplicate_requests = 0
         self._disabled_requests = 0
         self._outcomes.clear()
+        self._selected_sources.clear()
+        self._reconciled_total = 0
         self._last_result = None
 
     @staticmethod
@@ -753,6 +796,8 @@ class HighQualitySnapshotService:
             "queue_size": self._pending_queue.qsize(),
             "deferred": len(self._deferred_ids),
             "workers": len(self._worker_tasks),
+            "recovery_running": self._running,
+            "reconciled_total": self._reconciled_total,
             "scheduled_total": self._scheduled_total,
             "duplicate_requests": self._duplicate_requests,
             "disabled_requests": self._disabled_requests,
@@ -760,6 +805,8 @@ class HighQualitySnapshotService:
             "queue_full_deferrals": self._queue_full_deferrals,
             "crop_hints": len(self._crop_event_hints),
             "outcomes": dict(self._outcomes),
+            "selected_sources": dict(self._selected_sources),
+            "crop_policy": "best_available",
             "last_result": self._last_result,
         }
 
@@ -868,7 +915,7 @@ class HighQualitySnapshotService:
 
     async def _load_event_data_for_crop(self, event_id: str) -> Optional[dict[str, Any]]:
         """Fetch event metadata only when it can improve HQ bird-crop accuracy."""
-        if not bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)):
+        if not self._automatic_crop_enabled():
             return None
 
         try:
@@ -893,7 +940,7 @@ class HighQualitySnapshotService:
         event_data: Optional[dict[str, Any]] = None,
     ) -> tuple[bytes, bool]:
         """Optionally run the crop detector against the HQ frame, falling back to the frame."""
-        if not bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)):
+        if not self._automatic_crop_enabled():
             return image_bytes, False
         if not self._background_crop_work_allowed():
             log.debug("Skipping high-quality bird crop while classifier or MQTT pressure is active", event_id=event_id)
@@ -906,7 +953,7 @@ class HighQualitySnapshotService:
             log.warning("High-quality bird crop source decode failed", event_id=event_id, error=str(e))
             return image_bytes, False
 
-        crop_result = self._crop_snapshot_by_priority(source_image, event_data=event_data, event_id=event_id)
+        crop_result = self._crop_snapshot_best_available(source_image, event_data=event_data, event_id=event_id)
 
         crop_image = crop_result.get("crop_image") if isinstance(crop_result, dict) else None
         if not isinstance(crop_image, Image.Image):
@@ -938,18 +985,11 @@ class HighQualitySnapshotService:
 
     def _bird_crop_source_priority(self) -> str:
         configured = (
-            str(getattr(settings.classification, "bird_crop_source_priority", "frigate_hints_first") or "")
+            str(getattr(settings.classification, "bird_crop_source_priority", DEFAULT_CROP_SOURCE_PRIORITY) or "")
             .strip()
             .lower()
         )
-        if configured in {
-            "frigate_hints_first",
-            "crop_model_first",
-            "crop_model_only",
-            "frigate_hints_only",
-        }:
-            return configured
-        return "frigate_hints_first"
+        return configured if configured in CROP_SOURCE_ORDERS else DEFAULT_CROP_SOURCE_PRIORITY
 
     def _crop_snapshot_by_priority(
         self,
@@ -958,30 +998,42 @@ class HighQualitySnapshotService:
         event_data: Optional[dict[str, Any]],
         event_id: str,
     ) -> Optional[dict[str, Any]]:
-        priority = self._bird_crop_source_priority()
-        if priority == "crop_model_only":
-            return self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
-        if priority == "frigate_hints_only":
-            return self._crop_from_event_hints(image, event_data)
-        if priority == "crop_model_first":
-            crop_result = (
-                self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
-            )
-            if self._has_crop_image(crop_result):
-                return crop_result
-            hint_result = self._crop_from_event_hints(image, event_data)
-            return hint_result or crop_result
+        last_result: Optional[dict[str, Any]] = None
+        for source_mode in crop_source_order(self._bird_crop_source_priority()):
+            if source_mode == "full_frame":
+                break
+            if source_mode == "model_crop":
+                if not self._bird_crop_model_available():
+                    continue
+                result = self._crop_from_bird_model(image, event_id=event_id)
+            else:  # frigate_hint_crop
+                result = self._crop_from_event_hints(image, event_data)
+            if self._has_crop_image(result):
+                return result
+            if result is not None:
+                last_result = result
+        return last_result
+
+    def _crop_snapshot_best_available(
+        self,
+        image: Image.Image,
+        *,
+        event_data: Optional[dict[str, Any]],
+        event_id: str,
+    ) -> Optional[dict[str, Any]]:
+        """Prefer Frigate's tracked-object crop, then use the detector, then the full frame."""
         hint_result = self._crop_from_event_hints(image, event_data)
         if self._has_crop_image(hint_result):
             return hint_result
-        crop_result = (
-            self._crop_from_bird_model(image, event_id=event_id) if self._bird_crop_model_available() else None
-        )
-        return crop_result or hint_result
+        if self._bird_crop_model_available():
+            model_result = self._crop_from_bird_model(image, event_id=event_id)
+            if model_result is not None:
+                return model_result
+        return hint_result
 
     def _crop_from_bird_model(self, image: Image.Image, *, event_id: Optional[str] = None) -> Optional[dict[str, Any]]:
         try:
-            crop_result = bird_crop_service.generate_crop(image)
+            crop_result = bird_crop_service.generate_crop(image, detector_tier="accurate")
         except Exception as e:
             log.warning("High-quality bird crop generation failed", event_id=event_id, error=str(e))
             return None
@@ -1296,7 +1348,7 @@ class HighQualitySnapshotService:
                 event_data=event_data,
             )
             score_crops = bool(
-                getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)
+                self._automatic_crop_enabled()
                 and self._bird_crop_model_available()
                 and self._background_crop_work_allowed()
             )

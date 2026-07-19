@@ -152,12 +152,12 @@
                                 stroke-dasharray={251.2}
                                 stroke-dashoffset={251.2 - (251.2 * progressPercent) / 100}
                                 stroke-linecap="round"
-                                class="text-teal-400 transition-all duration-500 ease-out"
+                                class="text-brand-400 transition-all duration-500 ease-out"
                             />
                         </svg>
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
                             <span class="text-2xl font-black text-slate-900 dark:text-white">{progressPercent}%</span>
-                            <span class="text-[10px] font-bold text-teal-600 dark:text-teal-300 uppercase tracking-widest leading-none">{$_('detection.reclassification.analysis')}</span>
+                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-300 uppercase tracking-widest leading-none">{$_('detection.reclassification.analysis')}</span>
                         </div>
                     </div>
 
@@ -165,9 +165,9 @@
                     <div class="flex flex-col items-center gap-1 min-h-[64px] px-4">
                         {#if !isComplete}
                             <div class="flex items-center gap-2 mb-1.5">
-                                <span class="px-2 py-0.5 rounded-md bg-teal-500/15 border border-teal-500/30 text-[9px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-widest flex items-center gap-1.5">
+                                <span class="px-2 py-0.5 rounded-md bg-brand-500/15 border border-brand-500/30 text-[9px] font-black text-brand-700 dark:text-brand-300 uppercase tracking-widest flex items-center gap-1.5">
                                     {#if videoInferenceProvider}
-                                        <svg class="w-3 h-3 text-teal-600 dark:text-teal-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <svg class="w-3 h-3 text-brand-600 dark:text-brand-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                             <title>{videoInferenceProvider}</title>
                                             <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
                                             <rect x="9" y="9" width="6" height="6"></rect>
@@ -229,7 +229,7 @@
                         {#if displayLabel}
                             <div class="flex flex-col items-center" transition:fade>
                                 {#if isComplete}
-                                    <span class="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-1.5">
+                                    <span class="px-2 py-0.5 rounded-md bg-accent-500/15 border border-accent-500/30 text-[9px] font-black text-accent-700 dark:text-accent-300 uppercase tracking-widest mb-1.5">
                                         {$_('detection.reclassification.final_result', { default: 'Final Result' })}
                                     </span>
                                 {/if}
@@ -252,7 +252,7 @@
                             <div in:scale={{ delay: 300 }} class="mt-4 w-full max-w-sm space-y-2">
                                 <button 
                                     onclick={handleDismiss}
-                                    class="w-full py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-teal-500/40 border border-slate-200/70 dark:border-white/10"
+                                    class="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-brand-500/40 border border-slate-200/70 dark:border-white/10"
                                 >
                                     {$_('detection.reclassification.done')}
                                 </button>
@@ -264,7 +264,7 @@
                                         </div>
                                         <div class="mt-2 h-1.5 rounded-full bg-white/10 overflow-hidden">
                                             <div
-                                                class="h-full rounded-full bg-gradient-to-r from-emerald-300 via-teal-300 to-cyan-300 transition-all duration-500 ease-linear motion-reduce:transition-none"
+                                                class="h-full rounded-full bg-gradient-to-r from-accent-300 via-brand-300 to-cyan-300 transition-all duration-500 ease-linear motion-reduce:transition-none"
                                                 style={`width: ${Math.max(0, Math.min(100, ((autoDismissSecondsRemaining ?? 0) / 30) * 100))}%`}
                                             ></div>
                                         </div>
@@ -279,7 +279,7 @@
             <!-- Compact Progress (Small mode) -->
             <div class="flex items-center justify-between w-full mb-1">
                 <div class="flex items-center gap-1.5 min-w-0">
-                    <div class="w-1.5 h-1.5 rounded-full bg-teal-400 {isComplete ? '' : 'animate-ping'}"></div>
+                    <div class="w-1.5 h-1.5 rounded-full bg-brand-400 {isComplete ? '' : 'animate-ping'}"></div>
                     <span class="text-[10px] font-black text-slate-700 dark:text-white uppercase tracking-wider">
                         {hasFallenBackToSnapshot
                             ? $_('detection.reclassification.snapshot_fallback_title', { default: 'Classifying from snapshot' })
@@ -302,7 +302,7 @@
                         </span>
                     {/if}
                 </div>
-                <span class="text-xs font-black text-teal-600 dark:text-teal-300">{progressPercent}%</span>
+                <span class="text-xs font-black text-brand-600 dark:text-brand-300">{progressPercent}%</span>
             </div>
         {/if}
 
@@ -312,9 +312,9 @@
                 <div class="flex flex-col items-center" transition:fade>
                     {#if !small && !isComplete}
                         <div class="flex items-center gap-2 mb-1.5">
-                            <span class="px-2 py-0.5 rounded-md bg-teal-500/15 border border-teal-500/30 text-[9px] font-black text-teal-700 dark:text-teal-300 uppercase tracking-widest flex items-center gap-1.5">
+                            <span class="px-2 py-0.5 rounded-md bg-brand-500/15 border border-brand-500/30 text-[9px] font-black text-brand-700 dark:text-brand-300 uppercase tracking-widest flex items-center gap-1.5">
                                 {#if videoInferenceProvider}
-                                    <svg class="w-3 h-3 text-teal-600 dark:text-teal-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <svg class="w-3 h-3 text-brand-600 dark:text-brand-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <title>{videoInferenceProvider}</title>
                                         <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
                                         <rect x="9" y="9" width="6" height="6"></rect>
@@ -349,7 +349,7 @@
                         </div>
                     {/if}
                     {#if !small && isComplete}
-                        <span class="px-2 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-[9px] font-black text-emerald-700 dark:text-emerald-300 uppercase tracking-widest mb-1.5">
+                        <span class="px-2 py-0.5 rounded-md bg-accent-500/15 border border-accent-500/30 text-[9px] font-black text-accent-700 dark:text-accent-300 uppercase tracking-widest mb-1.5">
                             {$_('detection.reclassification.final_result', { default: 'Final Result' })}
                         </span>
                     {/if}
@@ -372,7 +372,7 @@
                 <div in:scale={{ delay: 300 }} class="mt-4 w-full">
                     <button 
                         onclick={handleDismiss}
-                        class="w-full py-2.5 bg-teal-500 hover:bg-teal-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-teal-500/40 border border-slate-200/70 dark:border-white/10"
+                        class="w-full py-2.5 bg-brand-500 hover:bg-brand-600 text-white font-black uppercase tracking-widest text-xs rounded-xl transition-all shadow-lg shadow-brand-500/40 border border-slate-200/70 dark:border-white/10"
                     >
                         {$_('detection.reclassification.done')}
                     </button>

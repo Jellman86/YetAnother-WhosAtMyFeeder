@@ -1,7 +1,7 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
     import SecretInput from './_primitives/SecretInput.svelte';
-    import { AUTH_PASSWORD_COMPLEXITY_MESSAGE } from '../../auth-password-policy';
+    import { AUTH_PASSWORD_REQUIREMENTS_MESSAGE } from '../../auth-password-policy';
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
@@ -103,9 +103,17 @@
     }
 </script>
 
+{#snippet authIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 7 3v5c0 4.6-2.8 8-7 10-4.2-2-7-5.4-7-10V6l7-3Zm-3 9 2 2 4-4" /></svg>
+{/snippet}
+{#snippet publicAccessIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3.5 9h17M3.5 15h17M12 3c2.5 2.5 2.5 15.5 0 18M12 3c-2.5 2.5-2.5 15.5 0 18" /></svg>
+{/snippet}
+
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
     <SettingsCard
-        icon="🔐"
+        accent
+        iconSnippet={authIcon}
         title={$_('settings.auth.title')}
         description={$_('settings.auth.desc')}
     >
@@ -122,7 +130,8 @@
             />
         </SettingsRow>
 
-        <SettingsRow
+        {#if authEnabled}
+            <SettingsRow
             labelId="setting-auth-username"
             label={$_('settings.auth.username')}
             layout="stacked"
@@ -139,7 +148,7 @@
         <SettingsRow
             labelId="setting-auth-password"
             label={$_('settings.auth.password')}
-            description={AUTH_PASSWORD_COMPLEXITY_MESSAGE}
+            description={AUTH_PASSWORD_REQUIREMENTS_MESSAGE}
             layout="stacked"
         >
             <SecretInput
@@ -189,7 +198,7 @@
                 />
             </SettingsRow>
 
-            <div class="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-[11px] font-bold text-amber-900 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200">
+            <div class="rounded-2xl border border-amber-200/70 bg-amber-50/80 px-4 py-3 text-xs font-bold text-amber-900 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200">
                 {$_('settings.auth.proxy_trust_note', { default: 'Proxy headers are trusted from all hosts by default. If you run behind a reverse proxy, set trusted proxy hosts to prevent spoofed client IPs.' })}
             </div>
 
@@ -216,17 +225,17 @@
                             onclick={addTrustedProxyHost}
                             disabled={!newTrustedProxyHost.trim()}
                             aria-label={$_('settings.auth.trusted_proxies_add', { default: 'Add trusted proxy host' })}
-                            class="px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                            class="px-6 py-3 bg-brand-500 hover:bg-brand-600 text-white text-xs font-black uppercase tracking-widest rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {$_('common.add')}
                         </button>
                     </div>
                     <div class="flex flex-wrap gap-2">
                         {#each trustedProxyHosts as host}
-                            <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-teal-200 dark:border-teal-700/50 text-slate-700 dark:text-slate-300'}">
+                            <span class="group flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold {trustedProxyHostsSuggested ? 'border border-dashed border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 text-slate-500 dark:text-slate-400' : 'bg-white dark:bg-slate-800 border border-brand-200 dark:border-brand-700/50 text-slate-700 dark:text-slate-300'}">
                                 {host}
                                 {#if trustedProxyHostsSuggested}
-                                    <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                    <span class="px-2 py-0.5 rounded-full text-xs font-black uppercase tracking-widest bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
                                         {$_('settings.auth.trusted_proxies_suggested_label', { default: 'Suggested' })}
                                     </span>
                                 {:else}
@@ -246,12 +255,12 @@
                         {/if}
                     </div>
                     {#if trustedProxyHostsSuggested}
-                        <div class="flex flex-col gap-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-3 py-2 text-[11px] text-slate-500 dark:text-slate-400">
+                        <div class="flex flex-col gap-2 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
                             <span>{$_('settings.auth.trusted_proxies_suggested_note', { default: 'These are suggestions only. Save will keep the default (trust all) unless you accept or edit them.' })}</span>
                             <button
                                 type="button"
                                 onclick={acceptTrustedProxySuggestions}
-                                class="self-start px-3 py-1.5 rounded-xl bg-teal-500 text-white text-[10px] font-black uppercase tracking-widest"
+                                class="self-start px-3 py-1.5 rounded-xl bg-brand-500 text-white text-xs font-black uppercase tracking-widest"
                             >
                                 {$_('settings.auth.trusted_proxies_use_suggestions', { default: 'Use suggestions' })}
                             </button>
@@ -259,11 +268,13 @@
                     {/if}
                 </div>
             </SettingsRow>
-        </AdvancedSection>
+            </AdvancedSection>
+        {/if}
     </SettingsCard>
 
     <SettingsCard
-        icon="🌐"
+        accent
+        iconSnippet={publicAccessIcon}
         title={$_('settings.public_access.title')}
         description={$_('settings.public_access.desc')}
     >
@@ -280,7 +291,8 @@
             />
         </SettingsRow>
 
-        <SettingsRow
+        {#if publicAccessEnabled}
+            <SettingsRow
             labelId="setting-public-show-cameras"
             label={$_('settings.public_access.show_camera_names')}
             description={$_('settings.public_access.show_camera_names_desc')}
@@ -388,6 +400,7 @@
                     </SettingsRow>
                 </div>
             </div>
-        </AdvancedSection>
+            </AdvancedSection>
+        {/if}
     </SettingsCard>
 </div>

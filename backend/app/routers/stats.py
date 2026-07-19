@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Request, Depends, Query
+import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Literal
 from collections import Counter
@@ -18,6 +19,39 @@ from app.utils.api_datetime import utc_naive_now
 from app.utils.timezone import get_user_timezone
 
 router = APIRouter()
+
+
+class UpdateStatusResponse(APIModel):
+    current_version: str
+    channel: str
+    latest_version: str | None = None
+    update_available: bool
+    release_url: str
+    checked_at: str | None = None
+    enabled: bool
+    error: str | None = None
+
+
+@router.get("/update-status", response_model=UpdateStatusResponse)
+async def get_update_status() -> UpdateStatusResponse:
+    """Report whether a newer YA-WAMF release is available (in-app update prompt).
+
+    A notification only — YA-WAMF never updates itself; pulling a new image is left to the
+    orchestrator. Honours the `system.update_check_enabled` opt-out and never blocks.
+    """
+    from app.services.update_service import update_service
+
+    current_version = os.environ.get("APP_VERSION", "unknown")
+    # APP_VERSION is "<base>-<branch>+<hash>" (branch image) or "<base>+<hash>" (release).
+    # Prefer APP_BRANCH from the image build because stable releases intentionally omit the
+    # channel from the display version string.
+    before_plus, _, git_hash = current_version.partition("+")
+    branch = os.environ.get("APP_BRANCH", "").strip() or (
+        before_plus.split("-", 1)[1] if "-" in before_plus else "stable"
+    )
+    return UpdateStatusResponse.model_validate(
+        await update_service.get_status(current_version, branch=branch, git_hash=git_hash)
+    )
 
 
 class DailySpeciesSummary(APIModel):

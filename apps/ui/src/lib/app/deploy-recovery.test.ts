@@ -83,28 +83,38 @@ describe('createDeployRecovery', () => {
         expect(recovery.handleRuntimeFailure({ message: 'Cannot read properties of undefined' })).toBe('ignore');
     });
 
-    it('does not reload for a dev build hash change (same semver core)', () => {
-        // Regression for issue #33: every dev rebuild produced a new git-hash
-        // build-metadata suffix, triggering deploy_refresh_required even
-        // though the release identity was unchanged.
+    it('reloads for a concrete dev build hash change', () => {
         const storage = createStorage();
         const reload = vi.fn();
         const warn = vi.fn();
         const recovery = createDeployRecovery({
-            appVersion: '2.9.1-dev+old',
+            appVersion: '2.9.1-dev+a1b2c3d',
             storage,
             reload,
             warn
         });
 
         const result = recovery.observeHealth({
-            version: '2.9.1-dev+new',
+            version: '2.9.1-dev+e4f5a6b',
             startup_instance_id: '20260331T181749.290664Z-1'
         });
 
-        expect(result).toBe('ignore');
-        expect(reload).not.toHaveBeenCalled();
+        expect(result).toBe('reload');
+        expect(reload).toHaveBeenCalledTimes(1);
         expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('ignores unavailable build metadata when the semver identity matches', () => {
+        const reload = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+unknown',
+            storage: createStorage(),
+            reload,
+            warn: vi.fn()
+        });
+
+        expect(recovery.observeHealth({ version: '2.9.1-dev+a1b2c3d' })).toBe('ignore');
+        expect(reload).not.toHaveBeenCalled();
     });
 
     it('still reloads when the semver core actually changes', () => {
@@ -171,12 +181,12 @@ describe('createDeployRecovery', () => {
         expect(warn).toHaveBeenCalledTimes(1);
     });
 
-    it('clears any mismatch marker once frontend and backend semver align again', () => {
+    it('clears any mismatch marker once frontend and backend deployment identities align again', () => {
         const storage = createStorage();
         const reload = vi.fn();
         const warn = vi.fn();
         const recovery = createDeployRecovery({
-            appVersion: '2.9.2-dev+new',
+            appVersion: '2.9.2-dev+a1b2c3d',
             storage,
             reload,
             warn
@@ -189,7 +199,7 @@ describe('createDeployRecovery', () => {
         expect(reload).toHaveBeenCalledTimes(1);
 
         const aligned = recovery.observeHealth({
-            version: '2.9.2-dev+other',
+            version: '2.9.2-dev+a1b2c3d',
             startup_instance_id: 'instance-2'
         });
 

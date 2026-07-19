@@ -201,6 +201,14 @@ class FrigateSettings(BaseModel):
         le=3600,
         description="Seconds of recording to include after the detection timestamp",
     )
+    recording_frame_classification_fallback: bool = Field(
+        default=True,
+        description=(
+            "When a detection has no snapshot/thumbnail/cached image, extract a frame "
+            "from Frigate's continuous recording at the detection moment and classify "
+            "that instead of dropping the detection. Requires Frigate recordings."
+        ),
+    )
     mqtt_server: str = "mqtt"
     mqtt_port: int = 1883
     mqtt_auth: bool = False
@@ -255,7 +263,7 @@ class ClassificationSettings(BaseModel):
     )
     bird_crop_detector_tier: Literal["fast", "accurate"] = Field(
         default="fast",
-        description="Bird crop detector tier: fast|accurate",
+        description="Deprecated compatibility field; crop generation automatically tries accurate then fast",
     )
     bird_crop_source_priority: Literal[
         "frigate_hints_first",
@@ -264,7 +272,7 @@ class ClassificationSettings(BaseModel):
         "frigate_hints_only",
     ] = Field(
         default="frigate_hints_first",
-        description="Bird crop source priority: frigate_hints_first|crop_model_first|crop_model_only|frigate_hints_only",
+        description="Deprecated compatibility field; HQ snapshots choose the best available crop automatically",
     )
     blocked_labels: list[str] = Field(default=[], description="Labels to filter out completely (won't be saved)")
     blocked_species: list["BlockedSpeciesEntry"] = Field(
@@ -370,11 +378,11 @@ class ClassificationSettings(BaseModel):
     )
     crop_model_overrides: dict[str, str] = Field(
         default_factory=dict,
-        description="Crop enablement overrides keyed by model/family id or variant id",
+        description="Deprecated compatibility field; runtime crop policy comes from the model registry",
     )
     crop_source_overrides: dict[str, str] = Field(
         default_factory=dict,
-        description="Crop source overrides keyed by model/family id or variant id",
+        description="Deprecated compatibility field; runtime crop policy comes from the model registry",
     )
 
     # Classification output settings
@@ -488,7 +496,7 @@ class MediaCacheSettings(BaseModel):
     )
     high_quality_event_snapshot_bird_crop: bool = Field(
         default=False,
-        description="Run the bird crop detector on derived high-quality event snapshots before caching",
+        description="Deprecated compatibility field; HQ snapshots automatically attempt every available crop source",
     )
     high_quality_event_snapshot_jpeg_quality: int = Field(
         default=95,
@@ -625,7 +633,7 @@ def normalize_blocked_species_entries(raw_value: Any) -> list["BlockedSpeciesEnt
     return normalized
 
 
-DEFAULT_LLM_MODEL = "gemini-2.5-flash"
+DEFAULT_LLM_MODEL = "gemini-3.1-flash-lite"
 
 
 class LLMSettings(BaseModel):
@@ -654,6 +662,13 @@ class TelemetrySettings(BaseModel):
     health_url: Optional[str] = Field(
         default="https://yawamf-telemetry.ya-wamf.workers.dev/health-issues",
         description="Health issue diagnostics endpoint URL",
+    )
+    version_url: Optional[str] = Field(
+        default="https://yawamf-telemetry.ya-wamf.workers.dev/version",
+        description=(
+            "Endpoint returning the latest published YA-WAMF version for the in-app update prompt. "
+            "A plain GET with no telemetry payload; the worker fetches and edge-caches it from GitHub."
+        ),
     )
 
 
@@ -784,6 +799,13 @@ class SystemSettings(BaseModel):
         description="Trusted proxy hosts for X-Forwarded-* headers",
     )
     debug_ui_enabled: bool = Field(default=False, description="Expose debug UI sections in the web app")
+    update_check_enabled: bool = Field(
+        default=True,
+        description=(
+            "Periodically check GitHub for a newer YA-WAMF release and show an in-app update prompt. "
+            "Makes an anonymous request to the GitHub API (cached); disable to stop all update checks."
+        ),
+    )
 
 
 class AuthSettings(BaseModel):

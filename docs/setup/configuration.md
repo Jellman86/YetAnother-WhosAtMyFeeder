@@ -2,7 +2,10 @@
 
 Most settings in YA-WAMF can be managed directly through the web UI. These settings are stored in `/config/config.json`.
 
-![Settings UI](../images/frontend_settings.png)
+> Every UI setting that can be pre-set at deploy time also has an environment
+> variable. For the **complete list of environment variables** (names, defaults,
+> and what's UI/file-only), see
+> [Environment variables](environment-variables.md).
 
 ## Connection Settings
 Settings for communicating with your NVR and messaging broker.

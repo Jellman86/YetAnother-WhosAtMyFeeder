@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import os
@@ -8,9 +10,8 @@ import structlog
 import time
 from collections import deque
 from datetime import datetime, timezone
-from io import BytesIO
 from typing import Optional, Dict, Literal, cast
-
+from io import BytesIO
 from PIL import Image
 
 from app.config import settings
@@ -33,6 +34,14 @@ from app.utils.api_datetime import serialize_api_datetime, utc_naive_now  # noqa
 from app.utils.video_analysis import rank_video_top_frames
 
 log = structlog.get_logger()
+
+
+def decode_image_bytes(contents: bytes) -> Image.Image:
+    image = Image.open(BytesIO(contents))
+    image.load()
+    return image
+
+
 MAX_PENDING_QUEUE = 1000
 MAINTENANCE_VIDEO_STARVATION_RELIEF_SECONDS = 5.0
 MAINTENANCE_DEPRIORITIZED_AGE_SECONDS = 15.0
@@ -112,7 +121,11 @@ BackgroundImageClassificationUnavailableError = getattr(
     RuntimeError,
 )
 get_classifier = classifier_service_module.get_classifier
-resolve_live_classifier = classifier_service_module.resolve_live_classifier
+resolve_live_classifier = getattr(
+    classifier_service_module,
+    "resolve_live_classifier",
+    lambda classifier=None: classifier or get_classifier(),
+)
 VideoClassificationWorkerError = classifier_service_module.VideoClassificationWorkerError
 JobSource = Literal["live", "maintenance"]
 
@@ -1312,7 +1325,7 @@ class AutoVideoClassifierService:
                 await asyncio.to_thread(Path(tmp_path).write_bytes, clip_bytes)
             except BaseException:
                 with contextlib.suppress(OSError):
-                    os.remove(tmp_path)
+                    await asyncio.to_thread(os.remove, tmp_path)
                 raise
 
             try:
@@ -1524,16 +1537,14 @@ class AutoVideoClassifierService:
             finally:
                 # Always cleanup temp file
                 with contextlib.suppress(OSError):
-                    if os.path.exists(tmp_path):
-                        os.remove(tmp_path)
+                    await asyncio.to_thread(os.remove, tmp_path)
 
         except asyncio.CancelledError:
             log.info("Video classification task cancelled", event_id=frigate_event)
             # tmp_path is set by mkstemp before any await, so it is always available here.
             if tmp_path is not None:
                 with contextlib.suppress(OSError):
-                    if os.path.exists(tmp_path):
-                        os.remove(tmp_path)
+                    await asyncio.to_thread(os.remove, tmp_path)
             self._record_diagnostic(
                 frigate_event,
                 reason_code="video_cancelled",
@@ -2017,7 +2028,7 @@ class AutoVideoClassifierService:
             return "snapshot_fetch_failed"
 
         await self._update_status(frigate_event, "processing", error=None, broadcast=False)
-        image = Image.open(BytesIO(snapshot_data))
+        image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
         results: list[dict] = []
         input_context = {"is_cropped": True, "event_id": frigate_event}
         last_unavailable_error: str | None = None

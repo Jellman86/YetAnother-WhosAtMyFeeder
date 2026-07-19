@@ -1,13 +1,14 @@
 import aiosqlite
 import structlog
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Optional
+from pydantic import JsonValue
 
 log = structlog.get_logger()
 
 
 class AIUsageRepository:
-    def __init__(self, db: aiosqlite.Connection):
+    def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
 
     async def record_usage(
@@ -18,7 +19,7 @@ class AIUsageRepository:
         input_tokens: int,
         output_tokens: int,
         timestamp: Optional[datetime] = None,
-    ):
+    ) -> None:
         """Record an AI API usage event."""
         if timestamp is None:
             timestamp = datetime.utcnow()
@@ -35,7 +36,7 @@ class AIUsageRepository:
         except Exception as e:
             log.error("Failed to record AI usage", error=str(e), provider=provider, model=model)
 
-    async def get_summary(self, start_date: datetime, end_date: datetime) -> Dict:
+    async def get_summary(self, start_date: datetime, end_date: datetime) -> dict[str, JsonValue]:
         """Get aggregated usage summary for a time range."""
         summary = {"calls": 0, "input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "breakdown": [], "daily": []}
 

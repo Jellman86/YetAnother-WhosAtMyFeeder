@@ -1,6 +1,7 @@
 import platform
 import re
 import asyncio
+import httpx
 from typing import Any, List, Optional, Literal
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -10,7 +11,12 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model
 import structlog
 
 from app.config import CONFIG_PATH, Settings as AppSettings, settings
-from app.auth import require_owner, AuthContext, hash_password
+from app.auth import (
+    AuthContext,
+    hash_password,
+    require_owner,
+    validate_bcrypt_password_length,
+)
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 
@@ -44,6 +50,31 @@ from app.utils.api_datetime import utc_naive_now  # noqa: F401 - compatibility f
 from fastapi import BackgroundTasks
 
 router = APIRouter()
+
+
+def _validated_birdnet_base_url(value: str | None) -> str:
+    """Return a safe HTTP(S) base URL for the owner-configured BirdNET-Go host.
+
+    Private addresses and Docker service names are intentionally supported because
+    this is a server-to-server integration. Credentials, query strings, fragments,
+    and non-HTTP schemes are not valid for a base URL.
+    """
+    candidate = str(value or "").strip().rstrip("/")
+    if not candidate:
+        raise ValueError("BirdNET-Go URL is empty")
+    try:
+        parsed = httpx.URL(candidate)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("BirdNET-Go URL is invalid") from exc
+    if parsed.scheme not in {"http", "https"} or not parsed.host:
+        raise ValueError("BirdNET-Go URL must use http:// or https://")
+    if parsed.username or parsed.password:
+        raise ValueError("BirdNET-Go URL must not contain credentials")
+    if parsed.query or parsed.fragment:
+        raise ValueError("BirdNET-Go URL must not contain a query string or fragment")
+    return candidate
+
+
 log = structlog.get_logger()
 PURGE_CHECK_CONCURRENCY = 8
 BATCH_ANALYSIS_CHECK_CONCURRENCY = 8
@@ -116,6 +147,27 @@ class TaxonomySyncStartResponse(BaseModel):
     status: str
 
 
+class ActionStatusResponse(BaseModel):
+    status: Literal["ok", "error"]
+    message: str
+
+
+class SettingsUpdateResponse(BaseModel):
+    status: Literal["updated"]
+
+
+class SettingsImportResponse(BaseModel):
+    status: Literal["imported"]
+    changed_fields: list[str]
+
+
+class VideoCircuitResetResponse(BaseModel):
+    status: Literal["ok"]
+    message: str
+    live_circuit: dict[str, Any]
+    maintenance_circuit: dict[str, Any]
+
+
 @router.get("/maintenance/taxonomy/status", response_model=TaxonomySyncStatusResponse)
 async def get_taxonomy_status(auth: AuthContext = Depends(require_owner)):
     """Get status of the taxonomy synchronization process. Owner only."""
@@ -149,8 +201,10 @@ async def start_taxonomy_sync(background_tasks: BackgroundTasks, auth: AuthConte
     return {"status": "started"}
 
 
-@router.post("/settings/birdnet/test")
-async def test_birdnet(background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
+@router.post("/settings/birdnet/test", response_model=ActionStatusResponse)
+async def test_birdnet(
+    background_tasks: BackgroundTasks, _auth: AuthContext = Depends(require_owner)
+) -> ActionStatusResponse:
     """Test BirdNET-Go integration by injecting a mock detection. Owner only."""
     from app.services.audio.audio_service import audio_service
 
@@ -165,11 +219,52 @@ async def test_birdnet(background_tasks: BackgroundTasks, auth: AuthContext = De
     # Process it directly through audio service as if it came from MQTT
     background_tasks.add_task(audio_service.add_detection, mock_data)
 
-    return {"status": "ok", "message": "Mock audio detection injected. Check Discovery feed for updates."}
+    return ActionStatusResponse(status="ok", message="Mock audio detection injected. Check Discovery feed for updates.")
 
 
-@router.post("/settings/mqtt/test-publish")
-async def test_mqtt_publish(auth: AuthContext = Depends(require_owner)):
+@router.get("/settings/birdnet/reachability", response_model=ActionStatusResponse)
+async def test_birdnet_reachability(_auth: AuthContext = Depends(require_owner)) -> ActionStatusResponse | JSONResponse:
+    """Verify the configured BirdNET-Go instance answers over HTTP. Owner only.
+
+    BirdNET-Go detections arrive over MQTT, so the URL is optional (it powers
+    spectrograms). When it is set, an HTTP response — any status — proves the
+    BirdNET-Go server itself is up and reachable from the backend.
+    """
+    try:
+        base_url = _validated_birdnet_base_url(settings.frigate.birdnet_url)
+    except ValueError:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": "No BirdNET-Go URL is set. It is optional (detections arrive over MQTT), but set it to enable spectrograms and this check.",
+            },
+        )
+
+    try:
+        # Redirects are unnecessary for a reachability probe and could escape the
+        # validated origin. The URL is owner-configured and validated immediately
+        # above; private hosts are a required Docker/home-network use case.
+        async with httpx.AsyncClient(follow_redirects=False) as http_client:
+            resp = await http_client.get(base_url, timeout=10.0)  # lgtm[py/full-ssrf]
+        return ActionStatusResponse(
+            status="ok",
+            message=f"BirdNET-Go answered (HTTP {resp.status_code}) at {base_url}.",
+        )
+    except httpx.TimeoutException:
+        return JSONResponse(
+            status_code=504,
+            content={"status": "error", "message": f"BirdNET-Go timed out at {base_url}."},
+        )
+    except httpx.RequestError as e:
+        return JSONResponse(
+            status_code=502,
+            content={"status": "error", "message": f"Could not reach BirdNET-Go at {base_url} ({type(e).__name__})."},
+        )
+
+
+@router.post("/settings/mqtt/test-publish", response_model=ActionStatusResponse)
+async def test_mqtt_publish(_auth: AuthContext = Depends(require_owner)) -> ActionStatusResponse | JSONResponse:
     """Publish a test message to the MQTT broker to verify connectivity. Owner only."""
     # Broadcaster uses the shared mqtt_service internally for non-SSE tasks if needed,
     # but here we should use the mqtt_service directly.
@@ -180,7 +275,7 @@ async def test_mqtt_publish(auth: AuthContext = Depends(require_owner)):
             "yawamf/test", {"message": "Hello from YA-WAMF Backend!", "timestamp": datetime.now().isoformat()}
         )
         if success:
-            return {"status": "ok", "message": "Test message published to 'yawamf/test'"}
+            return ActionStatusResponse(status="ok", message="Test message published to 'yawamf/test'")
         else:
             return JSONResponse(
                 status_code=502, content={"status": "error", "message": "Failed to publish MQTT message. Check logs."}
@@ -359,8 +454,10 @@ class ClearFeedbackResponse(BaseModel):
     deleted_count: int
 
 
-@router.post("/settings/notifications/test")
-async def test_notification(request: NotificationTestRequest, auth: AuthContext = Depends(require_owner)):
+@router.post("/settings/notifications/test", response_model=ActionStatusResponse)
+async def test_notification(
+    request: NotificationTestRequest, _auth: AuthContext = Depends(require_owner)
+) -> ActionStatusResponse | JSONResponse:
     """Test notification platform with optional credential overrides. Owner only."""
 
     # Create mock detection data
@@ -447,7 +544,7 @@ async def test_notification(request: NotificationTestRequest, auth: AuthContext 
                 status_code=400, content={"status": "error", "message": f"Unknown platform: {request.platform}"}
             )
 
-        return {"status": "ok", "message": f"Test notification sent to {request.platform}"}
+        return ActionStatusResponse(status="ok", message=f"Test notification sent to {request.platform}")
     except Exception as e:
         log.error("Notification test failed", error=str(e))
         return JSONResponse(status_code=502, content={"status": "error", "message": str(e)})
@@ -457,8 +554,10 @@ class BirdWeatherTestRequest(BaseModel):
     token: Optional[str] = None
 
 
-@router.post("/settings/birdweather/test")
-async def test_birdweather(request: BirdWeatherTestRequest, auth: AuthContext = Depends(require_owner)):
+@router.post("/settings/birdweather/test", response_model=ActionStatusResponse)
+async def test_birdweather(
+    request: BirdWeatherTestRequest, _auth: AuthContext = Depends(require_owner)
+) -> ActionStatusResponse | JSONResponse:
     """Test BirdWeather integration with an optional token override. Owner only."""
     token = request.token if request.token and request.token != "***REDACTED***" else None
     if not token and not settings.birdweather.station_token:
@@ -477,7 +576,7 @@ async def test_birdweather(request: BirdWeatherTestRequest, auth: AuthContext = 
     )
 
     if success:
-        return {"status": "ok", "message": "BirdWeather test succeeded"}
+        return ActionStatusResponse(status="ok", message="BirdWeather test succeeded")
     return JSONResponse(
         status_code=502,
         content={"status": "error", "message": "BirdWeather test failed. Check token and station permissions."},
@@ -491,27 +590,72 @@ class LlmTestRequest(BaseModel):
     llm_api_key: Optional[str] = None
 
 
-@router.post("/settings/llm/test")
-async def test_llm(request: LlmTestRequest, auth: AuthContext = Depends(require_owner)):
-    """Test LLM connectivity with optional overrides. Owner only."""
-    enabled = request.llm_enabled if request.llm_enabled is not None else settings.llm.enabled
-    if not enabled:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "AI insights are disabled."})
+class LlmTestResponse(ActionStatusResponse):
+    provider: str
+    model: str
+    frame_count: int
+    failure_stage: Optional[Literal["configuration", "provider", "vision", "multi_frame", "response"]] = None
+    retryable: bool = False
+    retry_after_seconds: Optional[int] = None
 
+
+@router.post("/settings/llm/test", response_model=LlmTestResponse)
+async def test_llm(
+    request: LlmTestRequest, _auth: AuthContext = Depends(require_owner)
+) -> LlmTestResponse | JSONResponse:
+    """Test configuration, provider availability, vision, and multi-frame admission. Owner only."""
+    enabled = request.llm_enabled if request.llm_enabled is not None else settings.llm.enabled
     provider = request.llm_provider or settings.llm.provider
     model = request.llm_model or settings.llm.model
+    if not enabled:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": "AI insights are disabled.",
+                "provider": provider,
+                "model": model,
+                "frame_count": AIService.TEST_PROBE_FRAME_COUNT,
+                "failure_stage": "configuration",
+                "retryable": False,
+                "retry_after_seconds": None,
+            },
+        )
+
     api_key = request.llm_api_key
     if not api_key or api_key == "***REDACTED***":
         api_key = settings.llm.api_key
 
     if not api_key:
-        return JSONResponse(status_code=400, content={"status": "error", "message": "AI API key is missing."})
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": "AI API key is missing.",
+                "provider": provider,
+                "model": model,
+                "frame_count": AIService.TEST_PROBE_FRAME_COUNT,
+                "failure_stage": "configuration",
+                "retryable": False,
+                "retry_after_seconds": None,
+            },
+        )
 
     service = AIService()
-    ok, message, status_hint = await service.test_connection(provider, model, api_key)
-    if ok:
-        return {"status": "ok", "message": message}
-    return JSONResponse(status_code=status_hint, content={"status": "error", "message": message})
+    result = await service.test_connection(provider, model, api_key)
+    payload = {
+        "status": "ok" if result.ok else "error",
+        "message": result.message,
+        "provider": provider,
+        "model": model,
+        "frame_count": service.TEST_PROBE_FRAME_COUNT,
+        "failure_stage": result.failure_stage,
+        "retryable": result.retryable,
+        "retry_after_seconds": result.retry_after_seconds,
+    }
+    if result.ok:
+        return LlmTestResponse(**payload)
+    return JSONResponse(status_code=result.http_status_hint, content=payload)
 
 
 class SettingsUpdate(BaseModel):
@@ -604,20 +748,20 @@ class SettingsUpdate(BaseModel):
     )
     bird_crop_detector_tier: Optional[Literal["fast", "accurate"]] = Field(
         "fast",
-        description="Bird crop detector tier: fast|accurate",
+        description="Deprecated compatibility field; crop generation automatically tries accurate then fast",
     )
     bird_crop_source_priority: Optional[
         Literal["frigate_hints_first", "crop_model_first", "crop_model_only", "frigate_hints_only"]
     ] = Field(
         "frigate_hints_first",
-        description="Bird crop source priority",
+        description="Deprecated compatibility field; HQ snapshots choose the best available crop automatically",
     )
     bird_model_region_override: Optional[str] = Field("auto", description="Bird model region override: auto|eu|na")
     crop_model_overrides: dict[str, str] = Field(
-        default_factory=dict, description="Crop enablement overrides keyed by model or variant"
+        default_factory=dict, description="Deprecated compatibility field; ignored by the runtime"
     )
     crop_source_overrides: dict[str, str] = Field(
-        default_factory=dict, description="Crop source overrides keyed by model or variant"
+        default_factory=dict, description="Deprecated compatibility field; ignored by the runtime"
     )
     # Media cache settings
     media_cache_enabled: bool = Field(True, description="Enable local media caching")
@@ -629,7 +773,7 @@ class SettingsUpdate(BaseModel):
     )
     media_cache_high_quality_event_snapshot_bird_crop: bool = Field(
         False,
-        description="Run the bird crop detector on high-quality event snapshots before caching",
+        description="Deprecated compatibility field; HQ snapshots automatically attempt every available crop source",
     )
     media_cache_high_quality_event_snapshot_jpeg_quality: int = Field(
         95,
@@ -762,7 +906,12 @@ class SettingsUpdate(BaseModel):
     # Authentication
     auth_enabled: Optional[bool] = None
     auth_username: Optional[str] = Field(None, min_length=1, max_length=50)
-    auth_password: Optional[str] = Field(None, min_length=8, max_length=128)
+    auth_password: Optional[str] = Field(
+        None,
+        min_length=8,
+        max_length=128,
+        description="New passwords must use 72 UTF-8 bytes or fewer",
+    )
     auth_session_expiry_hours: Optional[int] = Field(None, ge=1, le=720)
     trusted_proxy_hosts: Optional[List[str]] = None
 
@@ -785,6 +934,8 @@ class SettingsUpdate(BaseModel):
 
         if len(v) < 8:
             raise ValueError("Password must be at least 8 characters long")
+
+        validate_bcrypt_password_length(v)
 
         # Check for basic complexity (at least one letter and one number)
         if not re.search(r"[A-Za-z]", v) or not re.search(r"\d", v):
@@ -869,6 +1020,13 @@ class SettingsUpdate(BaseModel):
             raise ValueError("frigate_url must start with http:// or https://")
         return v.rstrip("/")
 
+    @field_validator("birdnet_url")
+    @classmethod
+    def validate_birdnet_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or not v.strip():
+            return "" if v is not None else None
+        return _validated_birdnet_base_url(v)
+
     @field_validator("date_format")
     @classmethod
     def validate_date_format(cls, v: Optional[str]) -> Optional[str]:
@@ -905,6 +1063,7 @@ _settings_response_fields.update(
         "notifications_email_connected_email": (Optional[str], None),
         "auth_has_password": (bool, False),
         "debug_ui_enabled": (bool, False),
+        "update_check_enabled": (bool, True),
     }
 )
 SettingsResponse = create_model("SettingsResponse", **_settings_response_fields)
@@ -960,7 +1119,7 @@ async def _broadcast_settings_imported(changed_fields: list[str], username: str)
         log.warning("Failed to broadcast settings import", error=str(e))
 
 
-@router.get("/settings/export")
+@router.get("/settings/export", response_class=JSONResponse)
 async def export_settings(auth: AuthContext = Depends(require_owner)):
     """Export the full persisted configuration, including secrets. Owner only."""
     payload = _config_backup_payload()
@@ -974,12 +1133,12 @@ async def export_settings(auth: AuthContext = Depends(require_owner)):
     )
 
 
-@router.post("/settings/import")
+@router.post("/settings/import", response_model=SettingsImportResponse)
 async def import_settings(
     background_tasks: BackgroundTasks,
     payload: dict[str, Any] = Body(...),
     auth: AuthContext = Depends(require_owner),
-):
+) -> SettingsImportResponse:
     """Import a full configuration backup. Owner only."""
     config = _extract_import_config(payload)
     try:
@@ -1005,7 +1164,7 @@ async def import_settings(
         username=auth.username,
         changed_fields=changed_fields,
     )
-    return {"status": "imported", "changed_fields": changed_fields}
+    return SettingsImportResponse(status="imported", changed_fields=changed_fields)
 
 
 @router.get("/settings", response_model=SettingsResponse)
@@ -1209,6 +1368,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "auth_session_expiry_hours": settings.auth.session_expiry_hours,
         "trusted_proxy_hosts": settings.system.trusted_proxy_hosts,
         "debug_ui_enabled": settings.system.debug_ui_enabled,
+        "update_check_enabled": settings.system.update_check_enabled,
         # Public access
         "public_access_enabled": settings.public_access.enabled,
         "public_access_show_camera_names": settings.public_access.show_camera_names,
@@ -1225,10 +1385,10 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
     }
 
 
-@router.post("/settings")
+@router.post("/settings", response_model=SettingsUpdateResponse)
 async def update_settings(
     update: SettingsUpdate, background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)
-):
+) -> SettingsUpdateResponse:
     """Update application settings. Owner only."""
     inference_provider_changed = False
 
@@ -1752,7 +1912,7 @@ async def update_settings(
         )
     except Exception as e:
         log.warning("Failed to broadcast settings_updated event", error=str(e))
-    return {"status": "updated"}
+    return SettingsUpdateResponse(status="updated")
 
 
 @router.get("/maintenance/stats", response_model=MaintenanceStatsResponse)
@@ -2347,10 +2507,8 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
 
     # Also run orphaned media cleanup (files not in DB)
     async with get_db() as db:
-        # Fetch all valid event IDs
-        async with db.execute("SELECT frigate_event FROM detections") as cursor:
-            rows = await cursor.fetchall()
-            valid_ids = {row[0] for row in rows}
+        repo = DetectionRepository(db)
+        valid_ids = set(await repo.get_all_frigate_event_ids())
     valid_ids.update(protected_ids)
 
     orphan_stats = await media_cache.cleanup_orphaned_media(valid_ids)
@@ -2363,8 +2521,10 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
     return {"status": "completed", **stats, "retention_days": retention}
 
 
-@router.post("/maintenance/video-classification/reset-circuit")
-async def reset_video_circuit(auth: AuthContext = Depends(require_owner)):
+@router.post("/maintenance/video-classification/reset-circuit", response_model=VideoCircuitResetResponse)
+async def reset_video_circuit(
+    _auth: AuthContext = Depends(require_owner),
+) -> VideoCircuitResetResponse:
     """Reset the live and maintenance video classification breakers without discarding queued jobs. Owner only.
 
     Use this to manually recover from a false-positive open circuit caused by
@@ -2374,12 +2534,12 @@ async def reset_video_circuit(auth: AuthContext = Depends(require_owner)):
     auto_video_classifier.reset_circuit()
     live_status = auto_video_classifier.get_circuit_status("live")
     maintenance_status = auto_video_classifier.get_circuit_status("maintenance")
-    return {
-        "status": "ok",
-        "message": "Video classification circuit breakers reset.",
-        "live_circuit": live_status,
-        "maintenance_circuit": maintenance_status,
-    }
+    return VideoCircuitResetResponse(
+        status="ok",
+        message="Video classification circuit breakers reset.",
+        live_circuit=live_status,
+        maintenance_circuit=maintenance_status,
+    )
 
 
 @router.delete("/maintenance/feedback/clear", response_model=ClearFeedbackResponse)

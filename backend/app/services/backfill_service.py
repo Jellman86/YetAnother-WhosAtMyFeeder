@@ -3,8 +3,6 @@ import asyncio
 from datetime import datetime
 from dataclasses import dataclass, field
 from collections import defaultdict
-from io import BytesIO
-from PIL import Image
 
 from app.config import settings
 from app.services.classifier_service import (
@@ -18,6 +16,7 @@ from app.services.media_cache import media_cache
 from app.services.detection_service import DetectionService
 from app.services.error_diagnostics import error_diagnostics_history
 from app.utils.frigate import normalize_sub_label
+from app.utils.image_io import decode_image_bytes
 
 log = structlog.get_logger()
 BACKFILL_EVENT_TIMEOUT_SECONDS = 75.0
@@ -218,7 +217,7 @@ class BackfillService:
                 return "error", "fetch_snapshot_failed"
 
             # Classify the image (async to use thread pool)
-            image = Image.open(BytesIO(snapshot_data))
+            image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
             results = await self.classifier.classify_async_background(
                 image,
                 camera_name=event.get("camera"),

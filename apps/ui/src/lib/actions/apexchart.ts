@@ -1,16 +1,32 @@
 import type { Action } from 'svelte/action';
+import type ApexCharts from 'apexcharts';
 import type { ApexOptions } from 'apexcharts';
 
-type ApexModule = typeof import('apexcharts');
+type ApexConstructor = typeof ApexCharts;
+type ApexInstance = InstanceType<ApexConstructor>;
+type ChartNode = HTMLElement & { __apexchart?: ApexInstance | null };
 
-function normalizeSeriesPoint(point: any): any {
+function asRecord(value: unknown): Record<string, unknown> {
+    return value && typeof value === 'object' ? value as Record<string, unknown> : {};
+}
+
+function resolveApexConstructor(moduleValue: unknown): ApexConstructor {
+    const candidate = asRecord(moduleValue).default ?? moduleValue;
+    if (typeof candidate !== 'function') {
+        throw new TypeError('ApexCharts module did not export a constructor');
+    }
+    return candidate as ApexConstructor;
+}
+
+function normalizeSeriesPoint(point: unknown): unknown {
     if (point === null || point === undefined) return null;
     if (typeof point === 'number') {
         return Number.isFinite(point) ? point : null;
     }
     if (typeof point !== 'object') return null;
-    const x = (point as any).x;
-    const y = (point as any).y;
+    const record = asRecord(point);
+    const x = record.x;
+    const y = record.y;
     if (x !== undefined && x !== null) {
         if (typeof x === 'number') {
             if (!Number.isFinite(x)) return null;
@@ -23,14 +39,14 @@ function normalizeSeriesPoint(point: any): any {
         }
     }
     if (y !== undefined && y !== null && !Number.isFinite(Number(y))) {
-        return { ...(point as Record<string, any>), y: null };
+        return { ...record, y: null };
     }
     return point;
 }
 
 function normalizeOptions(options: ApexOptions): ApexOptions {
-    const next: any = { ...(options as any) };
-    const rawSeries = (options as any)?.series;
+    const next = { ...asRecord(options) };
+    const rawSeries = next.series;
 
     // Donut/pie charts use a flat number array as series rather than the
     // [{name, type, data[]}] format used by line/bar charts.  Spreading a number
@@ -38,37 +54,41 @@ function normalizeOptions(options: ApexOptions): ApexOptions {
     const isNumericSeries =
         Array.isArray(rawSeries) &&
         rawSeries.length > 0 &&
-        rawSeries.every((v: any) => typeof v === 'number');
+        rawSeries.every((value) => typeof value === 'number');
     if (isNumericSeries) {
-        return next as ApexOptions;
+        return next as unknown as ApexOptions;
     }
 
-    const series = Array.isArray(rawSeries)
+    const series: Array<Record<string, unknown> & { data: unknown[] }> = Array.isArray(rawSeries)
         ? rawSeries
             .filter(Boolean)
-            .map((entry: any) => ({
-                ...entry,
-                data: Array.isArray(entry?.data)
-                    ? entry.data
-                        .map((point: any) => normalizeSeriesPoint(point))
-                        .filter((point: any) => point !== null)
+            .map((entry) => {
+                const seriesEntry = asRecord(entry);
+                return {
+                ...seriesEntry,
+                data: Array.isArray(seriesEntry.data)
+                    ? seriesEntry.data
+                        .map((point) => normalizeSeriesPoint(point))
+                        .filter((point) => point !== null)
                     : []
-            }))
+                };
+            })
         : [];
 
     next.series = series;
 
     if (Array.isArray(next.yaxis)) {
-        const seriesNames = new Set(series.map((entry: any) => entry?.name).filter(Boolean));
+        const seriesNames = new Set(series.map((entry) => entry.name).filter(Boolean));
         const normalizedYAxes = next.yaxis
-            .filter((axis: any) => {
-                if (!axis?.seriesName) return true;
+            .map(asRecord)
+            .filter((axis) => {
+                if (!axis.seriesName) return true;
                 if (Array.isArray(axis.seriesName)) {
-                    return axis.seriesName.some((name: string) => seriesNames.has(name));
+                    return axis.seriesName.some((name) => seriesNames.has(name));
                 }
                 return seriesNames.has(axis.seriesName);
             })
-            .map((axis: any) => ({ ...axis }));
+            .map((axis) => ({ ...axis }));
         if (normalizedYAxes.length > 0) {
             next.yaxis = normalizedYAxes;
         } else {
@@ -77,15 +97,19 @@ function normalizeOptions(options: ApexOptions): ApexOptions {
     }
 
     if (next.annotations) {
-        const annotations = next.annotations as any;
+        const annotations = asRecord(next.annotations);
         const xaxis = Array.isArray(annotations.xaxis) ? annotations.xaxis : [];
         next.annotations = {
             ...annotations,
             // Apex can crash on update cycles if any annotation buckets are missing.
-            xaxis: xaxis.filter((ann: any) => {
-                const x = Number(ann?.x);
+            xaxis: xaxis.map(asRecord).filter((annotation) => {
+                const x = Number(annotation.x);
                 if (!Number.isFinite(x)) return false;
-                if (ann?.x2 !== undefined && ann?.x2 !== null && !Number.isFinite(Number(ann.x2))) return false;
+                if (
+                    annotation.x2 !== undefined &&
+                    annotation.x2 !== null &&
+                    !Number.isFinite(Number(annotation.x2))
+                ) return false;
                 return true;
             }),
             yaxis: Array.isArray(annotations.yaxis) ? annotations.yaxis : [],
@@ -96,19 +120,21 @@ function normalizeOptions(options: ApexOptions): ApexOptions {
     }
 
     if (next.stroke) {
-        next.stroke = { ...next.stroke };
-        if (Array.isArray(next.stroke.width) && next.stroke.width.length !== series.length) {
-            next.stroke.width = series.map((entry: any) => (entry?.type === 'bar' ? 0 : 2));
+        const stroke = asRecord(next.stroke);
+        next.stroke = stroke;
+        if (Array.isArray(stroke.width) && stroke.width.length !== series.length) {
+            stroke.width = series.map((entry) => (entry.type === 'bar' ? 0 : 2));
         }
-        if (Array.isArray(next.stroke.dashArray) && next.stroke.dashArray.length !== series.length) {
-            next.stroke.dashArray = series.map(() => 0);
+        if (Array.isArray(stroke.dashArray) && stroke.dashArray.length !== series.length) {
+            stroke.dashArray = series.map(() => 0);
         }
     }
 
     if (next.fill) {
-        next.fill = { ...next.fill };
-        if (Array.isArray(next.fill.type) && next.fill.type.length !== series.length) {
-            next.fill.type = series.map((entry: any) => (entry?.type === 'area' ? 'gradient' : 'solid'));
+        const fill = asRecord(next.fill);
+        next.fill = fill;
+        if (Array.isArray(fill.type) && fill.type.length !== series.length) {
+            fill.type = series.map((entry) => (entry.type === 'area' ? 'gradient' : 'solid'));
         }
     }
 
@@ -116,12 +142,13 @@ function normalizeOptions(options: ApexOptions): ApexOptions {
         next.series = [{ name: 'Series', type: 'line', data: [] }];
     }
 
-    return next as ApexOptions;
+    return next as unknown as ApexOptions;
 }
 
 export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
-    let chartInstance: any = null;
-    let ApexChartsCtor: any = null;
+    const chartNode = node as ChartNode;
+    let chartInstance: ApexInstance | null = null;
+    let ApexChartsCtor: ApexConstructor | null = null;
     let pendingOptions = normalizeOptions(options);
     let destroyed = false;
     let initPromise: Promise<void> | null = null;
@@ -129,13 +156,13 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
     async function init() {
         if (initPromise) return initPromise;
         initPromise = (async () => {
-            const mod = await import('apexcharts');
+            const mod: unknown = await import('apexcharts');
             if (destroyed) return;
-            const ApexCharts = (mod as any).default ?? mod;
+            const ApexCharts = resolveApexConstructor(mod);
             ApexChartsCtor = ApexCharts;
             chartInstance = new ApexCharts(node, pendingOptions);
             await chartInstance.render();
-            (node as any).__apexchart = chartInstance;
+            chartNode.__apexchart = chartInstance;
         })();
         return initPromise;
     }
@@ -160,18 +187,19 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
                     .catch(async (error: unknown) => {
                         console.error('Apex updateOptions failed, recreating chart instance', error);
                         if (destroyed || !ApexChartsCtor) return;
+                        const existingChart = chartInstance;
                         try {
-                            await chartInstance.destroy();
+                            await existingChart?.destroy();
                         } catch {
                             // best effort cleanup
                         }
                         try {
                             chartInstance = new ApexChartsCtor(node, pendingOptions);
                             await chartInstance.render();
-                            (node as any).__apexchart = chartInstance;
+                            chartNode.__apexchart = chartInstance;
                         } catch (recreateError) {
                             chartInstance = null;
-                            (node as any).__apexchart = null;
+                            chartNode.__apexchart = null;
                             console.error('Apex chart recreation failed', recreateError);
                         }
                     })
@@ -187,7 +215,7 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
                 chartInstance.destroy();
                 chartInstance = null;
             }
-            (node as any).__apexchart = null;
+            chartNode.__apexchart = null;
         }
     };
 };

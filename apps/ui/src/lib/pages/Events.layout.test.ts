@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import eventsSource from './Events.svelte?raw';
+import paginationSource from '../components/Pagination.svelte?raw';
 
 describe('Explorer page layout', () => {
     it('uses a compact desktop grid for the primary filters', () => {
-        expect(eventsSource).toContain('card-base rounded-2xl p-4 space-y-3');
+        expect(eventsSource).toContain('data-events-filter-bar');
+        expect(eventsSource).not.toContain('card-base rounded-2xl p-4 space-y-3');
         expect(eventsSource).toContain('class="grid gap-3 lg:grid-cols-3"');
-        expect(eventsSource).toContain('class="select-base min-w-0 w-full"');
+        expect(eventsSource).toContain('aria-label={$_(\'events.filters.all_time\')}');
+        expect(eventsSource).toContain('aria-label={$_(\'events.filters.all_species\')}');
+        expect(eventsSource).toContain('aria-label={$_(\'events.filters.all_cameras\')}');
+    });
+
+    it('presents the timeline as a quiet divided control instead of another card', () => {
+        expect(eventsSource).toContain('data-events-timeline');
+        expect(eventsSource).toMatch(/data-events-timeline[^>]+border-y/);
+        expect(paginationSource).toContain('data-pagination');
+        expect(paginationSource).not.toContain('card-base');
+        expect(paginationSource).toContain("$_('pagination.showing'");
+        expect(paginationSource).not.toContain('Showing <span');
     });
 
     it('labels the page-level selection toggle as Multi Select', () => {

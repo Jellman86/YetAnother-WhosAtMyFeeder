@@ -1,7 +1,7 @@
 <script lang="ts">
-    import { locale, locales, _ } from 'svelte-i18n';
-    import { get } from 'svelte/store';
-    import { onMount, onDestroy } from 'svelte'; // Import onMount and onDestroy
+    import { locale, _ } from 'svelte-i18n';
+    import { onMount } from 'svelte';
+    import { setAppLocale } from '../i18n';
 
     const languageNames: Record<string, string> = {
         en: 'English',
@@ -19,35 +19,23 @@
     let { dropUp = false, compact = false } = $props<{ dropUp?: boolean; compact?: boolean }>();
     const menuId = 'language-selector-menu';
     let currentLocaleValue = $state('en'); // Local state for locale value
+    let languageChanging = $state(false);
+    let languageError = $state(false);
 
-    // Subscribe to the locale store manually
-    let unsubscribeLocale: () => void;
     onMount(() => {
-        unsubscribeLocale = locale.subscribe(value => {
+        return locale.subscribe(value => {
             currentLocaleValue = typeof value === 'string' && value ? value : 'en';
         });
-
-        // Load saved preference on mount
-        const saved = localStorage.getItem('preferred-language');
-        const available = get(locales);
-        if (saved && typeof saved === 'string') {
-            const normalized = saved.split(/[-_]/)[0].toLowerCase();
-            if (available.includes(normalized)) {
-                locale.set(normalized);
-            }
-        }
     });
 
-    onDestroy(() => {
-        if (unsubscribeLocale) {
-            unsubscribeLocale();
-        }
-    });
-
-    function setLanguage(lang: string) {
-        locale.set(lang);
-        localStorage.setItem('preferred-language', lang);
-        showDropdown = false;
+    async function setLanguage(lang: string): Promise<void> {
+        if (languageChanging) return;
+        languageChanging = true;
+        languageError = false;
+        const changed = await setAppLocale(lang);
+        languageChanging = false;
+        languageError = !changed;
+        if (changed) showDropdown = false;
     }
 </script>
 
@@ -87,6 +75,7 @@
                 {#each Object.entries(languageNames) as [code, name]}
                     <button
                         onclick={() => setLanguage(code)}
+                        disabled={languageChanging}
                         role="menuitem"
                         class="w-full px-4 py-2.5 text-left text-sm font-bold rounded-xl transition-all
                                {currentLocaleValue === code 
@@ -96,6 +85,11 @@
                         {name}
                     </button>
                 {/each}
+                {#if languageError}
+                    <p class="px-3 py-2 text-xs font-medium leading-5 text-amber-700 dark:text-amber-300" role="alert">
+                        {$_('common.language_load_error', { default: 'That language could not be loaded. Check your connection and try again.' })}
+                    </p>
+                {/if}
             </div>
         </div>
         <!-- Backdrop to close dropdown -->

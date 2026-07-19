@@ -82,6 +82,12 @@ def force_in_process_mode():
         settings.classification.image_execution_mode = original_mode
 
 
+def test_runtime_benchmark_is_opt_in_by_default(monkeypatch):
+    monkeypatch.delenv("CLASSIFIER_RUNTIME_BENCHMARK_ENABLED", raising=False)
+
+    assert classifier_service_module._runtime_benchmark_enabled() is False
+
+
 def _stub_init_bird_model(self):
     self._models["bird"] = MagicMock(loaded=True, error=None, labels=[])
 
@@ -1117,6 +1123,34 @@ async def test_init_bird_model_surfaces_model_config_provider_warning_in_status(
         ]
     finally:
         await service.shutdown()
+
+
+def test_host_validated_provider_policy_suppresses_only_resolved_registry_warning(monkeypatch):
+    provider_warning = (
+        "Installed model_config.json advertised providers no longer supported by the current "
+        "registry and they were ignored: intel_gpu"
+    )
+    unrelated_warning = "Installed model config has an unrelated problem"
+    spec = {
+        "supported_inference_providers": ["cpu", "intel_cpu"],
+        "model_config_warnings": [provider_warning, unrelated_warning],
+        "model_config_provider_warnings": [provider_warning],
+        "model_config_registry_unsupported_providers": ["intel_gpu"],
+    }
+    monkeypatch.setattr(
+        classifier_service_module,
+        "_host_validated_providers",
+        lambda model_id: ["intel_cpu", "intel_gpu"] if model_id == "eva02_large_inat21" else [],
+    )
+
+    resolved = classifier_service_module._apply_host_validated_provider_policy(
+        spec,
+        model_id="eva02_large_inat21",
+    )
+
+    assert resolved["supported_inference_providers"] == ["cpu", "intel_cpu", "intel_gpu"]
+    assert resolved["model_config_warnings"] == [unrelated_warning]
+    assert resolved["host_added_inference_providers"] == ["intel_gpu"]
 
 
 @pytest.mark.asyncio

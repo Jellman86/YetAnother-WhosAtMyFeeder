@@ -1,5 +1,17 @@
 import { describe, expect, it, vi } from 'vitest';
-import { LiveUpdateCoordinator } from './live-updates';
+import { LiveUpdateCoordinator, toDetection } from './live-updates';
+
+describe('toDetection', () => {
+    it('normalizes required fields at the untrusted SSE boundary', () => {
+        expect(toDetection({ frigate_event: 'event-1', display_name: 'Robin' })).toMatchObject({
+            frigate_event: 'event-1',
+            display_name: 'Robin',
+            score: 0,
+            detection_time: '',
+            camera_name: ''
+        });
+    });
+});
 
 function buildCoordinator(options?: {
     activeJobs?: any[];
@@ -380,9 +392,10 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         }));
         const { coordinator, calls } = buildCoordinator({ fetchAnalysisStatus });
 
-        await coordinator.syncAnalysisQueueStatus();
+        const status = await coordinator.syncAnalysisQueueStatus();
 
         expect(fetchAnalysisStatus).toHaveBeenCalledTimes(1);
+        expect(status).toMatchObject({ pending: 6, active: 1 });
         expect(calls.upsertRunning.length).toBe(1);
         expect(calls.upsertRunning[0].id).toBe('reclassify:progress');
         expect(calls.upsertRunning[0].kind).toBe('reclassify_batch');

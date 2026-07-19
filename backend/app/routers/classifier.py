@@ -1,7 +1,10 @@
 """Classifier endpoints for model status, debugging, and downloads."""
 
+import asyncio
+import io
+import tarfile
 from fastapi import APIRouter, UploadFile, File, Depends, Request, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, JsonValue
 import structlog
 from pathlib import Path
 
@@ -11,8 +14,41 @@ from app.config import settings
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
+from app.utils.image_io import decode_image_bytes
 
 router = APIRouter(prefix="/classifier", tags=["classifier"])
+
+
+def _prepare_download_paths(models_dir: Path, *paths: Path, replace: bool = False) -> bool:
+    """Create the model directory and optionally remove existing download targets."""
+    models_dir.mkdir(parents=True, exist_ok=True)
+    already_present = all(path.exists() for path in paths)
+    if replace:
+        for path in paths:
+            path.unlink(missing_ok=True)
+    return already_present
+
+
+def _extract_tflite(archive: bytes) -> bytes | None:
+    """Extract the preferred TFLite payload from a downloaded tar archive."""
+    with tarfile.open(fileobj=io.BytesIO(archive), mode="r:gz") as tar:
+        members = [member for member in tar.getmembers() if member.name.endswith(".tflite")]
+        preferred = next((member for member in members if "int8" not in member.name.lower()), None)
+        selected = preferred or next(iter(members), None)
+        if selected is None:
+            return None
+        extracted = tar.extractfile(selected)
+        return extracted.read() if extracted else None
+
+
+def _write_download(path: Path, content: bytes | str) -> None:
+    """Write a downloaded model asset outside the async event loop."""
+    if isinstance(content, bytes):
+        path.write_bytes(content)
+    else:
+        path.write_text(content)
+
+
 log = structlog.get_logger()
 
 
@@ -27,6 +63,33 @@ class ClassifierDownloadResponse(BaseModel):
     path: str | None = None
     model: str | None = None
     input_size: str | None = None
+
+
+class ClassifierPredictionResponse(BaseModel):
+    rank: int
+    label: str
+    score: float
+
+
+class ImageClassificationResponse(BaseModel):
+    status: str
+    model_id: str | None = None
+    inference_backend: str | None = None
+    active_provider: str | None = None
+    inference_ms: float | None = None
+    image_size: list[int] | None = None
+    predictions: list[ClassifierPredictionResponse] = Field(default_factory=list)
+    error: str | None = None
+    traceback: str | None = None
+
+
+class ClassifierTestResponse(BaseModel):
+    status: str | None = None
+    image_size: tuple[int, int] | None = None
+    image_mode: str | None = None
+    results: list[dict[str, JsonValue]] = Field(default_factory=list)
+    error: str | None = None
+    traceback: str | None = None
 
 
 class _LiveClassifierProxy:
@@ -46,9 +109,11 @@ class _LiveClassifierProxy:
 classifier_service = _LiveClassifierProxy()
 
 
-@router.get("/status")
+@router.get("/status", response_model=dict[str, JsonValue])
 @guest_rate_limit()
-async def classifier_status(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
+async def classifier_status(
+    request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)
+) -> dict[str, JsonValue]:
     """Return the status of the bird classifier model."""
     status = classifier_service.get_status()
     status["personalized_rerank_enabled"] = bool(getattr(settings.classification, "personalized_rerank_enabled", False))
@@ -71,9 +136,11 @@ async def classifier_labels(request: Request, auth: AuthContext = Depends(get_au
     return {"labels": classifier_service.labels}
 
 
-@router.get("/wildlife/status")
+@router.get("/wildlife/status", response_model=dict[str, JsonValue])
 @guest_rate_limit()
-async def wildlife_classifier_status(request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)):
+async def wildlife_classifier_status(
+    request: Request, auth: AuthContext = Depends(get_auth_context_with_legacy)
+) -> dict[str, JsonValue]:
     """Return the status of the wildlife classifier model."""
     return classifier_service.get_wildlife_status()
 
@@ -85,8 +152,8 @@ async def wildlife_classifier_labels(request: Request, auth: AuthContext = Depen
     return {"labels": classifier_service.get_wildlife_labels()}
 
 
-@router.get("/debug")
-async def bird_classifier_debug(auth: AuthContext = Depends(require_owner)):
+@router.get("/debug", response_model=dict[str, JsonValue])
+async def bird_classifier_debug(_auth: AuthContext = Depends(require_owner)) -> dict[str, JsonValue]:
     """Debug endpoint to inspect bird model details. Owner only."""
     if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
         return {
@@ -173,55 +240,52 @@ async def bird_classifier_debug(auth: AuthContext = Depends(require_owner)):
             result["top_5_dequant_values"] = [float(dequant[i]) for i in raw_squeezed.argsort()[-5:][::-1]]
 
         return result
-    except Exception as e:
-        import traceback
+    except Exception:
+        log.exception("Bird classifier diagnostic failed")
+        return {"error": "Bird classifier diagnostic failed. See server logs for details."}
 
-        return {"error": str(e), "traceback": traceback.format_exc()}
 
-
-@router.post("/test")
-async def test_bird_classifier(image: UploadFile = File(...), auth: AuthContext = Depends(require_owner)):
+@router.post("/test", response_model=ClassifierTestResponse)
+async def test_bird_classifier(
+    image: UploadFile = File(...), _auth: AuthContext = Depends(require_owner)
+) -> dict[str, object]:
     """Test bird classifier with an uploaded image. Owner only."""
-    from PIL import Image
-    import io
-
     try:
         contents = await image.read()
-        pil_image = Image.open(io.BytesIO(contents))
+        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
         if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
             results = await classifier_service.classify_async_background(
                 pil_image,
                 input_context={"is_cropped": False},
             )
         else:
-            results = classifier_service.classify(pil_image, input_context={"is_cropped": False})
+            results = await asyncio.to_thread(
+                classifier_service.classify, pil_image, input_context={"is_cropped": False}
+            )
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
-    except Exception as e:
-        import traceback
+    except Exception:
+        log.exception("Bird classifier test failed")
+        return {"error": "Bird classifier test failed. See server logs for details."}
 
-        return {"error": str(e), "traceback": traceback.format_exc()}
 
-
-@router.post("/classify")
+@router.post("/classify", response_model=ImageClassificationResponse)
 async def classify_image(
     image: UploadFile = File(...),
     top_n: int = Query(default=10, ge=1, le=50),
     auth: AuthContext = Depends(require_owner),
-):
+) -> ImageClassificationResponse | dict[str, str]:
     """Classify an uploaded image through the full pipeline and return rich diagnostics.
 
     Returns top-N predictions with scores, inference timing, active provider,
     and model metadata. Useful for validating model accuracy and pipeline health.
     Owner only.
     """
-    import io
     import time as _time
-    from PIL import Image
 
     try:
         contents = await image.read()
-        pil_image = Image.open(io.BytesIO(contents)).convert("RGB")
+        pil_image = await asyncio.to_thread(decode_image_bytes, contents, convert_rgb=True)
     except Exception as e:
         return {"status": "error", "error": f"Failed to decode image: {e}"}
 
@@ -235,7 +299,9 @@ async def classify_image(
         if getattr(classifier_service, "_image_execution_mode", "in_process") == "subprocess":
             results = await classifier_service.classify_async_background(pil_image, input_context={"is_cropped": False})
         else:
-            results = classifier_service.classify(pil_image, input_context={"is_cropped": False})
+            results = await asyncio.to_thread(
+                classifier_service.classify, pil_image, input_context={"is_cropped": False}
+            )
     except Exception as e:
         import traceback
 
@@ -256,27 +322,25 @@ async def classify_image(
     }
 
 
-@router.post("/probe")
+@router.post("/probe", response_model=dict[str, JsonValue])
 async def probe_bird_classifier_runtime(
     device: str = Query(default="GPU"),
     synthetic_image: bool = Query(default=False),
     image: UploadFile | None = File(default=None),
     auth: AuthContext = Depends(require_owner),
-):
+) -> dict[str, JsonValue]:
     """Run one explicit OpenVINO bird-model probe and return runtime diagnostics. Owner only."""
-    from PIL import Image
-    import io
-
     if image is None and not synthetic_image:
         raise HTTPException(status_code=400, detail="Provide an image upload or set synthetic_image=true")
 
     pil_image = None
     if image is not None:
         contents = await image.read()
-        pil_image = Image.open(io.BytesIO(contents))
+        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
 
     try:
-        return classifier_service.probe_bird_runtime(
+        return await asyncio.to_thread(
+            classifier_service.probe_bird_runtime,
             device=device,
             image=pil_image,
             synthetic_image=synthetic_image,
@@ -285,8 +349,8 @@ async def probe_bird_classifier_runtime(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@router.get("/wildlife/debug")
-async def wildlife_classifier_debug(auth: AuthContext = Depends(require_owner)):
+@router.get("/wildlife/debug", response_model=dict[str, JsonValue])
+async def wildlife_classifier_debug(_auth: AuthContext = Depends(require_owner)) -> dict[str, JsonValue]:
     """Debug endpoint to inspect wildlife model details and test classification. Owner only."""
     import numpy as np
     from PIL import Image
@@ -340,23 +404,23 @@ async def wildlife_classifier_debug(auth: AuthContext = Depends(require_owner)):
             result["legacy_quantization"] = str(legacy_q)
 
         return result
-    except Exception as e:
-        import traceback
+    except Exception:
+        log.exception("Wildlife classifier diagnostic failed")
+        return {"error": "Wildlife classifier diagnostic failed. See server logs for details."}
 
-        return {"error": str(e), "traceback": traceback.format_exc()}
 
-
-@router.post("/wildlife/test")
-async def test_wildlife_classifier(image: UploadFile = File(...), auth: AuthContext = Depends(require_owner)):
+@router.post("/wildlife/test", response_model=ClassifierTestResponse)
+async def test_wildlife_classifier(
+    image: UploadFile = File(...), _auth: AuthContext = Depends(require_owner)
+) -> dict[str, object]:
     """Test wildlife classifier with an uploaded image. Owner only."""
-    from PIL import Image
-    import io
-
     try:
         contents = await image.read()
-        pil_image = Image.open(io.BytesIO(contents))
+        pil_image = await asyncio.to_thread(decode_image_bytes, contents)
 
-        results = classifier_service.classify_wildlife(pil_image, input_context={"is_cropped": False})
+        results = await asyncio.to_thread(
+            classifier_service.classify_wildlife, pil_image, input_context={"is_cropped": False}
+        )
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
     except Exception as e:
@@ -375,8 +439,6 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
     - Model size: ~50MB
     """
     import httpx
-    import tarfile
-    import io
 
     # EfficientNet-Lite4 - well-documented, reliable model
     MODEL_TAR_URL = "https://storage.googleapis.com/cloud-tpu-checkpoints/efficientnet/lite/efficientnet-lite4.tar.gz"
@@ -384,17 +446,9 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
 
     # Use persistent /data/models directory
     models_dir = Path("/data/models")
-    models_dir.mkdir(parents=True, exist_ok=True)
     model_path = models_dir / settings.classification.wildlife_model
     labels_path = models_dir / settings.classification.wildlife_labels
-
-    # Delete old model to force re-download
-    if model_path.exists():
-        model_path.unlink()
-        log.info("Deleted old wildlife model for re-download")
-    if labels_path.exists():
-        labels_path.unlink()
-        log.info("Deleted old wildlife labels for re-download")
+    await asyncio.to_thread(_prepare_download_paths, models_dir, model_path, labels_path, replace=True)
 
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
@@ -408,39 +462,12 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
             content = model_response.content
             log.info("Downloaded archive", size_mb=len(content) / (1024 * 1024))
 
-            # Extract the float32 TFLite model from the archive
-            tflite_content = None
-            with tarfile.open(fileobj=io.BytesIO(content), mode="r:gz") as tar:
-                for member in tar.getmembers():
-                    log.debug(f"Archive contains: {member.name}")
-                    if member.name.endswith(".tflite") and "int8" not in member.name.lower():
-                        f = tar.extractfile(member)
-                        if f:
-                            tflite_content = f.read()
-                            log.info(
-                                "Found TFLite model", name=member.name, size_mb=len(tflite_content) / (1024 * 1024)
-                            )
-                            break
-
-                # Fallback to any tflite file if no float model found
-                if tflite_content is None:
-                    for member in tar.getmembers():
-                        if member.name.endswith(".tflite"):
-                            f = tar.extractfile(member)
-                            if f:
-                                tflite_content = f.read()
-                                log.info(
-                                    "Found TFLite model (fallback)",
-                                    name=member.name,
-                                    size_mb=len(tflite_content) / (1024 * 1024),
-                                )
-                                break
+            tflite_content = await asyncio.to_thread(_extract_tflite, content)
 
             if tflite_content is None:
                 raise Exception("No TFLite model found in archive")
 
-            with open(model_path, "wb") as f:
-                f.write(tflite_content)
+            await asyncio.to_thread(_write_download, model_path, tflite_content)
             log.info("Wildlife model saved", path=str(model_path))
 
             # Download ImageNet labels
@@ -459,12 +486,10 @@ async def download_wildlife_model(auth: AuthContext = Depends(require_owner)):
             else:
                 processed_labels = all_labels
 
-            with open(labels_path, "w") as f:
-                for label in processed_labels:
-                    f.write(f"{label}\n")
+            await asyncio.to_thread(_write_download, labels_path, "\n".join(processed_labels) + "\n")
 
             # Reload the classifier service to pick up the new model
-            classifier_service.reload_wildlife_model()
+            await asyncio.to_thread(classifier_service.reload_wildlife_model)
 
             log.info(
                 "Wildlife model downloaded and ready",
@@ -500,12 +525,11 @@ async def download_default_model(auth: AuthContext = Depends(require_owner)):
 
     # Use persistent /data/models directory
     models_dir = Path("/data/models")
-    models_dir.mkdir(parents=True, exist_ok=True)
     model_path = models_dir / "model.tflite"
     labels_path = models_dir / "labels.txt"
 
     # Check if model already exists
-    if model_path.exists() and labels_path.exists():
+    if await asyncio.to_thread(_prepare_download_paths, models_dir, model_path, labels_path):
         log.info("Model already exists, skipping download", path=str(model_path))
         return {"status": "ok", "message": "Model already downloaded", "path": str(model_path)}
 
@@ -542,19 +566,16 @@ async def download_default_model(auth: AuthContext = Depends(require_owner)):
             if model_content is None:
                 raise Exception(f"All model download URLs failed. Last error: {last_error}")
 
-            with open(model_path, "wb") as f:
-                f.write(model_content)
+            await asyncio.to_thread(_write_download, model_path, model_content)
 
             # Download labels
             log.info("Downloading labels...")
             labels_response = await client.get(LABELS_URL, headers=headers)
             labels_response.raise_for_status()
-            with open(labels_path, "wb") as f:
-                f.write(labels_response.content)
+            await asyncio.to_thread(_write_download, labels_path, labels_response.content)
 
         # Process labels to extract common names
-        with open(labels_path, "r") as f:
-            lines = f.readlines()
+        lines = (await asyncio.to_thread(labels_path.read_text)).splitlines()
 
         processed_labels = []
         for line in lines:
@@ -570,12 +591,10 @@ async def download_default_model(auth: AuthContext = Depends(require_owner)):
                 parts = line.split(" ", 1)
                 processed_labels.append(parts[1] if len(parts) > 1 else line)
 
-        with open(labels_path, "w") as f:
-            for label in processed_labels:
-                f.write(f"{label}\n")
+        await asyncio.to_thread(_write_download, labels_path, "\n".join(processed_labels) + "\n")
 
         # Reload the classifier
-        classifier_service._load_model()
+        await asyncio.to_thread(classifier_service._load_model)
 
         log.info("Model downloaded and loaded successfully")
         return {

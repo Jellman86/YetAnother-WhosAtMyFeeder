@@ -18,6 +18,7 @@ Everything you need to get the containers running and configured correctly.
 - **[🔌 MQTT Broker Setup](setup/mqtt-broker.md)** - Running Mosquitto alongside Frigate and connecting all three containers.
 - **[🌐 Reverse Proxy Guide](setup/reverse-proxy.md)** - Configs for Cloudflare Tunnel, Nginx, Caddy.
 - **[⚙️ Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
+- **[🌱 Environment Variables](setup/environment-variables.md)** - Complete reference for every env override, with defaults.
 - **[⚡ Hardware Acceleration](setup/hardware-acceleration.md)** - Run classification on an Intel GPU, Intel NPU, or NVIDIA CUDA, with device passthrough and fallback behaviour.
 
 ## 🔌 API & Development
@@ -47,6 +48,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - [🛡️ Security Policy](../SECURITY.md) - Supported versions, reporting, and security overview
 - [🧠 AI Models & Performance](features/ai-models.md) - Understanding the model tiers, plus CPU/CUDA/OpenVINO provider behavior
 - [📊 Model Accuracy & Benchmarks](features/model-accuracy.md) - Benchmark results, GPU support matrix, and how to run accuracy tests
+- [🧪 Model Evaluation](features/model-evaluation.md) - Compare installed models against labelled feeder images
 - [🎞 Deep Video Analysis](features/video-analysis.md) - Multi-frame clip analysis, sampling behavior, and UI feedback
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
 - [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email + Notification Center
@@ -55,9 +57,14 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 ## Troubleshooting
 Solving common issues and using diagnostic tools.
 - **[🛠 Diagnostics & Logs](troubleshooting/diagnostics.md)** - Using MQTT tests and Backfill reports.
+- **[📼 Frigate Event Not Found](troubleshooting/frigate-event-not-found.md)** - Diagnose short-lived events and missing upstream media.
 
 ## Engineering & Quality
 How the project is built and held to standard.
 - **[📐 Engineering Standards](../CLAUDE.md)** - The contract every change must clear: safety, testing, database, UI, and Definition of Done.
 - **[📝 Documentation Standard](documentation-standard.md)** - Audience, Diátaxis structure, safety-claim rules, and screenshot rules every user-facing page follows.
+- **[🧑‍💻 Code-Quality Standard](standards/code-quality.md)** - The researched code-craft bar for Python/FastAPI + Svelte 5/TypeScript, with authoritative sources.
+- **[🎨 UI/UX Standard](standards/ui-ux.md)** - Usability (Nielsen's heuristics), accessibility (WCAG 2.2 AA), and visual craft (Refactoring UI).
+- **[📣 Writing a Release](development/releasing.md)** - The human-first GitHub Release standard, template, and checklist.
 - **[🏅 Gold-Standard Review (2026-07-07)](reviews/2026-07-07-project-quality-and-gold-standard-review.md)** - Honest assessment against the standards and the path to close remaining gaps.
+- **[🗺️ Roadmap](../ROADMAP.md)** - The single forward-looking plan: the Road to 3.0, the prioritised open backlog, and the delivered-features catalogue.

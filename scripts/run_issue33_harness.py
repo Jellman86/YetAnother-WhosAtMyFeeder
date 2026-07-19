@@ -11,7 +11,11 @@ import sys
 import threading
 import time
 from dataclasses import asdict
-from datetime import datetime, timedelta, timezone
+
+# `timezone` is unused inside this module but is re-exported through the module
+# namespace: tests/unit/test_issue33_harness_script.py loads this file with
+# importlib and builds fixture timestamps via `issue33.timezone`.
+from datetime import datetime, timedelta, timezone  # noqa: F401
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -70,7 +74,9 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="How long to pause Frigate publishing after the induced stall starts. <= 0 keeps it paused for the rest of the run.",
     )
     parser.add_argument("--mqtt-host", default=os.getenv("SOAK_MQTT_HOST", os.getenv("MQTT_SERVER", "127.0.0.1")))
-    parser.add_argument("--mqtt-port", type=int, default=int(os.getenv("SOAK_MQTT_PORT", os.getenv("MQTT_PORT", "1883"))))
+    parser.add_argument(
+        "--mqtt-port", type=int, default=int(os.getenv("SOAK_MQTT_PORT", os.getenv("MQTT_PORT", "1883")))
+    )
     parser.add_argument("--mqtt-username", default=os.getenv("SOAK_MQTT_USERNAME", os.getenv("MQTT_USERNAME")))
     parser.add_argument("--mqtt-password", default=os.getenv("SOAK_MQTT_PASSWORD", os.getenv("MQTT_PASSWORD")))
     parser.add_argument("--mqtt-publish-container", default=os.getenv("SOAK_MQTT_PUBLISH_CONTAINER", ""))
@@ -248,11 +254,7 @@ def _discover_fixture_images(image_dir: str | Path) -> list[Path]:
     root = Path(image_dir)
     if not root.exists():
         raise FileNotFoundError(f"Fixture image directory does not exist: {root}")
-    images = [
-        path
-        for path in root.rglob("*")
-        if path.is_file() and path.suffix.lower() in _FIXTURE_IMAGE_SUFFIXES
-    ]
+    images = [path for path in root.rglob("*") if path.is_file() and path.suffix.lower() in _FIXTURE_IMAGE_SUFFIXES]
     return sorted(images, key=lambda path: str(path).lower())
 
 
@@ -413,12 +415,7 @@ class _FixtureFrigateServer:
                 if path == "/api/config":
                     cameras = sorted({str(event.get("camera")) for event in events if event.get("camera")})
                     self._send_json(
-                        {
-                            "cameras": {
-                                camera: {"record": {"events": {"retain": {"default": 30}}}}
-                                for camera in cameras
-                            }
-                        }
+                        {"cameras": {camera: {"record": {"events": {"retain": {"default": 30}}}} for camera in cameras}}
                     )
                     return
                 if path == "/api/events":
@@ -450,7 +447,7 @@ class _FixtureFrigateServer:
                     return
                 prefix = "/api/events/"
                 if path.startswith(prefix):
-                    remainder = path[len(prefix):]
+                    remainder = path[len(prefix) :]
                     if remainder.endswith("/snapshot.jpg"):
                         event_id = unquote(remainder[: -len("/snapshot.jpg")])
                         event = events_by_id.get(event_id)
@@ -635,11 +632,7 @@ def _normalize_issue33_evaluation(
 
 
 def _assess_issue33_inference_health(*, samples: list[Any], required: bool) -> dict[str, Any]:
-    observed_samples = [
-        sample
-        for sample in samples
-        if getattr(sample, "inference_health_status", None) is not None
-    ]
+    observed_samples = [sample for sample in samples if getattr(sample, "inference_health_status", None) is not None]
     if not observed_samples:
         return {
             "observed": False,
@@ -741,7 +734,9 @@ def _assess_issue33_birdnet_liveness(
         "publisher_ok": True,
         "stall_window_samples": len(stall_samples),
         "stayed_fresh": stayed_fresh,
-        "failure_reason": None if stayed_fresh else "BirdNET did not stay fresh during the induced Frigate stall window.",
+        "failure_reason": None
+        if stayed_fresh
+        else "BirdNET did not stay fresh during the induced Frigate stall window.",
     }
 
 
@@ -1016,7 +1011,7 @@ def _manual_tag_unknowns(
     event_ids: list[str],
 ) -> dict[str, Any]:
     url = urljoin(f"{backend_url.rstrip('/')}/", "api/events/bulk/manual-tag")
-    chunks = [event_ids[index:index + 200] for index in range(0, len(event_ids), 200)]
+    chunks = [event_ids[index : index + 200] for index in range(0, len(event_ids), 200)]
     responses: list[dict[str, Any]] = []
     aggregate: dict[str, Any] = {
         "status": "updated",
@@ -1096,9 +1091,7 @@ def _login_for_owner_token(
             },
         )
     except HTTPError as exc:
-        raise ValueError(
-            f"Owner login failed with HTTP {exc.code} at {url}"
-        ) from exc
+        raise ValueError(f"Owner login failed with HTTP {exc.code} at {url}") from exc
     except URLError as exc:
         raise ValueError(f"Owner login request failed for {url}: {exc.reason}") from exc
     except (TypeError, ValueError, json.JSONDecodeError) as exc:
@@ -1197,11 +1190,7 @@ def _select_replay_seed_events(
 ) -> list[dict[str, Any]]:
     selected: list[dict[str, Any]] = []
     explicit_lookup = {event_id for event_id in (explicit_event_ids or []) if event_id}
-    by_id = {
-        str(event.get("id")): event
-        for event in frigate_events
-        if isinstance(event, dict) and event.get("id")
-    }
+    by_id = {str(event.get("id")): event for event in frigate_events if isinstance(event, dict) and event.get("id")}
     if explicit_lookup:
         for event_id in explicit_event_ids or []:
             event = by_id.get(str(event_id))
@@ -1236,7 +1225,9 @@ def _build_replay_payload_factory(seed_events: list[dict[str, Any]]):
     return _payload_factory
 
 
-def _coerce_workspace_snapshots(diagnostics_workspace: dict[str, Any] | list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+def _coerce_workspace_snapshots(
+    diagnostics_workspace: dict[str, Any] | list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
     if isinstance(diagnostics_workspace, list):
         return [snapshot for snapshot in diagnostics_workspace if isinstance(snapshot, dict)]
     if isinstance(diagnostics_workspace, dict):
@@ -1288,13 +1279,10 @@ def _evaluate_issue33_tracks(
                 context = event.get("context") if isinstance(event.get("context"), dict) else {}
                 source = str(context.get("source") or "").strip().lower()
                 last_error = str(context.get("last_error") or "").strip().lower()
-                if (
-                    source == "maintenance"
-                    and (
-                        reason_code == "video_timeout"
-                        or likely_last_error == "video_timeout"
-                        or last_error == "video_timeout"
-                    )
+                if source == "maintenance" and (
+                    reason_code == "video_timeout"
+                    or likely_last_error == "video_timeout"
+                    or last_error == "video_timeout"
                 ):
                     maintenance_failed = True
                     maintenance_evidence = event
@@ -1628,12 +1616,14 @@ def main() -> int:
                 f"({len(replay_seed_events)} seed event(s), camera={args.frigate_camera})"
             )
         else:
-            frigate_payload_factory = lambda seq: base_soak._build_frigate_payload(
-                event_id=f"issue33-{run_label}-r0-{seq}",
-                camera=args.frigate_camera,
-                event_type=args.frigate_event_type,
-                false_positive=args.frigate_false_positive,
-            )
+
+            def frigate_payload_factory(seq):
+                return base_soak._build_frigate_payload(
+                    event_id=f"issue33-{run_label}-r0-{seq}",
+                    camera=args.frigate_camera,
+                    event_type=args.frigate_event_type,
+                    false_positive=args.frigate_false_positive,
+                )
 
     def _start_frigate_publishers(current_stop_event: threading.Event) -> list[threading.Thread]:
         started_threads: list[threading.Thread] = []
@@ -1754,7 +1744,9 @@ def main() -> int:
     health_fetch_failures = 0
     app_frigate_stale_seconds: float | None = None
     deadline = time.time() + max(1, args.duration_seconds)
-    next_analysis_trigger = time.time() + args.trigger_analysis_interval_seconds if args.trigger_analysis_interval_seconds > 0 else None
+    next_analysis_trigger = (
+        time.time() + args.trigger_analysis_interval_seconds if args.trigger_analysis_interval_seconds > 0 else None
+    )
     if pending_backfill_job and args.fixture_manual_tag_unknown and fixture_events:
         next_analysis_trigger = None
 
@@ -2012,9 +2004,7 @@ def main() -> int:
     evaluation = _normalize_issue33_evaluation(
         evaluation,
         scenario=args.scenario,
-        induced_frigate_stall=(
-            induced_frigate_stall_at is not None
-        ),
+        induced_frigate_stall=(induced_frigate_stall_at is not None),
         samples=samples,
         induced_frigate_stall_at=induced_frigate_stall_at,
         resumed_frigate_at=resumed_frigate_at,

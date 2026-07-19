@@ -131,6 +131,30 @@ method/path/purpose, show request bodies for writes and response examples for
 important reads, and note the safety implications of automation. Do not document
 an endpoint unless it exists under `backend/app/routers/`.
 
+## Release notes
+
+GitHub Release notes are a short, friendly guide to an update, not a second
+changelog. Write for the person deciding whether to update a working feeder.
+
+- Open with one or two sentences that explain who will notice the release and why.
+- Group bullets by user outcome, not by code area. Prefer **What's new**,
+  **Smoother everyday use**, and **Before you update** over Backend/Frontend/Other.
+- Start each bullet with a short bold benefit, then explain the practical change
+  in one or two sentences.
+- Use `you` and plain English. Explain an unavoidable technical term the first
+  time it matters.
+- State new defaults, opt-in behaviour, migration steps, downtime, hardware
+  limits, and meaningful tradeoffs honestly. If no special action is needed, say
+  so.
+- Keep implementation detail in `CHANGELOG.md`; link it for readers who want the
+  complete record.
+- Omit empty sections. Never pad the notes with commit titles, issue numbers,
+  generic praise, or promises the shipped code does not prove.
+
+Use [`development/releasing.md`](development/releasing.md) for the release workflow
+and [the copy-ready template](../.github/RELEASE_NOTES_TEMPLATE.md) for every
+GitHub Release.
+
 ## Validation checklist
 
 Before finishing a documentation change:

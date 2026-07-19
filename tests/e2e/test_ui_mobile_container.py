@@ -1,5 +1,4 @@
 import pytest
-import os
 from playwright.sync_api import sync_playwright
 
 from e2e_env import BASE_URL, PLAYWRIGHT_WS
@@ -19,13 +18,14 @@ def browser():
             print(f"Failed to connect to Playwright service: {e}")
             raise e
 
+
 @pytest.fixture(scope="module")
 def mobile_page(browser):
     # Simulate an iPhone 13 viewport
     context = browser.new_context(
         viewport={"width": 390, "height": 844},
         user_agent="Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
-        ignore_https_errors=True
+        ignore_https_errors=True,
     )
     page = context.new_page()
     yield page
@@ -74,10 +74,10 @@ def test_mobile_layout(mobile_page):
         return
 
     mobile_page.locator("main#main-content").wait_for(timeout=10000)
-    
+
     print("Taking mobile dashboard screenshot...")
     mobile_page.screenshot(path="mobile_dashboard.png")
-    
+
     print("Opening mobile menu and navigating to Events...")
     _open_mobile_sidebar(mobile_page)
     nav_buttons = mobile_page.locator("aside nav button.nav-button")
@@ -100,9 +100,9 @@ def test_mobile_layout(mobile_page):
         assert _is_login_page(mobile_page) or mobile_page.url.endswith("/")
         print("Settings route blocked by auth/public mode as expected.")
         return
-    
+
     # 4. Verify Settings Layout
     print("Verifying settings content...")
     mobile_page.wait_for_selector("h2, h3", timeout=10000)
-    
+
     print("\n[SUCCESS] Mobile UI Test Completed Successfully.")

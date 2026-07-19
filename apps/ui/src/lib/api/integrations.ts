@@ -1,19 +1,12 @@
 import { API_BASE, apiFetch, getHeaders, handleResponse } from './core';
+import type { paths } from './generated/openapi';
 
-export interface OAuthAuthorizeResponse {
-    authorization_url: string;
-    state?: string;
-}
-
-export interface TestEmailRequest {
-    test_subject?: string;
-    test_message?: string;
-}
-
-export interface TestEmailResponse {
-    message: string;
-    to: string;
-}
+// Types are derived from the committed OpenAPI contract so the SPA and backend
+// can't drift; the CI freshness check fails review if they do.
+export type OAuthAuthorizeResponse = paths['/api/email/oauth/gmail/authorize']['get']['response'];
+export type TestEmailRequest = paths['/api/email/test']['post']['requestBody'];
+export type TestEmailResponse = paths['/api/email/test']['post']['response'];
+export type EmailDisconnectResult = paths['/api/email/oauth/{provider}/disconnect']['delete']['response'];
 
 export async function initiateGmailOAuth(): Promise<OAuthAuthorizeResponse> {
     const response = await apiFetch(`${API_BASE}/email/oauth/gmail/authorize`);
@@ -25,11 +18,11 @@ export async function initiateOutlookOAuth(): Promise<OAuthAuthorizeResponse> {
     return handleResponse<OAuthAuthorizeResponse>(response);
 }
 
-export async function disconnectEmailOAuth(provider: 'gmail' | 'outlook'): Promise<{ message: string }> {
+export async function disconnectEmailOAuth(provider: 'gmail' | 'outlook'): Promise<EmailDisconnectResult> {
     const response = await apiFetch(`${API_BASE}/email/oauth/${provider}/disconnect`, {
         method: 'DELETE'
     });
-    return handleResponse<{ message: string }>(response);
+    return handleResponse<EmailDisconnectResult>(response);
 }
 
 export async function sendTestEmail(request: TestEmailRequest = {}): Promise<TestEmailResponse> {
@@ -58,34 +51,20 @@ export async function sendTestEmail(request: TestEmailRequest = {}): Promise<Tes
     }
 }
 
-export interface InaturalistDraft {
-    event_id: string;
-    species_guess: string;
-    taxon_id?: number | null;
-    observed_on_string: string;
-    time_zone: string;
-    latitude?: number | null;
-    longitude?: number | null;
-    place_guess?: string | null;
-    notes?: string | null;
-    snapshot_url?: string | null;
-}
-
-export interface InaturalistSubmitResult {
-    status: string;
-    observation_id?: number;
-}
+export type InaturalistDraft = paths['/api/inaturalist/draft']['post']['response'];
+export type InaturalistSubmitResult = paths['/api/inaturalist/submit']['post']['response'];
+export type InaturalistDisconnectResult = paths['/api/inaturalist/oauth/disconnect']['delete']['response'];
 
 export async function initiateInaturalistOAuth(): Promise<OAuthAuthorizeResponse> {
     const response = await apiFetch(`${API_BASE}/inaturalist/oauth/authorize`);
     return handleResponse<OAuthAuthorizeResponse>(response);
 }
 
-export async function disconnectInaturalistOAuth(): Promise<{ status: string }> {
+export async function disconnectInaturalistOAuth(): Promise<InaturalistDisconnectResult> {
     const response = await apiFetch(`${API_BASE}/inaturalist/oauth/disconnect`, {
         method: 'DELETE'
     });
-    return handleResponse<{ status: string }>(response);
+    return handleResponse<InaturalistDisconnectResult>(response);
 }
 
 export async function createInaturalistDraft(eventId: string): Promise<InaturalistDraft> {

@@ -48,6 +48,11 @@ class AIUsageResponse(BaseModel):
     daily: List[AIUsageDaily]
 
 
+class AIUsageClearResponse(BaseModel):
+    status: str
+    deleted_count: int
+
+
 def _parse_pricing() -> Dict[str, Dict[str, float]]:
     """Parse ai_pricing_json into a lookup map."""
     try:
@@ -142,11 +147,11 @@ async def get_ai_usage(
     )
 
 
-@router.delete("/stats/ai/usage")
-async def clear_ai_usage(auth: AuthContext = Depends(require_owner)):
+@router.delete("/stats/ai/usage", response_model=AIUsageClearResponse)
+async def clear_ai_usage(_auth: AuthContext = Depends(require_owner)) -> AIUsageClearResponse:
     """Clear AI usage history logs. Owner only."""
     async with get_db() as db:
         repo = AIUsageRepository(db)
         count = await repo.clear_history()
 
-    return {"status": "ok", "deleted_count": count}
+    return AIUsageClearResponse(status="ok", deleted_count=count)

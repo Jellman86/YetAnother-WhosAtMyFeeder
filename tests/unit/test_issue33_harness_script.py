@@ -533,9 +533,7 @@ def test_evaluate_fixture_replay_reports_short_stall_window_for_reconnect_requir
 
 
 def test_extracts_mqtt_frigate_stale_seconds_from_health_payload():
-    assert issue33._mqtt_frigate_stale_seconds_from_health(
-        {"mqtt": {"frigate_topic_stale_seconds": "45.5"}}
-    ) == 45.5
+    assert issue33._mqtt_frigate_stale_seconds_from_health({"mqtt": {"frigate_topic_stale_seconds": "45.5"}}) == 45.5
     assert issue33._mqtt_frigate_stale_seconds_from_health({"mqtt": {}}) is None
 
 
@@ -597,34 +595,49 @@ def test_should_stop_frigate_publisher_after_configured_delay():
 
 
 def test_should_pause_frigate_publisher_only_within_stall_window():
-    assert issue33._should_pause_frigate_publisher(
-        elapsed_seconds=29.9,
-        stop_after_seconds=30.0,
-        stall_duration_seconds=420.0,
-    ) is False
-    assert issue33._should_pause_frigate_publisher(
-        elapsed_seconds=30.0,
-        stop_after_seconds=30.0,
-        stall_duration_seconds=420.0,
-    ) is True
-    assert issue33._should_pause_frigate_publisher(
-        elapsed_seconds=449.9,
-        stop_after_seconds=30.0,
-        stall_duration_seconds=420.0,
-    ) is True
-    assert issue33._should_pause_frigate_publisher(
-        elapsed_seconds=450.0,
-        stop_after_seconds=30.0,
-        stall_duration_seconds=420.0,
-    ) is False
+    assert (
+        issue33._should_pause_frigate_publisher(
+            elapsed_seconds=29.9,
+            stop_after_seconds=30.0,
+            stall_duration_seconds=420.0,
+        )
+        is False
+    )
+    assert (
+        issue33._should_pause_frigate_publisher(
+            elapsed_seconds=30.0,
+            stop_after_seconds=30.0,
+            stall_duration_seconds=420.0,
+        )
+        is True
+    )
+    assert (
+        issue33._should_pause_frigate_publisher(
+            elapsed_seconds=449.9,
+            stop_after_seconds=30.0,
+            stall_duration_seconds=420.0,
+        )
+        is True
+    )
+    assert (
+        issue33._should_pause_frigate_publisher(
+            elapsed_seconds=450.0,
+            stop_after_seconds=30.0,
+            stall_duration_seconds=420.0,
+        )
+        is False
+    )
 
 
 def test_should_pause_frigate_publisher_forever_when_duration_is_non_positive():
-    assert issue33._should_pause_frigate_publisher(
-        elapsed_seconds=120.0,
-        stop_after_seconds=30.0,
-        stall_duration_seconds=0.0,
-    ) is True
+    assert (
+        issue33._should_pause_frigate_publisher(
+            elapsed_seconds=120.0,
+            stop_after_seconds=30.0,
+            stall_duration_seconds=0.0,
+        )
+        is True
+    )
 
 
 class _FakeThread:

@@ -31,7 +31,7 @@ See the full [Recommended Frigate Config](../setup/frigate-config.md) for optimi
 
 ## API Connection
 
-In YA-WAMF, set **Settings > Connections > Frigate URL** to the internal URL of your Frigate instance (e.g., `http://frigate:5000`). The backend uses the Frigate HTTP API to fetch:
+In YA-WAMF, set **Settings → Connection → Frigate URL** to the internal URL of your Frigate instance (e.g., `http://frigate:5000`). The backend uses the Frigate HTTP API to fetch:
 
 - **Snapshots** — the high-quality still image for each bird event
 - **Video clips** — used for Deep Video Analysis and Full-visit clips
@@ -45,7 +45,25 @@ This can be disabled in **Settings > Detection** if you do not want YA-WAMF writ
 
 ## Camera Selection
 
-After connecting, go to **Settings > Connections** and select which Frigate cameras YA-WAMF should monitor. Only events from selected cameras are processed.
+After connecting, go to **Settings → Connection** and select which Frigate cameras YA-WAMF should monitor. Only events from selected cameras are processed.
+
+## Live Camera Status
+
+The camera button in each page header checks Frigate's lightweight `GET /api/stats` response every
+15 seconds while the tab is visible. Frigate does not provide a separate per-camera REST health
+route; its documented offline signal is a camera's `camera_fps` falling to `0`. YA-WAMF normalizes
+that signal through the owner-only `GET /api/frigate/cameras/status` route and never uses preview
+image loading as a health test.
+
+- **Green** — every selected camera is producing frames.
+- **Amber** — some cameras are online and some are offline or unknown.
+- **Red** — every selected camera has a known result and is offline.
+- **Grey** — the first check is running, status could not be retrieved, or Frigate did not report a
+  usable frame rate. This avoids presenting an untested camera as failed.
+
+Opening the viewer fetches only the selected camera's latest frame. Use the left/right buttons or
+arrow keys to move through cameras; navigation wraps from the last camera back to the first. Closing
+the viewer stops frame requests, and hidden browser tabs suspend both status and frame refreshes.
 
 ## Troubleshooting
 

@@ -129,18 +129,18 @@ export interface DeviceMatrix {
 }
 
 export async function getModelEvalDeviceMatrix(runId: string): Promise<DeviceMatrix | null> {
-    const resp = await apiFetch(modelEvalArtifactUrl(runId, 'device_matrix.json'));
+    const resp = await apiFetch(modelEvalArtifactUrl(runId, 'device_matrix.json'), { timeoutMs: 15_000 });
     if (!resp.ok) return null;
     return resp.json() as Promise<DeviceMatrix>;
 }
 
 export async function listModelEvalRuns(): Promise<ModelEvalListResponse> {
-    const resp = await apiFetch(`${BASE}/runs`);
+    const resp = await apiFetch(`${BASE}/runs`, { timeoutMs: 10_000 });
     return handleResponse<ModelEvalListResponse>(resp);
 }
 
 export async function getModelEvalRun(runId: string): Promise<ModelEvalRunSummary> {
-    const resp = await apiFetch(`${BASE}/runs/${encodeURIComponent(runId)}`);
+    const resp = await apiFetch(`${BASE}/runs/${encodeURIComponent(runId)}`, { timeoutMs: 15_000 });
     return handleResponse<ModelEvalRunSummary>(resp);
 }
 

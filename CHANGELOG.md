@@ -6,6 +6,417 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-07-19
+
+### Fixed
+- **Owner diagnostics no longer expose internals or accept unsafe resource targets.** BirdNET-Go
+  reachability validates an HTTP(S) base URL, rejects embedded credentials and redirect traversal,
+  model-evaluation artifacts resolve only through existing canonical run directories, and classifier
+  diagnostics keep exception details in server logs instead of returning tracebacks to the browser.
+- **Logged-in sessions no longer grow progressively slower in long-lived tabs.** Authentication
+  changes now replace the live Server-Sent Events connection and discard owner-only settings when
+  a session becomes a guest session. Analysis queue status has one single-flight, adaptive poller
+  instead of competing five-second loops, hidden tabs pause routine network work, and health,
+  diagnostics, cache, analysis, and camera-preview requests have bounded timeouts. Camera preview
+  images are fetched only while their popover is open rather than continuously in the background.
+  Full-visit availability now performs one bounded follow-up check instead of re-probing every
+  visible historical event indefinitely, keeps a finite event-state cache, and contains automatic
+  fetch failures. Explorer requests cancel superseded pages without letting stale results overwrite
+  current filters, shared detection loading is single-flight, and Leaderboard enrichment is
+  concurrency-limited with stale loads aborted and its portrait cache bounded. Auth recovery and
+  status endpoints now time out defensively; dashboard audio refreshes wait for the previous request,
+  stop while hidden, and abort on navigation; slow Settings and model-download status checks cannot
+  overlap and accumulate work.
+- **Live camera previews remain owner-only when Guest Mode is enabled.** The latest-frame endpoint
+  now enforces the same owner dependency as other administrative Frigate routes and returns
+  explicit no-store headers, so an unauthenticated visitor cannot retrieve a current camera frame
+  merely because read-only public browsing is enabled.
+- **Authenticated tabs now converge safely after every dev deployment.** YA-WAMF compares the
+  concrete frontend and backend Git identities instead of ignoring build metadata, registers the
+  service worker against the exact build with uncached update checks, and rate-limits operational
+  polls even if their lifecycle is retriggered. Existing `2.12.0` tabs are forced onto `2.12.1`,
+  preventing stale owner sessions from flooding health and diagnostics endpoints and progressively
+  slowing the interface.
+- **The About page now matches the rest of the refreshed interface.** Its section, feature, step and
+  resource icons use the same bordered, tinted chip as the Leaderboard and Species pages instead of
+  a flat wash that nearly disappeared against the dark background, and its links and buttons now come
+  from the shared button kit rather than hand-rolled styling, so their corner radius, surface and
+  hover colour match every other page and follow the active colour theme.
+
+### Added
+- **Guided model install with on-hardware validation and device auto-tuning.** Setting up a
+  classifier is now one guided wizard: **download** (with live progress in the dialog) → **run on
+  your hardware** (pushes frames through the model, confirms valid output, and reports per-frame
+  latency) → **find fastest device** (sweeps CPU / Intel GPU / NPU and sets your inference provider
+  to the fastest one that passed) → **enable**. A model that has never been validated on this host
+  can no longer be made active (the model already running and the bundled default are unaffected),
+  so you find out a model does not run on your hardware at install time instead of when the next
+  bird shows up. Validation works on every host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO alike.
+
+### Changed
+- **Python lint and formatting now cover every tracked Python path, enforced in CI.** `ruff check`
+  and `ruff format --check` previously ran only against `backend/` and `custom_components/yawamf/`,
+  leaving `scripts/` and `tests/` unchecked; both now run repo-wide from the repository root, so a
+  new top-level Python directory is covered automatically rather than silently skipped. The nine
+  bare `except:` clauses this exposed in the Playwright end-to-end suite now catch the specific
+  Playwright errors they were meant to tolerate, so a real failure surfaces instead of being
+  swallowed by a fallback path. Remaining unused imports, empty f-strings, unused locals, a lambda
+  assignment, and one-line conditionals in `scripts/` and `tests/` are cleared, and those files are
+  formatted to the repo style.
+- **A fresh install now opens in dark mode** instead of following the operating system setting, so
+  the interface matches the shipped bluetit and classic-typography defaults out of the box. Anyone
+  who has already chosen a theme keeps their choice, and Light / Dark / System remain available under
+  Settings → Appearance.
+- **Live camera status is now honest, lightweight, and useful before the viewer opens.** The header
+  polls Frigate's stats feed through a normalized owner-only YA-WAMF endpoint instead of treating
+  unfetched preview images as failed cameras: green means every camera is live, amber means a mixed
+  result, red means every known camera is offline, and a neutral state covers checking or unavailable
+  status. The preview is now one edge-to-edge camera surface with an overlaid name/status pill,
+  touch-sized previous/next controls, keyboard navigation, click-outside/Escape dismissal, and
+  infinite wrapping. Only the selected camera frame is fetched while the viewer is open, and hidden
+  tabs suspend both health and frame work.
+- **The Dashboard and About pages read more consistently.** The Dashboard overview no longer
+  repeats the page title and subtitle inside its own card — it now leads with a "Last 24 hours"
+  section header and a live indicator. The About page adopts the same calm section-header language
+  used across the refreshed pages (a tinted accent icon beside each heading), quiets its feature
+  badges and jump-links, and lists OpenVINO in the machine-learning stack alongside ONNX Runtime.
+- **The interface leans harder on one calm teal identity.** Decorative accent colours that had
+  drifted into the leaderboard (a violet, cyan, and sky section flourish) are folded back into the
+  teal palette, while colours that actually carry meaning — chart-series keys, the temperature /
+  wind / precipitation overlay legend, up/down trend deltas, and status — are kept exactly as they
+  were. Section-icon shapes are unified, and a set of unused decorative style utilities (a hover
+  card-lift, gradient stat text, an animated header line) is removed so nothing reintroduces the
+  louder look.
+- **The refreshed surfaces now share one typographic and control language.** Headings and labels
+  across the Dashboard, Explorer, Species, BirdNET-Go History, and the detection detail dialog now
+  use a single weight the interface font actually ships, so text no longer renders as a synthetic
+  heavier weight on some screens than others. Section eyebrow labels are calm sentence case instead
+  of loud all-caps, and the Explorer multi-select toolbar uses the shared button kit in the app's
+  teal/emerald palette (with the destructive action still clearly styled as destructive) rather than
+  one-off indigo and cyan controls.
+- **The bcrypt 5 upgrade preserves access for existing installations.** Newly configured owner
+  passwords are validated against bcrypt's 72-byte UTF-8 limit before they can be saved, while
+  sign-in retains bcrypt 4's legacy truncation behaviour for existing longer passwords. Clear
+  first-run and Security guidance prevents an accepted password from failing later at hash time.
+- **The interface now arrives quickly instead of loading the whole application up front.** The
+  entry bundle is reduced from roughly 2.4 MB to 157 KB by loading operational pages and
+  translation catalogs only when they are needed. Fingerprinted assets are compressed and cached
+  immutably, while the application document is always revalidated after a deploy. Fast route
+  changes no longer flash a wall of skeletons; slower connections get one quiet status line, and a
+  failed page or language download can be retried in place with an English startup fallback.
+- **Explorer and detection details now put the visit before the interface.** Event filters and the
+  timeline use quiet divided toolbars instead of stacked cards, pagination no longer adds another
+  floating panel, and detection tiles keep their media-led hierarchy without lift, rotation, or
+  pulsing confidence decoration. Detection details preserve the complete snapshot instead of
+  cropping it again inside the dialog, collapse the Frigate event ID as technical context, and use
+  restrained section dividers for audio, weather, and supporting evidence. The responsive dialog
+  now fills small screens safely while retaining every video, HQ snapshot, species, and owner action.
+- **The Dashboard is now a calm live observation desk.** A single first-run-inspired overview
+  replaces the row of repeated metric cards, the newest camera visitor stays the visual anchor, and
+  activity plus BirdNET-Go detections form a compact supporting rail instead of competing panels.
+  Top visitors are a ranked, touch-friendly field list with circular species recognition portraits
+  and no redundant heading glyph, while the Species metric uses a crisp field-guide feather instead
+  of the ambiguous miniature bird mark. The separate discovery cards remain only where each
+  detection is genuinely interactive.
+  The Leaderboard now uses the same circular portraits in its featured record and both ranking
+  layouts, keeping species recognition consistent across the application.
+- **The service-unavailable screen now belongs to the current application.** The legacy warning card
+  is replaced by the same restrained teal, typography, spacing, and application identity used by
+  first-run setup. It explains that feeder data remains safe, checks recovery automatically every
+  five seconds, shows progress on manual checks, and gives the operator a useful container-health
+  next step. Operational polling now waits for a healthy backend instead of multiplying a startup
+  outage into repeated failing requests.
+- **High-quality snapshots now mean the best crop the system can produce.** Settings exposes one
+  outcome-oriented control instead of separate HQ-frame and crop switches, with a compact detector
+  readiness note. For each candidate frame, YA-WAMF evaluates Frigate's tracked-object crop and the
+  installed crop detector, ranks every valid crop, and uses the strongest one; the full frame is
+  kept only when no reliable crop exists. Legacy crop-source preferences remain API-compatible but
+  can no longer silently force a worse image.
+- **The Leaderboard now prioritises rankings over decoration.** A calmer field-journal layout
+  replaces the repeated featured, highlight, performer, chart, and table cards with one featured
+  record, a divided highlights strip, the complete rankings, and secondary analytics. Desktop keeps
+  a semantic comparison table while phones get a native vertical ranking list instead of a
+  900-pixel horizontal scroller. Numeric rank markers replace emoji medals, labels and controls are
+  readable and touch-sized, source switching now genuinely reorders by Seen, Heard, or Both after
+  deduplicating merged BirdNET species, and pressed-state / table-heading semantics make those
+  controls clearer to assistive technology.
+- **BirdNET-Go History now works as a listening log, not a card dashboard.** The summary is one
+  quiet divided strip, filters sit directly above the primary detection record, and each page is a
+  manageable 25 detections. Desktop keeps a semantic comparison table while the same rows reflow
+  into a compact, spectrogram-led phone log without horizontal scrolling. Activity charts, top
+  species, and source totals remain available as secondary evidence below the log; top-species rows
+  open the same species-detail record as the Leaderboard. Restrained dividers, readable chart
+  labels, honest loading/empty/error states, and in-place retry complete the view.
+- **Species details now read as a field record, not a card dashboard.** The refreshed full-height
+  mobile / wide desktop dialog leads with the feeder's own detection totals and recent sightings,
+  then moves into the species photograph, reference material, wild-observation context, activity,
+  and camera breakdown. Repeated coloured cards and duplicate headings are replaced by restrained
+  dividers and one clear content hierarchy, while video affordances, focus states, reduced motion,
+  body-scroll locking, readable labels, and in-place error recovery make the view work better by
+  touch, keyboard, and assistive technology.
+- **RoPE ViT-B14 can use validated Intel GPUs.** The registry now includes `intel_gpu` after the
+  full Quark Arrow Lake-S sweep on OpenVINO 2026.2.1 compiled RoPE on CPU, GPU, and NPU, produced
+  finite output on 12 real comparison images per device, and matched CPU top-1 on every GPU/NPU
+  image. The older OpenVINO 2025.4 NaN evidence remains documented, so the per-host validation gate
+  still decides whether a specific Intel GPU is safe before selection.
+- **Host-validated model devices no longer raise contradictory config warnings.** The shared model
+  registry remains conservative for hardware that has not been tested, but a provider proven by
+  this host's isolated device sweep is now merged before classifier status is assembled. YA-WAMF
+  therefore no longer reports an installed-provider warning while successfully running that same
+  provider; unrelated model-sidecar warnings remain visible.
+- **Validated ONNX models now advertise Intel NPU support.** The same Quark sweep adds `intel_npu`
+  to the nine standalone ONNX classifiers that compiled, returned finite output, and matched CPU
+  top-1 on all 12 real NPU comparison images. TFLite MobileNet stays CPU-only, and regional
+  Small/Medium families remain unflagged until EU and NA artifacts are recorded independently.
+- **Classifier cropping and cropped thumbnails are now clearly separate.** Classifier crop-on/off
+  policy remains automatic and evidence-based per model. The subtle **Cropped thumbnails**
+  disclosure reports the automatic Accurate → Fast fallback and detector readiness instead of
+  asking users to choose an implementation tier. The crop-policy harness rejects runs where crop-on
+  silently fell back to full frames.
+- **Every connection test now looks and behaves the same.** The AI model test, the Frigate & MQTT
+  connection test, the BirdNET-Go test, the BirdWeather test, and the Discord / Telegram / Pushover /
+  Email notification tests all use one shared guided dialog with a stepped checklist that advances
+  as each check passes. Settings → Integrations also gets calmer
+  card headers with a subtle icon per service, and the settings navigation drops its blue accent
+  stripe for the same teal/emerald used across the rest of settings.
+- **Settings panels read more consistently.** Each panel card now leads with a matching icon and,
+  where it helps, a one-line summary of what it does. Settings → Detection opens with a short
+  description and keeps its confidence slider up front, with model management, fine-tuning, and
+  runtime diagnostics tucked into their existing advanced sections.
+- **Fewer rarely-touched options up front.** Settings → Connection now tucks the full-visit
+  recording-clip feature behind an advanced disclosure (basic "fetch clips" stays visible), matching
+  how Authentication already hides session expiry, trusted proxies, guest day-windows, rate limits,
+  and the external URL. Anything hidden this way still has an environment-variable override.
+
+- **Telemetry opt-in moved into first-run setup.** The standalone telemetry banner is gone; new
+  installs are asked once, as a clear opt-in step in the guided wizard (off by default, no personal
+  data). Existing installs enable it any time from Settings.
+
+### Documentation
+- **Every environment variable is now documented.** A new
+  [Environment variables](docs/setup/environment-variables.md) reference lists every override the
+  config loader reads — names, defaults, and the handful of settings that are UI/file-only —
+  linked from the configuration guide and docs index.
+
+### Fixed
+- **Owner sessions no longer slow down under an active background job.** Operational polling is
+  isolated from the reactive job state it updates, preventing a feedback loop that could flood the
+  browser and backend with health, cache, analysis, and diagnostics requests. Startup, timer, and
+  tab-focus triggers now share each in-flight request instead of starting overlapping work.
+- **Optional runtime benchmarking can no longer strand application readiness by default.** The
+  synthetic accelerated-versus-CPU comparison is now opt-in through
+  `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED`; model activation validation, accelerator self-tests, and
+  runtime health fallback remain active. This prevents a slow OpenVINO CPU baseline probe from
+  holding Uvicorn before it can serve `/health` or the API.
+- **High-quality crop generation recovers from real detector misses and restarts.** The accurate
+  detector now retries with the fast tier after no-candidate, low-confidence, too-small, invalid-box,
+  or inference-failure outcomes—not only when its model file is unavailable. A bounded background
+  reconciliation pass also reschedules recent detections that lost their in-memory HQ job during an
+  application restart, while leaving completed and manually reverted candidate sets alone. Health
+  diagnostics now report the automatic policy, selected source counts, and recovered-job count.
+- **The BirdNET-Go test now actually checks BirdNET-Go.** It previously only published to MQTT and
+  injected a mock detection into YA-WAMF's own pipeline — never touching BirdNET-Go. When a
+  BirdNET-Go URL is configured, the test now first confirms the BirdNET-Go server answers over HTTP,
+  then checks the MQTT broker, then the detection pipeline — three honest, separate steps.
+- **The AI model diagnostic now dims the whole screen and steps through its checks.** When you
+  tested a model, the frosted backdrop stopped short of the top of the page — the running-jobs banner
+  showed straight through it. The dialog is now rendered above all page chrome, so the blur covers
+  the entire window like the first-run setup. It reads calmer too: the five checks are one connected
+  list that reveals a step at a time as each one resolves (a step only turns green when its check
+  actually passed), instead of five separate cards appearing at once.
+- **Settings → AI leads with what you came for.** The panel now opens on Model Configuration
+  (enable, provider, API key, model, and test) with a matching icon, and the 30-day usage figures
+  move to a collapsed section underneath. The "get an API key" provider links only appear until a
+  key is saved, so a configured install stays uncluttered.
+- **Stable installs now pull the stable image.** The recommended monolithic Compose file and
+  `.env.example` now default to `:latest`; following the README or Getting Started guide no longer
+  starts the potentially unstable `:dev` channel unless you explicitly select it. The first-run and
+  password-reset documentation now also matches the guided setup state machine, including the two
+  fields required to reopen setup safely after a lost password.
+- **AI provider failures are no longer saved as naturalist notes.** Retryable OpenRouter failures
+  now keep their HTTP status and optional `Retry-After` header through the event, leaderboard, and
+  conversation routes, while failed event analysis leaves the cached analysis empty. Gemini
+  exception messages also redact API keys embedded in request URLs.
+- **Bird crops now actually appear as the event image.** The displayed snapshot now evaluates every
+  available crop source (Frigate box and detector model), chooses the strongest valid crop, and uses
+  the full frame only when no crop could be produced. Previously
+  `frigate_hints_first` silently fell straight to the full frame whenever the Frigate event was
+  unavailable (common on feeder cams, and with short event retention), so the model crop was
+  generated but never shown. Small crops are no longer suppressed in favour of the full frame.
+
+### Added
+- **Guided AI model diagnostic:** Settings → AI now opens a wizard-style diagnostic when testing a
+  model. It reports configuration, provider availability, vision input, five-frame request
+  admission, and response generation as separate stages; preserves retryable 429/503 details and
+  `Retry-After` guidance; and sends five representative 1280×720 JPEG frames so the check matches
+  the production frame count, dimensions, and approximate payload size.
+- **Current LLM model selection:** Settings now offers the current provider families: Gemini 3.1
+  (`gemini-3.1-flash-lite` and the Pro preview), OpenAI GPT-5.6 (Sol alias, Terra, and Luna), and
+  Claude Opus 4.8 alongside the current Sonnet/Haiku tiers. OpenRouter presets use its verified
+  provider-specific slugs. Stored legacy presets migrate to current equivalents, the backend
+  default is Gemini 3.1 Flash-Lite, and pricing/help documentation is synchronized.
+- **Translation contract gate:** The 3.0 translation review has started with a full structural
+  comparison of every locale against `en.json`. The frontend test suite now rejects obsolete
+  extra keys and any new missing keys beyond the explicit baseline, preventing translation
+  drift from silently growing while the remaining Audio History, update, telemetry, and advisory
+  strings are translated in reviewable batches. The first batch adds shared Audio History
+  navigation, apply/pagination controls, and Intel NPU/public-dashboard telemetry copy in all eight
+  non-English locales. Update messaging, the Frigate media-health advisory, and the Audio History
+  subtitle are also translated. Dashboard audio copy, Leaderboard source controls, and the full
+  Audio History surface complete the remaining work: all eight non-English locales now exactly
+  match `en.json`, with no missing or extra keys. The contract also verifies interpolation
+  placeholders across every translated string. The language-quality pass has also localized the
+  Gemini, OpenAI, and Claude key-acquisition actions in every locale, plus the Japanese orientation
+  labels, with semantic regression coverage for the provider actions. A measured sweep confirmed no
+  full English sentences survive untranslated in any locale (the byte-identical strings that remain
+  are brand/protocol names, URL/host placeholders, and legitimate cross-language cognates), so the
+  residual review is a per-language native editorial polish rather than missing translations. To keep
+  it from regressing, a baseline ratchet (`locales.identical-baseline.json` +
+  `locales.untranslated-regression.test.ts`) now fails CI if any *new* user-facing string lands
+  byte-identical to English, guiding the change to either translate it or record a genuine
+  brand/cognate in the baseline.
+- **Multi-part first-run setup wizard (re-runnable):** The one-screen first-run prompt is now a guided, multi-step wizard that walks a new install through language, admin account, Frigate & MQTT connection (with a live test), cameras & detection threshold, classifier model with on-hardware validation (detected accelerators + a device-sweep compile/latency check), automatic best-available snapshots, and optional integrations, ending on a review screen. Every step is skippable, shows determinate progress, and validates in place. Crucially it is **re-runnable at any time** from Settings → Data → Setup wizard: it opens on a section map (Ready / Needs attention / Optional, from the new `GET /api/setup/state`) so you can jump straight to one section and reconfigure it — each step writes only its own slice through the secret-preserving settings write, so re-running one section never touches the others. Built to the codified UI/UX standard (Nielsen wizard/onboarding guidance, WCAG 2.2 AA).
+- **Researched engineering standards codified:** Two authoritative-sourced standards now govern how the project is built, ahead of the 3.0 code-quality review and UI refresh. [`docs/standards/code-quality.md`](docs/standards/code-quality.md) sets the code-craft bar for the stack (PEP 8/typing + async + layering for Python/FastAPI, strict TypeScript with no `any`, and disciplined Svelte 5 reactivity — `$derived` before `$effect`), and [`docs/standards/ui-ux.md`](docs/standards/ui-ux.md) sets the interface bar (Nielsen's 10 usability heuristics, WCAG 2.2 Level AA accessibility, and Refactoring UI visual craft). The enforceable rules are pulled into `CLAUDE.md` §4 and §5; both standards cite their sources.
+- **In-app update prompt:** YA-WAMF now detects when a newer build is available and surfaces it — a calm banner (with a link to the release notes) plus a small icon-only indicator in the sidebar status area (an upgrade icon with a pulsing accent and an on-hover version tooltip) — so installs on old builds know to update. It's a *notification only*: YA-WAMF never updates itself; pulling the new image stays with your container orchestrator. It's **channel-aware** — branch images compare against the matching D1-published branch row (`dev` or `main`), while release images compare against the D1-published `stable` row, so a dev box is never nagged about releases. The telemetry worker's `/version` endpoint reads those CI-published rows from D1 as the source of truth. It's a single anonymous request with no telemetry payload — works even with telemetry disabled — and degrades silently if the check fails. Disable via `SYSTEM__UPDATE_CHECK_ENABLED=false`.
+- **Recording-frame classification fallback:** When a detection has no snapshot, thumbnail, or cached image, YA-WAMF now extracts a frame from Frigate's continuous recording at the detection moment and classifies that instead of dropping the detection outright. This targets the fleet's most common real failure (`drop_classify_snapshot_unavailable`, seen on 8 of 13 telemetry installs) — briefly-tracked birds whose event snapshot is never persisted are usually still in the recording. On by default (`frigate.recording_frame_classification_fallback`); requires Frigate recordings, and falls through to the existing drop behaviour when the recording isn't retained. See [the design note](docs/plans/2026-07-10-recording-frame-classification-fallback.md).
+- **In-app "Event Not Found" guidance:** The Errors/diagnostics page now shows a calm advisory when a material share of recent detections are being dropped because Frigate had no snapshot/media for them (≥15% over a real sample), explaining the likely cause (briefly-tracked birds that never persist, or short recording retention) and linking to the [Frigate Event-Not-Found guide](docs/troubleshooting/frigate-event-not-found.md). This helps users fix the root cause rather than silently losing history; it stays hidden until the rate is genuinely elevated.
+- **Unraid Community Applications repository profile:** Added `ca_profile.xml` at the repository root — the maintainer/overview metadata (non-empty `<Profile>`, icon, project link) that Community Applications requires for a new repository submission. Uses the current `<CommunityApplications>` schema and complements the existing `unraid/yawamf.xml` Docker template.
+
+### Changed
+- **Settings navigation now follows the feeder workflow.** The flat eleven-tab strip is grouped into
+  Feeder pipeline, Intelligence & sharing, Operations, and Interface sections on desktop, with the
+  same structure exposed as native option groups on mobile. Desktop destinations are real links with
+  consistent outline icons, 44-pixel targets, visible focus, and a non-colour active cue. The
+  Connection camera selector now uses separate native buttons instead of nesting preview and role
+  actions inside a simulated button, and preview loading/errors are announced. Detection has been
+  reduced from up to five peer-level cards to two: active model, confidence, and species exclusions
+  stay visible, while model management, fine tuning/video recovery, and hardware diagnostics sit
+  behind focused disclosures. The grouped navigation is now one quiet wizard-style surface instead
+  of four competing cards. Model Manager has also been rebuilt around selection, readiness, best fit,
+  and one download/activate action, with architecture, providers, runtime health, and automatic image
+  preparation in Technical details. Runtime warnings still surface immediately. The same treatment
+  now covers every Settings tab: optional AI,
+  integration, notification, authentication, and public-access fields render only when enabled;
+  telemetry, appearance extras, AI usage, data maintenance, and destructive actions use focused
+  disclosures; active maintenance work reopens its controls automatically; and Enrichment status is
+  a compact divided list instead of nested cards. Structural card emoji and sub-12-pixel Settings
+  text have been removed while preserving the Blue Tit theme and existing configuration contract.
+- **Classifier crop policy is now automatic and evidence-based.** Every classifier and EU/NA family
+  variant has an explicit policy from a 4,032-classification Quark sweep of the production pipeline.
+  Classifier crop mode and crop source are no longer routine Settings controls. Crop-detector tier
+  remains a separate cropped-thumbnail quality choice. The app
+  registry is authoritative over stale installed sidecars, the upstream release sidecars carry the
+  same defaults for new downloads, and legacy override fields remain API-compatible but are ignored
+  during normal runtime. The feeder harness can select EU or NA explicitly for repeatable retests.
+- **Code-quality review — owner debug API:** Started the roadmap's file-by-file review with the
+  contained owner diagnostics surface. Debug endpoints now publish explicit response models,
+  database counts live behind a repository instead of router-level SQL, model-directory inspection
+  runs outside the async event loop, and configuration redaction is a pure tested transform using
+  the standard `***REDACTED***` marker. Owner-only access remains unchanged.
+- **Code-quality review — formatting baseline:** Formatted the two remaining backend files that
+  fell outside the Ruff baseline, making the repository-wide Python format check clean before the
+  deeper service and router review batches.
+- **Code-quality review — live updates:** Removed application-level `any` from the root SSE wiring
+  and live-update coordinator. Untrusted JSON is now accepted as `unknown`, narrowed into explicit
+  event contracts, and normalized before reaching the detection store; health, notification, logger,
+  and translation dependencies now carry their real types. Added regression coverage for required
+  detection-field normalization.
+- **Code-quality review — API and operational stores:** Replaced permissive payload types across
+  maintenance/system clients, detection state, health cards, incident reconciliation, diagnostics
+  snapshots, and reclassification recovery. External data now enters these modules as `unknown` or
+  generated API types and is narrowed through small record helpers before property access.
+- **Code-quality review — shared components:** Added explicit contracts for navigation items,
+  settings tabs, camera roles, model runtime health, UI events, timers, translation callbacks, and
+  notification error payloads. This removes another set of application-level `any` escapes from the
+  reusable component layer while preserving existing behavior.
+- **Code-quality review — chart and map adapters:** Contained dynamic vendor behavior at the
+  ApexCharts and Leaflet adapters with typed constructors, instances, map layers, DOM extensions,
+  and guarded option records. Chart and map consumers no longer inherit `any` from those libraries.
+- **Code-quality review — Events and Health:** Added explicit date-filter admission, reusable bird
+  naming inputs, structured diagnostics-health metrics, and safe unknown-error extraction. The two
+  page surfaces no longer rely on `any` for URL state, API failures, or health payload traversal.
+- **Code-quality review — Species analytics:** Typed the complete leaderboard chart pipeline,
+  including weather lookup keys, comparison series, Apex options/axes/tooltips, stable config
+  serialization, chart capture, temperature units, and analysis errors. The page no longer uses
+  application-level `any`.
+- **Code-quality review — Audio and detail modals:** Typed Audio History chart options and removed
+  permissive casts from detection/species enrichment, conversations, iNaturalist actions, manual
+  tagging, snapshot repair, and owner actions. Errors are now narrowed consistently from `unknown`.
+- **Code-quality review — Settings and frontend type gate:** Replaced Settings casts with explicit
+  domain normalizers for themes, inference providers, retention modes, and missing-media policy;
+  standardized unknown-error handling and typed shared input attributes. A new source audit test
+  rejects explicit `any` anywhere in application TypeScript/Svelte outside generated contracts.
+- **Code-quality review — backend endpoint contracts:** Started the backend API pass by giving the
+  initial-setup, logout, Settings integration tests, Settings import/update, and video-circuit reset
+  actions explicit response contracts and return annotations. Classifier status, upload tests,
+  rich classification, runtime probes, and owner diagnostics now publish contracts as well.
+  Backfill reset/status, regional model-family resolution, update status, species-cache clearing,
+  and AI-usage clearing are also generated into the client contract. The Events list/delete/manual
+  tag routes and model-evaluation run actions now complete the pass; the evaluation artifact route
+  is explicitly documented as a file response.
+- **Code-quality review — persistence boundaries:** Moved cache-cleanup event enumeration and manual
+  species corrections behind `DetectionRepository`, and moved logout's OAuth-token purge into a
+  dedicated repository so these HTTP routes no longer own SQL statements. The eBird export query
+  and date filtering now live in `EbirdRepository` as well. Species taxonomy/cache/search queries
+  and the complete video-share lifecycle have also moved into focused repositories, leaving no
+  direct database execution in the HTTP router layer.
+- **Code-quality review — classifier download I/O:** Moved model-directory operations, archive
+  extraction, model/label writes, and synchronous classifier reloads off FastAPI's async event loop.
+- **Code-quality review — async blocking I/O:** Offloaded database backup/migrations, image decode
+  and synchronous inference entry points, temporary video work, media-cache retention scans,
+  model-evaluation artifact/image operations, model discovery/activation, and AI recording reads.
+  These paths no longer stall unrelated requests while performing filesystem or CPU-bound work.
+- **Code-quality review — backend architecture gates:** Added permanent source audits for endpoint
+  response contracts, repository-only database execution, complete repository signatures, async
+  blocking I/O, untracked TODO/FIXME notes, and stray `print()` calls. Binary, streaming, redirect,
+  and downloadable routes now explicitly declare their response classes.
+- **Code-quality review — test isolation:** Kept the video-classification scheduler importable with
+  the lightweight classifier doubles used by pressure tests while retaining the production live
+  classifier resolver, and regenerated both committed OpenAPI artifacts after response classification.
+- **Code-quality roadmap complete:** Finished the file-by-file frontend/backend review and closed
+  the roadmap item. Final verification: 1,390 backend tests passed with 79% coverage (65 expected
+  platform/model skips), 408 frontend tests passed, Svelte check was clean, the production build
+  succeeded, and lint, formatting, migrations, docs, OpenAPI, and generated client checks passed.
+- **API contract — typed integration responses:** The email OAuth authorize/disconnect/test and iNaturalist OAuth authorize/disconnect/submit endpoints now declare `response_model`s, so the exported OpenAPI schema carries their real response shapes instead of an untyped body. The SPA's `integrations.ts` now derives its request/response types straight from the generated contract (shared `OAuthAuthorizeResponse`/`MessageResponse` models), removing the last hand-written DTOs in that module. No behaviour change — response bodies are unchanged.
+- **API contract — typed species/eBird/seasonality responses:** The species list (`/api/species`), species search (`/api/species/search`), eBird nearby/notable (`/api/ebird/nearby`, `/api/ebird/notable`), and iNaturalist seasonality (`/api/inaturalist/seasonality`) endpoints previously returned untyped `dict`s, so the generated OpenAPI types came out `unknown`. They now declare `response_model`s (`SpeciesCountItem`, `SpeciesSearchResult`, `EbirdObservation`/`EbirdNearbyResponse`/`EbirdNotableResponse`, `SeasonalityResponse`), and the SPA's `species.ts` consumes the generated types for search, eBird, seasonality, and the detections timeline. One small shape normalisation: an eBird observation's `thumbnail_url` is now always present (null when thumbnail enrichment is unavailable) rather than conditionally omitted — the UI already treats null and absent identically.
+- **Health telemetry — diagnosable critical failures:** Critical ingest-pipeline stage failures now report the exception type and stage in their anonymised `sample_context` instead of an empty `{}`. The context previously carried only the free-text error message, which the telemetry sanitiser strips (it isn't allow-listed), so fleet health data recorded *that* a stage failed but never *why*. The exception class (`error_type`) and `stage` are already allow-listed and safe, making these failures triageable across installs; the free-text error is still kept locally for the in-app Errors view. (Severity is already calibrated — `filter_*` drops are informational and excluded from health reports.)
+- **Frontend toolchain:** Upgraded the UI build/test stack (supersedes the individual Dependabot bumps). Vite 8 uses the Rolldown bundler, so `manualChunks` moves to the function form (keeping `apexcharts` in its own chunk); the Docker frontend build stages move from `node:20` to `node:22` (LTS) to meet the new engine floor. TypeScript is held on the 5.9 line: TypeScript 7's native compiler is not yet supported by `svelte-check`, so that Dependabot bump is deferred. Rollback record (from → to):
+  - `vite` ^5.1.4 → ^8.1.4
+  - `@sveltejs/vite-plugin-svelte` ^4.0.0 → ^7.2.0
+  - `vitest` ^2.1.9 → ^4.1.10
+  - `typescript` ^5.4.0 → ^5.9.0 (held on 5.x; TS 7 deferred)
+- **CI:** Bumped workflow actions to Node 24-capable versions (`docker/build-push-action` v6→v7, `actions/checkout` v5→v7, `actions/setup-python` v5→v6), clearing the "Node.js 20 is deprecated" runner warning on the image-build jobs.
+- **Backend dependencies:** Updated the backend stack (consolidating the Dependabot bumps). The OpenAPI artifacts are regenerated for FastAPI/Pydantic's more compact schema output (no endpoint changes), and the aiosqlite test-teardown daemon-thread shim now handles both the pre- and post-0.20 threading models. Rollback record (from → to):
+  - `fastapi` 0.109.2 → 0.139.0 (pulls `starlette` 0.36.3 → 1.3.1)
+  - `pydantic` 2.6.1 → 2.13.4; `pydantic-settings` 2.2.1 → 2.14.2
+  - `uvicorn[standard]` 0.27.1 → 0.51.0
+  - `aiosqlite` 0.19.0 → 0.22.1
+  - `aiomqtt` 2.0.1 → 2.5.1 (pulls `paho-mqtt` 1.6.1 → 2.1.0)
+  - `alembic` 1.13.1 → 1.18.5
+  - `httpx` 0.27.0 → 0.28.1; `python-multipart` 0.0.9 → 0.0.32; `slowapi` 0.1.9 → 0.1.10
+  - `cryptography` 45.0.7 → 49.0.0; `aiosmtplib` 3.0.1 → 5.1.2
+  - `openvino` `>=2025.4.0,<2026.0` → `>=2026.2.1,<2027.0`
+  - `pytest` 8.0.0 → 9.1.1 (companion: `pytest-asyncio` 0.23.5 → 1.4.0, required because pytest 9 dropped `FixtureDef.unittest`)
+  - `pyjwt` 2.8.0 → 2.13.0; `google-auth` 2.27.0 → 2.55.2; `google-auth-oauthlib` 1.2.0 → 1.4.0; `jinja2` 3.1.3 → 3.1.6 (security)
+- **Telemetry worker dependencies:** Updated the Cloudflare Worker toolchain (validated with `wrangler deploy --dry-run`). Rollback record (from → to):
+  - `hono` 3.12.12 → 4.12.29
+  - `wrangler` 3.114.16 → 4.110.0
+  - `@cloudflare/workers-types` 4.20260103.0 → 5.20260710.1
+- **Setup wizard model step:** The model step now lets owners choose the classifier model, inference provider, and image execution mode from the wizard, with inline notes about the model's intended hardware/runtime profile. Hardware validation now leaves an explicit success/partial-success result instead of only showing transient progress.
+
+### Fixed
+- **Update prompt channel source-of-truth:** CI now publishes built branch versions (`dev`, `main`) and tagged releases (`stable`) to D1, and the app compares against the D1 row for the installed `APP_BRANCH`. Release-tag images identify as `stable`, so stable installs are not compared against moving branch heads.
+- **Setup wizard overlay scroll:** Opening the setup wizard now locks background page scrolling; only the wizard body scrolls.
+- **Setup wizard model step consistency:** The classifier-model step now follows the same pattern as the other wizard steps — it gates its content on load (no flash of empty controls), uses the shared `select-base` control styling, and its footer **Continue** commits the model/provider/execution-mode choices before advancing (the redundant in-body "Save model choices" button is gone). It is also skippable, keeps the bundled default when skipped, and disables Continue with a clear note when the chosen model still needs downloading. The on-hardware validation action stays in-step, mirroring the connection step's in-body test.
+- **Duplicate update indicator:** The update-available indicator now appears only in the sidebar status cluster; the duplicate copy in the page header has been removed (the dismissible update *banner* in the main column is unchanged).
+- **Frontend production logging:** Browser warning/error log contexts now strip `Error.stack` in production builds while preserving error name and message.
+- **Camera status hidden on installs with no camera list:** An empty `cameras` list means YA-WAMF monitors *all* cameras, but the header camera-status indicator (and the setup wizard's camera preview) keyed only off the explicit list — so all-cameras installs saw the plain icon with no online/offline dot or count. Both now fall back to the cameras actually producing detections (via `/api/events/filters`) when the list is empty; the wizard also previews those cameras with an "Add these" shortcut to pin them.
+- **Blocked species could reappear via video analysis or a slow taxonomy lookup ([#77](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/77)):** Blocking is enforced at ingest and again after taxonomy enrichment, but two paths could let a blocked species through under a *different name variant*. Auto video analysis promoted a detection using the raw video label only — it never resolved taxonomy, so a species blocked by scientific name or `taxa_id` wasn't recognised when the promoted label was a common-name/localised variant. Separately, when the live taxonomy lookup at save time failed or timed out, the re-check collapsed to raw-label matching and missed variants. Both blocked-species checks now bridge identity through the taxonomy cache (a local read that can't hang on the network) before deciding, so a species blocked under any one name/ID is caught across the ingest, save, and video-promotion paths. Abstention/unknown labels are never enriched.
+- **CI:** A Cloudflare API/permission failure while publishing the built version to the update endpoint no longer fails the whole image build. The D1 version publish is best-effort for image publishing, but D1 remains the update prompt's source of truth — so the step now emits a warning instead of erroring after the images have already been built and pushed.
+- **CI — version publish simplified to token-only auth:** The `publish-version` job no longer passes `CLOUDFLARE_ACCOUNT_ID`; wrangler infers the single account from the API token, removing a fragile secret from the path. Note: publishing also requires the `CLOUDFLARE_API_TOKEN` to have **no Client-IP restriction** — an IP-locked token is rejected from GitHub-hosted runners (`code 9109`, "cannot use the access token from location …"), which silently freezes the update-prompt's D1 source of truth at an old commit and nags up-to-date `dev` installs to "update". Use a token scoped to D1 Edit with IP filtering disabled.
+- **CI:** The backend test job no longer hangs after a passing run. aiosqlite connection worker threads left open across pytest-asyncio event loops kept the interpreter alive after the tests finished, so the `timeout` wrapper killed the run (exit 124) despite every test passing. Test setup now marks those worker threads daemon so the process exits promptly once testing completes.
+- **Security logging:** The "Authentication enabled over HTTP" warning no longer fires for internal/private clients (loopback or RFC1918/link-local addresses). In the monolithic image the bundled nginx proxies to the backend over loopback, and Docker-network services (e.g. the Home Assistant integration) poll the API over internal HTTP — none of which exposes credentials to an untrusted network. The warning is preserved for genuinely exposed cases: a public client over HTTP, or a trusted reverse proxy reporting that the real client's leg was plaintext.
+
 ## [2.12.0] - 2026-07-09
 
 ### Added

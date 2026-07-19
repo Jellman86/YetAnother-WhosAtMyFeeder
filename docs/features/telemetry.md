@@ -52,7 +52,7 @@ Health diagnostics are stored separately from aggregate telemetry so recurring f
 
 ## User Interface & Transparency
 
-When you enable Telemetry or Anonymous health diagnostics in the UI (**Settings > Connections > Telemetry**), a "Transparency" box appears. This shows you:
+When you enable Telemetry or Anonymous health diagnostics in the UI (**Settings → Connection → Telemetry**), a "Transparency" box appears. This shows you:
 1. Your unique Installation ID.
 2. The runtime/device/deployment data points being sent.
 
@@ -62,7 +62,7 @@ You can toggle this feature off at any time, and the background reporting servic
 
 The aggregated, anonymised results are published at
 **[yawamf-telemetry.ya-wamf.workers.dev/dashboard](https://yawamf-telemetry.ya-wamf.workers.dev/dashboard)**
-(also linked from the Transparency box in **Settings → Connections → Telemetry**).
+(also linked from the Transparency box in **Settings → Connection → Telemetry**).
 It shows only fleet-wide aggregates — install counts, versions, accelerators, and
 health-issue reason codes grouped by component/severity — with no per-install data,
 payloads, or identifiers. Figures are cached for a few minutes.

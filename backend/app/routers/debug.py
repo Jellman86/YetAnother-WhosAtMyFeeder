@@ -1,22 +1,24 @@
-from fastapi import APIRouter, Depends
-from typing import Dict, Any
+import asyncio
+import platform
 import shutil
-import os
-import httpx
+import sys
+from pathlib import Path
+from typing import Literal
 
+import httpx
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field, JsonValue
+
+from app.auth import AuthContext, require_owner
 from app.config import settings
 from app.database import get_db
-from app.auth import require_owner, AuthContext
+from app.repositories.debug_repository import DebugRepository
 
 router = APIRouter()
 
-
-@router.get("/debug/config")
-async def debug_config(auth: AuthContext = Depends(require_owner)) -> Dict[str, Any]:
-    """Dump current configuration (secrets redacted). Owner only."""
-    conf = settings.model_dump()
-    # Redact secrets without changing structure.
-    sensitive_keys = {
+REDACTED_VALUE = "***REDACTED***"
+SENSITIVE_CONFIG_KEYS = frozenset(
+    {
         "api_key",
         "frigate_auth_token",
         "mqtt_password",
@@ -34,94 +36,130 @@ async def debug_config(auth: AuthContext = Depends(require_owner)) -> Dict[str, 
         "token",
         "password",
     }
-
-    def redact(value: Any) -> Any:
-        if isinstance(value, dict):
-            return {k: ("***" if k in sensitive_keys and v else redact(v)) for k, v in value.items()}
-        if isinstance(value, list):
-            return [redact(item) for item in value]
-        return value
-
-    conf = redact(conf)
-    return conf
+)
+MODEL_DIRECTORY = Path("/data/models")
 
 
-_DEBUG_STATS_TABLES = ("detections", "taxonomy_cache")
+class DatabaseStatsResponse(BaseModel):
+    detections: int | str
+    taxonomy_cache: int | str
 
 
-@router.get("/debug/db/stats")
-async def debug_db_stats(auth: AuthContext = Depends(require_owner)):
+class ConnectivityResult(BaseModel):
+    status: Literal["ok", "error"]
+    version: str | None = None
+    error: str | None = None
+    code: int | None = None
+
+
+class ConnectivityResponse(BaseModel):
+    frigate: ConnectivityResult
+    inaturalist: ConnectivityResult
+    telemetry: ConnectivityResult
+
+
+class ModelFile(BaseModel):
+    name: str
+    size_bytes: int
+
+
+class ModelFilesResponse(BaseModel):
+    files: list[ModelFile] = Field(default_factory=list)
+    error: str | None = None
+
+
+class SystemDebugResponse(BaseModel):
+    platform: str
+    python: str
+    disk_usage: tuple[int, int, int]
+
+
+def redact_config(value: JsonValue) -> JsonValue:
+    """Return a structurally equivalent copy with non-empty secrets redacted."""
+    if isinstance(value, dict):
+        return {
+            key: REDACTED_VALUE if key in SENSITIVE_CONFIG_KEYS and item else redact_config(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [redact_config(item) for item in value]
+    return value
+
+
+def _list_model_files(model_directory: Path) -> list[ModelFile]:
+    return [
+        ModelFile(name=entry.name, size_bytes=entry.stat().st_size)
+        for entry in model_directory.iterdir()
+        if entry.is_file()
+    ]
+
+
+@router.get("/debug/config", response_model=dict[str, JsonValue])
+async def debug_config(_auth: AuthContext = Depends(require_owner)) -> dict[str, JsonValue]:
+    """Dump current configuration (secrets redacted). Owner only."""
+    return redact_config(settings.model_dump(mode="json"))
+
+
+@router.get("/debug/db/stats", response_model=DatabaseStatsResponse)
+async def debug_db_stats(_auth: AuthContext = Depends(require_owner)) -> DatabaseStatsResponse:
     """Get row counts for key tables. Owner only."""
-    stats = {}
     async with get_db() as db:
-        for table in _DEBUG_STATS_TABLES:
-            try:
-                async with db.execute(f"SELECT COUNT(*) FROM {table}") as cursor:
-                    row = await cursor.fetchone()
-                    stats[table] = row[0] if row else 0
-            except Exception as e:
-                stats[table] = f"Error: {str(e)}"
-    return stats
+        stats = await DebugRepository(db).table_counts()
+    return DatabaseStatsResponse.model_validate(stats)
 
 
-@router.get("/debug/connectivity")
-async def debug_connectivity(auth: AuthContext = Depends(require_owner)):
+@router.get("/debug/connectivity", response_model=ConnectivityResponse, response_model_exclude_none=True)
+async def debug_connectivity(_auth: AuthContext = Depends(require_owner)) -> ConnectivityResponse:
     """Test connectivity to external services. Owner only."""
-    results = {}
+    results: dict[str, ConnectivityResult] = {}
 
-    # Test Frigate
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(f"{settings.frigate.frigate_url}/api/version")
-            results["frigate"] = {"status": "ok", "version": resp.text.strip()}
-    except Exception as e:
-        results["frigate"] = {"status": "error", "error": str(e)}
+            results["frigate"] = ConnectivityResult(status="ok", version=resp.text.strip())
+    except httpx.HTTPError as exc:
+        results["frigate"] = ConnectivityResult(status="error", error=str(exc))
 
-    # Test iNaturalist (Taxonomy)
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get("https://api.inaturalist.org/v1/taxa?q=Cyanistes%20caeruleus")
             if resp.status_code == 200:
-                results["inaturalist"] = {"status": "ok"}
+                results["inaturalist"] = ConnectivityResult(status="ok")
             else:
-                results["inaturalist"] = {"status": "error", "code": resp.status_code}
-    except Exception as e:
-        results["inaturalist"] = {"status": "error", "error": str(e)}
+                results["inaturalist"] = ConnectivityResult(status="error", code=resp.status_code)
+    except httpx.HTTPError as exc:
+        results["inaturalist"] = ConnectivityResult(status="error", error=str(exc))
 
-    # Test Telemetry
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(settings.telemetry.url.replace("/heartbeat", "/"))
             if resp.status_code == 200:
-                results["telemetry"] = {"status": "ok"}
+                results["telemetry"] = ConnectivityResult(status="ok")
             else:
-                results["telemetry"] = {"status": "error", "code": resp.status_code}
-    except Exception as e:
-        results["telemetry"] = {"status": "error", "error": str(e)}
+                results["telemetry"] = ConnectivityResult(status="error", code=resp.status_code)
+    except httpx.HTTPError as exc:
+        results["telemetry"] = ConnectivityResult(status="error", error=str(exc))
 
-    return results
+    return ConnectivityResponse.model_validate(results)
 
 
-@router.get("/debug/fs/models")
-async def debug_fs_models(auth: AuthContext = Depends(require_owner)):
+@router.get(
+    "/debug/fs/models",
+    response_model=ModelFilesResponse,
+    response_model_exclude_none=True,
+    response_model_exclude_defaults=True,
+)
+async def debug_fs_models(_auth: AuthContext = Depends(require_owner)) -> ModelFilesResponse:
     """List files in the model directory. Owner only."""
-    model_dir = "/data/models"
-    if not os.path.exists(model_dir):
-        return {"error": "Model directory does not exist"}
+    if not await asyncio.to_thread(MODEL_DIRECTORY.exists):
+        return ModelFilesResponse(error="Model directory does not exist")
 
-    files = []
-    for f in os.listdir(model_dir):
-        path = os.path.join(model_dir, f)
-        if os.path.isfile(path):
-            size = os.path.getsize(path)
-            files.append({"name": f, "size_bytes": size})
-    return {"files": files}
+    files = await asyncio.to_thread(_list_model_files, MODEL_DIRECTORY)
+    return ModelFilesResponse(files=files)
 
 
-@router.get("/debug/system")
-async def debug_system(auth: AuthContext = Depends(require_owner)):
+@router.get("/debug/system", response_model=SystemDebugResponse)
+async def debug_system(_auth: AuthContext = Depends(require_owner)) -> SystemDebugResponse:
     """Get system info. Owner only."""
-    import platform
-    import sys
-
-    return {"platform": platform.platform(), "python": sys.version, "disk_usage": shutil.disk_usage("/data")}
+    usage = await asyncio.to_thread(shutil.disk_usage, "/data")
+    return SystemDebugResponse(platform=platform.platform(), python=sys.version, disk_usage=tuple(usage))

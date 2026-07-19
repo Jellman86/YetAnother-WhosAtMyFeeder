@@ -14,7 +14,7 @@ class ConversationTurn:
 
 
 class AIConversationRepository:
-    def __init__(self, db: aiosqlite.Connection):
+    def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
 
     async def delete_turns(self, frigate_event: str) -> None:

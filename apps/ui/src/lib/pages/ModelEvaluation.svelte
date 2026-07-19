@@ -26,6 +26,7 @@
     let sweepDevices = $state(false);
     let deviceMatrix = $state<DeviceMatrix | null>(null);
     let pollHandle: number | null = null;
+    let refreshInFlight = false;
 
     function deviceCell(row: DeviceMatrix['models'][string] | undefined, dev: string): { label: string; cls: string } {
         if (!row || row.error) return { label: '—', cls: 'text-gray-400' };
@@ -35,13 +36,13 @@
         if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
         if (dev === 'CPU') return { label: `✓ baseline (${e.images_evaluated ?? 0})`, cls: 'text-gray-600 dark:text-gray-400' };
         const n = e.images_compared;
-        if (e.matches_cpu && n) return { label: `✓ ${n}/${n} top-1`, cls: 'text-emerald-600 dark:text-emerald-400' };
+        if (e.matches_cpu && n) return { label: `✓ ${n}/${n} top-1`, cls: 'text-accent-600 dark:text-accent-400' };
         if (typeof e.top1_match_rate === 'number' && n) {
             const hits = Math.round(e.top1_match_rate * n);
             const ov = e.mean_top5_overlap;
             return { label: `⚠ ${hits}/${n} top-1${ov != null ? ` (${ov}/5)` : ''}`, cls: 'text-amber-600 dark:text-amber-400' };
         }
-        return { label: '✓ runs', cls: 'text-emerald-600 dark:text-emerald-400' };
+        return { label: '✓ runs', cls: 'text-accent-600 dark:text-accent-400' };
     }
 
     function pct(value: number | null | undefined): string {
@@ -63,6 +64,8 @@
     }
 
     async function refresh() {
+        if (refreshInFlight) return;
+        refreshInFlight = true;
         try {
             const list = await listModelEvalRuns();
             runs = list.runs;
@@ -84,12 +87,16 @@
             }
         } catch (e) {
             error = (e as Error).message;
+        } finally {
+            refreshInFlight = false;
         }
     }
 
     function startPolling() {
         if (pollHandle) return;
-        pollHandle = window.setInterval(refresh, 2000);
+        pollHandle = window.setInterval(() => {
+            if (!document.hidden) void refresh();
+        }, 2000);
     }
     function stopPolling() {
         if (pollHandle) {

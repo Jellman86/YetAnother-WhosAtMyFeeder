@@ -256,18 +256,11 @@ def test_gpu_diagnostic_preserves_bgr_when_explicitly_set():
     assert diag["preprocessing"]["color_space"] == "BGR"
 
 
-def test_safe_run_id_sanitizes_and_rejects():
+def test_safe_run_id_accepts_only_canonical_run_ids():
     assert _safe_run_id("20260507-204512") == "20260507-204512"
-    assert _safe_run_id("abc_def") == "abc_def"
-    # path-traversal characters get filtered out, leaving a benign string
-    assert "/" not in _safe_run_id("../etc/passwd")
-    assert ".." not in _safe_run_id("../etc/passwd")
-    with pytest.raises(ValueError):
-        _safe_run_id("")
-    with pytest.raises(ValueError):
-        _safe_run_id("...")
-    with pytest.raises(ValueError):
-        _safe_run_id("/")
+    for invalid in ("abc_def", "../etc/passwd", "", "...", "/", "20260507-204512/../secret"):
+        with pytest.raises(ValueError):
+            _safe_run_id(invalid)
 
 
 def test_build_summary_envelope_counts_panels():
@@ -338,6 +331,17 @@ def test_get_run_returns_none_for_missing(tmp_path: Path, monkeypatch):
     _set_runs_dir(monkeypatch, tmp_path)
     runner = ModelEvalRunner()
     assert runner.get_run("does-not-exist") is None
+
+
+def test_get_run_does_not_normalize_untrusted_input_to_an_existing_run(tmp_path: Path, monkeypatch):
+    _set_runs_dir(monkeypatch, tmp_path)
+    run_dir = tmp_path / "20260507-200000"
+    run_dir.mkdir()
+    (run_dir / SUMMARY_FILENAME).write_text(json.dumps({"run_id": "20260507-200000", "models": []}))
+
+    runner = ModelEvalRunner()
+
+    assert runner.get_run("../20260507-200000") is None
 
 
 def test_get_run_reads_summary_and_runtime(tmp_path: Path, monkeypatch):

@@ -12,6 +12,7 @@ import pytest_asyncio
 import httpx
 import time
 from PIL import Image
+from app.auth import AuthLevel, create_access_token
 
 
 @pytest_asyncio.fixture
@@ -252,6 +253,141 @@ async def test_proxy_recording_clip_returns_404_when_no_recordings_found(client:
         finally:
             settings.frigate.clips_enabled = original_clips
             settings.frigate.recording_clip_enabled = original_recording
+
+
+@pytest.mark.asyncio
+async def test_latest_camera_snapshot_requires_owner_when_public_access_is_enabled(client: httpx.AsyncClient):
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+
+    try:
+        with patch("app.routers.proxy.get_http_client") as mock_get_client:
+            response = await client.get("/api/frigate/camera/birdcam/latest.jpg")
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Owner privileges required for this operation"
+        mock_get_client.assert_not_called()
+    finally:
+        settings.auth.enabled = original_auth
+        settings.public_access.enabled = original_public
+
+
+@pytest.mark.asyncio
+async def test_latest_camera_snapshot_allows_owner_and_disables_caching(client: httpx.AsyncClient):
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+    token = create_access_token("owner", AuthLevel.OWNER)
+
+    upstream = MagicMock()
+    upstream.content = b"camera-frame"
+    upstream.headers = {"content-type": "image/jpeg"}
+    upstream.raise_for_status = MagicMock()
+    http_client = MagicMock()
+    http_client.get = AsyncMock(return_value=upstream)
+
+    try:
+        with (
+            patch("app.routers.proxy.get_http_client", return_value=http_client),
+            patch("app.routers.proxy.frigate_client") as mock_frigate,
+        ):
+            mock_frigate._get_headers = MagicMock(return_value={})
+            response = await client.get(
+                "/api/frigate/camera/birdcam/latest.jpg",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert response.status_code == 200
+        assert response.content == b"camera-frame"
+        assert response.headers["cache-control"] == "no-store, max-age=0"
+        assert response.headers["pragma"] == "no-cache"
+    finally:
+        settings.auth.enabled = original_auth
+        settings.public_access.enabled = original_public
+
+
+@pytest.mark.asyncio
+async def test_camera_status_requires_owner_when_public_access_is_enabled(client: httpx.AsyncClient):
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+
+    try:
+        with patch("app.routers.proxy.frigate_client.get", new_callable=AsyncMock) as mock_get:
+            response = await client.get("/api/frigate/cameras/status")
+
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Owner privileges required for this operation"
+        mock_get.assert_not_awaited()
+    finally:
+        settings.auth.enabled = original_auth
+        settings.public_access.enabled = original_public
+
+
+@pytest.mark.asyncio
+async def test_camera_status_normalizes_frigate_stats_defensively(client: httpx.AsyncClient):
+    original_auth = settings.auth.enabled
+    original_public = settings.public_access.enabled
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+    token = create_access_token("owner", AuthLevel.OWNER)
+
+    upstream = MagicMock()
+    upstream.raise_for_status = MagicMock()
+    upstream.json = MagicMock(
+        return_value={
+            "cameras": {
+                "front_feeder": {"camera_fps": 5.0, "process_fps": "4.8", "detection_fps": 2},
+                "nest_box": {"camera_fps": 0, "process_fps": 0, "detection_fps": 0},
+                "garage": {"camera_fps": None, "process_fps": "not-a-number"},
+                "invalid camera": {"camera_fps": 5},
+            }
+        }
+    )
+
+    try:
+        with patch("app.routers.proxy.frigate_client.get", new_callable=AsyncMock, return_value=upstream) as mock_get:
+            response = await client.get(
+                "/api/frigate/cameras/status",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+
+        assert response.status_code == 200
+        assert response.headers["cache-control"] == "no-store, max-age=0"
+        body = response.json()
+        assert [item["camera"] for item in body["cameras"]] == ["front_feeder", "nest_box", "garage"]
+        assert body["cameras"] == [
+            {
+                "camera": "front_feeder",
+                "status": "online",
+                "camera_fps": 5.0,
+                "process_fps": 4.8,
+                "detection_fps": 2.0,
+            },
+            {
+                "camera": "nest_box",
+                "status": "offline",
+                "camera_fps": 0.0,
+                "process_fps": 0.0,
+                "detection_fps": 0.0,
+            },
+            {
+                "camera": "garage",
+                "status": "unknown",
+                "camera_fps": None,
+                "process_fps": None,
+                "detection_fps": None,
+            },
+        ]
+        assert body["checked_at"].endswith("+00:00")
+        mock_get.assert_awaited_once_with("api/stats", timeout=10.0)
+    finally:
+        settings.auth.enabled = original_auth
+        settings.public_access.enabled = original_public
 
 
 @pytest.mark.asyncio
@@ -1141,7 +1277,7 @@ async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.
     settings.media_cache.enabled = True
     settings.media_cache.cache_snapshots = True
     settings.media_cache.high_quality_event_snapshots = True
-    settings.media_cache.high_quality_event_snapshot_bird_crop = True
+    settings.media_cache.high_quality_event_snapshot_bird_crop = False
 
     with (
         patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
@@ -1152,7 +1288,6 @@ async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.
             "app.routers.proxy.frigate_client.get_snapshot_with_error",
             new=AsyncMock(return_value=(b"orig-snapshot", None)),
         ),
-        patch("app.routers.proxy._bird_crop_runtime_available", return_value=True),
     ):
         mock_get_snapshot.return_value = b"cached-hq-frame"
         mock_get_metadata.return_value = {"source": "high_quality_snapshot"}
@@ -1166,6 +1301,7 @@ async def test_proxy_snapshot_status_exposes_hq_crop_action_state(client: httpx.
             assert body["source"] == "high_quality_snapshot"
             assert body["already_hq_bird_crop"] is False
             assert body["can_generate_hq_bird_crop"] is True
+            assert body["high_quality_bird_crop_enabled"] is True
             assert body["original_frigate_snapshot_available"] is True
         finally:
             settings.media_cache.enabled = original_cache_enabled
@@ -1211,6 +1347,38 @@ async def test_proxy_snapshot_status_marks_missing_original_frigate_snapshot(cli
 
 
 @pytest.mark.asyncio
+async def test_proxy_snapshot_status_recognizes_generated_candidate_crop(client: httpx.AsyncClient):
+    original_cache_enabled = settings.media_cache.enabled
+    original_cache_snapshots = settings.media_cache.cache_snapshots
+    original_hq_snapshots = settings.media_cache.high_quality_event_snapshots
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    settings.media_cache.high_quality_event_snapshots = True
+    try:
+        with (
+            patch("app.services.media_cache.media_cache.get_snapshot", new=AsyncMock(return_value=b"crop")),
+            patch(
+                "app.services.media_cache.media_cache.get_snapshot_metadata",
+                new=AsyncMock(return_value={"source": "hq_candidate_frigate_hint_crop"}),
+            ),
+            patch(
+                "app.routers.proxy.frigate_client.get_snapshot_with_error",
+                new=AsyncMock(return_value=(b"original", None)),
+            ),
+        ):
+            response = await client.get("/api/frigate/test_event_id/snapshot/status")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["already_hq_bird_crop"] is True
+        assert body["can_generate_hq_bird_crop"] is False
+    finally:
+        settings.media_cache.enabled = original_cache_enabled
+        settings.media_cache.cache_snapshots = original_cache_snapshots
+        settings.media_cache.high_quality_event_snapshots = original_hq_snapshots
+
+
+@pytest.mark.asyncio
 async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.AsyncClient):
     original_cache_enabled = settings.media_cache.enabled
     original_cache_snapshots = settings.media_cache.cache_snapshots
@@ -1230,7 +1398,6 @@ async def test_generate_hq_bird_crop_snapshot_reuses_hq_service(client: httpx.As
             "app.routers.proxy.frigate_client.get_snapshot_with_error",
             new=AsyncMock(return_value=(b"orig-snapshot", None)),
         ),
-        patch("app.routers.proxy._bird_crop_runtime_available", return_value=True),
         patch("app.routers.proxy.high_quality_snapshot_service.process_event", new_callable=AsyncMock) as mock_process,
     ):
         mock_get_snapshot.return_value = b"cached-hq-frame"

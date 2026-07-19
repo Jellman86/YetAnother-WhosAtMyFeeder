@@ -110,11 +110,38 @@ export function setAuthErrorCallback(callback: () => void) {
     authErrorCallback = callback;
 }
 
-export async function apiFetch(url: string, options: RequestInit = {}): Promise<Response> {
-    const response = await fetch(normalizeBackendPath(url), {
-        ...options,
-        headers: getHeaders(options.headers)
-    });
+export interface ApiFetchOptions extends RequestInit {
+    /** Abort the request after this many milliseconds. Omit for user-driven, long-running operations. */
+    timeoutMs?: number;
+}
+
+export async function apiFetch(url: string, options: ApiFetchOptions = {}): Promise<Response> {
+    const { timeoutMs, signal: callerSignal, ...requestOptions } = options;
+    const controller = typeof timeoutMs === 'number' || callerSignal ? new AbortController() : null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const abortFromCaller = () => controller?.abort(callerSignal?.reason);
+
+    if (controller && callerSignal) {
+        if (callerSignal.aborted) abortFromCaller();
+        else callerSignal.addEventListener('abort', abortFromCaller, { once: true });
+    }
+    if (controller && typeof timeoutMs === 'number' && timeoutMs > 0) {
+        timeoutId = setTimeout(() => {
+            controller.abort(new DOMException(`Request timed out after ${timeoutMs}ms`, 'AbortError'));
+        }, timeoutMs);
+    }
+
+    let response: Response;
+    try {
+        response = await fetch(normalizeBackendPath(url), {
+            ...requestOptions,
+            headers: getHeaders(options.headers),
+            signal: controller?.signal ?? callerSignal
+        });
+    } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+        callerSignal?.removeEventListener('abort', abortFromCaller);
+    }
 
     if (response.status === 401 && authErrorCallback) {
         authErrorCallback();
@@ -128,7 +155,7 @@ const abortControllers = new Map<string, AbortController>();
 export async function fetchWithAbort<T>(
     key: string | null,
     url: string,
-    options: RequestInit = {}
+    options: ApiFetchOptions = {}
 ): Promise<T> {
     if (key && abortControllers.has(key)) {
         abortControllers.get(key)!.abort();
@@ -142,25 +169,20 @@ export async function fetchWithAbort<T>(
     }
 
     try {
-        const fetchOptions: RequestInit = {
+        const fetchOptions: ApiFetchOptions = {
             ...options,
-            headers: getHeaders(options.headers),
-            signal: controller?.signal
+            signal: controller?.signal ?? options.signal
         };
 
-        const response = await fetch(normalizeBackendPath(url), fetchOptions);
+        const response = await apiFetch(url, fetchOptions);
 
-        if (key) {
+        if (key && abortControllers.get(key) === controller) {
             abortControllers.delete(key);
-        }
-
-        if (response.status === 401 && authErrorCallback) {
-            authErrorCallback();
         }
 
         return await handleResponse<T>(response);
     } catch (error) {
-        if (key) {
+        if (key && abortControllers.get(key) === controller) {
             abortControllers.delete(key);
         }
 

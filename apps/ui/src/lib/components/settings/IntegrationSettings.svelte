@@ -11,6 +11,9 @@
     import Map from '../Map.svelte';
     import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
     import { reverseGeocode } from '../../api/geocoding';
+    import DiagnosticDialog from '../DiagnosticDialog.svelte';
+    import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
+    import { testBirdNET, testBirdWeather, testMQTTPublish, checkBirdNetReachability } from '../../api/maintenance';
 
     let {
         birdnetEnabled = $bindable(true),
@@ -24,7 +27,6 @@
         loadingBirdnetSources = false,
         birdnetSourcesError = null,
         availableCameras = [],
-        testingBirdNET = $bindable(false),
         birdweatherEnabled = $bindable(false),
         birdweatherStationToken = $bindable(''),
         ebirdEnabled = $bindable(false),
@@ -49,8 +51,6 @@
         locationState = $bindable(''),
         locationCountry = $bindable(''),
         locationWeatherUnitSystem = $bindable<'metric' | 'imperial' | 'british'>('metric'),
-        handleTestBirdNET,
-        handleTestBirdWeather,
         initiateInaturalistOAuth,
         disconnectInaturalistOAuth,
         refreshInaturalistStatus,
@@ -75,7 +75,6 @@
         loadingBirdnetSources: boolean;
         birdnetSourcesError: string | null;
         availableCameras: string[];
-        testingBirdNET: boolean;
         birdweatherEnabled: boolean;
         birdweatherStationToken: string;
         ebirdEnabled: boolean;
@@ -100,8 +99,6 @@
         locationState: string;
         locationCountry: string;
         locationWeatherUnitSystem: 'metric' | 'imperial' | 'british';
-        handleTestBirdNET: () => Promise<void>;
-        handleTestBirdWeather: () => Promise<void>;
         initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
         disconnectInaturalistOAuth: () => Promise<{ status: string }>;
         refreshInaturalistStatus: () => Promise<void>;
@@ -115,7 +112,6 @@
     let inatRefreshing = $state(false);
     let inatDisconnecting = $state(false);
     let exportingEbirdCsv = $state(false);
-    let testingBirdWeather = $state(false);
     let ebirdExportEverything = $state(true);
     let ebirdExportFrom = $state('');
     let ebirdExportTo = $state('');
@@ -124,6 +120,54 @@
     function actionErrorMessage(error: unknown) {
         if (error instanceof Error && error.message.trim().length > 0) return error.message;
         return 'Action failed';
+    }
+
+    // Connection tests use the shared DiagnosticDialog + runSequentialDiagnostic
+    // (see docs/standards/diagnostics-and-dialogs.md). Each stage runs a real check
+    // and reports its own outcome, so the progress a user sees is always honest.
+    let bnTestOpen = $state(false);
+    let bnRunning = $state(false);
+    let bnStages = $state<DiagnosticStage[]>([]);
+    let bnResult = $state<DiagnosticResult | null>(null);
+    let bnRunId = $state(0);
+
+    let bwTestOpen = $state(false);
+    let bwRunning = $state(false);
+    let bwStages = $state<DiagnosticStage[]>([]);
+    let bwResult = $state<DiagnosticResult | null>(null);
+    let bwRunId = $state(0);
+
+    async function runBirdNetDiagnostic(): Promise<void> {
+        bnTestOpen = true;
+        bnRunning = true;
+        bnResult = null;
+        bnRunId += 1;
+        // Reachability first (does BirdNET-Go actually answer?), then the MQTT
+        // transport detections travel on, then our own ingest pipeline. The
+        // reachability stage only runs when a URL is configured — BirdNET-Go is
+        // otherwise reached purely over MQTT, so we don't fabricate a check.
+        const steps = [];
+        if (birdnetUrl.trim()) {
+            steps.push({ id: 'reachable', label: $_('settings.integrations.birdnet.stage_reachable', { default: 'BirdNET-Go reachable' }), run: checkBirdNetReachability });
+        }
+        steps.push({ id: 'mqtt', label: $_('settings.integrations.birdnet.stage_mqtt', { default: 'MQTT broker publish' }), run: testMQTTPublish });
+        steps.push({ id: 'pipeline', label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'Detection pipeline (mock detection)' }), run: testBirdNET });
+        bnResult = await runSequentialDiagnostic(steps, (stages) => (bnStages = stages));
+        bnRunning = false;
+    }
+
+    async function runBirdWeatherDiagnostic(): Promise<void> {
+        bwTestOpen = true;
+        bwRunning = true;
+        bwResult = null;
+        bwRunId += 1;
+        bwResult = await runSequentialDiagnostic(
+            [
+                { id: 'station', label: $_('settings.integrations.birdweather.stage_station', { default: 'BirdWeather station token' }), run: () => testBirdWeather(birdweatherStationToken) }
+            ],
+            (stages) => (bwStages = stages)
+        );
+        bwRunning = false;
     }
 
     $effect(() => {
@@ -275,12 +319,28 @@
         );
     }
 
-    const buttonPrimaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-teal-500 hover:bg-teal-600 text-white transition-all shadow-lg shadow-teal-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
+    const buttonPrimaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-brand-500 hover:bg-brand-600 text-white transition-all shadow-lg shadow-brand-500/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
     const buttonSecondaryClass = 'px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed';
 </script>
 
+{#snippet birdnetIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12h2M6 8v8M10 5v14M14 8v8M18 10v4M22 12h-2" /></svg>
+{/snippet}
+{#snippet inatIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.52-4.48 10-10 10Z" /><path d="M2 21c0-3 1.85-5.36 5.08-6" /></svg>
+{/snippet}
+{#snippet ebirdIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></svg>
+{/snippet}
+{#snippet birdweatherIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.6-1.6A3.5 3.5 0 0 0 6 19Z" /></svg>
+{/snippet}
+{#snippet locationIcon()}
+    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-6-5.686-6-10a6 6 0 1 1 12 0c0 4.314-6 10-6 10Z" /><circle cx="12" cy="11" r="2" /></svg>
+{/snippet}
+
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-    <SettingsCard icon="🎤" title={$_('settings.integrations.birdnet.title')}>
+    <SettingsCard accent iconSnippet={birdnetIcon} title={$_('settings.integrations.birdnet.title')}>
         <SettingsRow
             labelId="setting-birdnet-enabled"
             label={$_('settings.integrations.birdnet.title')}
@@ -294,6 +354,7 @@
             />
         </SettingsRow>
 
+        {#if birdnetEnabled}
         <SettingsRow
             labelId="setting-birdnet-url"
             label={$_('settings.integrations.birdnet.internal_url_label', { default: 'BirdNET-Go internal URL' })}
@@ -343,12 +404,12 @@
 
         <button
             type="button"
-            onclick={handleTestBirdNET}
-            disabled={testingBirdNET}
+            onclick={runBirdNetDiagnostic}
+            disabled={bnRunning}
             aria-label={$_('settings.integrations.birdnet.test_button')}
             class="w-full {buttonPrimaryClass}"
         >
-            {testingBirdNET ? $_('settings.integrations.birdnet.test_loading') : $_('settings.integrations.birdnet.test_button')}
+            {bnRunning ? $_('settings.integrations.birdnet.test_loading') : $_('settings.integrations.birdnet.test_button')}
         </button>
 
         <AdvancedSection
@@ -402,9 +463,9 @@
                     {#each availableCameras as camera}
                         <div class="py-3 first:pt-0 space-y-2">
                             <div class="flex items-center justify-between gap-2">
-                                <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
+                                <span class="inline-flex items-center rounded-md bg-slate-100 dark:bg-slate-800 px-2 py-0.5 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">{camera}</span>
                                 {#if mappingTokensFor(camera).length > 0}
-                                    <span class="text-[10px] font-bold text-slate-400">{mappingTokensFor(camera).length} mapped</span>
+                                    <span class="text-xs font-bold text-slate-400">{mappingTokensFor(camera).length} mapped</span>
                                 {/if}
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -414,11 +475,11 @@
                                     bind:value={cameraAudioMapping[camera]}
                                     placeholder={$_('settings.integrations.birdnet.sensor_id_placeholder')}
                                     aria-label={$_('settings.integrations.birdnet.sensor_id_label', { values: { camera } })}
-                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-teal-500 outline-none"
+                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-mono font-bold text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 outline-none"
                                 />
                                 <select
                                     aria-label={$_('settings.integrations.birdnet.add_detected_source_label', { values: { camera } })}
-                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-teal-500 outline-none disabled:opacity-50"
+                                    class="w-full h-10 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-xs font-bold text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50"
                                     disabled={birdnetMappingOptions.length === 0}
                                     onchange={(event) => {
                                         const select = event.currentTarget;
@@ -440,11 +501,11 @@
                                     aria-label={$_('settings.integrations.birdnet.source_token_list_label', { values: { camera } })}
                                 >
                                     {#each mappingTokensFor(camera) as sourceToken, sourceTokenIndex}
-                                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-teal-200 dark:border-teal-800/80 bg-teal-50 dark:bg-teal-950/40 px-2.5 py-1 text-[10px] font-mono font-black text-teal-700 dark:text-teal-200">
+                                        <span class="inline-flex max-w-full items-center gap-1.5 rounded-full border border-brand-200 dark:border-brand-800/80 bg-brand-50 dark:bg-brand-950/40 px-2.5 py-1 text-xs font-mono font-black text-brand-700 dark:text-brand-200">
                                             <span class="break-all">{sourceToken}</span>
                                             <button
                                                 type="button"
-                                                class="shrink-0 rounded-full text-teal-600 hover:text-rose-600 dark:text-teal-300 dark:hover:text-rose-300 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                                class="shrink-0 rounded-full text-brand-600 hover:text-rose-600 dark:text-brand-300 dark:hover:text-rose-300 focus:outline-none focus:ring-2 focus:ring-brand-500"
                                                 aria-label={$_('settings.integrations.birdnet.source_token_remove', { values: { source: sourceToken, camera } })}
                                                 onclick={() => removeCameraAudioSourceToken(camera, sourceTokenIndex)}
                                             >
@@ -464,19 +525,19 @@
 
                     <div class="pt-3">
                         <div class="flex items-center justify-between mb-1.5">
-                            <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">
+                            <div class="text-xs font-black uppercase tracking-widest text-slate-500">
                                 {$_('settings.integrations.birdnet.source_discovery_title')}
                             </div>
                             {#if !loadingBirdnetSources && !birdnetSourcesError && birdnetSourceOptions.length > 0 && availableCameras.length > 0}
-                                <div class="text-[9px] font-bold uppercase tracking-wider text-slate-400">click to add</div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-slate-400">click to add</div>
                             {/if}
                         </div>
                         {#if loadingBirdnetSources}
-                            <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_loading')}</p>
+                            <p class="text-xs text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_loading')}</p>
                         {:else if birdnetSourcesError}
-                            <p class="text-[10px] text-rose-500 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_error')}</p>
+                            <p class="text-xs text-rose-500 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_error')}</p>
                         {:else if birdnetSourceOptions.length === 0}
-                            <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_empty')}</p>
+                            <p class="text-xs text-slate-400 font-bold italic">{$_('settings.integrations.birdnet.source_discovery_empty')}</p>
                         {:else}
                             <ul class="max-h-56 overflow-y-auto">
                                 {#each birdnetSourceOptions.slice(0, 12) as source, sourceIndex}
@@ -485,7 +546,7 @@
                                     <li>
                                         <button
                                             type="button"
-                                            class="group w-full flex items-center gap-2 px-2 py-1.5 text-left rounded-md hover:bg-teal-50 dark:hover:bg-teal-950/40 active:bg-teal-100 dark:active:bg-teal-950/60 focus:outline-none focus-visible:bg-teal-50 dark:focus-visible:bg-teal-950/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-teal-500 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                                            class="group w-full flex items-center gap-2 px-2 py-1.5 text-left rounded-md hover:bg-brand-50 dark:hover:bg-brand-950/40 active:bg-brand-100 dark:active:bg-brand-950/60 focus:outline-none focus-visible:bg-brand-50 dark:focus-visible:bg-brand-950/40 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:hover:bg-transparent"
                                             style="opacity: {fade};"
                                             onclick={() => {
                                                 if (availableCameras.length > 0) {
@@ -497,9 +558,9 @@
                                                 ? `${sourceValue} · last seen ${source.last_seen} · click to add to ${availableCameras[0]}`
                                                 : sourceValue}
                                         >
-                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-teal-500 group-hover:text-white group-disabled:group-hover:bg-slate-200/70 transition-colors text-[11px] font-black leading-none" aria-hidden="true">+</span>
-                                            <span class="min-w-0 flex-1 text-[11px] font-mono font-black text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
-                                            <span class="shrink-0 text-[9px] font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
+                                            <span class="shrink-0 inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-200/70 dark:bg-slate-800/70 text-slate-400 group-hover:bg-brand-500 group-hover:text-white group-disabled:group-hover:bg-slate-200/70 transition-colors text-xs font-black leading-none" aria-hidden="true">+</span>
+                                            <span class="min-w-0 flex-1 text-xs font-mono font-black text-slate-800 dark:text-slate-100 break-all leading-tight">{sourceValue}</span>
+                                            <span class="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-400 whitespace-nowrap tabular-nums">{formatRelativeTime(source.last_seen)}</span>
                                         </button>
                                     </li>
                                 {/each}
@@ -509,9 +570,10 @@
                 </div>
             </SettingsRow>
         </AdvancedSection>
+        {/if}
     </SettingsCard>
 
-    <SettingsCard icon="🌿" title={$_('settings.integrations.inaturalist.title')}>
+    <SettingsCard accent iconSnippet={inatIcon} title={$_('settings.integrations.inaturalist.title')}>
         <SettingsRow
             labelId="setting-inat-enabled"
             label={$_('settings.integrations.inaturalist.title')}
@@ -525,6 +587,7 @@
             />
         </SettingsRow>
 
+        {#if inaturalistEnabled}
         <SettingsRow
             labelId="setting-inat-client-id"
             label={$_('settings.integrations.inaturalist.client_id')}
@@ -558,7 +621,7 @@
 
         <div class="rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 p-4 space-y-3">
             <p class="text-xs text-slate-700 dark:text-slate-200">{$_('settings.integrations.inaturalist.oauth_desc')}</p>
-            <p class="text-[10px] text-slate-500 font-semibold">{$_('settings.integrations.inaturalist.app_owner_note')}</p>
+            <p class="text-xs text-slate-500 font-semibold">{$_('settings.integrations.inaturalist.app_owner_note')}</p>
             <div class="flex flex-wrap gap-2">
                 <button
                     type="button"
@@ -601,8 +664,8 @@
                 </button>
             </div>
             {#if inaturalistConnectedUser}
-                <div class="flex items-center justify-between gap-2 p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
-                    <span class="text-sm text-emerald-700 dark:text-emerald-300">{$_('settings.integrations.inaturalist.connected', { values: { user: inaturalistConnectedUser } })}</span>
+                <div class="flex items-center justify-between gap-2 p-3 bg-accent-50 dark:bg-accent-900/20 rounded-xl">
+                    <span class="text-sm text-accent-700 dark:text-accent-300">{$_('settings.integrations.inaturalist.connected', { values: { user: inaturalistConnectedUser } })}</span>
                     <button
                         type="button"
                         onclick={async () => {
@@ -676,9 +739,10 @@
                 />
             </SettingsRow>
         </AdvancedSection>
+        {/if}
     </SettingsCard>
 
-    <SettingsCard icon="🐦" title={$_('settings.integrations.ebird.title')}>
+    <SettingsCard accent iconSnippet={ebirdIcon} title={$_('settings.integrations.ebird.title')}>
         <SettingsRow
             labelId="setting-ebird-enabled"
             label={$_('settings.integrations.ebird.title')}
@@ -692,6 +756,7 @@
             />
         </SettingsRow>
 
+        {#if ebirdEnabled}
         <SettingsRow
             labelId="setting-ebird-api-key"
             label={$_('settings.integrations.ebird.api_key')}
@@ -733,7 +798,7 @@
                     bind:value={ebirdExportFrom}
                     disabled={ebirdExportEverything}
                     aria-label={$_('settings.integrations.ebird.export_from_label')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
             </SettingsRow>
             <SettingsRow
@@ -747,13 +812,13 @@
                     bind:value={ebirdExportTo}
                     disabled={ebirdExportEverything}
                     aria-label={$_('settings.integrations.ebird.export_to_label')}
-                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-teal-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none disabled:opacity-50 disabled:cursor-not-allowed"
                 />
             </SettingsRow>
         </div>
-        <p class="text-[10px] text-slate-400 font-bold italic">{$_('settings.integrations.ebird.export_range_help')}</p>
+        <p class="text-xs text-slate-400 font-bold italic">{$_('settings.integrations.ebird.export_range_help')}</p>
         {#if ebirdExportRangeError}
-            <p class="text-[10px] text-rose-500 font-bold">{ebirdExportRangeError}</p>
+            <p class="text-xs text-rose-500 font-bold">{ebirdExportRangeError}</p>
         {/if}
         <button
             type="button"
@@ -776,7 +841,7 @@
         >
             {exportingEbirdCsv ? $_('common.testing') : $_('settings.integrations.ebird.export_csv')}
         </button>
-        <p class="text-[10px] text-slate-400 font-bold italic text-center">{$_('settings.integrations.ebird.export_csv_desc')}</p>
+        <p class="text-xs text-slate-400 font-bold italic text-center">{$_('settings.integrations.ebird.export_csv_desc')}</p>
 
         <AdvancedSection
             id="integrations-ebird-advanced"
@@ -843,9 +908,10 @@
                 </SettingsRow>
             </div>
         </AdvancedSection>
+        {/if}
     </SettingsCard>
 
-    <SettingsCard icon="🌦️" title={$_('settings.integrations.birdweather.title')}>
+    <SettingsCard accent iconSnippet={birdweatherIcon} title={$_('settings.integrations.birdweather.title')}>
         <SettingsRow
             labelId="setting-birdweather-enabled"
             label={$_('settings.integrations.birdweather.title')}
@@ -859,6 +925,7 @@
             />
         </SettingsRow>
 
+        {#if birdweatherEnabled}
         <SettingsRow
             labelId="setting-birdweather-token"
             label={$_('settings.integrations.birdweather.token')}
@@ -877,18 +944,20 @@
 
         <button
             type="button"
-            onclick={handleTestBirdWeather}
-            disabled={testingBirdWeather || !birdweatherStationToken}
+            onclick={runBirdWeatherDiagnostic}
+            disabled={bwRunning || !birdweatherStationToken}
             aria-label={$_('settings.integrations.birdweather.test_button')}
             class="w-full {buttonPrimaryClass}"
         >
-            {testingBirdWeather ? $_('settings.integrations.birdweather.test_loading') : $_('settings.integrations.birdweather.test_button')}
+            {bwRunning ? $_('settings.integrations.birdweather.test_loading') : $_('settings.integrations.birdweather.test_button')}
         </button>
+        {/if}
     </SettingsCard>
 
     <div class="md:col-span-2">
         <SettingsCard
-            icon="📍"
+            accent
+            iconSnippet={locationIcon}
             title={$_('settings.location.title')}
             description={$_('settings.location.desc')}
         >
@@ -908,14 +977,12 @@
                         {
                             value: 'auto',
                             label: $_('settings.location.mode_auto', { default: 'Auto-detect' }),
-                            sub: $_('settings.location.mode_auto_sub', { default: 'Resolved from your network' }),
-                            icon: '📡'
+                            sub: $_('settings.location.mode_auto_sub', { default: 'Resolved from your network' })
                         },
                         {
                             value: 'manual',
                             label: $_('settings.location.mode_manual', { default: 'Manual entry' }),
-                            sub: $_('settings.location.mode_manual_sub', { default: 'Pin exact latitude and longitude' }),
-                            icon: '🎯'
+                            sub: $_('settings.location.mode_manual_sub', { default: 'Pin exact latitude and longitude' })
                         }
                     ]}
                 />
@@ -954,7 +1021,7 @@
 
             {#if mapPoint}
                 <div class="rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/60 px-3 py-2 flex items-center gap-2 text-xs">
-                    <span class="text-[10px] font-black uppercase tracking-widest text-slate-400 shrink-0">{$_('settings.location.resolved_label', { default: 'Resolved' })}</span>
+                    <span class="text-xs font-black uppercase tracking-widest text-slate-400 shrink-0">{$_('settings.location.resolved_label', { default: 'Resolved' })}</span>
                     {#if geocodeLoading}
                         <span class="text-slate-400 italic font-bold">{$_('settings.location.resolving', { default: 'Looking up…' })}</span>
                     {:else if geocodeError}
@@ -1009,3 +1076,31 @@
         </SettingsCard>
     </div>
 </div>
+
+{#if bnTestOpen}
+    <DiagnosticDialog
+        title={$_('settings.integrations.birdnet.test_title', { default: 'BirdNET-Go connection test' })}
+        subtitle={$_('settings.integrations.birdnet.test_subtitle', { default: 'Confirms BirdNET-Go is reachable, the MQTT broker accepts a publish, and a mock detection flows through the pipeline.' })}
+        stages={bnStages}
+        busy={bnRunning}
+        result={bnResult}
+        runId={bnRunId}
+        retryLabel={$_('settings.integrations.birdnet.test_button')}
+        onClose={() => (bnTestOpen = false)}
+        onRetry={runBirdNetDiagnostic}
+    />
+{/if}
+
+{#if bwTestOpen}
+    <DiagnosticDialog
+        title={$_('settings.integrations.birdweather.test_title', { default: 'BirdWeather connection test' })}
+        subtitle={$_('settings.integrations.birdweather.test_subtitle', { default: 'Checks that your station token is accepted by BirdWeather.' })}
+        stages={bwStages}
+        busy={bwRunning}
+        result={bwResult}
+        runId={bwRunId}
+        retryLabel={$_('settings.integrations.birdweather.test_button')}
+        onClose={() => (bwTestOpen = false)}
+        onRetry={runBirdWeatherDiagnostic}
+    />
+{/if}

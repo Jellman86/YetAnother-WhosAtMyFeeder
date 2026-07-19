@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, JsonValue
 
 from app.auth import AuthContext, require_owner
 from app.services.model_eval_service import (
@@ -51,23 +51,23 @@ async def start_run(
     return StartRunResponse(run_id=run_id)
 
 
-@router.get("/runs")
-async def list_runs(_auth: AuthContext = Depends(require_owner)) -> dict:
+@router.get("/runs", response_model=dict[str, JsonValue])
+async def list_runs(_auth: AuthContext = Depends(require_owner)) -> dict[str, JsonValue]:
     return {
         "active": model_eval_runner.active_status() if model_eval_runner.is_running() else None,
         "runs": model_eval_runner.list_runs(),
     }
 
 
-@router.get("/runs/{run_id}")
-async def get_run(run_id: str, _auth: AuthContext = Depends(require_owner)) -> dict:
+@router.get("/runs/{run_id}", response_model=dict[str, JsonValue])
+async def get_run(run_id: str, _auth: AuthContext = Depends(require_owner)) -> dict[str, JsonValue]:
     payload = model_eval_runner.get_run(run_id)
     if payload is None:
         raise HTTPException(status_code=404, detail="run not found")
     return payload
 
 
-@router.get("/runs/{run_id}/{artifact}")
+@router.get("/runs/{run_id}/{artifact}", response_class=FileResponse)
 async def get_artifact(
     run_id: str,
     artifact: str,
@@ -88,16 +88,16 @@ async def get_artifact(
     return FileResponse(path, media_type=media_type, filename=artifact)
 
 
-@router.delete("/runs/{run_id}")
-async def delete_run(run_id: str, _auth: AuthContext = Depends(require_owner)) -> dict:
+@router.delete("/runs/{run_id}", response_model=dict[str, str])
+async def delete_run(run_id: str, _auth: AuthContext = Depends(require_owner)) -> dict[str, str]:
     ok = model_eval_runner.delete_run(run_id)
     if not ok:
         raise HTTPException(status_code=404, detail="run not found or in progress")
     return {"deleted": run_id}
 
 
-@router.post("/runs/{run_id}/cancel")
-async def cancel_run(run_id: str, _auth: AuthContext = Depends(require_owner)) -> dict:
+@router.post("/runs/{run_id}/cancel", response_model=dict[str, JsonValue])
+async def cancel_run(run_id: str, _auth: AuthContext = Depends(require_owner)) -> dict[str, JsonValue]:
     active = model_eval_runner.active_status() or {}
     if active.get("run_id") != run_id or not model_eval_runner.is_running():
         raise HTTPException(status_code=404, detail="no active run with that id")

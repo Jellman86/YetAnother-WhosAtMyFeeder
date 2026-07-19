@@ -11,6 +11,21 @@ import zh from './locales/zh.json';
 
 type LocaleRoot = Record<string, unknown>;
 
+function leafPaths(value: LocaleRoot, prefix = ''): string[] {
+    return Object.entries(value).flatMap(([key, child]) => {
+        const path = prefix ? `${prefix}.${key}` : key;
+        if (child && typeof child === 'object' && !Array.isArray(child)) {
+            return leafPaths(child as LocaleRoot, path);
+        }
+        return [path];
+    });
+}
+
+function interpolationTokens(value: unknown): string[] {
+    if (typeof value !== 'string') return [];
+    return [...value.matchAll(/\{([a-zA-Z0-9_]+)\}/g)].map(match => match[1]).sort();
+}
+
 function pick(obj: LocaleRoot, path: string): unknown {
     return path.split('.').reduce<unknown>((current, segment) => {
         if (!current || typeof current !== 'object') return undefined;
@@ -111,8 +126,6 @@ const REQUIRED_ACTIVE_KEYS = [
     'settings.data.batch_analysis_complete',
     'settings.data.cache_high_quality_event_snapshots',
     'settings.data.cache_high_quality_event_snapshots_help',
-    'settings.data.cache_high_quality_event_snapshot_bird_crop',
-    'settings.data.cache_high_quality_event_snapshot_bird_crop_help',
     'settings.debug.strict_non_finite_output',
     'settings.debug.strict_non_finite_output_desc',
     'settings.detection.blocked_species_legacy',
@@ -161,6 +174,9 @@ const REQUIRED_ACTIVE_KEYS = [
 ];
 
 const MUST_BE_LOCALIZED = [
+    'settings.llm.get_gemini_key',
+    'settings.llm.get_openai_key',
+    'settings.llm.get_claude_key',
     'settings.cameras.preview_close',
     'settings.telemetry.title',
     'settings.telemetry.desc',
@@ -270,7 +286,6 @@ const MUST_BE_LOCALIZED = [
     'leaderboard.analytics_section',
     'leaderboard.weather_overlays',
     'settings.data.cache_high_quality_event_snapshots',
-    'settings.data.cache_high_quality_event_snapshot_bird_crop',
     'settings.frigate.full_visit_clips',
     'settings.frigate.full_visit_supported',
     'species_detail.copy_diagnostics_bundle',
@@ -286,6 +301,24 @@ const MUST_BE_LOCALIZED = [
 
 describe('locale audit for active non-English UX', () => {
     for (const [localeName, locale] of NON_ENGLISH_LOCALES) {
+        it(`${localeName} matches the locale key contract`, () => {
+            const englishKeys = new Set(leafPaths(en as LocaleRoot));
+            const localeKeys = new Set(leafPaths(locale));
+            const missingKeys = [...englishKeys].filter(key => !localeKeys.has(key)).sort();
+            const extraKeys = [...localeKeys].filter(key => !englishKeys.has(key)).sort();
+
+            expect(extraKeys, 'remove keys that are not present in en.json').toEqual([]);
+            expect(missingKeys, 'translate keys that are present in en.json').toEqual([]);
+        });
+
+        it(`${localeName} preserves interpolation tokens`, () => {
+            for (const key of leafPaths(locale)) {
+                expect(interpolationTokens(pick(locale, key)), `${key} must preserve its placeholders`).toEqual(
+                    interpolationTokens(pick(en as LocaleRoot, key))
+                );
+            }
+        });
+
         it(`${localeName} does not contain dead top-level ai strings`, () => {
             expect(pick(locale, 'ai')).toBeUndefined();
         });

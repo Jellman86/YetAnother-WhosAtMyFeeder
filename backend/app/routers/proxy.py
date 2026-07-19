@@ -1,5 +1,6 @@
 import asyncio
 import json
+import math
 import re
 import hashlib
 import weakref
@@ -21,7 +22,6 @@ import structlog
 from prometheus_client import Counter, Histogram
 from typing import Literal
 from app.config import settings
-from app.services.bird_crop_service import bird_crop_service
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.i18n_service import i18n_service
@@ -31,7 +31,6 @@ from app.auth import (
     AuthContext,
     AuthLevel,
     require_owner,
-    verify_token,
     security,
     get_auth_context_with_legacy,
     api_key_header,
@@ -40,6 +39,7 @@ from app.auth import (
 from app.ratelimit import guest_rate_limit, share_create_rate_limit
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.public_access import effective_public_media_days
 
@@ -72,7 +72,12 @@ SNAPSHOT_NO_STORE_HEADERS = {
     "Cache-Control": "no-store, max-age=0",
     "Pragma": "no-cache",
 }
-HIGH_QUALITY_SNAPSHOT_SOURCES = {"high_quality_snapshot", "high_quality_bird_crop"}
+HIGH_QUALITY_SNAPSHOT_SOURCES = {
+    "high_quality_snapshot",
+    "high_quality_bird_crop",
+    "hq_candidate_frigate_hint_crop",
+    "hq_candidate_model_crop",
+}
 
 
 def get_http_client() -> httpx.AsyncClient:
@@ -182,25 +187,7 @@ def _hq_bird_crop_feature_enabled() -> bool:
         settings.media_cache.enabled
         and settings.media_cache.cache_snapshots
         and settings.media_cache.high_quality_event_snapshots
-        and settings.media_cache.high_quality_event_snapshot_bird_crop
     )
-
-
-def _bird_crop_runtime_available() -> bool:
-    get_status = getattr(bird_crop_service, "get_status", None)
-    if not callable(get_status):
-        return True
-    try:
-        status = get_status() or {}
-    except Exception:
-        return True
-    if not isinstance(status, dict):
-        return True
-    if status.get("installed") is False:
-        return False
-    if status.get("enabled_for_runtime") is False:
-        return False
-    return True
 
 
 async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapshot: bool = True):
@@ -225,17 +212,19 @@ async def _build_snapshot_status(event_id: str, *, check_original_frigate_snapsh
         )
         original_frigate_snapshot_available = bool(original_snapshot)
 
-    already_hq_bird_crop = source == "high_quality_bird_crop"
-    can_generate_hq_bird_crop = bool(
-        _hq_bird_crop_feature_enabled() and _bird_crop_runtime_available() and not already_hq_bird_crop
-    )
+    already_hq_bird_crop = source in {
+        "high_quality_bird_crop",
+        "hq_candidate_frigate_hint_crop",
+        "hq_candidate_model_crop",
+    }
+    can_generate_hq_bird_crop = bool(_hq_bird_crop_feature_enabled() and not already_hq_bird_crop)
 
     return SnapshotStatusResponse(
         event_id=event_id,
         cached=cached,
         source=source,
         high_quality_event_snapshots_enabled=bool(settings.media_cache.high_quality_event_snapshots),
-        high_quality_bird_crop_enabled=bool(settings.media_cache.high_quality_event_snapshot_bird_crop),
+        high_quality_bird_crop_enabled=_hq_bird_crop_feature_enabled(),
         already_hq_bird_crop=already_hq_bird_crop,
         can_generate_hq_bird_crop=can_generate_hq_bird_crop,
         original_frigate_snapshot_available=original_frigate_snapshot_available,
@@ -278,7 +267,7 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
     has_model_crop = any(str(c.get("source_mode") or "") == "model_crop" for c in candidates)
     model_crop_miss_reason: str | None = None
     if not has_model_crop:
-        if not bool(getattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False)):
+        if not _hq_bird_crop_feature_enabled():
             model_crop_miss_reason = "crop_model_disabled"
         elif not high_quality_snapshot_service._bird_crop_model_available():
             model_crop_miss_reason = "crop_model_unavailable"
@@ -449,6 +438,19 @@ class FrigateTestResponse(BaseModel):
     version: str
 
 
+class FrigateCameraStatusItem(BaseModel):
+    camera: str
+    status: Literal["online", "offline", "unknown"]
+    camera_fps: float | None = None
+    process_fps: float | None = None
+    detection_fps: float | None = None
+
+
+class FrigateCameraStatusResponse(BaseModel):
+    cameras: list[FrigateCameraStatusItem]
+    checked_at: str
+
+
 class RecordingClipCapabilityResponse(BaseModel):
     supported: bool
     reason: str | None = None
@@ -588,16 +590,7 @@ async def _resolve_video_share_token(share_token: str, event_id: str | None = No
 
     token_hash = _hash_share_token(share_token)
     async with get_db() as db:
-        async with db.execute(
-            """
-            SELECT frigate_event, watermark_label, expires_at, revoked
-            FROM video_share_links
-            WHERE token_hash = ?
-            LIMIT 1
-            """,
-            (token_hash,),
-        ) as cursor:
-            row = await cursor.fetchone()
+        row = await VideoShareRepository(db).get_by_token_hash(token_hash)
 
     if not row:
         return None
@@ -629,20 +622,18 @@ async def _create_video_share_token(
     expires_at = datetime.utcnow() + timedelta(minutes=expires_in_minutes)
 
     async with get_db() as db:
+        repo = VideoShareRepository(db)
         for _ in range(5):
             token = secrets.token_urlsafe(24)
             token_hash = _hash_share_token(token)
             try:
-                cursor = await db.execute(
-                    """
-                    INSERT INTO video_share_links
-                    (token_hash, frigate_event, created_by, watermark_label, expires_at, revoked)
-                    VALUES (?, ?, ?, ?, ?, 0)
-                    """,
-                    (token_hash, event_id, created_by, watermark_label, expires_at),
+                link_id = await repo.create(
+                    token_hash=token_hash,
+                    event_id=event_id,
+                    created_by=created_by,
+                    watermark_label=watermark_label,
+                    expires_at=expires_at,
                 )
-                await db.commit()
-                link_id = int(cursor.lastrowid or 0)
                 return link_id, token, expires_at
             except sqlite3.IntegrityError:
                 # Extremely unlikely hash collision/token replay; retry with a fresh token.
@@ -654,18 +645,7 @@ async def _create_video_share_token(
 async def _list_active_video_share_links(event_id: str) -> list[VideoShareLinkItemResponse]:
     now = datetime.utcnow()
     async with get_db() as db:
-        async with db.execute(
-            """
-            SELECT id, frigate_event, created_by, watermark_label, created_at, expires_at, revoked
-            FROM video_share_links
-            WHERE frigate_event = ?
-              AND revoked = 0
-              AND expires_at > ?
-            ORDER BY created_at DESC, id DESC
-            """,
-            (event_id, now),
-        ) as cursor:
-            rows = await cursor.fetchall()
+        rows = await VideoShareRepository(db).list_active(event_id, now)
 
     return [_build_video_share_link_item(row, now=now) for row in rows]
 
@@ -679,52 +659,22 @@ async def _update_video_share_link(
     watermark_label: str | None,
 ) -> VideoShareLinkItemResponse | None:
     now = datetime.utcnow()
-    updates: list[str] = []
-    params: list[object] = []
-
-    if expires_in_minutes is not None:
-        updates.append("expires_at = ?")
-        params.append(now + timedelta(minutes=expires_in_minutes))
-    if watermark_provided:
-        updates.append("watermark_label = ?")
-        params.append(watermark_label)
-
-    if not updates:
+    if expires_in_minutes is None and not watermark_provided:
         return None
 
     async with get_db() as db:
-        async with db.execute(
-            """
-            SELECT id, frigate_event, created_by, watermark_label, created_at, expires_at, revoked
-            FROM video_share_links
-            WHERE frigate_event = ?
-              AND id = ?
-              AND revoked = 0
-              AND expires_at > ?
-            LIMIT 1
-            """,
-            (event_id, link_id, now),
-        ) as cursor:
-            existing = await cursor.fetchone()
+        repo = VideoShareRepository(db)
+        existing = await repo.get_active(event_id, link_id, now)
 
         if not existing:
             return None
-
-        update_sql = f"UPDATE video_share_links SET {', '.join(updates)} WHERE frigate_event = ? AND id = ?"
-        await db.execute(update_sql, (*params, event_id, link_id))
-        await db.commit()
-
-        async with db.execute(
-            """
-            SELECT id, frigate_event, created_by, watermark_label, created_at, expires_at, revoked
-            FROM video_share_links
-            WHERE frigate_event = ?
-              AND id = ?
-            LIMIT 1
-            """,
-            (event_id, link_id),
-        ) as cursor:
-            updated = await cursor.fetchone()
+        updated = await repo.update_active(
+            event_id,
+            link_id,
+            expires_at=now + timedelta(minutes=expires_in_minutes) if expires_in_minutes is not None else None,
+            update_watermark=watermark_provided,
+            watermark_label=watermark_label,
+        )
 
     if not updated:
         return None
@@ -735,41 +685,14 @@ async def _update_video_share_link(
 async def _revoke_video_share_link(event_id: str, link_id: int) -> bool:
     now = datetime.utcnow()
     async with get_db() as db:
-        await db.execute(
-            """
-            UPDATE video_share_links
-            SET revoked = 1
-            WHERE frigate_event = ?
-              AND id = ?
-              AND revoked = 0
-              AND expires_at > ?
-            """,
-            (event_id, link_id, now),
-        )
-        async with db.execute("SELECT changes()") as cursor:
-            row = await cursor.fetchone()
-            changed = int(row[0]) if row else 0
-        await db.commit()
-    return changed > 0
+        return await VideoShareRepository(db).revoke_active(event_id, link_id, now)
 
 
 async def cleanup_expired_video_share_links() -> int:
     """Delete stale share links (expired and revoked) to keep table size bounded."""
     now = datetime.now(timezone.utc)
     async with get_db() as db:
-        await db.execute(
-            """
-            DELETE FROM video_share_links
-            WHERE expires_at <= ?
-               OR revoked = 1
-            """,
-            (now,),
-        )
-        async with db.execute("SELECT changes()") as cursor:
-            row = await cursor.fetchone()
-            deleted = int(row[0]) if row else 0
-        await db.commit()
-    return deleted
+        return await VideoShareRepository(db).delete_expired_or_revoked(now)
 
 
 def _has_valid_share_context(request: Request, event_id: str) -> bool:
@@ -1159,7 +1082,7 @@ async def _ensure_preview_assets(event_id: str, lang: str) -> str:
         finally:
             if temp_clip is not None:
                 try:
-                    temp_clip.unlink(missing_ok=True)
+                    await asyncio.to_thread(temp_clip.unlink, missing_ok=True)
                 except Exception:
                     pass
 
@@ -1392,7 +1315,7 @@ async def test_frigate_connection(request: Request, auth: AuthContext = Depends(
         )
 
 
-@router.get("/frigate/config")
+@router.get("/frigate/config", response_class=Response)
 async def proxy_config(request: Request, auth: AuthContext = Depends(require_owner)):
     url = f"{settings.frigate.frigate_url}/api/config"
     client = get_http_client()
@@ -1454,9 +1377,6 @@ async def generate_hq_bird_crop_snapshot(
         raise HTTPException(status_code=400, detail="Invalid event ID format")
     if not _hq_bird_crop_feature_enabled():
         raise HTTPException(status_code=409, detail="HQ bird crop snapshots are not enabled")
-    if not _bird_crop_runtime_available():
-        raise HTTPException(status_code=409, detail="Bird crop detector is not available")
-
     async with _snapshot_generation_lock(event_id):
         before = await _build_snapshot_status(event_id)
         if before.already_hq_bird_crop:
@@ -1494,7 +1414,7 @@ async def get_snapshot_candidates(
     return await _build_snapshot_candidates_response(request, event_id)
 
 
-@router.get("/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg")
+@router.get("/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg", response_class=Response)
 async def get_snapshot_candidate_thumbnail(
     event_id: str = Path(..., min_length=1, max_length=64),
     candidate_id: str = Path(..., min_length=1, max_length=160),
@@ -1574,7 +1494,7 @@ async def apply_snapshot_candidate(
     )
 
 
-@router.get("/frigate/{event_id}/snapshot/original.jpg")
+@router.get("/frigate/{event_id}/snapshot/original.jpg", response_class=Response)
 async def proxy_original_snapshot(
     event_id: str = Path(..., min_length=1, max_length=64),
     auth: AuthContext = Depends(require_owner),
@@ -1588,7 +1508,7 @@ async def proxy_original_snapshot(
     return Response(content=snapshot_bytes, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
 
-@router.get("/frigate/{event_id}/snapshot.jpg")
+@router.get("/frigate/{event_id}/snapshot.jpg", response_class=Response)
 @guest_rate_limit()
 async def proxy_snapshot(
     request: Request,
@@ -1652,26 +1572,14 @@ async def proxy_snapshot(
         )
 
 
-@router.get("/frigate/camera/{camera}/latest.jpg")
-async def proxy_latest_camera_snapshot(request: Request, camera: str = Path(..., min_length=1, max_length=64)):
+@router.get("/frigate/camera/{camera}/latest.jpg", response_class=Response)
+async def proxy_latest_camera_snapshot(
+    request: Request,
+    camera: str = Path(..., min_length=1, max_length=64),
+    _auth: AuthContext = Depends(require_owner),
+):
     """Proxy latest snapshot for a camera from Frigate."""
     lang = get_user_language(request)
-
-    # Require owner access (query token or Authorization header). Avoid Depends so query token works.
-    if settings.auth.enabled and not settings.public_access.enabled:
-        token = request.query_params.get("token")
-        if not token:
-            auth_header = request.headers.get("Authorization", "")
-            if auth_header.startswith("Bearer "):
-                token = auth_header[7:]
-        if not token:
-            raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
-        try:
-            token_data = verify_token(token)
-            if token_data.auth_level != AuthLevel.OWNER:
-                raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
-        except HTTPException:
-            raise HTTPException(status_code=403, detail="Owner privileges required for this operation")
 
     if not validate_camera_name(camera):
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
@@ -1682,7 +1590,11 @@ async def proxy_latest_camera_snapshot(request: Request, camera: str = Path(...,
     try:
         resp = await client.get(url, headers=headers)
         resp.raise_for_status()
-        return Response(content=resp.content, media_type=resp.headers.get("content-type", "image/jpeg"))
+        return Response(
+            content=resp.content,
+            media_type=resp.headers.get("content-type", "image/jpeg"),
+            headers=SNAPSHOT_NO_STORE_HEADERS,
+        )
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail=i18n_service.translate("errors.proxy.frigate_timeout", lang))
     except httpx.HTTPStatusError as e:
@@ -1695,6 +1607,76 @@ async def proxy_latest_camera_snapshot(request: Request, camera: str = Path(...,
             status_code=502,
             detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
         )
+
+
+def _finite_camera_metric(value: object) -> float | None:
+    """Return a finite Frigate camera metric without trusting its JSON shape."""
+    if isinstance(value, bool):
+        return None
+    try:
+        metric = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    return metric if math.isfinite(metric) and metric >= 0 else None
+
+
+@router.get("/frigate/cameras/status", response_model=FrigateCameraStatusResponse)
+async def get_frigate_camera_status(
+    request: Request,
+    response: Response,
+    _auth: AuthContext = Depends(require_owner),
+):
+    """Return lightweight per-camera health derived from Frigate's stats feed."""
+    lang = get_user_language(request)
+    try:
+        resp = await frigate_client.get("api/stats", timeout=10.0)
+        resp.raise_for_status()
+        payload = resp.json()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail=i18n_service.translate("errors.proxy.frigate_timeout", lang))
+    except httpx.HTTPStatusError as exc:
+        raise HTTPException(
+            status_code=exc.response.status_code,
+            detail=i18n_service.translate("errors.proxy.frigate_error", lang, status_code=exc.response.status_code),
+        )
+    except (httpx.RequestError, json.JSONDecodeError, ValueError, TypeError):
+        raise HTTPException(
+            status_code=502,
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+        )
+
+    raw_cameras = payload.get("cameras") if isinstance(payload, dict) else None
+    camera_items: list[FrigateCameraStatusItem] = []
+    if isinstance(raw_cameras, dict):
+        for camera, raw_metrics in raw_cameras.items():
+            if not isinstance(camera, str) or not validate_camera_name(camera):
+                continue
+            metrics = raw_metrics if isinstance(raw_metrics, dict) else {}
+            camera_fps = _finite_camera_metric(metrics.get("camera_fps"))
+            process_fps = _finite_camera_metric(metrics.get("process_fps"))
+            detection_fps = _finite_camera_metric(metrics.get("detection_fps"))
+            status: Literal["online", "offline", "unknown"]
+            if camera_fps is None:
+                status = "unknown"
+            elif camera_fps > 0:
+                status = "online"
+            else:
+                status = "offline"
+            camera_items.append(
+                FrigateCameraStatusItem(
+                    camera=camera,
+                    status=status,
+                    camera_fps=camera_fps,
+                    process_fps=process_fps,
+                    detection_fps=detection_fps,
+                )
+            )
+
+    response.headers.update(SNAPSHOT_NO_STORE_HEADERS)
+    return FrigateCameraStatusResponse(
+        cameras=camera_items,
+        checked_at=datetime.now(timezone.utc).isoformat(),
+    )
 
 
 @router.head("/frigate/{event_id}/clip.mp4")
@@ -1860,7 +1842,7 @@ async def fetch_recording_clip(
     )
 
 
-@router.get("/frigate/{event_id}/clip.mp4")
+@router.get("/frigate/{event_id}/clip.mp4", response_class=StreamingResponse)
 @guest_rate_limit()
 async def proxy_clip(
     request: Request,
@@ -2054,7 +2036,7 @@ async def proxy_clip(
     )
 
 
-@router.get("/frigate/{event_id}/recording-clip.mp4")
+@router.get("/frigate/{event_id}/recording-clip.mp4", response_class=StreamingResponse)
 @guest_rate_limit()
 async def proxy_recording_clip(
     request: Request,
@@ -2195,7 +2177,7 @@ async def proxy_recording_clip(
     )
 
 
-@router.get("/frigate/{event_id}/clip-thumbnails.vtt")
+@router.get("/frigate/{event_id}/clip-thumbnails.vtt", response_class=Response)
 @guest_rate_limit()
 async def proxy_clip_thumbnails_vtt(
     request: Request,
@@ -2282,7 +2264,7 @@ async def proxy_clip_thumbnails_vtt(
     )
 
 
-@router.get("/frigate/{event_id}/clip-thumbnails.jpg")
+@router.get("/frigate/{event_id}/clip-thumbnails.jpg", response_class=Response)
 @guest_rate_limit()
 async def proxy_clip_thumbnails_sprite(
     request: Request,
@@ -2333,7 +2315,7 @@ async def proxy_clip_thumbnails_sprite(
     )
 
 
-@router.get("/frigate/{event_id}/thumbnail.jpg")
+@router.get("/frigate/{event_id}/thumbnail.jpg", response_class=Response)
 @guest_rate_limit()
 async def proxy_thumb(
     request: Request,

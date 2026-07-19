@@ -102,13 +102,20 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 ### Media Proxy and Share Links
 
 - `GET /api/frigate/{event_id}/snapshot.jpg`
+- `GET /api/frigate/{event_id}/snapshot/status` (owner; reports the effective best-available policy)
+- `GET /api/frigate/{event_id}/snapshot/candidates` (owner)
+- `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner)
+- `POST /api/frigate/{event_id}/snapshot/apply` (owner)
+- `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
+- `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
 - `GET /api/frigate/{event_id}/clip.mp4`
 - `GET /api/frigate/{event_id}/recording-clip.mp4`
 - `POST /api/frigate/{event_id}/recording-clip/fetch`
 - `GET /api/frigate/{event_id}/thumbnail.jpg`
 - `GET /api/frigate/{event_id}/clip-thumbnails.vtt`
 - `GET /api/frigate/{event_id}/clip-thumbnails.jpg`
-- `GET /api/frigate/camera/{camera}/latest.jpg`
+- `GET /api/frigate/cameras/status` (owner; normalized camera health from Frigate stats, never cached)
+- `GET /api/frigate/camera/{camera}/latest.jpg` (owner; current frame, never cached)
 - `GET /api/frigate/test`
 - `GET /api/frigate/config`
 - `GET /api/frigate/recording-clip-capability`
@@ -117,6 +124,9 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `GET /api/video-share/{event_id}/links`
 - `PATCH /api/video-share/{event_id}/links/{link_id}`
 - `POST /api/video-share/{event_id}/links/{link_id}/revoke`
+
+The HQ snapshot worker also publishes `crop_policy`, selected-source counts, outcomes, and recovered
+job totals under `GET /health` → `high_quality_snapshots`.
 
 Notes:
 - `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted full-visit clip exists for the event, this route serves that full-visit file before falling back to the shorter Frigate event clip.
@@ -159,7 +169,8 @@ Notes:
 - `GET /api/models/families/resolved` (owner)
 - `POST /api/models/{model_id}/download` (owner)
 - `GET /api/models/download-status/{model_id}` (owner)
-- `POST /api/models/{model_id}/activate` (owner)
+- `POST /api/models/{model_id}/validate` (owner) — trial-loads the model on this host, runs one frame through it, and records whether it produced finite output. Clears the post-install selection gate on success and restores the previously active model.
+- `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the model has not been validated on this host (unless it is a bundled model or the one already active).
 
 ### AI
 
@@ -174,10 +185,13 @@ Notes:
 - `GET /api/settings` (owner)
 - `POST /api/settings` (owner)
 - `POST /api/settings/birdnet/test` (owner)
+- `GET /api/settings/birdnet/reachability` (owner) — checks the configured BirdNET-Go URL answers over HTTP
 - `POST /api/settings/mqtt/test-publish` (owner)
 - `POST /api/settings/notifications/test` (owner)
 - `POST /api/settings/birdweather/test` (owner)
-- `POST /api/settings/llm/test` (owner)
+- `POST /api/settings/llm/test` (owner) — returns structured AI diagnostic metadata (`provider`,
+  `model`, `frame_count`, `failure_stage`, `retryable`, and optional `retry_after_seconds`) for the
+  Settings multi-stage test panel. Provider 429 and 503 statuses are preserved.
 - `GET /api/maintenance/taxonomy/status` (owner)
 - `POST /api/maintenance/taxonomy/sync` (owner)
 - `GET /api/maintenance/stats` (owner)

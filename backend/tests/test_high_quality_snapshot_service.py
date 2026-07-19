@@ -147,6 +147,82 @@ def test_extract_crop_event_hints_keeps_only_valid_box_and_region():
             "path_data": [[[0.5, 0.6], 100.1]],
         },
     }
+
+
+def test_candidate_generation_attempts_model_crop_when_legacy_crop_flag_is_off(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshot_bird_crop", False, raising=False)
+    monkeypatch.setattr(service, "_bird_crop_model_available", lambda: True)
+    monkeypatch.setattr(service, "_crop_from_event_hints", lambda image, event_data: None)
+    monkeypatch.setattr(
+        service,
+        "_crop_from_bird_model",
+        lambda image, event_id=None: {
+            "crop_image": image.crop((8, 8, 96, 96)),
+            "box": (8, 8, 96, 96),
+            "confidence": 0.8,
+        },
+    )
+
+    candidates = service._candidate_images_for_frame(
+        Image.new("RGB", (128, 128)),
+        event_data=None,
+        event_id="evt",
+    )
+
+    assert [source for source, _image, _result in candidates] == ["full_frame", "model_crop"]
+
+
+@pytest.mark.asyncio
+async def test_reconcile_recent_detections_only_reschedules_unfinished_snapshot_jobs(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "enabled", True, raising=False)
+    monkeypatch.setattr(settings.media_cache, "cache_snapshots", True, raising=False)
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(settings.frigate, "clips_enabled", True, raising=False)
+
+    detections = [
+        SimpleNamespace(frigate_event="evt_unfinished"),
+        SimpleNamespace(frigate_event="evt_complete"),
+        SimpleNamespace(frigate_event="evt_reverted"),
+    ]
+
+    class FakeDbContext:
+        async def __aenter__(self):
+            return object()
+
+        async def __aexit__(self, *_args):
+            return None
+
+    class FakeRepo:
+        def __init__(self, _db):
+            pass
+
+        async def get_recent_full_visit_candidates(self, **_kwargs):
+            return detections
+
+        async def list_snapshot_candidates(self, event_id):
+            return [{"candidate_id": "manual"}] if event_id == "evt_reverted" else []
+
+    monkeypatch.setattr(hq_module, "get_db", lambda: FakeDbContext())
+    monkeypatch.setattr(hq_module, "DetectionRepository", FakeRepo)
+    monkeypatch.setattr(
+        hq_module.media_cache,
+        "get_snapshot_metadata",
+        AsyncMock(
+            side_effect=lambda event_id: (
+                {"source": "hq_candidate_model_crop"} if event_id == "evt_complete" else {"source": "frigate_snapshot"}
+            )
+        ),
+    )
+    scheduled: list[str] = []
+    monkeypatch.setattr(service, "schedule_replacement", lambda event_id: scheduled.append(event_id) or True)
+
+    recovered = await service.reconcile_recent_detections()
+
+    assert recovered == 1
+    assert scheduled == ["evt_unfinished"]
     assert service._extract_crop_event_hints({"data": {"box": [1, 2, 3]}}) is None
     assert service._extract_crop_event_hints({"data": "bad"}) is None
     assert service._extract_crop_event_hints(None) is None
@@ -196,7 +272,8 @@ def test_extract_snapshot_from_clip_path_prefers_frame_with_model_confirmed_crop
 
     fake_crop_service = MagicMock()
 
-    def generate_crop(image):
+    def generate_crop(image, *, detector_tier=None):
+        assert detector_tier == "accurate"
         r, g, _b = image.getpixel((0, 0))
         if g > r:
             return {
@@ -361,66 +438,29 @@ def test_candidate_frame_indices_prefers_path_point_nearest_box_center():
     assert indices[:3] == [24, 23, 25]
 
 
-def test_rank_snapshot_candidates_prefers_full_frame_over_marginal_tiny_crop():
+def test_crop_source_order_defines_a_fallback_chain_per_priority():
+    assert hq_module.crop_source_order("frigate_hints_first") == ("frigate_hint_crop", "model_crop", "full_frame")
+    assert hq_module.crop_source_order("crop_model_first") == ("model_crop", "frigate_hint_crop", "full_frame")
+    assert hq_module.crop_source_order("crop_model_only") == ("model_crop", "full_frame")
+    assert hq_module.crop_source_order("frigate_hints_only") == ("frigate_hint_crop", "full_frame")
+    # Unknown values fall back to the default order.
+    assert hq_module.crop_source_order("nonsense") == hq_module.crop_source_order("frigate_hints_first")
+
+
+def test_rank_snapshot_candidates_sorts_by_score_highest_first():
     service = hq_module.HighQualitySnapshotService()
 
     ranked = service._rank_snapshot_candidates(
         [
-            {
-                "candidate_id": "tiny-crop",
-                "source_mode": "frigate_hint_crop",
-                "ranking_score": 0.245,
-                "image_width": 129,
-                "image_height": 257,
-                "frame_width": 2560,
-                "frame_height": 1920,
-            },
-            {
-                "candidate_id": "full-frame",
-                "source_mode": "full_frame",
-                "ranking_score": 0.183,
-                "image_width": 2560,
-                "image_height": 1920,
-                "frame_width": 2560,
-                "frame_height": 1920,
-            },
+            {"candidate_id": "low", "source_mode": "full_frame", "ranking_score": 0.2},
+            {"candidate_id": "high", "source_mode": "model_crop", "ranking_score": 0.9},
         ]
     )
 
-    assert ranked[0]["candidate_id"] == "full-frame"
-    assert ranked[1]["candidate_id"] == "tiny-crop"
+    assert [item["candidate_id"] for item in ranked] == ["high", "low"]
 
 
-def test_rank_snapshot_candidates_keeps_tiny_crop_when_score_is_clearly_stronger():
-    service = hq_module.HighQualitySnapshotService()
-
-    ranked = service._rank_snapshot_candidates(
-        [
-            {
-                "candidate_id": "tiny-crop",
-                "source_mode": "frigate_hint_crop",
-                "ranking_score": 0.92,
-                "image_width": 180,
-                "image_height": 260,
-                "frame_width": 2560,
-                "frame_height": 1920,
-            },
-            {
-                "candidate_id": "full-frame",
-                "source_mode": "full_frame",
-                "ranking_score": 0.40,
-                "image_width": 2560,
-                "image_height": 1920,
-                "frame_width": 2560,
-                "frame_height": 1920,
-            },
-        ]
-    )
-
-    assert ranked[0]["candidate_id"] == "tiny-crop"
-
-
-def test_select_canonical_snapshot_candidate_prefers_full_frame_by_default():
+def test_select_canonical_snapshot_candidate_falls_back_to_crop_by_default():
     service = hq_module.HighQualitySnapshotService()
 
     selected = service._select_canonical_snapshot_candidate(
@@ -443,10 +483,42 @@ def test_select_canonical_snapshot_candidate_prefers_full_frame_by_default():
     )
 
     assert selected is not None
-    assert selected["candidate_id"] == "full-frame"
+    # Default priority (frigate_hints_first) has no hint crop here, so it falls back to the model
+    # crop instead of dropping to the full frame.
+    assert selected["candidate_id"] == "model-crop"
 
 
-def test_select_canonical_snapshot_candidate_prefers_model_crop_when_configured(monkeypatch):
+def test_select_canonical_snapshot_candidate_uses_a_small_crop():
+    service = hq_module.HighQualitySnapshotService()
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                "candidate_id": "small-crop",
+                "source_mode": "frigate_hint_crop",
+                "ranking_score": 0.30,
+                "image_width": 96,
+                "image_height": 120,
+                "frame_width": 2560,
+                "frame_height": 1920,
+            },
+            {
+                "candidate_id": "full-frame",
+                "source_mode": "full_frame",
+                "ranking_score": 0.90,
+                "image_width": 2560,
+                "image_height": 1920,
+            },
+        ]
+    )
+
+    assert selected is not None
+    # A small crop is still the displayed image even though the full frame scores higher — the
+    # tiny-crop suppression is gone.
+    assert selected["candidate_id"] == "small-crop"
+
+
+def test_select_canonical_snapshot_candidate_chooses_best_crop_regardless_of_legacy_priority(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
     monkeypatch.setattr(settings.classification, "bird_crop_source_priority", "crop_model_first", raising=False)
 
@@ -477,7 +549,22 @@ def test_select_canonical_snapshot_candidate_prefers_model_crop_when_configured(
     )
 
     assert selected is not None
-    assert selected["candidate_id"] == "model-crop"
+    assert selected["candidate_id"] == "hint-crop"
+
+
+def test_select_canonical_snapshot_candidate_prefers_any_valid_crop_over_full_frame(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.classification, "bird_crop_source_priority", "crop_model_only", raising=False)
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {"candidate_id": "full", "source_mode": "full_frame", "ranking_score": 0.99},
+            {"candidate_id": "hint", "source_mode": "frigate_hint_crop", "ranking_score": 0.81},
+        ]
+    )
+
+    assert selected is not None
+    assert selected["candidate_id"] == "hint"
 
 
 def test_maybe_crop_snapshot_bytes_prefers_event_hint_over_model_crop(monkeypatch):
@@ -853,7 +940,7 @@ async def test_process_event_prefers_frigate_hint_before_crop_model(tmp_path, mo
 
 
 @pytest.mark.asyncio
-async def test_process_event_can_prefer_crop_model_before_frigate_hint(tmp_path, monkeypatch):
+async def test_process_event_ignores_legacy_model_priority_when_frigate_hint_is_available(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_model_first", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
@@ -892,11 +979,11 @@ async def test_process_event_can_prefer_crop_model_before_frigate_hint(tmp_path,
     result = await hq_module.high_quality_snapshot_service.process_event("evt_model_first")
 
     assert result == "bird_crop_replaced"
-    fake_crop_service.generate_crop.assert_called_once()
+    fake_crop_service.generate_crop.assert_not_called()
     cached = await cache_service.get_snapshot("evt_model_first")
     assert cached is not None
     with Image.open(BytesIO(cached)) as img:
-        assert img.size == (23, 27)
+        assert img.size == (52, 34)
 
 
 @pytest.mark.asyncio

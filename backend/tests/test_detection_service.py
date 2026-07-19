@@ -398,6 +398,84 @@ async def test_save_detection_falls_back_when_taxonomy_lookup_times_out(mock_dep
     )
 
 
+@pytest.mark.asyncio
+async def test_apply_video_result_blocks_variant_via_cached_taxonomy(mock_deps, monkeypatch):
+    """Video promotion of a blocked species is caught even when the promoted label is a
+    name variant, because the block check resolves taxonomy from the cache (issue #77)."""
+    from app.config import settings
+    from app.config_models import BlockedSpeciesEntry
+
+    monkeypatch.setattr(settings.classification, "blocked_labels", [])
+    monkeypatch.setattr(
+        settings.classification,
+        "blocked_species",
+        [BlockedSpeciesEntry(scientific_name="Zenaida macroura", common_name="Mourning Dove", taxa_id=456)],
+    )
+    # The promoted label doesn't match the blocked entry by text; the cache resolves it.
+    mock_deps["repo"].get_taxonomy_names = AsyncMock(
+        return_value={"scientific_name": "Zenaida macroura", "common_name": "Mourning Dove", "taxa_id": 456}
+    )
+
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.3
+    existing.display_name = "Unknown Bird"
+    existing.category_name = "Unknown Bird"
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
+
+    service = DetectionService(MagicMock())
+    result = await service.apply_video_result("event1", "Turteltaube", 0.95, 5)
+
+    # Recorded as completed-but-blocked, and NOT promoted to the blocked species.
+    assert result is False
+    assert mock_deps["repo"].update_video_classification.call_args.kwargs["blocked"] is True
+    promotion = [c for c in mock_deps["db"].execute.call_args_list if "UPDATE detections" in c.args[0]]
+    assert promotion == []
+
+
+@pytest.mark.asyncio
+async def test_save_detection_blocks_via_cache_when_live_taxonomy_fails(mock_deps, monkeypatch):
+    """When the live taxonomy lookup fails, the block check still catches a blocked species
+    by bridging identity through the taxonomy cache (issue #77 hardening)."""
+    from app.config import settings
+    from app.config_models import BlockedSpeciesEntry
+
+    monkeypatch.setattr(settings.classification, "blocked_labels", [])
+    monkeypatch.setattr(
+        settings.classification,
+        "blocked_species",
+        [BlockedSpeciesEntry(scientific_name="Columba livia", common_name="Rock Pigeon", taxa_id=789)],
+    )
+    mock_deps["taxonomy"].get_names = AsyncMock(side_effect=RuntimeError("taxonomy service down"))
+    mock_deps["repo"].get_taxonomy_names = AsyncMock(
+        return_value={"scientific_name": "Columba livia", "common_name": "Rock Pigeon", "taxa_id": 789}
+    )
+    mock_deps["repo"].upsert_if_higher_score = AsyncMock(return_value=(True, True))
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=None)
+
+    service = DetectionService(MagicMock())
+    changed, inserted = await service.save_detection(
+        frigate_event="evt-blocked-variant",
+        camera="cam1",
+        start_time=1700000000,
+        classification={"label": "Rock Dove", "score": 0.95, "index": 1},
+        frigate_score=0.9,
+        sub_label=None,
+    )
+
+    # The detection is blocked and never written.
+    assert (changed, inserted) == (False, False)
+    mock_deps["repo"].upsert_if_higher_score.assert_not_called()
+
+
 def test_filter_and_label_rejects_non_finite_score():
     service = DetectionService(MagicMock())
 

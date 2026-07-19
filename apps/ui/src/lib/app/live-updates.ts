@@ -1,5 +1,7 @@
 import type { Detection } from '../api';
 import type { AnalysisStatus } from '../api/maintenance';
+import type { HealthStatus } from '../api/system';
+import type { NotificationItem } from '../stores/notification_center.svelte';
 import { isTransientGatewayError } from '../api/error-message';
 import { formatBackfillProgressSummary, resolveRunningBackfillMessage } from '../backfill/progress';
 import { formatTerminalBackfillMessage } from '../backfill/terminal-message';
@@ -21,12 +23,65 @@ const JOB_STALE_OVERRIDES: Record<string, number> = {
 };
 const ANALYSIS_STATUS_POLL_ROUTE = '/api/maintenance/analysis/status';
 
-type TranslateFn = (key: string, values?: Record<string, any>) => string;
+type TranslationValue = string | number | boolean | Date | null | undefined;
+type TranslateFn = (key: string, values?: Record<string, TranslationValue>) => string;
+type NotificationInput = Omit<NotificationItem, 'timestamp' | 'read'> & {
+    timestamp?: number;
+    read?: boolean;
+};
+type HealthPayload = Partial<HealthStatus> & {
+    video_classifier?: { pending?: number; active?: number };
+};
+
+interface SseData extends Omit<Partial<Detection>, 'id'> {
+    batch_analysis_active?: boolean;
+    batch_analysis_circuit_open?: boolean;
+    batch_analysis_complete?: number;
+    batch_analysis_pending?: number;
+    batch_analysis_title?: string;
+    camera?: string;
+    clip_total?: number;
+    current_frame?: number;
+    errors?: number;
+    event_id?: string;
+    frame_index?: number;
+    frame_score?: number;
+    frame_thumb?: string;
+    id?: string | number;
+    job_id?: string;
+    kind?: string;
+    message?: string;
+    model_name?: string;
+    new_detections?: number;
+    processed?: number;
+    ram_usage?: string | null;
+    reason?: string;
+    results?: unknown;
+    skipped?: number;
+    strategy?: string;
+    timestamp?: string;
+    to?: string;
+    from?: string;
+    top_label?: string;
+    total?: number;
+    total_frames?: number;
+    updated?: number;
+}
+
+interface SsePayload {
+    type?: string;
+    message?: string;
+    data?: SseData;
+}
+
+function isSsePayload(value: unknown): value is SsePayload {
+    return typeof value === 'object' && value !== null;
+}
 
 interface NotificationCenterLike {
-    items: any[];
-    add(item: any): void;
-    upsert(item: any): void;
+    items: NotificationItem[];
+    add(item: NotificationInput): void;
+    upsert(item: NotificationItem): void;
     remove(id: string): void;
 }
 
@@ -48,7 +103,7 @@ interface DetectionsStoreLike {
         modelName: string,
         ramUsage?: string | null
     ): void;
-    completeReclassification(eventId: string, results: any): void;
+    completeReclassification(eventId: string, results: unknown): void;
     markReclassificationStrategyChanged(
         eventId: string,
         from: string | null,
@@ -104,13 +159,13 @@ interface JobProgressLike {
 }
 
 interface LoggerLike {
-    warn(message: string, payload?: any): void;
-    error(message: string, error?: any, payload?: any): void;
-    sseEvent(event: string, payload?: any): void;
+    warn(message: string, payload?: unknown): void;
+    error(message: string, error?: unknown, payload?: unknown): void;
+    sseEvent(event: string, payload?: unknown): void;
 }
 
 interface JobDiagnosticsLike {
-    ingestHealth(health: any): void;
+    ingestHealth(health: unknown): void;
     recordError(input: {
         source: 'health' | 'sse' | 'runtime' | 'job' | 'system';
         component: string;
@@ -120,7 +175,7 @@ interface JobDiagnosticsLike {
         severity?: 'warning' | 'error' | 'critical';
         eventId?: string;
         context?: Record<string, unknown>;
-        healthSnapshot?: any;
+        healthSnapshot?: unknown;
     }): void;
 }
 
@@ -135,22 +190,22 @@ interface LiveUpdateDeps {
     settingsStore: SettingsStoreLike;
     announcer: { announce(message: string): void };
     logger: LoggerLike;
-    checkHealth: () => Promise<any>;
-    fetchCacheStats: () => Promise<any>;
+    checkHealth: () => Promise<HealthPayload>;
+    fetchCacheStats: () => Promise<{ cache_enabled?: boolean }>;
     fetchAnalysisStatus: () => Promise<AnalysisStatus>;
     diagnostics?: JobDiagnosticsLike;
     syncDiagnosticsWorkspace?: () => Promise<void>;
     onConnected?: () => void;
 }
 
-function toDetection(data: any): Detection {
+export function toDetection(data: SseData): Detection {
     return {
-        frigate_event: data.frigate_event,
-        display_name: data.display_name,
+        frigate_event: String(data.frigate_event ?? ''),
+        display_name: String(data.display_name ?? ''),
         category_name: data.category_name,
-        score: data.score,
-        detection_time: data.timestamp,
-        camera_name: data.camera,
+        score: Number(data.score ?? 0),
+        detection_time: String(data.timestamp ?? ''),
+        camera_name: String(data.camera ?? ''),
         has_clip: data.has_clip,
         is_hidden: data.is_hidden,
         is_favorite: data.is_favorite,
@@ -212,7 +267,7 @@ export class LiveUpdateCoordinator {
         let startupInstanceId = 'unknown';
 
         try {
-            const health: any = await this.deps.checkHealth();
+            const health = await this.deps.checkHealth();
             this.deps.diagnostics?.ingestHealth(health);
             startupInstanceId = String(health?.startup_instance_id ?? 'unknown');
             this.reconcileBackendInstance(startupInstanceId);
@@ -297,13 +352,14 @@ export class LiveUpdateCoordinator {
         }
     }
 
-    async syncAnalysisQueueStatus() {
-        if (!this.deps.shouldNotify()) return;
-        if (this.deps.hasOwnerAccess && !this.deps.hasOwnerAccess()) return;
+    async syncAnalysisQueueStatus(): Promise<AnalysisStatus | null> {
+        if (!this.deps.shouldNotify()) return null;
+        if (this.deps.hasOwnerAccess && !this.deps.hasOwnerAccess()) return null;
 
         try {
             const status = await this.deps.fetchAnalysisStatus();
             this.reconcileAnalysisQueueStatus(status);
+            return status;
         } catch (error) {
             this.deps.logger.warn('analysis_status_check_failed', { error });
             if (!isTransientGatewayError(error)) {
@@ -317,11 +373,12 @@ export class LiveUpdateCoordinator {
                     context: { route: ANALYSIS_STATUS_POLL_ROUTE, scope: 'syncAnalysisQueueStatus' }
                 });
             }
+            return null;
         }
     }
 
-    handlePayload(payload: any) {
-        if (!payload || typeof payload !== 'object') {
+    handlePayload(payload: unknown) {
+        if (!isSsePayload(payload)) {
             this.deps.logger.error('SSE Invalid payload structure', undefined, { payload });
             this.deps.diagnostics?.recordError({
                 source: 'sse',
@@ -431,17 +488,21 @@ export class LiveUpdateCoordinator {
                 }
                 this.deps.detectionsStore.updateReclassificationProgress(
                     payload.data.event_id,
-                    payload.data.current_frame,
-                    payload.data.total_frames,
-                    payload.data.frame_score,
-                    payload.data.top_label,
-                    payload.data.frame_thumb,
-                    payload.data.frame_index,
-                    payload.data.clip_total,
-                    payload.data.model_name,
+                    payload.data.current_frame ?? 0,
+                    payload.data.total_frames ?? 0,
+                    payload.data.frame_score ?? 0,
+                    payload.data.top_label ?? '',
+                    payload.data.frame_thumb ?? '',
+                    payload.data.frame_index ?? 0,
+                    payload.data.clip_total ?? 0,
+                    payload.data.model_name ?? '',
                     payload.data.ram_usage
                 );
-                this.updateReclassifyProgress(payload.data.event_id, payload.data.current_frame, payload.data.total_frames);
+                this.updateReclassifyProgress(
+                    payload.data.event_id,
+                    payload.data.current_frame ?? 0,
+                    payload.data.total_frames ?? 0
+                );
                 return;
             }
 
@@ -528,11 +589,12 @@ export class LiveUpdateCoordinator {
         }
     }
 
-    handleDisconnect(err: any, isDocumentHidden: boolean) {
+    handleDisconnect(err: unknown, isDocumentHidden: boolean) {
         this.deps.detectionsStore.setConnected(false);
         if (!this.deps.shouldNotify()) return;
         const id = 'system:sse-disconnected';
-        const signature = `${String(err?.type ?? 'error')}|${isDocumentHidden ? 'hidden' : 'visible'}`;
+        const errorType = err instanceof Event ? err.type : 'error';
+        const signature = `${errorType}|${isDocumentHidden ? 'hidden' : 'visible'}`;
         if (!this.deps.applyNotificationPolicy(id, signature, 120000)) return;
         this.deps.notificationCenter.upsert({
             id,
@@ -614,7 +676,11 @@ export class LiveUpdateCoordinator {
         }
     }
 
-    private hasBackingActiveJob(item: any, activeJobIds: Set<string>, activeJobKinds: Set<string>): boolean {
+    private hasBackingActiveJob(
+        item: NotificationItem,
+        activeJobIds: Set<string>,
+        activeJobKinds: Set<string>
+    ): boolean {
         const id = typeof item?.id === 'string' ? item.id.trim() : '';
         const metaKind = typeof item?.meta?.kind === 'string' ? item.meta.kind.trim().toLowerCase() : '';
         if (!id) return true;
@@ -768,7 +834,7 @@ export class LiveUpdateCoordinator {
         this.settleSyntheticBatchAnalysisState();
     }
 
-    private reconcileSyntheticBatchFromHealth(health: any) {
+    private reconcileSyntheticBatchFromHealth(health: HealthPayload) {
         const videoClassifier = health?.video_classifier;
         if (!videoClassifier || typeof videoClassifier !== 'object') return;
         const pending = Number.isFinite(Number(videoClassifier.pending)) ? Math.max(0, Math.floor(Number(videoClassifier.pending))) : 0;
@@ -855,7 +921,7 @@ export class LiveUpdateCoordinator {
         this.deps.notificationCenter.remove(RECLASSIFY_PROGRESS_ID);
     }
 
-    private reconcileReclassifyFromDetectionUpdate(data: any) {
+    private reconcileReclassifyFromDetectionUpdate(data: SseData) {
         if (!data || typeof data !== 'object') return;
         const eventId = typeof data.frigate_event === 'string' ? data.frigate_event.trim() : '';
         if (!eventId) return;
@@ -1057,7 +1123,7 @@ export class LiveUpdateCoordinator {
         }
     }
 
-    private updateBackfillNotification(payload: any) {
+    private updateBackfillNotification(payload: SsePayload) {
         if (!this.deps.shouldNotify()) return;
         if (!payload || typeof payload !== 'object') return;
         const data = payload.data ?? {};

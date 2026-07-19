@@ -9,6 +9,7 @@ import pytest_asyncio
 from app.main import app
 from app.database import get_db, init_db, close_db
 from app.config import settings
+from app.services.ai_service import AIAnalysisError
 
 
 @pytest_asyncio.fixture
@@ -66,6 +67,13 @@ async def _delete_detection(event_id: str) -> None:
     async with get_db() as db:
         await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
         await db.commit()
+
+
+async def _get_ai_analysis(event_id: str) -> str | None:
+    async with get_db() as db:
+        cursor = await db.execute("SELECT ai_analysis FROM detections WHERE frigate_event = ?", (event_id,))
+        row = await cursor.fetchone()
+        return row[0] if row else None
 
 
 @pytest.mark.asyncio
@@ -179,5 +187,35 @@ async def test_ai_analysis_falls_back_to_snapshot_when_clip_frames_unavailable(c
         assert mock_analyze.await_args.kwargs["image_data"] == b"snapshot-bytes"
         assert mock_analyze.await_args.kwargs["metadata"]["frame_source"] == "snapshot"
         assert mock_analyze.await_args.kwargs["image_list"] is None
+    finally:
+        await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
+async def test_ai_provider_failure_is_not_cached_as_analysis(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.clips_enabled = False
+    settings.frigate.recording_clip_enabled = False
+
+    event_id = "evt-ai-provider-failure"
+    await _insert_detection(event_id, "Robin", "cam1")
+
+    try:
+        failure = AIAnalysisError(
+            "No provider is currently available.",
+            http_status_hint=503,
+            retryable=True,
+            retry_after_seconds=15,
+        )
+        with (
+            patch("app.routers.ai.frigate_client.get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")),
+            patch("app.routers.ai.ai_service.analyze_detection", new=AsyncMock(return_value=failure)),
+        ):
+            response = await client.post(f"/api/events/{event_id}/analyze", params={"force": "true"})
+
+        assert response.status_code == 503
+        assert response.headers["Retry-After"] == "15"
+        assert await _get_ai_analysis(event_id) is None
     finally:
         await _delete_detection(event_id)

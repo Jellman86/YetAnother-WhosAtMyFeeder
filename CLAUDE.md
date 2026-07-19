@@ -104,10 +104,25 @@ alembic upgrade head && alembic downgrade -1 && alembic upgrade head   # prove r
 - **Async by default, no blocking I/O.** Use `async def` for all I/O; never
   `open()`, `requests`, or synchronous DB calls — use `aiofiles`, `httpx`, and async
   SQLAlchemy.
-- **Type hints everywhere**; Pydantic models for request/response DTOs.
+- **Type hints everywhere**; Pydantic models for request/response DTOs. Every endpoint
+  declares a `response_model` so the OpenAPI contract carries a real shape (the generated SPA
+  types depend on it); use `Depends` for DB/auth/settings so handlers stay testable.
 - **Structured logging**: `structlog.get_logger()` with context
   (`log.info("event", event_id=id, score=0.9)`), never bare `print`, never secrets.
+- **TypeScript is strict.** `strict: true`, and `svelte-check` is clean (zero errors/warnings)
+  before commit. **No `any` in application code** — prefer `unknown` at untrusted boundaries and
+  narrow; if `any` is truly unavoidable, comment why. Avoid non-null assertions (`!`); give
+  exported functions explicit return types. SPA types come from the generated OpenAPI contract
+  (`apps/ui/src/lib/api/generated/`), not hand-written DTOs.
+- **Svelte 5 reactivity is disciplined.** Reach for `$derived` before `$effect`. `$effect` is an
+  escape hatch for syncing with systems *outside* Svelte (third-party libs, canvas, manual DOM) —
+  never to sync one piece of state to another, and never to set state that `$derived` could
+  compute. Mark reactive only what drives the view; use `$state.raw` for large immutable API
+  responses.
 - No dead code, no commented-out blocks, no `TODO` without a linked issue.
+
+The full researched standard — Python/FastAPI, TypeScript, and Svelte 5, with authoritative
+sources — is [`docs/standards/code-quality.md`](docs/standards/code-quality.md).
 
 ## 5. Clean, honest UI
 
@@ -120,13 +135,30 @@ alembic upgrade head && alembic downgrade -1 && alembic upgrade head   # prove r
   `input-base`, `select-base`, `tab-button`, and `card-base` rather than hand-rolled
   Tailwind, so controls stay consistent across themes. (A bare `btn-primary` without
   the base `btn` renders unstyled — the correct form is `class="btn btn-primary …"`.)
+- **Guided flows share one shape.** Every test/diagnostic flow (AI model, Frigate/MQTT,
+  notifications, integrations) uses the shared `DiagnosticDialog` — a staged checklist with
+  honest auto-progress and a portalled full-screen overlay — and the first-run wizard shares its
+  visual language. Don't hand-roll a modal for a test. The full standard is
+  [`docs/standards/diagnostics-and-dialogs.md`](docs/standards/diagnostics-and-dialogs.md).
 - Never imply a destructive action is reversible when it isn't. The UI must reflect
   the safety model (§1) truthfully.
 - **Svelte 5 runes** (`$state`, `$derived`, `$effect`) and modern events
   (`onclick={…}`, not `on:click`). TypeScript everywhere; `npm run check` is clean
   (zero errors, zero warnings) before commit.
 - Show loading, empty, and error states explicitly. Empty states tell the user what
-  to do next.
+  to do next. This is **visibility of system status** — the first usability heuristic: every
+  action gets timely feedback (loading/progress/saved/skipped/stale).
+- **Usability follows Nielsen's 10 heuristics** as the baseline: prevent errors rather than only
+  reporting them, favour recognition over recall, keep the default simple with progressive
+  disclosure (basic vs. advanced), and write plain-language errors that state the cause and the
+  next step — not error codes.
+- **Accessibility floor is WCAG 2.2 Level AA.** Everything is keyboard-operable with visible
+  focus; colour contrast meets AA and **meaning is never signalled by colour alone**; controls
+  use semantic HTML first (ARIA only to fill gaps) with labelled inputs and associated error
+  messaging; motion respects `prefers-reduced-motion`.
+- **Visual craft follows Refactoring UI.** Build hierarchy from size, weight, *and* colour (not
+  size alone); design grayscale-first; keep spacing/type/colour on the constrained Tailwind
+  scale (no arbitrary values); be generous with whitespace.
 - **Media/artwork is a recognition aid, not decoration.** Snapshots and spectrograms
   are proxied so no token reaches the browser, must degrade silently to a
   placeholder, must never imply state, and must never shift layout (fixed aspect,
@@ -134,13 +166,17 @@ alembic upgrade head && alembic downgrade -1 && alembic upgrade head   # prove r
 - User-facing strings go through i18n (`svelte-i18n`); new keys land in
   `apps/ui/src/lib/i18n/locales/en.json` (use `{ default: '…' }` fallbacks).
 
+The full researched standard — the 10 heuristics, WCAG 2.2 AA checklist, and Refactoring UI
+craft rules, with authoritative sources — is [`docs/standards/ui-ux.md`](docs/standards/ui-ux.md).
+
 ## 6. Definition of done
 
 A change is done when **all** of these hold:
 
 1. `pytest` is fully green, and new behaviour has new tests (§2).
 2. `npm run check` is clean and `npm test` passes if the frontend changed (§5).
-3. `ruff check .` and `ruff format .` are clean (Python style).
+3. `ruff check .` and `ruff format .` are clean **from the repository root**, so
+   `scripts/` and `tests/` are covered too, not just `backend/` (§7).
 4. Schema changes have a reversible migration, a single Alembic head, and re-running
    them is a no-op (§3).
 5. The safety/data-integrity model (§1) is intact or strengthened — never weakened.
@@ -159,9 +195,21 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000   # dev server + OpenAPI at /docs
 pytest                                                     # full suite
 pytest tests/test_audio_api.py -v                          # one file
-ruff check . && ruff format .                              # lint + format
 alembic upgrade head                                       # apply migrations
 ```
+
+Python lint/format covers **every tracked Python path** — `backend/`,
+`custom_components/yawamf/`, `scripts/`, and `tests/` — so it is run from the
+**repository root**, not from `backend/`:
+
+```bash
+ruff check . && ruff format .          # lint + format, repo-wide
+ruff format --check .                  # what CI enforces (no writes)
+```
+
+Scope is controlled by `extend-exclude` in the root `pyproject.toml`, not by
+passing paths on the command line. Running `ruff` from inside `backend/` silently
+checks only the backend and will miss violations that CI rejects.
 
 Frontend (from `apps/ui/`):
 
@@ -203,8 +251,9 @@ CI is where the Definition of Done is enforced. Keep CI and the local commands i
 workflow in the same commit. CI is allowed to be stricter than a local run, never
 looser.
 
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — **backend**: Alembic
-  migration smoke (`upgrade → downgrade → upgrade`), migration path matrix
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — **backend**: repo-wide
+  `ruff check .` and `ruff format --check .` (every tracked Python path, §7),
+  Alembic migration smoke (`upgrade → downgrade → upgrade`), migration path matrix
   ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
   single-Alembic-head check, and `pytest`. **frontend**: `npm ci` → `npm run check`
   → `npm test` → `npm run build`. **telemetry worker**: dependency check.
@@ -225,6 +274,9 @@ gate as permission to skip the local Definition of Done command.
 ## 10. Workflow & commit rules
 
 - **Everyday work happens on `dev`.** Release tags / `main` are handled separately.
+- **Write GitHub Releases for the person updating their feeder, not for the commit
+  history.** Follow [`docs/development/releasing.md`](docs/development/releasing.md)
+  and start from [`.github/RELEASE_NOTES_TEMPLATE.md`](.github/RELEASE_NOTES_TEMPLATE.md).
 - **Git commit rules (unchanged, and strict):**
   - **Never** add `Co-Authored-By:`, `Co-authored-by:`, or any AI attribution
     trailer to commit messages.

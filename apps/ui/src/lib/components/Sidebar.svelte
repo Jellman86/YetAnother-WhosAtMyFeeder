@@ -1,10 +1,16 @@
 <script lang="ts">
+    import { onMount } from 'svelte';
     import { themeStore } from '../stores/theme.svelte';
     import { layoutStore } from '../stores/layout.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { updateStatusStore } from '../stores/update_status.svelte';
     import { _ } from 'svelte-i18n';
     import BrandMark from './BrandMark.svelte';
     import LanguageSelector from './LanguageSelector.svelte';
+
+    onMount(() => {
+        updateStatusStore.load();
+    });
 
     let { currentRoute, onNavigate, mobileSidebarOpen = false, onMobileClose, status } = $props<{
         currentRoute: string;
@@ -102,6 +108,7 @@
         {/each}
     </nav>
 
+
     <!-- Status Section -->
     {#if !collapsed}
         <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
@@ -128,7 +135,7 @@
             </button>
         {:else if authStore.isGuest}
             <button
-                class="nav-button w-full flex items-center gap-3 text-left nav-button-inactive hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50/80 dark:hover:bg-emerald-900/30 group"
+                class="nav-button w-full flex items-center gap-3 text-left nav-button-inactive hover:text-accent-600 dark:hover:text-accent-400 hover:bg-accent-50/80 dark:hover:bg-accent-900/30 group"
                 onclick={() => authStore.requestLogin()} 
                 title={collapsed ? $_('auth.login') : ''}
             >

@@ -11,6 +11,28 @@ interface LogContext {
     [key: string]: unknown;
 }
 
+export function formatErrorForLog(error: unknown, includeStack: boolean): unknown {
+    if (!(error instanceof Error)) {
+        return error;
+    }
+
+    return {
+        message: error.message,
+        ...(includeStack ? { stack: error.stack } : {}),
+        name: error.name
+    };
+}
+
+export function sanitizeLogContext(context: LogContext | undefined, includeStack: boolean): LogContext | undefined {
+    if (!context) {
+        return undefined;
+    }
+
+    return Object.fromEntries(
+        Object.entries(context).map(([key, value]) => [key, formatErrorForLog(value, includeStack)])
+    );
+}
+
 class Logger {
     private isDevelopment: boolean;
 
@@ -41,7 +63,7 @@ class Logger {
      * Log warning message
      */
     warn(message: string, context?: LogContext): void {
-        console.warn(`[WARN] ${message}`, context || '');
+        console.warn(`[WARN] ${message}`, sanitizeLogContext(context, this.isDevelopment) || '');
         // In production, could send to error tracking
     }
 
@@ -50,12 +72,8 @@ class Logger {
      */
     error(message: string, error?: unknown, context?: LogContext): void {
         const errorContext = {
-            ...context,
-            error: error instanceof Error ? {
-                message: error.message,
-                stack: error.stack,
-                name: error.name
-            } : error
+            ...sanitizeLogContext(context, this.isDevelopment),
+            error: formatErrorForLog(error, this.isDevelopment)
         };
 
         console.error(`[ERROR] ${message}`, errorContext);

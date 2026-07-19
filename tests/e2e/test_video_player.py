@@ -1,4 +1,3 @@
-import os
 import re
 from urllib.parse import quote
 
@@ -123,14 +122,20 @@ def test_video_player_ui_and_console_health(page: Page, console_capture):
     page.get_by_label("Close video").wait_for(state="visible", timeout=4000)
 
     # If clip is unavailable in this dataset, skip timeline assertions.
-    unavailable = page.get_by_text("Video Unavailable").count() > 0 or page.get_by_text("Clip Fetching Disabled").count() > 0
+    unavailable = (
+        page.get_by_text("Video Unavailable").count() > 0 or page.get_by_text("Clip Fetching Disabled").count() > 0
+    )
     if unavailable:
         pytest.skip("Clip unavailable in current environment; UI opened but timeline controls not testable")
 
     page.locator("video").first.wait_for(state="visible", timeout=8000)
     plyr_visible = page.locator(".plyr").first.is_visible() if page.locator(".plyr").count() > 0 else False
-    controls_visible = page.locator(".plyr__controls").first.is_visible() if page.locator(".plyr__controls").count() > 0 else False
-    assert plyr_visible or controls_visible or page.locator("video").count() > 0, "Expected video UI (Plyr or native fallback) to be visible"
+    controls_visible = (
+        page.locator(".plyr__controls").first.is_visible() if page.locator(".plyr__controls").count() > 0 else False
+    )
+    assert plyr_visible or controls_visible or page.locator("video").count() > 0, (
+        "Expected video UI (Plyr or native fallback) to be visible"
+    )
     shortcuts_hint = page.locator("span", has_text=re.compile(r"play/pause|Keyboard shortcuts", re.IGNORECASE)).first
     shortcuts_hint.wait_for(state="visible", timeout=4000)
 
@@ -179,7 +184,9 @@ def test_video_player_ui_and_console_health(page: Page, console_capture):
     preview_enabled = any("Timeline previews enabled" in v for v in aria_labels + labels)
     preview_unavailable = any("Timeline previews unavailable for this clip" in v for v in aria_labels + labels)
     preview_disabled = any("Timeline previews disabled (media cache off)" in v for v in aria_labels + labels)
-    assert preview_enabled or preview_unavailable or preview_disabled, "Expected explicit timeline preview availability state"
+    assert preview_enabled or preview_unavailable or preview_disabled, (
+        "Expected explicit timeline preview availability state"
+    )
     if preview_enabled:
         progress = page.locator(".plyr__progress input[type='range']").first
         # Preview UI can be disabled by safety fallback even when the probe succeeded.

@@ -1,0 +1,55 @@
+<script lang="ts">
+    import { onMount } from 'svelte';
+    import { _ } from 'svelte-i18n';
+    import { updateStatusStore } from '../stores/update_status.svelte';
+
+    let status = $derived(updateStatusStore.status);
+    let visible = $derived(updateStatusStore.shouldShowBanner);
+    let currentDisplay = $derived((status?.current_version ?? '').split('+')[0]);
+
+    onMount(() => {
+        updateStatusStore.load();
+    });
+
+    function dismiss() {
+        updateStatusStore.dismiss();
+    }
+</script>
+
+{#if visible && status}
+    <div class="border-b border-brand-200/60 bg-gradient-to-r from-brand-50 via-accent-50 to-white dark:border-brand-900/40 dark:from-brand-950/30 dark:via-accent-950/20 dark:to-slate-950/40">
+        <div class="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+            <div class="flex items-start gap-3">
+                <div class="mt-0.5 flex-shrink-0">
+                    <svg class="h-5 w-5 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16l-4-4m0 0l4-4m-4 4h18" transform="rotate(90 12 12)" />
+                    </svg>
+                </div>
+                <div class="min-w-0 flex-1 text-sm text-brand-900 dark:text-brand-100">
+                    {#if status.channel === 'dev'}
+                        <span class="font-semibold">{$_('update_banner.title_dev', { values: { version: status.latest_version }, default: `A newer dev build is available (${status.latest_version})` })}</span>
+                    {:else}
+                        <span class="font-semibold">{$_('update_banner.title', { values: { version: status.latest_version }, default: `YA-WAMF ${status.latest_version} is available` })}</span>
+                    {/if}
+                    <span class="ml-1 opacity-90">{$_('update_banner.body', { values: { current: currentDisplay }, default: `You're running ${currentDisplay}. Pull the new image from your container manager to update.` })}</span>
+                    <a href={status.release_url} target="_blank" rel="noopener noreferrer" class="ml-1 font-black underline underline-offset-2 hover:opacity-80">
+                        {$_('update_banner.release_notes', { default: 'Release notes →' })}
+                    </a>
+                    <button type="button" onclick={dismiss} class="ml-2 font-black uppercase tracking-wider underline underline-offset-2 hover:opacity-80">
+                        {$_('update_banner.dismiss', { default: 'Dismiss' })}
+                    </button>
+                </div>
+                <button
+                    type="button"
+                    onclick={dismiss}
+                    class="ml-2 shrink-0 rounded-md p-1 text-brand-700 hover:bg-brand-100/60 dark:text-brand-300 dark:hover:bg-brand-900/40"
+                    aria-label={$_('update_banner.dismiss', { default: 'Dismiss' })}
+                >
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+{/if}

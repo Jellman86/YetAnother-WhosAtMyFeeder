@@ -4,31 +4,35 @@
     interface Props {
         title: string;
         description?: string;
-        // Optional emoji or icon snippet rendered in the leading tile.  Kept
-        // monochrome on the outside so per-tab colours stop signalling product
-        // differences they don't actually mean.
-        icon?: string;
+        // Optional vector/brand icon rendered in the leading tile. Structural
+        // emoji are intentionally unsupported so card hierarchy stays stable
+        // across operating systems and locales.
         iconSnippet?: Snippet;
         // Trailing controls rendered next to the header (e.g. "Test connection",
         // "Clear history").  Kept in the header so every card has the same
         // top-level affordance position.
         actions?: Snippet;
+        // When true the leading icon tile is tinted teal to give a card a light
+        // brand accent. Off by default (slate tile). The header itself stays plain
+        // either way — no gradient band.
+        accent?: boolean;
         children: Snippet;
     }
 
-    let { title, description, icon, iconSnippet, actions, children }: Props = $props();
+    let { title, description, iconSnippet, actions, accent = false, children }: Props = $props();
 </script>
 
-<section class="card-base rounded-3xl p-6 md:p-8 backdrop-blur-md">
-    <header class="flex items-start justify-between gap-4 mb-6">
+<section class="card-base overflow-hidden rounded-3xl backdrop-blur-md">
+    <header class="flex items-start justify-between gap-4 px-6 md:px-8 pt-6 md:pt-8 pb-6">
         <div class="flex items-start gap-3 min-w-0">
-            {#if icon || iconSnippet}
-                <div class="flex items-center justify-center w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex-shrink-0">
-                    {#if iconSnippet}
-                        {@render iconSnippet()}
-                    {:else}
-                        <span class="text-xl" aria-hidden="true">{icon}</span>
-                    {/if}
+            {#if iconSnippet}
+                <div
+                    class="flex items-center justify-center w-10 h-10 rounded-2xl flex-shrink-0
+                           {accent
+                               ? 'bg-brand-500/15 text-brand-700 dark:bg-brand-400/15 dark:text-brand-300'
+                               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'}"
+                >
+                    {@render iconSnippet()}
                 </div>
             {/if}
             <div class="min-w-0">
@@ -36,7 +40,7 @@
                     {title}
                 </h3>
                 {#if description}
-                    <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mt-1">
+                    <p class="mt-1 text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
                         {description}
                     </p>
                 {/if}
@@ -49,7 +53,7 @@
         {/if}
     </header>
 
-    <div class="space-y-4">
+    <div class="space-y-4 px-6 md:px-8 pb-6 md:pb-8">
         {@render children()}
     </div>
 </section>

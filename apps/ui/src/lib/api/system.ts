@@ -13,6 +13,12 @@ export interface HealthStatus {
     startup_warnings?: { phase: string; error: string }[];
     startup_instance_id?: string;
     startup_started_at?: string;
+    ml?: {
+        runtimes: {
+            tflite: { installed: boolean };
+            onnx: { installed: boolean };
+        };
+    };
 }
 
 export type FrigateTestResult = paths['/api/frigate/test']['get']['response'];
@@ -44,8 +50,33 @@ export async function fetchVersion(): Promise<VersionInfo> {
 }
 
 export async function checkHealth(): Promise<HealthStatus> {
-    const response = await apiFetch('/health');
+    const response = await apiFetch('/health', { timeoutMs: 10_000 });
     return handleResponse<HealthStatus>(response);
+}
+
+export interface UpdateStatus {
+    current_version: string;
+    channel: 'dev' | 'stable' | 'main' | string;
+    latest_version: string | null;
+    update_available: boolean;
+    release_url: string;
+    checked_at: string | null;
+    enabled: boolean;
+    error: string | null;
+}
+
+export async function fetchUpdateStatus(): Promise<UpdateStatus> {
+    const response = await apiFetch(`${API_BASE}/update-status`);
+    return handleResponse<UpdateStatus>(response);
+}
+
+/**
+ * Whether to show the update banner. Dismissal is keyed on the version, so dismissing one
+ * update won't hide the banner when a newer release later becomes available.
+ */
+export function shouldShowUpdateBanner(status: UpdateStatus | null | undefined, dismissedVersion: string | null): boolean {
+    if (!status || !status.update_available || !status.latest_version) return false;
+    return dismissedVersion !== status.latest_version;
 }
 
 export async function testFrigateConnection(): Promise<FrigateTestResult> {
@@ -53,9 +84,9 @@ export async function testFrigateConnection(): Promise<FrigateTestResult> {
     return handleResponse<FrigateTestResult>(response);
 }
 
-export async function fetchFrigateConfig(): Promise<any> {
+export async function fetchFrigateConfig(): Promise<unknown> {
     const response = await apiFetch(`${API_BASE}/frigate/config`);
-    return handleResponse<any>(response);
+    return handleResponse<unknown>(response);
 }
 
 export async function fetchRecordingClipCapability(): Promise<RecordingClipCapability> {

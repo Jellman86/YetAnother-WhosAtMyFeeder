@@ -6,6 +6,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import structlog
 import asyncio
+import ipaddress
 import os
 import json
 import re
@@ -57,6 +58,7 @@ from app.routers import (
     diagnostics,
     geocoding,
     model_eval,
+    setup as setup_router,
     auth as auth_router,
 )
 from app.config import settings, _expand_trusted_hosts
@@ -131,13 +133,14 @@ APP_BRANCH = get_app_branch()
 if re.fullmatch(r"v\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?", APP_BRANCH or ""):
     APP_BRANCH = "main"
 
-# Format: version-branch+hash (omit branch if main or unknown)
-if APP_BRANCH and APP_BRANCH not in ["main", "unknown"]:
+# Format: version-branch+hash (omit branch for release-like channels)
+if APP_BRANCH and APP_BRANCH not in ["main", "stable", "unknown"]:
     APP_VERSION = f"{BASE_VERSION}-{APP_BRANCH}+{GIT_HASH}"
 else:
     APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
 
 os.environ["APP_VERSION"] = APP_VERSION  # Make available to other services
+os.environ["APP_BRANCH"] = APP_BRANCH
 
 
 class VersionResponse(BaseModel):
@@ -392,6 +395,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "mqtt_service_task_start", _start_mqtt_service_task, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_start", telemetry_service.start, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_start", auto_video_classifier.start, fatal=False)
+        await _run_lifecycle_phase(app, "high_quality_snapshot_start", high_quality_snapshot_service.start, fatal=False)
         await _run_lifecycle_phase(app, "full_visit_clip_start", full_visit_clip_service.start, fatal=False)
         await _run_lifecycle_phase(app, "cleanup_scheduler_task_start", _start_cleanup_scheduler_task, fatal=False)
         backfill.start_watchdog()
@@ -490,6 +494,7 @@ app.include_router(audio.router, prefix="/api", tags=["audio"], dependencies=[De
 
 # Owner-only routers - require authentication
 app.include_router(settings_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(setup_router.router, prefix="/api", tags=["setup"])
 app.include_router(
     backfill.router, prefix="/api", tags=["backfill"], dependencies=[Depends(get_auth_context_with_legacy)]
 )
@@ -560,6 +565,38 @@ def _classify_https_warning_reason(
     return "direct_http_request"
 
 
+def _is_internal_client_host(client_host: str | None) -> bool:
+    """Return true if the client address is loopback or private (within the trust boundary).
+
+    Such traffic (the monolith's bundled nginx over loopback, or another container on the
+    Docker network) never crosses an untrusted network, so a plaintext-HTTP request from it
+    does not expose credentials to an outside party.
+    """
+    if not client_host:
+        return False
+    try:
+        ip = ipaddress.ip_address(client_host)
+    except ValueError:
+        return False
+    return ip.is_loopback or ip.is_private or ip.is_link_local
+
+
+def _should_warn_auth_over_http(warning_reason: str, client_host: str | None) -> bool:
+    """Decide whether an authenticated HTTP request warrants a credential-exposure warning.
+
+    A trusted proxy forwarding a non-HTTPS scheme reflects a real client leg over plaintext,
+    so it always warns. Otherwise the request is treated as HTTP based on the direct
+    connection, which is only a genuine exposure when that connection comes from outside the
+    trust boundary — internal/private clients (e.g. the bundled nginx or Docker-network
+    services polling the API) must not raise the alarm.
+    """
+    if warning_reason in {"untrusted_forwarded_proto_ignored", "direct_http_request"}:
+        return not _is_internal_client_host(client_host)
+    if warning_reason == "secure_request":
+        return False
+    return True
+
+
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     """Add security headers to all responses."""
@@ -617,8 +654,10 @@ async def check_https_warning(request: Request, call_next):
                 trusted_proxy_hosts=resolved_trusted_hosts,
             )
 
-            # Log warning once per minute to avoid spam
-            should_log = (
+            # Internal/private clients (the bundled nginx, Docker-network services) stay within
+            # the trust boundary, so plaintext HTTP from them is not a credential-exposure risk.
+            # Log warning once per minute to avoid spam.
+            should_log = _should_warn_auth_over_http(warning_reason, client_host) and (
                 not hasattr(app.state, "_last_https_warning")
                 or (datetime.now() - app.state._last_https_warning).total_seconds() > 60
             )

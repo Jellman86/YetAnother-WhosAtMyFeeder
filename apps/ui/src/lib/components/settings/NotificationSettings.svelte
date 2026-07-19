@@ -15,15 +15,21 @@
     } from '../../settings/blocked-species';
     import SecretInput from './_primitives/SecretInput.svelte';
     import SettingsCard from './_primitives/SettingsCard.svelte';
+    import DiagnosticDialog from '../DiagnosticDialog.svelte';
+    import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
+    import { testNotification } from '../../api/maintenance';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
 
-    function extractErrorMessage(error: any, fallback: string) {
-        const message = error?.message || fallback;
+    function extractErrorMessage(error: unknown, fallback: string): string {
+        const message = error instanceof Error ? error.message : fallback;
         if (typeof message === 'string' && message.trim().startsWith('{')) {
             try {
                 const parsed = JSON.parse(message);
-                return parsed.detail || parsed.message || fallback;
+                const payload = parsed && typeof parsed === 'object'
+                    ? parsed as Record<string, unknown>
+                    : {};
+                return String(payload.detail || payload.message || fallback);
             } catch {
                 return message;
             }
@@ -98,13 +104,7 @@
         emailIncludeSnapshot = $bindable(true),
         emailDashboardUrl = $bindable(''),
 
-        // Testing state
-        testingNotification = $bindable<Record<string, boolean>>({}),
-
         // Functions
-        sendTestDiscord,
-        sendTestPushover,
-        sendTestTelegram,
         sendTestEmail,
         initiateGmailOAuth,
         initiateOutlookOAuth,
@@ -160,16 +160,67 @@
         emailToEmail: string;
         emailIncludeSnapshot: boolean;
         emailDashboardUrl: string;
-        testingNotification: Record<string, boolean>;
-        sendTestDiscord: () => Promise<void>;
-        sendTestPushover: () => Promise<void>;
-        sendTestTelegram: () => Promise<void>;
         sendTestEmail: (request?: TestEmailRequest) => Promise<TestEmailResponse>;
         initiateGmailOAuth: () => Promise<OAuthAuthorizeResponse>;
         initiateOutlookOAuth: () => Promise<OAuthAuthorizeResponse>;
         disconnectEmailOAuth: (provider: 'gmail' | 'outlook') => Promise<{ message: string }>;
         onActionFeedback: (type: 'success' | 'error', text: string) => void;
     } = $props();
+
+    // Channel tests use the shared DiagnosticDialog (see
+    // docs/standards/diagnostics-and-dialogs.md). Each is a single real delivery
+    // check, so the pass/fail a user sees is exactly what the send returned.
+    let ntOpen = $state(false);
+    let ntRunning = $state(false);
+    let ntChannel = $state<'discord' | 'pushover' | 'telegram' | 'email'>('discord');
+    let ntChannelLabel = $state('');
+    let ntStages = $state<DiagnosticStage[]>([]);
+    let ntResult = $state<DiagnosticResult | null>(null);
+    let ntRunId = $state(0);
+
+    async function runNotificationTest(
+        channel: 'discord' | 'pushover' | 'telegram' | 'email',
+        channelLabel: string,
+        run: () => Promise<{ status: string; message: string }>
+    ): Promise<void> {
+        ntOpen = true;
+        ntRunning = true;
+        ntResult = null;
+        ntChannel = channel;
+        ntChannelLabel = channelLabel;
+        ntRunId += 1;
+        const label = $_('settings.notifications.test_stage_deliver', { default: 'Deliver a test message' });
+        ntStages = [{ id: 'deliver', label, state: 'pending', message: '' }];
+        try {
+            const result = await run();
+            const ok = result.status === 'ok';
+            ntStages = [{ id: 'deliver', label, state: ok ? 'passed' : 'failed', message: result.message }];
+            ntResult = { ok, message: result.message };
+        } catch (error) {
+            const text = error instanceof Error && error.message.trim()
+                ? error.message
+                : $_('settings.notifications.test_failed', { default: 'The test message could not be sent.' });
+            ntStages = [{ id: 'deliver', label, state: 'failed', message: text }];
+            ntResult = { ok: false, message: text };
+        } finally {
+            ntRunning = false;
+        }
+    }
+
+    const runDiscordTest = () => runNotificationTest('discord', 'Discord', () => testNotification('discord', { webhook_url: discordWebhook }));
+    const runPushoverTest = () => runNotificationTest('pushover', 'Pushover', () => testNotification('pushover', { user_key: pushoverUserKey, api_token: pushoverApiToken }));
+    const runTelegramTest = () => runNotificationTest('telegram', 'Telegram', () => testNotification('telegram', { bot_token: telegramBotToken, chat_id: telegramChatId }));
+    const runEmailTest = () => runNotificationTest('email', 'Email', async () => {
+        const result = await sendTestEmail();
+        return { status: 'ok', message: result.message || $_('settings.email.test_email_sent') };
+    });
+
+    function retryNotificationTest(): void {
+        if (ntChannel === 'discord') void runDiscordTest();
+        else if (ntChannel === 'pushover') void runPushoverTest();
+        else if (ntChannel === 'telegram') void runTelegramTest();
+        else void runEmailTest();
+    }
 
     let speciesSearchQuery = $state('');
     let speciesSearchResults = $state<SearchResult[]>([]);
@@ -284,7 +335,7 @@
             try {
                 speciesSearchResults = await searchSpecies(query, 20, true);
                 speciesSearchError = '';
-            } catch (error: any) {
+            } catch (error) {
                 speciesSearchResults = [];
                 speciesSearchError = extractErrorMessage(error, $_('settings.notifications.species_filter_search_failed'));
             } finally {
@@ -299,23 +350,27 @@
 </script>
 
 <div class="space-y-6">
+    {#snippet notificationsIcon()}
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9ZM10 21h4" /></svg>
+    {/snippet}
+
     <!-- Global Notification Filters -->
-    <SettingsCard icon="🔔" title={$_('settings.notifications.global_filters')}>
+    <SettingsCard accent iconSnippet={notificationsIcon} title={$_('settings.notifications.global_filters')}>
         <div class="space-y-6">
             <!-- Delivery Policy -->
             <div class="p-4 rounded-2xl bg-white/60 dark:bg-slate-800/40 border border-amber-200/30 dark:border-amber-700/20">
                 <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4">{$_('settings.notifications.delivery_policy')}</h4>
                 {#if !notificationsEnabled}
-                    <div class="mb-4 rounded-2xl border border-amber-300/60 bg-amber-100/70 px-4 py-3 text-[11px] font-bold text-amber-900 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200">
+                    <div class="mb-4 rounded-2xl border border-amber-300/60 bg-amber-100/70 px-4 py-3 text-xs font-bold text-amber-900 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200">
                         {$_('settings.notifications.enable_notify_hint', { default: 'Notifications are currently off. Enable "Notify on new detections" or "Notify on updates" to send any alerts.' })}
                     </div>
                 {/if}
-                <div class="mb-4 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-[11px] font-bold text-slate-600 dark:border-slate-700/60 dark:bg-slate-900/40 dark:text-slate-300">
+                <div class="mb-4 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-xs font-bold text-slate-600 dark:border-slate-700/60 dark:bg-slate-900/40 dark:text-slate-300">
                     {$_('settings.notifications.confirmation_policy')}
                 </div>
                 <div class="space-y-4">
                     <div>
-                        <p class="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">{$_('settings.notifications.mode_title')}</p>
+                        <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-500">{$_('settings.notifications.mode_title')}</p>
                         <p class="text-xs text-slate-500 mt-1">{$_('settings.notifications.mode_desc')}</p>
                     </div>
                     <div class="grid gap-3 md:grid-cols-2">
@@ -325,7 +380,7 @@
                             class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'final' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
                         >
                             <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_final')}</p>
-                            <p class="text-[10px] font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_final_desc')}</p>
+                            <p class="text-xs font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_final_desc')}</p>
                         </button>
                         <button
                             type="button"
@@ -333,7 +388,7 @@
                             class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'standard' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
                         >
                             <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_standard')}</p>
-                            <p class="text-[10px] font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_standard_desc')}</p>
+                            <p class="text-xs font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_standard_desc')}</p>
                         </button>
                         <button
                             type="button"
@@ -341,7 +396,7 @@
                             class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'realtime' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
                         >
                             <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_realtime')}</p>
-                            <p class="text-[10px] font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_realtime_desc')}</p>
+                            <p class="text-xs font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_realtime_desc')}</p>
                         </button>
                         <button
                             type="button"
@@ -349,7 +404,7 @@
                             class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'silent' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
                         >
                             <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_silent')}</p>
-                            <p class="text-[10px] font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_silent_desc')}</p>
+                            <p class="text-xs font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_silent_desc')}</p>
                         </button>
                     </div>
 
@@ -361,7 +416,7 @@
                         <div class="flex items-center justify-between gap-4">
                             <div id="notify-insert-label">
                                 <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_insert')}</span>
-                                <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_insert_desc')}</span>
+                                <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_insert_desc')}</span>
                             </div>
                             <SettingsToggle
                                 checked={notifyOnInsert}
@@ -374,7 +429,7 @@
                         <div class="flex items-center justify-between gap-4">
                             <div id="notify-update-label">
                                 <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_update')}</span>
-                                <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_update_desc')}</span>
+                                <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_update_desc')}</span>
                             </div>
                             <SettingsToggle
                                 checked={notifyOnUpdate}
@@ -387,7 +442,7 @@
                         <div class="flex items-center justify-between gap-4 {notificationsEnabled ? '' : 'opacity-50'}">
                             <div id="notify-delay-label">
                                 <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.delay_until_video')}</span>
-                                <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.delay_until_video_desc')}</span>
+                                <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.delay_until_video_desc')}</span>
                             </div>
                             <SettingsToggle
                                 checked={notifyDelayUntilVideo}
@@ -401,7 +456,7 @@
                         <div class="flex items-center justify-between gap-4">
                             <div>
                                 <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.video_fallback_timeout')}</span>
-                                <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.video_fallback_timeout_desc')}</span>
+                                <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.video_fallback_timeout_desc')}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <input
@@ -413,14 +468,14 @@
                                     class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs disabled:opacity-50"
                                     aria-label={$_('settings.notifications.video_fallback_timeout')}
                                 />
-                                <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.video_fallback_seconds')}</span>
+                                <span class="text-xs font-bold text-slate-500">{$_('settings.notifications.video_fallback_seconds')}</span>
                             </div>
                         </div>
 
                         <div class="flex items-center justify-between gap-4">
                             <div>
                                 <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
-                                <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
+                                <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
                             </div>
                             <div class="flex items-center gap-2">
                                 <input
@@ -431,7 +486,7 @@
                                     class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
                                     aria-label={$_('settings.notifications.cooldown')}
                                 />
-                                <span class="text-[10px] font-bold text-slate-500">{$_('settings.notifications.cooldown_unit')}</span>
+                                <span class="text-xs font-bold text-slate-500">{$_('settings.notifications.cooldown_unit')}</span>
                             </div>
                         </div>
                     </AdvancedSection>
@@ -443,7 +498,7 @@
             <div>
                 <div class="flex justify-between mb-4">
                     <label for="notify-confidence-slider" class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.min_confidence')}</label>
-                    <output for="notify-confidence-slider" class="px-2 py-1 bg-amber-500 text-white text-[10px] font-black rounded-lg">{(notifyMinConfidence * 100).toFixed(0)}%</output>
+                    <output for="notify-confidence-slider" class="px-2 py-1 bg-amber-500 text-white text-xs font-black rounded-lg">{(notifyMinConfidence * 100).toFixed(0)}%</output>
                 </div>
                 <input
                     id="notify-confidence-slider"
@@ -460,8 +515,8 @@
                     class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500"
                 />
                 <div class="flex justify-between mt-2">
-                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.notifications.notify_all')}</span>
-                    <span class="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.notifications.high_confidence_only')}</span>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.notifications.notify_all')}</span>
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.notifications.high_confidence_only')}</span>
                 </div>
             </div>
 
@@ -469,7 +524,7 @@
             <div class="p-4 rounded-2xl bg-white/60 dark:bg-slate-800/40 border border-amber-200/30 dark:border-amber-700/20 flex items-center justify-between gap-4">
                 <div id="audio-only-label">
                     <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.audio_only')}</span>
-                    <span class="block text-[10px] text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.audio_only_desc')}</span>
+                    <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.audio_only_desc')}</span>
                 </div>
                 <SettingsToggle
                     checked={notifyAudioOnly}
@@ -484,7 +539,7 @@
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <label for="notification-language" class="block text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-1">{$_('settings.notifications.notification_language')}</label>
-                        <p class="text-[10px] text-slate-500 font-medium">{$_('settings.notifications.notification_language_desc')}</p>
+                        <p class="text-xs text-slate-500 font-medium">{$_('settings.notifications.notification_language_desc')}</p>
                     </div>
                     <select
                         id="notification-language"
@@ -512,17 +567,17 @@
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {filterSpeciesMode === 'none' ? 'border-amber-400 bg-amber-100/70 dark:bg-amber-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'none'} onchange={() => setSpeciesFilterMode('none')} />
                         <span class="block text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_none')}</span>
-                        <span class="mt-1 block text-[10px] font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_none_desc')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_none_desc')}</span>
                     </label>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {filterSpeciesMode === 'blacklist' ? 'border-amber-400 bg-amber-100/70 dark:bg-amber-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'blacklist'} onchange={() => setSpeciesFilterMode('blacklist')} />
                         <span class="block text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_blacklist')}</span>
-                        <span class="mt-1 block text-[10px] font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_blacklist_desc')}</span>
                     </label>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {filterSpeciesMode === 'whitelist' ? 'border-amber-400 bg-amber-100/70 dark:bg-amber-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
                         <input class="sr-only" type="radio" name="notification-species-filter-mode" checked={filterSpeciesMode === 'whitelist'} onchange={() => setSpeciesFilterMode('whitelist')} />
                         <span class="block text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.species_filter_whitelist')}</span>
-                        <span class="mt-1 block text-[10px] font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.species_filter_whitelist_desc')}</span>
                     </label>
                 </div>
 
@@ -537,11 +592,11 @@
                             class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
                         />
                         {#if speciesSearchLoading}
-                            <p class="mt-2 text-[11px] font-bold text-slate-400">{$_('common.loading')}</p>
+                            <p class="mt-2 text-xs font-bold text-slate-400">{$_('common.loading')}</p>
                         {:else if speciesSearchError}
-                            <p class="mt-2 text-[11px] font-bold text-red-500">{speciesSearchError}</p>
+                            <p class="mt-2 text-xs font-bold text-red-500">{speciesSearchError}</p>
                         {:else if speciesSearchQuery.trim().length >= 2 && speciesSearchResults.length === 0}
-                            <p class="mt-2 text-[11px] font-bold text-slate-400">{$_('settings.notifications.species_filter_no_results')}</p>
+                            <p class="mt-2 text-xs font-bold text-slate-400">{$_('settings.notifications.species_filter_no_results')}</p>
                         {/if}
 
                         {#if speciesSearchResults.length > 0}
@@ -555,7 +610,7 @@
                                     >
                                         <span class="block text-sm font-black text-slate-900 dark:text-white">{names.primary}</span>
                                         {#if names.secondary}
-                                            <span class="block text-[11px] font-semibold italic text-slate-500">{names.secondary}</span>
+                                            <span class="block text-xs font-semibold italic text-slate-500">{names.secondary}</span>
                                         {/if}
                                     </button>
                                 {/each}
@@ -582,7 +637,7 @@
 
                         {#if filterSpeciesMode === 'whitelist' && legacySpeciesWhitelist.length > 0}
                             <div class="mt-4 border-t border-amber-200/60 pt-3 dark:border-amber-700/30">
-                                <p class="mb-2 text-[10px] font-black uppercase tracking-widest text-slate-500">{$_('settings.notifications.species_filter_legacy')}</p>
+                                <p class="mb-2 text-xs font-black uppercase tracking-widest text-slate-500">{$_('settings.notifications.species_filter_legacy')}</p>
                                 <div class="flex flex-wrap gap-2">
                                     {#each legacySpeciesWhitelist as species}
                                         <span class="group flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -605,10 +660,10 @@
         </div>
     </SettingsCard>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <!-- Discord -->
         <section class="card-base rounded-3xl p-8 backdrop-blur-md flex flex-col">
-            <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center justify-between {discordEnabled ? 'mb-6' : ''}">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -625,9 +680,10 @@
                 />
             </div>
 
+            {#if discordEnabled}
             <div class="space-y-4 flex-1">
                 <div>
-                    <label for="discord-webhook" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.discord.webhook_url')}</label>
+                    <label for="discord-webhook" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.discord.webhook_url')}</label>
                     <SecretInput
                         id="discord-webhook"
                         type="text"
@@ -639,7 +695,7 @@
                     />
                 </div>
                 <div>
-                    <label for="discord-botname" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.discord.bot_username')}</label>
+                    <label for="discord-botname" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.discord.bot_username')}</label>
                     <input
                         id="discord-botname"
                         type="text"
@@ -650,19 +706,20 @@
                     />
                 </div>
                 <button
-                    onclick={sendTestDiscord}
-                    disabled={testingNotification['discord'] || (!discordWebhook && !discordWebhookSaved)}
+                    onclick={runDiscordTest}
+                    disabled={ntRunning || (!discordWebhook && !discordWebhookSaved)}
                     aria-label={$_('settings.discord.test_notification')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
                 >
-                    {testingNotification['discord'] ? $_('settings.discord.test_sending') : $_('settings.discord.test_notification')}
+                    {$_('settings.discord.test_notification')}
                 </button>
             </div>
+            {/if}
         </section>
 
         <!-- Pushover -->
         <section class="card-base rounded-3xl p-8 backdrop-blur-md flex flex-col">
-            <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center justify-between {pushoverEnabled ? 'mb-6' : ''}">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-600 dark:text-blue-400">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
@@ -677,9 +734,10 @@
                 />
             </div>
 
+            {#if pushoverEnabled}
             <div class="space-y-4 flex-1">
                 <div>
-                    <label for="pushover-userkey" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.user_key')}</label>
+                    <label for="pushover-userkey" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.user_key')}</label>
                     <SecretInput
                         id="pushover-userkey"
                         type="text"
@@ -691,7 +749,7 @@
                     />
                 </div>
                 <div>
-                    <label for="pushover-apitoken" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.api_token')}</label>
+                    <label for="pushover-apitoken" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.api_token')}</label>
                     <SecretInput
                         id="pushover-apitoken"
                         type="text"
@@ -703,12 +761,12 @@
                     />
                 </div>
                 <button
-                    onclick={sendTestPushover}
-                    disabled={testingNotification['pushover'] || (!pushoverUserKey && !pushoverUserSaved) || (!pushoverApiToken && !pushoverTokenSaved)}
+                    onclick={runPushoverTest}
+                    disabled={ntRunning || (!pushoverUserKey && !pushoverUserSaved) || (!pushoverApiToken && !pushoverTokenSaved)}
                     aria-label={$_('settings.pushover.test_notification')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-blue-500 hover:bg-blue-600 text-white transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50"
                 >
-                    {testingNotification['pushover'] ? $_('settings.pushover.test_sending') : $_('settings.pushover.test_notification')}
+                    {$_('settings.pushover.test_notification')}
                 </button>
 
                 <AdvancedSection
@@ -716,7 +774,7 @@
                     title={$_('settings.pushover.advanced_title', { default: 'Priority & device targeting' })}
                 >
                     <div>
-                        <label for="pushover-priority" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.priority')}</label>
+                        <label for="pushover-priority" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.priority')}</label>
                         <select
                             id="pushover-priority"
                             bind:value={pushoverPriority}
@@ -731,7 +789,7 @@
                         </select>
                     </div>
                     <div>
-                        <label for="pushover-device" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.device')}</label>
+                        <label for="pushover-device" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.pushover.device')}</label>
                         <input
                             id="pushover-device"
                             type="text"
@@ -740,15 +798,16 @@
                             aria-label={$_('settings.pushover.device')}
                             class="block w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                         />
-                        <p class="mt-1.5 text-[10px] text-slate-400 dark:text-slate-500 ml-1">{$_('settings.pushover.device_hint')}</p>
+                        <p class="mt-1.5 text-xs text-slate-400 dark:text-slate-500 ml-1">{$_('settings.pushover.device_hint')}</p>
                     </div>
                 </AdvancedSection>
             </div>
+            {/if}
         </section>
 
         <!-- Telegram -->
         <section class="card-base rounded-3xl p-8 backdrop-blur-md flex flex-col">
-            <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center justify-between {telegramEnabled ? 'mb-6' : ''}">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-sky-500/10 flex items-center justify-center text-sky-600 dark:text-sky-400">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -765,9 +824,10 @@
                 />
             </div>
 
+            {#if telegramEnabled}
             <div class="space-y-4 flex-1">
                 <div>
-                    <label for="telegram-bottoken" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.telegram.bot_token')}</label>
+                    <label for="telegram-bottoken" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.telegram.bot_token')}</label>
                     <SecretInput
                         id="telegram-bottoken"
                         value={telegramBotToken}
@@ -778,7 +838,7 @@
                     />
                 </div>
                 <div>
-                    <label for="telegram-chatid" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.telegram.chat_id')}</label>
+                    <label for="telegram-chatid" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.telegram.chat_id')}</label>
                     <SecretInput
                         id="telegram-chatid"
                         type="text"
@@ -790,19 +850,20 @@
                     />
                 </div>
                 <button
-                    onclick={sendTestTelegram}
-                    disabled={testingNotification['telegram'] || (!telegramBotToken && !telegramTokenSaved) || (!telegramChatId && !telegramChatIdSaved)}
+                    onclick={runTelegramTest}
+                    disabled={ntRunning || (!telegramBotToken && !telegramTokenSaved) || (!telegramChatId && !telegramChatIdSaved)}
                     aria-label={$_('settings.telegram.test_notification')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-sky-500 hover:bg-sky-600 text-white transition-all shadow-lg shadow-sky-500/20 disabled:opacity-50"
                 >
-                    {testingNotification['telegram'] ? $_('settings.telegram.test_sending') : $_('settings.telegram.test_notification')}
+                    {$_('settings.telegram.test_notification')}
                 </button>
             </div>
+            {/if}
         </section>
 
         <!-- Email -->
         <section class="card-base rounded-3xl p-8 backdrop-blur-md flex flex-col">
-            <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center justify-between {emailEnabled ? 'mb-6' : ''}">
                 <div class="flex items-center gap-3">
                     <div class="w-10 h-10 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -819,10 +880,11 @@
                 />
             </div>
 
+            {#if emailEnabled}
             <div class="space-y-4 flex-1">
                 <!-- Auth Mode Selector -->
                 <div>
-                    <div id="email-auth-mode-label" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.auth_mode')}</div>
+                    <div id="email-auth-mode-label" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.auth_mode')}</div>
                     <div class="flex gap-2" role="group" aria-labelledby="email-auth-mode-label">
                         <button
                             onclick={() => emailUseOAuth = true}
@@ -847,13 +909,13 @@
                     <!-- OAuth App Credentials -->
                     <div class="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl space-y-3">
                         <div>
-                            <h5 class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.oauth_app_credentials')}</h5>
+                            <h5 class="text-xs font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.oauth_app_credentials')}</h5>
                             <p class="text-xs text-slate-500">{$_('settings.email.oauth_app_credentials_desc')}</p>
                         </div>
                         <!-- Gmail credentials -->
                         <div class="grid grid-cols-1 gap-2">
                             <div>
-                                <label for="gmail-client-id" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.gmail_client_id')}</label>
+                                <label for="gmail-client-id" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.gmail_client_id')}</label>
                                 <input
                                     id="gmail-client-id"
                                     type="text"
@@ -865,7 +927,7 @@
                                 />
                             </div>
                             <div>
-                                <label for="gmail-client-secret" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.gmail_client_secret')}</label>
+                                <label for="gmail-client-secret" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.gmail_client_secret')}</label>
                                 <SecretInput
                                     id="gmail-client-secret"
                                     value={emailGmailClientSecret}
@@ -879,7 +941,7 @@
                         <!-- Outlook credentials -->
                         <div class="grid grid-cols-1 gap-2 pt-2 border-t border-slate-200 dark:border-slate-700">
                             <div>
-                                <label for="outlook-client-id" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.outlook_client_id')}</label>
+                                <label for="outlook-client-id" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.outlook_client_id')}</label>
                                 <input
                                     id="outlook-client-id"
                                     type="text"
@@ -891,7 +953,7 @@
                                 />
                             </div>
                             <div>
-                                <label for="outlook-client-secret" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.outlook_client_secret')}</label>
+                                <label for="outlook-client-secret" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-1">{$_('settings.email.outlook_client_secret')}</label>
                                 <SecretInput
                                     id="outlook-client-secret"
                                     value={emailOutlookClientSecret}
@@ -977,7 +1039,7 @@
                     <!-- SMTP Section -->
                     <div class="space-y-3">
                         <div>
-                            <label for="smtp-host" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_host')}</label>
+                            <label for="smtp-host" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_host')}</label>
                             <input
                                 id="smtp-host"
                                 type="text"
@@ -989,7 +1051,7 @@
                         </div>
                         <div class="grid grid-cols-2 gap-3">
                             <div>
-                                <label for="smtp-port" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_port')}</label>
+                                <label for="smtp-port" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_port')}</label>
                                 <input
                                     id="smtp-port"
                                     type="number"
@@ -1011,7 +1073,7 @@
                             </div>
                         </div>
                         <div>
-                            <label for="smtp-username" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_username')}</label>
+                            <label for="smtp-username" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_username')}</label>
                             <input
                                 id="smtp-username"
                                 type="text"
@@ -1021,7 +1083,7 @@
                             />
                         </div>
                         <div>
-                            <label for="smtp-password" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_password')}</label>
+                            <label for="smtp-password" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.smtp_password')}</label>
                             <SecretInput
                                 id="smtp-password"
                                 value={emailSmtpPassword}
@@ -1036,7 +1098,7 @@
                 <!-- Common Email Settings -->
                 <div class="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-3">
                     <div>
-                        <label for="email-from" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.from_email')}</label>
+                        <label for="email-from" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.from_email')}</label>
                         <input
                             id="email-from"
                             type="email"
@@ -1047,7 +1109,7 @@
                         />
                     </div>
                     <div>
-                        <label for="email-to" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.to_email')}</label>
+                        <label for="email-to" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.to_email')}</label>
                         <input
                             id="email-to"
                             type="email"
@@ -1087,7 +1149,7 @@
                         <p class="mt-1 text-xs text-slate-500">{$_('settings.email.only_on_end_desc')}</p>
                     </div>
                     <div>
-                        <label for="email-dashboard-url" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.dashboard_url')}</label>
+                        <label for="email-dashboard-url" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.dashboard_url')}</label>
                         <input
                             id="email-dashboard-url"
                             type="url"
@@ -1102,24 +1164,34 @@
                 </AdvancedSection>
 
                 <button
-                    onclick={async () => {
-                        try {
-                            testingNotification['email'] = true;
-                            const result = await sendTestEmail();
-                            onActionFeedback('success', result.message || $_('settings.email.test_email_sent'));
-                        } catch (e: any) {
-                            onActionFeedback('error', extractErrorMessage(e, $_('settings.email.test_email_error_generic')));
-                        } finally {
-                            testingNotification['email'] = false;
-                        }
-                    }}
-                    disabled={testingNotification['email'] || !emailToEmail}
+                    onclick={runEmailTest}
+                    disabled={ntRunning || !emailToEmail}
                     aria-label={$_('settings.email.test_email')}
                     class="w-full px-4 py-3 text-xs font-black uppercase tracking-widest rounded-2xl bg-indigo-500 hover:bg-indigo-600 text-white transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50"
                 >
-                    {testingNotification['email'] ? $_('settings.email.test_email_sending') : $_('settings.email.test_email')}
+                    {$_('settings.email.test_email')}
                 </button>
             </div>
+            {/if}
         </section>
     </div>
 </div>
+
+{#if ntOpen}
+    <DiagnosticDialog
+        title={$_('settings.notifications.test_title', { default: 'Notification test' })}
+        subtitle={$_('settings.notifications.test_subtitle', { default: 'Sends one test message using the current settings for this channel.' })}
+        stages={ntStages}
+        busy={ntRunning}
+        result={ntResult}
+        runId={ntRunId}
+        retryLabel={$_('settings.notifications.test_retry', { default: 'Send again' })}
+        onClose={() => (ntOpen = false)}
+        onRetry={retryNotificationTest}
+    >
+        {#snippet summary()}
+            <span class="text-xs font-black uppercase tracking-widest text-slate-400">{$_('settings.notifications.test_channel', { default: 'Channel' })}</span>
+            <span class="font-bold text-slate-800 dark:text-slate-100">{ntChannelLabel}</span>
+        {/snippet}
+    </DiagnosticDialog>
+{/if}

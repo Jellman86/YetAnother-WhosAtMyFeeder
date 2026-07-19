@@ -9,6 +9,7 @@ import httpx
 from urllib.parse import urlencode
 
 from app.config import settings
+from app.models import OAuthAuthorizeResponse
 from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.services.inaturalist_service import inaturalist_service, INAT_AUTHORIZE_URL, INAT_TOKEN_URL, INAT_BASE_URL
@@ -53,13 +54,31 @@ class InaturalistStatusResponse(BaseModel):
     user: Optional[str] = None
 
 
+class InaturalistDisconnectResponse(BaseModel):
+    status: str
+    deleted: bool
+
+
+class InaturalistSubmitResponse(BaseModel):
+    status: str
+    observation_id: Optional[int] = None
+
+
+class SeasonalityResponse(BaseModel):
+    status: str
+    taxon_id: int
+    local: bool
+    month_counts: list[int]
+    total_observations: int
+
+
 @router.get("/status", response_model=InaturalistStatusResponse)
 async def inaturalist_status(auth: AuthContext = Depends(require_owner)):
     user = await inaturalist_service.refresh_connected_user()
     return InaturalistStatusResponse(connected=bool(user), user=user)
 
 
-@router.get("/oauth/authorize")
+@router.get("/oauth/authorize", response_model=OAuthAuthorizeResponse)
 async def inaturalist_authorize(request: Request, auth: AuthContext = Depends(require_owner)):
     lang = get_user_language(request)
     if not settings.inaturalist.enabled:
@@ -81,7 +100,7 @@ async def inaturalist_authorize(request: Request, auth: AuthContext = Depends(re
     return {"authorization_url": authorization_url, "state": state}
 
 
-@router.get("/oauth/callback")
+@router.get("/oauth/callback", response_class=HTMLResponse)
 async def inaturalist_callback(request: Request, code: str = Query(...), state: str = Query(None)):
     lang = get_user_language(request)
     if not state or state not in _oauth_state_cache:
@@ -133,7 +152,7 @@ async def inaturalist_callback(request: Request, code: str = Query(...), state: 
     return HTMLResponse(content=html)
 
 
-@router.delete("/oauth/disconnect")
+@router.delete("/oauth/disconnect", response_model=InaturalistDisconnectResponse)
 async def inaturalist_disconnect(auth: AuthContext = Depends(require_owner)):
     deleted = await inaturalist_service.delete_token()
     return {"status": "ok", "deleted": deleted}
@@ -173,7 +192,7 @@ async def inaturalist_draft(
         )
 
 
-@router.post("/submit")
+@router.post("/submit", response_model=InaturalistSubmitResponse)
 async def inaturalist_submit(
     request: Request, body: InaturalistSubmitRequest, auth: AuthContext = Depends(require_owner)
 ):
@@ -239,7 +258,7 @@ async def inaturalist_submit(
         )
 
 
-@router.get("/seasonality")
+@router.get("/seasonality", response_model=SeasonalityResponse)
 async def inaturalist_seasonality(
     taxon_id: int = Query(..., description="iNaturalist Taxon ID"),
     lat: Optional[float] = Query(None, description="Latitude"),

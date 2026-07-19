@@ -129,11 +129,22 @@ Key fields:
 - `openvino_available`
 - `openvino_devices`
 - `intel_gpu_available`
+- `active_model_id`, `selected_provider`, and `active_provider`
+- `host_device_eligibility`
 - `fallback_reason`
+- `model_config_warnings`
 - `openvino_import_error`
 - `openvino_probe_error`
 - `openvino_gpu_probe_error`
 - `dev_dri_present`, `dev_dri_entries`, `process_groups`
+
+The shared model registry is deliberately conservative across Intel hardware generations. A full
+device sweep can approve an extra provider for one model on this host; that host-specific result is
+reported under `host_device_eligibility` and may become the `active_provider`. YA-WAMF does not show
+an installed-provider warning when the same provider has passed the host sweep. A remaining
+`model_config_warnings` entry is therefore actionable: repair or download the model again in
+**Settings → Detection → Model Manager**, or include it in a diagnostics bundle when asking for
+help.
 
 ### Intel iGPU (OpenVINO) checklist
 
@@ -201,11 +212,23 @@ If startup fails, search logs for `phase=` to identify the exact failing step (`
 
 ## 🖥 UI Issues
 If the dashboard is blank or buttons don't work:
-1.  **Clear Browser Cache:** Svelte 5 updates sometimes require a hard refresh (`Ctrl + F5`).
-1.  **Check API Reachability:** Open `Settings` or hit `/api/version` directly. If `/api/*` calls fail (401/404/500/502), the UI can appear empty. This is commonly a reverse-proxy routing issue (make sure `/api` routes to the backend).
-1.  **Check SSE Connection:** YA-WAMF uses Server-Sent Events for live updates. Look for a green "Live" badge in the header. If it says "Offline", check your reverse proxy (Nginx/Traefik) allows long-lived connections and keeps headers.
-1.  **Logs:** Check for 404 or 500 errors in the frontend console (`F12` in your browser).
-1.  **PWA/Service Worker:** If you installed the PWA, stale cached assets can survive refreshes. Try a hard refresh, or clear site data for the domain.
+
+1. **Refresh once:** YA-WAMF revalidates its application document after every deploy and recovers
+   automatically from most stale page chunks. If a tab stayed open through several updates, refresh it.
+2. **Check API reachability:** Open **Settings** or request `/api/version` directly. If `/api/*`
+   calls fail with `401`, `404`, `500`, or `502`, the UI can appear empty. Make sure the reverse
+   proxy routes `/api` to the backend.
+3. **Check the live connection:** YA-WAMF uses Server-Sent Events (SSE) for live updates. If the
+   header says **Offline**, confirm the reverse proxy allows long-lived responses and preserves
+   the forwarding headers.
+4. **Check page-file requests:** Browser developer tools should show fingerprinted `/assets/*`
+   files returning `200` (or a cached response), with JavaScript and CSS compressed. Repeated `404`
+   responses usually mean an upstream proxy cached `index.html`; configure that proxy to revalidate
+   HTML while allowing the bundled YA-WAMF cache headers on fingerprinted assets.
+5. **Check the console:** A failed page download now shows an in-place retry. If retry continues to
+   fail, inspect the browser console for the requested asset URL and the HTTP status.
+6. **Reset an installed PWA only as a last resort:** If an old installed Progressive Web App (PWA)
+   remains stale after a normal refresh, clear the site's data once and reopen it.
 
 ## Frigate "Event Not Found" Detections
 

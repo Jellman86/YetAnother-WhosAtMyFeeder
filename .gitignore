@@ -210,3 +210,9 @@ backend/tests/fixtures/synthetic/
 # Local scratch / untracked binaries
 tmp/
 playwright-results/
+
+# Cloud-sync (iCloud/Dropbox) conflict copies, e.g. "package-lock 2.json", "node_modules 2/".
+# Root cause is the repo living in a synced folder — prefer moving it out of the sync path;
+# these patterns keep the tree clean in the meantime.
+* [2-9]
+* [2-9].*

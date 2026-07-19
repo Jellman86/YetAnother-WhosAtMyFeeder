@@ -322,7 +322,7 @@ def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_pa
         settings.classification.bird_model_region_override = original_override
 
 
-def test_get_active_model_spec_applies_family_crop_override_over_manifest_default(tmp_path, monkeypatch):
+def test_get_active_model_spec_ignores_legacy_crop_override_over_manifest_default(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 
     family_dir = tmp_path / "small_birds"
@@ -348,61 +348,6 @@ def test_get_active_model_spec_applies_family_crop_override_over_manifest_defaul
         spec = manager.get_active_model_spec()
 
         assert spec["resolved_region"] == "na"
-        assert spec["crop_generator"]["enabled"] is False
-        assert spec["crop_generator"]["source_preference"] == "high_quality"
-    finally:
-        settings.location.country = original_country
-        settings.classification.bird_model_region_override = original_override
-        if original_crop_model_overrides is None:
-            try:
-                delattr(settings.classification, "crop_model_overrides")
-            except AttributeError:
-                pass
-        else:
-            settings.classification.crop_model_overrides = original_crop_model_overrides
-        if original_crop_source_overrides is None:
-            try:
-                delattr(settings.classification, "crop_source_overrides")
-            except AttributeError:
-                pass
-        else:
-            settings.classification.crop_source_overrides = original_crop_source_overrides
-
-
-def test_get_active_model_spec_variant_crop_override_beats_family_override(tmp_path, monkeypatch):
-    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
-
-    family_dir = tmp_path / "small_birds"
-    na_dir = family_dir / "na"
-    na_dir.mkdir(parents=True, exist_ok=True)
-    (na_dir / "model.onnx").write_bytes(b"na")
-    (na_dir / "labels.txt").write_text("na-label\n", encoding="utf-8")
-
-    manager = ModelManager()
-    manager.active_model_id = "small_birds"
-
-    original_country = settings.location.country
-    original_override = settings.classification.bird_model_region_override
-    original_crop_model_overrides = getattr(settings.classification, "crop_model_overrides", None)
-    original_crop_source_overrides = getattr(settings.classification, "crop_source_overrides", None)
-    settings.location.country = "US"
-    settings.classification.bird_model_region_override = "auto"
-    monkeypatch.setattr(
-        settings.classification,
-        "crop_model_overrides",
-        {"small_birds": "off", "small_birds.na": "on"},
-        raising=False,
-    )
-    monkeypatch.setattr(
-        settings.classification,
-        "crop_source_overrides",
-        {"small_birds": "standard", "small_birds.na": "high_quality"},
-        raising=False,
-    )
-    try:
-        spec = manager.get_active_model_spec()
-
-        assert spec["resolved_region"] == "na"
         assert spec["crop_generator"]["enabled"] is True
         assert spec["crop_generator"]["source_preference"] == "high_quality"
     finally:
@@ -422,6 +367,35 @@ def test_get_active_model_spec_variant_crop_override_beats_family_override(tmp_p
                 pass
         else:
             settings.classification.crop_source_overrides = original_crop_source_overrides
+
+
+def test_get_active_model_spec_allows_temporary_diagnostic_crop_override(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    family_dir = tmp_path / "small_birds"
+    na_dir = family_dir / "na"
+    na_dir.mkdir(parents=True, exist_ok=True)
+    (na_dir / "model.onnx").write_bytes(b"na")
+    (na_dir / "labels.txt").write_text("na-label\n", encoding="utf-8")
+
+    manager = ModelManager()
+    manager.active_model_id = "small_birds"
+
+    original_country = settings.location.country
+    original_override = settings.classification.bird_model_region_override
+    settings.location.country = "US"
+    settings.classification.bird_model_region_override = "auto"
+    manager._diagnostic_crop_model_overrides = {"small_birds.na": "off"}
+    manager._diagnostic_crop_source_overrides = {"small_birds.na": "standard"}
+    try:
+        spec = manager.get_active_model_spec()
+
+        assert spec["resolved_region"] == "na"
+        assert spec["crop_generator"]["enabled"] is False
+        assert spec["crop_generator"]["source_preference"] == "standard"
+    finally:
+        settings.location.country = original_country
+        settings.classification.bird_model_region_override = original_override
 
 
 def test_get_active_model_spec_preserves_crop_policy_when_detector_not_installed(tmp_path, monkeypatch):
@@ -491,7 +465,7 @@ def test_get_active_model_spec_prefers_installed_model_config(tmp_path, monkeypa
     assert spec["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
 
 
-def test_get_active_model_spec_preserves_crop_generator_from_installed_model_config(tmp_path, monkeypatch):
+def test_get_active_model_spec_uses_registry_crop_policy_over_installed_model_config(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 
     model_dir = tmp_path / "convnext_large_inat21"
@@ -517,11 +491,11 @@ def test_get_active_model_spec_preserves_crop_generator_from_installed_model_con
 
     spec = manager.get_active_model_spec()
 
-    assert spec["crop_generator"]["enabled"] is True
-    assert spec["crop_generator"]["input_context"]["is_cropped"] is True
+    assert spec["crop_generator"]["enabled"] is False
+    assert spec["crop_generator"].get("input_context") is None
 
 
-def test_get_active_model_spec_merges_partial_installed_crop_generator_with_registry_defaults(tmp_path, monkeypatch):
+def test_get_active_model_spec_keeps_family_registry_crop_policy_authoritative(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 
     family_dir = tmp_path / "small_birds"
@@ -590,9 +564,9 @@ def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp
     assert spec["runtime"] == "onnx"
     assert spec["input_size"] == 384
     assert spec["preprocessing"]["resize_mode"] == "center_crop"
-    # convnext_large_inat21 is CPU-only (intel_gpu produces wrong predictions
-    # — see tests/test_model_openvino_gpu.py GPU_NOT_SUPPORTED).
-    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu"]
+    # ConvNeXt Large remains globally excluded from Intel GPU, but its NPU path
+    # is validated on Arrow Lake (see tests/test_model_openvino_npu.py).
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
     assert spec["label_grouping"] == {}
 
 
@@ -625,6 +599,8 @@ def test_get_active_model_spec_filters_unsupported_installed_providers_and_recor
     assert spec["model_config_warnings"] == [
         "Installed model_config.json advertised providers no longer supported by the current registry and they were ignored: legacy_unsupported"
     ]
+    assert spec["model_config_provider_warnings"] == spec["model_config_warnings"]
+    assert spec["model_config_registry_unsupported_providers"] == ["legacy_unsupported"]
 
 
 def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_list_is_only_unsupported(
@@ -654,9 +630,9 @@ def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_li
 
     spec = manager.get_active_model_spec()
 
-    # eva02 stays CPU-only on Intel iGPU (SIGABRT risk) — registry list
-    # excludes intel_gpu by hard requirement.
-    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu"]
+    # EVA-02 stays excluded from Intel GPU globally (historical SIGABRT risk),
+    # while the Arrow Lake NPU path is validated.
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
     assert spec["model_config_warnings"] == [
         "Installed model_config.json only advertised providers no longer supported by the current registry: legacy_unsupported. Falling back to registry-supported providers."
     ]

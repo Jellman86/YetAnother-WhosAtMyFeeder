@@ -78,17 +78,17 @@
     let cardElement = $state<HTMLElement | null>(null);
     let isVisible = $state(false);
 
-    function handleReclassifyClick(event: MouseEvent) {
+    function handleReclassifyClick(event: Event) {
         event.stopPropagation();
         onReclassify?.(detection);
     }
 
-    function handleRetagClick(event: MouseEvent) {
+    function handleRetagClick(event: Event) {
         event.stopPropagation();
         onRetag?.(detection);
     }
 
-    function handlePlayClick(event: MouseEvent) {
+    function handlePlayClick(event: Event) {
         event.stopPropagation();
         onPlay?.(detection);
     }
@@ -127,13 +127,13 @@
     }
 
     function getConfidenceColor(score: number): string {
-        if (score >= 0.9) return 'text-emerald-500';
+        if (score >= 0.9) return 'text-accent-500';
         if (score >= 0.7) return 'text-amber-500';
         return 'text-red-500';
     }
 
     function getConfidenceBg(score: number): string {
-        if (score >= 0.9) return 'border-emerald-500/30';
+        if (score >= 0.9) return 'border-accent-500/30';
         if (score >= 0.7) return 'border-amber-500/30';
         return 'border-red-500/30';
     }
@@ -184,16 +184,16 @@
 <div class="relative rounded-[2rem] transition-all duration-300 ease-out">
     <div
         bind:this={cardElement}
-        class="group relative bg-white/95 dark:bg-slate-800/85 rounded-3xl
-               shadow-card dark:shadow-card-dark hover:shadow-card-hover dark:hover:shadow-card-dark-hover
+        data-detection-card
+        class="group relative bg-white/90 dark:bg-slate-800/75 rounded-3xl
+               shadow-sm hover:shadow-md dark:shadow-slate-950/15
                border border-slate-200/80 dark:border-slate-700/60
-               ring-1 ring-slate-200/40 dark:ring-slate-700/40 ring-inset
-               hover:border-teal-500/30 dark:hover:border-teal-500/20
-               overflow-hidden transition-all duration-500 ease-out
-               hover:-translate-y-1.5 flex flex-col h-full
+               hover:border-brand-500/40 dark:hover:border-brand-500/30
+               overflow-hidden transition-[border-color,box-shadow] duration-200 ease-out
+               flex flex-col h-full
                text-left w-full animate-entrance
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
-               {isVerified ? 'ring-2 ring-emerald-500/20 dark:ring-emerald-500/10' : ''}
+               {isVerified ? 'ring-2 ring-accent-500/20 dark:ring-accent-500/10' : ''}
                {analysisActive ? 'border-2 border-indigo-400/90 dark:border-indigo-300/90 ring-2 ring-indigo-500/30 dark:ring-indigo-300/25 bg-indigo-50/10 dark:bg-indigo-500/10 shadow-[0_0_0_1px_rgba(99,102,241,0.12)]' : ''}
                {selectionMode && selected && !analysisActive ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35 dark:ring-cyan-300/20 bg-cyan-50/20 dark:bg-cyan-500/5' : ''}"
         style="animation-delay: {index * 40}ms"
@@ -202,7 +202,7 @@
         type="button"
         aria-label="{$_('detection.card_label', { values: { species: primaryName, camera: detection.camera_name } })}"
         onclick={onclick}
-        class="absolute inset-0 z-10 rounded-3xl focus:outline-none focus:ring-2 focus:ring-teal-500/50"
+        class="absolute inset-0 z-10 rounded-3xl focus:outline-none focus:ring-2 focus:ring-brand-500/50"
     ></button>
 
     <!-- Reclassification Overlay -->
@@ -222,14 +222,14 @@
                 src={getThumbnailUrl(detection.frigate_event)}
                 alt="{$_('detection.image_alt', { values: { species: primaryName, camera: detection.camera_name } })}"
                 loading="lazy"
-                class="w-full h-full object-cover transition-transform duration-700 ease-out
-                       group-hover:scale-110 group-hover:rotate-1
+                class="w-full h-full object-cover transition-transform duration-300 ease-out
+                       group-hover:scale-[1.025]
                        {imageLoaded ? 'opacity-100' : 'opacity-0'}"
                 onload={() => imageLoaded = true}
                 onerror={() => imageError = true}
             />
             <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-60"></div>
-            <div class="absolute inset-0 bg-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+            <div class="absolute inset-0 bg-brand-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 
         {:else}
             <div class="absolute inset-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800">
@@ -256,7 +256,7 @@
                 {#if isVerified}
                     <div
                         role="img"
-                        class="w-7 h-7 rounded-full bg-emerald-500/90 text-white flex items-center justify-center shadow-lg shadow-emerald-500/40"
+                        class="w-7 h-7 rounded-full bg-accent-500/90 text-white flex items-center justify-center shadow-lg shadow-accent-500/40"
                         title={$_('detection.verified')}
                         aria-label={$_('detection.verified')}
                     >
@@ -268,7 +268,7 @@
                 {#if hasAudioConfirmed && !isVerified}
                     <div
                         role="img"
-                        class="w-7 h-7 rounded-full bg-teal-500/90 text-white flex items-center justify-center shadow-lg shadow-teal-500/30"
+                        class="w-7 h-7 rounded-full bg-brand-500/90 text-white flex items-center justify-center shadow-lg shadow-brand-500/30"
                         title={$_('detection.audio_match')}
                         aria-label={$_('detection.audio_match')}
                     >
@@ -293,16 +293,16 @@
 
             <!-- Top-right: confidence only -->
             <div class="absolute top-3 right-3">
-                <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl bg-white/95 dark:bg-slate-900/95 shadow-xl backdrop-blur-md border {getConfidenceBg(detection.score)}">
-                    <span class="w-2 h-2 rounded-full {detection.score >= 0.9 ? 'bg-emerald-500 animate-pulse' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
-                    <span class="text-xs font-black {getConfidenceColor(detection.score)} leading-none">{(detection.score * 100).toFixed(0)}%</span>
+                <div class="flex items-center gap-1.5 rounded-full border bg-white/90 px-2.5 py-1.5 shadow-sm backdrop-blur-md dark:bg-slate-900/90 {getConfidenceBg(detection.score)}">
+                    <span class="w-2 h-2 rounded-full {detection.score >= 0.9 ? 'bg-accent-500' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
+                    <span class="text-xs font-bold {getConfidenceColor(detection.score)} leading-none">{(detection.score * 100).toFixed(0)}%</span>
                 </div>
             </div>
 
             <!-- Bottom-left: time + play inline -->
             <div class="absolute bottom-3 left-3 z-20 flex items-center gap-2">
-                <div class="px-2.5 py-1.5 rounded-xl bg-black/60 text-white text-[10px] font-bold backdrop-blur-md border border-white/10 flex items-center gap-1.5">
-                    <svg class="w-3 h-3 text-teal-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <div class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-[10px] font-bold text-white backdrop-blur-md">
+                    <svg class="w-3 h-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     {formatTime(detection.detection_time)}
@@ -314,19 +314,19 @@
                             if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                handlePlayClick(e as any);
+                                handlePlayClick(e);
                             }
                         }}
                         aria-label="{$_('detection.play_video', { values: { species: primaryName } })}"
-                        class="inline-flex h-7 w-7 items-center justify-center rounded-xl border border-white/25 bg-black/55 text-white shadow-2xl backdrop-blur-sm transition-all duration-200 hover:bg-teal-500/90"
+                        class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-lg backdrop-blur-sm transition-colors duration-200 hover:bg-brand-500/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                             <path d="M8 5v14l11-7z"/>
                         </svg>
                     </button>
                     {#if fullVisitFetched}
                         <div
-                            class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-teal-500/90 text-white shadow-md"
+                            class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-500/90 text-white shadow-md"
                             title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                             aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                         >
@@ -350,12 +350,12 @@
                             if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                handleReclassifyClick(e as any);
+                                handleReclassifyClick(e);
                             }
                         }}
                         aria-label="{$_('detection.reclassify', { values: { species: primaryName } })}"
                         class="w-9 h-9 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200
-                               hover:bg-teal-500 hover:text-white transition-all duration-200
+                               hover:bg-brand-500 hover:text-white transition-all duration-200
                                flex items-center justify-center shadow-2xl border border-slate-200/50 dark:border-slate-700/50"
                     >
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -370,7 +370,7 @@
                             if (e.key === 'Enter' || e.key === ' ') {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                handleRetagClick(e as any);
+                                handleRetagClick(e);
                             }
                         }}
                         aria-label="{$_('detection.retag', { values: { species: primaryName } })}"
@@ -391,7 +391,7 @@
     <div class="p-4 flex-1 flex flex-col gap-2.5">
         <!-- Species name -->
         <div>
-            <h3 class="text-lg font-black text-slate-900 dark:text-white truncate tracking-tight leading-tight" title={primaryName}>
+            <h3 class="truncate text-lg font-bold leading-tight tracking-tight text-slate-900 dark:text-white" title={primaryName}>
                 {primaryName}
             </h3>
             {#if subName}

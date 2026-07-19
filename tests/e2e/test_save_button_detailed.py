@@ -2,10 +2,12 @@
 """
 Detailed test to diagnose why the save button isn't appearing
 """
+
 from playwright.sync_api import sync_playwright
 import time
 
 from e2e_env import BASE_URL, PLAYWRIGHT_WS
+
 
 def run():
     console_logs = []
@@ -117,6 +119,7 @@ def run():
         print("=" * 80)
 
         browser.close()
+
 
 if __name__ == "__main__":
     run()

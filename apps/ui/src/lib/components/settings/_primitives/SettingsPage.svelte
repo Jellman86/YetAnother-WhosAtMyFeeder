@@ -57,7 +57,7 @@
         <div
             role="status"
             class="p-4 rounded-2xl animate-in slide-in-from-top-2 {message.type === 'success'
-                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20'
+                ? 'bg-accent-500/10 text-accent-700 dark:text-accent-400 border border-accent-500/20'
                 : 'bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/20'}"
         >
             <div class="flex items-center gap-3">
@@ -104,7 +104,7 @@
                 type="button"
                 onclick={() => onSave?.()}
                 disabled={saving}
-                class="px-8 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-lg shadow-teal-500/30 transition-all disabled:opacity-50"
+                class="px-8 py-3 bg-gradient-to-r from-brand-500 to-accent-500 hover:from-brand-600 hover:to-accent-600 text-white font-black text-sm uppercase tracking-widest rounded-2xl shadow-lg shadow-brand-500/30 transition-all disabled:opacity-50"
             >
                 {saving ? $_('common.saving') : $_('common.apply_settings')}
             </button>

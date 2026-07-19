@@ -68,7 +68,7 @@
                             autocomplete="username"
                             required
                             bind:value={username}
-                            class="block w-full px-4 py-3.5 rounded-2xl border-0 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white font-bold text-sm shadow-inner ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-teal-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                            class="block w-full px-4 py-3.5 rounded-2xl border-0 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white font-bold text-sm shadow-inner ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-brand-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                             placeholder={$_('auth.username_placeholder')}
                         />
                     </div>
@@ -81,7 +81,7 @@
                             autocomplete="current-password"
                             required
                             bind:value={password}
-                            class="block w-full px-4 py-3.5 rounded-2xl border-0 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white font-bold text-sm shadow-inner ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-teal-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
+                            class="block w-full px-4 py-3.5 rounded-2xl border-0 bg-slate-100 dark:bg-slate-800/50 text-slate-900 dark:text-white font-bold text-sm shadow-inner ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-brand-500 outline-none transition-all placeholder:text-slate-400 dark:placeholder:text-slate-500"
                             placeholder="••••••••"
                         />
                     </div>
@@ -96,7 +96,7 @@
                 <button
                     type="submit"
                     disabled={isLoading}
-                    class="w-full flex items-center justify-center py-3.5 px-4 rounded-2xl text-sm font-black text-white bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 shadow-lg shadow-teal-500/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="w-full flex items-center justify-center py-3.5 px-4 rounded-2xl text-sm font-black text-white bg-gradient-to-r from-brand-500 to-accent-600 hover:from-brand-400 hover:to-accent-500 shadow-lg shadow-brand-500/20 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                     {#if isLoading}
                         <div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>

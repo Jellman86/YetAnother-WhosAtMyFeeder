@@ -10,8 +10,8 @@
 
 <div class="flex items-start gap-3 mb-6">
     <div class="flex items-center justify-center w-10 h-10 rounded-xl
-                bg-gradient-to-br from-teal-500/20 to-emerald-500/20
-                dark:from-teal-500/10 dark:to-emerald-500/10
+                bg-gradient-to-br from-brand-500/20 to-accent-500/20
+                dark:from-brand-500/10 dark:to-accent-500/10
                 text-xl flex-shrink-0">
         {icon}
     </div>

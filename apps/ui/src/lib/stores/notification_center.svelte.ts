@@ -1,4 +1,4 @@
-export type NotificationSource = 'sse' | 'health' | 'cache' | 'system' | 'ui';
+export type NotificationSource = 'sse' | 'health' | 'cache' | 'system' | 'ui' | 'poll';
 
 export interface NotificationMeta {
     source?: NotificationSource;

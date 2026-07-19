@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
     AUTH_PASSWORD_COMPLEXITY_MESSAGE,
+    AUTH_PASSWORD_MAX_BYTES_MESSAGE,
     AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE,
     validateAuthSettingsSave,
     validateAuthPasswordPolicy
@@ -26,6 +27,14 @@ describe('validateAuthPasswordPolicy', () => {
 
     it('accepts passwords with both letters and numbers', () => {
         expect(validateAuthPasswordPolicy('abc12345')).toBeNull();
+    });
+
+    it('accepts passwords that are exactly 72 UTF-8 bytes', () => {
+        expect(validateAuthPasswordPolicy(`A1${'é'.repeat(35)}`)).toBeNull();
+    });
+
+    it('rejects passwords longer than 72 UTF-8 bytes', () => {
+        expect(validateAuthPasswordPolicy(`A1${'é'.repeat(36)}`)).toBe(AUTH_PASSWORD_MAX_BYTES_MESSAGE);
     });
 
     it('requires a password when enabling auth on a passwordless instance', () => {

@@ -46,6 +46,27 @@ def test_generate_crop_uses_runtime_setting_when_no_explicit_tier_is_bound(monke
     assert result["detector_tier"] == "accurate"
 
 
+def test_generate_classification_crop_uses_validated_tier_independently_of_thumbnail_setting(monkeypatch):
+    service = BirdCropService()
+    original_tier = settings.classification.bird_crop_detector_tier
+    settings.classification.bird_crop_detector_tier = "fast"
+
+    try:
+        monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+        monkeypatch.setattr(
+            service,
+            "_infer_candidates",
+            lambda model, image: [{"box": (8, 8, 120, 120), "confidence": 0.9, "tier": model["tier"]}],
+        )
+
+        result = service.generate_classification_crop(_img())
+    finally:
+        settings.classification.bird_crop_detector_tier = original_tier
+
+    assert result["reason"] == "selected"
+    assert result["detector_tier"] == "accurate"
+
+
 def test_generate_crop_falls_back_to_fast_when_accurate_unavailable(monkeypatch):
     service = BirdCropService(detector_tier="accurate")
 
@@ -66,6 +87,60 @@ def test_generate_crop_falls_back_to_fast_when_accurate_unavailable(monkeypatch)
     assert result["reason"] == "selected"
     assert result["detector_tier"] == "fast"
     assert result["fallback_reason"] == "accurate_unavailable"
+
+
+def test_generate_crop_falls_back_to_fast_when_accurate_finds_no_candidate(monkeypatch):
+    service = BirdCropService(detector_tier="accurate")
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+
+    def _infer(model, image):
+        if model["tier"] == "accurate":
+            return []
+        return [{"box": (8, 8, 120, 120), "confidence": 0.9, "tier": model["tier"]}]
+
+    monkeypatch.setattr(service, "_infer_candidates", _infer)
+
+    result = service.generate_crop(_img())
+
+    assert result["reason"] == "selected"
+    assert result["detector_tier"] == "fast"
+    assert result["fallback_reason"] == "accurate_no_candidate"
+
+
+def test_generate_crop_falls_back_to_fast_when_accurate_inference_fails(monkeypatch):
+    service = BirdCropService(detector_tier="accurate")
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+
+    def _infer(model, image):
+        if model["tier"] == "accurate":
+            raise RuntimeError("bad accurate output")
+        return [{"box": (8, 8, 120, 120), "confidence": 0.9, "tier": model["tier"]}]
+
+    monkeypatch.setattr(service, "_infer_candidates", _infer)
+
+    result = service.generate_crop(_img())
+
+    assert result["reason"] == "selected"
+    assert result["detector_tier"] == "fast"
+    assert result["fallback_reason"] == "accurate_inference_failed"
+
+
+def test_generate_crop_falls_back_to_fast_when_accurate_candidate_is_too_small(monkeypatch):
+    service = BirdCropService(detector_tier="accurate", expand_ratio=0.0)
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+
+    def _infer(model, image):
+        if model["tier"] == "accurate":
+            return [{"box": (16, 16, 32, 32), "confidence": 0.9}]
+        return [{"box": (8, 8, 120, 120), "confidence": 0.9}]
+
+    monkeypatch.setattr(service, "_infer_candidates", _infer)
+
+    result = service.generate_crop(_img())
+
+    assert result["reason"] == "selected"
+    assert result["detector_tier"] == "fast"
+    assert result["fallback_reason"] == "accurate_too_small"
 
 
 def test_generate_crop_returns_fail_soft_when_no_detector_tier_is_available(monkeypatch):

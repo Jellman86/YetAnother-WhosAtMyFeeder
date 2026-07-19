@@ -23,14 +23,14 @@
     function getColorClasses(type: Toast['type']) {
         switch (type) {
             case 'success':
-                return 'bg-emerald-500 border-emerald-600';
+                return 'bg-accent-500 border-accent-600';
             case 'error':
                 return 'bg-red-500 border-red-600';
             case 'warning':
                 return 'bg-amber-500 border-amber-600';
             case 'info':
             default:
-                return 'bg-teal-500 border-teal-600';
+                return 'bg-brand-500 border-brand-600';
         }
     }
 </script>

@@ -80,21 +80,31 @@ No action beyond ensuring reconnection stays robust.
 
 ## Recommendations (feed the pre-3.0 roadmap item)
 
-1. **Reduce Frigate media-unavailability drops (finding 1).** The classify fallback
-   chain (`_load_snapshot_classification_fallback`) is cropped → uncropped → thumbnail
-   → cached snapshot, and `drop_classify_snapshot_unavailable` fires only when all fail
-   — the transient-object case. Add a **recording-frame** source (the continuous
-   recording usually still covers the moment), so a brief bird is classified from a
-   recording frame instead of dropped. Surface the
-   [Event Not Found guide](../troubleshooting/frigate-event-not-found.md) in-app when
-   the rate is high. (Correction: the `frigate_missing` default is already
+1. **Reduce Frigate media-unavailability drops (finding 1).** ✅ Recording-frame
+   fallback shipped — the classify fallback chain
+   (`_load_snapshot_classification_fallback`) is cropped → uncropped → thumbnail →
+   cached snapshot → **recording frame**, and `drop_classify_snapshot_unavailable`
+   now fires only when even the continuous recording has no frame (see
+   [design note](../plans/2026-07-10-recording-frame-classification-fallback.md)). A
+   brief bird is classified from a recording frame instead of dropped. ✅ In-app
+   guidance shipped too — the Errors page surfaces the
+   [Event Not Found guide](../troubleshooting/frigate-event-not-found.md) with a calm
+   advisory when the media-unavailability drop rate is elevated over a real sample.
+   (Correction: the `frigate_missing` default is already
    `mark_missing`, never delete — the ~18k deletions are from installs that explicitly
    chose *delete*, now clearly warned against in that guide.)
-2. **Push old installs off the critical build (finding 2).** Confirm `classify_snapshot`
-   `stage_failure` is fixed on `2.11`+, and nudge `2.9.x`/`2.10.x` installs to update.
+2. **Push old installs off the critical build (finding 2).** ✅ Confirmed and served.
+   The `classify_snapshot` `stage_failure` critical appears **only** on `2.9.15`/`2.10.0`
+   in the fleet data and never on `2.11`+ — the signature of a resolved fault, closed by
+   the `v2.11` inference-health consolidation (roadmap item 0). The "nudge stale installs"
+   half is now a product feature rather than a manual ask: the in-app, channel-aware update
+   prompt tells `2.9.x`/`2.10.x` installs a newer build is available. No code change remains
+   for this item; it is confirmation plus the shipped update prompt.
 3. **Separate expected drops from problems (finding 3).** ✅ Done — `filter_*` drops are
    now recorded as informational, and health reporting excludes `info`, so normal
    filtering no longer reaches the fleet health data.
-4. **Capture context for critical failures (finding 5).** Populate
-   `sample_context_json` for stage failures (exception type, stage inputs) and
-   recalibrate severity so it is usable for triage.
+4. **Capture context for critical failures (finding 5).** ✅ Done — critical stage
+   failures now record the exception type (`error_type`) and stage in their
+   allow-listed `sample_context`, so they are diagnosable in fleet data instead of an
+   empty `{}`; the free-text error stays local. Severity was already calibrated
+   (`filter_*` drops are `info` and excluded from health reports).

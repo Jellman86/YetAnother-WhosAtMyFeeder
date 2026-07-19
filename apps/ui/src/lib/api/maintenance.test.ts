@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { applyTimezoneRepair, fetchAnalysisStatus, fetchTimezoneRepairPreview, purgeMissingMedia } from './maintenance';
+import { applyTimezoneRepair, fetchAnalysisStatus, fetchTimezoneRepairPreview, purgeMissingMedia, testLlm } from './maintenance';
 
 describe('fetchAnalysisStatus', () => {
     afterEach(() => {
@@ -100,5 +100,40 @@ describe('media integrity maintenance api', () => {
         const firstCall = fetchMock.mock.calls[0] as unknown as [string, RequestInit | undefined];
         expect(firstCall[0]).toContain('/maintenance/purge-missing-media');
         expect(firstCall[1]).toMatchObject({ method: 'POST' });
+    });
+});
+
+describe('AI model diagnostic api', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('preserves structured provider failures instead of throwing away the stage results', async () => {
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+            status: 'error',
+            message: 'No provider is currently available.',
+            provider: 'openrouter',
+            model: 'nvidia/test-vision',
+            frame_count: 5,
+            failure_stage: 'provider',
+            retryable: true,
+            retry_after_seconds: 15
+        }), { status: 503 }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        const result = await testLlm({
+            llm_enabled: true,
+            llm_provider: 'openrouter',
+            llm_model: 'nvidia/test-vision',
+            llm_api_key: 'sk-or-test'
+        });
+
+        expect(result).toMatchObject({
+            status: 'error',
+            failure_stage: 'provider',
+            retryable: true,
+            retry_after_seconds: 15,
+            http_status: 503
+        });
     });
 });

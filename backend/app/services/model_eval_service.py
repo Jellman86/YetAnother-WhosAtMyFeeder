@@ -18,6 +18,7 @@ import csv
 import io
 import json
 import os
+import re
 import shutil
 import statistics
 import time
@@ -27,7 +28,7 @@ from typing import Any, Optional
 
 import httpx
 import structlog
-from PIL import Image
+from app.utils.image_io import load_rgb_image
 
 from app.config import settings
 from app.services.broadcaster import broadcaster
@@ -104,7 +105,7 @@ class ModelEvalRunner:
 
         run_id = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
         run_dir = _eval_runs_root() / run_id
-        run_dir.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(run_dir.mkdir, parents=True, exist_ok=True)
         self._active_status = {
             "run_id": run_id,
             "phase": "starting",
@@ -151,7 +152,9 @@ class ModelEvalRunner:
         return rows[:20]
 
     def get_run(self, run_id: str) -> Optional[dict[str, Any]]:
-        run_dir = _eval_runs_root() / _safe_run_id(run_id)
+        run_dir = _existing_run_dir(run_id)
+        if run_dir is None:
+            return None
         summary_path = run_dir / SUMMARY_FILENAME
         if not summary_path.is_file():
             if self.is_running() and (self._active_status or {}).get("run_id") == run_id:
@@ -189,12 +192,15 @@ class ModelEvalRunner:
             DEVICE_MATRIX_FILENAME,
         }:
             return None
-        candidate = _eval_runs_root() / _safe_run_id(run_id) / filename
+        run_dir = _existing_run_dir(run_id)
+        if run_dir is None:
+            return None
+        candidate = run_dir / filename
         return candidate if candidate.is_file() else None
 
     def delete_run(self, run_id: str) -> bool:
-        run_dir = _eval_runs_root() / _safe_run_id(run_id)
-        if not run_dir.is_dir():
+        run_dir = _existing_run_dir(run_id)
+        if run_dir is None:
             return False
         if self.is_running() and (self._active_status or {}).get("run_id") == run_id:
             return False
@@ -253,7 +259,7 @@ class ModelEvalRunner:
                     "models": [],
                 }
                 try:
-                    (run_dir / SUMMARY_FILENAME).write_text(json.dumps(err_summary, indent=2))
+                    await asyncio.to_thread((run_dir / SUMMARY_FILENAME).write_text, json.dumps(err_summary, indent=2))
                 except OSError:
                     pass
             finally:
@@ -370,7 +376,7 @@ class ModelEvalRunner:
                     cleanup_image_dir(images_root)
                 except Exception as e:
                     log.warning("model_eval_cleanup_failed", error=str(e))
-            _write_summary(
+            await _write_summary(
                 run_dir,
                 _build_summary_envelope(
                     run_id=run_id,
@@ -398,7 +404,7 @@ class ModelEvalRunner:
         # Open per-image jsonl writer once if requested
         results_fp: Optional[io.TextIOWrapper] = None
         if include_per_image:
-            results_fp = open(run_dir / RESULTS_FILENAME, "w", encoding="utf-8")
+            results_fp = await asyncio.to_thread(open, run_dir / RESULTS_FILENAME, "w", encoding="utf-8")
 
         runtime_payload: dict[str, dict[str, Any]] = {}
         model_summaries: list[dict[str, Any]] = []
@@ -475,8 +481,7 @@ class ModelEvalRunner:
                     images = images_by_taxa.get(entry.taxa_id) or []
                     for fetched in images:
                         try:
-                            with Image.open(fetched.local_path) as raw:
-                                img = raw.convert("RGB")
+                            img = await asyncio.to_thread(load_rgb_image, fetched.local_path)
                         except Exception as e:
                             log.warning("model_eval_image_open_failed", path=fetched.local_path, error=str(e))
                             continue
@@ -573,7 +578,8 @@ class ModelEvalRunner:
                         processed += 1
 
                         if results_fp is not None:
-                            results_fp.write(
+                            await asyncio.to_thread(
+                                results_fp.write,
                                 json.dumps(
                                     {
                                         "model_id": model.id,
@@ -596,7 +602,7 @@ class ModelEvalRunner:
                                         "correct_top1": bool(match_flags and match_flags[0]),
                                     }
                                 )
-                                + "\n"
+                                + "\n",
                             )
 
                 # Per-model summary
@@ -648,9 +654,9 @@ class ModelEvalRunner:
                 }
 
                 # Confusion CSV — append per model so partial runs leave usable data
-                _append_confusions_csv(run_dir / CONFUSIONS_FILENAME, model.id, confusions)
+                await _append_confusions_csv(run_dir / CONFUSIONS_FILENAME, model.id, confusions)
                 # Persist partial summary after each model
-                _write_summary(
+                await _write_summary(
                     run_dir,
                     _build_summary_envelope(
                         run_id=run_id,
@@ -664,7 +670,7 @@ class ModelEvalRunner:
                         skipped_models=skipped_models,
                     ),
                 )
-                _write_runtime(run_dir, runtime_payload)
+                await _write_runtime(run_dir, runtime_payload)
 
             # Optional per-model x per-device capability sweep (compile / finite /
             # top-5 agreement vs CPU), each compile isolated in a subprocess.
@@ -675,7 +681,7 @@ class ModelEvalRunner:
                     log.exception("model_eval_device_sweep_failed", run_id=run_id, error=str(e))
         finally:
             if results_fp is not None:
-                results_fp.close()
+                await asyncio.to_thread(results_fp.close)
             # Restore original active model
             if original_active and original_active != model_manager.active_model_id:
                 try:
@@ -702,8 +708,8 @@ class ModelEvalRunner:
             models=model_summaries,
             skipped_models=skipped_models,
         )
-        _write_summary(run_dir, envelope)
-        _write_runtime(run_dir, runtime_payload)
+        await _write_summary(run_dir, envelope)
+        await _write_runtime(run_dir, runtime_payload)
         await self._emit(
             run_id,
             phase="complete",
@@ -789,9 +795,7 @@ class ModelEvalRunner:
         # Real bird images fetched earlier in the run — compare devices on these
         # (not just a synthetic gradient) so f16 NPU divergence on real data is caught.
         exts = {".jpg", ".jpeg", ".png", ".webp"}
-        image_paths = [
-            str(p) for p in sorted((run_dir / IMAGES_SUBDIR).rglob("*")) if p.is_file() and p.suffix.lower() in exts
-        ][:12]
+        image_paths = await asyncio.to_thread(_list_eval_images, run_dir / IMAGES_SUBDIR, exts, 12)
 
         matrix: dict[str, Any] = {}
         total = len(classifiers)
@@ -874,7 +878,7 @@ class ModelEvalRunner:
             "models": matrix,
         }
         try:
-            (run_dir / DEVICE_MATRIX_FILENAME).write_text(json.dumps(payload, indent=2))
+            await asyncio.to_thread((run_dir / DEVICE_MATRIX_FILENAME).write_text, json.dumps(payload, indent=2))
         except OSError as e:
             log.warning("model_eval_device_matrix_write_failed", error=str(e))
 
@@ -898,7 +902,8 @@ class ModelEvalRunner:
             if passed:
                 eligibility[mid] = passed
         try:
-            (_eval_runs_root() / "device_eligibility.json").write_text(
+            await asyncio.to_thread(
+                (_eval_runs_root() / "device_eligibility.json").write_text,
                 json.dumps(
                     {
                         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -906,7 +911,7 @@ class ModelEvalRunner:
                         "models": eligibility,
                     },
                     indent=2,
-                )
+                ),
             )
         except OSError as e:
             log.warning("model_eval_eligibility_write_failed", error=str(e))
@@ -993,11 +998,32 @@ def _drift_ratio(latencies: list[float], baseline_ms: Any) -> Optional[float]:
     return round(statistics.fmean(latencies) / baseline, 3)
 
 
+_RUN_ID_PATTERN = re.compile(r"\A\d{8}-\d{6}\Z")
+
+
 def _safe_run_id(run_id: str) -> str:
-    cleaned = "".join(c for c in str(run_id or "") if c.isalnum() or c in "-_")
-    if not cleaned or cleaned in {".", ".."}:
+    candidate = str(run_id or "")
+    if not _RUN_ID_PATTERN.fullmatch(candidate):
         raise ValueError(f"invalid run id: {run_id!r}")
-    return cleaned
+    return candidate
+
+
+def _existing_run_dir(run_id: str) -> Optional[Path]:
+    """Resolve an existing run by directory entry, never by joining user input."""
+    try:
+        safe_id = _safe_run_id(run_id)
+    except ValueError:
+        return None
+    root = _eval_runs_root()
+    if not root.is_dir():
+        return None
+    try:
+        for entry in root.iterdir():
+            if entry.name == safe_id and entry.is_dir():
+                return entry
+    except OSError:
+        return None
+    return None
 
 
 def _summary_brief(summary: dict[str, Any]) -> dict[str, Any]:
@@ -1050,15 +1076,37 @@ def _build_summary_envelope(
     }
 
 
-def _write_summary(run_dir: Path, payload: dict[str, Any]) -> None:
+def _list_eval_images(root: Path, extensions: set[str], limit: int) -> list[str]:
+    return [str(path) for path in sorted(root.rglob("*")) if path.is_file() and path.suffix.lower() in extensions][
+        :limit
+    ]
+
+
+async def _write_summary(run_dir: Path, payload: dict[str, Any]) -> None:
+    await asyncio.to_thread(_write_summary_sync, run_dir, payload)
+
+
+def _write_summary_sync(run_dir: Path, payload: dict[str, Any]) -> None:
     (run_dir / SUMMARY_FILENAME).write_text(json.dumps(payload, indent=2, default=str))
 
 
-def _write_runtime(run_dir: Path, payload: dict[str, dict[str, Any]]) -> None:
+async def _write_runtime(run_dir: Path, payload: dict[str, dict[str, Any]]) -> None:
+    await asyncio.to_thread(_write_runtime_sync, run_dir, payload)
+
+
+def _write_runtime_sync(run_dir: Path, payload: dict[str, dict[str, Any]]) -> None:
     (run_dir / RUNTIME_FILENAME).write_text(json.dumps(payload, indent=2, default=str))
 
 
-def _append_confusions_csv(
+async def _append_confusions_csv(
+    path: Path,
+    model_id: str,
+    confusions: dict[tuple[int, int], dict[str, Any]],
+) -> None:
+    await asyncio.to_thread(_append_confusions_csv_sync, path, model_id, confusions)
+
+
+def _append_confusions_csv_sync(
     path: Path,
     model_id: str,
     confusions: dict[tuple[int, int], dict[str, Any]],

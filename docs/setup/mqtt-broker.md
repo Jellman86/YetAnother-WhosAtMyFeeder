@@ -158,7 +158,7 @@ You should see `Opening ipv4 listen socket on port 1883` and no error lines.
 
 ### Quick connection test from the UI
 
-In YA-WAMF, go to **Settings → Connections** and use the **Test MQTT** button. A green tick means the broker handshake succeeded.
+In YA-WAMF, go to **Settings → Connection** and use the **Test MQTT** button. A green tick means the broker handshake succeeded.
 
 ---
 

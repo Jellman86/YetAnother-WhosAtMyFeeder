@@ -9,6 +9,7 @@
     "dashboard": "ダッシュボード",
     "explorer": "エクスプローラー",
     "leaderboard": "リーダーボード",
+    "audio_history": "音声履歴",
     "settings": "設定",
     "about": "このアプリについて",
     "toggle_menu": "メニューの切り替え",
@@ -29,8 +30,8 @@
     "system": "システム",
     "title": "テーマと外観",
     "layout": "ナビゲーションレイアウト",
-    "horizontal": "Horizontal",
-    "vertical": "Vertical",
+    "horizontal": "横向き",
+    "vertical": "縦向き",
     "horizontal_desc": "上部ナビゲーションバー",
     "vertical_desc": "左サイドバー（折りたたみ可能）",
     "font_title": "タイポグラフィ",
@@ -94,8 +95,11 @@
       "empty_title": "バッファ内に音声検出はありません",
       "empty_subtitle": "バッファは5分ごとにクリア",
       "unknown_sensor": "不明なセンサー",
+      "open_history": "音声履歴を開く",
       "open_birdnet": "BirdNET-Go を開く",
-      "open_in_birdnet": "この検出を BirdNET-Go で開く"
+      "open_in_birdnet": "この検出を BirdNET-Go で開く",
+      "heard_today": "検出",
+      "species": "種"
     },
     "top_visitors_title": "よく来る訪問者",
     "top_visitors_empty": "今日はまだ訪問者が記録されていません。",
@@ -144,6 +148,9 @@
     "all": "すべて",
     "available": "利用可能",
     "clear": "クリア",
+    "apply": "適用",
+    "previous": "前へ",
+    "next": "次へ",
     "clearing": "クリア中...",
     "disabled": "無効",
     "enabled": "有効",
@@ -157,7 +164,14 @@
     "no": "いいえ",
     "download": "ダウンロード",
     "skip_to_content": "コンテンツへスキップ",
-    "working": "処理中…"
+    "working": "処理中…",
+    "language_load_error": "この言語を読み込めませんでした。接続を確認して、もう一度お試しください。"
+  },
+  "route_load": {
+    "loading": "{page} を開いています…",
+    "error_title": "このページを開けませんでした",
+    "error_description": "ページファイルを取得できませんでした。接続を確認して、もう一度お試しください。",
+    "retry": "もう一度開く"
   },
   "settings": {
     "title": "設定",
@@ -188,11 +202,21 @@
       "accessibility": "アクセシビリティ",
       "debug": "デバッグ",
       "enrichment": "情報拡充",
-      "ai": "AI"
+      "ai": "AI",
+      "groups": {
+        "pipeline": "フィーダーパイプライン",
+        "intelligence": "分析と共有",
+        "operations": "運用",
+        "interface": "インターフェース"
+      }
     },
     "debug": {
       "title": "デバッグツール",
       "subtitle": "テストと診断のための追加スイッチ。",
+      "model_eval_title": "モデル評価ツール",
+      "model_eval_desc": "分類学的に検証された鳥の画像で、インストール済み分類器を評価します。成果物は /config/yawamf-eval/ に保存されます。",
+      "model_eval_action_desc": "すべてのインストール済みモデルで精度、遅延、妥当性のチェックを実行します。所有者専用です。",
+      "model_eval_open": "開く",
       "llm_prompts_title": "LLMプロンプトテンプレート",
       "llm_prompts_subtitle": "AI解析と会話のMarkdown構成とトーンをカスタマイズします。",
       "llm_prompt_style_label": "プロンプトスタイル",
@@ -450,6 +474,8 @@
       "payload_nvidia_gpu_detected": "NVIDIA GPU 検出",
       "payload_openvino_available": "OpenVINO 利用可能",
       "payload_intel_gpu_available": "Intel GPU 利用可能",
+      "payload_intel_npu_available": "Intel NPU 利用可能",
+      "dashboard_link": "公開テレメトリダッシュボードを表示",
       "payload_openvino_compile": "OpenVINO GPU コンパイル",
       "payload_openvino_device": "OpenVINO デバイス",
       "payload_gpu_fallback": "GPU フォールバック有効",
@@ -666,6 +692,7 @@
       "clear_feedback_confirm": "パーソナライズされた再ランキングデータをすべて消去してもよろしいですか?AI はベースラインの精度に戻り、元に戻すことはできません。"
     },
     "data": {
+      "tools_title": "セットアップ、バックアップ、メンテナンス",
       "title": "データ管理",
       "records": "総レコード数",
       "oldest": "最古の記録",
@@ -795,13 +822,15 @@
       "backfill_validation_order": "開始日は終了日以前である必要があります。",
       "backfill_validation_select_both": "開始日と終了日の両方を選択してください。",
       "batch_analysis_recent_failures": "最近の失敗",
-      "cache_high_quality_event_snapshots": "HQ イベントスナップショット",
-      "cache_high_quality_event_snapshots_help": "後で Frigate のスナップショットをメインストリームクリップのフレームに置き換えます。",
-      "cache_high_quality_event_snapshot_bird_crop": "HQ 鳥クロップスナップショット",
-      "cache_high_quality_event_snapshot_bird_crop_help": "HQ フレームに鳥クロップ検出器を使用します。クロップが見つからない場合は完全な HQ フレームに戻します。",
+      "cache_high_quality_event_snapshots": "利用可能な最高品質のイベント画像",
+      "cache_high_quality_event_snapshots_help": "イベント終了後、メインストリームから最も鮮明なフレームと最適なクロップを自動選択します。信頼できるクロップを作れない場合はフルフレームを保持します。",
+      "cache_crop_detector_ready": "クロップ検出器は準備完了です",
+      "cache_crop_fallback_ready": "Frigate 追跡フォールバックは準備完了です",
+      "cache_crop_detector_ready_help": "Frigate の追跡ヒントとクロップ検出器を自動的に評価します。",
+      "cache_crop_fallback_ready_help": "Frigate の追跡ヒントを自動使用し、モデルのインストール後は検出器クロップも候補に加えます。",
       "batch_analysis_complete": "一括分析が完了しました",
       "advanced_title": "メンテナンスとメディア整合性",
-      "cache_advanced_title": "高品質スナップショットと画質"
+      "cache_advanced_title": "スナップショット品質"
     },
     "security": {
       "title": "セキュリティ",
@@ -911,6 +940,20 @@
       "model_manager_runtime_tflite": "TFLite ランタイム状態",
       "model_manager_runtime_onnx": "ONNX ランタイム状態",
       "model_manager_refresh": "更新",
+      "model_manager_select_label": "識別モデルを選択",
+      "model_manager_best_fit": "最適な用途",
+      "model_manager_download_size": "ダウンロードとメモリ",
+      "model_manager_technical_details": "技術情報",
+      "model_manager_crop_policy_automatic": "画像の準備は自動です",
+      "model_manager_crop_policy_automatic_desc": "YA-WAMF はこのモデルで検証済みの切り抜き方針を使用します。モデルを切り替えても調整は不要です。",
+      "model_manager_thumbnail_crop_title": "切り抜きサムネイル",
+      "model_manager_thumbnail_crop_quality": "自動で最高品質",
+      "model_manager_thumbnail_crop_desc": "YA-WAMF は高精度検出器、軽量フォールバック、Frigate の追跡ヒントを自動評価し、いずれも信頼できるクロップを生成できない場合のみ鮮明なフルフレームを使用します。",
+      "model_manager_runtime_health": "ランタイムの状態",
+      "model_manager_image_preparation": "画像の準備",
+      "model_manager_detector_ready": "準備完了",
+      "model_manager_detector_missing": "ダウンロードが必要",
+      "model_manager_download_detector": "検出器をダウンロード",
       "model_manager_lineup_title": "階層型モデル構成",
       "model_manager_lineup_desc": "推奨モデルが先に表示されます。高度なオプションは開くまで非表示のままです。",
       "model_manager_hide_advanced": "高度なモデルを隠す",
@@ -935,6 +978,26 @@
       "model_manager_redownload": "再ダウンロード",
       "model_manager_download": "ダウンロード",
       "model_manager_activate_error": "モデルを有効化できませんでした",
+      "model_manager_validate_to_enable": "検証して有効化",
+      "model_manager_download_setup": "ダウンロードして設定",
+      "model_manager_install_title": "モデルを設定",
+      "model_manager_install_subtitle": "ダウンロードし、お使いのハードウェアで検証して、このモデルを有効化します。",
+      "model_manager_install_note": "各ステップはお使いのハードウェアで実行されます。検証に合格するまで何も有効になりません。",
+      "model_manager_install_stage_download": "モデルをダウンロード",
+      "model_manager_device_sweeping": "デバイスを比較しています…",
+      "model_manager_device_set": "最速のデバイス: {provider}{ms} — 推論デバイスに設定しました。",
+      "model_manager_installing_pct": "ダウンロード中… {pct}%",
+      "model_manager_install_downloaded": "ダウンロードして検証しました。",
+      "model_manager_install_already_downloaded": "ダウンロード済み。",
+      "model_manager_validate_failed": "検証に失敗しました。",
+      "model_manager_validation_needed": "ダウンロード済みですが、お使いのハードウェアでまだ検証されていません。選択する前に、ここで動作することを検証してください。",
+      "model_manager_validate_title": "モデルを検証して有効化",
+      "model_manager_validate_subtitle": "このモデルがお使いのハードウェアで動作することを確認してから、選択できるように有効化します。",
+      "model_manager_validate_note": "検証ではモデルを試験的に読み込み、1フレームを処理してから、現在のモデルに戻します。",
+      "model_manager_validate_stage_run": "このハードウェアで検証・調整",
+      "model_manager_validate_stage_enable": "選択できるように有効化",
+      "model_manager_validate_ran_ok": "{provider}{ms} で実行され、有効な出力が生成されました。",
+      "model_manager_validate_enabled": "このモデルが有効になりました。",
       "model_manager_load_error": "モデルを読み込めませんでした",
       "model_manager_status_unavailable": "ダウンロード状態を取得できません",
       "model_manager_status_refresh_failed": "ダウンロード状態を更新できませんでした",
@@ -1019,11 +1082,11 @@
       "enabled": "AI インサイトを切り替える",
       "test_connection": "AI 接続をテスト",
       "recommended_model": "推奨: {model}",
-      "get_gemini_key": "Get Google Gemini Key →",
-      "get_openai_key": "Get OpenAI Key →",
-      "get_claude_key": "Get Anthropic Claude Key →",
+      "get_gemini_key": "Google Gemini キーを取得 →",
+      "get_openai_key": "OpenAI キーを取得 →",
+      "get_claude_key": "Anthropic Claude キーを取得 →",
       "get_openrouter_key": "OpenRouter キーを取得 →",
-      "openrouter_model_hint": "任意の OpenRouter モデル ID を入力します (例: google/gemini-2.5-flash)。モデル一覧は openrouter.ai/models で確認できます。"
+      "openrouter_model_hint": "任意の OpenRouter モデル ID を入力します (例: google/gemini-3.1-flash-lite)。モデル一覧は openrouter.ai/models で確認できます。"
     },
     "ai": {
       "usage_title": "AI使用状況",
@@ -1053,6 +1116,24 @@
       "table_cost": "コスト",
       "view_reference_pricing": "参照料金を表示 →",
       "usage_load_error": "AI使用状況の読み込みに失敗しました。",
+      "test_title": "AIモデル診断",
+      "test_subtitle": "検出分析と同じ複数フレームの画像形式を確認します。",
+      "test_stage_configuration": "設定",
+      "test_stage_provider": "プロバイダーの可用性",
+      "test_stage_vision": "画像入力",
+      "test_stage_multiframe": "複数フレーム要求",
+      "test_stage_response": "モデルの応答",
+      "test_configuration_ok": "プロバイダー、モデル、認証情報が設定されています。",
+      "test_contacting": "負荷を抑えた診断要求を送信しています…",
+      "test_pending": "プロバイダーの応答を待っています。",
+      "test_multiframe_ok": "1回の要求で{count}枚のJPEGフレームが受理されました。",
+      "test_stage_ok": "合格",
+      "test_skipped": "前の段階で失敗したため実行されませんでした。",
+      "test_running": "テスト中",
+      "test_retry_after": "プロバイダーは{seconds}秒後の再試行を推奨しています。",
+      "test_probe_note": "テストでは、実際の分析リクエストと同じ枚数・寸法・おおよそのデータ量になるよう、1280×720 の代表的な JPEG フレームを5枚送信します。",
+      "test_retry": "テストを再実行",
+      "test_network_error": "診断要求がYA-WAMFに到達できませんでした。",
       "advanced_title": "料金とプロンプトテンプレート"
     }
   },
@@ -1070,9 +1151,17 @@
     "secure_access": "YA-WAMF 安全なアクセス",
     "public_view": "公開ビュー",
     "public_viewing_mode": "公開閲覧モード",
-    "loading_status": "認証状態を読み込み中…",
-    "status_unavailable_desc": "コンテナが起動中、またはモデル変更後に再起動中の場合は、少し待ってから再試行してください。",
-    "status_unavailable_title": "YA-WAMF バックエンドに接続できません。"
+    "loading_status": "YA-WAMF を起動しています",
+    "loading_status_desc": "フィーダーを開く前に、サービスとアクセス設定を確認しています。",
+    "status_check_eyebrow": "サービス接続",
+    "status_checking_badge": "確認中",
+    "status_unavailable_badge": "応答なし",
+    "status_unavailable_title": "YA-WAMF はまだ応答していません",
+    "status_unavailable_desc": "更新またはモデル変更後で、サービスがまだ起動中の可能性があります。オンラインに戻るまでフィーダーのデータは安全に保たれます。",
+    "status_unavailable_auto_retry": "YA-WAMF は 5 秒ごとに自動で再確認します。",
+    "status_unavailable_help": "オフラインが続く場合は、コンテナの状態と起動ログを確認してください。",
+    "status_checking_again": "再確認中…",
+    "status_check_again": "再確認"
   },
   "status": {
     "audio_active": "音声分析中",
@@ -1431,7 +1520,39 @@
     "classification_legend": "分類ソース: 手動 / 動画 / スナップショット",
     "timeline_keyboard_hint": "タイムライン操作: [ 前日、] 翌日、0 リセット"
   },
+  "audio": {
+    "chart": {
+      "heard": "検出数", "daily_title": "時間ごとのアクティビティ",
+      "daily_sub": "1日ごとの BirdNET-Go 音声検出数", "hourly_title": "時間帯",
+      "species_title": "種の構成", "empty": "この期間にアクティビティはありません。"
+    },
+    "stat": {
+      "heard": "検出数", "heard_sub": "表示中の BirdNET 検出", "species": "種",
+      "species_sub": "音声から特定された種", "peak_hour": "ピーク時間",
+      "peak_hour_sub": "{count} 件の検出", "no_activity": "まだアクティビティはありません",
+      "sources": "音源", "sources_sub": "マイクまたはストリーム"
+    },
+    "filter": {
+      "window": "期間", "24h": "24時間", "7d": "7日", "30d": "30日", "90d": "90日",
+      "1y": "1年", "species": "種", "source": "音源", "min_confidence": "最低信頼度"
+    },
+    "top_species": "最も多く聞かれた種",
+    "card": { "last_heard": "最終検出", "avg": "平均", "max": "最大" },
+    "history": {
+      "title": "検出履歴", "sub": "映像による訪問とは別に保存された BirdNET-Go の検出です。",
+      "empty": "このフィルターに一致する BirdNET 検出はありません。",
+      "showing": "{total} 件中 {from}～{to} 件を表示"
+    },
+    "table": {
+      "sound": "音声", "time": "時刻", "species": "種", "source": "音源", "confidence": "信頼度",
+      "open_birdnet": "BirdNET-Go で開く", "unknown_source": "不明な音源"
+    },
+    "sources": { "title": "音源", "empty": "音源はまだありません。" }
+  },
   "leaderboard": {
+    "source_toggle": "検出元", "source_seen": "映像", "source_heard": "音声",
+    "source_both": "両方", "audio_only": "音声のみ",
+    "audio_only_desc": "BirdNET-Go では検出されたが、カメラには映っていない種",
     "title": "種のリーダーボード",
     "species_count": "{count} 種",
     "detections_count": "{count} 回の検出",
@@ -1712,6 +1833,7 @@
     "previous_page": "前のページ",
     "next_page": "次のページ",
     "page_number": "ページ {number}",
+    "showing": "{total} 件中 {from}～{to} 件を表示",
     "page_size_label": "表示:",
     "page_size_aria": "ページあたりの項目数"
   },
@@ -1857,6 +1979,9 @@
     "no_video_support": "お使いのブラウザーは動画再生をサポートしていません。"
   },
   "jobs": {
+    "frigate_media_advisory_title": "検出時に Frigate のスナップショットがないことが頻発しています",
+    "frigate_media_advisory_body": "最近の検出の {percent}%（{started} 件中 {dropped} 件）は、Frigate にスナップショット、サムネイル、録画のいずれもなかったため破棄されました。通常は、追跡時間が短く Frigate イベントとして残らなかった鳥、または録画の保存期間が短いことが原因です。",
+    "frigate_media_advisory_link": "減らす方法 →",
     "title": "ジョブ",
     "subtitle": "実行中のバックグラウンドタスクと最近の結果を確認します。",
     "open": "ジョブを開く",
@@ -2037,21 +2162,42 @@
   "errors": {
     "stack_trace": "スタックトレース:"
   },
+  "update_banner": {
+    "title": "YA-WAMF {version} を利用できます",
+    "title_dev": "新しい開発ビルドを利用できます（{version}）",
+    "body": "現在 {current} を実行中です。更新するにはコンテナマネージャーから新しいイメージを取得してください。",
+    "release_notes": "リリースノート →",
+    "dismiss": "閉じる",
+    "sidebar_title": "更新があります: {version}",
+    "sidebar_label": "更新があります"
+  },
   "header": {
+    "cameras_all_offline": "すべてのカメラがオフラインです",
+    "cameras_all_online": "すべてのカメラがオンラインです",
+    "cameras_checking": "カメラを確認中…",
     "cameras_empty": "カメラが構成されていません。設定 → 接続 でカメラを追加してください。",
+    "cameras_frame_alt": "{camera} の最新フレーム",
+    "cameras_frame_unavailable": "フレームを取得できません",
     "cameras_label": "カメラの状態",
+    "cameras_next": "次のカメラ",
     "cameras_no_frame": "フレームなし",
     "cameras_none": "カメラが構成されていません",
     "cameras_online": "台のカメラがオンライン",
+    "cameras_previous": "前のカメラ",
+    "cameras_retry": "再試行",
     "cameras_role_feeder": "給餌台",
     "cameras_role_feeder_help": "給餌台カメラ — Frigate のイベントごとに新しい訪問として扱われます。",
     "cameras_role_nest": "巣箱",
     "cameras_role_nest_help": "巣箱カメラ — 設定したウィンドウ内では重複した検出をまとめます。",
-    "cameras_status_offline": "最近のフレームなし",
+    "cameras_some_online": "一部のカメラを確認してください",
+    "cameras_status_offline": "オフライン",
     "cameras_status_online": "オンライン",
-    "cameras_title": "カメラ"
+    "cameras_status_unavailable": "カメラの状態を取得できません",
+    "cameras_title": "カメラ",
+    "cameras_viewer": "ライブカメラビューアー"
   },
   "page_subtitle": {
+    "audio_history": "保存された BirdNET-Go の検出と音声のみのアクティビティを閲覧します。",
     "about": "バージョン、変更履歴、貢献者、サポートリンク。",
     "dashboard": "ライブ検出、最近のアクティビティ、給餌台の状態を一目で確認。",
     "events": "分類されたすべての訪問を閲覧、フィルタリング、管理。",

@@ -8,12 +8,52 @@ import sys
 from pathlib import Path
 
 
+def _make_aiosqlite_threads_daemon() -> None:
+    """Force aiosqlite connection worker threads to be daemon threads.
+
+    aiosqlite runs each connection on a dedicated worker thread. Across the suite,
+    connections are opened on many short-lived (pytest-asyncio) event loops and are
+    not always closed before their loop goes away, leaving non-daemon worker threads
+    alive. Those threads then block interpreter shutdown *after* the tests have
+    already passed, hanging CI until the `timeout` wrapper kills the run (exit 124).
+    Marking the threads daemon lets the process exit promptly once testing is done;
+    the temporary test database is discarded regardless.
+    """
+    import aiosqlite.core
+
+    connection_cls = aiosqlite.core.Connection
+
+    if hasattr(connection_cls, "start"):
+        # aiosqlite < 0.20: Connection subclasses Thread, so it starts itself.
+        original_start = connection_cls.start
+
+        def start_as_daemon(self, *args, **kwargs):
+            self.daemon = True
+            return original_start(self, *args, **kwargs)
+
+        connection_cls.start = start_as_daemon
+    else:
+        # aiosqlite >= 0.20: Connection composes a worker Thread as self._thread.
+        # Mark it daemon right after construction, before it is started in _connect().
+        original_init = connection_cls.__init__
+
+        def init_with_daemon_thread(self, *args, **kwargs):
+            original_init(self, *args, **kwargs)
+            worker = getattr(self, "_thread", None)
+            if worker is not None:
+                worker.daemon = True
+
+        connection_cls.__init__ = init_with_daemon_thread
+
+
 def pytest_configure(config):
     """
     Configure pytest environment BEFORE test collection.
     This runs before any modules are imported, allowing us to set
     environment variables that affect module-level code.
     """
+    _make_aiosqlite_threads_daemon()
+
     # Create a temporary directory for test data
     temp_dir = tempfile.mkdtemp(prefix="yawamf_test_")
 
