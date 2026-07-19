@@ -240,10 +240,9 @@ async def bird_classifier_debug(_auth: AuthContext = Depends(require_owner)) -> 
             result["top_5_dequant_values"] = [float(dequant[i]) for i in raw_squeezed.argsort()[-5:][::-1]]
 
         return result
-    except Exception as e:
-        import traceback
-
-        return {"error": str(e), "traceback": traceback.format_exc()}
+    except Exception:
+        log.exception("Bird classifier diagnostic failed")
+        return {"error": "Bird classifier diagnostic failed. See server logs for details."}
 
 
 @router.post("/test", response_model=ClassifierTestResponse)
@@ -265,10 +264,9 @@ async def test_bird_classifier(
             )
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
-    except Exception as e:
-        import traceback
-
-        return {"error": str(e), "traceback": traceback.format_exc()}
+    except Exception:
+        log.exception("Bird classifier test failed")
+        return {"error": "Bird classifier test failed. See server logs for details."}
 
 
 @router.post("/classify", response_model=ImageClassificationResponse)
@@ -406,10 +404,9 @@ async def wildlife_classifier_debug(_auth: AuthContext = Depends(require_owner))
             result["legacy_quantization"] = str(legacy_q)
 
         return result
-    except Exception as e:
-        import traceback
-
-        return {"error": str(e), "traceback": traceback.format_exc()}
+    except Exception:
+        log.exception("Wildlife classifier diagnostic failed")
+        return {"error": "Wildlife classifier diagnostic failed. See server logs for details."}
 
 
 @router.post("/wildlife/test", response_model=ClassifierTestResponse)

@@ -18,6 +18,7 @@ import csv
 import io
 import json
 import os
+import re
 import shutil
 import statistics
 import time
@@ -151,7 +152,9 @@ class ModelEvalRunner:
         return rows[:20]
 
     def get_run(self, run_id: str) -> Optional[dict[str, Any]]:
-        run_dir = _eval_runs_root() / _safe_run_id(run_id)
+        run_dir = _existing_run_dir(run_id)
+        if run_dir is None:
+            return None
         summary_path = run_dir / SUMMARY_FILENAME
         if not summary_path.is_file():
             if self.is_running() and (self._active_status or {}).get("run_id") == run_id:
@@ -189,12 +192,15 @@ class ModelEvalRunner:
             DEVICE_MATRIX_FILENAME,
         }:
             return None
-        candidate = _eval_runs_root() / _safe_run_id(run_id) / filename
+        run_dir = _existing_run_dir(run_id)
+        if run_dir is None:
+            return None
+        candidate = run_dir / filename
         return candidate if candidate.is_file() else None
 
     def delete_run(self, run_id: str) -> bool:
-        run_dir = _eval_runs_root() / _safe_run_id(run_id)
-        if not run_dir.is_dir():
+        run_dir = _existing_run_dir(run_id)
+        if run_dir is None:
             return False
         if self.is_running() and (self._active_status or {}).get("run_id") == run_id:
             return False
@@ -992,11 +998,32 @@ def _drift_ratio(latencies: list[float], baseline_ms: Any) -> Optional[float]:
     return round(statistics.fmean(latencies) / baseline, 3)
 
 
+_RUN_ID_PATTERN = re.compile(r"\A\d{8}-\d{6}\Z")
+
+
 def _safe_run_id(run_id: str) -> str:
-    cleaned = "".join(c for c in str(run_id or "") if c.isalnum() or c in "-_")
-    if not cleaned or cleaned in {".", ".."}:
+    candidate = str(run_id or "")
+    if not _RUN_ID_PATTERN.fullmatch(candidate):
         raise ValueError(f"invalid run id: {run_id!r}")
-    return cleaned
+    return candidate
+
+
+def _existing_run_dir(run_id: str) -> Optional[Path]:
+    """Resolve an existing run by directory entry, never by joining user input."""
+    try:
+        safe_id = _safe_run_id(run_id)
+    except ValueError:
+        return None
+    root = _eval_runs_root()
+    if not root.is_dir():
+        return None
+    try:
+        for entry in root.iterdir():
+            if entry.name == safe_id and entry.is_dir():
+                return entry
+    except OSError:
+        return None
+    return None
 
 
 def _summary_brief(summary: dict[str, Any]) -> dict[str, Any]:

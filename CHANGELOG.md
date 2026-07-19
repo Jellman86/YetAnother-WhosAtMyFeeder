@@ -9,6 +9,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [2.13.0] - 2026-07-19
 
 ### Fixed
+- **Owner diagnostics no longer expose internals or accept unsafe resource targets.** BirdNET-Go
+  reachability validates an HTTP(S) base URL, rejects embedded credentials and redirect traversal,
+  model-evaluation artifacts resolve only through existing canonical run directories, and classifier
+  diagnostics keep exception details in server logs instead of returning tracebacks to the browser.
 - **Logged-in sessions no longer grow progressively slower in long-lived tabs.** Authentication
   changes now replace the live Server-Sent Events connection and discard owner-only settings when
   a session becomes a guest session. Analysis queue status has one single-flight, adaptive poller

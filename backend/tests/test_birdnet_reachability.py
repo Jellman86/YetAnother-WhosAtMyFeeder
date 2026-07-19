@@ -40,12 +40,38 @@ async def test_reachability_ok_when_birdnet_answers(client, monkeypatch):
     mock_client = AsyncMock()
     mock_client.__aenter__.return_value = mock_client
     mock_client.get.return_value = httpx.Response(200)
-    monkeypatch.setattr("app.routers.settings.httpx.AsyncClient", lambda *a, **k: mock_client)
+    client_options = {}
+
+    def _client_factory(*_args, **kwargs):
+        client_options.update(kwargs)
+        return mock_client
+
+    monkeypatch.setattr("app.routers.settings.httpx.AsyncClient", _client_factory)
 
     resp = await client.get("/api/settings/birdnet/reachability")
     assert resp.status_code == 200, resp.text
     assert resp.json()["status"] == "ok"
     mock_client.get.assert_awaited_once()
+    assert client_options["follow_redirects"] is False
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "unsafe_url",
+    [
+        "file:///etc/passwd",
+        "ftp://birdnet-go:8080",
+        "http://user:secret@birdnet-go:8080",
+        "http://birdnet-go:8080/#fragment",
+    ],
+)
+async def test_reachability_rejects_unsafe_configured_url(client, unsafe_url):
+    settings.frigate.birdnet_url = unsafe_url
+
+    resp = await client.get("/api/settings/birdnet/reachability")
+
+    assert resp.status_code == 400, resp.text
+    assert resp.json()["status"] == "error"
 
 
 @pytest.mark.asyncio

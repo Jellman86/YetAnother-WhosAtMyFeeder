@@ -50,6 +50,31 @@ from app.utils.api_datetime import utc_naive_now  # noqa: F401 - compatibility f
 from fastapi import BackgroundTasks
 
 router = APIRouter()
+
+
+def _validated_birdnet_base_url(value: str | None) -> str:
+    """Return a safe HTTP(S) base URL for the owner-configured BirdNET-Go host.
+
+    Private addresses and Docker service names are intentionally supported because
+    this is a server-to-server integration. Credentials, query strings, fragments,
+    and non-HTTP schemes are not valid for a base URL.
+    """
+    candidate = str(value or "").strip().rstrip("/")
+    if not candidate:
+        raise ValueError("BirdNET-Go URL is empty")
+    try:
+        parsed = httpx.URL(candidate)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("BirdNET-Go URL is invalid") from exc
+    if parsed.scheme not in {"http", "https"} or not parsed.host:
+        raise ValueError("BirdNET-Go URL must use http:// or https://")
+    if parsed.username or parsed.password:
+        raise ValueError("BirdNET-Go URL must not contain credentials")
+    if parsed.query or parsed.fragment:
+        raise ValueError("BirdNET-Go URL must not contain a query string or fragment")
+    return candidate
+
+
 log = structlog.get_logger()
 PURGE_CHECK_CONCURRENCY = 8
 BATCH_ANALYSIS_CHECK_CONCURRENCY = 8
@@ -205,8 +230,9 @@ async def test_birdnet_reachability(_auth: AuthContext = Depends(require_owner))
     spectrograms). When it is set, an HTTP response — any status — proves the
     BirdNET-Go server itself is up and reachable from the backend.
     """
-    base_url = (settings.frigate.birdnet_url or "").strip().rstrip("/")
-    if not base_url:
+    try:
+        base_url = _validated_birdnet_base_url(settings.frigate.birdnet_url)
+    except ValueError:
         return JSONResponse(
             status_code=400,
             content={
@@ -216,8 +242,11 @@ async def test_birdnet_reachability(_auth: AuthContext = Depends(require_owner))
         )
 
     try:
-        async with httpx.AsyncClient(follow_redirects=True) as http_client:
-            resp = await http_client.get(base_url, timeout=10.0)
+        # Redirects are unnecessary for a reachability probe and could escape the
+        # validated origin. The URL is owner-configured and validated immediately
+        # above; private hosts are a required Docker/home-network use case.
+        async with httpx.AsyncClient(follow_redirects=False) as http_client:
+            resp = await http_client.get(base_url, timeout=10.0)  # lgtm[py/full-ssrf]
         return ActionStatusResponse(
             status="ok",
             message=f"BirdNET-Go answered (HTTP {resp.status_code}) at {base_url}.",
@@ -990,6 +1019,13 @@ class SettingsUpdate(BaseModel):
         if not v.startswith(("http://", "https://")):
             raise ValueError("frigate_url must start with http:// or https://")
         return v.rstrip("/")
+
+    @field_validator("birdnet_url")
+    @classmethod
+    def validate_birdnet_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None or not v.strip():
+            return "" if v is not None else None
+        return _validated_birdnet_base_url(v)
 
     @field_validator("date_format")
     @classmethod
