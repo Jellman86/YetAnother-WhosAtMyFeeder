@@ -38,7 +38,7 @@ alembic==1.18.5
 opencv-python-headless<4.11
 pytest==9.1.1
 pytest-asyncio==1.4.0
-pytest-cov==4.1.0
+pytest-cov==7.1.0
 ruff
 prometheus-client
 slowapi==0.1.10
