@@ -1,4 +1,4 @@
-fastapi==0.139.0
+fastapi==0.139.2
 uvicorn[standard]==0.51.0
 pydantic==2.13.4
 pydantic-settings==2.14.2
@@ -49,7 +49,7 @@ bcrypt==5.0.0
 # SMTP Email Support
 aiosmtplib==5.1.2
 # OAuth Support for Gmail and Outlook
-google-auth==2.55.2
+google-auth==2.56.0
 google-auth-oauthlib==1.4.0
 # Email templating
 jinja2==3.1.6
