@@ -175,7 +175,8 @@ A change is done when **all** of these hold:
 
 1. `pytest` is fully green, and new behaviour has new tests (§2).
 2. `npm run check` is clean and `npm test` passes if the frontend changed (§5).
-3. `ruff check .` and `ruff format .` are clean (Python style).
+3. `ruff check .` and `ruff format .` are clean **from the repository root**, so
+   `scripts/` and `tests/` are covered too, not just `backend/` (§7).
 4. Schema changes have a reversible migration, a single Alembic head, and re-running
    them is a no-op (§3).
 5. The safety/data-integrity model (§1) is intact or strengthened — never weakened.
@@ -194,9 +195,21 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000   # dev server + OpenAPI at /docs
 pytest                                                     # full suite
 pytest tests/test_audio_api.py -v                          # one file
-ruff check . && ruff format .                              # lint + format
 alembic upgrade head                                       # apply migrations
 ```
+
+Python lint/format covers **every tracked Python path** — `backend/`,
+`custom_components/yawamf/`, `scripts/`, and `tests/` — so it is run from the
+**repository root**, not from `backend/`:
+
+```bash
+ruff check . && ruff format .          # lint + format, repo-wide
+ruff format --check .                  # what CI enforces (no writes)
+```
+
+Scope is controlled by `extend-exclude` in the root `pyproject.toml`, not by
+passing paths on the command line. Running `ruff` from inside `backend/` silently
+checks only the backend and will miss violations that CI rejects.
 
 Frontend (from `apps/ui/`):
 
@@ -238,8 +251,9 @@ CI is where the Definition of Done is enforced. Keep CI and the local commands i
 workflow in the same commit. CI is allowed to be stricter than a local run, never
 looser.
 
-- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — **backend**: Alembic
-  migration smoke (`upgrade → downgrade → upgrade`), migration path matrix
+- [`.github/workflows/ci.yml`](.github/workflows/ci.yml) — **backend**: repo-wide
+  `ruff check .` and `ruff format --check .` (every tracked Python path, §7),
+  Alembic migration smoke (`upgrade → downgrade → upgrade`), migration path matrix
   ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
   single-Alembic-head check, and `pytest`. **frontend**: `npm ci` → `npm run check`
   → `npm test` → `npm run build`. **telemetry worker**: dependency check.

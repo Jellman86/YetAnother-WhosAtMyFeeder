@@ -145,11 +145,7 @@ class TestDetectionRepository:
         repo = DetectionRepository(mock_db)
 
         await repo.update_video_classification(
-            frigate_event="test-event-123",
-            label="Cyanistes caeruleus",
-            score=0.92,
-            index=42,
-            status="completed"
+            frigate_event="test-event-123", label="Cyanistes caeruleus", score=0.92, index=42, status="completed"
         )
 
         assert len(mock_db.execute_calls) == 1
@@ -193,10 +189,14 @@ class TestDetectionRepository:
         from app.repositories.detection_repository import DetectionRepository
 
         repo = DetectionRepository(mock_db)
-        mock_db.queue_cursor(MockCursor(fetchall_result=[
-            ("turdus merula", 10, "Turdus merula", "Eurasian Blackbird", "Turdus merula", 12345),
-            ("cyanistes caeruleus", 5, "Cyanistes caeruleus", "Blue Tit", "Cyanistes caeruleus", 67890),
-        ]))
+        mock_db.queue_cursor(
+            MockCursor(
+                fetchall_result=[
+                    ("turdus merula", 10, "Turdus merula", "Eurasian Blackbird", "Turdus merula", 12345),
+                    ("cyanistes caeruleus", 5, "Cyanistes caeruleus", "Blue Tit", "Cyanistes caeruleus", 67890),
+                ]
+            )
+        )
 
         counts = await repo.get_species_counts()
 

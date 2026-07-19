@@ -10,13 +10,10 @@ class TestAPIAuthentication:
         """Test authentication with valid API key in header."""
         from app.auth import verify_api_key_legacy
 
-        with patch('app.config.settings') as mock_settings:
+        with patch("app.config.settings") as mock_settings:
             mock_settings.api_key = "test-secret-key-12345"
 
-            result = await verify_api_key_legacy(
-                header_key="test-secret-key-12345",
-                query_key=None
-            )
+            result = await verify_api_key_legacy(header_key="test-secret-key-12345", query_key=None)
             assert result is True
 
     @pytest.mark.asyncio
@@ -24,13 +21,10 @@ class TestAPIAuthentication:
         """Test authentication with valid API key in query param."""
         from app.auth import verify_api_key_legacy
 
-        with patch('app.config.settings') as mock_settings:
+        with patch("app.config.settings") as mock_settings:
             mock_settings.api_key = "test-secret-key-12345"
 
-            result = await verify_api_key_legacy(
-                header_key=None,
-                query_key="test-secret-key-12345"
-            )
+            result = await verify_api_key_legacy(header_key=None, query_key="test-secret-key-12345")
             assert result is True
 
     @pytest.mark.asyncio
@@ -38,7 +32,7 @@ class TestAPIAuthentication:
         """Test authentication with invalid API key."""
         from app.auth import verify_api_key_legacy
 
-        with patch('app.config.settings') as mock_settings:
+        with patch("app.config.settings") as mock_settings:
             mock_settings.api_key = "test-secret-key-12345"
 
             result = await verify_api_key_legacy(header_key="wrong-key", query_key=None)
@@ -49,7 +43,7 @@ class TestAPIAuthentication:
         """Test authentication with missing API key."""
         from app.auth import verify_api_key_legacy
 
-        with patch('app.config.settings') as mock_settings:
+        with patch("app.config.settings") as mock_settings:
             mock_settings.api_key = "test-secret-key-12345"
 
             result = await verify_api_key_legacy(header_key=None, query_key=None)
@@ -60,7 +54,7 @@ class TestAPIAuthentication:
         """Test that no legacy match happens when no API key is configured."""
         from app.auth import verify_api_key_legacy
 
-        with patch('app.config.settings') as mock_settings:
+        with patch("app.config.settings") as mock_settings:
             mock_settings.api_key = None
 
             result = await verify_api_key_legacy(header_key=None, query_key=None)
@@ -71,15 +65,15 @@ class TestAPIAuthentication:
         """Test that API key comparison is timing-safe (using secrets.compare_digest)."""
         from app.auth import verify_api_key_legacy
 
-        with patch('app.config.settings') as mock_settings:
+        with patch("app.config.settings") as mock_settings:
             mock_settings.api_key = "a" * 64  # Long key
 
             test_keys = [
-                "a" * 1,   # Very short
+                "a" * 1,  # Very short
                 "a" * 32,  # Half length
                 "a" * 63,  # One char short
                 "a" * 64,  # Correct length
-                "a" * 128, # Double length
+                "a" * 128,  # Double length
             ]
 
             for test_key in test_keys:
@@ -93,11 +87,13 @@ class TestAPIAuthentication:
 
         source = inspect.getsource(auth.verify_api_key_legacy)
 
-        assert "secrets.compare_digest" in source, \
+        assert "secrets.compare_digest" in source, (
             "verify_api_key_legacy should use secrets.compare_digest for timing-safe comparison"
+        )
 
-        assert "!=" not in source or "secrets.compare_digest" in source, \
+        assert "!=" not in source or "secrets.compare_digest" in source, (
             "verify_api_key_legacy should not use direct comparison for API keys"
+        )
 
 
 if __name__ == "__main__":

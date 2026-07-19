@@ -66,7 +66,9 @@ async def test_run_analyze_unknowns_limits_candidate_scan_window(monkeypatch):
     monkeypatch.setattr(settings_router, "get_db", lambda: _FakeDbContext())
     monkeypatch.setattr(settings_router, "DetectionRepository", _FakeRepo)
     monkeypatch.setattr(settings_router, "maintenance_coordinator", fake_coordinator)
-    monkeypatch.setattr(settings_router, "_maintenance_guardrail_status", lambda: {"pending_maintenance": 0, "active_maintenance": 0})
+    monkeypatch.setattr(
+        settings_router, "_maintenance_guardrail_status", lambda: {"pending_maintenance": 0, "active_maintenance": 0}
+    )
     monkeypatch.setattr(settings_router.frigate_client, "get_config", _get_config)
     monkeypatch.setattr(settings_router.frigate_client, "get_event_with_error", _get_event_with_error)
     monkeypatch.setattr(settings_router.auto_video_classifier, "queue_classification", _queue_classification)
@@ -108,7 +110,9 @@ async def test_run_analyze_unknowns_caps_queued_maintenance_jobs_per_run(monkeyp
     monkeypatch.setattr(settings_router, "get_db", lambda: _FakeDbContext())
     monkeypatch.setattr(settings_router, "DetectionRepository", _FakeRepo)
     monkeypatch.setattr(settings_router, "maintenance_coordinator", fake_coordinator)
-    monkeypatch.setattr(settings_router, "_maintenance_guardrail_status", lambda: {"pending_maintenance": 0, "active_maintenance": 0})
+    monkeypatch.setattr(
+        settings_router, "_maintenance_guardrail_status", lambda: {"pending_maintenance": 0, "active_maintenance": 0}
+    )
     monkeypatch.setattr(settings_router.frigate_client, "get_config", _get_config)
     monkeypatch.setattr(
         settings_router.frigate_client,

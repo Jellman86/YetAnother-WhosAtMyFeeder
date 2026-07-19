@@ -23,10 +23,6 @@ async def test_get_settings_route_declares_response_model_and_payload_validates(
     validated = settings_router.SettingsResponse.model_validate(payload)
     assert validated.location_temperature_unit in {"celsius", "fahrenheit"}
 
-    route = next(
-        route
-        for route in settings_router.router.routes
-        if getattr(route, "path", None) == "/settings"
-    )
+    route = next(route for route in settings_router.router.routes if getattr(route, "path", None) == "/settings")
     assert route.response_model is settings_router.SettingsResponse
     assert "auth_password" not in settings_router.SettingsResponse.model_fields

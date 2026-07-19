@@ -49,10 +49,12 @@ class MockDB:
 def mock_classifier():
     """Mock classifier service."""
     classifier = MagicMock()
-    classifier.classify_video_async = AsyncMock(return_value=[
-        {"label": "Turdus merula", "score": 0.95, "index": 0},
-        {"label": "Cyanistes caeruleus", "score": 0.03, "index": 1},
-    ])
+    classifier.classify_video_async = AsyncMock(
+        return_value=[
+            {"label": "Turdus merula", "score": 0.95, "index": 0},
+            {"label": "Cyanistes caeruleus", "score": 0.03, "index": 1},
+        ]
+    )
     classifier.get_admission_status.return_value = {"live": {"running": 0, "queued": 0}}
     return classifier
 
@@ -62,7 +64,7 @@ def mock_frigate_client():
     """Mock Frigate client."""
     client = MagicMock()
     client.get_event_with_error = AsyncMock(return_value=({"data": {}}, None))
-    client.get_clip_with_error = AsyncMock(return_value=(b'\x00\x00\x00\x18ftyp' + b'\x00' * 1000, None))
+    client.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftyp" + b"\x00" * 1000, None))
     return client
 
 
@@ -97,7 +99,7 @@ class TestAutoVideoClassifierService:
         """Test that classification doesn't start when disabled."""
         from app.services.auto_video_classifier_service import AutoVideoClassifierService
 
-        with patch('app.services.auto_video_classifier_service.settings') as mock_settings:
+        with patch("app.services.auto_video_classifier_service.settings") as mock_settings:
             mock_settings.classification.auto_video_classification = False
 
             service = AutoVideoClassifierService()
@@ -111,7 +113,7 @@ class TestAutoVideoClassifierService:
         """Test that duplicate classification requests are ignored."""
         from app.services.auto_video_classifier_service import AutoVideoClassifierService
 
-        with patch('app.services.auto_video_classifier_service.settings') as mock_settings:
+        with patch("app.services.auto_video_classifier_service.settings") as mock_settings:
             mock_settings.classification.auto_video_classification = True
 
             service = AutoVideoClassifierService()
@@ -135,18 +137,18 @@ class TestAutoVideoClassifierService:
                 pass
 
     @pytest.mark.asyncio
-    async def test_successful_classification(self, mock_classifier, mock_frigate_client,
-                                            mock_db, mock_broadcaster):
+    async def test_successful_classification(self, mock_classifier, mock_frigate_client, mock_db, mock_broadcaster):
         """Test successful video classification flow."""
         from app.services.auto_video_classifier_service import AutoVideoClassifierService
 
-        with patch('app.services.auto_video_classifier_service.settings') as mock_settings, \
-             patch('app.services.auto_video_classifier_service.frigate_client', mock_frigate_client), \
-             patch('app.services.auto_video_classifier_service.get_db') as mock_get_db, \
-             patch('app.services.auto_video_classifier_service.broadcaster', mock_broadcaster), \
-             patch('app.services.auto_video_classifier_service.get_classifier', return_value=mock_classifier), \
-             patch.object(AutoVideoClassifierService, '_clip_decodes', new=AsyncMock(return_value=True)):
-
+        with (
+            patch("app.services.auto_video_classifier_service.settings") as mock_settings,
+            patch("app.services.auto_video_classifier_service.frigate_client", mock_frigate_client),
+            patch("app.services.auto_video_classifier_service.get_db") as mock_get_db,
+            patch("app.services.auto_video_classifier_service.broadcaster", mock_broadcaster),
+            patch("app.services.auto_video_classifier_service.get_classifier", return_value=mock_classifier),
+            patch.object(AutoVideoClassifierService, "_clip_decodes", new=AsyncMock(return_value=True)),
+        ):
             mock_settings.classification.auto_video_classification = True
             mock_settings.classification.video_classification_delay = 0  # No delay for testing
             mock_settings.classification.video_classification_max_retries = 1
@@ -180,12 +182,13 @@ class TestAutoVideoClassifierService:
         mock_frigate.get_event_with_error = AsyncMock(return_value=({"data": {}}, None))
         mock_frigate.get_clip_with_error = AsyncMock(return_value=(None, "clip_not_found"))
 
-        with patch('app.services.auto_video_classifier_service.settings') as mock_settings, \
-             patch('app.services.auto_video_classifier_service.frigate_client', mock_frigate), \
-             patch('app.services.auto_video_classifier_service.get_db') as mock_get_db, \
-             patch('app.services.auto_video_classifier_service.broadcaster', mock_broadcaster), \
-             patch('app.services.auto_video_classifier_service.get_classifier', return_value=mock_classifier):
-
+        with (
+            patch("app.services.auto_video_classifier_service.settings") as mock_settings,
+            patch("app.services.auto_video_classifier_service.frigate_client", mock_frigate),
+            patch("app.services.auto_video_classifier_service.get_db") as mock_get_db,
+            patch("app.services.auto_video_classifier_service.broadcaster", mock_broadcaster),
+            patch("app.services.auto_video_classifier_service.get_classifier", return_value=mock_classifier),
+        ):
             mock_settings.classification.auto_video_classification = True
             mock_settings.classification.video_classification_delay = 0
             mock_settings.classification.video_classification_max_retries = 1
@@ -202,7 +205,9 @@ class TestAutoVideoClassifierService:
                 await service.trigger_classification("test-event-456", "BirdCam")
                 await _wait_until(lambda: mock_frigate.get_clip_with_error.called)
                 await _wait_until(
-                    lambda: "test-event-456" not in service._active_tasks and "test-event-456" not in service._pending_ids
+                    lambda: (
+                        "test-event-456" not in service._active_tasks and "test-event-456" not in service._pending_ids
+                    )
                 )
 
                 assert mock_broadcaster.broadcast.called
@@ -210,17 +215,17 @@ class TestAutoVideoClassifierService:
                 await service.stop()
 
     @pytest.mark.asyncio
-    async def test_task_cleanup_on_completion(self, mock_classifier, mock_frigate_client,
-                                              mock_db, mock_broadcaster):
+    async def test_task_cleanup_on_completion(self, mock_classifier, mock_frigate_client, mock_db, mock_broadcaster):
         """Test that completed tasks are removed from _active_tasks."""
         from app.services.auto_video_classifier_service import AutoVideoClassifierService
 
-        with patch('app.services.auto_video_classifier_service.settings') as mock_settings, \
-             patch('app.services.auto_video_classifier_service.frigate_client', mock_frigate_client), \
-             patch('app.services.auto_video_classifier_service.get_db') as mock_get_db, \
-             patch('app.services.auto_video_classifier_service.broadcaster', mock_broadcaster), \
-             patch('app.services.auto_video_classifier_service.get_classifier', return_value=mock_classifier):
-
+        with (
+            patch("app.services.auto_video_classifier_service.settings") as mock_settings,
+            patch("app.services.auto_video_classifier_service.frigate_client", mock_frigate_client),
+            patch("app.services.auto_video_classifier_service.get_db") as mock_get_db,
+            patch("app.services.auto_video_classifier_service.broadcaster", mock_broadcaster),
+            patch("app.services.auto_video_classifier_service.get_classifier", return_value=mock_classifier),
+        ):
             mock_settings.classification.auto_video_classification = True
             mock_settings.classification.video_classification_delay = 0
             mock_settings.classification.video_classification_max_retries = 1
