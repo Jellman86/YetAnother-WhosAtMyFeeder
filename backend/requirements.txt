@@ -9,7 +9,7 @@ httpx==0.28.1
 python-multipart==0.0.32
 # Image processing
 Pillow>=12.3.0
-numpy<2.0.0
+numpy<3.0.0
 # Machine Learning
 # Note: tflite-support wheels for 3.12 might be scarce, fallback to tflite-runtime or
 # a full TensorFlow package may be needed. `tflite-runtime` does not currently resolve
