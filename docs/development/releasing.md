@@ -68,4 +68,3 @@ faster, on which hardware, and whether accuracy or power use changes.
 - [ ] The full changelog link points at the released tag.
 - [ ] Empty template sections and all HTML comments are removed.
 - [ ] The rendered GitHub preview has been read from top to bottom.
-

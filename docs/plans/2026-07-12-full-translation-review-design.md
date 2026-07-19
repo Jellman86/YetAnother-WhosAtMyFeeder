@@ -1,7 +1,7 @@
 # Full Translation Review Design
 
-**Status:** In progress  
-**Roadmap:** 3.0 major initiative, P1/M  
+**Status:** In progress
+**Roadmap:** 3.0 major initiative, P1/M
 **Source of truth:** `apps/ui/src/lib/i18n/locales/en.json`
 
 ## Problem
