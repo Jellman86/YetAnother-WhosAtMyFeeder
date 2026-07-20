@@ -50,6 +50,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   loop. This resolves #100 and explains why affected installations had no corresponding backend log.
 
 ### Changed
+- **Routine dependency updates now keep runtime compatibility explicit.** Frontend charts use the
+  ApexCharts 6 slim core rather than shipping its opt-in authoring feature set, telemetry changes
+  are compiled in CI instead of merely installed, and GitHub workflows use setup-node 7. The
+  x86-64 ONNX Runtime GPU dependency is capped to the validated CUDA 12 line until CUDA 13 packages
+  are available from the normal package index; CI now declares coverage.py directly instead of
+  carrying the unused pytest-cov plugin.
 - **The full translation editorial sweep is complete across all nine catalogs.** Every locale has
   the same 1,977 leaf keys and matching interpolation tokens. Copied English enrichment guidance,
   accent-stripped settings and video-player strings, Russian open-source terminology, Japanese

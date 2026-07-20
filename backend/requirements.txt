@@ -1,4 +1,4 @@
-fastapi==0.139.0
+fastapi==0.139.2
 uvicorn[standard]==0.51.0
 pydantic==2.13.4
 pydantic-settings==2.14.2
@@ -21,7 +21,10 @@ tensorflow-aarch64==2.16.1; python_version >= '3.12' and (platform_machine == "a
 # ONNX Runtime with packaged CUDA 12 / cuDNN 9 userspace runtime on x86-64.
 # ARM64 builds use the CPU package instead.
 # The host still needs NVIDIA Container Toolkit (or equivalent) to expose the driver/GPU.
-onnxruntime-gpu[cuda,cudnn]>=1.24.0 ; platform_machine != "aarch64" and platform_machine != "arm64"
+# ORT 1.27 switches these extras to CUDA 13 packages which are not available from the
+# default PyPI index yet. Keep the CUDA 12 line explicit rather than relying on pip to
+# backtrack silently from 1.27 to 1.26 during every clean install.
+onnxruntime-gpu[cuda,cudnn]>=1.24.0,<1.27.0 ; platform_machine != "aarch64" and platform_machine != "arm64"
 onnxruntime>=1.27.0 ; platform_machine == "aarch64" or platform_machine == "arm64"
 # OpenVINO runtime for Intel CPU/iGPU acceleration.
 # Pinned to 2025.4.x: 2025.4 introduced a LayerNorm scale/bias reshape fix
@@ -38,7 +41,8 @@ alembic==1.18.5
 opencv-python-headless<4.11
 pytest==9.1.1
 pytest-asyncio==1.4.0
-pytest-cov==4.1.0
+# CI invokes coverage.py directly (`python -m coverage`); pytest-cov is not used.
+coverage==7.15.2
 ruff
 prometheus-client
 slowapi==0.1.10
@@ -49,7 +53,7 @@ bcrypt==5.0.0
 # SMTP Email Support
 aiosmtplib==5.1.2
 # OAuth Support for Gmail and Outlook
-google-auth==2.55.2
+google-auth==2.56.0
 google-auth-oauthlib==1.4.0
 # Email templating
 jinja2==3.1.6
