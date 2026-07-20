@@ -610,6 +610,130 @@ async def test_audio_context_matches_birdnet_source_name(client: httpx.AsyncClie
 
 
 @pytest.mark.asyncio
+async def test_event_audio_context_finds_late_audio_without_stored_audio_hint(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"birdcam": "BirdCam"}
+    settings.frigate.audio_correlation_window_seconds = 45
+
+    target = datetime.now(timezone.utc).replace(microsecond=0)
+    event_id = f"evt-late-audio-{int(target.timestamp())}"
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                audio_confirmed, audio_species, audio_score
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)
+            """,
+            (
+                target.isoformat(sep=" "),
+                1,
+                0.51,
+                "Unknown Bird",
+                "Unknown Bird",
+                event_id,
+                "birdcam",
+            ),
+        )
+        rows = [
+            (
+                (target - timedelta(seconds=30)).isoformat(sep=" "),
+                "Common Kingfisher",
+                0.86,
+                "BirdCam",
+                json.dumps({"detectionId": 26588, "nm": "BirdCam", "src": "rtsp_birdcam"}),
+                "Alcedo atthis",
+            ),
+            (
+                (target + timedelta(seconds=10)).isoformat(sep=" "),
+                "Blue Tit",
+                0.91,
+                "Other Mic",
+                json.dumps({"detectionId": 26589, "nm": "Other Mic", "src": "rtsp_other"}),
+                "Cyanistes caeruleus",
+            ),
+            (
+                (target + timedelta(seconds=60)).isoformat(sep=" "),
+                "Robin",
+                0.93,
+                "BirdCam",
+                json.dumps({"detectionId": 26590, "nm": "BirdCam", "src": "rtsp_birdcam"}),
+                "Erithacus rubecula",
+            ),
+        ]
+        for row in rows:
+            await db.execute(
+                """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                row,
+            )
+        await db.commit()
+
+    response = await client.get(f"/api/audio/context/event/{event_id}")
+
+    assert response.status_code == 200, response.text
+    assert response.json() == [
+        {
+            "timestamp": (target - timedelta(seconds=30)).isoformat(),
+            "species": "Common Kingfisher",
+            "confidence": 0.86,
+            "sensor_id": "BirdCam",
+            "source_name": None,
+            "birdnet_id": 26588,
+            "offset_seconds": -30,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_event_audio_context_returns_not_found_for_unknown_event(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    response = await client.get("/api/audio/context/event/does-not-exist")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_event_audio_context_does_not_expose_hidden_event_to_guest(client: httpx.AsyncClient):
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+
+    target = datetime.now(timezone.utc).replace(microsecond=0)
+    event_id = f"evt-hidden-audio-{int(target.timestamp())}"
+    async with get_db() as db:
+        await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0)
+            """,
+            (
+                target.isoformat(sep=" "),
+                1,
+                0.75,
+                "Robin",
+                "Robin",
+                event_id,
+                "birdcam",
+            ),
+        )
+        await db.commit()
+
+    response = await client.get(f"/api/audio/context/event/{event_id}")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
 async def test_audio_recent_replaces_locale_species_with_canonical_english(client: httpx.AsyncClient):
     """Regression for issue #46 — Dashboard 'Recent audio' must show the user's locale,
     not whatever language BirdNET-Go publishes in ``comName``. Mirrors the response-time

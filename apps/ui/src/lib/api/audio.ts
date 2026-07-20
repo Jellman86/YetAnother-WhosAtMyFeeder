@@ -74,20 +74,14 @@ export type AudioContextDetection = paths['/api/audio/context']['get']['response
 
 export type AudioSourceOption = paths['/api/audio/sources']['get']['response'][number];
 
-export async function fetchAudioContext(
-    timestamp: string,
-    camera?: string,
-    windowSeconds: number = 300,
-    limit: number = 5
+export async function fetchEventAudioContext(
+    eventId: string,
+    signal?: AbortSignal
 ): Promise<AudioContextDetection[]> {
-    const params = new URLSearchParams();
-    params.set('timestamp', timestamp);
-    params.set('window_seconds', String(windowSeconds));
-    params.set('limit', String(limit));
-    if (camera) {
-        params.set('camera', camera);
-    }
-    const response = await apiFetch(`${API_BASE}/audio/context?${params.toString()}`);
+    const response = await apiFetch(`${API_BASE}/audio/context/event/${encodeURIComponent(eventId)}`, {
+        signal,
+        timeoutMs: 10_000
+    });
     return handleResponse<AudioContextDetection[]>(response);
 }
 

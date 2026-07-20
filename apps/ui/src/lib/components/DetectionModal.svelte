@@ -14,7 +14,7 @@
         favoriteDetection,
         unfavoriteDetection,
         searchSpecies,
-        fetchAudioContext,
+        fetchEventAudioContext,
         createInaturalistDraft,
         submitInaturalistObservation,
         fetchSpeciesInfo,
@@ -408,6 +408,9 @@
         for (const species of detection.audio_context_species ?? []) {
             add(species);
         }
+        for (const audio of audioContext) {
+            add(audio.species);
+        }
         return values;
     });
     const hasAudioContext = $derived(detection.audio_confirmed || audioContextSpecies.length > 0);
@@ -492,46 +495,37 @@
         if (audioElement.paused) audioElement.play().catch(() => {});
     }
 
-    // Reset audio-context state when the modal switches to a different
-    // detection. The same DetectionModal instance is reused across the
-    // Events / Dashboard prev-next flow, and without this reset the auto-
-    // fetch effect below would early-return on every later detection
-    // (audioContextLoaded already true) and the spectrogram + matched-entry
-    // pill would carry over from the previous detection.
+    // Resolve persisted context for every visual event. BirdNET-Go can publish
+    // after the visual ingest path has completed, so stored audio fields are not
+    // a reliable indication that nearby audio exists.
     $effect(() => {
-        detection.frigate_event;
+        const eventId = detection.frigate_event;
+        const controller = new AbortController();
         untrack(() => {
             audioContext = [];
             audioContextLoaded = false;
-            audioContextLoading = false;
+            audioContextLoading = true;
             audioContextError = null;
             audioContextOpen = false;
         });
-    });
-
-    // Auto-fetch audio context whenever this modal renders a detection that
-    // has any audio info, so the spectrogram (and the matched-entry summary)
-    // can be shown without the user having to expand the context list first.
-    $effect(() => {
-        if (!hasAudioContext) return;
-        if (audioContextLoaded || audioContextLoading) return;
-        audioContextLoading = true;
-        audioContextError = null;
-        (async () => {
+        void (async () => {
             try {
-                audioContext = await fetchAudioContext(
-                    detection.detection_time,
-                    detection.camera_name,
-                    300,
-                    6
-                );
+                const context = await fetchEventAudioContext(eventId, controller.signal);
+                if (controller.signal.aborted || detection.frigate_event !== eventId) return;
+                audioContext = context;
                 audioContextLoaded = true;
-            } catch {
+            } catch (error) {
+                if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) return;
+                if (detection.frigate_event !== eventId) return;
                 audioContextError = $_('common.error');
             } finally {
-                audioContextLoading = false;
+                if (!controller.signal.aborted && detection.frigate_event === eventId) {
+                    audioContextLoading = false;
+                }
             }
         })();
+
+        return () => controller.abort();
     });
     const hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
@@ -1036,26 +1030,9 @@
         return `${offsetSeconds > 0 ? '+' : '-'}${label}`;
     }
 
-    async function toggleAudioContext(event: MouseEvent) {
+    function toggleAudioContext(event: MouseEvent) {
         event.stopPropagation();
         audioContextOpen = !audioContextOpen;
-        if (audioContextOpen && !audioContextLoaded && !audioContextLoading) {
-            audioContextLoading = true;
-            audioContextError = null;
-            try {
-                audioContext = await fetchAudioContext(
-                    detection.detection_time,
-                    detection.camera_name,
-                    300,
-                    6
-                );
-                audioContextLoaded = true;
-            } catch (e) {
-                audioContextError = $_('common.error');
-            } finally {
-                audioContextLoading = false;
-            }
-        }
     }
 
     async function handleAIAnalysis(force: boolean = false) {
@@ -2461,9 +2438,7 @@
                             <p class="text-[10px] font-semibold text-brand-600/70 dark:text-brand-400/70">
                                 {detection.audio_confirmed
                                     ? $_('detection.audio_match')
-                                    : (audioNearbySummary
-                                        ? $_('detection.audio_possible_nearby', { default: 'Possible Nearby Audio Match' })
-                                        : $_('detection.audio_no_direct_match', { default: 'No Direct Audio Confirmation' }))}
+                                    : $_('detection.audio_context')}
                             </p>
                             <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
                                 {detection.audio_confirmed

@@ -25,6 +25,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   a successful automatic or explicit regeneration.
 
 ### Fixed
+- **Late BirdNET detections now appear in visual detection details.** Opening a detection checks
+  persisted audio history with the configured time window and camera/source mapping, even when no
+  audio hint was stored during visual ingest. Nearby sounds remain clearly separate from a confirmed
+  visual/audio species match, and rapid previous/next navigation cannot show stale audio context.
 - **Guest detection details no longer expose an unusable reclassify action.** The low-confidence
   video-result notice now applies the same owner-access guard as every other mutation control.
 - **Image classification evidence is now kept in its correct domain.** Manual species corrections

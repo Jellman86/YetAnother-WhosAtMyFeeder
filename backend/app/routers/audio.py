@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request, Query, HTTPException
+from fastapi import APIRouter, Depends, Request, Query, HTTPException, Path as ApiPath
 from fastapi.responses import Response
 import httpx
 from datetime import date, datetime, timedelta, timezone
@@ -490,6 +490,53 @@ async def get_audio_context(
             target_time=target_time, window_seconds=window_seconds, mapping_value=mapping_value, limit=limit
         )
         await localize_audio_detections(detections, lang, db)
+    hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
+    if hide_sensor:
+        for detection in detections:
+            detection["sensor_id"] = None
+    return detections
+
+
+@router.get("/context/event/{event_id}", response_model=list[AudioContextDetectionResponse])
+@guest_rate_limit()
+async def get_event_audio_context(
+    request: Request,
+    event_id: str = ApiPath(..., min_length=1, max_length=255),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+):
+    """Get BirdNET-Go detections near a persisted visual event.
+
+    Event-scoped lookup ensures the server's current source mapping and
+    correlation window are applied even when audio arrived after the visual
+    event's ingest-time correlation attempt.
+    """
+    lang = get_user_language(request) or "en"
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        event = await repo.get_by_frigate_event(event_id)
+        if event is None:
+            raise HTTPException(status_code=404, detail="Detection not found")
+
+        if not auth.is_owner and settings.public_access.enabled:
+            event_date = event.detection_time.date()
+            public_days = effective_public_events_days()
+            cutoff_date = date.today() - timedelta(days=public_days)
+            outside_public_history = event_date < cutoff_date if public_days > 0 else event_date != date.today()
+            if event.is_hidden or outside_public_history:
+                raise HTTPException(status_code=404, detail="Detection not found")
+
+        mapping_value = None
+        if settings.frigate.camera_audio_mapping:
+            mapping_value = settings.frigate.camera_audio_mapping.get(event.camera_name)
+
+        detections = await repo.get_audio_context(
+            target_time=event.detection_time,
+            window_seconds=settings.frigate.audio_correlation_window_seconds,
+            mapping_value=mapping_value,
+            limit=8,
+        )
+        await localize_audio_detections(detections, lang, db)
+
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     if hide_sensor:
         for detection in detections:

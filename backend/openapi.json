@@ -12993,6 +12993,67 @@
         ]
       }
     },
+    "/api/audio/context/event/{event_id}": {
+      "get": {
+        "description": "Get BirdNET-Go detections near a persisted visual event.\n\nEvent-scoped lookup ensures the server's current source mapping and\ncorrelation window are applied even when audio arrived after the visual\nevent's ingest-time correlation attempt.",
+        "operationId": "get_event_audio_context_api_audio_context_event__event_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AudioContextDetectionResponse"
+                  },
+                  "title": "Response Get Event Audio Context Api Audio Context Event  Event Id  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Event Audio Context",
+        "tags": [
+          "audio",
+          "audio"
+        ]
+      }
+    },
     "/api/audio/history": {
       "get": {
         "description": "Browse persisted BirdNET-Go detections separately from visual detections.",

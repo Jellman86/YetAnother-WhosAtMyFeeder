@@ -59,3 +59,8 @@ window, and on the camera associated with that BirdNET source. Manual tags are d
 excluded: the icon means the independent video classifier agreed with the audio evidence. The icon
 opens that exact visual detection; guest users receive links only inside their configured public
 event-history window.
+
+Detection details also look up persisted BirdNET history when you open them. This catches audio
+that reached YA-WAMF after the visual event's initial correlation attempt. A matching species is
+still labelled as confirmed only when the correlation rules agree; other sounds inside the same
+configured time and source window appear as nearby audio context instead.

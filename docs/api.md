@@ -254,6 +254,8 @@ image/provider contract.
   - `GET /api/audio/summary`
   - `GET /api/audio/species`
   - `GET /api/audio/context`
+  - `GET /api/audio/context/event/{event_id}` — nearby BirdNET detections for one persisted visual
+    event, using the configured correlation window and camera-to-audio-source mapping
   - `GET /api/audio/sources`
 
 `GET /api/events` accepts `event_id` for an exact Frigate event lookup. It retains the same guest

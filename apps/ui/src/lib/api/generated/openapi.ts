@@ -1744,6 +1744,17 @@ export interface paths {
       response: Array<components['schemas']['AudioContextDetectionResponse']>;
     };
   };
+  "/api/audio/context/event/{event_id}": {
+    get: {
+      operationId: "get_event_audio_context_api_audio_context_event__event_id__get";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: Array<components['schemas']['AudioContextDetectionResponse']>;
+    };
+  };
   "/api/audio/history": {
     get: {
       operationId: "get_audio_history_api_audio_history_get";
