@@ -319,6 +319,79 @@ async def test_reclassify_video_prefers_cached_recording_clip_when_available(cli
 
 
 @pytest.mark.asyncio
+async def test_reclassify_video_uses_playable_partial_recording_cache_when_frigate_event_is_missing(
+    client: httpx.AsyncClient,
+    tmp_path,
+):
+    """A locally playable clip is authoritative even when its full-visit window is incomplete."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.media_cache.high_quality_event_snapshots = False
+    event_id = "evt-reclassify-video-partial-recording"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+
+    async with get_db() as db:
+        await db.execute(
+            """UPDATE detections
+               SET video_classification_status = 'failed', video_classification_error = 'event_not_found'
+               WHERE frigate_event = ?""",
+            (event_id,),
+        )
+        await db.commit()
+
+    recording_path = tmp_path / f"{event_id}_recording.mp4"
+    recording_bytes = b"\x00\x00\x00\x18ftypisompartial-recording" + (b"x" * 512)
+    recording_path.write_bytes(recording_bytes)
+
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(return_value=[{"label": "Blue Tit", "score": 0.95, "index": 2}])
+    classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
+
+    try:
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch(
+                "app.routers.events._get_valid_cached_recording_clip_path",
+                new=AsyncMock(return_value=(None, "cam1", 1700000000, 1700000030)),
+            ),
+            patch("app.routers.events.media_cache.has_clip", return_value=False),
+            patch("app.routers.events.media_cache.has_recording_clip", return_value=True),
+            patch("app.routers.events.media_cache.get_recording_clip_path", return_value=recording_path),
+            patch("app.routers.events.media_cache.get_clip_path", return_value=None),
+            patch("app.routers.events.media_cache.get_snapshot", new=AsyncMock(return_value=b"cached-snapshot")),
+            patch("app.routers.events.decode_image_bytes", return_value=MagicMock()),
+            patch("cv2.VideoCapture", _GoodVideoCapture),
+        ):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=(None, "event_not_found"))
+            mock_frigate.get_clip_with_error = AsyncMock(return_value=(None, "event_not_found"))
+            mock_frigate.get_snapshot = AsyncMock(return_value=None)
+            mock_detection_service.return_value.apply_video_result = AsyncMock()
+
+            response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "video"})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["actual_strategy"] == "video"
+        classifier.classify_video_async.assert_awaited_once()
+        classifier.classify_async.assert_not_awaited()
+        mock_frigate.get_clip_with_error.assert_not_awaited()
+        assert classifier.classify_video_async.await_args.kwargs["input_context"]["clip_variant"] == "recording"
+
+        async with get_db() as db:
+            async with db.execute(
+                """SELECT video_classification_status, video_classification_error
+                   FROM detections WHERE frigate_event = ?""",
+                (event_id,),
+            ) as cursor:
+                status_row = await cursor.fetchone()
+        assert status_row == ("completed", None)
+    finally:
+        await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
 async def test_reclassify_video_fallback_to_snapshot_does_not_trigger_snapshot_upgrade(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

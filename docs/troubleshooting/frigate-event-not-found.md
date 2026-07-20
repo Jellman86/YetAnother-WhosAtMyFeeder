@@ -91,7 +91,11 @@ YA-WAMF caches the snapshot and clip to local storage the moment the MQTT event 
 - **Cached clip found** → classification proceeds using the local cache. The diagnostic entry will show reason code `precheck_cache_bypass`.
 - **No cached clip** → the detection is marked as failed with error `event_not_found`.
 
-The cached clip path takes precedence over a live Frigate fetch in all subsequent operations (manual reclassify, video analysis retry), so a detection that was cached before Frigate lost the event can still be classified successfully.
+The cached clip path takes precedence over a live Frigate fetch in all subsequent operations
+(manual reclassify, video analysis retry), so a detection that was cached before Frigate lost the
+event can still be classified successfully. Manual video reclassification accepts a decodable
+partial full-visit recording too: the ideal duration controls full-visit completeness, not whether
+the retained frames are valid classification evidence.
 
 The reverse mismatch is also possible: Frigate can contain a persisted event that YA-WAMF did not
 ingest, for example while YA-WAMF was stopped or restarting. An owner-triggered detection backfill

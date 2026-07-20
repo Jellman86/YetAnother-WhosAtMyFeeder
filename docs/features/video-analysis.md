@@ -4,7 +4,9 @@ While real-time detection uses a single snapshot, YA-WAMF provides a **Deep Vide
 
 ## How It Works
 
-1. The backend fetches the full video clip from Frigate.
+1. The backend resolves the best local video first: a complete cached full-visit recording, a
+   decodable partial recording, then the cached event clip. It asks Frigate for the event clip only
+   when no usable local copy exists.
 2. It samples frames across the full clip using **deterministic stratified sampling** — the clip is divided into equal segments and one frame is taken from each. The default is **15 frames**, configurable in **Settings > Detection**.
 3. Each frame is evaluated as a full frame and, when valid, with independent Frigate-hint and
    detector-crop representations that match the active model's input contract.
@@ -16,7 +18,14 @@ While real-time detection uses a single snapshot, YA-WAMF provides a **Deep Vide
 
 ## Running an Analysis
 
-Click **Reclassify → Deep Video Analysis** on any detection card. This works for any detection that has an associated clip in Frigate (or a locally cached full-visit clip).
+Click **Reclassify** on any detection card. When an event clip or fetched full-visit clip is
+available, YA-WAMF performs temporal video analysis; it does not replace that explicit video run
+with a faster snapshot-only result. If no video can be decoded, it explains the downgrade and uses
+the best cached or Frigate snapshot as a fallback.
+
+A shorter-than-requested full-visit clip remains valid evidence when it is a real, decodable MP4.
+YA-WAMF analyzes the frames it contains instead of discarding the clip merely because Frigate could
+not provide the ideal window.
 
 ## Visual Feedback
 

@@ -115,6 +115,11 @@ returns HTTP 200 with `status: "no_result"`, `reason: "no_confident_result"`, an
 the existing species and score are returned unchanged. Media-fetch, decode, and inference faults
 remain non-2xx errors.
 
+With `strategy=video`, the request performs temporal analysis whenever a usable video exists. The
+source order is complete cached recording, decodable partial cached recording, cached event clip,
+then the live Frigate event clip. A snapshot is used only after those sources are absent or fail
+validation; a confident snapshot does not short-circuit an available cached video.
+
 ### Media Proxy and Share Links
 
 - `GET /api/frigate/{event_id}/snapshot.jpg`

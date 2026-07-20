@@ -25,6 +25,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   a successful automatic or explicit regeneration.
 
 ### Fixed
+- **Manual video reclassification now uses the video the owner can already play.** An explicit
+  video request no longer stops after a confident snapshot preflight: it prefers the cached
+  full-visit recording, accepts a decodable partial recording when the ideal window is shorter
+  than requested, then tries the cached event clip before Frigate. A fetched full-visit clip also
+  selects video reclassification even when stale event metadata still says `has_clip: false`.
+  Snapshot analysis remains the defensive fallback only when every video source is absent or
+  unusable, and a successful cached-video run clears stale `event_not_found` status.
 - **Manual reclassification now treats model abstention as a safe outcome.** When video analysis and
   its snapshot fallback cannot produce a confident species, the API returns `no_result` without
   changing the existing identification instead of returning HTTP 500. Reclassification now emits

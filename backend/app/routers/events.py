@@ -1381,58 +1381,10 @@ async def reclassify_event(
 
             results = []
 
-            # Auto-fallback: when video strategy requested, try snapshot first.
-            # Only proceed to video if snapshot yields Unknown or low confidence.
-            skip_snapshot_preflight = False
-            if effective_strategy == "video":
-                snapshot_data_preflight, snapshot_preflight_provenance = await load_snapshot_classification_input(
-                    event_id,
-                    event_data=event_data,
-                    media_cache_service=media_cache,
-                    frigate_client_service=frigate_client,
-                )
-                if snapshot_data_preflight:
-                    image_preflight = await asyncio.to_thread(decode_image_bytes, snapshot_data_preflight)
-                    preflight_results = await classifier.classify_async(
-                        image_preflight,
-                        camera_name=detection.camera_name,
-                        input_context={
-                            "is_cropped": snapshot_preflight_provenance.is_cropped,
-                            "event_id": event_id,
-                            "input_source": snapshot_preflight_provenance.input_source,
-                        },
-                    )
-                    for result in preflight_results:
-                        if isinstance(result, dict):
-                            result.setdefault("input_source", snapshot_preflight_provenance.input_source)
-                    top_preflight = preflight_results[0] if preflight_results else None
-                    preflight_label = (top_preflight or {}).get("label", "")
-                    preflight_score = (top_preflight or {}).get("score", 0.0)
-                    # Check if label is unknown or low confidence
-                    is_unknown_preflight = (
-                        preflight_label in settings.classification.unknown_bird_labels
-                        or preflight_label.lower() in ("unknown", "unknown bird")
-                        or preflight_score < settings.classification.threshold
-                    )
-
-                    if not is_unknown_preflight:
-                        # Snapshot gave a confident result — skip video, use snapshot
-                        log.info(
-                            "Snapshot preflight succeeded, skipping video",
-                            event_id=event_id,
-                            label=preflight_label,
-                            score=preflight_score,
-                        )
-                        effective_strategy = "snapshot"
-                        results = preflight_results
-                        skip_snapshot_preflight = True
-                    else:
-                        log.info(
-                            "Snapshot preflight yielded unknown/low-confidence, proceeding to video",
-                            event_id=event_id,
-                            label=preflight_label,
-                            score=preflight_score,
-                        )
+            # An explicit video request means temporal analysis. A snapshot
+            # remains the safe fallback when no usable clip can be decoded, but
+            # it must not short-circuit a locally cached video that the user can
+            # already play.
 
             if effective_strategy == "video":
                 await broadcast_video_status("processing", None)
@@ -1444,6 +1396,7 @@ async def reclassify_event(
                     allow_event_cache: bool,
                 ) -> tuple[bytes | None, str | None, str, Literal["event", "recording"], str | None]:
                     if allow_recording_cache:
+                        attempted_recording_path: str | None = None
                         try:
                             (
                                 recording_cached_path,
@@ -1455,6 +1408,7 @@ async def reclassify_event(
                                 lang,
                             )
                             if recording_cached_path:
+                                attempted_recording_path = str(recording_cached_path)
                                 log.info("Using cached recording clip for reclassification", event_id=event_id)
                                 clip_bytes = await asyncio.to_thread(Path(recording_cached_path).read_bytes)
                                 return clip_bytes, None, "recording_cache", "recording", str(recording_cached_path)
@@ -1464,6 +1418,34 @@ async def reclassify_event(
                                 event_id=event_id,
                                 error=str(exc),
                             )
+
+                        # Full-visit generation can retain a shorter-than-requested
+                        # window when the recording starts late or has already begun
+                        # expiring. It is still useful for temporal inference when it
+                        # is a real, decodable MP4. Automatic analysis already accepts
+                        # this usable partial; manual reclassification must do the same
+                        # rather than treating ideal duration as a validity requirement.
+                        partial_recording_path = media_cache.get_recording_clip_path(event_id)
+                        if partial_recording_path and str(partial_recording_path) != attempted_recording_path:
+                            log.info(
+                                "Using retained partial recording clip for reclassification",
+                                event_id=event_id,
+                            )
+                            try:
+                                clip_bytes = await asyncio.to_thread(Path(partial_recording_path).read_bytes)
+                                return (
+                                    clip_bytes,
+                                    None,
+                                    "recording_cache_partial",
+                                    "recording",
+                                    str(partial_recording_path),
+                                )
+                            except Exception as exc:
+                                log.debug(
+                                    "Failed to read retained partial recording clip for reclassification",
+                                    event_id=event_id,
+                                    error=str(exc),
+                                )
 
                     if allow_event_cache:
                         cached_path = media_cache.get_clip_path(event_id)
@@ -1531,7 +1513,7 @@ async def reclassify_event(
                                     cached_source_path,
                                 ) = await _load_reclassification_clip(
                                     allow_recording_cache=False,
-                                    allow_event_cache=(clip_source == "recording_cache"),
+                                    allow_event_cache=(clip_variant == "recording"),
                                 )
                                 if clip_data and (
                                     clip_data.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_data[:32]
@@ -1667,7 +1649,7 @@ async def reclassify_event(
                                     )
 
             # Snapshot strategy (Default or Fallback)
-            if effective_strategy == "snapshot" and not skip_snapshot_preflight:
+            if effective_strategy == "snapshot":
                 await broadcast_reclassification_started("snapshot")
 
                 snapshot_data, snapshot_provenance = await load_snapshot_classification_input(
