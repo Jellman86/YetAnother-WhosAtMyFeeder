@@ -69,3 +69,20 @@ taxonomy-verified images are cleaner and more varied than one feeder camera, and
 with model or crop-detector updates. Re-run the sweep after such updates and validate against a
 manually tagged feeder set once enough independent ground truth exists. Never use the active model's
 own historical labels as evaluation truth.
+
+## High-quality crop refinement follow-up
+
+The crop-on/off policy above controls whether YA-WAMF should localise an incoming image before
+classification. It is separate from high-quality snapshot candidates, which are already-localised
+images generated from several clip frames. Those candidates are passed with `is_cropped=true`, so
+the active model does not run a second localisation step but still applies its exact declared input
+size, resize mode, interpolation, RGB conversion, normalisation, mean, and standard deviation.
+
+The distant `birdcam` position was checked on 20 July 2026. Twelve recent events had HQ candidates;
+nine selected a crop. Mean best-crop confidence was 0.762 versus 0.154 for the unchanged full-frame
+candidate, a 0.598 mean gain. This field sample is not hand-labelled accuracy evidence, and one
+low-confidence crop produced a conflicting label, so YA-WAMF uses it conservatively: the same
+concrete species must clear the active model's recommended threshold and a 0.60 floor across at
+least two distinct frames, with an 0.08 margin over any competing multi-frame consensus. Crop
+sources from the same frame count once. The result may upgrade Unknown Bird or strengthen the same
+known species, but cannot replace a manual tag or a conflicting known identification.

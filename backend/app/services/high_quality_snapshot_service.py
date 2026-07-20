@@ -22,6 +22,7 @@ from PIL import Image
 from app.config import settings
 from app.services.bird_crop_service import bird_crop_service
 from app.services.frigate_client import frigate_client
+from app.services.hq_classification_refinement import choose_hq_classification_refinement
 from app.services.media_cache import media_cache
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
@@ -94,6 +95,7 @@ class HighQualitySnapshotService:
         self._queue_full_deferrals = 0
         self._outcomes: Counter[str] = Counter()
         self._selected_sources: Counter[str] = Counter()
+        self._classification_refinements: Counter[str] = Counter()
         self._last_result: dict[str, str] | None = None
 
     def enabled(self) -> bool:
@@ -149,6 +151,7 @@ class HighQualitySnapshotService:
         if event_data is None:
             event_data = await self._load_event_data_for_crop(event_id)
         selected_candidate = None
+        classification_candidates: list[dict[str, Any]] = []
         try:
             candidate_bundle = await self.generate_snapshot_candidates_from_clip_bytes(
                 event_id,
@@ -157,7 +160,9 @@ class HighQualitySnapshotService:
                 clip_variant=clip_variant,
             )
             if candidate_bundle:
-                await self._persist_snapshot_candidates(event_id, candidate_bundle.get("candidates") or [])
+                candidates = candidate_bundle.get("candidates") or []
+                await self._persist_snapshot_candidates(event_id, candidates)
+                classification_candidates = candidates
                 selected_candidate = candidate_bundle.get("selected_candidate")
         except Exception as e:
             log.warning("High-quality snapshot candidate generation failed", event_id=event_id, error=str(e))
@@ -192,6 +197,7 @@ class HighQualitySnapshotService:
         if not replaced:
             return self._record_outcome(event_id, "snapshot_replace_failed")
 
+        await self._apply_classification_refinement(event_id, classification_candidates)
         log.info("High-quality snapshot replaced", event_id=event_id, size=len(image_bytes), source=snapshot_source)
         return self._record_outcome(event_id, "bird_crop_replaced" if crop_applied else "replaced")
 
@@ -259,6 +265,7 @@ class HighQualitySnapshotService:
                 event_data if isinstance(event_data, dict) else await self._load_event_data_for_crop(event_id)
             )
             selected_candidate = None
+            classification_candidates: list[dict[str, Any]] = []
             try:
                 candidate_bundle = await self.generate_snapshot_candidates_from_clip_bytes(
                     event_id,
@@ -267,7 +274,9 @@ class HighQualitySnapshotService:
                     clip_variant=clip_variant,
                 )
                 if candidate_bundle:
-                    await self._persist_snapshot_candidates(event_id, candidate_bundle.get("candidates") or [])
+                    candidates = candidate_bundle.get("candidates") or []
+                    await self._persist_snapshot_candidates(event_id, candidates)
+                    classification_candidates = candidates
                     selected_candidate = candidate_bundle.get("selected_candidate")
             except Exception as e:
                 log.warning("High-quality snapshot candidate generation failed", event_id=event_id, error=str(e))
@@ -302,6 +311,7 @@ class HighQualitySnapshotService:
             if not replaced:
                 return self._record_outcome(event_id, "snapshot_replace_failed")
 
+            await self._apply_classification_refinement(event_id, classification_candidates)
             if event_id in self._queued_ids or event_id in self._deferred_ids:
                 self._completed_ids.add(event_id)
 
@@ -512,6 +522,7 @@ class HighQualitySnapshotService:
 
         classifier_score = 0.0
         classifier_label = None
+        classifier_index = None
         try:
             classifier_module = sys.modules.get("app.services.classifier_service")
             classifier = (
@@ -524,8 +535,10 @@ class HighQualitySnapshotService:
                     input_context={"is_cropped": candidate.get("source_mode") != "full_frame"},
                 )
                 if results:
-                    classifier_label = results[0].get("label")
-                    classifier_score = float(results[0].get("score") or 0.0)
+                    top_result = results[0]
+                    classifier_label = top_result.get("label")
+                    classifier_score = float(top_result.get("score") or 0.0)
+                    classifier_index = int(top_result.get("index") or 0)
         except Exception as e:
             log.debug(
                 "Snapshot candidate classifier scoring failed", candidate_id=candidate.get("candidate_id"), error=str(e)
@@ -543,8 +556,85 @@ class HighQualitySnapshotService:
         enriched = dict(candidate)
         enriched["classifier_label"] = classifier_label
         enriched["classifier_score"] = classifier_score
+        enriched["classifier_index"] = classifier_index
         enriched["ranking_score"] = ranking_score
         return enriched
+
+    async def _apply_classification_refinement(self, event_id: str, candidates: list[dict[str, Any]]) -> bool:
+        """Promote a trustworthy crop consensus through the canonical detection write path."""
+        # Avoid a database lookup when candidate scoring did not produce enough usable evidence.
+        crop_votes = [
+            item
+            for item in candidates
+            if str(item.get("source_mode") or "full_frame") != "full_frame"
+            and item.get("classifier_label")
+            and item.get("classifier_index") is not None
+        ]
+        if len({int(item.get("frame_index") or 0) for item in crop_votes}) < 2:
+            self._classification_refinements["insufficient_evidence"] += 1
+            return False
+
+        try:
+            async with get_db() as db:
+                detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+            if detection is None:
+                self._classification_refinements["detection_missing"] += 1
+                return False
+
+            from app.services.model_manager import model_manager
+
+            model_spec = dict(model_manager.get_active_model_spec() or {})
+            recommended_threshold = float(model_spec.get("recommended_threshold", 0.65) or 0.65)
+            decision = choose_hq_classification_refinement(
+                detection=detection,
+                candidates=candidates,
+                minimum_score=recommended_threshold,
+            )
+            if decision is None:
+                self._classification_refinements["policy_rejected"] += 1
+                return False
+
+            classifier_module = sys.modules.get("app.services.classifier_service")
+            classifier = (
+                getattr(classifier_module, "_classifier_instance", None) if classifier_module is not None else None
+            )
+            if classifier is None:
+                self._classification_refinements["classifier_unavailable"] += 1
+                return False
+
+            from app.services.detection_service import DetectionService
+
+            applied = await DetectionService(classifier).apply_video_result(
+                frigate_event=event_id,
+                video_label=decision.label,
+                video_score=decision.score,
+                video_index=decision.index,
+                video_provider=str(getattr(classifier, "_active_inference_provider", "") or "") or None,
+                video_backend=str(getattr(classifier, "_inference_backend", "") or "") or None,
+                video_model_id=str(model_spec.get("model_id") or "") or None,
+                persist_video_result=False,
+            )
+            outcome = "promoted" if applied else "recorded"
+            self._classification_refinements[outcome] += 1
+            log.info(
+                "High-quality crop consensus applied",
+                event_id=event_id,
+                candidate_id=decision.candidate_id,
+                source_mode=decision.source_mode,
+                label=decision.label,
+                score=decision.score,
+                median_score=decision.median_score,
+                supporting_frames=decision.supporting_frame_count,
+                reason=decision.reason,
+                promoted=bool(applied),
+                model_id=model_spec.get("model_id"),
+                preprocessing=model_spec.get("preprocessing"),
+            )
+            return bool(applied)
+        except Exception as exc:
+            self._classification_refinements["failed"] += 1
+            log.warning("High-quality crop classification refinement failed", event_id=event_id, error=str(exc))
+            return False
 
     async def _persist_snapshot_candidates(self, event_id: str, candidates: list[dict[str, Any]]) -> None:
         stale_image_refs: list[str] = []
@@ -715,6 +805,7 @@ class HighQualitySnapshotService:
         self._disabled_requests = 0
         self._outcomes.clear()
         self._selected_sources.clear()
+        self._classification_refinements.clear()
         self._reconciled_total = 0
         self._last_result = None
 
@@ -806,6 +897,7 @@ class HighQualitySnapshotService:
             "crop_hints": len(self._crop_event_hints),
             "outcomes": dict(self._outcomes),
             "selected_sources": dict(self._selected_sources),
+            "classification_refinements": dict(self._classification_refinements),
             "crop_policy": "best_available",
             "last_result": self._last_result,
         }

@@ -473,9 +473,10 @@ and downloadable model sidecars.
 device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and
 clean fallback chains.
 
-**Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots, recording-frame
-classification fallback, media caching, and the video player with HTTP-Range seeking + expiring
-watermarked share links.
+**Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots with conservative
+multi-frame crop classification refinement for distant subjects, recording-frame classification
+fallback, media caching, and the video player with HTTP-Range seeking + expiring watermarked share
+links.
 
 **Integrations:** Frigate NVR (MQTT + media proxy), BirdNET-Go audio correlation, multi-platform
 notifications (Discord/Telegram/Pushover/Email + Notification Center), BirdWeather, eBird (sightings,

@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+- **Distant birds can now be identified from the best high-quality crop automatically.** YA-WAMF
+  classifies Frigate-hint and detector crops from several independent clip frames using the active
+  model's declared input contract, then promotes only a clear multi-frame consensus. This can
+  upgrade an Unknown Bird or strengthen the same existing species, while manual tags, conflicting
+  known identifications, low-confidence crops, single-frame duplicates, and ambiguous competing
+  results remain untouched. The supporting evidence remains in the saved snapshot candidates,
+  deep-video job state stays independent, and `/health` reports refinement outcomes.
+
 ## [2.13.0] - 2026-07-19
 
 ### Fixed

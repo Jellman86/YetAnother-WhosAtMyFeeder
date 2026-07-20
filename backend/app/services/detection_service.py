@@ -496,9 +496,13 @@ class DetectionService:
         video_provider: str | None = None,
         video_backend: str | None = None,
         video_model_id: str | None = None,
+        persist_video_result: bool = True,
     ):
         """
-        Process and save results from background video analysis.
+        Process a trustworthy asynchronous classification result.
+
+        ``persist_video_result`` is false for HQ crop consensus so refinement cannot mark a
+        concurrently running deep-video job complete or replace its provenance columns.
 
         Override the primary ID when:
         - the action is an explicit/manual reclassification, or
@@ -526,20 +530,21 @@ class DetectionService:
             normalized_video_label = normalize_classifier_label(video_label)
             hidden_video_label = should_hide_species_label(normalized_video_label)
 
-            # 1. Always update video-specific columns, even when the result is blocked.
+            # 1. Video analysis updates its dedicated columns even when the result is blocked.
             # This marks the job as 'completed' so the stale watchdog and re-queue logic
-            # don't pick it up again.  We just skip the promotion step below.
-            await repo.update_video_classification(
-                frigate_event=frigate_event,
-                label=None if hidden_video_label and not manual_tagged else normalized_video_label,
-                score=video_score,
-                index=video_index,
-                status="completed",
-                provider=video_provider,
-                backend=video_backend,
-                model_id=video_model_id,
-                blocked=is_blocked,
-            )
+            # don't pick it up again. HQ crop refinement deliberately leaves that state alone.
+            if persist_video_result:
+                await repo.update_video_classification(
+                    frigate_event=frigate_event,
+                    label=None if hidden_video_label and not manual_tagged else normalized_video_label,
+                    score=video_score,
+                    index=video_index,
+                    status="completed",
+                    provider=video_provider,
+                    backend=video_backend,
+                    model_id=video_model_id,
+                    blocked=is_blocked,
+                )
 
             if is_blocked:
                 log.debug(

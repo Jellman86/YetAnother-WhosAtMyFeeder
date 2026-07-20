@@ -460,6 +460,134 @@ def test_rank_snapshot_candidates_sorts_by_score_highest_first():
     assert [item["candidate_id"] for item in ranked] == ["high", "low"]
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("source_mode", "expected_is_cropped"),
+    [("full_frame", False), ("frigate_hint_crop", True), ("model_crop", True)],
+)
+async def test_candidate_scoring_preserves_model_input_contract(monkeypatch, source_mode, expected_is_cropped):
+    from app.services import classifier_service as classifier_module
+
+    service = hq_module.HighQualitySnapshotService()
+    classifier = SimpleNamespace()
+    seen_contexts: list[dict] = []
+
+    def classify(_image, *, input_context):
+        seen_contexts.append(input_context)
+        return [{"label": "Columba palumbus", "score": 0.84, "index": 123}]
+
+    classifier.classify = classify
+    monkeypatch.setattr(classifier_module, "_classifier_instance", classifier)
+
+    result = await service._score_snapshot_candidate(
+        {
+            "candidate_id": f"candidate-{source_mode}",
+            "frame_index": 4,
+            "source_mode": source_mode,
+            "image_bytes": _jpeg_bytes("green"),
+        }
+    )
+
+    assert seen_contexts == [{"is_cropped": expected_is_cropped}]
+    assert result["classifier_label"] == "Columba palumbus"
+    assert result["classifier_score"] == 0.84
+    assert result["classifier_index"] == 123
+
+
+@pytest.mark.asyncio
+async def test_hq_consensus_uses_canonical_detection_update_path(monkeypatch):
+    from app.services import detection_service as detection_module
+    from app.services import model_manager as model_manager_module
+
+    service = hq_module.HighQualitySnapshotService()
+    detection = SimpleNamespace(
+        display_name="Unknown Bird",
+        category_name="Unknown Bird",
+        scientific_name=None,
+        common_name=None,
+        score=0.51,
+        manual_tagged=False,
+    )
+
+    class FakeDbContext:
+        async def __aenter__(self):
+            return object()
+
+        async def __aexit__(self, *_args):
+            return None
+
+    class FakeRepo:
+        def __init__(self, _db):
+            pass
+
+        async def get_by_frigate_event(self, event_id):
+            assert event_id == "evt-refine"
+            return detection
+
+    applied_calls: list[dict] = []
+
+    class FakeDetectionService:
+        def __init__(self, classifier):
+            assert classifier is fake_classifier
+
+        async def apply_video_result(self, **kwargs):
+            applied_calls.append(kwargs)
+            return True
+
+    fake_classifier = SimpleNamespace(_active_inference_provider="intel_gpu", _inference_backend="openvino")
+    classifier_module = sys.modules["app.services.classifier_service"]
+    monkeypatch.setattr(classifier_module, "_classifier_instance", fake_classifier)
+    monkeypatch.setattr(hq_module, "get_db", lambda: FakeDbContext())
+    monkeypatch.setattr(hq_module, "DetectionRepository", FakeRepo)
+    monkeypatch.setattr(detection_module, "DetectionService", FakeDetectionService)
+    monkeypatch.setattr(
+        model_manager_module.model_manager,
+        "get_active_model_spec",
+        lambda: {
+            "model_id": "eva02_large_inat21",
+            "recommended_threshold": 0.45,
+            "preprocessing": {"resize_mode": "center_crop"},
+        },
+    )
+
+    applied = await service._apply_classification_refinement(
+        "evt-refine",
+        [
+            {
+                "candidate_id": "crop-1",
+                "frame_index": 10,
+                "source_mode": "frigate_hint_crop",
+                "classifier_label": "Columba palumbus",
+                "classifier_score": 0.82,
+                "classifier_index": 123,
+            },
+            {
+                "candidate_id": "crop-2",
+                "frame_index": 20,
+                "source_mode": "model_crop",
+                "classifier_label": "Columba palumbus",
+                "classifier_score": 0.79,
+                "classifier_index": 123,
+            },
+        ],
+    )
+
+    assert applied is True
+    assert applied_calls == [
+        {
+            "frigate_event": "evt-refine",
+            "video_label": "Columba palumbus",
+            "video_score": 0.82,
+            "video_index": 123,
+            "video_provider": "intel_gpu",
+            "video_backend": "openvino",
+            "video_model_id": "eva02_large_inat21",
+            "persist_video_result": False,
+        }
+    ]
+    assert service.get_status()["classification_refinements"] == {"promoted": 1}
+
+
 def test_select_canonical_snapshot_candidate_falls_back_to_crop_by_default():
     service = hq_module.HighQualitySnapshotService()
 

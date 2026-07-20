@@ -138,11 +138,24 @@ crop source yields a valid image. The old `bird_crop_source_priority` and
 `media_cache_high_quality_event_snapshot_bird_crop` fields remain readable/writable for API and
 configuration compatibility, but do not override this policy.
 
+Each candidate still goes through the active classifier's declared preprocessing: input size,
+resize mode, interpolation, colour space, normalisation, mean and standard deviation. A generated
+bird crop is marked as already cropped, which prevents a model's optional localisation policy from
+cropping it a second time; it does not bypass the model's normal resize and tensor preparation.
+
+YA-WAMF can also use the crop classifications to refine the detection. It requires the same species
+to clear both the active model's recommended confidence and a conservative 0.60 floor on at least
+two different clip frames. Multiple crop sources from one frame count as one vote. A close competing
+multi-frame result blocks promotion. Automatic refinement can upgrade **Unknown Bird** or improve a
+lower-scoring result for the same canonical species, but it never replaces a manual tag or a
+conflicting known species.
+
 The pipeline is fail-soft: the accurate detector retries through the fast detector, a detector miss
 can still use Frigate's tracked-object box, and total crop failure keeps the clear full frame. Recent
 events without generated candidates are reconciled after restart so an in-memory queue loss does not
 permanently strand their upgrade. `/health` exposes `high_quality_snapshots.crop_policy`, selected
-source counts, outcomes, and the recovered-job total for operational verification.
+source counts, snapshot outcomes, classification-refinement outcomes, and the recovered-job total
+for operational verification.
 
 ## Automatic Video Analysis (Deep Analysis)
 In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background task scans the full video clip frame-by-frame (temporal ensemble) to verify the identification.

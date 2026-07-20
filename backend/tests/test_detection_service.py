@@ -76,6 +76,41 @@ async def test_apply_video_result_overrides_lower_score(mock_deps):
 
 
 @pytest.mark.asyncio
+async def test_apply_async_refinement_can_promote_without_completing_video_job(mock_deps):
+    service = DetectionService(MagicMock())
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.51
+    existing.display_name = "Unknown Bird"
+    existing.category_name = "Unknown Bird"
+    existing.scientific_name = None
+    existing.common_name = None
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.is_favorite = False
+    existing.manual_tagged = False
+    existing.sub_label = None
+    existing.frigate_score = None
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "processing"
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(side_effect=[existing, existing])
+
+    applied = await service.apply_video_result(
+        "event1",
+        "Columba palumbus",
+        0.82,
+        123,
+        persist_video_result=False,
+    )
+
+    assert applied is True
+    mock_deps["repo"].update_video_classification.assert_not_awaited()
+    update_call = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call[0][0]]
+    assert len(update_call) == 1
+
+
+@pytest.mark.asyncio
 async def test_apply_video_result_re_evaluates_audio(mock_deps):
     classifier = MagicMock()
     service = DetectionService(classifier)
