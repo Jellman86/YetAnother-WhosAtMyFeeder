@@ -49,7 +49,7 @@
     import { trapFocus } from '../utils/focus-trap';
     import { FRIGATE_LOGO_URL } from '../assets';
     import { getErrorMessage } from '../utils/error-handling';
-    import { getDetectionClassificationSource } from '../detection-classification-source';
+    import { getClassificationInputKind, getDetectionClassificationSource } from '../detection-classification-source';
     import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import { getManualTagSearchOptions } from '../search/manual-tag-search';
@@ -102,6 +102,43 @@
         fullVisitFetchState = 'idle'
     }: Props = $props();
     let currentClassificationSource = $derived(getDetectionClassificationSource(detection));
+    let classificationInputKind = $derived(getClassificationInputKind(detection.video_classification_input_source));
+    let classificationInputLabel = $derived.by(() => {
+        if (classificationInputKind === 'video_crop') {
+            return $_('detection.video_analysis.input_video_crop', { default: 'Cropped video frames' });
+        }
+        if (classificationInputKind === 'video_full') {
+            return $_('detection.video_analysis.input_video_full', { default: 'Full video frames' });
+        }
+        if (classificationInputKind === 'snapshot_crop') {
+            return $_('detection.video_analysis.input_snapshot_crop', { default: 'Cropped snapshot' });
+        }
+        if (classificationInputKind === 'snapshot_full') {
+            return $_('detection.video_analysis.input_snapshot_full', { default: 'Full snapshot' });
+        }
+        if (classificationInputKind === 'upstream') {
+            return $_('detection.video_analysis.input_frigate_sublabel', { default: 'Frigate species label' });
+        }
+        return null;
+    });
+    let completedClassificationTitle = $derived.by(() => {
+        if (classificationInputKind === 'upstream') {
+            return $_('detection.video_analysis.frigate_fallback_title', { default: 'Result from Frigate' });
+        }
+        if (classificationInputKind === 'snapshot_crop' || classificationInputKind === 'snapshot_full') {
+            return $_('detection.video_analysis.fallback_title', { default: 'Result from snapshot' });
+        }
+        return $_('detection.video_analysis.title');
+    });
+    let completedClassificationDescription = $derived.by(() => {
+        if (classificationInputKind === 'upstream') {
+            return $_('detection.video_analysis.frigate_fallback_desc', { default: "Local image analysis did not clear policy, so YA-WAMF retained Frigate's trusted species label." });
+        }
+        if (classificationInputKind === 'snapshot_crop' || classificationInputKind === 'snapshot_full') {
+            return $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was unavailable, so this detection was classified from a single frame. Confidence may be lower.' });
+        }
+        return $_('detection.video_analysis.verified_desc');
+    });
     let hideActionLabel = $derived(
         detection.is_hidden
             ? $_('actions.unhide_detection', { default: 'Unhide Detection' })
@@ -2310,7 +2347,7 @@
                 <div class="p-4 rounded-2xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
                     <div class="flex items-center justify-between mb-2">
                         <p class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                            {$_('detection.video_analysis.title')}
+                            {completedClassificationTitle}
                         </p>
                         {#if detection.video_classification_score}
                             <span class="px-2 py-0.5 bg-indigo-500 text-white text-[9px] font-bold rounded uppercase">
@@ -2330,8 +2367,13 @@
                     {/if}
                     <div class="flex flex-wrap items-center gap-2 mt-1">
                         <p class="text-[10px] text-slate-500 italic leading-tight">
-                            {$_('detection.video_analysis.verified_desc')}
+                            {completedClassificationDescription}
                         </p>
+                        {#if classificationInputLabel}
+                            <span class="rounded border border-slate-200/70 bg-white/60 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 dark:border-slate-600/60 dark:bg-slate-900/40 dark:text-slate-300">
+                                {classificationInputLabel}
+                            </span>
+                        {/if}
                         {#if completedVideoInferenceBadge.kind}
                             <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-indigo-200/50 dark:border-indigo-500/30 bg-white/60 dark:bg-slate-900/40">
                                 {#if completedVideoInferenceBadge.kind === 'gpu'}

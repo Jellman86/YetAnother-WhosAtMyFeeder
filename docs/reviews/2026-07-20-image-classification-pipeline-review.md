@@ -16,6 +16,9 @@ and primary upstream contracts:
   object's detector score.
 - [Frigate object classification](https://docs.frigate.video/configuration/custom_classification/object_classification/)
   requires a per-attempt threshold plus at least three attempts and 60% label consensus.
+- [Frigate event snapshots](https://docs.frigate.video/integrations/api/event-snapshot-events-event-id-snapshot-jpg-get/)
+  apply query parameters only while an event is in progress; after it ends, the saved snapshot
+  configuration determines whether the returned image is cropped.
 - [Frigate's sublabel API](https://docs.frigate.video/integrations/api/schemas/eventssublabelbody/)
   accepts labels up to 100 characters and a separate `subLabelScore`.
 - [TensorFlow's integer quantization contract](https://blog.tensorflow.org/2019/06/tensorflow-integer-quantization.html)
@@ -104,9 +107,25 @@ or low-confidence predictions count as abstentions; a species needs at least two
 and 60% of all evaluated frames; and reported confidence is the median of supporting frames.
 Non-species classes are masked before voting. Support/evaluated counts are attached to results.
 
-**Second-order consequence:** very short or ambiguous clips now abstain instead of producing a
-plausible-looking single-frame answer. The original snapshot classification remains available and
-the video job can still report completion without replacing the primary species.
+The input representation is now part of the same policy. Every sampled frame retains the unchanged
+full frame and can add one valid Frigate-box crop plus one detector crop. Each representation builds
+its own temporal consensus, so two transformations of one frame never become two votes. If
+trustworthy representations select different species, video analysis abstains; if they agree, the
+strongest consensus wins. The persisted result records the exact input source.
+
+**Second-order consequence:** very short, visually ambiguous, or representation-sensitive clips now
+abstain instead of producing a plausible-looking answer. Evaluating up to three bounded
+representations costs more inference per sampled frame, but runs in the background and retains the
+full frame even when a crop detector is available. The original snapshot classification remains
+available and the video job can still report completion without replacing the primary species.
+
+Snapshot fallback now also carries durable provenance. Known cache metadata is preserved; an
+ended Frigate event is never assumed to honour a live crop request; and legacy cache entries with
+unknown provenance are treated as uncropped. The detection detail UI labels snapshot fallbacks as
+single-frame results rather than implying that temporal video evidence produced them. Media-cache
+metadata describes the bytes actually retained, while classification provenance follows any
+additional Frigate-hint or detector crop that reached model preprocessing. Historical backfill uses
+the same ended-event rule instead of marking every returned snapshot as cropped.
 
 ### 6. HQ snapshot selection could promote a tiny or inconsistent crop — high, fixed
 

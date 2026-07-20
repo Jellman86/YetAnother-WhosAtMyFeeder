@@ -42,6 +42,7 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             video_classification_provider TEXT,
             video_classification_backend TEXT,
             video_classification_model_id TEXT,
+            video_classification_input_source TEXT,
             video_result_blocked BOOLEAN DEFAULT 0,
             ai_analysis TEXT,
             ai_analysis_timestamp TIMESTAMP,
@@ -793,6 +794,7 @@ async def test_update_video_classification_persists_runtime_provider_backend_and
             provider="intel_gpu",
             backend="openvino",
             model_id="convnext_large_inat21",
+            input_source="frigate_hint_crop",
         )
 
         updated = await repo.get_by_frigate_event("evt_video_runtime")
@@ -802,6 +804,7 @@ async def test_update_video_classification_persists_runtime_provider_backend_and
         assert updated.video_classification_provider == "intel_gpu"
         assert updated.video_classification_backend == "openvino"
         assert updated.video_classification_model_id == "convnext_large_inat21"
+        assert updated.video_classification_input_source == "frigate_hint_crop"
 
 
 @pytest.mark.asyncio

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getDetectionClassificationSource } from './detection-classification-source';
+import { getClassificationInputKind, getDetectionClassificationSource } from './detection-classification-source';
 import type { Detection } from './api';
 
 function buildDetection(overrides: Partial<Detection> = {}): Detection {
@@ -42,5 +42,38 @@ describe('getDetectionClassificationSource', () => {
 
     it('falls back to snapshot when there is no manual or current video override', () => {
         expect(getDetectionClassificationSource(buildDetection())).toBe('snapshot');
+    });
+
+    it('does not present a completed snapshot fallback as video evidence', () => {
+        const detection = buildDetection({
+            category_name: 'blue jay',
+            video_classification_status: 'completed',
+            video_classification_label: 'Blue Jay',
+            video_classification_input_source: 'hq_candidate_frigate_hint_crop'
+        });
+
+        expect(getDetectionClassificationSource(detection)).toBe('snapshot');
+    });
+
+    it('maps persisted input provenance to honest user-facing source kinds', () => {
+        expect(getClassificationInputKind('frigate_hint_crop')).toBe('video_crop');
+        expect(getClassificationInputKind('full_frame')).toBe('video_full');
+        expect(getClassificationInputKind('hq_candidate_model_crop')).toBe('snapshot_crop');
+        expect(getClassificationInputKind('snapshot_model_crop')).toBe('snapshot_crop');
+        expect(getClassificationInputKind('hq_candidate_full_frame')).toBe('snapshot_full');
+        expect(getClassificationInputKind('cached_snapshot_unknown')).toBe('snapshot_full');
+        expect(getClassificationInputKind('frigate_sublabel')).toBe('upstream');
+        expect(getClassificationInputKind('unexpected')).toBe('unknown');
+    });
+
+    it('does not present a trusted Frigate fallback as video evidence', () => {
+        const detection = buildDetection({
+            category_name: 'robin',
+            video_classification_status: 'completed',
+            video_classification_label: 'Robin',
+            video_classification_input_source: 'frigate_sublabel'
+        });
+
+        expect(getDetectionClassificationSource(detection)).toBe('snapshot');
     });
 });

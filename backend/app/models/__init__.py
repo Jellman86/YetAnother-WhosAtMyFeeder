@@ -79,6 +79,7 @@ class Detection(APIModel):
     video_classification_backend: str | None = None
     video_classification_model_id: str | None = None
     video_classification_model_name: str | None = None
+    video_classification_input_source: str | None = None
     # AI naturalist analysis fields
     ai_analysis: str | None = None
     ai_analysis_timestamp: datetime | None = None

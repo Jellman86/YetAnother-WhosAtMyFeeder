@@ -331,8 +331,10 @@ acceleration, update-channel guidance, and a first-run smoke test.
 
 - **Unraid Community Applications follow-through** — the Docker template and setup guide are
   shipped (`unraid/yawamf.xml`, `docs/setup/unraid.md`). Keep them synced with image names,
-  ports, volume ownership, health checks, and Intel GPU/NPU device guidance; then pursue the
-  normal Community Applications discovery path so users do not need to paste the raw template URL.
+  ports, volume ownership, health checks, provider-family tags, and Intel GPU/NPU plus NVIDIA CUDA
+  host guidance. The template keeps provider choice in-app instead of pinning it through an
+  authoritative environment override. Next, pursue the normal Community Applications discovery
+  path so users do not need to paste the raw template URL.
 - **TrueNAS custom-app docs, then catalog submission** — first document the low-friction
   TrueNAS Custom App path for the monolithic image so users can deploy before catalog acceptance.
   Then submit a community-train app to `truenas/apps` using the current Docker Compose catalog
@@ -479,7 +481,9 @@ feeder + auto-fetch model-evaluation harnesses, and the **accurate bird-crop det
 and downloadable model sidecars. The classification pipeline now also separates Frigate object and
 sublabel confidence, runs local inference before trusted fallback, recovers missed MQTT `new` events
 from `update`, protects manual identity atomically, uses three-frame/60% deep-video consensus, and
-surfaces provider failures for recovery instead of silently treating them as empty predictions.
+compares full-frame and cropped video evidence without double-counting frames, persists the winning
+input provenance, and surfaces provider failures for recovery instead of silently treating them as
+empty predictions.
 
 **Acceleration:** Intel iGPU (OpenVINO), **Intel NPU** (`intel_npu` provider, capability probe,
 device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and

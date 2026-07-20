@@ -99,6 +99,16 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `POST /api/events/{event_id}/reclassify` (owner)
 - `POST /api/events/{event_id}/classify-wildlife` (owner)
 
+Event rows and `GET /api/events/{event_id}/classification-status` expose
+`video_classification_input_source` when YA-WAMF knows which representation produced the retained
+analysis result. Current video values are `full_frame`, `frigate_hint_crop`, `model_crop`, or
+`provided_crop`. Snapshot fallbacks use their cache/media source, such as `high_quality_snapshot`,
+`high_quality_bird_crop`, `frigate_snapshot`, or `frigate_snapshot_cropped`; an additional
+model-driven crop is reported as `snapshot_model_crop` or `snapshot_frigate_hint_crop`. The field is
+`null` for historical results that predate provenance tracking; clients must not infer crop state
+from image dimensions. A trusted upstream label that won because local image evidence did not
+clear policy is reported as `frigate_sublabel` rather than as snapshot or video inference.
+
 ### Media Proxy and Share Links
 
 - `GET /api/frigate/{event_id}/snapshot.jpg`

@@ -379,6 +379,7 @@ export interface components {
     event_id: string;
     video_classification_backend?: string | null;
     video_classification_error?: string | null;
+    video_classification_input_source?: string | null;
     video_classification_model_id?: string | null;
     video_classification_model_name?: string | null;
     video_classification_provider?: string | null;
@@ -530,6 +531,7 @@ export interface components {
     temperature?: number | null;
     video_classification_backend?: string | null;
     video_classification_error?: string | null;
+    video_classification_input_source?: string | null;
     video_classification_label?: string | null;
     video_classification_model_id?: string | null;
     video_classification_model_name?: string | null;
@@ -597,6 +599,7 @@ export interface components {
     temperature?: number | null;
     video_classification_backend?: string | null;
     video_classification_error?: string | null;
+    video_classification_input_source?: string | null;
     video_classification_label?: string | null;
     video_classification_model_id?: string | null;
     video_classification_model_name?: string | null;

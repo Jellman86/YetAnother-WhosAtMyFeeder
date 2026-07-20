@@ -1,5 +1,6 @@
 import json
 import asyncio
+import inspect
 import time
 import os
 import structlog
@@ -12,6 +13,10 @@ from PIL import Image
 
 from app.config import settings
 from app.services.classification_admission import ClassificationLeaseExpiredError
+from app.services.classification_input_provenance import (
+    cached_snapshot_input_provenance,
+    frigate_snapshot_input_provenance,
+)
 from app.services.classifier_service import (  # type: ignore[attr-defined]
     CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
     ClassifierService,
@@ -102,6 +107,8 @@ class EventData:
         self.camera: str = after.get("camera")
         self.label: str = after.get("label")
         self.start_time_ts: float = after.get("start_time", 0.0)
+        self.end_time_known: bool = "end_time" in after
+        self.end_time_ts: Optional[float] = after.get("end_time")
         self.received_at_ts: float = float(data.get("__received_at_ts") or time.time())
         parsed_sub_label = parse_sub_label(after.get("sub_label"))
         self.sub_label: Optional[str] = parsed_sub_label.label
@@ -567,7 +574,7 @@ class EventProcessor:
             self._record_drop(event.frigate_event, "classify_snapshot_unavailable")
             return
 
-        results, snapshot_data = classification_result
+        results, snapshot_data, snapshot_source = classification_result
         trusted_frigate_fallback_available = bool(settings.classification.trust_frigate_sublabel and event.sub_label)
         if not results and not trusted_frigate_fallback_available:
             log.info(
@@ -632,7 +639,13 @@ class EventProcessor:
             event_id=event.frigate_event,
             stage="save_and_notify",
             timeout_seconds=EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS,
-            coro=self._handle_detection_save_and_notify(event, top_with_audio, snapshot_data, context),
+            coro=self._handle_detection_save_and_notify(
+                event,
+                top_with_audio,
+                snapshot_data,
+                context,
+                snapshot_source=snapshot_source,
+            ),
             fallback=None,
         )
         if not save_ok:
@@ -917,17 +930,23 @@ class EventProcessor:
             lang="en",
         )
 
-    async def _classify_snapshot(self, event: EventData) -> Optional[Tuple[list, Optional[bytes]]]:
+    async def _classify_snapshot(self, event: EventData) -> Optional[Tuple[list, Optional[bytes], str]]:
         """Classify snapshot or use Frigate sublabel if trusted.
 
         Returns:
-            Tuple of (classification_results, snapshot_data) if successful, None otherwise
+            Tuple of (classification_results, snapshot_data, snapshot_source) if successful, None otherwise
         """
         # Normal classification path
         try:
             retry_budget = self._snapshot_unavailable_retry_budget(event)
             snapshot_data: bytes | None = None
-            snapshot_source = "frigate_snapshot_cropped"
+            event_snapshot_state = (
+                {"end_time": getattr(event, "end_time_ts", None)}
+                if bool(getattr(event, "end_time_known", False))
+                else None
+            )
+            snapshot_provenance = frigate_snapshot_input_provenance(event_snapshot_state)
+            snapshot_source = snapshot_provenance.input_source
             last_snapshot_error: str | None = None
             for retry_index in range(retry_budget + 1):
                 snapshot_data, last_snapshot_error = await frigate_client.get_snapshot_with_error(
@@ -962,6 +981,7 @@ class EventProcessor:
                     camera=getattr(event, "camera", None),
                     start_time_ts=getattr(event, "start_time_ts", None),
                 )
+                snapshot_provenance = cached_snapshot_input_provenance({"source": snapshot_source})
             if not snapshot_data:
                 if settings.classification.trust_frigate_sublabel and event.sub_label:
                     log.info(
@@ -970,7 +990,7 @@ class EventProcessor:
                         sub_label=event.sub_label,
                         sub_label_score=getattr(event, "sub_label_score", None),
                     )
-                    return ([], None)
+                    return ([], None, "unavailable")
                 log.info(
                     "Skipping MQTT event - snapshot unavailable after retry",
                     event_id=event.frigate_event,
@@ -983,8 +1003,9 @@ class EventProcessor:
                 image,
                 camera_name=event.camera,
                 input_context={
-                    "is_cropped": snapshot_source == "frigate_snapshot_cropped",
+                    "is_cropped": snapshot_provenance.is_cropped,
                     "event_id": event.frigate_event,
+                    "input_source": snapshot_source,
                 },
                 queue_timeout_seconds=self._live_classification_queue_timeout_seconds(event),
             )
@@ -997,11 +1018,15 @@ class EventProcessor:
                         sub_label=event.sub_label,
                         sub_label_score=getattr(event, "sub_label_score", None),
                     )
-                    return ([], snapshot_data)
+                    return ([], snapshot_data, snapshot_source)
                 log.info("Skipping MQTT event - classifier returned empty results", event_id=event.frigate_event)
                 return None
 
-            return (results, snapshot_data)
+            for result in results:
+                if isinstance(result, dict):
+                    result.setdefault("input_source", snapshot_source)
+
+            return (results, snapshot_data, snapshot_source)
 
         except (LiveImageClassificationOverloadedError, ClassificationLeaseExpiredError):
             raise
@@ -1030,9 +1055,16 @@ class EventProcessor:
 
         cached_snapshot = await media_cache.get_snapshot(event_id)
         if cached_snapshot:
+            try:
+                metadata_result = media_cache.get_snapshot_metadata(event_id)
+                metadata = await metadata_result if inspect.isawaitable(metadata_result) else metadata_result
+            except Exception as exc:
+                log.debug("Cached snapshot provenance unavailable", event_id=event_id, error=str(exc))
+                metadata = None
+            cached_provenance = cached_snapshot_input_provenance(metadata)
             self._record_stage_fallback("classify_snapshot", event_id)
             log.info("Using cached snapshot fallback for classification", event_id=event_id)
-            return cached_snapshot, "cached_snapshot"
+            return cached_snapshot, cached_provenance.input_source
 
         # Last resort: pull a frame from Frigate's continuous recording, which usually
         # still covers a briefly-tracked bird whose event snapshot was never persisted.
@@ -1212,7 +1244,13 @@ class EventProcessor:
         }
 
     async def _handle_detection_save_and_notify(
-        self, event: EventData, classification: Dict[str, Any], snapshot_data: Optional[bytes], context: Dict[str, Any]
+        self,
+        event: EventData,
+        classification: Dict[str, Any],
+        snapshot_data: Optional[bytes],
+        context: Dict[str, Any],
+        *,
+        snapshot_source: str | None = None,
     ):
         """Save detection to database and send notifications.
 
@@ -1290,7 +1328,11 @@ class EventProcessor:
         if changed:
             # Cache snapshot if we updated the DB (ensures image matches score)
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                await media_cache.cache_snapshot(event.frigate_event, snapshot_data)
+                await media_cache.cache_snapshot(
+                    event.frigate_event,
+                    snapshot_data,
+                    source=str(snapshot_source or "frigate_snapshot"),
+                )
                 if settings.media_cache.high_quality_event_snapshots:
                     event_payload = getattr(event, "data", {})
                     high_quality_snapshot_service.schedule_replacement(

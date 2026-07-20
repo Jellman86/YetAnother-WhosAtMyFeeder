@@ -1,4 +1,5 @@
 from pathlib import Path
+import xml.etree.ElementTree as ET
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -64,6 +65,29 @@ def test_active_docs_describe_the_complete_runtime_flavor_contract() -> None:
     assert "full → CPU → full" in docs["docs/development/releasing.md"]
     assert "CPU, Intel, and Raspberry Pi images do not contain the CUDA runtime" in docs["INTEGRATION_TESTING.md"]
     assert "The official YA-WAMF images now package the CUDA" not in "\n".join(docs.values())
+
+
+def test_unraid_template_keeps_provider_selection_in_app_and_documents_flavors() -> None:
+    template_path = REPO_ROOT / "unraid/yawamf.xml"
+    root = ET.parse(template_path).getroot()
+    guide = (REPO_ROOT / "docs/setup/unraid.md").read_text(encoding="utf-8")
+
+    assert root.findtext("Repository") == "ghcr.io/jellman86/yawamf-monalithic:latest"
+    config_targets = {str(config.get("Target") or "") for config in root.findall("Config")}
+    assert "CLASSIFICATION__INFERENCE_PROVIDER" not in config_targets
+    assert "YAWAMF_IMAGE_FLAVOR" not in config_targets
+
+    requirements = root.findtext("Requires") or ""
+    for tag in ("latest-cpu", "latest-intel", "latest-cuda"):
+        assert tag in requirements
+        assert f"`{tag}`" in guide
+    assert "Settings → Detection" in requirements
+
+    assert "CLASSIFICATION__INFERENCE_PROVIDER" in guide
+    assert "overrides the in-app value" in guide
+    assert "NVIDIA Driver" in guide
+    assert "NVIDIA_VISIBLE_DEVICES" in guide
+    assert "NVIDIA_DRIVER_CAPABILITIES" in guide
 
 
 def test_full_runtime_remains_the_unsuffixed_compatibility_default() -> None:

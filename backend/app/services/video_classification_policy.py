@@ -34,6 +34,14 @@ class TemporalConsensus:
     ranked_classes: tuple[TemporalClassEvidence, ...]
 
 
+@dataclass(frozen=True)
+class SourceTemporalConsensus:
+    """Temporal evidence produced from one image representation per frame."""
+
+    input_source: str
+    consensus: TemporalConsensus | None
+
+
 def build_temporal_consensus(
     frame_scores: Iterable[np.ndarray],
     *,
@@ -109,4 +117,32 @@ def build_temporal_consensus(
         evaluated_frame_count=evaluated_count,
         required_supporting_frames=required_support,
         ranked_classes=tuple(evidence),
+    )
+
+
+def select_temporal_source_consensus(
+    source_consensuses: Iterable[SourceTemporalConsensus],
+) -> SourceTemporalConsensus | None:
+    """Choose a source only when every trustworthy representation agrees.
+
+    Full frames, Frigate-box crops, and detector crops are alternate views of the
+    same sampled frames, not independent votes. Each source must therefore reach
+    temporal consensus on its own. If trustworthy sources disagree, abstaining is
+    safer than choosing whichever transformation happened to be most confident.
+    """
+    candidates = [item for item in source_consensuses if item.consensus is not None]
+    if not candidates:
+        return None
+
+    winner_indices = {item.consensus.winner_index for item in candidates if item.consensus is not None}
+    if len(winner_indices) != 1:
+        return None
+
+    return max(
+        candidates,
+        key=lambda item: (
+            item.consensus.supporting_frame_count / item.consensus.evaluated_frame_count,
+            item.consensus.supporting_frame_count,
+            item.consensus.score,
+        ),
     )

@@ -49,8 +49,9 @@ async def test_event_classification_status_returns_current_video_fields(client: 
                 detection_time, detection_index, score, display_name, category_name,
                 frigate_event, camera_name, is_hidden,
                 video_classification_status, video_classification_error, video_classification_timestamp,
-                video_classification_provider, video_classification_backend, video_classification_model_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
+                video_classification_provider, video_classification_backend, video_classification_model_id,
+                video_classification_input_source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 now.isoformat(sep=" "),
@@ -66,6 +67,7 @@ async def test_event_classification_status_returns_current_video_fields(client: 
                 "intel_gpu",
                 "openvino",
                 "convnext_large_inat21",
+                "model_crop",
             ),
         )
         await db.commit()
@@ -81,6 +83,7 @@ async def test_event_classification_status_returns_current_video_fields(client: 
     assert payload["video_classification_backend"] == "openvino"
     assert payload["video_classification_model_id"] == "convnext_large_inat21"
     assert payload["video_classification_model_name"] == "ConvNeXt Large (High Accuracy)"
+    assert payload["video_classification_input_source"] == "model_crop"
 
 
 @pytest.mark.asyncio
@@ -97,8 +100,9 @@ async def test_events_list_includes_video_runtime_metadata(client: httpx.AsyncCl
                 detection_time, detection_index, score, display_name, category_name,
                 frigate_event, camera_name, is_hidden,
                 video_classification_status, video_classification_error, video_classification_timestamp,
-                video_classification_provider, video_classification_backend, video_classification_model_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)
+                video_classification_provider, video_classification_backend, video_classification_model_id,
+                video_classification_input_source
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 now.isoformat(sep=" "),
@@ -114,6 +118,7 @@ async def test_events_list_includes_video_runtime_metadata(client: httpx.AsyncCl
                 "intel_gpu",
                 "openvino",
                 "convnext_large_inat21",
+                "full_frame",
             ),
         )
         await db.commit()
@@ -126,6 +131,7 @@ async def test_events_list_includes_video_runtime_metadata(client: httpx.AsyncCl
     assert row["video_classification_backend"] == "openvino"
     assert row["video_classification_model_id"] == "convnext_large_inat21"
     assert row["video_classification_model_name"] == "ConvNeXt Large (High Accuracy)"
+    assert row["video_classification_input_source"] == "full_frame"
 
 
 @pytest.mark.asyncio

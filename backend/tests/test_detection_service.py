@@ -73,6 +73,37 @@ async def test_apply_video_result_overrides_lower_score(mock_deps):
 
 
 @pytest.mark.asyncio
+async def test_apply_video_result_persists_the_actual_input_source(mock_deps):
+    service = DetectionService(MagicMock())
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.5
+    existing.display_name = "Unknown Bird"
+    existing.category_name = "Unknown Bird"
+    existing.scientific_name = None
+    existing.common_name = None
+    existing.sub_label = None
+    existing.frigate_score = None
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.manual_tagged = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
+
+    await service.apply_video_result(
+        "event1",
+        "Columba palumbus",
+        0.82,
+        123,
+        video_input_source="frigate_hint_crop",
+    )
+
+    assert mock_deps["repo"].update_video_classification.await_args.kwargs["input_source"] == "frigate_hint_crop"
+
+
+@pytest.mark.asyncio
 async def test_apply_video_result_records_analysis_without_replacing_manual_identity(mock_deps):
     service = DetectionService(MagicMock())
     existing = MagicMock(spec=Detection)
@@ -645,8 +676,44 @@ def test_select_usable_classification_uses_trusted_frigate_sublabel_when_all_abs
         "score": 0.74,
         "index": -1,
         "source": "frigate_fallback",
+        "input_source": "frigate_sublabel",
     }
     assert reason == "frigate_fallback"
+
+
+def test_low_confidence_catchall_preserves_runtime_and_input_provenance():
+    service = DetectionService(MagicMock())
+
+    with patch("app.services.detection_service.settings") as mock_settings:
+        mock_settings.classification.unknown_bird_labels = ["Unknown Bird"]
+        mock_settings.classification.blocked_labels = []
+        mock_settings.classification.blocked_species = []
+        mock_settings.classification.threshold = 0.8
+        mock_settings.classification.min_confidence = 0.4
+        mock_settings.classification.trust_frigate_sublabel = False
+
+        result, reason = service.filter_and_label(
+            {
+                "label": "Robin",
+                "score": 0.65,
+                "index": 4,
+                "inference_provider": "intel_gpu",
+                "inference_backend": "openvino",
+                "model_id": "rope_vit_b14_inat21",
+                "input_source": "snapshot_model_crop",
+                "input_is_cropped": True,
+            },
+            "evt-low-confidence-provenance",
+        )
+
+    assert reason == "unknown_catchall"
+    assert result is not None
+    assert result["label"] == "Unknown Bird"
+    assert result["input_source"] == "snapshot_model_crop"
+    assert result["input_is_cropped"] is True
+    assert result["inference_provider"] == "intel_gpu"
+    assert result["inference_backend"] == "openvino"
+    assert result["model_id"] == "rope_vit_b14_inat21"
 
 
 def test_trusted_frigate_fallback_never_uses_object_detection_score_as_species_confidence():

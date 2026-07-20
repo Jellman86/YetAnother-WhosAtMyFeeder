@@ -74,7 +74,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `CLASSIFICATION__INFERENCE_PROVIDER` | `auto` | `auto`, `cpu`, `cuda`, `intel_gpu`, `intel_cpu`, `intel_npu`. |
+| `CLASSIFICATION__INFERENCE_PROVIDER` | `auto` | `auto`, `cpu`, `cuda`, `intel_gpu`, `intel_cpu`, `intel_npu`. This authoritative deployment override wins over the value saved by Settings; omit it when users should be able to change providers in the UI. |
 | `CLASSIFICATION__USE_CUDA` | _(legacy)_ | Legacy boolean; mapped to `cuda`/`cpu` when the provider is unset. |
 | `CLASSIFICATION__IMAGE_EXECUTION_MODE` | `in_process` | `in_process` (shared RAM) or `subprocess` (isolated). |
 | `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED` | `false` | Opt in to a synthetic accelerated-versus-CPU comparison during startup. Routine model activation validation and runtime health checks do not require it. |

@@ -26,7 +26,8 @@ DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score
                       d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
                       CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
                       d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked,
-                      d.frigate_status, d.frigate_missing_since, d.frigate_last_checked_at, d.frigate_last_error"""
+                      d.frigate_status, d.frigate_missing_since, d.frigate_last_checked_at, d.frigate_last_error,
+                      d.video_classification_input_source"""
 
 
 @dataclass
@@ -76,6 +77,7 @@ class Detection:
     video_classification_provider: Optional[str] = None
     video_classification_backend: Optional[str] = None
     video_classification_model_id: Optional[str] = None
+    video_classification_input_source: Optional[str] = None
     # AI naturalist analysis fields
     ai_analysis: Optional[str] = None
     ai_analysis_timestamp: Optional[datetime] = None
@@ -331,6 +333,8 @@ def _row_to_detection(row: aiosqlite.Row) -> Detection:
         d.frigate_last_checked_at = _parse_datetime(row[42]) if row[42] else None
     if len(row) > 43:
         d.frigate_last_error = row[43]
+    if len(row) > 44:
+        d.video_classification_input_source = row[44]
 
     return d
 
@@ -879,6 +883,7 @@ class DetectionRepository:
         provider: Optional[str] = None,
         backend: Optional[str] = None,
         model_id: Optional[str] = None,
+        input_source: Optional[str] = None,
         blocked: bool = False,
     ) -> None:
         """Update video classification results for an event."""
@@ -895,10 +900,11 @@ class DetectionRepository:
                 video_classification_provider = ?,
                 video_classification_backend = ?,
                 video_classification_model_id = ?,
+                video_classification_input_source = ?,
                 video_result_blocked = ?
             WHERE frigate_event = ?
         """,
-            (label, score, index, now, status, provider, backend, model_id, blocked, frigate_event),
+            (label, score, index, now, status, provider, backend, model_id, input_source, blocked, frigate_event),
         )
         await self.db.commit()
 

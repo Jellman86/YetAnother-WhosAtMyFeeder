@@ -2396,6 +2396,17 @@
             ],
             "title": "Video Classification Error"
           },
+          "video_classification_input_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Input Source"
+          },
           "video_classification_model_id": {
             "anyOf": [
               {
@@ -3532,6 +3543,17 @@
             ],
             "title": "Video Classification Error"
           },
+          "video_classification_input_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Input Source"
+          },
           "video_classification_label": {
             "anyOf": [
               {
@@ -4092,6 +4114,17 @@
               }
             ],
             "title": "Video Classification Error"
+          },
+          "video_classification_input_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Input Source"
           },
           "video_classification_label": {
             "anyOf": [

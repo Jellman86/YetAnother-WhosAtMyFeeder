@@ -460,7 +460,7 @@ async def test_reclassify_video_falls_back_to_snapshot_when_clip_not_retained(cl
 
 
 @pytest.mark.asyncio
-async def test_reclassify_snapshot_passes_cropped_input_context(client: httpx.AsyncClient):
+async def test_reclassify_completed_snapshot_does_not_assume_crop_query_was_applied(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
     event_id = "evt-reclassify-snapshot-context"
@@ -487,8 +487,9 @@ async def test_reclassify_snapshot_passes_cropped_input_context(client: httpx.As
         assert response.status_code == 200, response.text
         classifier.classify_async.assert_awaited_once()
         assert classifier.classify_async.await_args.kwargs["input_context"] == {
-            "is_cropped": True,
+            "is_cropped": False,
             "event_id": event_id,
+            "input_source": "frigate_snapshot",
         }
     finally:
         await _delete_detection(event_id)

@@ -127,8 +127,9 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
     assert observed["sub_label_score"] is None
     classifier.classify_async_background.assert_awaited_once()
     assert classifier.classify_async_background.await_args.kwargs["input_context"] == {
-        "is_cropped": True,
+        "is_cropped": False,
         "event_id": "evt-frigate-score",
+        "input_source": "frigate_snapshot",
     }
     save_mock.assert_awaited_once()
 
@@ -178,7 +179,11 @@ async def test_process_historical_event_caches_snapshot_and_schedules_high_quali
 
     assert status == "new"
     assert reason is None
-    cache_snapshot.assert_awaited_once_with("evt-backfill-hq", snapshot_bytes)
+    cache_snapshot.assert_awaited_once_with(
+        "evt-backfill-hq",
+        snapshot_bytes,
+        source="frigate_snapshot",
+    )
     schedule_replacement.assert_called_once_with(
         "evt-backfill-hq",
         event_data={

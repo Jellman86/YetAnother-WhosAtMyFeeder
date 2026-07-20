@@ -180,6 +180,11 @@ CUDA/cuDNN userspace runtime for ONNX Runtime. The `cpu` and `intel` images do
 not advertise CUDA and report `selected_provider_not_packaged` if CUDA is
 explicitly selected.
 
+On Unraid, use the image-tag and NVIDIA Driver plugin workflow in the dedicated
+[Unraid setup guide](unraid.md#nvidia-cuda). Do not translate the Compose-only
+`YAWAMF_MONALITHIC_TAG` into a container environment variable; edit the Unraid
+Repository tag instead.
+
 ## Next steps
 
 - Confirm the active backend and per-device diagnostics under

@@ -169,10 +169,14 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
 
     service._classifier.classify_async_background.assert_awaited_once()
     assert service._classifier.classify_async_background.await_args.kwargs["input_context"] == {
-        "is_cropped": True,
+        "is_cropped": False,
         "event_id": "evt-batch-fallback",
+        "input_source": "frigate_snapshot",
     }
-    service._save_results.assert_awaited_once_with("evt-batch-fallback", {"label": "Robin", "score": 0.88, "index": 1})
+    service._save_results.assert_awaited_once_with(
+        "evt-batch-fallback",
+        {"label": "Robin", "score": 0.88, "index": 1, "input_source": "frigate_snapshot"},
+    )
     service._auto_delete_if_missing.assert_not_awaited()
 
 
@@ -216,7 +220,8 @@ async def test_process_event_snapshot_fallback_retries_background_overload_then_
 
     assert service._classifier.classify_async_background.await_count == 2
     service._save_results.assert_awaited_once_with(
-        "evt-batch-fallback-retry", {"label": "Robin", "score": 0.88, "index": 1}
+        "evt-batch-fallback-retry",
+        {"label": "Robin", "score": 0.88, "index": 1, "input_source": "frigate_snapshot"},
     )
     service._record_success.assert_called_once_with("evt-batch-fallback-retry", source="maintenance")
     service._record_failure.assert_not_called()

@@ -233,6 +233,7 @@ export function toDetection(data: SseData): Detection {
         video_classification_backend: data.video_classification_backend,
         video_classification_model_id: data.video_classification_model_id,
         video_classification_model_name: data.video_classification_model_name,
+        video_classification_input_source: data.video_classification_input_source,
         video_classification_timestamp: data.video_classification_timestamp
     };
 }

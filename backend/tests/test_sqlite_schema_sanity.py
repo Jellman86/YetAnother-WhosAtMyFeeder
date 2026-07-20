@@ -87,6 +87,19 @@ def test_detections_schema_includes_video_classification_model_id(tmp_path):
         conn.close()
 
 
+def test_detections_schema_includes_video_classification_input_source(tmp_path):
+    db_path = tmp_path / "schema_video_input_source.db"
+    _upgrade_db(db_path)
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        cols = conn.execute("PRAGMA table_info(detections);").fetchall()
+        col_names = [c[1] for c in cols]
+        assert "video_classification_input_source" in col_names
+    finally:
+        conn.close()
+
+
 def test_detections_schema_includes_video_result_blocked(tmp_path):
     db_path = tmp_path / "schema_video_result_blocked.db"
     _upgrade_db(db_path)

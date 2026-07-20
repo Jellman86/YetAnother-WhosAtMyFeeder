@@ -190,10 +190,16 @@ Frigate label is a fallback when media is unavailable, local inference produces 
 the local prediction does not clear policy. Frigate's sublabel confidence is kept separate from its
 bird-object detector score, and YA-WAMF does not echo a fallback label straight back to Frigate.
 
-Deep video uses temporal consensus rather than a single maximum frame: at least three frames are
-evaluated, low-confidence/non-species frames count as abstentions, and the winner needs two
-supporting frames plus 60% of all evaluated frames. Its confidence is the median of its supporting
-frames.
+Deep video uses temporal consensus rather than a single maximum frame. YA-WAMF keeps the unchanged
+full frame, then adds a valid Frigate tracked-object crop and detector crop when available. These
+are alternate views of each sampled frame, not extra votes: each input source must reach its own
+three-frame/60% consensus, and conflicting source winners cause the analysis to abstain. When the
+sources agree, YA-WAMF keeps the strongest consensus and records whether it came from full video
+frames, cropped video frames, a full snapshot fallback, or a cropped snapshot fallback. Detection
+details show that source next to the result. Historical cached snapshots without trustworthy source
+metadata remain usable but are conservatively treated as uncropped instead of being guessed from
+dimensions. If local image evidence does not clear policy and a trusted Frigate sublabel wins, the
+result is labelled as Frigate evidence rather than as snapshot or temporal video inference.
 
 ## Behavioral Analysis (LLMs)
 For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Language Model (LLM) to generate a "Naturalist Note".

@@ -35,7 +35,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Deep-video classification now abstains on temporal ambiguity.** At least three frames must be
   evaluated, low-confidence and non-species frames count as abstentions, and a species needs at
   least two supporting frames plus 60% of evaluated frames. Confidence is the supporting-frame
-  median, preventing one extreme frame from determining the visit.
+  median, preventing one extreme frame from determining the visit. Full frames, valid Frigate-box
+  crops, and detector crops now build independent temporal consensuses rather than becoming extra
+  votes; conflicting representations cause an abstention, while agreeing representations select
+  the strongest evidence. The exact winning input is persisted and shown in detection details, and
+  snapshot fallbacks are labelled as snapshots rather than presented as video evidence. Snapshot
+  provenance follows any model-driven crop that actually reached preprocessing, while cache
+  metadata continues to describe the retained media; historical backfill no longer assumes an
+  ended Frigate event honoured the live-only `crop` query.
 - **Best-available snapshot selection now rejects misleading crops without sacrificing the HQ
   frame.** Crops must retain usable detail and agree with the known detection identity (or repeat
   across independent frames before identity exists); sharpness, exposure, resolution, classifier
@@ -56,6 +63,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   loop. This resolves #100 and explains why affected installations had no corresponding backend log.
 
 ### Changed
+- **The Unraid template now makes the runtime/provider contract explicit.** It keeps the safe full
+  image and in-app `Auto` selection as defaults, documents CPU/Intel/CUDA tags and Intel/NVIDIA host
+  setup, and warns against environment overrides that would make the provider selector revert after
+  restart. Image packaging, hardware exposure, selected provider, and active provider are presented
+  as separate states.
 - **Inference runtimes are now available as smaller provider-family images without changing the
   compatibility path.** Unsuffixed monolith tags remain the full CPU/CUDA/OpenVINO image, while
   additive `-cpu`, `-intel`, and `-cuda` tags package only the selected runtime family and retain

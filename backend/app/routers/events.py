@@ -21,6 +21,7 @@ from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
 from app.services.i18n_service import i18n_service
+from app.services.classification_input_provenance import load_snapshot_classification_input
 from app.utils.language import get_user_language
 from app.utils.blocked_species import is_blocked_species
 from app.utils.audio_localization import localize_audio_detections, localize_audio_species_name
@@ -348,6 +349,7 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "video_classification_provider": detection.video_classification_provider,
         "video_classification_backend": detection.video_classification_backend,
         "video_classification_model_id": detection.video_classification_model_id,
+        "video_classification_input_source": getattr(detection, "video_classification_input_source", None),
         "video_classification_model_name": _video_classification_model_name(detection.video_classification_model_id),
         "video_classification_timestamp": serialize_api_datetime(detection.video_classification_timestamp),
         "video_result_blocked": bool(detection.video_result_blocked),
@@ -786,6 +788,7 @@ async def get_events(
                 video_classification_backend=event.video_classification_backend,
                 video_classification_model_id=event.video_classification_model_id,
                 video_classification_model_name=_video_classification_model_name(event.video_classification_model_id),
+                video_classification_input_source=event.video_classification_input_source,
                 ai_analysis=event.ai_analysis,
                 ai_analysis_timestamp=event.ai_analysis_timestamp,
             )
@@ -1038,6 +1041,7 @@ class ClassificationStatusResponse(BaseModel):
     video_classification_backend: str | None = None
     video_classification_model_id: str | None = None
     video_classification_model_name: str | None = None
+    video_classification_input_source: str | None = None
 
 
 @router.get("/events/{event_id}/classification-status", response_model=ClassificationStatusResponse)
@@ -1060,6 +1064,7 @@ async def get_event_classification_status(event_id: str, request: Request, auth:
             video_classification_backend=detection.video_classification_backend,
             video_classification_model_id=detection.video_classification_model_id,
             video_classification_model_name=_video_classification_model_name(detection.video_classification_model_id),
+            video_classification_input_source=detection.video_classification_input_source,
         )
 
 
@@ -1354,16 +1359,26 @@ async def reclassify_event(
             # Only proceed to video if snapshot yields Unknown or low confidence.
             skip_snapshot_preflight = False
             if effective_strategy == "video":
-                snapshot_data_preflight = await media_cache.get_snapshot(event_id) or await frigate_client.get_snapshot(
-                    event_id, crop=True, quality=95
+                snapshot_data_preflight, snapshot_preflight_provenance = await load_snapshot_classification_input(
+                    event_id,
+                    event_data=event_data,
+                    media_cache_service=media_cache,
+                    frigate_client_service=frigate_client,
                 )
                 if snapshot_data_preflight:
                     image_preflight = await asyncio.to_thread(decode_image_bytes, snapshot_data_preflight)
                     preflight_results = await classifier.classify_async(
                         image_preflight,
                         camera_name=detection.camera_name,
-                        input_context={"is_cropped": True, "event_id": event_id},
+                        input_context={
+                            "is_cropped": snapshot_preflight_provenance.is_cropped,
+                            "event_id": event_id,
+                            "input_source": snapshot_preflight_provenance.input_source,
+                        },
                     )
+                    for result in preflight_results:
+                        if isinstance(result, dict):
+                            result.setdefault("input_source", snapshot_preflight_provenance.input_source)
                     top_preflight = preflight_results[0] if preflight_results else None
                     preflight_label = (top_preflight or {}).get("label", "")
                     preflight_score = (top_preflight or {}).get("score", 0.0)
@@ -1583,6 +1598,7 @@ async def reclassify_event(
                                 provider=top_result.get("inference_provider"),
                                 backend=top_result.get("inference_backend"),
                                 model_id=top_result.get("model_id"),
+                                input_source=top_result.get("input_source"),
                             )
                             await broadcast_video_status("completed", None)
                             if hidden_video_label:
@@ -1625,8 +1641,11 @@ async def reclassify_event(
             if effective_strategy == "snapshot" and not skip_snapshot_preflight:
                 await broadcast_reclassification_started("snapshot")
 
-                snapshot_data = await media_cache.get_snapshot(event_id) or await frigate_client.get_snapshot(
-                    event_id, crop=True, quality=95
+                snapshot_data, snapshot_provenance = await load_snapshot_classification_input(
+                    event_id,
+                    event_data=event_data,
+                    media_cache_service=media_cache,
+                    frigate_client_service=frigate_client,
                 )
                 if not snapshot_data:
                     # Still broadcast completion if it failed so UI can stop spinner
@@ -1639,8 +1658,15 @@ async def reclassify_event(
                 results = await classifier.classify_async(
                     image,
                     camera_name=detection.camera_name,
-                    input_context={"is_cropped": True, "event_id": event_id},
+                    input_context={
+                        "is_cropped": snapshot_provenance.is_cropped,
+                        "event_id": event_id,
+                        "input_source": snapshot_provenance.input_source,
+                    },
                 )
+                for result in results:
+                    if isinstance(result, dict):
+                        result.setdefault("input_source", snapshot_provenance.input_source)
 
                 # Broadcast completion
                 await broadcast_reclassification_completed(results)
@@ -1671,6 +1697,8 @@ async def reclassify_event(
                 manual_tagged=True,
                 video_provider=top.get("inference_provider"),
                 video_backend=top.get("inference_backend"),
+                video_model_id=top.get("model_id"),
+                video_input_source=top.get("input_source"),
             )
 
             # Re-fetch updated detection for the response

@@ -145,6 +145,7 @@ class DetectionService:
                 "score": final_score,
                 "index": top.get("index", -1),
                 "source": "frigate_fallback",
+                "input_source": "frigate_sublabel",
             }, "frigate_fallback"
 
         # Check for "Unknown Bird" catch-all (middle ground between min_confidence and threshold)
@@ -162,6 +163,18 @@ class DetectionService:
                 "score": score,
                 "index": top.get("index", -1),
                 "source": "low_confidence_catchall",
+                **{
+                    key: top[key]
+                    for key in (
+                        "inference_provider",
+                        "inference_backend",
+                        "model_id",
+                        "model_name",
+                        "input_source",
+                        "input_is_cropped",
+                    )
+                    if key in top
+                },
             }, "unknown_catchall"
 
         # No fallback available or below absolute floor
@@ -214,6 +227,7 @@ class DetectionService:
                 "score": final_score,
                 "index": -1,
                 "source": "frigate_fallback",
+                "input_source": "frigate_sublabel",
             }, "frigate_fallback"
         return None, last_reason
 
@@ -495,6 +509,7 @@ class DetectionService:
         video_provider: str | None = None,
         video_backend: str | None = None,
         video_model_id: str | None = None,
+        video_input_source: str | None = None,
         persist_video_result: bool = True,
     ):
         """
@@ -542,6 +557,7 @@ class DetectionService:
                     provider=video_provider,
                     backend=video_backend,
                     model_id=video_model_id,
+                    input_source=video_input_source,
                     blocked=is_blocked,
                 )
 
@@ -755,6 +771,7 @@ class DetectionService:
                                 "video_classification_provider": updated.video_classification_provider,
                                 "video_classification_backend": updated.video_classification_backend,
                                 "video_classification_model_id": updated.video_classification_model_id,
+                                "video_classification_input_source": updated.video_classification_input_source,
                                 "video_classification_timestamp": serialize_api_datetime(
                                     updated.video_classification_timestamp
                                 ),

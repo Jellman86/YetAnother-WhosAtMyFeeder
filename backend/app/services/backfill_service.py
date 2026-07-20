@@ -10,6 +10,7 @@ from app.services.classifier_service import (
     ClassifierService,
     resolve_live_classifier,
 )
+from app.services.classification_input_provenance import frigate_snapshot_input_provenance
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
@@ -216,12 +217,20 @@ class BackfillService:
                 )
                 return "error", "fetch_snapshot_failed"
 
+            # Frigate only honours snapshot crop query parameters while an event is
+            # active. Historical events therefore use the saved snapshot policy.
+            snapshot_provenance = frigate_snapshot_input_provenance(event)
+
             # Classify the image (async to use thread pool)
             image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
             results = await self.classifier.classify_async_background(
                 image,
                 camera_name=event.get("camera"),
-                input_context={"is_cropped": True, "event_id": frigate_event},
+                input_context={
+                    "is_cropped": snapshot_provenance.is_cropped,
+                    "event_id": frigate_event,
+                    "input_source": snapshot_provenance.input_source,
+                },
                 queue_timeout_seconds=BACKFILL_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             )
 
@@ -290,7 +299,11 @@ class BackfillService:
                 return "skipped", "already_exists"
 
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                cached_snapshot = await media_cache.cache_snapshot(frigate_event, snapshot_data)
+                cached_snapshot = await media_cache.cache_snapshot(
+                    frigate_event,
+                    snapshot_data,
+                    source=snapshot_provenance.input_source,
+                )
                 if cached_snapshot and settings.media_cache.high_quality_event_snapshots:
                     high_quality_snapshot_service.schedule_replacement(frigate_event, event_data=event)
 
