@@ -222,14 +222,39 @@ policy; taking `max`, averaging, or multiplying the two numbers would overstate 
 - **Output semantics remain a model contract.** Current ONNX/OpenVINO registry artifacts are
   validated as logits. A future model that exports probabilities must declare that explicitly and
   gain a conformance test before activation; guessing from numeric range is unsafe.
-- **Crop thresholds need fleet evidence, not generic tuning.** The new quality/identity gates should
-  be evaluated on Quark's near and distant examples. Any adjustment should use saved candidates and
-  top-frame outcomes rather than changing per-model crop configuration from one anecdotal frame.
+- **Crop thresholds need fleet evidence, not generic tuning.** The first distant Quark replay below
+  confirms that the new quality/identity gates fail safely, but one event is not a calibration set.
+  Any adjustment should use saved candidates and top-frame outcomes across near and distant visits
+  rather than changing per-model crop configuration from one anecdotal frame.
+
+## Quark live validation — 20 July 2026
+
+The fixed worker was deployed through Dockhand as the Intel runtime image at dev commit `f4c5290`.
+Runtime diagnostics reported image flavor `intel`, selected and active provider `intel_npu`, an
+OpenVINO backend, CPU/Intel CPU/GPU/NPU packaged, and no provider mismatch or fallback. The active
+ConvNeXt model completed five NPU inference samples with no failure during the replay.
+
+Detection `1784561844.911783-4k90r6` provided a direct regression case. Before deployment its saved
+candidate slots were frames 0, 1, and 2 at 0.000, 0.034, and 0.067 seconds. After explicit HQ
+regeneration they were frames 1, 104, and 207 at 0.034, 3.498, and 6.962 seconds. The pairwise
+separation assertion passed, proving that adjacent decode fallbacks no longer become independent
+votes.
+
+Both the 8.1 MB cached event clip and 17.6 MB cached full-visit recording remained range-readable.
+The accurate crop detector was installed and healthy but found no valid model crop for this distant
+subject. Visual review showed the Wood Pigeon in the far-left hedge of the selected 2560×1920 frame;
+the two available Frigate-hint crops contained foliage and scored below the full frame. YA-WAMF
+therefore retained the centre-weighted full frame, recorded `insufficient_evidence`, and left the
+un-tagged detection as Unknown Bird because no second independent frame supported the weak 0.305
+Wood Pigeon result. That is the intended best-available-media and safe-abstention outcome.
 
 ## Verification requirements
 
 The implementation is covered by focused tests for manual-write races, Frigate payload variants,
 update recovery, temporal consensus, HQ identity/quality selection, admission, ONNX provider
-failure, int8 quantization, partial/corrupt clips, and persistent retry state. Release acceptance
-still requires the full backend suite, repository-wide Ruff lint/format, reversible Alembic
-upgrade/downgrade/upgrade, migration path checks, and a read-only Quark observation after deployment.
+failure, int8 quantization, partial/corrupt clips, and persistent retry state. Dev commit `f4c5290`
+passed the full backend and frontend suites, repository-wide Ruff lint/format, reversible Alembic
+upgrade/downgrade/upgrade, migration path checks, all four x86 runtime-image startup checks, the
+full → CPU → full persistence gate, and the live Quark observation above. Release acceptance still
+requires the same checks to pass for the exact signed release tag before mutable stable tags are
+promoted.
