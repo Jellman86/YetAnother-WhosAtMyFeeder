@@ -64,3 +64,8 @@ Detection details also look up persisted BirdNET history when you open them. Thi
 that reached YA-WAMF after the visual event's initial correlation attempt. A matching species is
 still labelled as confirmed only when the correlation rules agree; other sounds inside the same
 configured time and source window appear as nearby audio context instead.
+
+YA-WAMF normalizes incoming BirdNET timestamps to UTC before storing them. This keeps correlation,
+history filters, retention, and leaderboard windows correct when BirdNET-Go publishes local-offset
+timestamps (including daylight-saving changes) while Frigate events are stored as UTC. Existing
+audio history is normalized automatically during the database upgrade.

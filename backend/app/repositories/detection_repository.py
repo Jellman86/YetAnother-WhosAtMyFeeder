@@ -13,7 +13,7 @@ from app.utils.canonical_species import (
     hidden_species_substrings,
     should_hide_species_label,
 )
-from app.utils.api_datetime import utc_naive_now
+from app.utils.api_datetime import serialize_api_datetime, serialize_storage_datetime, utc_naive_now
 
 log = structlog.get_logger()
 
@@ -2128,7 +2128,7 @@ class DetectionRepository:
         mirror ``delete_older_than`` and avoid long write locks.
         """
         total_deleted = 0
-        cutoff_str = cutoff_date.isoformat(sep=" ")
+        cutoff_str = serialize_storage_datetime(cutoff_date)
 
         while True:
             query = """
@@ -3733,7 +3733,7 @@ class DetectionRepository:
         await self.db.execute(
             """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (timestamp.isoformat(sep=" "), species, confidence, sensor_id, payload, scientific_name),
+            (serialize_storage_datetime(timestamp), species, confidence, sensor_id, payload, scientific_name),
         )
         await self.db.commit()
 
@@ -3768,7 +3768,7 @@ class DetectionRepository:
         query = """SELECT timestamp, species, confidence, sensor_id, scientific_name, raw_data
                    FROM audio_detections
                    WHERE timestamp >= ? AND timestamp <= ?"""
-        params: list = [start_dt.isoformat(sep=" "), end_dt.isoformat(sep=" ")]
+        params: list = [serialize_storage_datetime(start_dt), serialize_storage_datetime(end_dt)]
         query += " ORDER BY timestamp DESC"
 
         async with self.db.execute(query, params) as cursor:
@@ -3832,10 +3832,10 @@ class DetectionRepository:
 
         if start_date is not None:
             clauses.append("timestamp >= ?")
-            params.append(start_date.isoformat(sep=" "))
+            params.append(serialize_storage_datetime(start_date))
         if end_date is not None:
             clauses.append("timestamp <= ?")
-            params.append(end_date.isoformat(sep=" "))
+            params.append(serialize_storage_datetime(end_date))
         if species:
             clauses.append("LOWER(species) LIKE ?")
             params.append(f"%{species.strip().casefold()}%")
@@ -3897,7 +3897,7 @@ class DetectionRepository:
             items.append(
                 {
                     "id": row[0],
-                    "timestamp": _parse_datetime(row[1]).isoformat(),
+                    "timestamp": serialize_api_datetime(_parse_datetime(row[1])),
                     "species": row[2],
                     "confidence": row[3],
                     "sensor_id": row[4],
@@ -4032,7 +4032,7 @@ class DetectionRepository:
                 source_totals[source_name] = {
                     "source_name": source_name,
                     "count": 0,
-                    "last_heard": _parse_datetime(row[0]).isoformat(),
+                    "last_heard": serialize_api_datetime(_parse_datetime(row[0])),
                 }
             source_totals[source_name]["count"] += 1
 
@@ -4043,8 +4043,8 @@ class DetectionRepository:
                 "count": int(row[2] or 0),
                 "avg_confidence": float(row[3] or 0),
                 "max_confidence": float(row[4] or 0),
-                "first_heard": _parse_datetime(row[5]).isoformat() if row[5] else None,
-                "last_heard": _parse_datetime(row[6]).isoformat() if row[6] else None,
+                "first_heard": serialize_api_datetime(_parse_datetime(row[5])) if row[5] else None,
+                "last_heard": serialize_api_datetime(_parse_datetime(row[6])) if row[6] else None,
             }
             for row in top_species_rows
         ]
@@ -4081,13 +4081,8 @@ class DetectionRepository:
         comparison lines up with the ``idx_audio_detections_time`` index.
         """
 
-        def _fmt(dt: datetime) -> str:
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt.isoformat(sep=" ")
-
-        ws, we = _fmt(window_start), _fmt(window_end)
-        ps, pe = _fmt(prev_start), _fmt(prev_end)
+        ws, we = serialize_storage_datetime(window_start), serialize_storage_datetime(window_end)
+        ps, pe = serialize_storage_datetime(prev_start), serialize_storage_datetime(prev_end)
 
         query = """
             SELECT

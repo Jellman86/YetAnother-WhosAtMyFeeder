@@ -1188,6 +1188,7 @@
   },
   "notifications": {
     "reclassify_fallback": "⚠️ 视频不可用 - 改用快照",
+    "reclassify_no_result": "未找到可信结果，已保留现有识别结果。",
     "reclassify_failed": "重新分类失败：{message}",
     "settings_saved": "设置保存成功！",
     "settings_load_failed": "加载设置失败",

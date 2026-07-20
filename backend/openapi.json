@@ -6887,7 +6887,23 @@
             "title": "Old Species",
             "type": "string"
           },
+          "reason": {
+            "anyOf": [
+              {
+                "const": "no_confident_result",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
           "status": {
+            "enum": [
+              "success",
+              "no_result"
+            ],
             "title": "Status",
             "type": "string"
           },

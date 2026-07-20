@@ -109,6 +109,12 @@ model-driven crop is reported as `snapshot_model_crop` or `snapshot_frigate_hint
 from image dimensions. A trusted upstream label that won because local image evidence did not
 clear policy is reported as `frigate_sublabel` rather than as snapshot or video inference.
 
+`POST /api/events/{event_id}/reclassify` returns `status: "success"` and `updated: true` only after
+the selected result has been persisted. If all video and snapshot candidates are unusable, it
+returns HTTP 200 with `status: "no_result"`, `reason: "no_confident_result"`, and `updated: false`;
+the existing species and score are returned unchanged. Media-fetch, decode, and inference faults
+remain non-2xx errors.
+
 ### Media Proxy and Share Links
 
 - `GET /api/frigate/{event_id}/snapshot.jpg`

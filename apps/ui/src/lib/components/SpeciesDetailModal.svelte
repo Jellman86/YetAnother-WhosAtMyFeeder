@@ -344,12 +344,19 @@
         try {
             const result = await reclassifyDetection(eventId, strategy);
 
-            // Check if backend used a different strategy (fallback occurred)
-            if (result.actual_strategy && result.actual_strategy !== strategy) {
-                toastStore.warning('Video not available — snapshot used instead');
+            if (!result.updated) {
+                toastStore.warning($_('notifications.reclassify_no_result'));
+                return;
             }
 
-            toastStore.success(`Reclassification complete: ${result.new_species} (${(result.new_score * 100).toFixed(0)}%)`);
+            // Check if backend used a different strategy (fallback occurred)
+            if (result.actual_strategy && result.actual_strategy !== strategy) {
+                toastStore.warning($_('notifications.reclassify_fallback'));
+            }
+
+            toastStore.success(
+                `${$_('notifications.event_reclassify')}: ${result.new_species} (${(result.new_score * 100).toFixed(0)}%)`
+            );
 
             // Close modal after successful reclassification
             setTimeout(() => {
@@ -358,7 +365,7 @@
         } catch (e) {
             detectionsStore.dismissReclassification(eventId);
             console.error('Failed to reclassify', e);
-            toastStore.error(`Failed to reclassify: ${getErrorMessage(e)}`);
+            toastStore.error($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
         } finally {
             reclassifying = false;
         }

@@ -42,6 +42,7 @@ interface SseData extends Omit<Partial<Detection>, 'id'> {
     camera?: string;
     clip_total?: number;
     current_frame?: number;
+    error?: string;
     errors?: number;
     event_id?: string;
     frame_index?: number;
@@ -53,6 +54,7 @@ interface SseData extends Omit<Partial<Detection>, 'id'> {
     message?: string;
     model_name?: string;
     new_detections?: number;
+    outcome?: 'success' | 'no_result';
     processed?: number;
     ram_usage?: string | null;
     reason?: string;
@@ -104,6 +106,7 @@ interface DetectionsStoreLike {
         ramUsage?: string | null
     ): void;
     completeReclassification(eventId: string, results: unknown): void;
+    dismissReclassification(eventId: string): void;
     markReclassificationStrategyChanged(
         eventId: string,
         from: string | null,
@@ -240,7 +243,7 @@ export function toDetection(data: SseData): Detection {
 
 export class LiveUpdateCoordinator {
     private deps: LiveUpdateDeps;
-    private activeReclassifyEvents = new Map<string, { strategy?: string }>();
+    private activeReclassifyEvents = new Map<string, { strategy?: string; fallbackFrom?: string }>();
     private reclassifyProgressByEvent = new Map<string, { current: number; total: number }>();
     private reclassifyLastUpdateByEvent = new Map<string, number>();
     private reclassifyStartedCount = 0;
@@ -518,6 +521,41 @@ export class LiveUpdateCoordinator {
                     payload.data.to ?? null,
                     payload.data.reason ?? null
                 );
+                const active = this.activeReclassifyEvents.get(payload.data.event_id);
+                if (active) {
+                    this.activeReclassifyEvents.set(payload.data.event_id, {
+                        ...active,
+                        strategy: payload.data.to ?? active.strategy,
+                        fallbackFrom: payload.data.from ?? active.fallbackFrom
+                    });
+                }
+                return;
+            }
+
+            if (payload.type === 'reclassification_failed') {
+                if (!payload.data || !payload.data.event_id) {
+                    this.deps.logger.warn('SSE invalid reclassification_failed payload', { payload });
+                    return;
+                }
+                const eventId = payload.data.event_id;
+                const errorMessage = typeof payload.data.error === 'string' && payload.data.error.trim().length > 0
+                    ? payload.data.error.trim()
+                    : 'Unknown error';
+                if (this.deps.shouldNotify()) {
+                    const prior = this.reclassifyProgressByEvent.get(eventId);
+                    this.deps.jobProgress.markFailed({
+                        id: `reclassify:${eventId}`,
+                        kind: 'reclassify',
+                        title: this.deps.t('actions.reclassify'),
+                        message: this.deps.t('notifications.reclassify_failed', { message: errorMessage }),
+                        route: `/events?event=${encodeURIComponent(eventId)}`,
+                        current: prior?.current ?? 0,
+                        total: prior?.total ?? 0,
+                        source: 'sse'
+                    });
+                    this.clearReclassifyProgressNotification(eventId);
+                }
+                this.deps.detectionsStore.dismissReclassification(eventId);
                 return;
             }
 
@@ -529,12 +567,15 @@ export class LiveUpdateCoordinator {
                 if (this.deps.shouldNotify()) {
                     const prior = this.reclassifyProgressByEvent.get(payload.data.event_id);
                     const isBatch = this.activeReclassifyEvents.get(payload.data.event_id)?.strategy === 'auto_video';
+                    const noResult = payload.data.outcome === 'no_result';
                     if (!isBatch) {
                         this.deps.jobProgress.markCompleted({
                             id: `reclassify:${payload.data.event_id}`,
                             kind: 'reclassify',
                             title: this.deps.t('actions.reclassify'),
-                            message: this.deps.t('notifications.event_reclassify'),
+                            message: this.deps.t(
+                                noResult ? 'notifications.reclassify_no_result' : 'notifications.event_reclassify'
+                            ),
                             route: `/events?event=${encodeURIComponent(payload.data.event_id)}`,
                             current: prior?.current ?? 0,
                             total: prior?.total ?? 0,
@@ -550,7 +591,11 @@ export class LiveUpdateCoordinator {
                 const topLabel = Array.isArray(payload.data.results) && payload.data.results.length > 0
                     ? payload.data.results[0]?.label ?? null
                     : null;
-                this.addReclassifyNotification(payload.data.event_id, topLabel);
+                this.addReclassifyNotification(
+                    payload.data.event_id,
+                    topLabel,
+                    payload.data.outcome === 'no_result'
+                );
                 return;
             }
 
@@ -955,6 +1000,10 @@ export class LiveUpdateCoordinator {
         }
 
         if (status === 'failed' || status === 'error') {
+            const activeStrategy = this.activeReclassifyEvents.get(eventId);
+            if (activeStrategy?.strategy === 'snapshot' && activeStrategy.fallbackFrom === 'video') {
+                return;
+            }
             const errorMessage = typeof data.video_classification_error === 'string' && data.video_classification_error.trim().length > 0
                 ? data.video_classification_error.trim()
                 : 'Unknown error';
@@ -992,15 +1041,15 @@ export class LiveUpdateCoordinator {
         }
     }
 
-    private addReclassifyNotification(eventId: string, label: string | null) {
+    private addReclassifyNotification(eventId: string, label: string | null, noResult: boolean = false) {
         if (!this.deps.shouldNotify()) return;
         const id = `reclassify:${eventId}`;
-        const signature = `${eventId}|${label ?? 'unknown'}`;
+        const signature = `${eventId}|${noResult ? 'no_result' : label ?? 'unknown'}`;
         if (!this.deps.applyNotificationPolicy(id, signature, 1500)) return;
         const title = this.deps.t('notifications.event_reclassify');
-        const message = this.deps.t('notifications.event_reclassify_desc', {
-            species: label ?? 'Unknown'
-        });
+        const message = noResult
+            ? this.deps.t('notifications.reclassify_no_result')
+            : this.deps.t('notifications.event_reclassify_desc', { species: label ?? 'Unknown' });
         this.deps.notificationCenter.upsert({
             id,
             type: 'update',

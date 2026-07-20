@@ -1188,6 +1188,7 @@
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Video nicht verfügbar - stattdessen Schnappschuss verwendet",
+    "reclassify_no_result": "Es wurde kein ausreichend zuverlässiges Ergebnis gefunden. Die bestehende Bestimmung wurde beibehalten.",
     "reclassify_failed": "Reklassifizierung fehlgeschlagen: {message}",
     "settings_saved": "Einstellungen erfolgreich gespeichert!",
     "settings_load_failed": "Einstellungen konnten nicht geladen werden",

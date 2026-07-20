@@ -25,6 +25,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   a successful automatic or explicit regeneration.
 
 ### Fixed
+- **Manual reclassification now treats model abstention as a safe outcome.** When video analysis and
+  its snapshot fallback cannot produce a confident species, the API returns `no_result` without
+  changing the existing identification instead of returning HTTP 500. Reclassification now emits
+  exactly one terminal live event, reports genuine media/runtime failures separately, and keeps a
+  video-to-snapshot fallback active rather than briefly presenting it as a failed job. All owner UI
+  surfaces show the translated unchanged-result message.
+- **Nearby BirdNET history now survives mixed source timezones.** BirdNET timestamps are normalized
+  to UTC before indexed storage and an upgrade migration canonicalizes existing rows, fixing valid
+  nearby detections being omitted when visual events used UTC while BirdNET-Go published a local
+  offset such as British Summer Time. Detection details continue to query the configured persisted
+  history and camera/source mapping rather than relying on the short-lived dashboard buffer.
 - **Full-visit availability now means complete continuous coverage.** The Frigate capability check
   no longer mistakes long alert/detection retention for a contiguous recording timeline, requires
   an active camera with a real `record` stream role, and requires every selected camera to qualify.

@@ -32,6 +32,7 @@ function buildCoordinator(options?: {
         startReclassification: [] as any[],
         updateReclassificationProgress: [] as any[],
         completeReclassification: [] as any[],
+        dismissReclassification: [] as any[],
         markReclassificationStrategyChanged: [] as any[],
         syncDiagnosticsWorkspace: [] as any[]
     };
@@ -81,6 +82,7 @@ function buildCoordinator(options?: {
             startReclassification: (...args: any[]) => calls.startReclassification.push(args),
             updateReclassificationProgress: (...args: any[]) => calls.updateReclassificationProgress.push(args),
             completeReclassification: (...args: any[]) => calls.completeReclassification.push(args),
+            dismissReclassification: (...args: any[]) => calls.dismissReclassification.push(args),
             markReclassificationStrategyChanged: (...args: any[]) => calls.markReclassificationStrategyChanged.push(args)
         },
         settingsStore: {
@@ -235,6 +237,7 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
                 startReclassification: () => undefined,
                 updateReclassificationProgress: () => undefined,
                 completeReclassification: () => undefined,
+                dismissReclassification: () => undefined,
                 markReclassificationStrategyChanged: () => undefined
             },
             settingsStore: { liveAnnouncements: false },
@@ -533,6 +536,54 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         expect(calls.startReclassification.length).toBe(0);
         expect(calls.updateReclassificationProgress.length).toBe(0);
         expect(calls.completeReclassification.length).toBe(1);
+    });
+
+    it('settles a no-result reclassification without reporting a failure', () => {
+        const { coordinator, calls } = buildCoordinator();
+
+        coordinator.handlePayload({
+            type: 'reclassification_started',
+            data: { event_id: 'evt-no-result', total_frames: 12, strategy: 'video' }
+        });
+        coordinator.handlePayload({
+            type: 'reclassification_strategy_changed',
+            data: { event_id: 'evt-no-result', from: 'video', to: 'snapshot', reason: 'video_no_results' }
+        });
+        coordinator.handlePayload({
+            type: 'detection_updated',
+            data: {
+                frigate_event: 'evt-no-result',
+                video_classification_status: 'failed',
+                video_classification_error: 'video_no_results'
+            }
+        });
+        coordinator.handlePayload({
+            type: 'reclassification_completed',
+            data: { event_id: 'evt-no-result', results: [], outcome: 'no_result' }
+        });
+
+        expect(calls.markCompleted).toHaveLength(1);
+        expect(calls.markCompleted[0].message).toBe('notifications.reclassify_no_result');
+        expect(calls.markFailed).toHaveLength(0);
+        expect(calls.completeReclassification).toEqual([['evt-no-result', []]]);
+        expect(calls.notificationUpserts.at(-1)?.message).toBe('notifications.reclassify_no_result');
+    });
+
+    it('settles an explicit reclassification failure and dismisses its overlay', () => {
+        const { coordinator, calls } = buildCoordinator();
+
+        coordinator.handlePayload({
+            type: 'reclassification_started',
+            data: { event_id: 'evt-failed', total_frames: 12, strategy: 'video' }
+        });
+        coordinator.handlePayload({
+            type: 'reclassification_failed',
+            data: { event_id: 'evt-failed', error: 'snapshot unavailable' }
+        });
+
+        expect(calls.markFailed).toHaveLength(1);
+        expect(calls.dismissReclassification).toEqual([['evt-failed']]);
+        expect(calls.completeReclassification).toHaveLength(0);
     });
 
     it('settles orphaned process notifications when no active jobs back them', () => {

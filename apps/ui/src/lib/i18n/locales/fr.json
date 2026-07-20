@@ -1188,6 +1188,7 @@
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Vidéo non disponible - capture utilisée à la place",
+    "reclassify_no_result": "Aucun résultat suffisamment fiable n’a été trouvé. L’identification actuelle a été conservée.",
     "reclassify_failed": "Échec de la reclasification : {message}",
     "settings_saved": "Paramètres enregistrés avec succès !",
     "settings_load_failed": "Échec du chargement des paramètres",

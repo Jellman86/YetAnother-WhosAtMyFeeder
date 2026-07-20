@@ -6,9 +6,13 @@ While real-time detection uses a single snapshot, YA-WAMF provides a **Deep Vide
 
 1. The backend fetches the full video clip from Frigate.
 2. It samples frames across the full clip using **deterministic stratified sampling** — the clip is divided into equal segments and one frame is taken from each. The default is **15 frames**, configurable in **Settings > Detection**.
-3. Each frame is classified individually by the active model.
-4. A **soft-voting ensemble** averages the top-N predictions across all frames, weighting by per-frame confidence.
-5. The result replaces the single-snapshot identification for that detection.
+3. Each frame is evaluated as a full frame and, when valid, with independent Frigate-hint and
+   detector-crop representations that match the active model's input contract.
+4. Each representation must form its own temporal consensus across multiple frames. Conflicting
+   representations cause an abstention rather than adding misleading extra votes.
+5. A confident result updates the detection. If neither video nor the snapshot fallback has usable
+   evidence, YA-WAMF returns **No confident result**, preserves the existing identification, and
+   records no manual override.
 
 ## Running an Analysis
 
@@ -22,7 +26,9 @@ During analysis, a real-time **progress overlay** appears on the detection card.
 - The current leading species based on frames analyzed so far
 - A progress bar counting toward the total frame count
 
-Once complete, the detection card updates with the new result.
+Once complete, the detection card updates with the new result. A valid abstention closes the job
+normally and explains that the existing identification was kept; missing or unreadable media and
+runtime faults remain explicit failures.
 
 ## Settings
 

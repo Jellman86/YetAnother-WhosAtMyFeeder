@@ -1023,7 +1023,8 @@ class BulkDeleteResponse(BaseModel):
 class ReclassifyResponse(BaseModel):
     """Response from reclassification."""
 
-    status: str
+    status: Literal["success", "no_result"]
+    reason: Literal["no_confident_result"] | None = None
     event_id: str
     old_species: str
     new_species: str
@@ -1265,7 +1266,11 @@ async def _apply_manual_tag_update(
     }
 
 
-@router.post("/events/{event_id}/reclassify", response_model=ReclassifyResponse)
+@router.post(
+    "/events/{event_id}/reclassify",
+    response_model=ReclassifyResponse,
+    response_model_exclude_none=True,
+)
 async def reclassify_event(
     event_id: str,
     request: Request,
@@ -1298,11 +1303,41 @@ async def reclassify_event(
                 {"type": "reclassification_started", "data": {"event_id": event_id, "strategy": mode}}
             )
 
-        async def broadcast_reclassification_completed(results_payload: list) -> None:
+        async def broadcast_reclassification_completed(
+            results_payload: list,
+            outcome: Literal["success", "no_result"],
+        ) -> None:
             nonlocal completion_broadcasted
+            if completion_broadcasted:
+                return
             completion_broadcasted = True
             await broadcaster.broadcast(
-                {"type": "reclassification_completed", "data": {"event_id": event_id, "results": results_payload}}
+                {
+                    "type": "reclassification_completed",
+                    "data": {"event_id": event_id, "results": results_payload, "outcome": outcome},
+                }
+            )
+
+        async def broadcast_reclassification_failed(error: str) -> None:
+            nonlocal completion_broadcasted
+            if completion_broadcasted:
+                return
+            completion_broadcasted = True
+            await broadcaster.broadcast(
+                {"type": "reclassification_failed", "data": {"event_id": event_id, "error": error}}
+            )
+
+        async def broadcast_snapshot_fallback(reason: str) -> None:
+            await broadcaster.broadcast(
+                {
+                    "type": "reclassification_strategy_changed",
+                    "data": {
+                        "event_id": event_id,
+                        "from": "video",
+                        "to": "snapshot",
+                        "reason": reason,
+                    },
+                }
             )
 
         async def broadcast_video_status(status: str, error: str | None = None):
@@ -1339,18 +1374,9 @@ async def reclassify_event(
                 log.warning(
                     "Video strategy requested but no clip available, falling back to snapshot", event_id=event_id
                 )
-                await broadcast_video_status("failed", event_error or "clip_unavailable")
-                await broadcaster.broadcast(
-                    {
-                        "type": "reclassification_strategy_changed",
-                        "data": {
-                            "event_id": event_id,
-                            "from": "video",
-                            "to": "snapshot",
-                            "reason": event_error or "clip_unavailable",
-                        },
-                    }
-                )
+                fallback_reason = event_error or "clip_unavailable"
+                await broadcast_snapshot_fallback(fallback_reason)
+                await broadcast_video_status("failed", fallback_reason)
                 effective_strategy = "snapshot"
 
             results = []
@@ -1474,11 +1500,14 @@ async def reclassify_event(
 
                 if not clip_data:
                     log.warning("Failed to fetch clip data, falling back to snapshot", event_id=event_id)
-                    await broadcast_video_status("failed", clip_error or "clip_fetch_failed")
+                    fallback_reason = clip_error or "clip_fetch_failed"
+                    await broadcast_snapshot_fallback(fallback_reason)
+                    await broadcast_video_status("failed", fallback_reason)
                     effective_strategy = "snapshot"
                 else:
                     if not (clip_data.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_data[:32]):
                         log.warning("Clip data invalid, falling back to snapshot", event_id=event_id)
+                        await broadcast_snapshot_fallback("clip_invalid")
                         await broadcast_video_status("failed", "clip_invalid")
                         effective_strategy = "snapshot"
                     else:
@@ -1488,7 +1517,6 @@ async def reclassify_event(
                             log.warning(
                                 "Clip decode failed, falling back to snapshot", event_id=event_id, source=clip_source
                             )
-                            await broadcast_video_status("failed", "clip_decode_failed")
                             if clip_source in {"recording_cache", "cache"}:
                                 if cached_source_path:
                                     try:
@@ -1514,6 +1542,8 @@ async def reclassify_event(
                                 else:
                                     valid_clip = False
                             if not valid_clip:
+                                await broadcast_snapshot_fallback("clip_decode_failed")
+                                await broadcast_video_status("failed", "clip_decode_failed")
                                 effective_strategy = "snapshot"
 
                         if effective_strategy != "snapshot" and valid_clip:
@@ -1575,8 +1605,6 @@ async def reclassify_event(
                                     ),
                                 )
 
-                                # Broadcast completion
-                                await broadcast_reclassification_completed(results)
                             finally:
                                 await asyncio.to_thread(_unlink_path, tmp_path)
 
@@ -1584,6 +1612,7 @@ async def reclassify_event(
                             log.warning(
                                 "Video classification yielded no results, falling back to snapshot", event_id=event_id
                             )
+                            await broadcast_snapshot_fallback("video_no_results")
                             await broadcast_video_status("failed", "video_no_results")
                             effective_strategy = "snapshot"
                         else:
@@ -1648,8 +1677,6 @@ async def reclassify_event(
                     frigate_client_service=frigate_client,
                 )
                 if not snapshot_data:
-                    # Still broadcast completion if it failed so UI can stop spinner
-                    await broadcast_reclassification_completed([])
                     raise HTTPException(
                         status_code=502, detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
                     )
@@ -1668,12 +1695,22 @@ async def reclassify_event(
                     if isinstance(result, dict):
                         result.setdefault("input_source", snapshot_provenance.input_source)
 
-                # Broadcast completion
-                await broadcast_reclassification_completed(results)
-
             if not results:
-                raise HTTPException(
-                    status_code=500, detail=i18n_service.translate("errors.events.reclassification_failed", lang)
+                log.info(
+                    "Reclassification completed without a confident result; preserving existing identification",
+                    event_id=event_id,
+                    strategy=effective_strategy,
+                )
+                await broadcast_reclassification_completed([], "no_result")
+                return ReclassifyResponse(
+                    status="no_result",
+                    reason="no_confident_result",
+                    event_id=event_id,
+                    old_species=old_species,
+                    new_species=detection.display_name,
+                    new_score=detection.score,
+                    updated=False,
+                    actual_strategy=effective_strategy,
                 )
 
             # Apply the result via DetectionService to ensure consistent logic (Unknown Bird relabeling, audio, etc)
@@ -1681,13 +1718,28 @@ async def reclassify_event(
 
             svc = DetectionService(classifier)
             selection = svc.select_usable_classification(results, event_id)
+            _reason = None
             if isinstance(selection, tuple) and len(selection) == 2:
                 top, _reason = selection
             else:
                 top = results[0]
             if not top:
-                raise HTTPException(
-                    status_code=500, detail=i18n_service.translate("errors.events.reclassification_failed", lang)
+                log.info(
+                    "Reclassification candidates were filtered; preserving existing identification",
+                    event_id=event_id,
+                    strategy=effective_strategy,
+                    reason=_reason,
+                )
+                await broadcast_reclassification_completed([], "no_result")
+                return ReclassifyResponse(
+                    status="no_result",
+                    reason="no_confident_result",
+                    event_id=event_id,
+                    old_species=old_species,
+                    new_species=detection.display_name,
+                    new_score=detection.score,
+                    updated=False,
+                    actual_strategy=effective_strategy,
                 )
             await svc.apply_video_result(
                 frigate_event=event_id,
@@ -1706,6 +1758,7 @@ async def reclassify_event(
             if not updated_detection:
                 updated_detection = detection  # Fallback
 
+            await broadcast_reclassification_completed(results, "success")
             return ReclassifyResponse(
                 status="success",
                 event_id=event_id,
@@ -1715,13 +1768,13 @@ async def reclassify_event(
                 updated=True,
                 actual_strategy=effective_strategy,
             )
-        except HTTPException:
+        except HTTPException as exc:
             if started_reclassification and not completion_broadcasted:
-                await broadcast_reclassification_completed([])
+                await broadcast_reclassification_failed(str(exc.detail))
             raise
         except Exception as exc:
             if started_reclassification and not completion_broadcasted:
-                await broadcast_reclassification_completed([])
+                await broadcast_reclassification_failed("reclassification_failed")
             log.error(
                 "Unexpected reclassification failure",
                 event_id=event_id,

@@ -609,6 +609,11 @@
         try {
             const result = await reclassifyDetection(eventId, requestedStrategy);
 
+            if (!result.updated) {
+                toastStore.warning($_('notifications.reclassify_no_result'));
+                return;
+            }
+
             // Check if backend used a different strategy (fallback occurred)
             if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {
                 toastStore.warning($_('notifications.reclassify_fallback'));

@@ -1188,6 +1188,7 @@
   },
   "notifications": {
     "reclassify_fallback": "⚠️ ビデオが利用不可 - 代わりにスナップショットを使用しました",
+    "reclassify_no_result": "信頼できる結果が得られなかったため、既存の識別結果を維持しました。",
     "reclassify_failed": "再分類に失敗しました: {message}",
     "settings_saved": "設定を正常に保存しました！",
     "settings_load_failed": "設定の読み込みに失敗しました",

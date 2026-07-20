@@ -1016,7 +1016,8 @@ export interface components {
     new_score: number;
     new_species: string;
     old_species: string;
-    status: string;
+    reason?: "no_confident_result" | null;
+    status: "success" | "no_result";
     updated: boolean;
 };
     RecordingClipCapabilityResponse: {

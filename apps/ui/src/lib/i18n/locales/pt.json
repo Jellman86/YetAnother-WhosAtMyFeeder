@@ -1197,6 +1197,7 @@
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Vídeo não disponível - usando snapshot",
+    "reclassify_no_result": "Nenhum resultado confiável foi encontrado. A identificação existente foi mantida.",
     "reclassify_failed": "Falha ao reclassificar: {message}",
     "settings_saved": "Configurações salvas com sucesso!",
     "settings_load_failed": "Falha ao carregar configurações",

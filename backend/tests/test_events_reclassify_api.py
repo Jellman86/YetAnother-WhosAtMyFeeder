@@ -352,6 +352,61 @@ async def test_reclassify_video_fallback_to_snapshot_does_not_trigger_snapshot_u
 
 
 @pytest.mark.asyncio
+async def test_reclassify_video_abstention_keeps_existing_identification(client: httpx.AsyncClient):
+    """No confident video or snapshot result is a valid abstention, not a server error."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.media_cache.high_quality_event_snapshots = False
+    event_id = "evt-reclassify-video-abstention"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(return_value=[])
+    classifier.classify_video_async = AsyncMock(return_value=[])
+
+    try:
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock) as mock_broadcast,
+            patch("app.routers.events.decode_image_bytes", return_value=MagicMock()),
+            patch("cv2.VideoCapture", _GoodVideoCapture),
+        ):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
+            mock_frigate.get_clip_with_error = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypisomclip", None))
+            mock_frigate.get_snapshot = AsyncMock(return_value=b"snapshot-bytes")
+
+            response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "video"})
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            "status": "no_result",
+            "reason": "no_confident_result",
+            "event_id": event_id,
+            "old_species": "Unknown Bird",
+            "new_species": "Unknown Bird",
+            "new_score": 0.77,
+            "updated": False,
+            "actual_strategy": "snapshot",
+        }
+        mock_detection_service.return_value.apply_video_result.assert_not_called()
+        completed = [
+            call.args[0]
+            for call in mock_broadcast.await_args_list
+            if call.args[0].get("type") == "reclassification_completed"
+        ]
+        assert completed == [
+            {
+                "type": "reclassification_completed",
+                "data": {"event_id": event_id, "results": [], "outcome": "no_result"},
+            }
+        ]
+    finally:
+        await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
 async def test_reclassify_video_succeeds_even_if_snapshot_upgrade_fails(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
