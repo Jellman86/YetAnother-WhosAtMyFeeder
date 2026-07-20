@@ -1106,7 +1106,10 @@
       "crop_tier_title": "Vogel-Crop-Detektor",
       "fine_tuning_advanced_title": "Erweiterte Feineinstellungen",
       "inference_advanced_title": "Ausführungsmodus & Laufzeit-Diagnose",
-      "inference_diagnostics_title": "Laufzeit-Diagnose"
+      "inference_diagnostics_title": "Laufzeit-Diagnose",
+      "image_flavor_label": "Container-Image",
+      "packaged_providers_label": "Enthalten",
+      "image_flavor_mismatch": "Die {provider}-Laufzeit ist im {flavor}-Image nicht enthalten. Verwenden Sie das vollständige Image oder ein passendes Anbieter-Image und erstellen Sie den Container neu. Der CPU-Fallback bleibt verfügbar."
     },
     "llm": {
       "title": "KI-Einblicke",

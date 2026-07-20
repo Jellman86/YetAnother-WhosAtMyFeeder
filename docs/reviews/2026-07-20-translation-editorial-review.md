@@ -2,7 +2,7 @@
 
 ## Outcome
 
-YA-WAMF's English source catalog and all eight translated catalogs contain the same 1,977 scalar
+YA-WAMF's English source catalog and all eight translated catalogs contain the same 1,981 scalar
 leaf keys. Every interpolation token matches its English source, no new user-facing string is
 silently copied from English, and the application-wide editorial checks pass.
 

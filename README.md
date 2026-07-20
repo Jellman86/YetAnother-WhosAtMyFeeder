@@ -35,7 +35,7 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 ## Features at a Glance
 
 - **Advanced AI Classification** - RoPE ViT-B14, ConvNeXt, EVA-02, birds-only ONNX models, or legacy MobileNetV2
-- **Hardware Acceleration Selector** - Choose Auto/CPU/NVIDIA CUDA/Intel OpenVINO (single image, runtime fallback)
+- **Hardware Acceleration Selector** - Choose Auto/CPU/NVIDIA CUDA/Intel OpenVINO, with a full compatibility image or smaller provider-family images and safe CPU fallback
 - **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
 - **Personalized Re-ranking (Optional)** - Learns from manual corrections per camera/model to improve ranking over time
 - **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters + Notification Center
@@ -86,6 +86,7 @@ Use the full docs hub for setup, integrations, and troubleshooting:
 - [📦 Full Docker Stack Example](docs/setup/docker-stack.md)
 - [🔄 Split-to-Monolith Migration](docs/setup/migrate-split-to-monolith.md)
 - [📷 Recommended Frigate Config](docs/setup/frigate-config.md)
+- [⚡ Hardware Acceleration & Image Flavors](docs/setup/hardware-acceleration.md)
 - [🔌 MQTT Broker Setup](docs/setup/mqtt-broker.md)
 - [🌐 Reverse Proxy Guide](docs/setup/reverse-proxy.md)
 - [🔌 API Reference](docs/api.md)
@@ -163,7 +164,11 @@ cp .env.example .env
 ```
 
 The example environment pins `YAWAMF_MONALITHIC_TAG=latest`, the stable release
-channel. Use `dev` only when you intentionally want development builds.
+channel and full compatibility image. Existing installs do not need to change.
+CPU-only, Intel and NVIDIA hosts can optionally use the smaller `latest-cpu`,
+`latest-intel` or `latest-cuda` variants described in the
+[hardware-acceleration guide](docs/setup/hardware-acceleration.md). Development
+builds use `dev` or the matching `dev-*` suffix and may be unstable.
 
 > This quick start uses the monolithic deployment. The older split deployment (`docker-compose.yml`, `docker-compose.dev.yml`, `docker-compose.prod.yml`) is still available as a legacy two-container layout.
 >
@@ -203,9 +208,11 @@ docker network ls
 
 **Intel iGPU (OpenVINO) note (optional):**
 
+- Use the default full image or set `YAWAMF_MONALITHIC_TAG=latest-intel`
 - Add `/dev/dri:/dev/dri` to the `yawamf` service
 - Add `group_add` entries matching your host's `/dev/dri` numeric group IDs (`ls -ln /dev/dri`)
-- YA-WAMF Settings -> Detection now shows OpenVINO diagnostics if the GPU plugin cannot initialize (for example missing OpenCL runtime in older images or container permission issues)
+- **Settings → Detection → Runtime diagnostics** shows **Image**, **Packaged**,
+  and OpenVINO device/probe state if the GPU cannot initialize
 
 **4. Set permissions, create directories, and start:**
 
@@ -222,7 +229,7 @@ docker compose -f docker-compose.monolith.yml up -d
 
 If you use Portainer stacks, set the same `PUID`/`PGID` values in stack environment variables.
 
-> If you deploy via Portainer: create a Stack from `docker-compose.monolith.yml` and use "Pull and redeploy" for updates. Use `:latest` for stable releases or a pinned `:vX.Y.Z` tag. The `:dev` tag tracks the development branch and may be unstable.
+> If you deploy via Portainer: create a Stack from `docker-compose.monolith.yml` and use "Pull and redeploy" for updates. Use `:latest` for the stable full image or a pinned `:vX.Y.Z` tag. Optional provider suffixes (`-cpu`, `-intel`, `-cuda`) select a smaller runtime image. The `:dev` line tracks the development branch and may be unstable.
 
 **5. Access the dashboard:**
 

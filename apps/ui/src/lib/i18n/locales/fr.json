@@ -1058,7 +1058,10 @@
       "crop_tier_title": "Détecteur de recadrage d'oiseaux",
       "fine_tuning_advanced_title": "Réglage fin avancé",
       "inference_advanced_title": "Mode d'exécution & diagnostics d'exécution",
-      "inference_diagnostics_title": "Diagnostics d'exécution"
+      "inference_diagnostics_title": "Diagnostics d'exécution",
+      "image_flavor_label": "Image du conteneur",
+      "packaged_providers_label": "Inclus",
+      "image_flavor_mismatch": "Le moteur d’exécution {provider} n’est pas inclus dans l’image {flavor}. Utilisez l’image complète ou l’image du fournisseur correspondante, puis recréez le conteneur. Le repli sur le processeur reste disponible."
     },
     "llm": {
       "title": "Analyses IA",

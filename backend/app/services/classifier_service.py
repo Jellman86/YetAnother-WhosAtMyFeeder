@@ -23,6 +23,7 @@ from typing import Optional, Any, Awaitable, Callable, Literal
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 from app.utils.canonical_species import should_hide_species_label
+from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
 
 # TFLite runtime
 try:
@@ -4190,8 +4191,17 @@ class ClassifierService:
             except Exception:
                 pass
 
+        selected_provider = _normalize_inference_provider(
+            getattr(settings.classification, "inference_provider", "auto")
+        )
+        image_flavor = get_image_flavor()
+        packaged_providers = packaged_inference_providers(image_flavor)
+
         status = {
             "image_execution_mode": self._image_execution_mode,
+            "image_flavor": image_flavor,
+            "packaged_inference_providers": list(packaged_providers),
+            "image_flavor_warning": image_flavor_warning(image_flavor, selected_provider),
             "runtime": "tflite-runtime" if "tflite_runtime" in str(tflite) else "tensorflow",
             "runtime_installed": tflite is not None,
             "onnx_available": ONNX_AVAILABLE,
@@ -4221,9 +4231,7 @@ class ClassifierService:
             "process_uid": self._accel_caps.get("process_uid"),
             "process_gid": self._accel_caps.get("process_gid"),
             "process_groups": self._accel_caps.get("process_groups") or [],
-            "selected_provider": _normalize_inference_provider(
-                getattr(settings.classification, "inference_provider", "auto")
-            ),
+            "selected_provider": selected_provider,
             "active_provider": effective_provider,
             "inference_backend": effective_backend,
             "fallback_reason": self._inference_fallback_reason,
@@ -4260,11 +4268,12 @@ class ClassifierService:
             "background_throttled": admission_metrics["background_throttled"],
             "available_providers": [
                 p
-                for p in ["cpu", "cuda", "intel_cpu", "intel_gpu"]
+                for p in ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"]
                 if p == "cpu"
                 or (p == "cuda" and self._accel_caps.get("cuda_available"))
                 or (p == "intel_cpu" and self._accel_caps.get("intel_cpu_available"))
                 or (p == "intel_gpu" and self._accel_caps.get("intel_gpu_available"))
+                or (p == "intel_npu" and self._accel_caps.get("intel_npu_available"))
             ],
             # legacy compatibility (can be removed later)
             "cuda_enabled": _normalize_inference_provider(

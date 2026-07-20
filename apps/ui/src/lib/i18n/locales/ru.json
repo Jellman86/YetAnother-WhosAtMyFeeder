@@ -1067,7 +1067,10 @@
       "crop_tier_title": "Детектор обрезки птиц",
       "fine_tuning_advanced_title": "Расширенная тонкая настройка",
       "inference_advanced_title": "Режим выполнения и диагностика во время работы",
-      "inference_diagnostics_title": "Диагностика во время работы"
+      "inference_diagnostics_title": "Диагностика во время работы",
+      "image_flavor_label": "Образ",
+      "packaged_providers_label": "Включено",
+      "image_flavor_mismatch": "Среда выполнения {provider} не включена в образ {flavor}. Используйте полный образ или соответствующий образ провайдера, затем пересоздайте контейнер. Резервный режим CPU останется доступен."
     },
     "llm": {
       "title": "ИИ-аналитика",

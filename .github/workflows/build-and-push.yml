@@ -353,6 +353,10 @@ jobs:
         run: |
           bash tests/e2e/monolith_canary_compose_config.sh
 
+      - name: Verify inference runtime flavor contract
+        run: |
+          bash tests/e2e/runtime_flavor_contract.sh
+
       - name: Build and smoke test monolithic image
         run: |
           bash tests/e2e/monolith_smoke.sh
@@ -511,6 +515,18 @@ jobs:
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - flavor: full
+            suffix: ""
+          - flavor: cpu
+            suffix: "-cpu"
+          - flavor: intel
+            suffix: "-intel"
+          - flavor: cuda
+            suffix: "-cuda"
 
     steps:
       - name: Checkout
@@ -543,19 +559,6 @@ jobs:
             echo "APP_BRANCH=${GITHUB_REF_NAME}" >> $GITHUB_ENV
           fi
 
-      - name: Determine image tag
-        run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "IMAGE_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
-            echo "PUBLISH_LATEST=true" >> $GITHUB_ENV
-          elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
-            echo "IMAGE_TAG=main" >> $GITHUB_ENV
-            echo "PUBLISH_LATEST=false" >> $GITHUB_ENV
-          else
-            echo "IMAGE_TAG=dev" >> $GITHUB_ENV
-            echo "PUBLISH_LATEST=false" >> $GITHUB_ENV
-          fi
-
       - name: Build and push monolithic canary image
         uses: docker/build-push-action@v7
         with:
@@ -565,16 +568,17 @@ jobs:
             GIT_HASH=${{ env.SHORT_SHA }}
             APP_VERSION_BASE=${{ env.APP_VERSION_BASE }}
             APP_BRANCH=${{ env.APP_BRANCH }}
+            RUNTIME_FLAVOR=${{ matrix.flavor }}
           tags: |
-            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ env.IMAGE_TAG }}
-            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}${{ matrix.suffix }}
+          cache-from: type=gha,scope=monolith-${{ matrix.flavor }}
+          cache-to: type=gha,mode=max,scope=monolith-${{ matrix.flavor }}
 
-      - name: Tag monolithic canary latest
-        if: env.PUBLISH_LATEST == 'true'
+      - name: Smoke-test ${{ matrix.flavor }} image without an accelerator
         run: |
-          docker buildx imagetools create \
-            -t ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:latest \
-            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ env.IMAGE_TAG }}
+          tests/e2e/monolith_runtime_flavor_smoke.sh \
+            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}${{ matrix.suffix }}" \
+            "${{ matrix.flavor }}"
 
   build-monolith-rpi:
     needs: [detect-changes, test-backend, test-frontend, test-monolith]
@@ -644,6 +648,7 @@ jobs:
             GIT_HASH=${{ env.SHORT_SHA }}
             APP_VERSION_BASE=${{ env.APP_VERSION_BASE }}
             APP_BRANCH=${{ env.APP_BRANCH }}
+            RUNTIME_FLAVOR=rpi
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ env.IMAGE_TAG }}
             ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ github.sha }}
@@ -655,13 +660,95 @@ jobs:
             -t ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:latest \
             ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ env.IMAGE_TAG }}
 
+  verify-monolith-flavor-switch:
+    name: Verify full ↔ CPU persistent-state switching
+    needs: [build-monolith]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set lowercase owner name
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Switch full to CPU and back with shared persistent state
+        run: |
+          tests/e2e/monolith_runtime_flavor_switch.sh \
+            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}" \
+            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}-cpu" \
+            cpu
+
+  promote-monolith-flavors:
+    name: Promote verified monolith flavor tags
+    needs: [verify-monolith-flavor-switch]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Set lowercase owner name
+        run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Determine verified channel tag
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "IMAGE_TAG=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+            echo "PUBLISH_LATEST=true" >> $GITHUB_ENV
+          elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
+            echo "IMAGE_TAG=main" >> $GITHUB_ENV
+            echo "PUBLISH_LATEST=false" >> $GITHUB_ENV
+          else
+            echo "IMAGE_TAG=dev" >> $GITHUB_ENV
+            echo "PUBLISH_LATEST=false" >> $GITHUB_ENV
+          fi
+
+      - name: Verify every immutable flavor manifest exists
+        run: |
+          set -euo pipefail
+          for suffix in "" -cpu -intel -cuda; do
+            docker buildx imagetools inspect \
+              "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${GITHUB_SHA}${suffix}" >/dev/null
+          done
+
+      - name: Promote the verified flavor family
+        run: |
+          set -euo pipefail
+          for suffix in "" -cpu -intel -cuda; do
+            source="ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${GITHUB_SHA}${suffix}"
+            docker buildx imagetools create \
+              -t "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${IMAGE_TAG}${suffix}" \
+              "$source"
+            if [[ "$PUBLISH_LATEST" == "true" ]]; then
+              docker buildx imagetools create \
+                -t "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:latest${suffix}" \
+                "$source"
+            fi
+          done
+
   # Record the version that was just built so the in-app update prompt is authoritative.
   # Writes one row per built branch plus the latest release row to the telemetry worker's D1
   # (read by GET /version). No-ops without the Cloudflare secret.
   publish-version:
     name: Publish version to update endpoint
     runs-on: ubuntu-latest
-    needs: [build-monolith]
+    needs: [promote-monolith-flavors]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     env:
       # Only the API token is needed: wrangler infers the (single) account it belongs to.

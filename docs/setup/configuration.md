@@ -28,6 +28,9 @@ Fine-tune how AI identifications are handled. This is the most important section
 | **Trust Frigate Sublabels** | The "Fast Path". If enabled and Frigate provides an identification, YA-WAMF trusts it instantly, bypassing both the local AI and the Confidence Floor. |
 | **Write Frigate Sublabel** | Controls whether YA-WAMF pushes its own species identification back to Frigate as a sublabel. Disable if you do not want YA-WAMF writing back to Frigate events. |
 | **Bird Model Region** | Override automatic regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
+| **Inference Provider** | Select `Auto`, ONNX CPU, NVIDIA CUDA, or an Intel OpenVINO device. The container image must package the selected family; `Auto` is recommended. |
+| **Model Manager** | Download, validate, and activate classifier and cropped-thumbnail detector models. Classifier crop preparation is model-owned and automatic. |
+| **Runtime diagnostics** | Shows **Image**, **Packaged**, **Selected**, **Active**, device probes, backend, and fallback state. Image packaging and working hardware are separate. |
 | **Execution Mode** | `In-Process` (default, lower RAM — shares one model instance) or `Subprocess` (isolated workers with independent restart/circuit-breaker logic). |
 | **Personalized Re-ranking** | Optional learning layer that uses your manual species corrections to re-rank future predictions for the same camera and active model. Activates after at least 20 manual tags for that camera/model pair. |
 
@@ -105,10 +108,15 @@ See the [Reverse Proxy Guide](../setup/reverse-proxy.md) for SSE and video clip 
 
 > **Legacy split deployment:** If you are still running the older two-container stack, route `/api/*` to `yawamf-backend:8000` and `/` to `yawamf-frontend:80` to avoid a multi-hop proxy chain that can cause HTTPS detection warnings.
 
+The image choice is a deployment setting rather than an application setting.
+Use the full compatibility image or a smaller CPU, Intel, or CUDA image as
+described in [Hardware Acceleration](hardware-acceleration.md). Switching image
+does not rewrite **Inference Provider**, `/config`, or `/data`.
+
 ## Data Management
 - **Retention Policy:** Choose how long to keep sightings in your history (`maintenance.retention_days`; `0` keeps everything). Scheduled cleanup permanently deletes both visual detections and BirdNET-Go audio detections older than this window — purged history cannot be recovered. Favourited detections are preserved.
 - **Media Cache:** Toggle local caching of snapshots and video clips to reduce load on Frigate and speed up the UI.
-- **HQ Event Snapshots (Beta):** Replace cached snapshots with a higher-quality crop fetched from Frigate after event end. Optional bird-crop toggle and JPEG quality slider. Can be enabled independently of standard snapshot caching.
+- **Best available event snapshots:** When enabled under **Settings → Data → Snapshot quality**, YA-WAMF samples high-quality clip frames and automatically chooses the strongest trustworthy full frame or crop. JPEG quality remains configurable; crop source selection is automatic.
 - **Taxonomy Repair:** Manually trigger a sync to normalize all species names using iNaturalist data.
 - **Timezone Repair:** Owner-only tool to fix legacy detections affected by a UTC timestamp shift. Only visible when affected rows are detected.
 

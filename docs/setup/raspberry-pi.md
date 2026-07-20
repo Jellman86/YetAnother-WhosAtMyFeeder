@@ -4,7 +4,10 @@ YA-WAMF now ships a dedicated Raspberry Pi monolith image:
 
 - `ghcr.io/jellman86/yawamf-monalithic-rpi`
 
-This image is intended for Raspberry Pi 4 and Raspberry Pi 5 systems running a 64-bit ARM OS. It uses the same monolithic deployment layout as the main image, but the ARM64 build skips x86-only GPU runtime setup and uses CPU ONNX Runtime instead of the CUDA package.
+This image is intended for Raspberry Pi 4 and Raspberry Pi 5 systems running a
+64-bit ARM OS. It uses the same monolithic deployment layout as the x86 images,
+reports the `rpi` image flavor, and explicitly installs the CPU dependency set.
+It does not inherit CUDA, OpenVINO, or Intel GPU/NPU userspace packages.
 
 > [!WARNING]
 > Raspberry Pi support is currently a best-effort path. The image is built in CI, but it has not yet been hardware-validated by the maintainer on a physical Raspberry Pi.
@@ -16,7 +19,9 @@ This image is intended for Raspberry Pi 4 and Raspberry Pi 5 systems running a 6
 - Monolithic deployment only
 - CPU inference only
 
-The standard `ghcr.io/jellman86/yawamf-monalithic` image remains the recommended path for x86-64 hosts, especially if you rely on NVIDIA CUDA or Intel OpenVINO acceleration.
+The standard `ghcr.io/jellman86/yawamf-monalithic` repository remains the x86-64
+path. Its full, CPU, Intel and CUDA tag choices are documented in
+[Hardware Acceleration](hardware-acceleration.md).
 
 ## Hardware Expectations
 

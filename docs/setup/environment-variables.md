@@ -26,6 +26,19 @@ driven entirely from `docker-compose` with no clicking.
 
 ---
 
+## Compose image selection and container metadata
+
+These values choose or identify the container itself; they are not application
+settings and do not follow the `SECTION__FIELD` precedence rules above.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `YAWAMF_MONALITHIC_IMAGE` | `ghcr.io/jellman86/yawamf-monalithic` | Compose-only image repository override. The established `MONALITHIC` spelling is retained for compatibility. |
+| `YAWAMF_MONALITHIC_TAG` | `latest` | Compose-only channel/flavor tag. Unsuffixed tags use the full compatibility image; optional `-cpu`, `-intel`, and `-cuda` suffixes select smaller runtime families. Change only this value when switching flavors; the established `MONALITHIC` spelling is retained for compatibility. See [Hardware acceleration](hardware-acceleration.md). |
+| `YAWAMF_IMAGE_FLAVOR` | built into the image | Read-only image identity shown in runtime diagnostics and telemetry (`full`, `cpu`, `intel`, `cuda`, or `rpi`). Do not override it: changing the value does not install a runtime. |
+
+---
+
 ## Core & general
 
 | Variable | Default | Description |

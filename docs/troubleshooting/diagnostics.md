@@ -79,25 +79,28 @@ If you see `PermissionError` in your backend logs or the container fails to star
 
 If step 5 fails, the most common cause is editing one path but mounting a different host path in Portainer. Fix ownership on the actual mounted source path shown in the stack volume mapping.
 
-## ⚡ GPU Acceleration Diagnostics (CUDA / OpenVINO)
+## ⚡ Inference acceleration diagnostics
 
-YA-WAMF exposes acceleration diagnostics in **Settings > Detection** and `GET /api/classifier/status`.
+YA-WAMF exposes image, runtime, and device diagnostics under
+**Settings → Detection → Runtime diagnostics** and at
+`GET /api/classifier/status`.
 
 ### What to check first (UI)
 
-In **Settings > Detection** look at:
+Check these in order:
 
-- `CUDA` badge
-- `OpenVINO` badge
-- `Intel GPU` badge
-- `Selected provider`
-- `Active provider`
-- `Fallback reason`
-- `OpenVINO diagnostics` block (shown when OpenVINO is unavailable, or when the GPU plugin fails)
+- **Image** — the packaged runtime family (`full`, `cpu`, `intel`, `cuda`, or `rpi`)
+- **Packaged** — providers intentionally included in that image
+- **CUDA**, **OpenVINO**, **Intel GPU**, and **Intel NPU** — runtime/device probe results
+- **Selected** — the saved provider preference
+- **Active** and **Backend** — what the loaded model is actually using
+- **Fallback** or the image/provider mismatch warning
+- **OpenVINO diagnostics** — shown when OpenVINO is unavailable or a device plugin fails
 
 This usually tells you whether the problem is:
 
-- missing runtime/library support
+- an image that does not package the selected runtime
+- missing runtime/library support inside a matching image
 - device pass-through (`/dev/dri`)
 - group permissions
 - provider fallback at runtime
@@ -107,28 +110,30 @@ This usually tells you whether the problem is:
 From the host (monolithic deployment):
 
 ```bash
-curl -sS http://localhost:9852/api/classifier/status
+curl -fsS http://localhost:9852/api/classifier/status
 ```
 
 From inside the Docker network or within the container (monolithic):
 
 ```bash
-docker exec yawamf-monalithic curl -sS http://127.0.0.1:8000/api/classifier/status
+docker exec yawamf-monalithic curl -fsS http://127.0.0.1:8000/api/classifier/status
 ```
 
 Legacy split deployment (from the Docker network):
 
 ```bash
-curl -sS http://yawamf-backend:8000/api/classifier/status
+curl -fsS http://yawamf-backend:8000/api/classifier/status
 ```
 
 Key fields:
 
+- `image_flavor`, `packaged_inference_providers`, and `image_flavor_warning`
+- `available_providers` (packaged providers that also passed runtime/device probes)
 - `cuda_provider_installed` vs `cuda_available`
   - `true` / `false` means the CUDA-capable ONNX Runtime wheel is installed, but no usable NVIDIA GPU is available to the container
 - `openvino_available`
 - `openvino_devices`
-- `intel_gpu_available`
+- `intel_gpu_available` and `intel_npu_available`
 - `active_model_id`, `selected_provider`, and `active_provider`
 - `host_device_eligibility`
 - `fallback_reason`
@@ -137,6 +142,12 @@ Key fields:
 - `openvino_probe_error`
 - `openvino_gpu_probe_error`
 - `dev_dri_present`, `dev_dri_entries`, `process_groups`
+
+`image_flavor_warning: selected_provider_not_packaged` means the saved provider
+does not belong to this image. YA-WAMF keeps that saved selection intact and
+uses CPU fallback. Switch to the full or matching provider image using the
+[safe flavor procedure](../setup/hardware-acceleration.md#switch-safely-between-flavors);
+do not try to install packages into the running container.
 
 The shared model registry is deliberately conservative across Intel hardware generations. A full
 device sweep can approve an extra provider for one model on this host; that host-specific result is
@@ -150,16 +161,19 @@ help.
 
 Replace `yawamf-monalithic` below with `yawamf-backend` if you are on the legacy split deployment.
 
-1. **Confirm `/dev/dri` is mounted**
+1. **Confirm the image packages OpenVINO.** **Image** must be `full` or `intel`,
+   and **Packaged** must include `intel_gpu`. If not, switch image before
+   debugging the device.
+2. **Confirm `/dev/dri` is mounted**
    ```bash
    docker exec yawamf-monalithic sh -lc 'ls -l /dev/dri'
    ```
-2. **Confirm container user/group can access the device nodes**
+3. **Confirm container user/group can access the device nodes**
    ```bash
    docker exec yawamf-monalithic sh -lc 'id && ls -ln /dev/dri'
    ```
    The backend user/group list must include the numeric GIDs shown on `/dev/dri/card0` and `/dev/dri/renderD128` (often `video`/`render`, but IDs vary by host).
-3. **Check OpenVINO GPU plugin errors**
+4. **Check OpenVINO GPU plugin errors**
    - If `openvino_gpu_probe_error` mentions `libOpenCL.so.1`, the image is missing OpenCL runtime libraries.
    - If it reports no supported devices, the Intel GPU userspace/driver stack is not available to the container.
 
@@ -187,15 +201,17 @@ The script creates a timestamped backup of the original model before replacement
 
 ### NVIDIA CUDA checklist
 
-1. **Confirm CUDA status fields**
+1. **Confirm the image packages CUDA.** **Image** must be `full` or `cuda`, and
+   **Packaged** must include `cuda`.
+2. **Confirm CUDA status fields**
    - `cuda_provider_installed: true`
    - `cuda_available: true`
-2. **Confirm container GPU passthrough is configured**
+3. **Confirm container GPU passthrough is configured**
    - Docker host has **NVIDIA Container Toolkit** installed
    - Backend container is started with NVIDIA GPU access (`gpus: all` or equivalent runtime settings)
-3. **If `cuda_provider_installed=true` but `cuda_available=false`**
+4. **If `cuda_provider_installed=true` but `cuda_available=false`**
    - The CUDA-capable ONNX Runtime wheel is present, but YA-WAMF could not access a real NVIDIA CUDA device.
-4. **If `cuda_available=true` but `Active provider` falls back to CPU**
+5. **If `cuda_available=true` but `Active` falls back to CPU**
    - YA-WAMF now validates the actual ONNX Runtime session providers and will report a CPU fallback if the session initializes without `CUDAExecutionProvider`.
 
 ### Startup Health Signals

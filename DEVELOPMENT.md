@@ -6,19 +6,21 @@ This document explains the development workflow for YA-WAMF.
 
 ### `main` Branch (Production)
 - **Purpose:** Stable, production-ready code
-- **Primary Image Tags:** `ghcr.io/jellman86/yawamf-monalithic:latest` and `:vX.Y.Z`
+- **Primary Image Tags:** full `:latest` / `:vX.Y.Z`, with optional `-cpu`, `-intel`, and `-cuda` variants
 - **Deployment:** Use `docker-compose.monolith.yml`
 - **Protection:** Only merge tested, stable code from `dev`
 
 ### `dev` Branch (Development)
 - **Purpose:** Active development, testing new features and fixes
-- **Primary Image Tags:** `ghcr.io/jellman86/yawamf-monalithic:dev`
-- **Deployment:** Use `docker-compose.monolith.yml` with `YAWAMF_MONOLITHIC_TAG=dev`
+- **Primary Image Tags:** full `ghcr.io/jellman86/yawamf-monalithic:dev`, with optional `dev-cpu`, `dev-intel`, and `dev-cuda` variants
+- **Deployment:** Use `docker-compose.monolith.yml` with `YAWAMF_MONALITHIC_TAG=dev`
 - **Workflow:** All new features and fixes start here
 
 The older split images (`wamf-backend` and `wamf-frontend`) are still built for
 legacy v2.x installs, but new development and release validation should use the
-monolithic image first.
+monolithic image first. Unsuffixed tags always select the full compatibility
+runtime. See [Hardware Acceleration](docs/setup/hardware-acceleration.md) for the
+provider-family contract and safe switching procedure.
 
 ## Workflow Steps
 
@@ -54,8 +56,8 @@ git push origin dev
 
 # GitHub Actions will automatically build dev images
 # Wait for the build to complete, then test:
-YAWAMF_MONOLITHIC_TAG=dev docker compose -f docker-compose.monolith.yml pull
-YAWAMF_MONOLITHIC_TAG=dev docker compose -f docker-compose.monolith.yml up -d
+YAWAMF_MONALITHIC_TAG=dev docker compose -f docker-compose.monolith.yml pull
+YAWAMF_MONALITHIC_TAG=dev docker compose -f docker-compose.monolith.yml up -d
 ```
 
 ### 4. Promoting to Production
@@ -78,16 +80,16 @@ git tag -a vX.Y.Z -m "vX.Y.Z"
 git push origin vX.Y.Z
 
 # Deploy production:
-YAWAMF_MONOLITHIC_TAG=latest docker compose -f docker-compose.monolith.yml pull
-YAWAMF_MONOLITHIC_TAG=latest docker compose -f docker-compose.monolith.yml up -d
+YAWAMF_MONALITHIC_TAG=latest docker compose -f docker-compose.monolith.yml pull
+YAWAMF_MONALITHIC_TAG=latest docker compose -f docker-compose.monolith.yml up -d
 ```
 
 ## Quick Reference
 
 | Environment | Branch | Image Tag | Docker Compose File |
 |-------------|--------|-----------|---------------------|
-| Production  | `main` | `yawamf-monalithic:latest` or `:vX.Y.Z` | `docker-compose.monolith.yml` |
-| Development | `dev`  | `yawamf-monalithic:dev` | `docker-compose.monolith.yml` |
+| Production  | `main` | full `:latest` / `:vX.Y.Z`, or matching `-cpu` / `-intel` / `-cuda` | `docker-compose.monolith.yml` |
+| Development | `dev`  | full `:dev`, or `:dev-cpu` / `:dev-intel` / `:dev-cuda` | `docker-compose.monolith.yml` |
 | Local Build | any    | built locally | `docker-compose.yml` or service-specific Dockerfiles |
 | Legacy Split | v2.x installs | `wamf-backend:*` + `wamf-frontend:*` | `docker-compose.dev.yml` / `docker-compose.prod.yml` |
 
@@ -95,14 +97,14 @@ YAWAMF_MONOLITHIC_TAG=latest docker compose -f docker-compose.monolith.yml up -d
 
 The workflow automatically builds and pushes Docker images:
 
-- **Trigger:** Push to `dev` branch, and release tags (`v*`)
-- **Primary monolith:** `ghcr.io/jellman86/yawamf-monalithic:{tag}`
+- **Trigger:** Push to `dev` or `main`, and release tags (`v*`)
+- **Primary monolith:** full, CPU, Intel, and CUDA images from one Dockerfile and commit
 - **Raspberry Pi monolith:** `ghcr.io/jellman86/yawamf-monalithic-rpi:{tag}` when that build path succeeds
 - **Legacy split images:** `ghcr.io/jellman86/wamf-backend:{tag}` and `ghcr.io/jellman86/wamf-frontend:{tag}`
 - **Tag Logic:**
-  - `dev` → `:dev`
-  - tags (`vX.Y.Z`) → `:latest` and `:vX.Y.Z`
-  - all builds also get a SHA tag: `:{commit-sha}`
+  - unsuffixed `dev`, `main`, `latest`, release, and SHA tags → full image
+  - matching `-cpu`, `-intel`, and `-cuda` suffixes → provider-family images
+  - builds publish SHA candidates first; channel/release tags move only after every flavor starts and the shared-volume full → CPU → full switch contract passes
 
 ## Manual Build (Local Development)
 
@@ -133,8 +135,8 @@ docker compose up -d --build
 4. **Pull latest images:**
    ```bash
    # Development
-   YAWAMF_MONOLITHIC_TAG=dev docker compose -f docker-compose.monolith.yml pull
+   YAWAMF_MONALITHIC_TAG=dev docker compose -f docker-compose.monolith.yml pull
 
    # Production
-   YAWAMF_MONOLITHIC_TAG=latest docker compose -f docker-compose.monolith.yml pull
+   YAWAMF_MONALITHIC_TAG=latest docker compose -f docker-compose.monolith.yml pull
    ```

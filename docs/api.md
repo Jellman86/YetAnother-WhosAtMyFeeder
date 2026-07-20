@@ -174,6 +174,24 @@ Notes:
 - `POST /api/models/{model_id}/validate` (owner) — trial-loads the model on this host, runs one frame through it, and records whether it produced finite output. Clears the post-install selection gate on success and restores the previously active model.
 - `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the model has not been validated on this host (unless it is a bundled model or the one already active).
 
+`GET /api/classifier/status` separates packaging, hardware availability, and the
+active model session. Important deployment fields are:
+
+| Field | Meaning |
+|---|---|
+| `image_flavor` | Image-owned runtime family: `full`, `cpu`, `intel`, `cuda`, `rpi`, or `unknown` outside a published image. |
+| `packaged_inference_providers` | Providers the image is designed to contain. This does not claim a host device works. |
+| `image_flavor_warning` | `selected_provider_not_packaged` when the saved explicit provider is outside this image; otherwise `null`. |
+| `available_providers` | Packaged providers whose runtime/device probe passed on this host. |
+| `selected_provider` | Saved preference from configuration. An image mismatch does not rewrite it. |
+| `active_provider` / `inference_backend` | Provider and backend used by the loaded model session. |
+| `fallback_reason` | Why the active session differs from the selected provider, when known. |
+
+Use these fields together. For example, an Intel image can legitimately report
+`intel_gpu` as packaged but unavailable when `/dev/dri` was not passed through.
+See [Hardware Acceleration](setup/hardware-acceleration.md) for the complete
+image/provider contract.
+
 ### AI
 
 - `POST /api/events/{event_id}/analyze` (owner to generate)

@@ -6,7 +6,7 @@ IMAGE_TAG="yawamf-monalithic:test"
 CID="yawamf-monolith-smoke"
 trap 'docker rm -f "$CID" >/dev/null 2>&1 || true' EXIT
 
-docker build -t "$IMAGE_TAG" "$ROOT"
+docker build --build-arg RUNTIME_FLAVOR=full -t "$IMAGE_TAG" "$ROOT"
 docker run -d --name "$CID" \
   -p 19852:8080 \
   -e DB_PATH=/tmp/speciesid.db \
@@ -38,3 +38,4 @@ docker inspect "$CID" --format '{{range (index .NetworkSettings.Ports "8080/tcp"
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/ >/dev/null
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/health >/dev/null
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/api/version >/dev/null
+docker exec "$CID" sh -lc 'test "$YAWAMF_IMAGE_FLAVOR" = "full"'

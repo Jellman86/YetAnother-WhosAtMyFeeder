@@ -49,7 +49,9 @@ The script writes `model.onnx`, `model.onnx.data` (external weights),
 ## Quick iGPU compatibility check
 
 Before adding the model to the registry with `intel_gpu` enabled, probe it
-directly through OpenVINO inside the live container:
+directly through OpenVINO inside a full or `-intel` live container. A CPU,
+CUDA, or Raspberry Pi image does not package OpenVINO and is not evidence that
+the model is incompatible:
 
 ```bash
 docker exec yawamf-monalithic python -c "

@@ -1067,7 +1067,10 @@
       "crop_tier_title": "Crop detector uccelli",
       "fine_tuning_advanced_title": "Regolazione fine avanzata",
       "inference_advanced_title": "Modalità di esecuzione e diagnostica runtime",
-      "inference_diagnostics_title": "Diagnostica runtime"
+      "inference_diagnostics_title": "Diagnostica runtime",
+      "image_flavor_label": "Immagine",
+      "packaged_providers_label": "Inclusi",
+      "image_flavor_mismatch": "Il runtime {provider} non è incluso nell’immagine {flavor}. Usa l’immagine completa o quella del provider corrispondente, quindi ricrea il container. Il fallback sulla CPU rimane disponibile."
     },
     "llm": {
       "title": "Analisi IA",

@@ -48,7 +48,7 @@ docker exec yawamf-monalithic cat /config/yawamf-eval/<run_id>/summary.json | jq
 | `latency_drift_high` | measured mean > 5× the startup benchmark | suspect the accelerated provider — try toggling to CPU and rerun |
 | `high_abstention` | model returned `Unknown` / `Background` on > 10% of images | check labels.txt; vocab may not include feeder species |
 | `low_shared_core` | shared-core top-1 < 50% | broken install, wrong labels file, or model was trained on a non-overlapping vocabulary |
-| `provider_fallback_active` | requested an accelerated provider but actually running on CPU | the provider library is missing or refused to load — see `runtime.json` for the fallback reason |
+| `provider_fallback_active` | requested an accelerated provider but actually running on CPU | first check **Image** and **Packaged** under **Settings → Detection → Runtime diagnostics**, then inspect `runtime.json` for a device or model fallback reason |
 | `incomplete_install` | `labels.txt` or `model_config.json` missing | use the Model Manager's repair download |
 | `inference_health_unhealthy` | `InferenceHealth` verdict at run end is `unhealthy` | the runtime errored or timed out during the run; check classifier logs |
 | `region_mismatch` | EU model evaluated against NA region (or vice versa) | informational — accuracy will look low but isn't a regression |

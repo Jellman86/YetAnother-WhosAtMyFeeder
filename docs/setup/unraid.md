@@ -45,12 +45,18 @@ so the run-as user is set with `--user` instead.)
 ## Expected result
 
 Unraid pulls `ghcr.io/jellman86/yawamf-monalithic:latest` and starts the
-container. When its health check passes, click the container's **WebUI** icon (or
+full compatibility container. When its health check passes, click the container's **WebUI** icon (or
 browse to `http://<your-unraid-ip>:9852/`) and you should see the dashboard.
 Authentication is disabled by default for first-time setup — set a password under
 **Settings → Security** before exposing it beyond your trusted network.
 
 ## Optional: hardware acceleration
+
+The template deliberately stays on the full image so adding a device does not
+also require changing the repository tag. Advanced users may change the tag to
+`latest-intel`, `latest-cuda`, or `latest-cpu` after the full image has started
+successfully; see [Hardware Acceleration](hardware-acceleration.md) for the exact
+provider contract and rollback path.
 
 To run inference on an Intel GPU or NPU, add the device yourself (the template
 does not add one, so it never passes an empty `--device` to Docker). In the

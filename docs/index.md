@@ -19,7 +19,7 @@ Everything you need to get the containers running and configured correctly.
 - **[🌐 Reverse Proxy Guide](setup/reverse-proxy.md)** - Configs for Cloudflare Tunnel, Nginx, Caddy.
 - **[⚙️ Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
 - **[🌱 Environment Variables](setup/environment-variables.md)** - Complete reference for every env override, with defaults.
-- **[⚡ Hardware Acceleration](setup/hardware-acceleration.md)** - Run classification on an Intel GPU, Intel NPU, or NVIDIA CUDA, with device passthrough and fallback behaviour.
+- **[⚡ Hardware Acceleration](setup/hardware-acceleration.md)** - Choose the full, CPU, Intel, or CUDA image; configure device passthrough; and verify packaged, available, and active providers.
 
 ## 🔌 API & Development
 Build integrations and custom tools with YA-WAMF.

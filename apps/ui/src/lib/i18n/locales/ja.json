@@ -1058,7 +1058,10 @@
       "crop_tier_title": "鳥のクロップ検出器",
       "fine_tuning_advanced_title": "詳細な微調整",
       "inference_advanced_title": "実行モードとランタイム診断",
-      "inference_diagnostics_title": "ランタイム診断"
+      "inference_diagnostics_title": "ランタイム診断",
+      "image_flavor_label": "イメージ",
+      "packaged_providers_label": "同梱済み",
+      "image_flavor_mismatch": "{provider} ランタイムは {flavor} イメージに含まれていません。完全版イメージまたは対応するプロバイダー用イメージを使用し、コンテナを再作成してください。CPU フォールバックは引き続き利用できます。"
     },
     "llm": {
       "title": "AI インサイト",

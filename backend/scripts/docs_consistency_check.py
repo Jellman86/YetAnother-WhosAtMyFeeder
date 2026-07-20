@@ -6,6 +6,7 @@ Checks:
 2. docs/api.md documented endpoint snippets map to real backend routes.
 3. Detect stale compose service aliases in docs commands.
 4. Detect stale Settings navigation labels.
+5. Detect incompatible image-variable spelling and blanket CUDA packaging claims.
 """
 
 from __future__ import annotations
@@ -103,6 +104,8 @@ def check_stale_terms() -> list[str]:
         r"docker compose (exec|logs) frontend\b": "Use yawamf-frontend service name in docs commands.",
         r"Settings\s*>\s*Authentication": "Use Settings > Security (current UI navigation).",
         r"Settings\s*>\s*Public Access": "Use Settings > Security (public access controls live there).",
+        r"YAWAMF_MONOLITHIC_(?:IMAGE|TAG)": ("Use the established YAWAMF_MONALITHIC_* Compose variable spelling."),
+        r"The official YA-WAMF images now package the CUDA": ("Only the full and CUDA image flavors package CUDA."),
     }
 
     for file_path in [ROOT / "README.md", ROOT / "MIGRATION.md", *sorted((ROOT / "docs").rglob("*.md"))]:

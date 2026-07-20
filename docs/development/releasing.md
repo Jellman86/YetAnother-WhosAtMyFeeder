@@ -20,7 +20,8 @@ Before writing, collect:
 
 - the previous and new tags;
 - the matching `CHANGELOG.md` section;
-- the green tag build, test, migration checks, container build, and image publication;
+- the green tag build, test, migration checks, all four x86 image builds, per-image
+  startup checks, shared-volume flavor-switch gate, and final tag promotion;
 - any migration, configuration, downtime, hardware, model, or compatibility action;
 - any privacy, retention, or public-access boundary affected by the release.
 
@@ -58,12 +59,15 @@ faster, on which hardware, and whether accuracy or power use changes.
 ## Publish checklist
 
 - [ ] The release title and tag match the application version.
-- [ ] The exact tag's CI, migration checks, image build, and publication are green.
+- [ ] The exact tag's CI and migration checks are green.
+- [ ] Full, CPU, Intel, and CUDA images all started successfully from the same commit.
+- [ ] The full → CPU → full persistence gate passed before release and `latest*` tags were promoted.
 - [ ] Every statement is supported by shipped code, tests, or verified operation.
 - [ ] The opening summary makes sense without reading the changelog.
 - [ ] Bullets describe feeder-owner outcomes rather than internal components.
 - [ ] **Before you update** states every required action—or says none is needed.
 - [ ] Defaults, opt-in features, model/hardware limits, privacy, and retention are honest.
+- [ ] **Before you update** says that unsuffixed tags remain the full compatibility image and links the optional provider-family guidance when relevant.
 - [ ] No token, private hostname, camera URL, location, or other secret appears.
 - [ ] The full changelog link points at the released tag.
 - [ ] Empty template sections and all HTML comments are removed.

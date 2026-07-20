@@ -1,59 +1,6 @@
-fastapi==0.139.2
-uvicorn[standard]==0.51.0
-pydantic==2.13.4
-pydantic-settings==2.14.2
-structlog==26.1.0
-aiosqlite==0.22.1
-aiofiles>=25.1.0
-httpx==0.28.1
-python-multipart==0.0.32
-# Image processing
-Pillow>=12.3.0
-numpy<2.0.0
-# Machine Learning
-# Note: tflite-support wheels for 3.12 might be scarce, fallback to tflite-runtime or
-# a full TensorFlow package may be needed. `tflite-runtime` does not currently resolve
-# for the ARM64/Python 3.12 container build we use, so ARM64 falls back to
-# `tensorflow-aarch64` while x86-64 keeps `tensorflow-cpu`.
-# tflite-support==0.4.4
-tensorflow-cpu; python_version >= '3.12' and platform_machine != "aarch64" and platform_machine != "arm64"
-tensorflow-aarch64==2.16.1; python_version >= '3.12' and (platform_machine == "aarch64" or platform_machine == "arm64")
-# ONNX Runtime with packaged CUDA 12 / cuDNN 9 userspace runtime on x86-64.
-# ARM64 builds use the CPU package instead.
-# The host still needs NVIDIA Container Toolkit (or equivalent) to expose the driver/GPU.
-# ORT 1.27 switches these extras to CUDA 13 packages which are not available from the
-# default PyPI index yet. Keep the CUDA 12 line explicit rather than relying on pip to
-# backtrack silently from 1.27 to 1.26 during every clean install.
-onnxruntime-gpu[cuda,cudnn]>=1.24.0,<1.27.0 ; platform_machine != "aarch64" and platform_machine != "arm64"
-onnxruntime>=1.27.0 ; platform_machine == "aarch64" or platform_machine == "arm64"
-# OpenVINO runtime for Intel CPU/iGPU acceleration.
-# Pinned to 2025.4.x: 2025.4 introduced a LayerNorm scale/bias reshape fix
-# (confirmed in Intel release notes) that is required for correct ViT-based
-# model inference. Upper bound <2026.0 excludes the 2026.0 major release —
-# openvino.runtime is removed there (handled in code) but empirical testing
-# showed EVA-02 triggers a fatal process crash (clWaitForEvents -14 /
-# terminate called) on Intel iGPU under 2026.0.0; 2026.0.1 is not on PyPI.
-# The code uses openvino.Core (2025+ API); openvino.runtime fallback retained
-# for any pre-2025 installations that may be present in existing environments.
-openvino>=2026.2.1,<2027.0
-aiomqtt==2.5.1
-alembic==1.18.5
-opencv-python-headless<4.11
-pytest==9.1.1
-pytest-asyncio==1.4.0
-# CI invokes coverage.py directly (`python -m coverage`); pytest-cov is not used.
-coverage==7.15.2
-ruff
-prometheus-client
-slowapi==0.1.10
-# Authentication
-pyjwt==2.13.0
-cryptography==49.0.0
-bcrypt==5.0.0
-# SMTP Email Support
-aiosmtplib==5.1.2
-# OAuth Support for Gmail and Outlook
-google-auth==2.56.0
-google-auth-oauthlib==1.4.0
-# Email templating
-jinja2==3.1.6
+# Full local development and CI environment. Runtime containers install
+# requirements-base.txt plus exactly one requirements-provider-*.txt file and
+# intentionally exclude requirements-dev.txt.
+-r requirements-base.txt
+-r requirements-provider-full.txt
+-r requirements-dev.txt

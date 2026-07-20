@@ -22,7 +22,7 @@
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticStageState, DiagnosticResult } from '../../utils/diagnostic-runner';
 
-    const GPU_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/diagnostics.md#-gpu-acceleration-diagnostics-cuda--openvino';
+    const GPU_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/setup/hardware-acceleration.md';
 
     let {
         threshold = $bindable(0.7),
@@ -697,12 +697,33 @@
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400">
+                        {#if classifierStatus.image_flavor}
+                            <span>{$_('settings.detection.image_flavor_label', { default: 'Image' })}: {classifierStatus.image_flavor}</span>
+                        {/if}
+                        {#if classifierStatus.packaged_inference_providers?.length}
+                            <span>{$_('settings.detection.packaged_providers_label', { default: 'Packaged' })}: {classifierStatus.packaged_inference_providers.join(', ')}</span>
+                        {/if}
                         <span>{$_('settings.detection.selected_provider_label', { default: 'Selected' })}: {classifierStatus.selected_provider ?? inferenceProvider}</span>
                         <span>{$_('settings.detection.active_provider_label', { default: 'Active' })}: {classifierStatus.active_provider ?? 'unknown'}</span>
                         {#if classifierStatus.inference_backend}
                             <span>{$_('settings.detection.inference_backend_label', { default: 'Backend' })}: {classifierStatus.inference_backend}</span>
                         {/if}
                     </div>
+                    {#if classifierStatus.image_flavor_warning === 'selected_provider_not_packaged'}
+                        <div role="alert" class="flex items-start gap-2 border-l-2 border-amber-400 py-1 pl-3 text-xs font-medium leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
+                            <svg class="mt-0.5 h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M10.3 2.9 1.8 17a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 2.9a2 2 0 0 0-3.4 0Z" />
+                                <path d="M12 9v4M12 17h.01" />
+                            </svg>
+                            <p>{$_('settings.detection.image_flavor_mismatch', {
+                                default: 'The {provider} runtime is not included in the {flavor} image. Use the full image or a matching provider image, then recreate the container. CPU fallback remains available.',
+                                values: {
+                                    provider: classifierStatus.selected_provider ?? inferenceProvider,
+                                    flavor: classifierStatus.image_flavor ?? 'unknown'
+                                }
+                            })}</p>
+                        </div>
+                    {/if}
                     <p class="text-xs font-bold text-slate-600 dark:text-slate-400">
                         {$_('settings.detection.personalization_status_label', { default: 'Personalization' })}:
                         {(classifierStatus.personalized_rerank_enabled ?? false) ? $_('common.enabled', { default: 'Enabled' }) : $_('common.disabled', { default: 'Disabled' })}

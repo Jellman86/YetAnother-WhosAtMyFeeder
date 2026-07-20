@@ -2,7 +2,7 @@
 
 This page shows the **monolithic deployment** (recommended) followed by the **legacy split deployment** for reference. For the monolithic image, use [`docker-compose.monolith.yml`](../../docker-compose.monolith.yml) and point your reverse proxy at `yawamf-monalithic:8080`.
 
-## Monolithic Canary Quick Example
+## Monolithic quick example
 
 ```yaml
 services:
@@ -24,6 +24,12 @@ services:
       - FRIGATE__MQTT_SERVER=mosquitto
       - FRIGATE__MQTT_PORT=1883
 ```
+
+The unsuffixed `latest` tag is the full compatibility image. To avoid pulling
+unused accelerator runtimes, change only the suffix: `latest-cpu` for CPU-only,
+`latest-intel` for OpenVINO CPU/GPU/NPU, or `latest-cuda` for NVIDIA CUDA. Every
+variant keeps ONNX CPU fallback and the same `/config` and `/data` volumes. See
+[Hardware Acceleration](hardware-acceleration.md) before selecting a variant.
 
 ## Legacy Split Example
 
@@ -157,13 +163,14 @@ Ensure your host machine has enough space.
 YA-WAMF can accelerate its ONNX classifier models with:
 
 - **NVIDIA CUDA** (ONNX Runtime CUDA)
-- **Intel OpenVINO** (Intel GPU or CPU)
+- **Intel OpenVINO** (Intel CPU, GPU, or NPU)
 
 Recommended flow:
 
-1. Start with `Auto` provider in **Settings > Detection**
-2. Check `Selected provider` and `Active provider`
-3. If fallback occurs, use the diagnostics shown in the UI (and backend logs) before forcing a provider
+1. Start with `Auto` under **Settings → Detection → Inference Provider**.
+2. Check **Image**, **Packaged**, **Selected**, and **Active** under
+   **Runtime diagnostics**.
+3. If fallback occurs, use the diagnostics shown in the UI and backend logs before forcing a provider.
 
 For Intel iGPU specifically:
 
@@ -201,4 +208,6 @@ docker compose -f docker-compose.monolith.yml up -d
 # docker compose up -d
 ```
 
-Your settings and history will be preserved because they are stored in the persistent volumes (`/config` and `/data`).
+Your settings and history will be preserved because they are stored in the
+persistent volumes (`/config` and `/data`). Keep those mount paths unchanged if
+you also switch image flavor while updating.

@@ -424,6 +424,24 @@ describe('groupTieredModelLineup', () => {
 });
 
 describe('ClassifierStatus', () => {
+    it('supports packaged runtime image diagnostics', () => {
+        const status: ClassifierStatus = {
+            loaded: true,
+            error: null,
+            labels_count: 10,
+            enabled: true,
+            image_flavor: 'cpu',
+            packaged_inference_providers: ['cpu'],
+            selected_provider: 'cuda',
+            active_provider: 'cpu',
+            image_flavor_warning: 'selected_provider_not_packaged',
+        };
+
+        expect(status.image_flavor).toBe('cpu');
+        expect(status.packaged_inference_providers).toEqual(['cpu']);
+        expect(status.image_flavor_warning).toBe('selected_provider_not_packaged');
+    });
+
     it('supports crop detector readiness telemetry', () => {
         const status: ClassifierStatus = {
             loaded: true,

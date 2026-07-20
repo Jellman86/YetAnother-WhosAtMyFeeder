@@ -3,7 +3,7 @@
 YA-WAMF supports multiple classifier models, allowing you to balance speed, memory usage, taxonomy scope, and identification accuracy.
 
 ## The Model Market
-You can manage models directly from the **Settings > Detection > Model Manager** page. The current lineup includes:
+You can manage models directly from **Settings → Detection → Model Manager**. The current lineup includes:
 
 - Wildlife-wide ONNX models for broad species coverage
 - Birds-only regional and global models for cleaner feeder-focused confidence
@@ -38,13 +38,22 @@ sweep](model-evaluation.md) also clears the gate.
 
 ## Inference Providers (CPU / CUDA / Intel OpenVINO)
 
-For ONNX models, YA-WAMF supports a provider selector in **Settings > Detection**:
+For ONNX models, YA-WAMF supports a provider selector under
+**Settings → Detection → Inference Provider**:
 
 - `Auto` (recommended): prefers **Intel GPU (OpenVINO)**, then **NVIDIA CUDA**, then CPU.
 - `CPU`: ONNX Runtime CPU execution.
 - `NVIDIA CUDA`: ONNX Runtime with CUDA (falls back to CPU if CUDA is not actually usable).
 - `Intel GPU (OpenVINO)`: OpenVINO GPU plugin (falls back to OpenVINO CPU if the Intel GPU is unavailable).
 - `Intel CPU (OpenVINO)`: OpenVINO CPU execution.
+- `Intel NPU (OpenVINO)`: OpenVINO NPU execution for a model validated on this host.
+
+The selected image must package the provider: full packages every supported
+x86 family, `-cpu` packages ONNX CPU, `-intel` packages ONNX CPU plus OpenVINO,
+and `-cuda` packages ONNX Runtime CUDA plus its CPU execution provider. Image
+choice never proves the hardware works. See
+[Hardware Acceleration](../setup/hardware-acceleration.md) for tags, device
+passthrough, and safe switching.
 
 ### Important behavior (robust fallback)
 
@@ -52,10 +61,14 @@ YA-WAMF intentionally fails soft when acceleration is misconfigured:
 
 - If a provider is selected but unavailable, the backend falls back to a working provider.
 - The UI shows:
-  - **Selected provider**
-  - **Active provider**
+  - **Image** and **Packaged** providers
+  - **Selected** provider
+  - **Active** provider
   - **Backend** (`onnxruntime` or `openvino`)
-  - **Fallback reason**
+  - **Fallback** reason or an image/provider mismatch warning
+- A provider/image mismatch does not rewrite the saved selection. The current
+  image uses CPU fallback and the original selection becomes usable again after
+  switching back to a compatible image.
 - CUDA and OpenVINO availability are probed separately from model loading, then validated again during runtime initialization.
 
 ### What counts as "available"
@@ -68,6 +81,9 @@ YA-WAMF intentionally fails soft when acceleration is misconfigured:
   - OpenVINO runtime can initialize.
 - **Intel GPU auto-detected** means:
   - OpenVINO enumerated a GPU device (or `GPU.*`) and can expose it to YA-WAMF.
+- **Intel NPU auto-detected** means:
+  - OpenVINO enumerated an NPU device and the selected model still has to pass
+    its per-host compatibility validation.
 
 If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can still use **OpenVINO CPU**.
 

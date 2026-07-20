@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # node:22 (LTS) satisfies the vite 8 / vitest 4 engine floor (^20.19 || >=22.12).
 FROM node:22 AS ui-builder
 
@@ -20,17 +22,25 @@ FROM python:3.12-slim AS backend-builder
 
 WORKDIR /app
 
+ARG RUNTIME_FLAVOR=full
+ARG TARGETARCH
+
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-COPY backend/requirements.txt .
+COPY --chmod=0755 docker/runtime-flavor.sh /usr/local/bin/yawamf-runtime-flavor
+COPY backend/requirements*.txt /requirements/
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libgl1 \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip wheel --no-cache-dir --no-deps --wheel-dir /wheels -r requirements.txt
+RUN runtime_arch="${TARGETARCH:-amd64}"; \
+    provider_requirements="$(yawamf-runtime-flavor requirements "$RUNTIME_FLAVOR" "$runtime_arch")"; \
+    pip wheel --no-cache-dir --wheel-dir /wheels \
+        -r /requirements/requirements-base.txt \
+        -r "/requirements/$provider_requirements"
 
 FROM python:3.12-slim
 
@@ -40,12 +50,20 @@ ARG GIT_HASH=unknown
 ARG APP_VERSION_BASE=2.2.0
 ARG APP_BRANCH=unknown
 ARG TARGETARCH
+ARG RUNTIME_FLAVOR=full
 ARG INTEL_GPU_APT_CHANNEL=noble/lts
 ENV GIT_HASH=${GIT_HASH}
 ENV APP_VERSION_BASE=${APP_VERSION_BASE}
 ENV APP_BRANCH=${APP_BRANCH}
+ENV YAWAMF_IMAGE_FLAVOR=${RUNTIME_FLAVOR}
+
+LABEL io.yawamf.image.flavor="${RUNTIME_FLAVOR}"
+
+COPY --chmod=0755 docker/runtime-flavor.sh /usr/local/bin/yawamf-runtime-flavor
 
 RUN set -eux; \
+    runtime_arch="${TARGETARCH:-amd64}"; \
+    yawamf-runtime-flavor validate "$RUNTIME_FLAVOR" "$runtime_arch"; \
     apt-get update; \
     apt-get install -y --no-install-recommends \
         ca-certificates \
@@ -55,8 +73,9 @@ RUN set -eux; \
         libglib2.0-0 \
         nginx \
         sqlite3 \
-        tini; \
-    if [ "${TARGETARCH:-amd64}" = "amd64" ]; then \
+        tini \
+        zlib1g; \
+    if yawamf-runtime-flavor needs-intel-runtime "$RUNTIME_FLAVOR" "$runtime_arch"; then \
         install -d -m 0755 /etc/apt/keyrings; \
         curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 https://repositories.intel.com/gpu/intel-graphics.key \
             | gpg --dearmor -o /etc/apt/keyrings/intel-graphics.gpg; \
@@ -70,10 +89,9 @@ RUN set -eux; \
             ocl-icd-libopencl1; \
         # Intel NPU ("AI Boost") driver for the OpenVINO `intel_npu` provider on
         # Core Ultra. These are NOT in the intel-graphics apt repo, so install the
-        # release .debs (firmware + Level-Zero driver + compiler). Version validated
-        # against OpenVINO 2025.4.x on Arrow Lake. Best-effort: the image must still
-        # build on non-NPU hosts, so a failure here is non-fatal (intel_npu then
-        # falls back to GPU/CPU).
+        # release .debs (firmware + Level-Zero driver + compiler). This pinned version
+        # is hardware-validated on Quark with OpenVINO 2026.2.1. Checksums bind the
+        # image to the reviewed assets; an incomplete Intel runtime fails the build.
         NPU_VER=1.17.0.20250508-14912879441; \
         NPU_REL=https://github.com/intel/linux-npu-driver/releases/download/v1.17.0; \
         ( cd /tmp \
@@ -81,21 +99,28 @@ RUN set -eux; \
                  curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
                      -O "${NPU_REL}/${p}_${NPU_VER}_ubuntu24.04_amd64.deb"; \
              done \
+          && echo "cebbac7bdb56eb72529b8060bb1601afdcd4e90f2e5c29018b5ceaff98b7c63c  intel-fw-npu_${NPU_VER}_ubuntu24.04_amd64.deb" | sha256sum -c - \
+          && echo "24309e17063e94729330ae9c02c5f2ea8ca5c27cdb067303e4e26ad1f4656a13  intel-driver-compiler-npu_${NPU_VER}_ubuntu24.04_amd64.deb" | sha256sum -c - \
+          && echo "07ee5332d0523661f5b3cec69593197fecc95439c8a9a401905e05cb7690097b  intel-level-zero-npu_${NPU_VER}_ubuntu24.04_amd64.deb" | sha256sum -c - \
           && apt-get install -y --no-install-recommends \
                  ./intel-fw-npu_*.deb \
                  ./intel-driver-compiler-npu_*.deb \
                  ./intel-level-zero-npu_*.deb \
-          && rm -f /tmp/*.deb ) \
-          || echo "WARN: Intel NPU driver install failed; intel_npu will fall back to GPU/CPU"; \
+          && rm -f /tmp/*.deb ); \
     fi; \
     rm -rf /var/lib/apt/lists/*
 
-# CUDA/cuDNN userspace for ONNX Runtime is installed via backend/requirements.txt.
+# CUDA/cuDNN userspace for ONNX Runtime is installed by the CUDA/full provider requirements.
 # The host still needs NVIDIA Container Toolkit (or equivalent) to provide GPU passthrough.
 
-COPY --from=backend-builder /wheels /wheels
-COPY backend/requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir --find-links /wheels -r /app/requirements.txt
+COPY backend/requirements*.txt /requirements/
+RUN --mount=type=bind,from=backend-builder,source=/wheels,target=/wheels,ro \
+    runtime_arch="${TARGETARCH:-amd64}"; \
+    provider_requirements="$(yawamf-runtime-flavor requirements "$RUNTIME_FLAVOR" "$runtime_arch")"; \
+    pip install --no-cache-dir --no-index --find-links /wheels \
+        -r /requirements/requirements-base.txt \
+        -r "/requirements/$provider_requirements"; \
+    rm -rf /requirements
 
 RUN useradd -m -u 1000 appuser && \
     mkdir -p /config /data /app/data/models && \

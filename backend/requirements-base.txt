@@ -1,0 +1,39 @@
+# Core application and runtime dependencies shared by every image flavor.
+fastapi==0.139.2
+uvicorn[standard]==0.51.0
+pydantic==2.13.4
+pydantic-settings==2.14.2
+structlog==26.1.0
+aiosqlite==0.22.1
+aiofiles>=25.1.0
+httpx==0.28.1
+python-multipart==0.0.32
+
+# Image processing
+Pillow>=12.3.0
+numpy<2.0.0
+opencv-python-headless<4.11
+
+# TensorFlow Lite compatibility. Python 3.12 does not currently have a usable
+# tflite-runtime wheel for the Linux ARM64 container, so that image uses the
+# architecture-specific wheel. Non-Linux development uses TensorFlow's native
+# package instead of accidentally selecting the Linux-only ARM64 distribution.
+tensorflow-cpu; python_version >= '3.12' and sys_platform == "linux" and platform_machine != "aarch64" and platform_machine != "arm64"
+tensorflow-aarch64==2.16.1; python_version >= '3.12' and sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "arm64")
+tensorflow; python_version >= '3.12' and sys_platform != "linux"
+
+aiomqtt==2.5.1
+alembic==1.18.5
+prometheus-client
+slowapi==0.1.10
+
+# Authentication
+pyjwt==2.13.0
+cryptography==49.0.0
+bcrypt==5.0.0
+
+# SMTP and OAuth notifications
+aiosmtplib==5.1.2
+google-auth==2.56.0
+google-auth-oauthlib==1.4.0
+jinja2==3.1.6

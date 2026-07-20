@@ -1106,7 +1106,10 @@
       "crop_tier_title": "Detector de recorte de aves",
       "fine_tuning_advanced_title": "Ajuste fino avanzado",
       "inference_advanced_title": "Modo de ejecución y diagnóstico en tiempo de ejecución",
-      "inference_diagnostics_title": "Diagnóstico en tiempo de ejecución"
+      "inference_diagnostics_title": "Diagnóstico en tiempo de ejecución",
+      "image_flavor_label": "Imagen",
+      "packaged_providers_label": "Incluidos",
+      "image_flavor_mismatch": "El entorno de ejecución {provider} no está incluido en la imagen {flavor}. Usa la imagen completa o una imagen del proveedor correspondiente y vuelve a crear el contenedor. La alternativa de CPU sigue disponible."
     },
     "llm": {
       "title": "Análisis de IA",

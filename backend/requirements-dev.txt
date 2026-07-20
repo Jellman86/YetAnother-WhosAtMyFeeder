@@ -1,0 +1,5 @@
+# Development and CI tools. Container runtime images intentionally exclude these.
+pytest==9.1.1
+pytest-asyncio==1.4.0
+coverage==7.15.2
+ruff

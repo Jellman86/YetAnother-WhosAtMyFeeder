@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1.7
+
 # Multi-stage build for Python 3.12
 FROM python:3.12-slim as builder
 
@@ -13,9 +15,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install python dependencies
-COPY requirements.txt .
-RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+# Install the full compatibility runtime. The legacy split backend is not
+# receiving provider-specific image variants before its v3 removal.
+COPY requirements*.txt /requirements/
+RUN pip wheel --no-cache-dir --wheel-dir /wheels \
+    -r /requirements/requirements-base.txt \
+    -r /requirements/requirements-provider-full.txt
 
 # Final stage
 FROM python:3.12-slim
@@ -31,6 +36,9 @@ ARG INTEL_GPU_APT_CHANNEL=noble/lts
 ENV GIT_HASH=${GIT_HASH}
 ENV APP_VERSION_BASE=${APP_VERSION_BASE}
 ENV APP_BRANCH=${APP_BRANCH}
+ENV YAWAMF_IMAGE_FLAVOR=full
+
+LABEL io.yawamf.image.flavor="full"
 
 # Install runtime libs for opencv/tflite and Intel iGPU OpenVINO acceleration.
 # NVIDIA CUDA/cuDNN userspace for ONNX Runtime is installed via backend/requirements.txt;
@@ -45,7 +53,8 @@ RUN set -eux; \
         gpg \
         libgl1 \
         libglib2.0-0 \
-        sqlite3; \
+        sqlite3 \
+        zlib1g; \
     if [ "${TARGETARCH:-amd64}" = "amd64" ]; then \
         install -d -m 0755 /etc/apt/keyrings; \
         curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 https://repositories.intel.com/gpu/intel-graphics.key \
@@ -61,12 +70,12 @@ RUN set -eux; \
     fi; \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /app/wheels /wheels
-COPY --from=builder /app/requirements.txt .
-
-# Install from requirements so extras like onnxruntime-gpu[cuda,cudnn] remain active
-# while still preferring the prebuilt local wheels we produced in the builder stage.
-RUN pip install --no-cache-dir --find-links /wheels -r requirements.txt
+COPY requirements*.txt /requirements/
+RUN --mount=type=bind,from=builder,source=/wheels,target=/wheels,ro \
+    pip install --no-cache-dir --no-index --find-links /wheels \
+        -r /requirements/requirements-base.txt \
+        -r /requirements/requirements-provider-full.txt; \
+    rm -rf /requirements
 
 # Create a non-root user and setup directories
 RUN useradd -m -u 1000 appuser && \

@@ -4951,6 +4951,27 @@ def test_classifier_status_exposes_openvino_model_compile_diagnostics():
 
 
 @pytest.mark.asyncio
+async def test_classifier_status_exposes_image_flavor_and_provider_mismatch(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "cpu")
+    original_provider = settings.classification.inference_provider
+    settings.classification.inference_provider = "cuda"
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+            service = ClassifierService()
+
+        status = service.get_status()
+
+        assert status["image_flavor"] == "cpu"
+        assert status["packaged_inference_providers"] == ["cpu"]
+        assert status["image_flavor_warning"] == "selected_provider_not_packaged"
+        assert settings.classification.inference_provider == "cuda"
+        await service.shutdown()
+    finally:
+        settings.classification.inference_provider = original_provider
+
+
+@pytest.mark.asyncio
 async def test_classifier_status_exposes_openvino_runtime_diagnostics_block():
     with patch.object(ClassifierService, "_init_bird_model", return_value=None):
         service = ClassifierService()

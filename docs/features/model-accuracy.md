@@ -294,7 +294,12 @@ Contributors with NVIDIA GPUs can run a separate diagnostic suite that tests eve
 
 #### Prerequisites
 
-The official YA-WAMF images now package the CUDA/cuDNN userspace runtime needed by `onnxruntime-gpu`. NVIDIA Container Toolkit must still be installed on the host so the GPU driver/runtime is exposed inside the container. Add GPU access to your compose file. For `docker-compose.monolith.yml`:
+Use the unsuffixed full image or a `-cuda` image for these probes; the CPU,
+Intel, and Raspberry Pi images deliberately omit CUDA. NVIDIA Container Toolkit
+must still be installed on the host so the GPU driver/runtime is exposed inside
+the container. Confirm **Settings → Detection → Runtime diagnostics** lists
+`cuda` under **Packaged**, then add GPU access to your Compose file. For
+`docker-compose.monolith.yml`:
 
 ```yaml
 services:

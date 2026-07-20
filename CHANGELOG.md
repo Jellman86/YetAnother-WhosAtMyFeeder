@@ -56,6 +56,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   loop. This resolves #100 and explains why affected installations had no corresponding backend log.
 
 ### Changed
+- **Inference runtimes are now available as smaller provider-family images without changing the
+  compatibility path.** Unsuffixed monolith tags remain the full CPU/CUDA/OpenVINO image, while
+  additive `-cpu`, `-intel`, and `-cuda` tags package only the selected runtime family and retain
+  CPU fallback. Every image reports its flavor separately from hardware availability, and an
+  explicit provider/image mismatch is visible in classifier diagnostics. Runtime images no longer
+  retain their build wheelhouse or install pytest, Coverage, and Ruff, reducing distribution size
+  without changing `/config`, `/data`, models, migrations, or application behaviour. The dedicated
+  Raspberry Pi image now explicitly uses the CPU dependency set, while non-Linux ARM development
+  environments no longer select its Linux-only TensorFlow package. Pinned Intel NPU driver assets
+  are checksum-verified and required, preventing a full or Intel image from publishing with a
+  silently incomplete runtime. Mutable flavor tags are now promoted only after every immutable
+  image starts successfully and a full → CPU → full round trip preserves byte-identical application
+  config, model artifact and model sidecar, SQLite integrity, Git identity, and an intentionally
+  incompatible provider setting. Setup, troubleshooting, API, model-testing, development, and
+  release documentation use the same packaging/availability/active-state vocabulary and preserve
+  the established `YAWAMF_MONALITHIC_*` Compose variable spelling.
 - **Routine dependency updates now keep runtime compatibility explicit.** Frontend charts use the
   ApexCharts 6 slim core rather than shipping its opt-in authoring feature set, telemetry changes
   are compiled in CI instead of merely installed, and GitHub workflows use setup-node 7. The
@@ -63,7 +79,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   are available from the normal package index; CI now declares coverage.py directly instead of
   carrying the unused pytest-cov plugin.
 - **The full translation editorial sweep is complete across all nine catalogs.** Every locale has
-  the same 1,977 leaf keys and matching interpolation tokens. Copied English enrichment guidance,
+  the same 1,981 leaf keys and matching interpolation tokens. Copied English enrichment guidance,
   accent-stripped settings and video-player strings, Russian open-source terminology, Japanese
   spacing, French punctuation spacing, stray catalog whitespace, and application-wide ellipsis
   typography have been corrected. A new CI gate catches encoding damage, whitespace, ASCII prose

@@ -238,7 +238,7 @@ The editorial gate additionally rejects encoding damage, surrounding whitespace,
 prose, known accent-loss substitutions, incorrect French double-punctuation spacing, and
 sentence-length Latin-only copy in Japanese, Russian, or Chinese.
 
-✅ **The application-wide editorial sweep is recorded**: all nine catalogs contain the same 1,977
+✅ **The application-wide editorial sweep is recorded**: all nine catalogs contain the same 1,981
 leaf keys, interpolation tokens are preserved, and no sentence-length English copy remains in the
 non-Latin catalogs outside technical examples. The pass corrected copied English enrichment copy,
 accent-stripped settings and video-player text, Russian and Japanese phrasing, French punctuation
@@ -360,11 +360,15 @@ These are high-value follow-ups. A measured regression can promote a specific it
 exit criteria; the broad initiatives do not block the release by default.
 
 #### Performance optimization 🚀
-**Priority:** P1 | **Effort:** L | **Status:** ☐ Not started (connection pooling done)
+**Priority:** P1 | **Effort:** L | **Status:** 🔄 Foundations in progress
 
-Tune for large installations: DB query optimization (indexes, optional result caching,
-cursor pagination), backend async hardening + a background task queue (ARQ/Celery), frontend
-lazy-loading/virtual-scrolling/bundle reduction, and a benchmark suite for regression testing.
+✅ Connection pooling, route/locale lazy loading, bounded frontend work, and provider-family runtime
+images are delivered. The full compatibility image remains available, while additive CPU, Intel and
+CUDA images isolate large hardware stacks and remove build-only tooling/layers. Image promotion is
+gated by per-flavor startup checks and a shared-volume full → CPU → full integrity round trip.
+Remaining: DB query optimization (indexes, optional result caching, cursor pagination), further
+backend async hardening + a background task queue (ARQ/Celery), targeted virtual scrolling, and a
+benchmark suite for regression testing.
 
 #### Broader end-to-end coverage 🧪
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Targeted coverage exists

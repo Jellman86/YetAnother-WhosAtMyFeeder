@@ -1115,7 +1115,10 @@
       "crop_tier_title": "Bird crop detector",
       "fine_tuning_advanced_title": "Advanced fine tuning",
       "inference_advanced_title": "Execution mode & runtime diagnostics",
-      "inference_diagnostics_title": "Runtime diagnostics"
+      "inference_diagnostics_title": "Runtime diagnostics",
+      "image_flavor_label": "Image",
+      "packaged_providers_label": "Packaged",
+      "image_flavor_mismatch": "The {provider} runtime is not included in the {flavor} image. Use the full image or a matching provider image, then recreate the container. CPU fallback remains available."
     },
     "llm": {
       "title": "AI Insights",
