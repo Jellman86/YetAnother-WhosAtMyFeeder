@@ -154,14 +154,23 @@ The cache now distinguishes **partial but measurable** media from corrupt/stub m
 is retained and may feed video/HQ work; an unmeasurable clip is not accepted merely because its file
 size is non-zero. Full-visit reconciliation stops fetching once a usable partial exists.
 
+Manual temporal reclassification now applies that same contract end to end. An explicit video
+request is no longer short-circuited by a confident snapshot preflight, and stale Frigate
+`has_clip` metadata cannot hide a locally retained full-visit clip. Candidate resolution proceeds
+from complete recording to decodable partial recording, cached event clip, and live Frigate event
+clip. A corrupt cached candidate is removed without preventing the next source from being tried;
+only exhaustion of usable video activates snapshot fallback.
+
 HQ recovery now also persists event-scoped retry state across restarts. Failures back off for five,
 fifteen, and forty-five minutes and become terminal on the fourth failed attempt. Successful manual
 or automatic generation clears the failure. State is isolated from species data and cascades away
 when its detection is deleted.
 
 **Second-order consequence:** a partial visit has less temporal coverage but is strictly better than
-discarding all usable evidence. Terminal recovery does not prevent an owner from explicitly
-regenerating the snapshot after upstream media becomes available.
+discarding all usable evidence. Manual Reclassify can consume the same retained bytes the owner can
+play even after Frigate retention expires, while still refusing a file that exists but cannot be
+decoded. Terminal recovery does not prevent an owner from explicitly regenerating the snapshot
+after upstream media becomes available.
 
 ### 8. Runtime failures could look like valid empty classifications — high, fixed
 

@@ -176,11 +176,18 @@ source counts, snapshot outcomes, classification-refinement outcomes, and the re
 for operational verification.
 
 ## Automatic Video Analysis (Deep Analysis)
-In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background task scans the full video clip frame-by-frame (temporal ensemble) to verify the identification.
+In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background
+task scans a video across multiple frames (temporal ensemble) to verify the identification. Manual
+video reclassification uses the best playable source already retained by YA-WAMF before contacting
+Frigate: a complete full-visit recording, a decodable partial recording, or the cached event clip.
+An unreadable cache entry is discarded and the next source is tried; a snapshot is the final
+fallback, not a shortcut around usable video.
 
 ![Deep Video Analysis](../images/event_details_modal.png)
 
 This provides significantly higher confidence by seeing the bird from multiple angles and in motion.
+See [Deep Video Analysis](video-analysis.md) for source selection, consensus, fallback, and runtime
+requirements.
 
 
 ## Frigate sublabel fallback

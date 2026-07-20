@@ -493,7 +493,10 @@ clean fallback chains.
 multi-frame crop classification refinement for distant subjects, recording-frame classification
 fallback, media caching, and the video player with HTTP-Range seeking + expiring watermarked share
 links. Playable partial recordings are retained instead of refetched forever, corrupt media remains
-rejected, and HQ recovery has persistent bounded backoff across container restarts.
+rejected, and HQ recovery has persistent bounded backoff across container restarts. Manual temporal
+reclassification follows the same best-available-media contract: complete cached recording →
+decodable partial recording → cached event clip → Frigate event clip → snapshot fallback, with an
+invalid cache entry unable to block the next usable source.
 
 **Integrations:** Frigate NVR (MQTT + media proxy), BirdNET-Go audio correlation, multi-platform
 notifications (Discord/Telegram/Pushover/Email + Notification Center), BirdWeather, eBird (sightings,
