@@ -6919,6 +6919,14 @@
           },
           "ineligible_cameras": {
             "additionalProperties": {
+              "enum": [
+                "camera_disabled",
+                "camera_not_found",
+                "recordings_disabled",
+                "record_stream_missing",
+                "continuous_retention_disabled",
+                "retention_unknown"
+              ],
               "type": "string"
             },
             "title": "Ineligible Cameras",
@@ -6927,6 +6935,18 @@
           "reason": {
             "anyOf": [
               {
+                "enum": [
+                  "config_unavailable",
+                  "no_matching_cameras",
+                  "recordings_disabled",
+                  "record_stream_missing",
+                  "continuous_retention_disabled",
+                  "camera_disabled",
+                  "camera_not_found",
+                  "partial_camera_coverage",
+                  "camera_configuration_incomplete",
+                  "retention_unknown"
+                ],
                 "type": "string"
               },
               {

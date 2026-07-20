@@ -33,7 +33,7 @@ Once complete, the detection card updates with the new result.
 
 ## Requirements
 
-- `record: enabled: True` must be set in your Frigate config, with `continuous.days` set to at least `1` so the recording exists when analysis runs.
+- `record: enabled: True` must be set in your Frigate config, every analyzed camera needs an FFmpeg input with the `record` role, and `continuous.days` must be at least `1` so the recording exists when analysis runs. Alert/detection retention alone only preserves matching event segments and cannot guarantee the complete analysis window.
 - The active model must be downloaded. Deep Video Analysis uses the same model as real-time detection.
 
 See the [Recommended Frigate Config](../setup/frigate-config.md) for the exact recording settings needed.

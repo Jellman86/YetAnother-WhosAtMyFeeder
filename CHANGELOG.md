@@ -25,6 +25,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   a successful automatic or explicit regeneration.
 
 ### Fixed
+- **Full-visit availability now means complete continuous coverage.** The Frigate capability check
+  no longer mistakes long alert/detection retention for a contiguous recording timeline, requires
+  an active camera with a real `record` stream role, and requires every selected camera to qualify.
+  Per-camera retention correctly overrides the global value, and the UI reports the guaranteed
+  minimum rather than the most optimistic retention. A quiet inline Settings status now names each
+  affected camera and explains the exact corrective action, while an already-enabled setting can
+  still be switched off safely.
 - **Late BirdNET detections now appear in visual detection details.** Opening a detection checks
   persisted audio history with the configured time window and camera/source mapping, even when no
   audio hint was stored during visual ingest. Nearby sounds remain clearly separate from a confirmed

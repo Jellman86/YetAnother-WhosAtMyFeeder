@@ -1021,8 +1021,8 @@ export interface components {
 };
     RecordingClipCapabilityResponse: {
     eligible_cameras: Array<string>;
-    ineligible_cameras: Record<string, string>;
-    reason?: string | null;
+    ineligible_cameras: Record<string, "camera_disabled" | "camera_not_found" | "recordings_disabled" | "record_stream_missing" | "continuous_retention_disabled" | "retention_unknown">;
+    reason?: "config_unavailable" | "no_matching_cameras" | "recordings_disabled" | "record_stream_missing" | "continuous_retention_disabled" | "camera_disabled" | "camera_not_found" | "partial_camera_coverage" | "camera_configuration_incomplete" | "retention_unknown" | null;
     recordings_enabled: boolean;
     retention_days?: number | null;
     supported: boolean;

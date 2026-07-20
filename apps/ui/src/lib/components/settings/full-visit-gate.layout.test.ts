@@ -29,4 +29,15 @@ describe('full-visit clip settings gate wiring', () => {
         expect(connectionSettingsSource).toContain('canToggleRecordingClips');
         expect(connectionSettingsSource).toContain('disabled={!canToggleRecordingClips}');
     });
+
+    it('explains incomplete Frigate coverage without another settings card', () => {
+        expect(connectionSettingsSource).toContain("case 'continuous_retention_disabled'");
+        expect(connectionSettingsSource).toContain("case 'record_stream_missing'");
+        expect(connectionSettingsSource).toContain("case 'partial_camera_coverage'");
+        expect(connectionSettingsSource).toContain('data-full-visit-capability');
+        expect(connectionSettingsSource).toContain('role="status"');
+        expect(connectionSettingsSource).toContain('record.continuous.days');
+        expect(connectionSettingsSource).toContain('recordingClipCapability.ineligible_cameras');
+        expect(connectionSettingsSource).not.toContain('full_visit_capability');
+    });
 });

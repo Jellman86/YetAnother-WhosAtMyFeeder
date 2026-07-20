@@ -26,7 +26,11 @@ from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.i18n_service import i18n_service
 from app.utils.language import get_user_language
-from app.utils.frigate_recording import evaluate_recording_clip_capability
+from app.utils.frigate_recording import (
+    RecordingCameraIssue,
+    RecordingCapabilityReason,
+    evaluate_recording_clip_capability,
+)
 from app.auth import (
     AuthContext,
     AuthLevel,
@@ -453,11 +457,11 @@ class FrigateCameraStatusResponse(BaseModel):
 
 class RecordingClipCapabilityResponse(BaseModel):
     supported: bool
-    reason: str | None = None
+    reason: RecordingCapabilityReason | None = None
     recordings_enabled: bool
     retention_days: float | None = None
     eligible_cameras: list[str]
-    ineligible_cameras: dict[str, str]
+    ineligible_cameras: dict[str, RecordingCameraIssue]
 
 
 class SnapshotStatusResponse(BaseModel):
