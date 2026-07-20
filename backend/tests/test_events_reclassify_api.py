@@ -220,6 +220,57 @@ async def test_reclassify_video_falls_back_to_event_clip_when_cached_recording_i
 
 
 @pytest.mark.asyncio
+async def test_reclassify_video_tries_cached_event_clip_when_recording_header_is_invalid(
+    client: httpx.AsyncClient,
+    tmp_path,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.media_cache.high_quality_event_snapshots = False
+    event_id = "evt-reclassify-video-invalid-recording-header"
+    await _insert_detection(event_id, "Unknown Bird", "cam1")
+
+    recording_path = tmp_path / f"{event_id}_recording.mp4"
+    recording_path.write_bytes(b"invalid-recording" + (b"x" * 512))
+    event_path = tmp_path / f"{event_id}.mp4"
+    event_bytes = b"\x00\x00\x00\x18ftypisomevent" + (b"x" * 512)
+    event_path.write_bytes(event_bytes)
+
+    classifier = MagicMock()
+    classifier.classify_video_async = AsyncMock(return_value=[{"label": "Robin", "score": 0.91, "index": 1}])
+
+    try:
+        with (
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch("app.services.detection_service.DetectionService") as mock_detection_service,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+            patch(
+                "app.routers.events._get_valid_cached_recording_clip_path",
+                new=AsyncMock(return_value=(str(recording_path), "cam1", 1700000000, 1700000030)),
+            ),
+            patch("app.routers.events.media_cache.get_recording_clip_path", return_value=recording_path),
+            patch("app.routers.events.media_cache.get_clip_path", return_value=event_path),
+            patch("cv2.VideoCapture", _GoodVideoCapture),
+        ):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": True}, None))
+            mock_frigate.get_clip_with_error = AsyncMock(return_value=(None, "event_not_found"))
+            mock_frigate.get_snapshot = AsyncMock(return_value=None)
+            mock_detection_service.return_value.apply_video_result = AsyncMock()
+
+            response = await client.post(f"/api/events/{event_id}/reclassify", params={"strategy": "video"})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["actual_strategy"] == "video"
+        classifier.classify_video_async.assert_awaited_once()
+        mock_frigate.get_clip_with_error.assert_not_awaited()
+        assert classifier.classify_video_async.await_args.kwargs["input_context"]["clip_variant"] == "event"
+        assert not recording_path.exists()
+    finally:
+        await _delete_detection(event_id)
+
+
+@pytest.mark.asyncio
 async def test_reclassify_video_falls_back_to_event_clip_when_cached_recording_is_too_short(
     client: httpx.AsyncClient,
 ):

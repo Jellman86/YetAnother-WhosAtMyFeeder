@@ -31,7 +31,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   than requested, then tries the cached event clip before Frigate. A fetched full-visit clip also
   selects video reclassification even when stale event metadata still says `has_clip: false`.
   Snapshot analysis remains the defensive fallback only when every video source is absent or
-  unusable, and a successful cached-video run clears stale `event_not_found` status.
+  unusable; an invalid cached candidate is removed and the next video source is tried first. A
+  successful cached-video run also clears stale `event_not_found` status.
 - **Manual reclassification now treats model abstention as a safe outcome.** When video analysis and
   its snapshot fallback cannot produce a confident species, the API returns `no_result` without
   changing the existing identification instead of returning HTTP 500. Reclassification now emits
