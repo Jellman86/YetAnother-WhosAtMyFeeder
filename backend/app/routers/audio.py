@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Request, Query, HTTPException
 from fastapi.responses import Response
 import httpx
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 import json
 import structlog
 from pydantic import BaseModel
@@ -12,11 +12,12 @@ from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.database import get_db
-from app.repositories.detection_repository import DetectionRepository
+from app.repositories.detection_repository import DetectionRepository, match_audio_history_visual_events
 from app.utils.language import get_user_language
 from app.utils.audio_localization import localize_audio_detections
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.api_datetime import serialize_api_datetime
+from app.utils.public_access import effective_public_events_days
 
 router = APIRouter(prefix="/audio", tags=["audio"])
 log = structlog.get_logger()
@@ -41,6 +42,7 @@ class AudioDetectionResponse(BaseModel):
 
 class AudioHistoryDetectionResponse(AudioDetectionResponse):
     id: int
+    matched_visual_event_id: str | None = None
 
 
 class AudioHistoryResponse(BaseModel):
@@ -217,10 +219,41 @@ async def get_audio_history(
             limit=limit,
             offset=offset,
         )
+        if result["items"]:
+            correlation_window = max(0, int(settings.frigate.audio_correlation_window_seconds))
+            item_times: list[datetime] = []
+            for item in result["items"]:
+                item_time = datetime.fromisoformat(item["timestamp"])
+                item_times.append(
+                    item_time.replace(tzinfo=timezone.utc)
+                    if item_time.tzinfo is None
+                    else item_time.astimezone(timezone.utc)
+                )
+            candidate_start = min(item_times) - timedelta(seconds=correlation_window)
+            candidate_end = max(item_times) + timedelta(seconds=correlation_window)
+            if not auth.is_owner and settings.public_access.enabled:
+                public_days = effective_public_events_days()
+                cutoff_date = date.today() - timedelta(days=public_days) if public_days > 0 else date.today()
+                public_cutoff = datetime.combine(cutoff_date, datetime.min.time(), tzinfo=timezone.utc)
+                candidate_start = max(candidate_start, public_cutoff)
+            candidates = await repo.get_audio_visual_match_candidates(
+                start_date=candidate_start,
+                end_date=candidate_end,
+                scientific_names={item["scientific_name"] for item in result["items"] if item.get("scientific_name")},
+            )
+            matches = match_audio_history_visual_events(
+                result["items"],
+                candidates,
+                window_seconds=correlation_window,
+                camera_audio_mapping=settings.frigate.camera_audio_mapping,
+            )
+            for item in result["items"]:
+                item["matched_visual_event_id"] = matches.get(item["id"])
         await localize_audio_detections(result["items"], lang, db)
 
     for detection in result["items"]:
         detection.pop("scientific_name", None)
+        detection.pop("_mapping_keys", None)
         if hide_sensor:
             detection["sensor_id"] = None
             detection["source_name"] = None

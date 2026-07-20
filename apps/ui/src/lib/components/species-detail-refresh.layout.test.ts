@@ -54,4 +54,9 @@ describe('species detail field-record layout', () => {
         expect(barChartSource).not.toContain('tabindex="0"');
         expect(barChartSource).not.toContain('text-[9px]');
     });
+
+    it('keeps unknown-species reclassification owner-only', () => {
+        expect(speciesDetailSource).toContain('if (!authStore.canModify || !recentSighting || reclassifying) return;');
+        expect(speciesDetailSource).toContain('{#if authStore.canModify}');
+    });
 });

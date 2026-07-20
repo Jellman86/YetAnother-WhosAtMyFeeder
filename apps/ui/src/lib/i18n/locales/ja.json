@@ -1545,7 +1545,7 @@
     },
     "table": {
       "sound": "音声", "time": "時刻", "species": "種", "source": "音源", "confidence": "信頼度",
-      "open_birdnet": "BirdNET-Go で開く", "unknown_source": "不明な音源"
+      "open_birdnet": "BirdNET-Go で開く", "open_visual_match": "一致する映像検出を開く", "unknown_source": "不明な音源"
     },
     "sources": { "title": "音源", "empty": "音源はまだありません。" }
   },

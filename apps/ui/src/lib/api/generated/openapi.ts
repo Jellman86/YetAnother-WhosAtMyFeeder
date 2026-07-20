@@ -123,6 +123,7 @@ export interface components {
     birdnet_id?: number | null;
     confidence: number;
     id: number;
+    matched_visual_event_id?: string | null;
     sensor_id?: string | null;
     source_name?: string | null;
     species: string;
@@ -2317,6 +2318,7 @@ export interface paths {
     audio_confirmed_only?: boolean;
     camera?: string | null;
     end_date?: string | null;
+    event_id?: string | null;
     favorites?: boolean;
     fields?: string | null;
     include_hidden?: boolean;

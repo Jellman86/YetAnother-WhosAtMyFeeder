@@ -1545,7 +1545,7 @@
     },
     "table": {
       "sound": "声音", "time": "时间", "species": "物种", "source": "来源",
-      "confidence": "置信度", "open_birdnet": "在 BirdNET-Go 中打开", "unknown_source": "未知来源"
+      "confidence": "置信度", "open_birdnet": "在 BirdNET-Go 中打开", "open_visual_match": "打开匹配的视觉检测", "unknown_source": "未知来源"
     },
     "sources": { "title": "来源", "empty": "尚无来源。" }
   },

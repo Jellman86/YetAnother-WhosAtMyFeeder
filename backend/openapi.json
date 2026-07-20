@@ -868,6 +868,17 @@
             "title": "Id",
             "type": "integer"
           },
+          "matched_visual_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Visual Event Id"
+          },
           "sensor_id": {
             "anyOf": [
               {
@@ -16143,6 +16154,25 @@
               ],
               "description": "Filter by camera name",
               "title": "Camera"
+            }
+          },
+          {
+            "description": "Filter by exact Frigate event ID",
+            "in": "query",
+            "name": "event_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 255,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by exact Frigate event ID",
+              "title": "Event Id"
             }
           },
           {

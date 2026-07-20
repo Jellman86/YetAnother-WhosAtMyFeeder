@@ -1579,6 +1579,7 @@
       "source": "Source",
       "confidence": "Confidence",
       "open_birdnet": "Open in BirdNET-Go",
+      "open_visual_match": "Open matching visual detection",
       "unknown_source": "Unknown source"
     },
     "sources": {

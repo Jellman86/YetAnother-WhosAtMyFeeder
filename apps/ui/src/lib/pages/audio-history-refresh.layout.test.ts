@@ -53,4 +53,13 @@ describe('BirdNET history listening-log layout', () => {
         expect(audioHistorySource).toContain('<SpeciesDetailModal');
         expect(audioHistorySource).toContain('onclose={() => selectedSpecies = null}');
     });
+
+    it('links automatic visual matches to their exact detection', () => {
+        expect(audioHistorySource).toContain("import { appApiPath, toAppPath } from '../app/url-base'");
+        expect(audioHistorySource).toContain('detection.matched_visual_event_id');
+        expect(audioHistorySource).toContain('data-audio-visual-match-link');
+        expect(audioHistorySource).toContain("toAppPath(`/events?event=${encodeURIComponent(detection.matched_visual_event_id)}`)");
+        expect(audioHistorySource).toContain("$_('audio.table.open_visual_match')");
+        expect(audioHistorySource).toContain('min-h-11 min-w-11');
+    });
 });

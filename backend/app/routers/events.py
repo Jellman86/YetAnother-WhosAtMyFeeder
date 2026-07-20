@@ -553,6 +553,7 @@ async def get_events(
     end_date: Optional[date] = Query(default=None, description="Filter events until this date (inclusive)"),
     species: Optional[str] = Query(default=None, description="Filter by species name"),
     camera: Optional[str] = Query(default=None, description="Filter by camera name"),
+    event_id: Optional[str] = Query(default=None, max_length=255, description="Filter by exact Frigate event ID"),
     favorites: bool = Query(default=False, description="Only return favorited detections"),
     audio_confirmed_only: bool = Query(default=False, description="Only return detections with audio confirmation"),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
@@ -619,6 +620,7 @@ async def get_events(
             include_hidden=include_hidden,
             favorite_only=favorites,
             audio_confirmed_only=audio_confirmed_only,
+            frigate_event=event_id,
         )
 
         # Batch fetch clip availability from Frigate (eliminates N individual HEAD requests)

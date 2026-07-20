@@ -208,6 +208,8 @@
                     selectedEvent = target;
                     pendingEventId = null;
                     clearEventVideoDeepLinkParams();
+                } else {
+                    await loadDeepLinkedEvent(pendingEventId);
                 }
             }
         } catch (e) {
@@ -221,6 +223,25 @@
             console.error('Failed to load events', e);
         } finally {
             if (loadGeneration === eventsLoadGeneration) loading = false;
+        }
+    }
+
+    async function loadDeepLinkedEvent(eventId: string) {
+        try {
+            const [target] = await fetchEvents({
+                eventId,
+                limit: 1,
+                fields: 'detail',
+                requestKey: 'events-page:deep-link'
+            });
+            if (!target || pendingEventId !== eventId) return;
+            selectedEvent = target;
+            pendingEventId = null;
+            clearEventVideoDeepLinkParams();
+        } catch (e) {
+            if (!(e instanceof Error && e.name === 'AbortError')) {
+                console.error('Failed to resolve event deep link', e);
+            }
         }
     }
 

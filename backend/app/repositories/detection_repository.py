@@ -198,6 +198,66 @@ def _extract_birdnet_source_name(sensor_id: str | None, raw_data: str | None) ->
     return None
 
 
+def match_audio_history_visual_events(
+    audio_items: list[dict],
+    candidates: list[dict],
+    *,
+    window_seconds: int,
+    camera_audio_mapping: dict[str, str],
+) -> dict[int, str]:
+    """Conservatively match audio rows to completed automatic video results."""
+    resolved: dict[int, str] = {}
+    bounded_window = max(0, int(window_seconds))
+
+    for audio_item in audio_items:
+        scientific_name = _normalize_species_lookup_name(audio_item.get("scientific_name"))
+        audio_id = audio_item.get("id")
+        if not scientific_name or not isinstance(audio_id, int):
+            continue
+        audio_time = _parse_datetime(audio_item.get("timestamp"))
+        audio_time = (
+            audio_time.replace(tzinfo=timezone.utc)
+            if audio_time.tzinfo is None
+            else audio_time.astimezone(timezone.utc)
+        )
+        audio_keys = {
+            normalized
+            for value in audio_item.get("_mapping_keys", set())
+            if (normalized := _normalize_mapping_key(value))
+        }
+
+        ranked: list[tuple[float, float, float, str]] = []
+        for candidate in candidates:
+            if _normalize_species_lookup_name(candidate.get("video_classification_label")) != scientific_name:
+                continue
+            candidate_time = _parse_datetime(candidate.get("detection_time"))
+            candidate_time = (
+                candidate_time.replace(tzinfo=timezone.utc)
+                if candidate_time.tzinfo is None
+                else candidate_time.astimezone(timezone.utc)
+            )
+            delta = abs((candidate_time - audio_time).total_seconds())
+            if delta > bounded_window:
+                continue
+
+            mapping_value = camera_audio_mapping.get(str(candidate.get("camera_name") or ""))
+            wildcard_mapping, mapping_keys = _parse_mapping_filter_values(mapping_value)
+            if not wildcard_mapping and not audio_keys.intersection(mapping_keys):
+                continue
+
+            event_id = str(candidate.get("frigate_event") or "").strip()
+            if not event_id:
+                continue
+            score = float(candidate.get("video_classification_score") or 0.0)
+            ranked.append((delta, -score, -candidate_time.timestamp(), event_id))
+
+        if ranked:
+            ranked.sort()
+            resolved[audio_id] = ranked[0][3]
+
+    return resolved
+
+
 def _row_to_detection(row: aiosqlite.Row) -> Detection:
     """Convert a database row to a Detection object."""
     d = Detection(
@@ -1447,6 +1507,7 @@ class DetectionRepository:
         include_hidden: bool = False,
         favorite_only: bool = False,
         audio_confirmed_only: bool = False,
+        frigate_event: str | None = None,
     ) -> list[Detection]:
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
         query = (
@@ -1513,6 +1574,9 @@ class DetectionRepository:
             conditions.append("f.detection_id IS NOT NULL")
         if audio_confirmed_only:
             conditions.append("d.audio_confirmed = 1")
+        if frigate_event:
+            conditions.append("d.frigate_event = ?")
+            params.append(frigate_event)
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -3834,6 +3898,7 @@ class DetectionRepository:
                     "source_name": _extract_birdnet_source_name(row[4], raw_data),
                     "scientific_name": row[5],
                     "birdnet_id": birdnet_id,
+                    "_mapping_keys": _extract_audio_mapping_keys(row[4], raw_data),
                 }
             )
 
@@ -3843,6 +3908,49 @@ class DetectionRepository:
             "limit": limit,
             "offset": offset,
         }
+
+    async def get_audio_visual_match_candidates(
+        self,
+        *,
+        start_date: datetime,
+        end_date: datetime,
+        scientific_names: set[str],
+    ) -> list[dict]:
+        """Return bounded automatic video results eligible for audio-history links."""
+        normalized_names = sorted(
+            {normalized for name in scientific_names if (normalized := _normalize_species_lookup_name(name))}
+        )
+        if not normalized_names:
+            return []
+
+        placeholders = ", ".join("?" for _ in normalized_names)
+        params: list[object] = [
+            start_date.isoformat(sep=" "),
+            end_date.isoformat(sep=" "),
+            *normalized_names,
+        ]
+        query = f"""SELECT frigate_event, detection_time, camera_name,
+                           video_classification_label, video_classification_score
+                    FROM detections
+                    WHERE detection_time >= ?
+                      AND detection_time <= ?
+                      AND (is_hidden = 0 OR is_hidden IS NULL)
+                      AND (manual_tagged = 0 OR manual_tagged IS NULL)
+                      AND video_classification_status = 'completed'
+                      AND video_classification_label IS NOT NULL
+                      AND LOWER(TRIM(video_classification_label)) IN ({placeholders})"""
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+        return [
+            {
+                "frigate_event": row[0],
+                "detection_time": row[1],
+                "camera_name": row[2],
+                "video_classification_label": row[3],
+                "video_classification_score": row[4],
+            }
+            for row in rows
+        ]
 
     async def get_audio_history_summary(
         self,

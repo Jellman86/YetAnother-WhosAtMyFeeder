@@ -2267,7 +2267,7 @@
                  score didn't clear the auto-promotion floor, so the primary display
                  wasn't updated. Manual reclassify is the documented path here, so we
                  wire the existing handler in directly. -->
-            {#if videoPromotionGated && !readOnly && onReclassify}
+            {#if videoPromotionGated && hasOwnerDetectionActions && onReclassify}
                 <div class="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/30 text-indigo-900 dark:text-indigo-200 flex items-start gap-3" role="status">
                     <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="12" cy="12" r="10"/>

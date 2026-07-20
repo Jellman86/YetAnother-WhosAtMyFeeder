@@ -1562,6 +1562,7 @@
     "table": {
       "sound": "Ton", "time": "Zeit", "species": "Art", "source": "Quelle",
       "confidence": "Konfidenz", "open_birdnet": "In BirdNET-Go öffnen",
+      "open_visual_match": "Passende visuelle Erkennung öffnen",
       "unknown_source": "Unbekannte Quelle"
     },
     "sources": { "title": "Quellen", "empty": "Noch keine Quellen." }

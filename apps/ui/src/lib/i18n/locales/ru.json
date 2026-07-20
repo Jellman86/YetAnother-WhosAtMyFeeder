@@ -1557,6 +1557,7 @@
     "table": {
       "sound": "Звук", "time": "Время", "species": "Вид", "source": "Источник",
       "confidence": "Уверенность", "open_birdnet": "Открыть в BirdNET-Go",
+      "open_visual_match": "Открыть совпадающее визуальное обнаружение",
       "unknown_source": "Неизвестный источник"
     },
     "sources": { "title": "Источники", "empty": "Источников пока нет." }

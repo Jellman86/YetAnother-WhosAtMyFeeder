@@ -51,4 +51,11 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource.match(/scope="col"/g)?.length ?? 0).toBeGreaterThanOrEqual(6);
         expect(leaderboardSource).toContain('tabular-nums');
     });
+
+    it('links BirdNET-enabled leaderboards to the complete listening history', () => {
+        expect(leaderboardSource).toContain("import { toAppPath } from '../app/url-base'");
+        expect(leaderboardSource).toContain('data-leaderboard-audio-history-link');
+        expect(leaderboardSource).toContain("href={toAppPath('/audio')}");
+        expect(leaderboardSource).toContain("$_('nav.audio_history')");
+    });
 });

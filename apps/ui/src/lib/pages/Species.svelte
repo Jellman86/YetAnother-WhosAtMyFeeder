@@ -39,6 +39,7 @@
     import { StaleTracker } from '../utils/stale_tracker';
     import type { ApexOptions } from 'apexcharts';
     import type { TemperatureUnit } from '../utils/temperature';
+    import { toAppPath } from '../app/url-base';
 
     type LeaderboardRow = {
         species: string;
@@ -1443,6 +1444,16 @@
 
         <div class="flex flex-wrap items-center gap-3">
             {#if birdnetEnabled}
+                <a
+                    data-leaderboard-audio-history-link
+                    href={toAppPath('/audio')}
+                    class="btn btn-secondary inline-flex min-h-11 items-center gap-2 px-3 text-xs focus-visible:ring-2 focus-visible:ring-brand-500"
+                >
+                    <svg aria-hidden="true" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 12v2m4-5v8m4-13v16m4-13v10m4-7v4" />
+                    </svg>
+                    {$_('nav.audio_history')}
+                </a>
                 <div class="inline-flex rounded-xl bg-slate-100 dark:bg-slate-800/70 p-0.5" role="group" aria-label={$_('leaderboard.source_toggle', { default: 'Detection source' })}>
                     <button
                         type="button"

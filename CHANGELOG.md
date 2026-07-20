@@ -7,6 +7,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+- **BirdNET history now connects matching sound and video evidence.** Completed automatic video
+  classifications are matched by scientific name, configured time window, and camera/audio source
+  mapping; a compact accessible icon opens the exact visual detection. The leaderboard also links
+  directly to the full listening history, and event deep links resolve independently of pagination.
 - **Distant birds can now be identified from the best high-quality crop automatically.** YA-WAMF
   classifies Frigate-hint and detector crops from several independent clip frames using the active
   model's declared input contract, then promotes only a clear multi-frame consensus. This can
@@ -21,6 +25,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   a successful automatic or explicit regeneration.
 
 ### Fixed
+- **Guest detection details no longer expose an unusable reclassify action.** The low-confidence
+  video-result notice now applies the same owner-access guard as every other mutation control.
 - **Image classification evidence is now kept in its correct domain.** Manual species corrections
   are protected by the same SQL statement that performs any automatic write; Frigate object score
   is no longer treated as sublabel confidence; local inference runs before a trusted Frigate

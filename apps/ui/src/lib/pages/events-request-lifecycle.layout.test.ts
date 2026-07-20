@@ -15,4 +15,11 @@ describe('event request lifecycle', () => {
         expect(eventsSource).toContain('if (loadGeneration !== eventsLoadGeneration) return;');
         expect(eventsSource).toContain('if (loadGeneration === eventsLoadGeneration) loading = false;');
     });
+
+    it('resolves an event deep link independently of the current page', () => {
+        expect(eventsSource).toContain('async function loadDeepLinkedEvent(eventId: string)');
+        expect(eventsSource).toContain('eventId,');
+        expect(eventsSource).toContain("requestKey: 'events-page:deep-link'");
+        expect(eventsSource).toContain('await loadDeepLinkedEvent(pendingEventId)');
+    });
 });

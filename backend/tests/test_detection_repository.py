@@ -121,6 +121,30 @@ async def test_detection_repository():
 
 
 @pytest.mark.asyncio
+async def test_get_all_can_target_one_frigate_event():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+        for event_id in ("evt-one", "evt-two"):
+            await repo.create(
+                Detection(
+                    detection_time=datetime(2026, 7, 20, 12, 0, 0),
+                    detection_index=1,
+                    score=0.9,
+                    display_name="Bird",
+                    category_name="Bird",
+                    frigate_event=event_id,
+                    camera_name="birdcam",
+                )
+            )
+
+        detections = await repo.get_all(frigate_event="evt-two")
+
+        assert [detection.frigate_event for detection in detections] == ["evt-two"]
+
+
+@pytest.mark.asyncio
 async def test_mark_and_clear_frigate_missing_state():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)

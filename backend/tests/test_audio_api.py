@@ -32,11 +32,13 @@ def reset_auth_config():
     original_public_enabled = settings.public_access.enabled
     original_show_camera_names = settings.public_access.show_camera_names
     original_camera_audio_mapping = dict(settings.frigate.camera_audio_mapping)
+    original_correlation_window = settings.frigate.audio_correlation_window_seconds
     yield
     settings.auth.enabled = original_auth_enabled
     settings.public_access.enabled = original_public_enabled
     settings.public_access.show_camera_names = original_show_camera_names
     settings.frigate.camera_audio_mapping = original_camera_audio_mapping
+    settings.frigate.audio_correlation_window_seconds = original_correlation_window
 
 
 @pytest.mark.asyncio
@@ -227,6 +229,77 @@ async def test_audio_history_filters_persisted_birdnet_detections(client: httpx.
     assert payload["items"][0]["source_name"] == "BirdCam"
     assert payload["items"][0]["birdnet_id"] == 101
     assert "scientific_name" not in payload["items"][0]
+
+
+@pytest.mark.asyncio
+async def test_audio_history_links_only_matching_automatic_video_classifications(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"birdcam": "BirdCam", "nestcam": "NestCam"}
+    settings.frigate.audio_correlation_window_seconds = 300
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        await db.execute("DELETE FROM detections")
+        await db.executemany(
+            """INSERT INTO audio_detections
+                   (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+            [
+                (
+                    now.isoformat(sep=" "),
+                    "Woodpigeon",
+                    0.92,
+                    "BirdCam",
+                    json.dumps({"detectionId": 201, "nm": "BirdCam"}),
+                    "Columba palumbus",
+                ),
+                (
+                    (now - timedelta(seconds=10)).isoformat(sep=" "),
+                    "Woodpigeon",
+                    0.89,
+                    "NestCam",
+                    json.dumps({"detectionId": 202, "nm": "NestCam"}),
+                    "Columba palumbus",
+                ),
+            ],
+        )
+        detection_rows = [
+            ("auto-match", "birdcam", 40, 0, 0, "completed", "Columba palumbus", 0.82),
+            ("manual-closer", "birdcam", 5, 1, 0, "completed", "Columba palumbus", 0.99),
+            ("hidden-closer", "birdcam", 8, 0, 1, "completed", "Columba palumbus", 0.99),
+            ("wrong-camera", "nestcam", 3, 0, 0, "completed", "Columba palumbus", 0.98),
+            ("wrong-species", "birdcam", 2, 0, 0, "completed", "Pica pica", 0.99),
+            ("failed-video", "birdcam", 1, 0, 0, "failed", "Columba palumbus", 0.99),
+        ]
+        for event_id, camera, delta, manual, hidden, status, label, score in detection_rows:
+            await db.execute(
+                """INSERT INTO detections
+                       (detection_time, detection_index, score, display_name, category_name,
+                        frigate_event, camera_name, manual_tagged, is_hidden,
+                        video_classification_status, video_classification_label,
+                        video_classification_score)
+                       VALUES (?, 1, 0.8, 'Bird', 'Bird', ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    (now + timedelta(seconds=delta)).isoformat(sep=" "),
+                    event_id,
+                    camera,
+                    manual,
+                    hidden,
+                    status,
+                    label,
+                    score,
+                ),
+            )
+        await db.commit()
+
+    response = await client.get("/api/audio/history", params={"days": 1, "limit": 10})
+    assert response.status_code == 200, response.text
+    items = {item["birdnet_id"]: item for item in response.json()["items"]}
+
+    assert items[201]["matched_visual_event_id"] == "auto-match"
+    assert items[202]["matched_visual_event_id"] == "wrong-camera"
 
 
 @pytest.mark.asyncio

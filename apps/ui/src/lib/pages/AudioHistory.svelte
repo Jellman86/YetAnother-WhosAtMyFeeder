@@ -14,7 +14,7 @@
     import { themeStore } from '../stores/theme.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { withAuthParams } from '../api/core';
-    import { appApiPath } from '../app/url-base';
+    import { appApiPath, toAppPath } from '../app/url-base';
     import { fetchSettings } from '../api/settings';
     import { formatDate, formatDateTime, formatTime } from '../utils/datetime';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
@@ -404,7 +404,25 @@
                                     </div>
                                 {/if}
                             </td>
-                            <td class="col-start-2 row-start-1 min-w-0 self-end truncate font-bold text-slate-900 md:table-cell md:py-3 md:pr-4 dark:text-white">{detection.species}</td>
+                            <td class="col-start-2 row-start-1 min-w-0 self-end font-bold text-slate-900 md:table-cell md:py-3 md:pr-4 dark:text-white">
+                                <span class="flex min-w-0 items-center gap-1">
+                                    <span class="truncate">{detection.species}</span>
+                                    {#if detection.matched_visual_event_id}
+                                        <a
+                                            data-audio-visual-match-link
+                                            href={toAppPath(`/events?event=${encodeURIComponent(detection.matched_visual_event_id)}`)}
+                                            class="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-brand-600 transition hover:bg-brand-500/10 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-400/10 dark:hover:text-brand-200"
+                                            aria-label={$_('audio.table.open_visual_match')}
+                                            title={$_('audio.table.open_visual_match')}
+                                        >
+                                            <svg aria-hidden="true" class="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M4 7.5A2.5 2.5 0 0 1 6.5 5h8A2.5 2.5 0 0 1 17 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-8A2.5 2.5 0 0 1 4 16.5v-9Z" />
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="m17 10 3-2v8l-3-2M8 12l1.5 1.5L13 10" />
+                                            </svg>
+                                        </a>
+                                    {/if}
+                                </span>
+                            </td>
                             <td class="col-start-2 row-start-2 min-w-0 self-start text-xs text-slate-500 md:table-cell md:whitespace-nowrap md:py-3 md:pr-4 md:text-sm dark:text-slate-400">
                                 <span class="md:font-bold">{formatDate(detection.timestamp)}</span>
                                 <span class="before:mx-1 before:content-['·'] md:block md:before:content-none">{formatTime(detection.timestamp, { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>

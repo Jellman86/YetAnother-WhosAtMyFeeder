@@ -1557,6 +1557,7 @@
     "table": {
       "sound": "Som", "time": "Hora", "species": "Espécie", "source": "Fonte",
       "confidence": "Confiança", "open_birdnet": "Abrir no BirdNET-Go",
+      "open_visual_match": "Abrir deteção visual correspondente",
       "unknown_source": "Fonte desconhecida"
     },
     "sources": { "title": "Fontes", "empty": "Ainda não há fontes." }

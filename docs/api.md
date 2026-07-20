@@ -221,11 +221,15 @@ Notes:
 
 - Audio:
   - `GET /api/audio/recent`
-  - `GET /api/audio/history`
+  - `GET /api/audio/history` — persisted BirdNET detections; `matched_visual_event_id` identifies a
+    completed automatic video classification that agrees by species, time window, and source mapping
   - `GET /api/audio/summary`
   - `GET /api/audio/species`
   - `GET /api/audio/context`
   - `GET /api/audio/sources`
+
+`GET /api/events` accepts `event_id` for an exact Frigate event lookup. It retains the same guest
+history, hidden-event, and camera-privacy restrictions as the paginated event list.
 - eBird:
   - `GET /api/ebird/export`
   - `GET /api/ebird/nearby`
