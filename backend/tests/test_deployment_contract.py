@@ -89,6 +89,17 @@ def test_each_published_runtime_flavor_gets_a_no_accelerator_smoke_test() -> Non
     assert "${{ github.sha }}${{ matrix.suffix }}" in workflow
 
 
+def test_runtime_flavor_builds_use_a_cache_capable_buildx_driver() -> None:
+    workflow = (REPO_ROOT / ".github/workflows/build-and-push.yml").read_text(encoding="utf-8")
+    build_job = workflow.split("  build-monolith:", 1)[1].split("  build-monolith-rpi:", 1)[0]
+
+    setup_offset = build_job.index("uses: docker/setup-buildx-action@v4")
+    build_offset = build_job.index("uses: docker/build-push-action@v7")
+    assert setup_offset < build_offset
+    assert "cache-from: type=gha,scope=monolith-${{ matrix.flavor }}" in build_job
+    assert "cache-to: type=gha,mode=max,scope=monolith-${{ matrix.flavor }}" in build_job
+
+
 def test_publication_is_blocked_until_full_and_cpu_share_persistent_state() -> None:
     workflow = (REPO_ROOT / ".github/workflows/build-and-push.yml").read_text(encoding="utf-8")
     switch_script = REPO_ROOT / "tests/e2e/monolith_runtime_flavor_switch.sh"
