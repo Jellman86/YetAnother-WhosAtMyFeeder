@@ -227,9 +227,8 @@
       warn: (message: string) => {
           toastStore.warning(message, 10_000);
       },
-      warningMessage: t('error.deploy_refresh_required', {
-          default: 'The app was updated while this tab was open. Refresh the page to load the latest build.'
-      })
+      report: (event) => logger.warn('deploy_recovery', { ...event }),
+      warningMessage: t('error.deploy_refresh_required')
   });
 
   function handleRouteLoadError(error: unknown): void {

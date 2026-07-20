@@ -15,6 +15,24 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   results remain untouched. The supporting evidence remains in the saved snapshot candidates,
   deep-video job state stays independent, and `/health` reports refinement outcomes.
 
+### Fixed
+- **Deployment refresh recovery now shows a real, localized message instead of
+  `error.deploy_refresh_required`.** The browser performs at most one automatic reload for each
+  backend build it encounters, reports the frontend/backend identities and recovery action through
+  client diagnostics, and emits only one warning for a mismatch that remains unresolved. A later
+  deployment can still trigger its own bounded recovery attempt, without trapping a tab in a reload
+  loop. This resolves #100 and explains why affected installations had no corresponding backend log.
+
+### Changed
+- **The full translation editorial sweep is complete across all nine catalogs.** Every locale has
+  the same 1,977 leaf keys and matching interpolation tokens. Copied English enrichment guidance,
+  accent-stripped settings and video-player strings, Russian open-source terminology, Japanese
+  spacing, French punctuation spacing, stray catalog whitespace, and application-wide ellipsis
+  typography have been corrected. A new CI gate catches encoding damage, whitespace, ASCII prose
+  ellipses, known accent-loss regressions, French double-punctuation spacing, and sentence-length
+  Latin-only copy in Japanese, Russian, or Chinese. This is an application/editorial review, not
+  independent native-speaker certification; that limitation remains explicit for the 3.0 release.
+
 ## [2.13.0] - 2026-07-19
 
 ### Fixed

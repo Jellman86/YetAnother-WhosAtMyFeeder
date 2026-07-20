@@ -83,6 +83,40 @@ describe('createDeployRecovery', () => {
         expect(recovery.handleRuntimeFailure({ message: 'Cannot read properties of undefined' })).toBe('ignore');
     });
 
+    it.each(['', 'unknown'])('does not recover without a concrete frontend identity (%j)', (appVersion) => {
+        const reload = vi.fn();
+        const warn = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion,
+            storage: createStorage(),
+            reload,
+            warn
+        });
+
+        expect(recovery.handleRuntimeFailure({ message: 'ChunkLoadError: Loading chunk 7 failed.' })).toBe(
+            'ignore'
+        );
+        expect(recovery.observeHealth({ version: '2.9.2-dev+new' })).toBe('ignore');
+        expect(reload).not.toHaveBeenCalled();
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('warns without reloading when session storage is unavailable', () => {
+        const reload = vi.fn();
+        const warn = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+old',
+            storage: null,
+            reload,
+            warn
+        });
+
+        expect(recovery.observeHealth({ version: '2.9.2-dev+new' })).toBe('warn');
+        expect(recovery.observeHealth({ version: '2.9.2-dev+new' })).toBe('warn');
+        expect(reload).not.toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledTimes(1);
+    });
+
     it('reloads for a concrete dev build hash change', () => {
         const storage = createStorage();
         const reload = vi.fn();
@@ -156,7 +190,7 @@ describe('createDeployRecovery', () => {
         expect(reload).toHaveBeenCalledTimes(1);
     });
 
-    it('warns instead of reloading again for the same backend/frontend semver mismatch', () => {
+    it('warns instead of reloading again for the same backend/frontend deployment mismatch', () => {
         const storage = createStorage();
         const reload = vi.fn();
         const warn = vi.fn();
@@ -172,7 +206,7 @@ describe('createDeployRecovery', () => {
             startup_instance_id: 'instance-1'
         });
         const result = recovery.observeHealth({
-            version: '2.9.2-dev+newer',
+            version: '2.9.2-dev+new',
             startup_instance_id: 'instance-2'
         });
 
@@ -181,7 +215,85 @@ describe('createDeployRecovery', () => {
         expect(warn).toHaveBeenCalledTimes(1);
     });
 
-    it('clears any mismatch marker once frontend and backend deployment identities align again', () => {
+    it('makes a fresh bounded reload attempt when the backend deployment changes again', () => {
+        const storage = createStorage();
+        const reload = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+old',
+            storage,
+            reload,
+            warn: vi.fn()
+        });
+
+        expect(recovery.observeHealth({ version: '2.9.2-dev+new' })).toBe('reload');
+        expect(recovery.observeHealth({ version: '2.9.2-dev+newer' })).toBe('reload');
+        expect(reload).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not reload again if health responses oscillate between attempted deployments', () => {
+        const storage = createStorage();
+        const reload = vi.fn();
+        const warn = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+old',
+            storage,
+            reload,
+            warn
+        });
+
+        expect(recovery.observeHealth({ version: '2.9.2-dev+new' })).toBe('reload');
+        expect(recovery.observeHealth({ version: '2.9.3-dev+newer' })).toBe('reload');
+        expect(recovery.observeHealth({ version: '2.9.2-dev+new' })).toBe('warn');
+        expect(reload).toHaveBeenCalledTimes(2);
+        expect(warn).toHaveBeenCalledTimes(1);
+    });
+
+    it('emits at most one warning per unresolved deployment in one page lifetime', () => {
+        const storage = createStorage();
+        const warn = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+old',
+            storage,
+            reload: vi.fn(),
+            warn
+        });
+
+        recovery.observeHealth({ version: '2.9.2-dev+new' });
+        expect(recovery.observeHealth({ version: '2.9.2-dev+new' })).toBe('warn');
+        expect(recovery.observeHealth({ version: '2.9.2-dev+new' })).toBe('warn');
+        expect(warn).toHaveBeenCalledTimes(1);
+        expect(recovery.getRecoveryCount()).toBe(2);
+    });
+
+    it('reports bounded recovery actions with frontend and backend identities', () => {
+        const storage = createStorage();
+        const report = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion: '2.9.1-dev+old',
+            storage,
+            reload: vi.fn(),
+            warn: vi.fn(),
+            report
+        });
+
+        recovery.observeHealth({ version: '2.9.2-dev+new' });
+        recovery.observeHealth({ version: '2.9.2-dev+new' });
+
+        expect(report).toHaveBeenNthCalledWith(1, {
+            action: 'reload',
+            reason: 'version_mismatch',
+            frontendVersion: '2.9.1-dev+old',
+            backendVersion: '2.9.2-dev+new'
+        });
+        expect(report).toHaveBeenNthCalledWith(2, {
+            action: 'warn',
+            reason: 'version_mismatch',
+            frontendVersion: '2.9.1-dev+old',
+            backendVersion: '2.9.2-dev+new'
+        });
+    });
+
+    it('accepts a new deployment target after frontend and backend identities align', () => {
         const storage = createStorage();
         const reload = vi.fn();
         const warn = vi.fn();

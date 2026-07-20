@@ -219,7 +219,7 @@ Completed review tranches:
   consistent, and committed OpenAPI/client artifacts are current.
 
 #### Full translation review 🌍
-**Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))
+**Priority:** P1 | **Effort:** M | **Status:** ✅ Editorial sweep complete; independent native validation is not claimed ([design](docs/plans/2026-07-12-full-translation-review-design.md), [review](docs/reviews/2026-07-20-translation-editorial-review.md))
 
 Review every locale against the `en.json` source of truth for completeness, accuracy, and
 consistency; fix missing keys, drift, and machine-translation artefacts. Add CI checks so
@@ -230,20 +230,24 @@ shared controls, telemetry, update messaging, the Frigate media advisory, Dashbo
 Leaderboard source controls, and the complete Audio History surface.
 
 ✅ **Anti-rot CI is in place**: the audit rejects missing/extra keys and placeholder drift, asserts
-a curated set of high-risk strings differs from English, and — new — a baseline ratchet
+a curated set of high-risk strings differs from English, and a baseline ratchet
 (`locales.untranslated-regression.test.ts` + `locales.identical-baseline.json`) fails the build if
 any *new* user-facing string lands byte-identical to English, so untranslated copy can't slip in.
+The editorial gate additionally rejects encoding damage, surrounding whitespace, ASCII ellipses in
+prose, known accent-loss substitutions, incorrect French double-punctuation spacing, and
+sentence-length Latin-only copy in Japanese, Russian, or Chinese.
 
-✅ **No untranslated leftovers**: a measured sweep found ≈0 full English sentences surviving in any
-locale; the remaining byte-identical strings are legitimately shared (brand/protocol names,
-URL/host placeholders, and real cross-language cognates), which is why the ratchet allowlists them
-rather than forcing a spurious "translation".
+✅ **The application-wide editorial sweep is recorded**: all nine catalogs contain the same 1,977
+leaf keys, interpolation tokens are preserved, and no sentence-length English copy remains in the
+non-Latin catalogs outside technical examples. The pass corrected copied English enrichment copy,
+accent-stripped settings and video-player text, Russian and Japanese phrasing, French punctuation
+spacing, catalog whitespace, and application-wide ellipsis typography.
 
-**Remaining** is a genuinely smaller, subjective task than the label implies: a **per-language
-native editorial polish** — idiom, terminology consistency, and locale typography (e.g. French
-spacing before `:` `?`, Japanese/Chinese phrasing). Defect density is low, it is not safely
-automatable, and it is best done per language by a native reviewer in reviewable batches rather
-than by bulk machine edits.
+**Release limitation:** this was a repository-backed editorial and automated quality review, not
+independent native-speaker certification. Before `3.0`, either obtain native sign-off for locales
+presented as fully supported or state that limitation plainly in the release notes, as required by
+the exit criterion above. No automated or structural defect remains open; independent reviewers
+may still refine idiom and choose a single regional convention for the generic Portuguese catalog.
 
 ### 1.3 Candidate feature backlog — non-blocking for 3.0
 

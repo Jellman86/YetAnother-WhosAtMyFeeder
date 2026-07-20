@@ -1,4 +1,12 @@
 export type DeployRecoveryAction = 'ignore' | 'reload' | 'warn';
+export type DeployRecoveryReason = 'runtime_failure' | 'version_mismatch';
+
+export interface DeployRecoveryEvent {
+    action: Exclude<DeployRecoveryAction, 'ignore'>;
+    reason: DeployRecoveryReason;
+    frontendVersion: string;
+    backendVersion?: string;
+}
 
 interface StorageLike {
     getItem(key: string): string | null;
@@ -11,6 +19,7 @@ interface DeployRecoveryOptions {
     storage?: StorageLike | null;
     reload: () => void;
     warn: (message: string) => void;
+    report?: (event: DeployRecoveryEvent) => void;
     warningMessage?: string;
 }
 
@@ -21,6 +30,7 @@ interface HealthLike {
 
 const RECOVERY_ATTEMPT_KEY = 'yawamf_deploy_recovery_attempt_v1';
 const RECOVERY_COUNT_KEY = 'yawamf_deploy_recovery_count_v1';
+const MAX_REMEMBERED_ATTEMPTS = 8;
 const STALE_BUNDLE_PATTERNS = [
     'failed to fetch dynamically imported module',
     'error loading dynamically imported module',
@@ -91,39 +101,98 @@ export function isLikelyStaleBundleError(input: unknown): boolean {
 export function createDeployRecovery(options: DeployRecoveryOptions) {
     const appVersion = normalizeString(options.appVersion);
     const storage = options.storage ?? null;
-    const warningMessage = normalizeString(options.warningMessage) || 'The app was updated while this tab was open. Refresh the page.';
-    const attemptSignature = appVersion ? `stale:${appVersion}` : '';
+    const warningMessage =
+        normalizeString(options.warningMessage) ||
+        'The app was updated while this tab was open. Refresh the page.';
+    const hasUsableAppVersion = Boolean(appVersion && appVersion.toLowerCase() !== 'unknown');
+    const attemptPrefix = hasUsableAppVersion ? `stale:${appVersion}` : '';
+    const warnedSignatures = new Set<string>();
+    const inMemoryAttempts = new Set<string>();
+    let storageAvailable = storage !== null;
+    let inMemoryRecoveryCount = 0;
 
-    function getStoredAttempt(): string {
-        if (!storage) return '';
-        return normalizeString(storage.getItem(RECOVERY_ATTEMPT_KEY));
+    function readStorage(key: string): string {
+        if (!storage || !storageAvailable) return '';
+        try {
+            return normalizeString(storage.getItem(key));
+        } catch {
+            storageAvailable = false;
+            return '';
+        }
     }
 
-    function setStoredAttempt(value: string) {
-        if (!storage) return;
-        if (!value) {
-            storage.removeItem(RECOVERY_ATTEMPT_KEY);
-            return;
+    function writeStorage(key: string, value: string): boolean {
+        if (!storage || !storageAvailable) return false;
+        try {
+            storage.setItem(key, value);
+            return true;
+        } catch {
+            storageAvailable = false;
+            return false;
         }
-        storage.setItem(RECOVERY_ATTEMPT_KEY, value);
+    }
+
+    function getStoredAttempts(): Set<string> {
+        const attempts = new Set(inMemoryAttempts);
+        const raw = readStorage(RECOVERY_ATTEMPT_KEY);
+        if (!raw) return attempts;
+        try {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+                for (const value of parsed) {
+                    const signature = normalizeString(value);
+                    if (signature) attempts.add(signature);
+                }
+                return attempts;
+            }
+        } catch {
+            // Older builds stored one plain signature. Preserve it during migration.
+        }
+        attempts.add(raw);
+        return attempts;
+    }
+
+    function rememberAttempts(attempts: Set<string>): boolean {
+        const bounded = [...attempts].slice(-MAX_REMEMBERED_ATTEMPTS);
+        inMemoryAttempts.clear();
+        for (const signature of bounded) inMemoryAttempts.add(signature);
+        return writeStorage(RECOVERY_ATTEMPT_KEY, JSON.stringify(bounded));
     }
 
     function incrementRecoveryCount(): number {
-        if (!storage) return 0;
-        const raw = storage.getItem(RECOVERY_COUNT_KEY);
-        const count = (parseInt(raw ?? '0', 10) || 0) + 1;
-        storage.setItem(RECOVERY_COUNT_KEY, String(count));
-        return count;
+        const storedCount = parseInt(readStorage(RECOVERY_COUNT_KEY) || '0', 10) || 0;
+        inMemoryRecoveryCount = Math.max(inMemoryRecoveryCount, storedCount) + 1;
+        writeStorage(RECOVERY_COUNT_KEY, String(inMemoryRecoveryCount));
+        return inMemoryRecoveryCount;
     }
 
-    function triggerRecovery(): DeployRecoveryAction {
-        if (!attemptSignature) return 'ignore';
+    function warnOnce(
+        signature: string,
+        reason: DeployRecoveryReason,
+        backendVersion?: string
+    ): DeployRecoveryAction {
+        if (warnedSignatures.has(signature)) return 'warn';
+        warnedSignatures.add(signature);
         incrementRecoveryCount();
-        if (getStoredAttempt() === attemptSignature) {
-            options.warn(warningMessage);
-            return 'warn';
-        }
-        setStoredAttempt(attemptSignature);
+        options.report?.({ action: 'warn', reason, frontendVersion: appVersion, backendVersion });
+        options.warn(warningMessage);
+        return 'warn';
+    }
+
+    function triggerRecovery(
+        signature: string,
+        reason: DeployRecoveryReason,
+        backendVersion?: string
+    ): DeployRecoveryAction {
+        if (!attemptPrefix || !signature) return 'ignore';
+        const attempts = getStoredAttempts();
+        if (attempts.has(signature)) return warnOnce(signature, reason, backendVersion);
+
+        attempts.add(signature);
+        if (!rememberAttempts(attempts)) return warnOnce(signature, reason, backendVersion);
+
+        incrementRecoveryCount();
+        options.report?.({ action: 'reload', reason, frontendVersion: appVersion, backendVersion });
         options.reload();
         return 'reload';
     }
@@ -131,25 +200,24 @@ export function createDeployRecovery(options: DeployRecoveryOptions) {
     return {
         handleRuntimeFailure(error: unknown): DeployRecoveryAction {
             if (!isLikelyStaleBundleError(error)) return 'ignore';
-            return triggerRecovery();
+            return triggerRecovery(attemptPrefix ? `${attemptPrefix}:runtime` : '', 'runtime_failure');
         },
 
         observeHealth(health: HealthLike | null | undefined): DeployRecoveryAction {
             const backendVersion = normalizeString(health?.version);
-            if (!appVersion || !backendVersion || backendVersion === 'unknown') return 'ignore';
-            if (isSameDeployment(appVersion, backendVersion)) {
-                if (getStoredAttempt() === attemptSignature) {
-                    setStoredAttempt('');
-                }
-                return 'ignore';
-            }
-            return triggerRecovery();
+            if (!attemptPrefix || !backendVersion || backendVersion === 'unknown') return 'ignore';
+            if (isSameDeployment(appVersion, backendVersion)) return 'ignore';
+            return triggerRecovery(
+                `${attemptPrefix}:backend:${backendVersion.toLowerCase()}`,
+                'version_mismatch',
+                backendVersion
+            );
         },
 
         /** Total deploy-recovery attempts since last counter reset (persisted in storage). */
         getRecoveryCount(): number {
-            if (!storage) return 0;
-            return parseInt(storage.getItem(RECOVERY_COUNT_KEY) ?? '0', 10) || 0;
+            const storedCount = parseInt(readStorage(RECOVERY_COUNT_KEY) || '0', 10) || 0;
+            return Math.max(inMemoryRecoveryCount, storedCount);
         }
     };
 }

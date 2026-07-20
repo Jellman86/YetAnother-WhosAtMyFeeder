@@ -1,6 +1,6 @@
 # Full Translation Review Design
 
-**Status:** In progress
+**Status:** Complete — independent native-speaker certification remains a release-note limitation
 **Roadmap:** 3.0 major initiative, P1/M
 **Source of truth:** `apps/ui/src/lib/i18n/locales/en.json`
 
@@ -19,11 +19,10 @@ can remain unnoticed.
    then the Audio History surface. Complete for all eight non-English locales.
 3. **Language review:** review each complete locale for terminology, placeholders, punctuation,
    and machine-translation artefacts. Product names, protocol names, and interpolation tokens stay
-   unchanged. **Status:** a measured sweep found ≈0 full English sentences surviving in any locale
-   (the byte-identical strings that remain are brands, URL/host placeholders, and legitimate
-   cross-language cognates). The residual is therefore a subjective, per-language native editorial
-   polish (idiom, terminology, locale typography) with low defect density — best done per language
-   by a native reviewer, not by bulk machine edits.
+   unchanged. **Complete:** the [recorded editorial sweep](../reviews/2026-07-20-translation-editorial-review.md)
+   covered every locale and corrected copied English prose, accent-loss artefacts, encoding and
+   whitespace risks, locale typography, and selected terminology drift. Independent native-speaker
+   certification was not performed and must not be implied by release messaging.
 4. **Close the gate:** remove the temporary missing-key baseline. Every locale must then have
    exactly the same leaf-key set as `en.json`. **Done.**
 5. **Anti-rot ratchet:** freeze the current set of byte-identical-to-English strings per locale in
@@ -46,5 +45,6 @@ can remain unnoticed.
 - All eight non-English locales have exactly the English leaf-key set. ✅
 - The structural audit has no allowlist and runs under `npm test` in CI. ✅
 - A ratchet guards against new untranslated strings landing identical to English. ✅
-- A language-quality pass is recorded for every locale (residual: native editorial polish; see step 3).
+- A language-quality pass is recorded for every locale. ✅
+- The absence of independent native-speaker certification is labelled explicitly. ✅
 - `npm run check`, `npm test`, and `npm run build` pass. ✅
