@@ -256,5 +256,5 @@ failure, int8 quantization, partial/corrupt clips, and persistent retry state. D
 passed the full backend and frontend suites, repository-wide Ruff lint/format, reversible Alembic
 upgrade/downgrade/upgrade, migration path checks, all four x86 runtime-image startup checks, the
 full → CPU → full persistence gate, and the live Quark observation above. Release acceptance still
-requires the same checks to pass for the exact signed release tag before mutable stable tags are
+requires the same checks to pass for the exact annotated release tag before mutable stable tags are
 promoted.
