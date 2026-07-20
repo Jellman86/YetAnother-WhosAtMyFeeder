@@ -95,7 +95,7 @@ See [Reverse Proxy Guide](reverse-proxy.md) for the full proxy examples and SSE/
 
 After that verification, you may opt into `latest-cpu`, `latest-intel` or
 `latest-cuda` without changing the service or volumes. Provider-suffixed release
-tags such as `v3.0.0-intel` are also available. See
+tags such as `v2.14.0-intel` are also available. See
 [Hardware Acceleration](hardware-acceleration.md) for the exact image/provider
 matrix. If acceleration disappears after changing flavor, restore the unsuffixed
 tag first; no data rollback is needed.

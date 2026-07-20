@@ -512,6 +512,11 @@ jobs:
     needs: [detect-changes, test-backend, test-frontend, test-monolith]
     if: needs.detect-changes.outputs.monolith == 'true'
     runs-on: ubuntu-latest
+    # A hosted runner can occasionally stall before Buildx is ready. Keep that
+    # failure bounded so an incomplete flavor family can never occupy a release
+    # run for GitHub's six-hour default; promotion already fails closed unless
+    # every flavor builds and starts successfully.
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: write

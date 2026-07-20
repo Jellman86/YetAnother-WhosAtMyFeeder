@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-07-20
+
 ### Added
 - **BirdNET history now connects matching sound and video evidence.** Completed automatic video
   classifications are matched by scientific name, configured time window, and camera/audio source

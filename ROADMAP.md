@@ -493,8 +493,8 @@ clean fallback chains.
 temporally independent multi-frame crop refinement for distant subjects, recording-frame
 classification fallback, media caching, and the video player with HTTP-Range seeking + expiring
 watermarked share links. Playable partial recordings are retained instead of refetched forever,
-corrupt media remains
-rejected, and HQ recovery has persistent bounded backoff across container restarts. Manual temporal
+corrupt media remains rejected, and HQ recovery has persistent bounded backoff across container
+restarts. Manual temporal
 reclassification follows the same best-available-media contract: complete cached recording →
 decodable partial recording → cached event clip → Frigate event clip → snapshot fallback, with an
 invalid cache entry unable to block the next usable source.
