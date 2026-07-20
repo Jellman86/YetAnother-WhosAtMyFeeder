@@ -140,8 +140,19 @@ known detection identity; before an identity exists, the same crop label must ap
 independent frames. The full frame competes in the same pool and is retained in the bounded saved
 candidate set even when many crops rank above it.
 
+The Quark review then exposed a second-order sampling defect: a 10.09-second, 300-frame event clip
+produced candidate offsets `0.000`, `0.034`, and `0.067` seconds because the first promising target
+was expanded to its immediate neighbours before the three-frame limit was applied. HQ sampling now
+keeps the best centre/track-weighted target and distributes the other evidence slots across the
+visible path interval. A hard 250 ms temporal boundary is enforced again at consensus time, and
+neighbours are decode fallbacks within one slot rather than votes. Frigate's event box is translated
+to the nearest timestamped path point; it is withheld for recording clips whose start time cannot be
+proven against the event timeline.
+
 **Second-order consequence:** crop source is no longer a user preference masquerading as quality.
-A clear full frame can beat a poor crop, while a distant but consistent crop can still win. Automatic
+A clear full frame can beat a poor crop, while a distant but consistent crop can still win. Short
+visits that cannot provide two separated moments now abstain instead of manufacturing consensus;
+recording-frame hint crops also abstain when their timeline cannot be aligned. Automatic
 classification refinement remains stricter than image selection and cannot replace a conflicting
 known species or manual tag.
 

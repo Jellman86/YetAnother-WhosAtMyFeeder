@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import statistics
 from dataclasses import dataclass
+from itertools import combinations
 from typing import Any, Iterable
 
 from app.utils.canonical_species import should_hide_species_label, unknown_species_labels
@@ -15,6 +16,10 @@ HQ_REFINEMENT_MIN_SUPPORTING_FRAMES = 2
 HQ_REFINEMENT_MIN_SCORE = 0.60
 HQ_REFINEMENT_MIN_WINNER_MARGIN = 0.08
 HQ_REFINEMENT_MIN_EXISTING_SCORE_GAIN = 0.02
+# Adjacent frames from a 30 fps stream are effectively the same observation.
+# Requiring a quarter-second gap keeps the evidence useful for short feeder
+# visits while preventing decode neighbours from becoming independent votes.
+HQ_REFINEMENT_MIN_TEMPORAL_SEPARATION_SECONDS = 0.25
 
 
 @dataclass(frozen=True)
@@ -63,10 +68,18 @@ def _valid_crop_candidates(candidates: Iterable[dict[str, Any]]) -> list[dict[st
         try:
             score = float(candidate.get("classifier_score"))
             frame_index = int(candidate.get("frame_index"))
+            frame_offset_seconds = float(candidate.get("frame_offset_seconds"))
             index = int(candidate.get("classifier_index"))
         except (TypeError, ValueError):
             continue
-        if not math.isfinite(score) or score < 0.0 or score > 1.0:
+        if (
+            not math.isfinite(score)
+            or score < 0.0
+            or score > 1.0
+            or frame_index < 0
+            or not math.isfinite(frame_offset_seconds)
+            or frame_offset_seconds < 0.0
+        ):
             continue
         valid.append(
             {
@@ -74,11 +87,51 @@ def _valid_crop_candidates(candidates: Iterable[dict[str, Any]]) -> list[dict[st
                 "classifier_label": label,
                 "classifier_score": score,
                 "frame_index": frame_index,
+                "frame_offset_seconds": frame_offset_seconds,
                 "classifier_index": index,
                 "source_mode": source_mode,
             }
         )
     return valid
+
+
+def _best_temporally_independent_candidates(
+    candidates: Iterable[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Choose the strongest largest subset with genuinely separated timestamps.
+
+    Multiple crop sources from the same decoded frame are collapsed first. The
+    remaining set is tiny (HQ generation currently evaluates at most three
+    frames), so an exhaustive subset search is clearer and safer than a greedy
+    approximation. Cardinality wins before confidence: temporal support must
+    never be traded for two near-identical high-scoring frames.
+    """
+
+    best_by_frame: dict[int, dict[str, Any]] = {}
+    for candidate in candidates:
+        frame_index = int(candidate["frame_index"])
+        current = best_by_frame.get(frame_index)
+        if current is None or float(candidate["classifier_score"]) > float(current["classifier_score"]):
+            best_by_frame[frame_index] = candidate
+
+    unique = list(best_by_frame.values())
+    best_subset: tuple[dict[str, Any], ...] = ()
+    best_key: tuple[int, float, float] = (0, 0.0, 0.0)
+    for subset_size in range(1, len(unique) + 1):
+        for subset in combinations(unique, subset_size):
+            ordered = sorted(subset, key=lambda item: float(item["frame_offset_seconds"]))
+            if any(
+                float(right["frame_offset_seconds"]) - float(left["frame_offset_seconds"])
+                < HQ_REFINEMENT_MIN_TEMPORAL_SEPARATION_SECONDS
+                for left, right in zip(ordered, ordered[1:])
+            ):
+                continue
+            scores = [float(item["classifier_score"]) for item in ordered]
+            key = (len(ordered), float(statistics.median(scores)), max(scores))
+            if key > best_key:
+                best_key = key
+                best_subset = tuple(ordered)
+    return list(best_subset)
 
 
 def _build_consensus(candidates: Iterable[dict[str, Any]]) -> list[_Consensus]:
@@ -88,14 +141,7 @@ def _build_consensus(candidates: Iterable[dict[str, Any]]) -> list[_Consensus]:
 
     consensus: list[_Consensus] = []
     for key, label_candidates in grouped.items():
-        # A hint crop and model crop from one frame are correlated evidence, not two votes.
-        best_by_frame: dict[int, dict[str, Any]] = {}
-        for candidate in label_candidates:
-            frame_index = int(candidate["frame_index"])
-            current = best_by_frame.get(frame_index)
-            if current is None or float(candidate["classifier_score"]) > float(current["classifier_score"]):
-                best_by_frame[frame_index] = candidate
-        independent = list(best_by_frame.values())
+        independent = _best_temporally_independent_candidates(label_candidates)
         if len(independent) < HQ_REFINEMENT_MIN_SUPPORTING_FRAMES:
             continue
         best = max(independent, key=lambda item: float(item["classifier_score"]))
@@ -113,6 +159,12 @@ def _build_consensus(candidates: Iterable[dict[str, Any]]) -> list[_Consensus]:
         key=lambda item: (item.median_score, float(item.best_candidate["classifier_score"])),
         reverse=True,
     )
+
+
+def crop_labels_with_independent_support(candidates: Iterable[dict[str, Any]]) -> set[str]:
+    """Return canonical label keys backed by temporally independent crop evidence."""
+
+    return {item.key for item in _build_consensus(candidates)}
 
 
 def choose_hq_classification_refinement(

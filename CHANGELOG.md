@@ -78,6 +78,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   across independent frames before identity exists); sharpness, exposure, resolution, classifier
   evidence, and crop confidence share one ranking. The canonical and best full-frame candidates are
   retained even when the bounded candidate list is crowded.
+- **HQ crop consensus now uses genuinely independent moments.** The snapshot worker no longer
+  treats `target - 1`, `target`, and `target + 1` as three observations. It keeps a centre/track-
+  weighted target, distributes the remaining slots across the tracked interval or central clip
+  region, requires at least 250 ms between votes, and uses neighbouring frames only to recover a
+  failed decode within the same slot. Frigate hint boxes follow the nearest timestamped path point
+  on event clips; unaligned recording timelines fail safely to the model detector or full frame.
 - **Inference failures can now activate provider recovery.** ONNX execution/output failures are
   typed instead of collapsing into an empty result, HQ candidate scoring uses supervised background
   admission in both in-process and subprocess modes, and TFLite signed-int8 tensors honour scale

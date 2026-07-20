@@ -8,7 +8,11 @@ While real-time detection uses a single snapshot, YA-WAMF provides a **Deep Vide
    decodable partial recording, then the cached event clip. It asks Frigate for the event clip only
    when no usable local copy exists. Each candidate is decoded before inference; an invalid cached
    file is removed and resolution continues instead of falling straight back to a snapshot.
-2. It samples frames across the full clip using **deterministic stratified sampling** — the clip is divided into equal segments and one frame is taken from each. The default is **15 frames**, configurable in **Settings > Detection**.
+2. It uses deterministic, centre-weighted stratified sampling. Event clips retain their first/last
+   boundaries and place the remaining samples through the central half, where the tracked subject is
+   most likely to be useful. Longer recording clips keep roughly 70% uniform coverage and spend the
+   remaining samples in that central region. The default is **15 frames**, configurable in
+   **Settings > Detection**.
 3. Each frame is evaluated as a full frame and, when valid, with independent Frigate-hint and
    detector-crop representations that match the active model's input contract.
 4. Each representation must form its own temporal consensus across multiple frames. Conflicting

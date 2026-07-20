@@ -151,6 +151,12 @@ job totals under `GET /health` → `high_quality_snapshots`. Its retry state is 
 from species identity, with bounded 5/15/45-minute backoff and a terminal fourth failure; successful
 explicit or automatic generation clears the failure state.
 
+Snapshot-candidate `frame_offset_seconds` values are temporal evidence, not presentation metadata.
+Automatic crop selection/refinement requires supporting offsets to be at least 250 ms apart;
+neighbouring decode fallbacks never become additional votes. Event-clip Frigate boxes are translated
+to the nearest timestamped path point. Recording clips do not reuse a static event box when their
+timeline start cannot be proven.
+
 Notes:
 - `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted full-visit clip exists for the event, this route serves that full-visit file before falling back to the shorter Frigate event clip.
 - `GET /api/frigate/{event_id}/recording-clip.mp4` remains available as an explicit full-visit route and uses the same persisted `{event_id}_recording.mp4` cache file when ready.

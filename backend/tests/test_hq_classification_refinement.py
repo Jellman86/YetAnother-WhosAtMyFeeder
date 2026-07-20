@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from app.services.hq_classification_refinement import choose_hq_classification_refinement
 
 
@@ -10,10 +12,14 @@ def _candidate(
     *,
     source_mode: str = "frigate_hint_crop",
     candidate_id: str | None = None,
+    frame_offset_seconds: float | None = None,
 ) -> dict:
     return {
         "candidate_id": candidate_id or f"{source_mode}-{frame_index}",
         "frame_index": frame_index,
+        "frame_offset_seconds": (
+            frame_offset_seconds if frame_offset_seconds is not None else float(frame_index) / 30.0
+        ),
         "source_mode": source_mode,
         "classifier_label": label,
         "classifier_score": score,
@@ -60,6 +66,48 @@ def test_rejects_single_frame_even_when_two_crop_sources_agree():
             _candidate(10, "Columba palumbus", 0.94, source_mode="frigate_hint_crop"),
             _candidate(10, "Columba palumbus", 0.91, source_mode="model_crop"),
         ],
+        minimum_score=0.60,
+    )
+
+    assert decision is None
+
+
+def test_rejects_adjacent_frames_as_correlated_evidence():
+    decision = choose_hq_classification_refinement(
+        detection=_detection(),
+        candidates=[
+            _candidate(0, "Columba palumbus", 0.94, frame_offset_seconds=0.0),
+            _candidate(1, "Columba palumbus", 0.92, frame_offset_seconds=1 / 30),
+            _candidate(2, "Columba palumbus", 0.90, frame_offset_seconds=2 / 30),
+        ],
+        minimum_score=0.60,
+    )
+
+    assert decision is None
+
+
+def test_accepts_only_the_temporally_independent_subset():
+    decision = choose_hq_classification_refinement(
+        detection=_detection(),
+        candidates=[
+            _candidate(0, "Columba palumbus", 0.94, frame_offset_seconds=0.0),
+            _candidate(1, "Columba palumbus", 0.93, frame_offset_seconds=1 / 30),
+            _candidate(30, "Columba palumbus", 0.82, frame_offset_seconds=1.0),
+        ],
+        minimum_score=0.60,
+    )
+
+    assert decision is not None
+    assert decision.supporting_frame_count == 2
+    assert decision.median_score == pytest.approx(0.88)
+
+
+def test_rejects_candidates_without_temporal_provenance():
+    candidate = _candidate(10, "Columba palumbus", 0.94)
+    candidate.pop("frame_offset_seconds")
+    decision = choose_hq_classification_refinement(
+        detection=_detection(),
+        candidates=[candidate, _candidate(20, "Columba palumbus", 0.92)],
         minimum_score=0.60,
     )
 

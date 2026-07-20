@@ -411,9 +411,9 @@ def test_candidate_frame_indices_prefers_event_path_timing():
         },
     )
 
-    assert indices[:3] == [12, 11, 13]
-    assert 45 in indices
-    assert 0 in indices
+    assert indices[0] == 12
+    assert len(indices) == 3
+    assert all(abs(left - right) >= 8 for left in indices for right in indices if left != right)
 
 
 def test_candidate_frame_indices_prefers_path_point_nearest_box_center():
@@ -435,7 +435,167 @@ def test_candidate_frame_indices_prefers_path_point_nearest_box_center():
         },
     )
 
-    assert indices[:3] == [24, 23, 25]
+    assert indices[0] == 24
+    assert len(indices) == 3
+    assert all(abs(left - right) >= 8 for left in indices for right in indices if left != right)
+
+
+def test_candidate_frame_indices_never_count_adjacent_frames_as_independent_samples():
+    service = hq_module.HighQualitySnapshotService()
+
+    indices = service._candidate_frame_indices(
+        frame_count=300,
+        fps=30.0,
+        event_data={
+            "start_time": 100.0,
+            "data": {
+                "path_data": [
+                    [[0.5, 0.8], 100.0],
+                    [[0.5, 0.8], 100.033],
+                    [[0.5, 0.8], 100.067],
+                ]
+            },
+        },
+    )
+
+    assert len(indices) == 3
+    assert indices != [0, 1, 2]
+    assert all(abs(left - right) >= 8 for left in indices for right in indices if left != right)
+
+
+def test_candidate_frame_indices_distribute_real_quark_path_around_visible_interval():
+    service = hq_module.HighQualitySnapshotService()
+
+    indices = service._candidate_frame_indices(
+        frame_count=300,
+        fps=30.0,
+        event_data={
+            "start_time": 1784561844.911783,
+            "data": {
+                "box": [0.149609375, 0.16666666666666666, 0.0484375, 0.06510416666666667],
+                "path_data": [
+                    [[0.1754, 0.2109], 1784561844.961835],
+                    [[0.1754, 0.2109], 1784561844.961835],
+                    [[0.2121, 0.3109], 1784561851.878304],
+                ],
+            },
+        },
+    )
+
+    assert indices[0] == 2
+    assert any(index >= 200 for index in indices)
+    assert any(90 <= index <= 120 for index in indices)
+    assert all(abs(left - right) >= 8 for left in indices for right in indices if left != right)
+
+
+def test_recording_candidate_frames_ignore_event_clip_timestamps():
+    service = hq_module.HighQualitySnapshotService()
+
+    indices = service._candidate_frame_indices(
+        frame_count=300,
+        fps=30.0,
+        clip_variant="recording",
+        event_data={
+            "start_time": 1784561844.911783,
+            "data": {
+                "path_data": [
+                    [[0.1754, 0.2109], 1784561844.961835],
+                    [[0.2121, 0.3109], 1784561851.878304],
+                ],
+            },
+        },
+    )
+
+    assert indices == [150, 75, 225]
+
+
+def test_event_hint_box_tracks_the_nearest_path_point_and_rejects_stale_hints():
+    service = hq_module.HighQualitySnapshotService()
+    event_data = {
+        "start_time": 100.0,
+        "data": {
+            "box": [0.10, 0.20, 0.20, 0.10],
+            "path_data": [
+                [[0.20, 0.25], 100.0],
+                [[0.70, 0.75], 106.0],
+            ],
+        },
+    }
+
+    first = service._event_hints_for_frame(event_data, frame_offset_seconds=0.0, clip_variant="event")
+    last = service._event_hints_for_frame(event_data, frame_offset_seconds=6.0, clip_variant="event")
+    stale = service._event_hints_for_frame(event_data, frame_offset_seconds=3.0, clip_variant="event")
+    recording = service._event_hints_for_frame(event_data, frame_offset_seconds=6.0, clip_variant="recording")
+
+    assert first is not event_data
+    assert first["data"]["box"] == pytest.approx([0.10, 0.20, 0.20, 0.10])
+    assert last["data"]["box"] == pytest.approx([0.60, 0.70, 0.20, 0.10])
+    assert stale is None
+    assert recording is None
+
+
+def test_event_hint_path_without_a_valid_box_fails_closed():
+    service = hq_module.HighQualitySnapshotService()
+
+    result = service._event_hints_for_frame(
+        {
+            "start_time": 100.0,
+            "data": {
+                "path_data": [[[0.20, 0.25], 100.0]],
+            },
+        },
+        frame_offset_seconds=0.0,
+        clip_variant="event",
+    )
+
+    assert result is None
+
+
+def test_candidate_frame_indices_return_one_slot_when_fps_is_unknown():
+    service = hq_module.HighQualitySnapshotService()
+
+    indices = service._candidate_frame_indices(frame_count=300, fps=0.0)
+
+    assert indices == [150]
+
+
+def test_decode_neighbours_are_fallbacks_within_one_temporal_slot():
+    service = hq_module.HighQualitySnapshotService()
+
+    class FakeCapture:
+        def __init__(self):
+            self.index = 0
+
+        def set(self, _prop, value):
+            self.index = int(value)
+
+        def get(self, _prop):
+            return float(self.index + 1)
+
+        def read(self):
+            if self.index == 30:
+                return False, None
+            return True, f"frame-{self.index}"
+
+    decoded = service._read_temporally_independent_frame(
+        FakeCapture(),
+        target_frame_index=30,
+        frame_count=300,
+        fps=30.0,
+        used_frame_indices=[0],
+    )
+
+    assert decoded == (29, "frame-29")
+
+    correlated = service._read_temporally_independent_frame(
+        FakeCapture(),
+        target_frame_index=5,
+        frame_count=300,
+        fps=30.0,
+        used_frame_indices=[0],
+    )
+
+    assert correlated is None
 
 
 def test_crop_source_order_defines_a_fallback_chain_per_priority():
@@ -557,6 +717,7 @@ async def test_hq_consensus_uses_canonical_detection_update_path(monkeypatch):
             {
                 "candidate_id": "crop-1",
                 "frame_index": 10,
+                "frame_offset_seconds": 0.5,
                 "source_mode": "frigate_hint_crop",
                 "classifier_label": "Columba palumbus",
                 "classifier_score": 0.82,
@@ -565,6 +726,7 @@ async def test_hq_consensus_uses_canonical_detection_update_path(monkeypatch):
             {
                 "candidate_id": "crop-2",
                 "frame_index": 20,
+                "frame_offset_seconds": 1.0,
                 "source_mode": "model_crop",
                 "classifier_label": "Columba palumbus",
                 "classifier_score": 0.79,
@@ -1279,6 +1441,14 @@ async def test_process_event_falls_back_to_cached_recording_clip_when_event_clip
     await cache_service.cache_recording_clip("evt_recording_fallback", b"r" * 1024)
     settings.media_cache.high_quality_event_snapshots = True
     settings.frigate.recording_clip_enabled = True
+    event_data = {
+        "start_time": 100.0,
+        "data": {
+            "box": [0.1, 0.2, 0.3, 0.4],
+            "path_data": [[[0.2, 0.4], 100.0]],
+        },
+    }
+    hq_module.high_quality_snapshot_service._crop_event_hints["evt_recording_fallback"] = event_data
 
     async def fake_wait_for_clip(event_id: str):
         assert event_id == "evt_recording_fallback"
@@ -1291,14 +1461,42 @@ async def test_process_event_falls_back_to_cached_recording_clip_when_event_clip
     )
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
-        "_extract_snapshot_from_clip",
-        lambda clip_bytes, *_args: b"derived-from-recording:" + clip_bytes,
+        "generate_snapshot_candidates_from_clip_bytes",
+        AsyncMock(return_value={}),
     )
+    extraction_call = {}
+
+    def fake_extract(clip_bytes, received_event_data=None, clip_variant="event"):
+        extraction_call.update(
+            clip_bytes=clip_bytes,
+            event_data=received_event_data,
+            clip_variant=clip_variant,
+        )
+        return b"derived-from-recording:" + clip_bytes
+
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_extract_snapshot_from_clip",
+        fake_extract,
+    )
+    crop_call = {}
+
+    def fake_crop(event_id, image_bytes, received_event_data=None):
+        crop_call.update(event_id=event_id, event_data=received_event_data)
+        return image_bytes, False
+
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_maybe_crop_snapshot_bytes", fake_crop)
 
     result = await hq_module.high_quality_snapshot_service.process_event("evt_recording_fallback")
 
     assert result == "replaced"
     assert await cache_service.get_snapshot("evt_recording_fallback") == b"derived-from-recording:" + (b"r" * 1024)
+    assert extraction_call == {
+        "clip_bytes": b"r" * 1024,
+        "event_data": None,
+        "clip_variant": "recording",
+    }
+    assert crop_call == {"event_id": "evt_recording_fallback", "event_data": None}
 
 
 @pytest.mark.asyncio

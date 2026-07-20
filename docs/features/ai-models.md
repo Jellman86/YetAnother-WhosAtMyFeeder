@@ -147,10 +147,15 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 #### Best-available event snapshots
 
 **Settings → Data → Snapshot quality → Best available event snapshots** is an automatic outcome,
-not a source selector. When enabled, YA-WAMF samples up to three promising main-stream clip frames,
-builds a full-frame candidate plus every valid Frigate-hint and detector crop, and reclassifies the
-candidates. The full high-quality frame competes with valid, identity-consistent crops and remains
-canonical when it is the clearest trustworthy image. The old `bird_crop_source_priority` and
+not a source selector. When enabled, YA-WAMF samples up to three centre/track-weighted moments from
+the main-stream clip, spreading them across the tracked interval when available and otherwise using
+the central clip region. Samples must be at least 250 ms apart; a neighbouring frame can recover a
+decode failure but remains part of the same evidence slot. YA-WAMF builds a full-frame candidate
+plus every valid Frigate-hint and detector crop, then reclassifies the candidates. Event-clip hint
+boxes follow Frigate's timestamped object path; recording clips with an unproven timeline do not
+reuse a potentially stale event box. The full high-quality frame competes with valid,
+identity-consistent crops and remains canonical when it is the clearest trustworthy image. The old
+`bird_crop_source_priority` and
 `media_cache_high_quality_event_snapshot_bird_crop` fields remain readable/writable for API and
 configuration compatibility, but do not override this policy.
 
@@ -160,11 +165,12 @@ bird crop is marked as already cropped, which prevents a model's optional locali
 cropping it a second time; it does not bypass the model's normal resize and tensor preparation.
 
 YA-WAMF can also use the crop classifications to refine the detection. It requires the same species
-to clear both the active model's recommended confidence and a conservative 0.60 floor on at least
-two different clip frames. Multiple crop sources from one frame count as one vote. A close competing
-multi-frame result blocks promotion. Automatic refinement can upgrade **Unknown Bird** or improve a
-lower-scoring result for the same canonical species, but it never replaces a manual tag or a
-conflicting known species.
+to clear both the active model's recommended confidence and a conservative 0.60 floor at two or more
+temporally independent offsets. Multiple crop sources or nearby decode fallbacks from one evidence
+slot count as one vote. Missing timestamp provenance cannot vote. A close competing multi-frame
+result blocks promotion. Automatic refinement can upgrade **Unknown Bird** or improve a lower-scoring
+result for the same canonical species, but it never replaces a manual tag or a conflicting known
+species.
 
 The pipeline is fail-soft: the accurate detector retries through the fast detector, a detector miss
 can still use Frigate's tracked-object box, and total crop failure keeps the clear full frame. Recent
