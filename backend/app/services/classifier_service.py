@@ -132,6 +132,7 @@ from app.services.classifier_supervisor import (  # noqa: E402
     ClassifierWorkerStartupTimeoutError,
 )
 from app.services.personalization_service import personalization_service  # noqa: E402
+from app.services.video_classification_policy import build_temporal_consensus  # noqa: E402
 from app.utils.classifier_labels import (  # noqa: E402
     build_grouped_classifier_labels,
     normalize_classifier_label,
@@ -1596,7 +1597,15 @@ class ModelInstance:
         input_data = self._preprocess_image(image, target_width, target_height)
 
         # Normalize based on model input type
-        if input_details["dtype"] == np.float32:
+        raw_input_dtype = input_details.get("dtype")
+        input_dtype = (
+            raw_input_dtype
+            if isinstance(raw_input_dtype, np.dtype)
+            else np.dtype(raw_input_dtype)
+            if isinstance(raw_input_dtype, type) and issubclass(raw_input_dtype, np.generic)
+            else None
+        )
+        if input_dtype == np.dtype(np.float32):
             spec_mean = self.preprocessing.get("mean")
             spec_std = self.preprocessing.get("std")
             if spec_mean is not None or spec_std is not None:
@@ -1607,8 +1616,45 @@ class ModelInstance:
             else:
                 # Legacy MobileNet-style: maps [0, 255] to [-1, 1] via (x / 127.5) - 1
                 input_data = (input_data - 127.5) / 127.5
-        elif input_details["dtype"] == np.uint8:
-            input_data = input_data.astype(np.uint8)
+        elif input_dtype is not None and np.issubdtype(input_dtype, np.integer):
+            normalization = str(self.preprocessing.get("normalization") or "uint8").strip().lower()
+            real_input = input_data
+            if normalization not in {"uint8", "none"}:
+                spec_mean = self.preprocessing.get("mean")
+                spec_std = self.preprocessing.get("std")
+                if spec_mean is not None or spec_std is not None:
+                    mean = np.array(
+                        spec_mean if spec_mean is not None else [0.485, 0.456, 0.406],
+                        dtype=np.float32,
+                    )
+                    std = np.array(
+                        spec_std if spec_std is not None else [0.229, 0.224, 0.225],
+                        dtype=np.float32,
+                    )
+                    real_input = (real_input / 255.0 - mean) / std
+                elif normalization in {"float32_0_1", "0_1"}:
+                    real_input = real_input / 255.0
+                else:
+                    real_input = (real_input - 127.5) / 127.5
+
+            quant_params = input_details.get("quantization_parameters", {})
+            scales = np.asarray(quant_params.get("scales", []), dtype=np.float32)
+            zero_points = np.asarray(quant_params.get("zero_points", []), dtype=np.float32)
+            if scales.size > 0 and float(scales[0]) > 0:
+                zero_point = float(zero_points[0]) if zero_points.size > 0 else 0.0
+                quantized = np.rint(real_input / float(scales[0]) + zero_point)
+                limits = np.iinfo(input_dtype)
+                input_data = np.clip(quantized, limits.min, limits.max).astype(input_dtype)
+            elif input_dtype == np.dtype(np.uint8):
+                # Compatibility for older uint8 models that omit quantization
+                # metadata and directly consume raw RGB bytes.
+                input_data = np.clip(real_input, 0, 255).astype(np.uint8)
+            else:
+                raise InvalidInferenceOutputError(
+                    backend="tflite",
+                    provider="tflite",
+                    detail=f"{self.name} int8 input is missing valid quantization metadata",
+                )
 
         # Add batch dimension
         input_data = np.expand_dims(input_data, axis=0)
@@ -1625,17 +1671,33 @@ class ModelInstance:
         results = np.squeeze(output_data).astype(np.float32)
 
         # Dequantize if needed
-        if output_details["dtype"] == np.uint8:
+        raw_output_dtype = output_details.get("dtype")
+        output_dtype = (
+            raw_output_dtype
+            if isinstance(raw_output_dtype, np.dtype)
+            else np.dtype(raw_output_dtype)
+            if isinstance(raw_output_dtype, type) and issubclass(raw_output_dtype, np.generic)
+            else None
+        )
+        if output_dtype is not None and np.issubdtype(output_dtype, np.integer):
             quant_params = output_details.get("quantization_parameters", {})
-            scales = quant_params.get("scales", None)
-            zero_points = quant_params.get("zero_points", None)
+            scales = np.asarray(quant_params.get("scales", []), dtype=np.float32)
+            zero_points = np.asarray(quant_params.get("zero_points", []), dtype=np.float32)
 
-            if scales is not None and len(scales) > 0:
-                scale = scales[0]
-                zero_point = zero_points[0] if zero_points is not None and len(zero_points) > 0 else 0
-                results = (results - zero_point) * scale
-            else:
+            if scales.size == results.size and results.ndim == 1:
+                zero_values = zero_points if zero_points.size == results.size else np.zeros_like(scales)
+                results = (results - zero_values) * scales
+            elif scales.size > 0 and float(scales[0]) > 0:
+                zero_point = float(zero_points[0]) if zero_points.size > 0 else 0.0
+                results = (results - zero_point) * float(scales[0])
+            elif output_dtype == np.dtype(np.uint8):
                 results = results / 255.0
+            else:
+                raise InvalidInferenceOutputError(
+                    backend="tflite",
+                    provider="tflite",
+                    detail=f"{self.name} int8 output is missing valid quantization metadata",
+                )
 
         # Softmax if needed (logits vs probabilities)
         finite_results = results[np.isfinite(results)]
@@ -1825,74 +1887,74 @@ class ONNXModelInstance:
         """Apply softmax to convert logits to probabilities."""
         return _safe_softmax(x, context=f"{self.name}:onnx")
 
+    def _run_inference(self, input_name: str, input_tensor: np.ndarray) -> list[Any]:
+        """Run the provider and expose execution failures to recovery policy."""
+        try:
+            with self._lock:
+                return self.session.run(None, {input_name: input_tensor})
+        except Exception as exc:
+            log.error(f"ONNX inference failed for {self.name}", error=str(exc))
+            raise InvalidInferenceOutputError(
+                backend="onnxruntime",
+                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                detail=f"{self.name} inference execution failed: {exc}",
+                diagnostics={"exception_type": type(exc).__name__},
+            ) from exc
+
+    def _probabilities_from_outputs(self, outputs: list[Any]) -> np.ndarray:
+        """Validate provider output shape before converting logits to probabilities."""
+        try:
+            logits = np.asarray(outputs[0])[0]
+            probs = self._softmax(logits)
+        except InvalidInferenceOutputError:
+            raise
+        except Exception as exc:
+            raise InvalidInferenceOutputError(
+                backend="onnxruntime",
+                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                detail=f"{self.name} returned an invalid output structure: {exc}",
+                diagnostics={"exception_type": type(exc).__name__},
+            ) from exc
+        if probs.size == 0:
+            raise InvalidInferenceOutputError(
+                backend="onnxruntime",
+                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                detail=f"{self.name} inference produced no finite probabilities",
+            )
+        return probs
+
     def classify(self, image: Image.Image, top_k: int = 5, input_context: Any | None = None) -> list[dict]:
         """Classify an image using this ONNX model."""
         if not self.loaded or not self.session:
             log.warning(f"{self.name} ONNX model not loaded, cannot classify")
             return []
 
-        try:
-            input_tensor = self._preprocess(image)
+        input_tensor = self._preprocess(image)
+        input_name = self.session.get_inputs()[0].name
+        outputs = self._run_inference(input_name, input_tensor)
+        probs = self._probabilities_from_outputs(outputs)
 
-            # Get input name from model
-            input_name = self.session.get_inputs()[0].name
-
-            # Run inference
-            with self._lock:
-                outputs = self.session.run(None, {input_name: input_tensor})
-            logits = outputs[0][0]
-
-            # Apply softmax to get probabilities
-            probs = self._softmax(logits)
-            if probs.size == 0:
-                raise InvalidInferenceOutputError(
-                    backend="onnxruntime",
-                    provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
-                    detail=f"{self.name} inference produced no finite probabilities",
-                )
-
-            grouped_labels = _resolve_grouped_labels(
-                self.labels,
-                label_grouping=self.label_grouping,
-                existing_grouped_labels=self.grouped_labels,
-            )
-            return _build_classification_results(
-                probs,
-                self.labels,
-                top_k=top_k,
-                grouped_labels=grouped_labels,
-            )
-
-        except InvalidInferenceOutputError:
-            raise
-        except Exception as e:
-            log.error(f"ONNX inference failed for {self.name}", error=str(e))
-            return []
+        grouped_labels = _resolve_grouped_labels(
+            self.labels,
+            label_grouping=self.label_grouping,
+            existing_grouped_labels=self.grouped_labels,
+        )
+        return _build_classification_results(
+            probs,
+            self.labels,
+            top_k=top_k,
+            grouped_labels=grouped_labels,
+        )
 
     def classify_raw(self, image: Image.Image) -> np.ndarray:
         """Classify and return the raw probability vector (for ensemble)."""
         if not self.loaded or not self.session:
             return np.array([])
 
-        try:
-            input_tensor = self._preprocess(image)
-            input_name = self.session.get_inputs()[0].name
-            with self._lock:
-                outputs = self.session.run(None, {input_name: input_tensor})
-            logits = outputs[0][0]
-            probs = self._softmax(logits)
-            if probs.size == 0:
-                raise InvalidInferenceOutputError(
-                    backend="onnxruntime",
-                    provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
-                    detail=f"{self.name} inference produced no finite probabilities",
-                )
-            return probs
-        except InvalidInferenceOutputError:
-            raise
-        except Exception as e:
-            log.error("ONNX raw classification failed", error=str(e))
-            return np.array([])
+        input_tensor = self._preprocess(image)
+        input_name = self.session.get_inputs()[0].name
+        outputs = self._run_inference(input_name, input_tensor)
+        return self._probabilities_from_outputs(outputs)
 
     def probe(self, image: Image.Image) -> dict[str, Any]:
         provider = self.ort_providers[0] if self.ort_providers else "CPUExecutionProvider"
@@ -5332,8 +5394,7 @@ class ClassifierService:
                     )
                     if should_hide_species_label(last_top_label):
                         skipped_unknown_frame_count += 1
-                    else:
-                        all_scores.append(scores)
+                    all_scores.append(scores)
 
                     try:
                         from io import BytesIO
@@ -5373,27 +5434,39 @@ class ClassifierService:
                 log.warning("No frames processed from video")
                 return []
 
-            # Best-frame ensemble: keep each class' strongest frame confidence.
-            # This avoids suppressing legitimate transient detections when many
-            # sampled frames are background-heavy.
             processed_count = len(all_scores)
-            scores_matrix = np.vstack(all_scores)
-            representative_scores = np.max(scores_matrix, axis=0)
-            for class_index, label in enumerate(getattr(bird_model, "labels", []) or []):
-                if class_index >= len(representative_scores):
-                    break
-                normalized_label = normalize_classifier_label(label)
-                if should_hide_species_label(normalized_label):
-                    representative_scores[class_index] = -np.inf
+            labels = list(getattr(bird_model, "labels", []) or [])
+            excluded_class_indices = {
+                class_index
+                for class_index, label in enumerate(labels)
+                if should_hide_species_label(normalize_classifier_label(label))
+            }
+            recommended_threshold = float((model_meta or {}).get("recommended_threshold") or 0.0)
+            minimum_frame_score = max(
+                float(getattr(settings.classification, "min_confidence", 0.0) or 0.0),
+                recommended_threshold,
+            )
+            consensus = build_temporal_consensus(
+                all_scores,
+                minimum_frame_score=minimum_frame_score,
+                excluded_class_indices=excluded_class_indices,
+            )
+            if consensus is None:
+                log.info(
+                    "Video classification abstained because sampled frames lacked class consensus",
+                    processed_frames=processed_count,
+                    minimum_frame_score=minimum_frame_score,
+                    skipped_unknown_frames=skipped_unknown_frame_count,
+                )
+                return []
 
-            # Create standard classification list from representative scores
-            finite_indices = np.where(np.isfinite(representative_scores))[0]
-            top_indices = finite_indices[np.argsort(representative_scores[finite_indices])[-5:][::-1]]
+            top_evidence = consensus.ranked_classes[:5]
 
             classifications = []
-            for i in top_indices:
-                score = float(representative_scores[i])
-                label = normalize_classifier_label(bird_model.labels[i]) if i < len(bird_model.labels) else f"Class {i}"
+            for evidence in top_evidence:
+                i = evidence.class_index
+                score = evidence.score
+                label = normalize_classifier_label(labels[i]) if i < len(labels) else f"Class {i}"
                 classifications.append(
                     {
                         "index": int(i),
@@ -5403,12 +5476,15 @@ class ClassifierService:
                         "inference_backend": str(self._inference_backend or ""),
                         "model_id": str(active_model_id or ""),
                         "model_name": model_name,
+                        "temporal_supporting_frames": evidence.supporting_frame_count,
+                        "temporal_evaluated_frames": consensus.evaluated_frame_count,
+                        "temporal_required_frames": consensus.required_supporting_frames,
                     }
                 )
 
             if classifications:
                 top_score = float(classifications[0]["score"])
-                class_count = int(len(representative_scores))
+                class_count = int(len(labels))
                 uniform_baseline = (1.0 / class_count) if class_count > 0 else 1.0
                 degenerate_cutoff = uniform_baseline * CLASSIFIER_VIDEO_UNIFORM_SCORE_MULTIPLIER
                 if (not np.isfinite(top_score)) or top_score <= degenerate_cutoff:
@@ -5423,9 +5499,12 @@ class ClassifierService:
                     return []
 
             log.info(
-                f"Video classification complete (Top-K). Analyzed {processed_count} frames.",
+                f"Video classification complete (consensus). Analyzed {processed_count} frames.",
                 top_result=classifications[0]["label"] if classifications else None,
                 top_score=round(classifications[0]["score"], 3),
+                supporting_frames=consensus.supporting_frame_count,
+                evaluated_frames=consensus.evaluated_frame_count,
+                required_frames=consensus.required_supporting_frames,
                 skipped_unknown_frames=skipped_unknown_frame_count,
             )
 

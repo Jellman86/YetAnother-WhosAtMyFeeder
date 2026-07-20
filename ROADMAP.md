@@ -12,6 +12,7 @@ It is anchored by two honest assessments of *where we stand*:
 
 - [Gold-Standard Review (2026-07-07)](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md) — quality assessment and the incremental path.
 - [Telemetry Health Findings (2026-07-09)](docs/reviews/2026-07-09-telemetry-health-findings.md) — what actually fails across the fleet.
+- [Image Classification Pipeline Review (2026-07-20)](docs/reviews/2026-07-20-image-classification-pipeline-review.md) — evidence provenance, temporal consensus, HQ media, and runtime recovery.
 
 ---
 
@@ -471,7 +472,10 @@ resolution, the classifier inference-health refactor (`v2.11`, issue #33 resolve
 feeder + auto-fetch model-evaluation harnesses, and the **accurate bird-crop detector tier**
 (optional YOLOX-Tiny with fast→original fallback, model-manager UI, and adapter/eval tests), plus
 **automatic per-model crop policy** validated on Quark and synchronized between the runtime registry
-and downloadable model sidecars.
+and downloadable model sidecars. The classification pipeline now also separates Frigate object and
+sublabel confidence, runs local inference before trusted fallback, recovers missed MQTT `new` events
+from `update`, protects manual identity atomically, uses three-frame/60% deep-video consensus, and
+surfaces provider failures for recovery instead of silently treating them as empty predictions.
 
 **Acceleration:** Intel iGPU (OpenVINO), **Intel NPU** (`intel_npu` provider, capability probe,
 device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and
@@ -480,7 +484,8 @@ clean fallback chains.
 **Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots with conservative
 multi-frame crop classification refinement for distant subjects, recording-frame classification
 fallback, media caching, and the video player with HTTP-Range seeking + expiring watermarked share
-links.
+links. Playable partial recordings are retained instead of refetched forever, corrupt media remains
+rejected, and HQ recovery has persistent bounded backoff across container restarts.
 
 **Integrations:** Frigate NVR (MQTT + media proxy), BirdNET-Go audio correlation, multi-platform
 notifications (Discord/Telegram/Pushover/Email + Notification Center), BirdWeather, eBird (sightings,

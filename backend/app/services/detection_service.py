@@ -40,7 +40,12 @@ class DetectionService:
         self.broadcaster = broadcaster
 
     def filter_and_label(
-        self, classification: dict, frigate_event: str, frigate_sub_label: str = None, frigate_score: float = None
+        self,
+        classification: dict,
+        frigate_event: str,
+        frigate_sub_label: str = None,
+        frigate_score: float = None,
+        frigate_sub_label_score: float = None,
     ) -> tuple[dict | None, str | None]:
         """
         Apply filtering and relabeling rules to a classification result.
@@ -108,16 +113,10 @@ class DetectionService:
         )
         if sublabel_disagrees:
             disagreement_min_score = min(0.95, required_threshold + 0.20)
-            frigate_score_value = float(frigate_score or 0.0)
-            if frigate_score_value > 0:
-                disagreement_min_score = max(
-                    disagreement_min_score,
-                    min(0.98, frigate_score_value + 0.15),
-                )
             required_threshold = max(required_threshold, disagreement_min_score)
             threshold_reason = "threshold_passed_with_sublabel_disagreement_guard"
 
-        below_threshold = score <= required_threshold
+        below_threshold = score < required_threshold
 
         # If classification passes primary threshold, return it
         # (Implicitly passes min_confidence because threshold >= effective_min)
@@ -126,11 +125,9 @@ class DetectionService:
 
         # Classification failed primary threshold - check if we can fall back to Frigate sublabel
         if settings.classification.trust_frigate_sublabel and frigate_sub_label:
-            # Use Frigate score if available, otherwise boost current score to threshold to ensure visibility
-            # but usually Frigate score is reliable.
             final_score = (
-                frigate_score
-                if (frigate_score and frigate_score > 0)
+                frigate_sub_label_score
+                if frigate_sub_label_score is not None
                 else max(score, settings.classification.threshold)
             )
 
@@ -185,6 +182,7 @@ class DetectionService:
         frigate_event: str,
         frigate_sub_label: str = None,
         frigate_score: float = None,
+        frigate_sub_label_score: float = None,
     ) -> tuple[dict | None, str | None]:
         """Return the first classifier result that survives filtering.
 
@@ -199,6 +197,7 @@ class DetectionService:
                 frigate_event,
                 frigate_sub_label,
                 frigate_score,
+                frigate_sub_label_score,
             )
             if top:
                 return top, reason
@@ -206,8 +205,8 @@ class DetectionService:
         fallback_label = normalize_sub_label(frigate_sub_label)
         if settings.classification.trust_frigate_sublabel and fallback_label:
             final_score = (
-                frigate_score
-                if (frigate_score and frigate_score > 0)
+                frigate_sub_label_score
+                if frigate_sub_label_score is not None
                 else max(settings.classification.min_confidence, settings.classification.threshold)
             )
             return {
@@ -554,6 +553,15 @@ class DetectionService:
                 )
                 return False
 
+            if getattr(existing, "manual_tagged", False) is True and not manual_tagged:
+                log.info(
+                    "Recorded automatic refinement without replacing manual identification",
+                    event_id=frigate_event,
+                    video_label=normalized_video_label,
+                    video_score=video_score,
+                )
+                return False
+
             if hidden_video_label and not manual_tagged:
                 log.debug(
                     "Video analysis produced Unknown; recording completion without promotion",
@@ -593,10 +601,7 @@ class DetectionService:
             required_score = base_required_score
             override_reason = "score_gate_passed"
             if sublabel_disagrees:
-                frigate_score = float(getattr(existing, "frigate_score", 0.0) or 0.0)
                 disagreement_min_score = min(0.95, threshold + 0.20)
-                if frigate_score > 0:
-                    disagreement_min_score = max(disagreement_min_score, min(0.98, frigate_score + 0.15))
                 required_score = max(required_score, disagreement_min_score)
                 override_reason = "score_gate_passed_with_sublabel_disagreement"
 
@@ -692,39 +697,27 @@ class DetectionService:
                 else:
                     audio_confirmed, audio_species, audio_score = False, None, None
 
-                # Update primary fields
-                await db.execute(
-                    """
-                    UPDATE detections
-                    SET display_name = ?,
-                        category_name = ?,
-                        score = ?,
-                        detection_index = ?,
-                        scientific_name = ?,
-                        common_name = ?,
-                        taxa_id = ?,
-                        audio_confirmed = ?,
-                        audio_species = ?,
-                        audio_score = ?,
-                        manual_tagged = CASE WHEN ? = 1 THEN 1 ELSE manual_tagged END
-                    WHERE frigate_event = ?
-                """,
-                    (
-                        display_name,
-                        new_species,
-                        video_score,
-                        video_index,
-                        scientific_name,
-                        common_name,
-                        taxa_id,
-                        1 if audio_confirmed else 0,
-                        audio_species,
-                        audio_score,
-                        1 if manual_tagged else 0,
-                        frigate_event,
-                    ),
+                primary_updated = await repo.update_primary_classification(
+                    frigate_event=frigate_event,
+                    display_name=display_name,
+                    category_name=new_species,
+                    score=video_score,
+                    detection_index=video_index,
+                    scientific_name=scientific_name,
+                    common_name=common_name,
+                    taxa_id=taxa_id,
+                    audio_confirmed=audio_confirmed,
+                    audio_species=audio_species,
+                    audio_score=audio_score,
+                    manual_override=manual_tagged,
                 )
-                await db.commit()
+                if not primary_updated:
+                    log.info(
+                        "Primary refinement skipped because identification became manual",
+                        event_id=frigate_event,
+                        video_label=new_species,
+                    )
+                    return False
 
                 # Broadcast the update
                 updated = await repo.get_by_frigate_event(frigate_event)

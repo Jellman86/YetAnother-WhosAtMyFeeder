@@ -14,8 +14,34 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   known identifications, low-confidence crops, single-frame duplicates, and ambiguous competing
   results remain untouched. The supporting evidence remains in the saved snapshot candidates,
   deep-video job state stays independent, and `/health` reports refinement outcomes.
+- **HQ snapshot recovery now has persistent bounded retry state.** Missing or unusable upstream
+  media backs off for five, fifteen, and forty-five minutes and becomes terminal on the fourth
+  failed attempt instead of returning to an endless five-minute loop after every restart. The
+  state is separate from classification identity, is deleted with its detection, and is cleared by
+  a successful automatic or explicit regeneration.
 
 ### Fixed
+- **Image classification evidence is now kept in its correct domain.** Manual species corrections
+  are protected by the same SQL statement that performs any automatic write; Frigate object score
+  is no longer treated as sublabel confidence; local inference runs before a trusted Frigate
+  fallback; BirdNET-Go confirmation no longer replaces visual confidence; and MQTT `update` can
+  recover a missed `new` event without repeatedly classifying detections that already exist.
+- **Deep-video classification now abstains on temporal ambiguity.** At least three frames must be
+  evaluated, low-confidence and non-species frames count as abstentions, and a species needs at
+  least two supporting frames plus 60% of evaluated frames. Confidence is the supporting-frame
+  median, preventing one extreme frame from determining the visit.
+- **Best-available snapshot selection now rejects misleading crops without sacrificing the HQ
+  frame.** Crops must retain usable detail and agree with the known detection identity (or repeat
+  across independent frames before identity exists); sharpness, exposure, resolution, classifier
+  evidence, and crop confidence share one ranking. The canonical and best full-frame candidates are
+  retained even when the bounded candidate list is crowded.
+- **Inference failures can now activate provider recovery.** ONNX execution/output failures are
+  typed instead of collapsing into an empty result, HQ candidate scoring uses supervised background
+  admission in both in-process and subprocess modes, and TFLite signed-int8 tensors honour scale
+  and zero point rather than being fed float bytes or misread as raw logits.
+- **Playable short recordings are no longer deleted and downloaded again forever.** Measurable
+  partial clips are retained and reused for HQ/video work, while stubs and unmeasurable corrupt
+  media remain ineligible.
 - **Deployment refresh recovery now shows a real, localized message instead of
   `error.deploy_refresh_required`.** The browser performs at most one automatic reload for each
   backend build it encounters, reports the frontend/backend identities and recovery action through

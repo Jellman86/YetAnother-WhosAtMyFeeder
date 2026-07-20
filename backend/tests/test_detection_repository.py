@@ -838,6 +838,45 @@ async def test_upsert_if_higher_score_returns_no_change_for_lower_score():
 
 
 @pytest.mark.asyncio
+async def test_upsert_if_higher_score_never_replaces_manual_species_identity():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        manual = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=1,
+            score=0.42,
+            display_name="Wood Pigeon",
+            category_name="Columba palumbus",
+            frigate_event="evt_manual_upsert",
+            camera_name="cam_3",
+            manual_tagged=True,
+        )
+        assert await repo.upsert_if_higher_score(manual) == (True, False)
+
+        automatic = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=2,
+            score=0.99,
+            display_name="Eurasian Collared Dove",
+            category_name="Streptopelia decaocto",
+            frigate_event="evt_manual_upsert",
+            camera_name="cam_3",
+            manual_tagged=False,
+        )
+
+        assert await repo.upsert_if_higher_score(automatic) == (False, False)
+        existing = await repo.get_by_frigate_event("evt_manual_upsert")
+        assert existing is not None
+        assert existing.manual_tagged is True
+        assert existing.display_name == "Wood Pigeon"
+        assert existing.category_name == "Columba palumbus"
+        assert existing.score == pytest.approx(0.42)
+
+
+@pytest.mark.asyncio
 async def test_upsert_if_higher_score_normalizes_list_sublabel():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)

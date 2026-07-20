@@ -30,7 +30,7 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.full_visit_clip_service import full_visit_clip_service
 from app.services.mqtt_service import mqtt_service
-from app.utils.frigate import normalize_sub_label
+from app.utils.frigate import parse_sub_label
 
 # Backward-compat for tests that patch event_processor.notification_service
 from app.services.notification_service import notification_service  # noqa: F401
@@ -103,7 +103,9 @@ class EventData:
         self.label: str = after.get("label")
         self.start_time_ts: float = after.get("start_time", 0.0)
         self.received_at_ts: float = float(data.get("__received_at_ts") or time.time())
-        self.sub_label: Optional[str] = normalize_sub_label(after.get("sub_label"))
+        parsed_sub_label = parse_sub_label(after.get("sub_label"))
+        self.sub_label: Optional[str] = parsed_sub_label.label
+        self.sub_label_score: Optional[float] = parsed_sub_label.score
         self.frigate_score: Optional[float] = after.get("top_score")
         self.data: Dict[str, Any] = after.get("data") if isinstance(after.get("data"), dict) else {}
         self.is_false_positive: bool = after.get("false_positive", False)
@@ -487,6 +489,28 @@ class EventProcessor:
             )
             return
 
+        if event_type == "update":
+            try:
+                existing_detection = await self.detection_service.get_detection_by_frigate_event(event.frigate_event)
+            except Exception as exc:
+                log.warning(
+                    "Skipping MQTT update because recovery-state lookup failed",
+                    event_id=event.frigate_event,
+                    error=str(exc),
+                )
+                self._record_drop(event.frigate_event, "update_recovery_lookup_failed")
+                return
+            if existing_detection is not None:
+                duration_ms = (time.monotonic() - started) * 1000.0
+                self._record_completed(event.frigate_event, duration_ms)
+                self._record_recent_outcome(event.frigate_event, "update_already_ingested")
+                return
+            log.info(
+                "Retrying failed initial ingest from Frigate update",
+                event_id=event.frigate_event,
+                camera=event.camera,
+            )
+
         if self._is_stale_live_event(event):
             age_seconds = round(self._live_event_age_seconds(event), 1)
             log.info(
@@ -544,7 +568,8 @@ class EventProcessor:
             return
 
         results, snapshot_data = classification_result
-        if not results:
+        trusted_frigate_fallback_available = bool(settings.classification.trust_frigate_sublabel and event.sub_label)
+        if not results and not trusted_frigate_fallback_available:
             log.info(
                 "Dropping MQTT event because classifier returned no results",
                 event_id=event.frigate_event,
@@ -553,7 +578,11 @@ class EventProcessor:
             return
 
         top, reason = self._select_usable_classification(
-            results, event.frigate_event, event.sub_label, event.frigate_score
+            results,
+            event.frigate_event,
+            event.sub_label,
+            event.frigate_score,
+            event.sub_label_score,
         )
         if not top:
             top_candidate = results[0] if results else {}
@@ -643,10 +672,17 @@ class EventProcessor:
         frigate_event: str,
         sub_label: str | None,
         frigate_score: float | None,
+        sub_label_score: float | None = None,
     ) -> tuple[dict | None, str | None]:
         selector = getattr(self.detection_service, "select_usable_classification", None)
         if callable(selector):
-            selection = selector(results, frigate_event, sub_label, frigate_score)
+            selection = selector(
+                results,
+                frigate_event,
+                sub_label,
+                frigate_score,
+                sub_label_score,
+            )
             if isinstance(selection, tuple) and len(selection) == 2:
                 return selection
 
@@ -657,6 +693,7 @@ class EventProcessor:
             frigate_event,
             sub_label,
             frigate_score,
+            sub_label_score,
         )
 
     async def _handle_false_positive(self, frigate_event_id: str):
@@ -715,10 +752,9 @@ class EventProcessor:
         if event.label != "bird":
             return None
 
-        # Ignore routine updates; keep `new` for the main ingest flow and
-        # allow `end` for automatic full-visit generation.
-        # False positives can arrive on updates, so always allow cleanup path.
-        if not event.is_false_positive and event_type not in {"new", "end"}:
+        # Updates are admitted only for a later database-backed recovery check;
+        # existing detections are never repeatedly reclassified.
+        if not event.is_false_positive and event_type not in {"new", "update", "end"}:
             return None
 
         if not event.frigate_event or event.frigate_event == "unknown":
@@ -887,18 +923,6 @@ class EventProcessor:
         Returns:
             Tuple of (classification_results, snapshot_data) if successful, None otherwise
         """
-        # Trust Frigate sublabel path
-        if settings.classification.trust_frigate_sublabel and event.sub_label:
-            log.info(
-                "Using Frigate sublabel (skipping classification)",
-                event=event.frigate_event,
-                sub_label=event.sub_label,
-                score=event.frigate_score,
-            )
-
-            results = [{"label": event.sub_label, "score": event.frigate_score or 1.0, "index": -1}]
-            return (results, None)
-
         # Normal classification path
         try:
             retry_budget = self._snapshot_unavailable_retry_budget(event)
@@ -939,6 +963,14 @@ class EventProcessor:
                     start_time_ts=getattr(event, "start_time_ts", None),
                 )
             if not snapshot_data:
+                if settings.classification.trust_frigate_sublabel and event.sub_label:
+                    log.info(
+                        "Snapshot unavailable; deferring to trusted Frigate sublabel fallback",
+                        event_id=event.frigate_event,
+                        sub_label=event.sub_label,
+                        sub_label_score=getattr(event, "sub_label_score", None),
+                    )
+                    return ([], None)
                 log.info(
                     "Skipping MQTT event - snapshot unavailable after retry",
                     event_id=event.frigate_event,
@@ -958,6 +990,14 @@ class EventProcessor:
             )
 
             if not results:
+                if settings.classification.trust_frigate_sublabel and event.sub_label:
+                    log.info(
+                        "Classifier returned no usable result; deferring to trusted Frigate sublabel fallback",
+                        event_id=event.frigate_event,
+                        sub_label=event.sub_label,
+                        sub_label_score=getattr(event, "sub_label_score", None),
+                    )
+                    return ([], snapshot_data)
                 log.info("Skipping MQTT event - classifier returned empty results", event_id=event.frigate_event)
                 return None
 
@@ -1142,10 +1182,12 @@ class EventProcessor:
             classification["audio_confirmed"] = True
             classification["audio_species"] = audio_species
             classification["audio_score"] = audio_score
-            # Boost score if audio is more confident
-            if audio_score > classification["score"]:
-                classification["score"] = audio_score
-            log.info("Audio confirmed visual detection", species=visual_label, score=classification["score"])
+            log.info(
+                "Audio confirmed visual detection",
+                species=visual_label,
+                visual_score=classification["score"],
+                audio_score=audio_score,
+            )
         else:
             # Mismatch: Attach audio species/score for 'also heard' display, but don't confirm or upgrade
             classification["audio_confirmed"] = False
@@ -1237,10 +1279,12 @@ class EventProcessor:
         )
 
         # Update Frigate sublabel if confident
-        if settings.classification.write_frigate_sublabel and (
-            score > settings.classification.threshold or classification["audio_confirmed"]
+        if (
+            settings.classification.write_frigate_sublabel
+            and classification.get("source") != "frigate_fallback"
+            and (score >= settings.classification.threshold or classification["audio_confirmed"])
         ):
-            await frigate_client.set_sublabel(event.frigate_event, label)
+            await frigate_client.set_sublabel(event.frigate_event, label, score=score)
 
         # Send notifications based on policy
         if changed:

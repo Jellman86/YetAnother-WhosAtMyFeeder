@@ -99,11 +99,12 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
 
     observed: dict[str, object] = {}
 
-    def _fake_filter(result, frigate_event, sub_label, frigate_score=None):
+    def _fake_filter(result, frigate_event, sub_label, frigate_score=None, sub_label_score=None):
         observed["result"] = result
         observed["frigate_event"] = frigate_event
         observed["sub_label"] = sub_label
         observed["frigate_score"] = frigate_score
+        observed["sub_label_score"] = sub_label_score
         return result, "threshold_passed"
 
     save_mock = AsyncMock(return_value=(True, True))
@@ -123,6 +124,7 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
     assert status == "new"
     assert reason is None
     assert observed["frigate_score"] == pytest.approx(0.91)
+    assert observed["sub_label_score"] is None
     classifier.classify_async_background.assert_awaited_once()
     assert classifier.classify_async_background.await_args.kwargs["input_context"] == {
         "is_cropped": True,

@@ -15,7 +15,7 @@ from app.services.high_quality_snapshot_service import high_quality_snapshot_ser
 from app.services.media_cache import media_cache
 from app.services.detection_service import DetectionService
 from app.services.error_diagnostics import error_diagnostics_history
-from app.utils.frigate import normalize_sub_label
+from app.utils.frigate import parse_sub_label
 from app.utils.image_io import decode_image_bytes
 
 log = structlog.get_logger()
@@ -256,11 +256,16 @@ class BackfillService:
             if frigate_score is None and "data" in event:
                 frigate_score = event["data"].get("top_score")
 
-            sub_label = normalize_sub_label(event.get("sub_label"))
+            parsed_sub_label = parse_sub_label(event.get("sub_label"))
+            sub_label = parsed_sub_label.label
 
             # Use shared filtering and labeling logic (with Frigate sublabel for fallback)
             top, reason = self.detection_service.select_usable_classification(
-                results, frigate_event, sub_label, frigate_score
+                results,
+                frigate_event,
+                sub_label,
+                frigate_score,
+                parsed_sub_label.score,
             )
             if not top:
                 if reason == "invalid_score":

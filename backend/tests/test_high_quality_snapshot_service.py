@@ -472,11 +472,12 @@ async def test_candidate_scoring_preserves_model_input_contract(monkeypatch, sou
     classifier = SimpleNamespace()
     seen_contexts: list[dict] = []
 
-    def classify(_image, *, input_context):
+    async def classify_async_background(_image, *, input_context, queue_timeout_seconds):
         seen_contexts.append(input_context)
+        assert queue_timeout_seconds > 0
         return [{"label": "Columba palumbus", "score": 0.84, "index": 123}]
 
-    classifier.classify = classify
+    classifier.classify_async_background = classify_async_background
     monkeypatch.setattr(classifier_module, "_classifier_instance", classifier)
 
     result = await service._score_snapshot_candidate(
@@ -599,6 +600,7 @@ def test_select_canonical_snapshot_candidate_falls_back_to_crop_by_default():
                 "ranking_score": 1.0,
                 "image_width": 198,
                 "image_height": 182,
+                "classifier_label": "Columba palumbus",
             },
             {
                 "candidate_id": "full-frame",
@@ -607,7 +609,8 @@ def test_select_canonical_snapshot_candidate_falls_back_to_crop_by_default():
                 "image_width": 2560,
                 "image_height": 1920,
             },
-        ]
+        ],
+        expected_labels={"Columba palumbus"},
     )
 
     assert selected is not None
@@ -616,7 +619,7 @@ def test_select_canonical_snapshot_candidate_falls_back_to_crop_by_default():
     assert selected["candidate_id"] == "model-crop"
 
 
-def test_select_canonical_snapshot_candidate_uses_a_small_crop():
+def test_select_canonical_snapshot_candidate_rejects_tiny_crop_in_favour_of_full_frame():
     service = hq_module.HighQualitySnapshotService()
 
     selected = service._select_canonical_snapshot_candidate(
@@ -641,9 +644,7 @@ def test_select_canonical_snapshot_candidate_uses_a_small_crop():
     )
 
     assert selected is not None
-    # A small crop is still the displayed image even though the full frame scores higher — the
-    # tiny-crop suppression is gone.
-    assert selected["candidate_id"] == "small-crop"
+    assert selected["candidate_id"] == "full-frame"
 
 
 def test_select_canonical_snapshot_candidate_chooses_best_crop_regardless_of_legacy_priority(monkeypatch):
@@ -658,6 +659,7 @@ def test_select_canonical_snapshot_candidate_chooses_best_crop_regardless_of_leg
                 "ranking_score": 1.1,
                 "image_width": 240,
                 "image_height": 220,
+                "classifier_label": "Columba palumbus",
             },
             {
                 "candidate_id": "full-frame",
@@ -672,27 +674,104 @@ def test_select_canonical_snapshot_candidate_chooses_best_crop_regardless_of_leg
                 "ranking_score": 1.0,
                 "image_width": 198,
                 "image_height": 182,
+                "classifier_label": "Columba palumbus",
             },
-        ]
+        ],
+        expected_labels={"Columba palumbus"},
     )
 
     assert selected is not None
     assert selected["candidate_id"] == "hint-crop"
 
 
-def test_select_canonical_snapshot_candidate_prefers_any_valid_crop_over_full_frame(monkeypatch):
+def test_select_canonical_snapshot_candidate_keeps_better_ranked_full_frame(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
     monkeypatch.setattr(settings.classification, "bird_crop_source_priority", "crop_model_only", raising=False)
 
     selected = service._select_canonical_snapshot_candidate(
         [
-            {"candidate_id": "full", "source_mode": "full_frame", "ranking_score": 0.99},
-            {"candidate_id": "hint", "source_mode": "frigate_hint_crop", "ranking_score": 0.81},
+            {
+                "candidate_id": "full",
+                "source_mode": "full_frame",
+                "ranking_score": 0.99,
+                "image_width": 2560,
+                "image_height": 1920,
+            },
+            {
+                "candidate_id": "hint",
+                "source_mode": "frigate_hint_crop",
+                "ranking_score": 0.81,
+                "image_width": 320,
+                "image_height": 280,
+                "classifier_label": "Columba palumbus",
+            },
         ]
     )
 
     assert selected is not None
-    assert selected["candidate_id"] == "hint"
+    assert selected["candidate_id"] == "full"
+
+
+def test_select_canonical_snapshot_candidate_requires_crop_identity_consistency():
+    service = hq_module.HighQualitySnapshotService()
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                "candidate_id": "full",
+                "source_mode": "full_frame",
+                "ranking_score": 0.84,
+                "image_width": 2560,
+                "image_height": 1920,
+            },
+            {
+                "candidate_id": "wrong-crop",
+                "source_mode": "model_crop",
+                "ranking_score": 0.98,
+                "image_width": 360,
+                "image_height": 300,
+                "classifier_label": "Streptopelia decaocto",
+            },
+            {
+                "candidate_id": "matching-crop",
+                "source_mode": "frigate_hint_crop",
+                "ranking_score": 0.91,
+                "image_width": 340,
+                "image_height": 290,
+                "classifier_label": "Columba palumbus",
+            },
+        ],
+        expected_labels={"Columba palumbus", "Wood Pigeon"},
+    )
+
+    assert selected is not None
+    assert selected["candidate_id"] == "matching-crop"
+
+
+def test_persisted_candidates_reserve_selected_and_full_frame_fallback():
+    service = hq_module.HighQualitySnapshotService()
+    ranked = [
+        {
+            "candidate_id": f"crop-{index}",
+            "source_mode": "model_crop",
+            "ranking_score": 1.0 - (index * 0.01),
+        }
+        for index in range(hq_module.HQ_MAX_PERSISTED_CANDIDATES + 2)
+    ]
+    full_frame = {
+        "candidate_id": "full-frame",
+        "source_mode": "full_frame",
+        "ranking_score": 0.1,
+    }
+    ranked.append(full_frame)
+
+    persisted = service._select_persisted_candidates(
+        ranked,
+        selected_candidate=full_frame,
+    )
+
+    assert len(persisted) == hq_module.HQ_MAX_PERSISTED_CANDIDATES
+    assert "full-frame" in {candidate["candidate_id"] for candidate in persisted}
 
 
 def test_maybe_crop_snapshot_bytes_prefers_event_hint_over_model_crop(monkeypatch):

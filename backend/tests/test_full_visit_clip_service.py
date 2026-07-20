@@ -51,6 +51,71 @@ async def test_trigger_for_event_noops_when_recording_clip_already_cached():
 
 
 @pytest.mark.asyncio
+async def test_trigger_for_event_accepts_retained_partial_recording_without_refetch_loop():
+    service = FullVisitClipService()
+    partial_path = Path("/tmp/partial_recording.mp4")
+
+    def get_recording_clip_path(_event_id: str, min_duration_seconds: float | None = None):
+        return None if min_duration_seconds is not None else partial_path
+
+    with (
+        patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
+        patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
+        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
+        patch("app.services.full_visit_clip_service.settings.media_cache.cache_clips", True, create=True),
+        patch(
+            "app.services.full_visit_clip_service._get_recording_clip_context",
+            new=AsyncMock(return_value=("cam1", 100, 130)),
+        ),
+        patch(
+            "app.services.full_visit_clip_service.media_cache.get_recording_clip_path",
+            side_effect=get_recording_clip_path,
+        ),
+        patch(
+            "app.services.full_visit_clip_service.media_cache.get_recording_clip_duration_seconds",
+            return_value=17.0,
+        ),
+        patch.object(service, "_fetch_once", new=AsyncMock(return_value=True)) as mock_fetch,
+    ):
+        ready = await service.trigger_for_event("evt-partial", "cam1")
+
+    assert ready is True
+    mock_fetch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_trigger_for_event_refetches_unmeasurable_partial_recording():
+    service = FullVisitClipService()
+    partial_path = Path("/tmp/corrupt_partial_recording.mp4")
+
+    def get_recording_clip_path(_event_id: str, min_duration_seconds: float | None = None):
+        return None if min_duration_seconds is not None else partial_path
+
+    with (
+        patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
+        patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
+        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
+        patch(
+            "app.services.full_visit_clip_service._get_recording_clip_context",
+            new=AsyncMock(return_value=("cam1", 100, 130)),
+        ),
+        patch(
+            "app.services.full_visit_clip_service.media_cache.get_recording_clip_path",
+            side_effect=get_recording_clip_path,
+        ),
+        patch(
+            "app.services.full_visit_clip_service.media_cache.get_recording_clip_duration_seconds",
+            return_value=None,
+        ),
+        patch.object(service, "_fetch_once", new=AsyncMock(return_value=True)) as mock_fetch,
+    ):
+        ready = await service.trigger_for_event("evt-corrupt-partial", "cam1")
+
+    assert ready is True
+    mock_fetch.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_trigger_for_event_fetches_and_persists_recording_clip():
     service = FullVisitClipService()
 

@@ -842,6 +842,66 @@ class DetectionRepository:
         )
         await self.db.commit()
 
+    async def update_primary_classification(
+        self,
+        *,
+        frigate_event: str,
+        display_name: str,
+        category_name: str,
+        score: float,
+        detection_index: int,
+        scientific_name: str | None,
+        common_name: str | None,
+        taxa_id: int | None,
+        audio_confirmed: bool,
+        audio_species: str | None,
+        audio_score: float | None,
+        manual_override: bool,
+    ) -> bool:
+        """Update the canonical identity without racing a manual correction.
+
+        Automatic refinements may still be recorded in their source-specific
+        columns, but they must never replace an identity a user has confirmed.
+        The permission check belongs in the same SQL statement as the write so a
+        concurrent manual tag cannot be lost between a service read and update.
+        """
+        await self.db.execute(
+            """
+            UPDATE detections
+            SET display_name = ?,
+                category_name = ?,
+                score = ?,
+                detection_index = ?,
+                scientific_name = ?,
+                common_name = ?,
+                taxa_id = ?,
+                audio_confirmed = ?,
+                audio_species = ?,
+                audio_score = ?,
+                manual_tagged = CASE WHEN ? = 1 THEN 1 ELSE manual_tagged END
+            WHERE frigate_event = ?
+              AND (? = 1 OR COALESCE(manual_tagged, 0) = 0)
+            """,
+            (
+                display_name,
+                category_name,
+                score,
+                detection_index,
+                scientific_name,
+                common_name,
+                taxa_id,
+                1 if audio_confirmed else 0,
+                audio_species,
+                audio_score,
+                1 if manual_override else 0,
+                frigate_event,
+                1 if manual_override else 0,
+            ),
+        )
+        changed = await self._last_statement_changes() > 0
+        await self.db.commit()
+        return changed
+
     async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None) -> None:
         """Update just the video classification status."""
         now = utc_naive_now()
@@ -1282,6 +1342,7 @@ class DetectionRepository:
                 frigate_last_checked_at = ?,
                 frigate_last_error = NULL
             WHERE frigate_event = ?
+              AND COALESCE(manual_tagged, 0) = 0
               AND (? > score OR (? = 1 AND COALESCE(audio_confirmed, 0) = 0))
         """,
             (

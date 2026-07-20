@@ -62,7 +62,7 @@ async def test_process_mqtt_message_valid_bird():
         }
         assert classifier.classify_async_live.await_args.kwargs["queue_timeout_seconds"] == pytest.approx(6.0)
         mock_det_service.save_detection.assert_called_once()
-        mock_frigate.set_sublabel.assert_called_with("123", "Cardinal")
+        mock_frigate.set_sublabel.assert_called_with("123", "Cardinal", score=0.95)
 
 
 @pytest.mark.asyncio
@@ -117,7 +117,7 @@ async def test_process_mqtt_message_ignore_non_bird():
     classifier.classify_async.assert_not_called()
 
 
-def test_parse_event_skips_update_events():
+def test_parse_event_accepts_update_events_for_bounded_recovery():
     processor = EventProcessor(MagicMock())
     event = processor._parse_and_validate_event(
         {
@@ -130,7 +130,36 @@ def test_parse_event_skips_update_events():
             },
         }
     )
-    assert event is None
+    assert event is not None
+    assert event.type == "update"
+
+
+@pytest.mark.asyncio
+async def test_update_event_is_ignored_when_detection_already_exists():
+    processor = EventProcessor(MagicMock())
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=MagicMock())
+    processor._classify_snapshot = AsyncMock()
+
+    payload = (
+        b'{"type":"update","after":{"id":"evt-update-existing","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
+    await processor.process_mqtt_message(payload)
+
+    processor._classify_snapshot.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_event_recovers_detection_when_initial_ingest_created_no_row():
+    processor = EventProcessor(MagicMock())
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=None)
+    processor._classify_snapshot = AsyncMock(return_value=None)
+
+    payload = (
+        b'{"type":"update","after":{"id":"evt-update-recovery","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
+    await processor.process_mqtt_message(payload)
+
+    processor._classify_snapshot.assert_awaited_once()
 
 
 def test_parse_event_accepts_end_events():
@@ -1000,6 +1029,55 @@ async def test_classify_snapshot_extends_retry_budget_during_frigate_stall_recov
     assert snapshot_data == b"fakeimage"
     assert mock_frigate.get_snapshot_with_error.await_count == 4
     assert mock_sleep.await_count == 3
+
+
+@pytest.mark.asyncio
+async def test_classify_snapshot_does_not_skip_local_model_for_trusted_frigate_sublabel():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Wood Pigeon", "score": 0.93, "index": 1}])
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-trusted-sublabel-local-first",
+        camera="cam1",
+        sub_label="Eurasian Collared Dove",
+        sub_label_score=0.82,
+        frigate_score=0.96,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.decode_image_bytes", return_value=MagicMock()),
+        patch("app.services.event_processor.settings.classification.trust_frigate_sublabel", True),
+    ):
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"fakeimage", None))
+        result = await processor._classify_snapshot(event)
+
+    assert result is not None
+    assert result[0][0]["label"] == "Wood Pigeon"
+    assert result[1] == b"fakeimage"
+    classifier.classify_async_live.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_audio_confirmation_preserves_visual_confidence_provenance():
+    processor = EventProcessor(MagicMock())
+    processor._lookup_taxonomy_aliases = AsyncMock(
+        return_value={"scientific_name": "Columba palumbus", "common_name": "Wood Pigeon"}
+    )
+    classification = {"label": "Columba palumbus", "score": 0.63, "index": 1}
+    audio_match = SimpleNamespace(
+        species="Wood Pigeon",
+        scientific_name="Columba palumbus",
+        confidence=0.96,
+    )
+
+    result = await processor._correlate_audio(classification, audio_match, "evt-audio-provenance")
+
+    assert result["score"] == pytest.approx(0.63)
+    assert result["audio_confirmed"] is True
+    assert result["audio_score"] == pytest.approx(0.96)
 
 
 @pytest.mark.asyncio

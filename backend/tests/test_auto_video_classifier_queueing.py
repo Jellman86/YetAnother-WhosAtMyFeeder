@@ -859,3 +859,39 @@ async def test_load_preferred_clip_uses_cached_event_clip_before_polling_frigate
     assert clip_error is None
     assert clip_variant == "event"
     wait_for_clip_mock.assert_not_awaited()  # must NOT have gone to Frigate
+
+
+@pytest.mark.asyncio
+async def test_load_preferred_clip_classifies_retained_partial_recording(monkeypatch):
+    import asyncio as _asyncio
+
+    service = AutoVideoClassifierService()
+    valid_clip = b"\x00\x00\x00\x18ftypisompartialrecording"
+    fake_path = MagicMock()
+
+    monkeypatch.setattr(
+        auto_video_classifier_module,
+        "_get_valid_cached_recording_clip_path",
+        AsyncMock(return_value=(None, "cam1", 100, 130)),
+    )
+    monkeypatch.setattr(
+        auto_video_classifier_module.media_cache,
+        "get_recording_clip_path",
+        lambda event_id: fake_path,
+    )
+    monkeypatch.setattr(auto_video_classifier_module.media_cache, "get_clip_path", lambda event_id: None)
+    monkeypatch.setattr(auto_video_classifier_module, "Path", lambda path: fake_path)
+    monkeypatch.setattr(_asyncio, "to_thread", AsyncMock(return_value=valid_clip))
+    monkeypatch.setattr(service, "_clip_decodes", AsyncMock(return_value=True))
+    wait_for_clip_mock = AsyncMock(return_value=(None, "clip_not_found"))
+    monkeypatch.setattr(service, "_wait_for_clip", wait_for_clip_mock)
+
+    clip_bytes, clip_error, clip_variant = await service._load_preferred_clip(
+        "evt-partial-recording",
+        skip_delay=True,
+    )
+
+    assert clip_bytes == valid_clip
+    assert clip_error is None
+    assert clip_variant == "recording"
+    wait_for_clip_mock.assert_not_awaited()

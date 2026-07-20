@@ -126,7 +126,9 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `POST /api/video-share/{event_id}/links/{link_id}/revoke`
 
 The HQ snapshot worker also publishes `crop_policy`, selected-source counts, outcomes, and recovered
-job totals under `GET /health` → `high_quality_snapshots`.
+job totals under `GET /health` → `high_quality_snapshots`. Its retry state is persisted independently
+from species identity, with bounded 5/15/45-minute backoff and a terminal fourth failure; successful
+explicit or automatic generation clears the failure state.
 
 Notes:
 - `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted full-visit clip exists for the event, this route serves that full-visit file before falling back to the shorter Frigate event clip.

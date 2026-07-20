@@ -227,6 +227,67 @@ def test_model_instance_classify(mock_tflite, mock_os_path_exists):
     assert results[0]["score"] == pytest.approx(0.8)
 
 
+def test_model_instance_quantizes_int8_input_and_dequantizes_int8_output():
+    model = ModelInstance(
+        "test",
+        "model.tflite",
+        "labels.txt",
+        preprocessing={"normalization": "uint8"},
+    )
+    interpreter = MagicMock()
+    interpreter.get_tensor.return_value = np.array([[-128, 127]], dtype=np.int8)
+    model.interpreter = interpreter
+    model.loaded = True
+    model.labels = ["Bird A", "Bird B"]
+    model.input_details = [
+        {
+            "shape": [1, 1, 1, 3],
+            "dtype": np.int8,
+            "index": 0,
+            "quantization_parameters": {
+                "scales": np.array([1.0], dtype=np.float32),
+                "zero_points": np.array([-128], dtype=np.int32),
+            },
+        }
+    ]
+    model.output_details = [
+        {
+            "dtype": np.int8,
+            "index": 0,
+            "quantization_parameters": {
+                "scales": np.array([1.0 / 255.0], dtype=np.float32),
+                "zero_points": np.array([-128], dtype=np.int32),
+            },
+        }
+    ]
+
+    results = model.classify(Image.new("RGB", (1, 1), color=(0, 128, 255)))
+
+    input_payload = interpreter.set_tensor.call_args.args[1]
+    assert input_payload.dtype == np.int8
+    assert input_payload.tolist() == [[[[-128, 0, 127]]]]
+    assert results[0]["label"] == "Bird B"
+    assert results[0]["score"] == pytest.approx(1.0)
+
+
+def test_model_instance_rejects_int8_input_without_quantization_metadata():
+    model = ModelInstance("test", "model.tflite", "labels.txt")
+    model.interpreter = MagicMock()
+    model.loaded = True
+    model.input_details = [
+        {
+            "shape": [1, 1, 1, 3],
+            "dtype": np.int8,
+            "index": 0,
+            "quantization_parameters": {},
+        }
+    ]
+    model.output_details = [{"dtype": np.float32, "index": 0}]
+
+    with pytest.raises(InvalidInferenceOutputError, match="missing valid quantization metadata"):
+        model.classify_raw(Image.new("RGB", (1, 1), color="white"))
+
+
 def test_onnx_model_instance_aggregates_grouped_nabirds_species_scores():
     model = ONNXModelInstance("test", "model.onnx", "labels.txt", input_size=224)
     model.loaded = True
@@ -248,6 +309,30 @@ def test_onnx_model_instance_aggregates_grouped_nabirds_species_scores():
     assert [item["label"] for item in results] == ["American Goldfinch", "House Sparrow"]
     assert results[0]["score"] == pytest.approx(0.75, rel=1e-3)
     assert results[1]["score"] == pytest.approx(0.25, rel=1e-3)
+
+
+@pytest.mark.parametrize("method_name", ["classify", "classify_raw"])
+def test_onnx_model_instance_surfaces_runtime_failure_for_provider_recovery(method_name):
+    model = ONNXModelInstance(
+        "test",
+        "model.onnx",
+        "labels.txt",
+        input_size=224,
+        ort_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    model.loaded = True
+    model.labels = ["Robin", "Sparrow"]
+    model._preprocess = MagicMock(return_value=np.zeros((1, 3, 224, 224), dtype=np.float32))
+    model.session = MagicMock()
+    model.session.get_inputs.return_value = [types.SimpleNamespace(name="input")]
+    model.session.run.side_effect = RuntimeError("CUDA execution provider failed")
+
+    with pytest.raises(InvalidInferenceOutputError) as exc:
+        getattr(model, method_name)(Image.new("RGB", (32, 32), color="white"))
+
+    assert exc.value.backend == "onnxruntime"
+    assert exc.value.provider == "CUDAExecutionProvider"
+    assert "CUDA execution provider failed" in exc.value.detail
 
 
 def test_onnx_model_instance_preloads_cuda_runtime_before_cuda_session_creation():
@@ -3385,6 +3470,7 @@ async def test_classifier_service_classify_video_forwards_input_context_to_frame
     frames = [
         np.full((8, 8, 3), 32, dtype=np.uint8),
         np.full((8, 8, 3), 64, dtype=np.uint8),
+        np.full((8, 8, 3), 96, dtype=np.uint8),
     ]
 
     class _FakeCapture:
@@ -3428,12 +3514,12 @@ async def test_classifier_service_classify_video_forwards_input_context_to_frame
 
         results = service.classify_video(
             "/tmp/demo.mp4",
-            max_frames=2,
+            max_frames=3,
             input_context={"is_cropped": False, "event_id": "evt-video"},
         )
 
         assert results[0]["label"] == "Robin"
-        assert len(seen_contexts) == 2
+        assert len(seen_contexts) == 3
         assert all(context.is_cropped is False for context in seen_contexts)
         assert all(getattr(context, "event_id", None) == "evt-video" for context in seen_contexts)
         await service.shutdown()

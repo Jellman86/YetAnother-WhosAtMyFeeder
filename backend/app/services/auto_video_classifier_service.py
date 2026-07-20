@@ -1721,6 +1721,27 @@ class AutoVideoClassifierService:
                 error=str(exc),
             )
 
+        partial_recording_path = media_cache.get_recording_clip_path(frigate_event)
+        if partial_recording_path:
+            try:
+                clip_bytes = await asyncio.to_thread(Path(partial_recording_path).read_bytes)
+                if (
+                    clip_bytes
+                    and (clip_bytes.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_bytes[:32])
+                    and await self._clip_decodes(clip_bytes)
+                ):
+                    log.info(
+                        "Using retained partial recording clip for auto video classification",
+                        event_id=frigate_event,
+                    )
+                    return clip_bytes, None, "recording"
+            except Exception as exc:
+                log.debug(
+                    "Failed to read retained partial recording clip",
+                    event_id=frigate_event,
+                    error=str(exc),
+                )
+
         # Check the event clip cache before polling Frigate live.  This covers the
         # case where the precheck bypass fired (Frigate API 404 but clip cached) — if
         # we skip straight to _wait_for_clip, it will call Frigate again, fail for the
