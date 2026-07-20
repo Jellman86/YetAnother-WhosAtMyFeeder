@@ -70,6 +70,7 @@ the viewer stops frame requests, and hidden browser tabs suspend both status and
 | Symptom | Likely cause | Fix |
 |---------|-------------|-----|
 | No detections appearing | MQTT not connected | Check `docker compose logs yawamf \| grep -i mqtt` — you should see `Connected to MQTT topic=frigate/events` |
-| Events received but no clips | Frigate recording not enabled | Enable `record: enabled: True` and set `continuous.days: 1` in Frigate config |
+| Events received but no clips | Frigate recording or stream role not enabled | Add `record` to the camera's FFmpeg input roles, enable `record`, and set `record.continuous.days: 1` in Frigate config |
+| Full-visit clips are unavailable or truncated | Only alert/detection event segments are retained | Set `record.continuous.days` to at least `1` for every YA-WAMF camera; the inline Settings status names any camera without full coverage |
 | Detections missing for brief visits | `detect.fps` too low | Set `detect.fps` to match your sub-stream's native frame rate (10–15 FPS) so brief events are confirmed across multiple frames |
 | `404` when fetching clips | Frigate URL wrong or not on same network | Confirm `FRIGATE_URL` and that all containers share a Docker network |

@@ -62,6 +62,7 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 - Scope: End-to-end CUDA provider behavior for ONNX models on real NVIDIA hardware.
 - Code: `backend/app/services/classifier.py`, `backend/app/services/model_manager.py`, `apps/ui/src/lib/components/settings/DetectionSettings.svelte`, `apps/ui/src/lib/pages/models/ModelManager.svelte`
 - Needs testing:
+  - The full and `-cuda` images report CUDA as packaged; CPU/Intel image mismatch diagnostics remain clear and non-destructive
   - CUDA host/runtime detection correctly reports availability only when an NVIDIA GPU is present
   - ONNX model activation succeeds with `cuda` provider and remains stable across backend restart
   - Live detections and manual/background reclassification flows execute on CUDA without unexpected fallback loops

@@ -713,23 +713,13 @@ class MediaCacheService:
                         stat_result=stat_result,
                     )
                     if actual_duration is not None and actual_duration < float(min_duration_seconds):
-                        try:
-                            path.unlink()
-                        except Exception:
-                            pass
-                        try:
-                            self._preview_sprite_path(event_id).unlink(missing_ok=True)
-                            self._preview_manifest_path(event_id).unlink(missing_ok=True)
-                        except Exception:
-                            pass
-                        log.warning(
-                            "Removed truncated cached recording clip",
+                        log.info(
+                            "Retained usable partial recording clip",
                             event_id=event_id,
                             actual_duration_seconds=round(actual_duration, 2),
                             min_duration_seconds=round(float(min_duration_seconds), 2),
                             size=size,
                         )
-                        self._invalidate_recording_clip_duration_cache(path)
                         return None
                 self._touch_access_time(path, stat_result=stat_result)
                 return path
@@ -745,6 +735,28 @@ class MediaCacheService:
             except Exception:
                 pass
         return None
+
+    def get_recording_clip_duration_seconds(self, event_id: str) -> Optional[float]:
+        """Return the measured duration of a valid cached recording clip.
+
+        A ``None`` result means the clip is absent, too small, or cannot be
+        decoded sufficiently to measure. Callers must not treat file size alone
+        as proof that a retained partial clip is usable.
+        """
+        path = self.get_recording_clip_path(event_id)
+        if path is None:
+            return None
+        try:
+            stat_result = path.stat()
+        except OSError:
+            return None
+        duration = self._get_cached_recording_clip_duration_seconds(
+            path,
+            stat_result=stat_result,
+        )
+        if duration is None or duration <= 0:
+            return None
+        return duration
 
     def has_clip(self, event_id: str) -> bool:
         """Check if a clip is cached and has valid content (not a stub)."""

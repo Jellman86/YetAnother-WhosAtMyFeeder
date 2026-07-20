@@ -126,11 +126,42 @@
             case 'no_matching_cameras':
                 return $_('settings.frigate.full_visit_reason_no_matching_cameras', { default: 'No selected cameras match the current Frigate config.' });
             case 'recordings_disabled':
-                return $_('settings.frigate.full_visit_reason_recordings_disabled', { default: 'Continuous recordings are not enabled for the selected cameras.' });
+                return $_('settings.frigate.full_visit_reason_recordings_disabled', { default: 'Recording is disabled for the selected cameras. Enable recording and retain at least one continuous day.' });
+            case 'continuous_retention_disabled':
+                return $_('settings.frigate.full_visit_reason_continuous_retention_disabled', { default: 'Frigate is not retaining a continuous timeline. Set record.continuous.days to at least 1; event-only clips can start late or end early.' });
+            case 'record_stream_missing':
+                return $_('settings.frigate.full_visit_reason_record_stream_missing', { default: 'A selected camera has no recording stream. Add record to its FFmpeg input roles and retain at least one continuous day.' });
+            case 'camera_disabled':
+                return $_('settings.frigate.full_visit_reason_camera_disabled', { default: 'A selected camera is disabled in Frigate. Enable it before using full-visit clips.' });
+            case 'camera_not_found':
+                return $_('settings.frigate.full_visit_reason_camera_not_found', { default: 'A selected camera is no longer present in Frigate. Sync the camera list and review your selection.' });
+            case 'partial_camera_coverage':
+                return $_('settings.frigate.full_visit_reason_partial_camera_coverage', { default: 'Only some selected cameras have continuous recording coverage. Full-visit clips stay unavailable until every selected camera is covered.' });
+            case 'camera_configuration_incomplete':
+                return $_('settings.frigate.full_visit_reason_camera_configuration_incomplete', { default: 'The selected cameras have more than one recording configuration issue. Review each camera below.' });
             case 'retention_unknown':
-                return $_('settings.frigate.full_visit_reason_retention_unknown', { default: 'Recording retention could not be determined.' });
+                return $_('settings.frigate.full_visit_reason_retention_unknown', { default: 'Continuous recording retention could not be determined. Validate the Frigate recording config before enabling full visits.' });
             default:
                 return $_('settings.frigate.full_visit_reason_unknown', { default: 'Capability could not be confirmed.' });
+        }
+    }
+
+    function getRecordingCameraIssue(reason: string): string {
+        switch (reason) {
+            case 'camera_disabled':
+                return $_('settings.frigate.full_visit_issue_camera_disabled', { default: 'camera disabled' });
+            case 'camera_not_found':
+                return $_('settings.frigate.full_visit_issue_camera_not_found', { default: 'not found in Frigate' });
+            case 'recordings_disabled':
+                return $_('settings.frigate.full_visit_issue_recordings_disabled', { default: 'recording disabled' });
+            case 'record_stream_missing':
+                return $_('settings.frigate.full_visit_issue_record_stream_missing', { default: 'record stream missing' });
+            case 'continuous_retention_disabled':
+                return $_('settings.frigate.full_visit_issue_continuous_retention_disabled', { default: 'continuous retention off' });
+            case 'retention_unknown':
+                return $_('settings.frigate.full_visit_issue_retention_unknown', { default: 'retention unknown' });
+            default:
+                return $_('settings.frigate.full_visit_issue_unknown', { default: 'configuration needs attention' });
         }
     }
 
@@ -410,52 +441,71 @@
             />
         </SettingsRow>
 
-        <div class="rounded-2xl border px-4 py-3 text-xs space-y-2 {recordingClipCapability?.supported ? 'border-accent-400/30 bg-accent-500/10 text-accent-800 dark:text-accent-200' : 'border-amber-400/30 bg-amber-500/10 text-amber-800 dark:text-amber-200'}">
-            <div class="flex items-center justify-between gap-3">
-                <span class="font-black uppercase tracking-widest text-xs">
-                    {$_('settings.frigate.full_visit_capability', { default: 'Capability' })}
-                </span>
-                {#if recordingClipCapabilityLoading}
-                    <span class="text-xs font-semibold uppercase tracking-widest">{$_('common.loading', { default: 'Loading' })}</span>
-                {:else if recordingClipCapability?.supported}
-                    <span class="text-xs font-semibold uppercase tracking-widest">{$_('common.enabled', { default: 'Enabled' })}</span>
+        <div
+            data-full-visit-capability
+            role="status"
+            aria-live="polite"
+            class="flex gap-3 border-t border-slate-200 px-1 pt-4 text-xs dark:border-slate-700/70"
+        >
+            <span
+                class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full
+                       {recordingClipCapability?.supported
+                           ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                           : recordingClipCapabilityLoading || !recordingClipCapability
+                             ? 'bg-slate-500/10 text-slate-500 dark:text-slate-400'
+                             : 'bg-amber-500/10 text-amber-700 dark:text-amber-300'}"
+                aria-hidden="true"
+            >
+                {#if recordingClipCapability?.supported}
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6" /></svg>
+                {:else if recordingClipCapabilityLoading}
+                    <svg class="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.2-8.6" /></svg>
                 {:else}
-                    <span class="text-xs font-semibold uppercase tracking-widest">{$_('common.disabled', { default: 'Disabled' })}</span>
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4" /><path d="M12 17h.01" /><path d="M10.3 3.7 2.4 17.3A2 2 0 0 0 4.1 20h15.8a2 2 0 0 0 1.7-2.7L13.7 3.7a2 2 0 0 0-3.4 0Z" /></svg>
+                {/if}
+            </span>
+
+            <div class="min-w-0 flex-1 space-y-1 text-slate-600 dark:text-slate-400">
+                {#if recordingClipCapabilityLoading}
+                    <p>{$_('settings.frigate.full_visit_loading', { default: 'Checking saved Frigate recording support...' })}</p>
+                {:else if recordingClipCapability}
+                    {#if recordingClipCapability.supported}
+                        <p class="font-semibold text-slate-800 dark:text-slate-200">
+                            {$_('settings.frigate.full_visit_supported', {
+                                default: 'Continuous coverage is ready for all {count} selected camera(s).',
+                                values: { count: recordingClipCapability.eligible_cameras.length }
+                            })}
+                        </p>
+                    {:else}
+                        <p class="font-semibold leading-relaxed text-amber-800 dark:text-amber-200">
+                            {getRecordingCapabilityReason(recordingClipCapability.reason)}
+                        </p>
+                    {/if}
+
+                    {#if Object.keys(recordingClipCapability.ineligible_cameras).length > 0}
+                        <ul class="flex flex-wrap gap-x-3 gap-y-1 pt-1" aria-label={$_('settings.frigate.full_visit_attention_cameras', { default: 'Cameras needing attention' })}>
+                            {#each Object.entries(recordingClipCapability.ineligible_cameras) as [camera, reason]}
+                                <li>
+                                    <span class="font-semibold text-slate-700 dark:text-slate-300">{camera}</span>
+                                    <span aria-hidden="true"> · </span>
+                                    <span>{getRecordingCameraIssue(reason)}</span>
+                                </li>
+                            {/each}
+                        </ul>
+                    {/if}
+
+                    {#if recordingClipCapability.supported && recordingClipCapability.retention_days !== null}
+                        <p>
+                            {$_('settings.frigate.full_visit_retention', {
+                                default: 'Guaranteed continuous retention: {days} day(s)',
+                                values: { days: recordingClipCapability.retention_days }
+                            })}
+                        </p>
+                    {/if}
+                {:else}
+                    <p>{$_('settings.frigate.full_visit_unavailable', { default: 'Capability information is unavailable right now.' })}</p>
                 {/if}
             </div>
-
-            {#if recordingClipCapabilityLoading}
-                <p>{$_('settings.frigate.full_visit_loading', { default: 'Checking saved Frigate recording support...' })}</p>
-            {:else if recordingClipCapability}
-                {#if recordingClipCapability.supported}
-                    <p>
-                        {$_('settings.frigate.full_visit_supported', {
-                            default: 'Continuous recordings are available for {count} selected camera(s).',
-                            values: { count: recordingClipCapability.eligible_cameras.length }
-                        })}
-                    </p>
-                {:else}
-                    <p>{getRecordingCapabilityReason(recordingClipCapability.reason)}</p>
-                {/if}
-                {#if recordingClipCapability.eligible_cameras.length > 0}
-                    <p class="text-xs opacity-90">
-                        {$_('settings.frigate.full_visit_cameras', {
-                            default: 'Eligible cameras: {cameras}',
-                            values: { cameras: recordingClipCapability.eligible_cameras.join(', ') }
-                        })}
-                    </p>
-                {/if}
-                {#if recordingClipCapability.retention_days !== null}
-                    <p class="text-xs opacity-90">
-                        {$_('settings.frigate.full_visit_retention', {
-                            default: 'Detected recording retention: {days} day(s)',
-                            values: { days: recordingClipCapability.retention_days }
-                        })}
-                    </p>
-                {/if}
-            {:else}
-                <p>{$_('settings.frigate.full_visit_unavailable', { default: 'Capability information is unavailable right now.' })}</p>
-            {/if}
         </div>
 
         {#if recordingClipEnabled}

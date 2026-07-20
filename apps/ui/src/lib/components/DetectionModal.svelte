@@ -14,7 +14,7 @@
         favoriteDetection,
         unfavoriteDetection,
         searchSpecies,
-        fetchAudioContext,
+        fetchEventAudioContext,
         createInaturalistDraft,
         submitInaturalistObservation,
         fetchSpeciesInfo,
@@ -49,7 +49,7 @@
     import { trapFocus } from '../utils/focus-trap';
     import { FRIGATE_LOGO_URL } from '../assets';
     import { getErrorMessage } from '../utils/error-handling';
-    import { getDetectionClassificationSource } from '../detection-classification-source';
+    import { getClassificationInputKind, getDetectionClassificationSource } from '../detection-classification-source';
     import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import { getManualTagSearchOptions } from '../search/manual-tag-search';
@@ -102,6 +102,43 @@
         fullVisitFetchState = 'idle'
     }: Props = $props();
     let currentClassificationSource = $derived(getDetectionClassificationSource(detection));
+    let classificationInputKind = $derived(getClassificationInputKind(detection.video_classification_input_source));
+    let classificationInputLabel = $derived.by(() => {
+        if (classificationInputKind === 'video_crop') {
+            return $_('detection.video_analysis.input_video_crop', { default: 'Cropped video frames' });
+        }
+        if (classificationInputKind === 'video_full') {
+            return $_('detection.video_analysis.input_video_full', { default: 'Full video frames' });
+        }
+        if (classificationInputKind === 'snapshot_crop') {
+            return $_('detection.video_analysis.input_snapshot_crop', { default: 'Cropped snapshot' });
+        }
+        if (classificationInputKind === 'snapshot_full') {
+            return $_('detection.video_analysis.input_snapshot_full', { default: 'Full snapshot' });
+        }
+        if (classificationInputKind === 'upstream') {
+            return $_('detection.video_analysis.input_frigate_sublabel', { default: 'Frigate species label' });
+        }
+        return null;
+    });
+    let completedClassificationTitle = $derived.by(() => {
+        if (classificationInputKind === 'upstream') {
+            return $_('detection.video_analysis.frigate_fallback_title', { default: 'Result from Frigate' });
+        }
+        if (classificationInputKind === 'snapshot_crop' || classificationInputKind === 'snapshot_full') {
+            return $_('detection.video_analysis.fallback_title', { default: 'Result from snapshot' });
+        }
+        return $_('detection.video_analysis.title');
+    });
+    let completedClassificationDescription = $derived.by(() => {
+        if (classificationInputKind === 'upstream') {
+            return $_('detection.video_analysis.frigate_fallback_desc', { default: "Local image analysis did not clear policy, so YA-WAMF retained Frigate's trusted species label." });
+        }
+        if (classificationInputKind === 'snapshot_crop' || classificationInputKind === 'snapshot_full') {
+            return $_('detection.video_analysis.fallback_desc', { default: 'Video analysis was unavailable, so this detection was classified from a single frame. Confidence may be lower.' });
+        }
+        return $_('detection.video_analysis.verified_desc');
+    });
     let hideActionLabel = $derived(
         detection.is_hidden
             ? $_('actions.unhide_detection', { default: 'Unhide Detection' })
@@ -371,6 +408,9 @@
         for (const species of detection.audio_context_species ?? []) {
             add(species);
         }
+        for (const audio of audioContext) {
+            add(audio.species);
+        }
         return values;
     });
     const hasAudioContext = $derived(detection.audio_confirmed || audioContextSpecies.length > 0);
@@ -455,46 +495,37 @@
         if (audioElement.paused) audioElement.play().catch(() => {});
     }
 
-    // Reset audio-context state when the modal switches to a different
-    // detection. The same DetectionModal instance is reused across the
-    // Events / Dashboard prev-next flow, and without this reset the auto-
-    // fetch effect below would early-return on every later detection
-    // (audioContextLoaded already true) and the spectrogram + matched-entry
-    // pill would carry over from the previous detection.
+    // Resolve persisted context for every visual event. BirdNET-Go can publish
+    // after the visual ingest path has completed, so stored audio fields are not
+    // a reliable indication that nearby audio exists.
     $effect(() => {
-        detection.frigate_event;
+        const eventId = detection.frigate_event;
+        const controller = new AbortController();
         untrack(() => {
             audioContext = [];
             audioContextLoaded = false;
-            audioContextLoading = false;
+            audioContextLoading = true;
             audioContextError = null;
             audioContextOpen = false;
         });
-    });
-
-    // Auto-fetch audio context whenever this modal renders a detection that
-    // has any audio info, so the spectrogram (and the matched-entry summary)
-    // can be shown without the user having to expand the context list first.
-    $effect(() => {
-        if (!hasAudioContext) return;
-        if (audioContextLoaded || audioContextLoading) return;
-        audioContextLoading = true;
-        audioContextError = null;
-        (async () => {
+        void (async () => {
             try {
-                audioContext = await fetchAudioContext(
-                    detection.detection_time,
-                    detection.camera_name,
-                    300,
-                    6
-                );
+                const context = await fetchEventAudioContext(eventId, controller.signal);
+                if (controller.signal.aborted || detection.frigate_event !== eventId) return;
+                audioContext = context;
                 audioContextLoaded = true;
-            } catch {
+            } catch (error) {
+                if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) return;
+                if (detection.frigate_event !== eventId) return;
                 audioContextError = $_('common.error');
             } finally {
-                audioContextLoading = false;
+                if (!controller.signal.aborted && detection.frigate_event === eventId) {
+                    audioContextLoading = false;
+                }
             }
         })();
+
+        return () => controller.abort();
     });
     const hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
@@ -999,26 +1030,9 @@
         return `${offsetSeconds > 0 ? '+' : '-'}${label}`;
     }
 
-    async function toggleAudioContext(event: MouseEvent) {
+    function toggleAudioContext(event: MouseEvent) {
         event.stopPropagation();
         audioContextOpen = !audioContextOpen;
-        if (audioContextOpen && !audioContextLoaded && !audioContextLoading) {
-            audioContextLoading = true;
-            audioContextError = null;
-            try {
-                audioContext = await fetchAudioContext(
-                    detection.detection_time,
-                    detection.camera_name,
-                    300,
-                    6
-                );
-                audioContextLoaded = true;
-            } catch (e) {
-                audioContextError = $_('common.error');
-            } finally {
-                audioContextLoading = false;
-            }
-        }
     }
 
     async function handleAIAnalysis(force: boolean = false) {
@@ -2267,7 +2281,7 @@
                  score didn't clear the auto-promotion floor, so the primary display
                  wasn't updated. Manual reclassify is the documented path here, so we
                  wire the existing handler in directly. -->
-            {#if videoPromotionGated && !readOnly && onReclassify}
+            {#if videoPromotionGated && hasOwnerDetectionActions && onReclassify}
                 <div class="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/30 text-indigo-900 dark:text-indigo-200 flex items-start gap-3" role="status">
                     <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="12" cy="12" r="10"/>
@@ -2310,7 +2324,7 @@
                 <div class="p-4 rounded-2xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
                     <div class="flex items-center justify-between mb-2">
                         <p class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                            {$_('detection.video_analysis.title')}
+                            {completedClassificationTitle}
                         </p>
                         {#if detection.video_classification_score}
                             <span class="px-2 py-0.5 bg-indigo-500 text-white text-[9px] font-bold rounded uppercase">
@@ -2330,8 +2344,13 @@
                     {/if}
                     <div class="flex flex-wrap items-center gap-2 mt-1">
                         <p class="text-[10px] text-slate-500 italic leading-tight">
-                            {$_('detection.video_analysis.verified_desc')}
+                            {completedClassificationDescription}
                         </p>
+                        {#if classificationInputLabel}
+                            <span class="rounded border border-slate-200/70 bg-white/60 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 dark:border-slate-600/60 dark:bg-slate-900/40 dark:text-slate-300">
+                                {classificationInputLabel}
+                            </span>
+                        {/if}
                         {#if completedVideoInferenceBadge.kind}
                             <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-indigo-200/50 dark:border-indigo-500/30 bg-white/60 dark:bg-slate-900/40">
                                 {#if completedVideoInferenceBadge.kind === 'gpu'}
@@ -2419,9 +2438,7 @@
                             <p class="text-[10px] font-semibold text-brand-600/70 dark:text-brand-400/70">
                                 {detection.audio_confirmed
                                     ? $_('detection.audio_match')
-                                    : (audioNearbySummary
-                                        ? $_('detection.audio_possible_nearby', { default: 'Possible Nearby Audio Match' })
-                                        : $_('detection.audio_no_direct_match', { default: 'No Direct Audio Confirmation' }))}
+                                    : $_('detection.audio_context')}
                             </p>
                             <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
                                 {detection.audio_confirmed

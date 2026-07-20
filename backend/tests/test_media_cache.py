@@ -245,7 +245,7 @@ async def test_cache_recording_clip_streaming_emits_only_on_validated_size(tmp_p
     assert calls == []
 
 
-def test_get_recording_clip_path_rejects_truncated_cached_recording_and_preview_assets(tmp_path, monkeypatch):
+def test_get_recording_clip_path_retains_usable_partial_recording_and_preview_assets(tmp_path, monkeypatch):
     service, _snapshots = _make_service(tmp_path, monkeypatch)
     event_id = "evt_short_recording"
 
@@ -261,9 +261,19 @@ def test_get_recording_clip_path_rejects_truncated_cached_recording_and_preview_
     resolved = service.get_recording_clip_path(event_id, min_duration_seconds=18.0)
 
     assert resolved is None
-    assert not recording_path.exists()
-    assert not preview_sprite_path.exists()
-    assert not preview_manifest_path.exists()
+    assert recording_path.exists()
+    assert preview_sprite_path.exists()
+    assert preview_manifest_path.exists()
+    assert service.get_recording_clip_path(event_id) == recording_path
+
+
+def test_get_recording_clip_duration_rejects_unmeasurable_clip(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_unmeasurable_recording"
+    service._recording_clip_path(event_id).write_bytes(b"x" * 2048)
+    monkeypatch.setattr(media_cache_module, "_clip_duration_seconds", lambda _path: None)
+
+    assert service.get_recording_clip_duration_seconds(event_id) is None
 
 
 def test_get_recording_clip_path_reuses_cached_duration_for_unchanged_file(tmp_path, monkeypatch):

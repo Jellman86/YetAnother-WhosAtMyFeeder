@@ -42,6 +42,7 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             video_classification_provider TEXT,
             video_classification_backend TEXT,
             video_classification_model_id TEXT,
+            video_classification_input_source TEXT,
             video_result_blocked BOOLEAN DEFAULT 0,
             ai_analysis TEXT,
             ai_analysis_timestamp TIMESTAMP,
@@ -118,6 +119,30 @@ async def test_detection_repository():
         fetched_updated = await repo.get_by_frigate_event("evt_1")
         assert fetched_updated.score == 0.95
         assert fetched_updated.frigate_status == "present"
+
+
+@pytest.mark.asyncio
+async def test_get_all_can_target_one_frigate_event():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+        for event_id in ("evt-one", "evt-two"):
+            await repo.create(
+                Detection(
+                    detection_time=datetime(2026, 7, 20, 12, 0, 0),
+                    detection_index=1,
+                    score=0.9,
+                    display_name="Bird",
+                    category_name="Bird",
+                    frigate_event=event_id,
+                    camera_name="birdcam",
+                )
+            )
+
+        detections = await repo.get_all(frigate_event="evt-two")
+
+        assert [detection.frigate_event for detection in detections] == ["evt-two"]
 
 
 @pytest.mark.asyncio
@@ -769,6 +794,7 @@ async def test_update_video_classification_persists_runtime_provider_backend_and
             provider="intel_gpu",
             backend="openvino",
             model_id="convnext_large_inat21",
+            input_source="frigate_hint_crop",
         )
 
         updated = await repo.get_by_frigate_event("evt_video_runtime")
@@ -778,6 +804,7 @@ async def test_update_video_classification_persists_runtime_provider_backend_and
         assert updated.video_classification_provider == "intel_gpu"
         assert updated.video_classification_backend == "openvino"
         assert updated.video_classification_model_id == "convnext_large_inat21"
+        assert updated.video_classification_input_source == "frigate_hint_crop"
 
 
 @pytest.mark.asyncio
@@ -835,6 +862,45 @@ async def test_upsert_if_higher_score_returns_no_change_for_lower_score():
         assert existing is not None
         assert existing.score == pytest.approx(0.92)
         assert existing.display_name == "Blue Jay"
+
+
+@pytest.mark.asyncio
+async def test_upsert_if_higher_score_never_replaces_manual_species_identity():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        manual = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=1,
+            score=0.42,
+            display_name="Wood Pigeon",
+            category_name="Columba palumbus",
+            frigate_event="evt_manual_upsert",
+            camera_name="cam_3",
+            manual_tagged=True,
+        )
+        assert await repo.upsert_if_higher_score(manual) == (True, False)
+
+        automatic = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=2,
+            score=0.99,
+            display_name="Eurasian Collared Dove",
+            category_name="Streptopelia decaocto",
+            frigate_event="evt_manual_upsert",
+            camera_name="cam_3",
+            manual_tagged=False,
+        )
+
+        assert await repo.upsert_if_higher_score(automatic) == (False, False)
+        existing = await repo.get_by_frigate_event("evt_manual_upsert")
+        assert existing is not None
+        assert existing.manual_tagged is True
+        assert existing.display_name == "Wood Pigeon"
+        assert existing.category_name == "Columba palumbus"
+        assert existing.score == pytest.approx(0.42)
 
 
 @pytest.mark.asyncio

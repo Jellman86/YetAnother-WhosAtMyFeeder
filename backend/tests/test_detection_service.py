@@ -23,6 +23,7 @@ def mock_deps():
 
         mock_repo = MockRepo.return_value
         mock_repo.update_video_classification = AsyncMock()
+        mock_repo.update_primary_classification = AsyncMock(return_value=True)
         mock_taxonomy.get_names = AsyncMock(
             return_value={"scientific_name": "New Sci", "common_name": "New Common", "taxa_id": 123}
         )
@@ -68,11 +69,110 @@ async def test_apply_video_result_overrides_lower_score(mock_deps):
     # Verify update_video_classification was called
     mock_deps["repo"].update_video_classification.assert_called_once()
 
-    # Verify primary fields were updated (using execute on db)
-    assert mock_deps["db"].execute.called
-    # One of the calls should be the primary UPDATE
-    update_call = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call[0][0]]
-    assert len(update_call) > 0
+    mock_deps["repo"].update_primary_classification.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_apply_video_result_persists_the_actual_input_source(mock_deps):
+    service = DetectionService(MagicMock())
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.5
+    existing.display_name = "Unknown Bird"
+    existing.category_name = "Unknown Bird"
+    existing.scientific_name = None
+    existing.common_name = None
+    existing.sub_label = None
+    existing.frigate_score = None
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.manual_tagged = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
+
+    await service.apply_video_result(
+        "event1",
+        "Columba palumbus",
+        0.82,
+        123,
+        video_input_source="frigate_hint_crop",
+    )
+
+    assert mock_deps["repo"].update_video_classification.await_args.kwargs["input_source"] == "frigate_hint_crop"
+
+
+@pytest.mark.asyncio
+async def test_apply_video_result_records_analysis_without_replacing_manual_identity(mock_deps):
+    service = DetectionService(MagicMock())
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.41
+    existing.display_name = "Wood Pigeon"
+    existing.category_name = "Columba palumbus"
+    existing.scientific_name = "Columba palumbus"
+    existing.common_name = "Wood Pigeon"
+    existing.sub_label = None
+    existing.frigate_score = 0.91
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.is_favorite = False
+    existing.manual_tagged = True
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(return_value=existing)
+
+    applied = await service.apply_video_result(
+        "event1",
+        "Streptopelia decaocto",
+        0.99,
+        7,
+    )
+
+    assert applied is False
+    mock_deps["repo"].update_video_classification.assert_awaited_once()
+    mock_deps["repo"].update_primary_classification.assert_not_awaited()
+    mock_deps["taxonomy"].get_names.assert_not_called()
+    mock_deps["audio"].correlate_species.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_apply_async_refinement_can_promote_without_completing_video_job(mock_deps):
+    service = DetectionService(MagicMock())
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.51
+    existing.display_name = "Unknown Bird"
+    existing.category_name = "Unknown Bird"
+    existing.scientific_name = None
+    existing.common_name = None
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.is_favorite = False
+    existing.manual_tagged = False
+    existing.sub_label = None
+    existing.frigate_score = None
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "processing"
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(side_effect=[existing, existing])
+
+    applied = await service.apply_video_result(
+        "event1",
+        "Columba palumbus",
+        0.82,
+        123,
+        persist_video_result=False,
+    )
+
+    assert applied is True
+    mock_deps["repo"].update_video_classification.assert_not_awaited()
+    mock_deps["repo"].update_primary_classification.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -106,13 +206,7 @@ async def test_apply_video_result_re_evaluates_audio(mock_deps):
     # Verify audio correlation was called with the scientific name
     mock_deps["audio"].correlate_species.assert_called_once()
 
-    # Verify the update query set audio_confirmed to 1
-    update_call = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
-    args = update_call[0].args
-    params = args[1]
-
-    # Find the index of audio_confirmed in the query
-    assert params[7] == 1  # audio_confirmed should be True (1)
+    assert mock_deps["repo"].update_primary_classification.await_args.kwargs["audio_confirmed"] is True
 
 
 @pytest.mark.asyncio
@@ -281,12 +375,10 @@ async def test_apply_video_result_overrides_low_confidence_primary_when_video_cl
 
     await service.apply_video_result("event1", "Archilochus colubris", 0.434, 2)
 
-    primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
-    assert len(primary_updates) == 1
-    params = primary_updates[0].args[1]
-    assert params[0] == "Ruby-throated Hummingbird"
-    assert params[1] == "Archilochus colubris"
-    assert params[2] == 0.434
+    primary_update = mock_deps["repo"].update_primary_classification.await_args.kwargs
+    assert primary_update["display_name"] == "Ruby-throated Hummingbird"
+    assert primary_update["category_name"] == "Archilochus colubris"
+    assert primary_update["score"] == 0.434
     mock_deps["broadcaster"].broadcast.assert_awaited()
 
 
@@ -354,6 +446,36 @@ async def test_apply_video_result_respects_frigate_sublabel_disagreement_guard(m
     primary_updates = [call for call in mock_deps["db"].execute.call_args_list if "UPDATE detections" in call.args[0]]
     assert primary_updates == []
     mock_deps["audio"].correlate_species.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_apply_video_result_does_not_treat_object_score_as_sublabel_confidence(mock_deps):
+    service = DetectionService(MagicMock())
+    existing = MagicMock(spec=Detection)
+    existing.score = 0.60
+    existing.display_name = "Woodpigeon"
+    existing.category_name = "Columba palumbus"
+    existing.scientific_name = "Columba palumbus"
+    existing.common_name = "Wood Pigeon"
+    existing.sub_label = "Columba palumbus"
+    existing.frigate_score = 0.99
+    existing.detection_time = datetime.now()
+    existing.camera_name = "cam1"
+    existing.is_hidden = False
+    existing.is_favorite = False
+    existing.manual_tagged = False
+    existing.audio_species = None
+    existing.audio_score = None
+    existing.audio_confirmed = False
+    existing.video_classification_label = None
+    existing.video_classification_score = None
+    existing.video_classification_status = "pending"
+    mock_deps["repo"].get_by_frigate_event = AsyncMock(side_effect=[existing, existing])
+
+    applied = await service.apply_video_result("event1", "Aegithalos caudatus", 0.91, 4)
+
+    assert applied is True
+    mock_deps["repo"].update_primary_classification.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -545,7 +667,8 @@ def test_select_usable_classification_uses_trusted_frigate_sublabel_when_all_abs
             [{"label": "Unknown", "score": 0.99, "index": 0}],
             "evt-trusted-sublabel",
             frigate_sub_label="Robin",
-            frigate_score=0.74,
+            frigate_score=0.98,
+            frigate_sub_label_score=0.74,
         )
 
     assert result == {
@@ -553,7 +676,67 @@ def test_select_usable_classification_uses_trusted_frigate_sublabel_when_all_abs
         "score": 0.74,
         "index": -1,
         "source": "frigate_fallback",
+        "input_source": "frigate_sublabel",
     }
+    assert reason == "frigate_fallback"
+
+
+def test_low_confidence_catchall_preserves_runtime_and_input_provenance():
+    service = DetectionService(MagicMock())
+
+    with patch("app.services.detection_service.settings") as mock_settings:
+        mock_settings.classification.unknown_bird_labels = ["Unknown Bird"]
+        mock_settings.classification.blocked_labels = []
+        mock_settings.classification.blocked_species = []
+        mock_settings.classification.threshold = 0.8
+        mock_settings.classification.min_confidence = 0.4
+        mock_settings.classification.trust_frigate_sublabel = False
+
+        result, reason = service.filter_and_label(
+            {
+                "label": "Robin",
+                "score": 0.65,
+                "index": 4,
+                "inference_provider": "intel_gpu",
+                "inference_backend": "openvino",
+                "model_id": "rope_vit_b14_inat21",
+                "input_source": "snapshot_model_crop",
+                "input_is_cropped": True,
+            },
+            "evt-low-confidence-provenance",
+        )
+
+    assert reason == "unknown_catchall"
+    assert result is not None
+    assert result["label"] == "Unknown Bird"
+    assert result["input_source"] == "snapshot_model_crop"
+    assert result["input_is_cropped"] is True
+    assert result["inference_provider"] == "intel_gpu"
+    assert result["inference_backend"] == "openvino"
+    assert result["model_id"] == "rope_vit_b14_inat21"
+
+
+def test_trusted_frigate_fallback_never_uses_object_detection_score_as_species_confidence():
+    service = DetectionService(MagicMock())
+
+    with patch("app.services.detection_service.settings") as mock_settings:
+        mock_settings.classification.unknown_bird_labels = ["Unknown Bird"]
+        mock_settings.classification.blocked_labels = []
+        mock_settings.classification.blocked_species = []
+        mock_settings.classification.threshold = 0.8
+        mock_settings.classification.min_confidence = 0.4
+        mock_settings.classification.trust_frigate_sublabel = True
+
+        result, reason = service.select_usable_classification(
+            [{"label": "Unknown", "score": 0.99, "index": 0}],
+            "evt-object-score-is-not-species-score",
+            frigate_sub_label="Robin",
+            frigate_score=0.99,
+            frigate_sub_label_score=0.67,
+        )
+
+    assert result is not None
+    assert result["score"] == pytest.approx(0.67)
     assert reason == "frigate_fallback"
 
 

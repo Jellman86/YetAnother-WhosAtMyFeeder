@@ -227,6 +227,67 @@ def test_model_instance_classify(mock_tflite, mock_os_path_exists):
     assert results[0]["score"] == pytest.approx(0.8)
 
 
+def test_model_instance_quantizes_int8_input_and_dequantizes_int8_output():
+    model = ModelInstance(
+        "test",
+        "model.tflite",
+        "labels.txt",
+        preprocessing={"normalization": "uint8"},
+    )
+    interpreter = MagicMock()
+    interpreter.get_tensor.return_value = np.array([[-128, 127]], dtype=np.int8)
+    model.interpreter = interpreter
+    model.loaded = True
+    model.labels = ["Bird A", "Bird B"]
+    model.input_details = [
+        {
+            "shape": [1, 1, 1, 3],
+            "dtype": np.int8,
+            "index": 0,
+            "quantization_parameters": {
+                "scales": np.array([1.0], dtype=np.float32),
+                "zero_points": np.array([-128], dtype=np.int32),
+            },
+        }
+    ]
+    model.output_details = [
+        {
+            "dtype": np.int8,
+            "index": 0,
+            "quantization_parameters": {
+                "scales": np.array([1.0 / 255.0], dtype=np.float32),
+                "zero_points": np.array([-128], dtype=np.int32),
+            },
+        }
+    ]
+
+    results = model.classify(Image.new("RGB", (1, 1), color=(0, 128, 255)))
+
+    input_payload = interpreter.set_tensor.call_args.args[1]
+    assert input_payload.dtype == np.int8
+    assert input_payload.tolist() == [[[[-128, 0, 127]]]]
+    assert results[0]["label"] == "Bird B"
+    assert results[0]["score"] == pytest.approx(1.0)
+
+
+def test_model_instance_rejects_int8_input_without_quantization_metadata():
+    model = ModelInstance("test", "model.tflite", "labels.txt")
+    model.interpreter = MagicMock()
+    model.loaded = True
+    model.input_details = [
+        {
+            "shape": [1, 1, 1, 3],
+            "dtype": np.int8,
+            "index": 0,
+            "quantization_parameters": {},
+        }
+    ]
+    model.output_details = [{"dtype": np.float32, "index": 0}]
+
+    with pytest.raises(InvalidInferenceOutputError, match="missing valid quantization metadata"):
+        model.classify_raw(Image.new("RGB", (1, 1), color="white"))
+
+
 def test_onnx_model_instance_aggregates_grouped_nabirds_species_scores():
     model = ONNXModelInstance("test", "model.onnx", "labels.txt", input_size=224)
     model.loaded = True
@@ -248,6 +309,30 @@ def test_onnx_model_instance_aggregates_grouped_nabirds_species_scores():
     assert [item["label"] for item in results] == ["American Goldfinch", "House Sparrow"]
     assert results[0]["score"] == pytest.approx(0.75, rel=1e-3)
     assert results[1]["score"] == pytest.approx(0.25, rel=1e-3)
+
+
+@pytest.mark.parametrize("method_name", ["classify", "classify_raw"])
+def test_onnx_model_instance_surfaces_runtime_failure_for_provider_recovery(method_name):
+    model = ONNXModelInstance(
+        "test",
+        "model.onnx",
+        "labels.txt",
+        input_size=224,
+        ort_providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
+    )
+    model.loaded = True
+    model.labels = ["Robin", "Sparrow"]
+    model._preprocess = MagicMock(return_value=np.zeros((1, 3, 224, 224), dtype=np.float32))
+    model.session = MagicMock()
+    model.session.get_inputs.return_value = [types.SimpleNamespace(name="input")]
+    model.session.run.side_effect = RuntimeError("CUDA execution provider failed")
+
+    with pytest.raises(InvalidInferenceOutputError) as exc:
+        getattr(model, method_name)(Image.new("RGB", (32, 32), color="white"))
+
+    assert exc.value.backend == "onnxruntime"
+    assert exc.value.provider == "CUDAExecutionProvider"
+    assert "CUDA execution provider failed" in exc.value.detail
 
 
 def test_onnx_model_instance_preloads_cuda_runtime_before_cuda_session_creation():
@@ -3385,6 +3470,7 @@ async def test_classifier_service_classify_video_forwards_input_context_to_frame
     frames = [
         np.full((8, 8, 3), 32, dtype=np.uint8),
         np.full((8, 8, 3), 64, dtype=np.uint8),
+        np.full((8, 8, 3), 96, dtype=np.uint8),
     ]
 
     class _FakeCapture:
@@ -3428,14 +3514,196 @@ async def test_classifier_service_classify_video_forwards_input_context_to_frame
 
         results = service.classify_video(
             "/tmp/demo.mp4",
-            max_frames=2,
+            max_frames=3,
             input_context={"is_cropped": False, "event_id": "evt-video"},
         )
 
         assert results[0]["label"] == "Robin"
-        assert len(seen_contexts) == 2
+        assert len(seen_contexts) == 3
         assert all(context.is_cropped is False for context in seen_contexts)
         assert all(getattr(context, "event_id", None) == "evt-video" for context in seen_contexts)
+        await service.shutdown()
+
+
+class _ThreeFrameCapture:
+    def __init__(self, _path):
+        self._index = 0
+
+    def isOpened(self):
+        return True
+
+    def get(self, prop):
+        if prop == classifier_service_module.cv2.CAP_PROP_FRAME_COUNT:
+            return 3
+        if prop == classifier_service_module.cv2.CAP_PROP_FPS:
+            return 10
+        return 0
+
+    def set(self, _prop, value):
+        self._index = int(value)
+
+    def read(self):
+        if 0 <= self._index < 3:
+            frame = np.full((100, 100, 3), 48 + self._index, dtype=np.uint8)
+            self._index += 1
+            return True, frame
+        return False, None
+
+    def release(self):
+        return None
+
+
+@pytest.mark.asyncio
+async def test_classify_video_compares_frigate_crop_when_model_crop_policy_is_disabled(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    class _FrameAwareBirdModel:
+        loaded = True
+        labels = ["Wood Pigeon", "Sparrowhawk"]
+
+        def __init__(self):
+            self.seen_sizes = []
+
+        def classify_raw(self, image):
+            self.seen_sizes.append(image.size)
+            if image.size == (100, 100):
+                return np.array([0.34, 0.33], dtype=np.float32)
+            return np.array([0.82, 0.18], dtype=np.float32)
+
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        model = _FrameAwareBirdModel()
+        service._models["bird"] = model
+        service._bird_crop_service = None
+        monkeypatch.setattr(classifier_service_module.cv2, "VideoCapture", _ThreeFrameCapture)
+        monkeypatch.setattr(classifier_service_module.cv2, "cvtColor", lambda frame, _code: frame)
+        monkeypatch.setattr(settings.classification, "min_confidence", 0.45)
+        monkeypatch.setattr(
+            service,
+            "_resolve_active_bird_model_spec",
+            lambda: {"crop_generator": {"enabled": False}},
+        )
+
+        results = service.classify_video(
+            "/tmp/demo.mp4",
+            max_frames=3,
+            input_context={
+                "is_cropped": False,
+                "event_id": "evt-distant-bird",
+                "frigate_box": [0.1, 0.1, 0.78, 0.78],
+            },
+        )
+
+        assert results[0]["label"] == "Wood Pigeon"
+        assert results[0]["input_source"] == "frigate_hint_crop"
+        assert results[0]["input_is_cropped"] is True
+        assert model.seen_sizes.count((100, 100)) == 3
+        assert len([size for size in model.seen_sizes if size != (100, 100)]) == 3
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classify_video_abstains_when_full_frame_and_frigate_crop_disagree(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    class _DisagreeingBirdModel:
+        loaded = True
+        labels = ["Wood Pigeon", "Sparrowhawk"]
+
+        def classify_raw(self, image):
+            if image.size == (100, 100):
+                return np.array([0.91, 0.09], dtype=np.float32)
+            return np.array([0.08, 0.92], dtype=np.float32)
+
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        service._models["bird"] = _DisagreeingBirdModel()
+        service._bird_crop_service = None
+        monkeypatch.setattr(classifier_service_module.cv2, "VideoCapture", _ThreeFrameCapture)
+        monkeypatch.setattr(classifier_service_module.cv2, "cvtColor", lambda frame, _code: frame)
+        monkeypatch.setattr(settings.classification, "min_confidence", 0.45)
+
+        results = service.classify_video(
+            "/tmp/demo.mp4",
+            max_frames=3,
+            input_context={"is_cropped": False, "frigate_box": [0.1, 0.1, 0.78, 0.78]},
+        )
+
+        assert results == []
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classify_video_uses_full_frame_when_crop_hints_are_invalid(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    class _FullFrameBirdModel:
+        loaded = True
+        labels = ["Wood Pigeon", "Sparrowhawk"]
+
+        def classify_raw(self, _image):
+            return np.array([0.81, 0.19], dtype=np.float32)
+
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        service._models["bird"] = _FullFrameBirdModel()
+        service._bird_crop_service = None
+        monkeypatch.setattr(classifier_service_module.cv2, "VideoCapture", _ThreeFrameCapture)
+        monkeypatch.setattr(classifier_service_module.cv2, "cvtColor", lambda frame, _code: frame)
+        monkeypatch.setattr(settings.classification, "min_confidence", 0.45)
+
+        results = service.classify_video(
+            "/tmp/demo.mp4",
+            max_frames=3,
+            input_context={"is_cropped": False, "frigate_box": [2.0, 2.0, 1.0, 1.0]},
+        )
+
+        assert results[0]["input_source"] == "full_frame"
+        assert results[0]["input_is_cropped"] is False
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exists(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    class _FrameAwareBirdModel:
+        loaded = True
+        labels = ["Wood Pigeon", "Sparrowhawk"]
+
+        def classify_raw(self, image):
+            if image.size == (100, 100):
+                return np.array([0.35, 0.34], dtype=np.float32)
+            return np.array([0.84, 0.16], dtype=np.float32)
+
+    class _CropService:
+        def get_status(self):
+            return {"installed": True, "enabled_for_runtime": True}
+
+        def generate_classification_crop(self, image):
+            return {
+                "crop_image": image.crop((20, 20, 80, 80)),
+                "box": (20, 20, 80, 80),
+                "confidence": 0.88,
+                "reason": "selected",
+            }
+
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        service._models["bird"] = _FrameAwareBirdModel()
+        service._bird_crop_service = _CropService()
+        monkeypatch.setattr(classifier_service_module.cv2, "VideoCapture", _ThreeFrameCapture)
+        monkeypatch.setattr(classifier_service_module.cv2, "cvtColor", lambda frame, _code: frame)
+        monkeypatch.setattr(settings.classification, "min_confidence", 0.45)
+
+        results = service.classify_video(
+            "/tmp/demo.mp4",
+            max_frames=3,
+            input_context={"is_cropped": False, "event_id": "evt-model-crop"},
+        )
+
+        assert results[0]["input_source"] == "model_crop"
+        assert results[0]["input_is_cropped"] is True
         await service.shutdown()
 
 
@@ -3487,9 +3755,14 @@ async def test_classifier_service_applies_crop_when_enabled_and_input_is_not_cro
         service._bird_crop_service = crop_service
 
         image = Image.new("RGB", (32, 32), color="red")
-        results = service.classify(image, input_context={"is_cropped": False})
+        results = service.classify(
+            image,
+            input_context={"is_cropped": False, "input_source": "full_frame"},
+        )
 
         assert results[0]["label"] == "Robin"
+        assert results[0]["input_source"] == "snapshot_model_crop"
+        assert results[0]["input_is_cropped"] is True
         assert crop_service.calls == [image]
         assert bird_model.seen_images[0] is not image
         assert bird_model.seen_images[0].size == (8, 8)
@@ -3539,9 +3812,14 @@ async def test_classifier_service_skips_crop_when_input_is_already_cropped(mock_
         service._bird_crop_service = crop_service
 
         image = Image.new("RGB", (32, 32), color="red")
-        results = service.classify(image, input_context={"is_cropped": True})
+        results = service.classify(
+            image,
+            input_context={"is_cropped": True, "input_source": "frigate_snapshot_cropped"},
+        )
 
         assert results[0]["label"] == "Robin"
+        assert results[0]["input_source"] == "frigate_snapshot_cropped"
+        assert results[0]["input_is_cropped"] is True
         assert crop_service.calls == []
         assert bird_model.seen_images[0] is image
         await service.shutdown()
@@ -3590,9 +3868,14 @@ async def test_classifier_service_skips_crop_when_manifest_disables_it(mock_tfli
         service._bird_crop_service = crop_service
 
         image = Image.new("RGB", (32, 32), color="red")
-        results = service.classify(image, input_context={"is_cropped": False})
+        results = service.classify(
+            image,
+            input_context={"is_cropped": False, "input_source": "full_frame"},
+        )
 
         assert results[0]["label"] == "Robin"
+        assert results[0]["input_source"] == "full_frame"
+        assert results[0]["input_is_cropped"] is False
         assert crop_service.calls == []
         assert bird_model.seen_images[0] is image
         await service.shutdown()
@@ -3977,6 +4260,8 @@ async def test_classifier_service_prefers_frigate_box_hint_before_detector(mock_
         )
 
         assert results[0]["label"] == "Robin"
+        assert results[0]["input_source"] == "snapshot_frigate_hint_crop"
+        assert results[0]["input_is_cropped"] is True
         assert crop_service.calls == []
         assert bird_model.seen_images[0].size == (248, 248)
         await service.shutdown()
@@ -4862,6 +5147,27 @@ def test_classifier_status_exposes_openvino_model_compile_diagnostics():
     assert status["openvino_model_compile_device"] == "GPU"
     assert "SequenceEmpty" in (status["openvino_model_compile_error"] or "")
     assert status["openvino_model_compile_unsupported_ops"] == ["SequenceEmpty"]
+
+
+@pytest.mark.asyncio
+async def test_classifier_status_exposes_image_flavor_and_provider_mismatch(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "cpu")
+    original_provider = settings.classification.inference_provider
+    settings.classification.inference_provider = "cuda"
+
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+            service = ClassifierService()
+
+        status = service.get_status()
+
+        assert status["image_flavor"] == "cpu"
+        assert status["packaged_inference_providers"] == ["cpu"]
+        assert status["image_flavor_warning"] == "selected_provider_not_packaged"
+        assert settings.classification.inference_provider == "cuda"
+        await service.shutdown()
+    finally:
+        settings.classification.inference_provider = original_provider
 
 
 @pytest.mark.asyncio

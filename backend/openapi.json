@@ -868,6 +868,17 @@
             "title": "Id",
             "type": "integer"
           },
+          "matched_visual_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matched Visual Event Id"
+          },
           "sensor_id": {
             "anyOf": [
               {
@@ -2385,6 +2396,17 @@
             ],
             "title": "Video Classification Error"
           },
+          "video_classification_input_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Input Source"
+          },
           "video_classification_model_id": {
             "anyOf": [
               {
@@ -3521,6 +3543,17 @@
             ],
             "title": "Video Classification Error"
           },
+          "video_classification_input_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Input Source"
+          },
           "video_classification_label": {
             "anyOf": [
               {
@@ -4081,6 +4114,17 @@
               }
             ],
             "title": "Video Classification Error"
+          },
+          "video_classification_input_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Input Source"
           },
           "video_classification_label": {
             "anyOf": [
@@ -6843,7 +6887,23 @@
             "title": "Old Species",
             "type": "string"
           },
+          "reason": {
+            "anyOf": [
+              {
+                "const": "no_confident_result",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
           "status": {
+            "enum": [
+              "success",
+              "no_result"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -6875,6 +6935,14 @@
           },
           "ineligible_cameras": {
             "additionalProperties": {
+              "enum": [
+                "camera_disabled",
+                "camera_not_found",
+                "recordings_disabled",
+                "record_stream_missing",
+                "continuous_retention_disabled",
+                "retention_unknown"
+              ],
               "type": "string"
             },
             "title": "Ineligible Cameras",
@@ -6883,6 +6951,18 @@
           "reason": {
             "anyOf": [
               {
+                "enum": [
+                  "config_unavailable",
+                  "no_matching_cameras",
+                  "recordings_disabled",
+                  "record_stream_missing",
+                  "continuous_retention_disabled",
+                  "camera_disabled",
+                  "camera_not_found",
+                  "partial_camera_coverage",
+                  "camera_configuration_incomplete",
+                  "retention_unknown"
+                ],
                 "type": "string"
               },
               {
@@ -12793,7 +12873,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.13.0"
+    "version": "2.14.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -12943,6 +13023,67 @@
           }
         ],
         "summary": "Get Audio Context",
+        "tags": [
+          "audio",
+          "audio"
+        ]
+      }
+    },
+    "/api/audio/context/event/{event_id}": {
+      "get": {
+        "description": "Get BirdNET-Go detections near a persisted visual event.\n\nEvent-scoped lookup ensures the server's current source mapping and\ncorrelation window are applied even when audio arrived after the visual\nevent's ingest-time correlation attempt.",
+        "operationId": "get_event_audio_context_api_audio_context_event__event_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AudioContextDetectionResponse"
+                  },
+                  "title": "Response Get Event Audio Context Api Audio Context Event  Event Id  Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Event Audio Context",
         "tags": [
           "audio",
           "audio"
@@ -16143,6 +16284,25 @@
               ],
               "description": "Filter by camera name",
               "title": "Camera"
+            }
+          },
+          {
+            "description": "Filter by exact Frigate event ID",
+            "in": "query",
+            "name": "event_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 255,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Filter by exact Frigate event ID",
+              "title": "Event Id"
             }
           },
           {

@@ -19,7 +19,7 @@ Everything you need to get the containers running and configured correctly.
 - **[🌐 Reverse Proxy Guide](setup/reverse-proxy.md)** - Configs for Cloudflare Tunnel, Nginx, Caddy.
 - **[⚙️ Configuration Guide](setup/configuration.md)** - Deep dive into all web UI settings.
 - **[🌱 Environment Variables](setup/environment-variables.md)** - Complete reference for every env override, with defaults.
-- **[⚡ Hardware Acceleration](setup/hardware-acceleration.md)** - Run classification on an Intel GPU, Intel NPU, or NVIDIA CUDA, with device passthrough and fallback behaviour.
+- **[⚡ Hardware Acceleration](setup/hardware-acceleration.md)** - Choose the full, CPU, Intel, or CUDA image; configure device passthrough; and verify packaged, available, and active providers.
 
 ## 🔌 API & Development
 Build integrations and custom tools with YA-WAMF.
@@ -66,5 +66,7 @@ How the project is built and held to standard.
 - **[🧑‍💻 Code-Quality Standard](standards/code-quality.md)** - The researched code-craft bar for Python/FastAPI + Svelte 5/TypeScript, with authoritative sources.
 - **[🎨 UI/UX Standard](standards/ui-ux.md)** - Usability (Nielsen's heuristics), accessibility (WCAG 2.2 AA), and visual craft (Refactoring UI).
 - **[📣 Writing a Release](development/releasing.md)** - The human-first GitHub Release standard, template, and checklist.
+- **[🎁 YA-WAMF 2.14.0 Release Notes](releases/v2.14.0.md)** - Runtime image choices, stronger image/video evidence, and update guidance for the current release.
 - **[🏅 Gold-Standard Review (2026-07-07)](reviews/2026-07-07-project-quality-and-gold-standard-review.md)** - Honest assessment against the standards and the path to close remaining gaps.
+- **[🌍 Translation Editorial Review (2026-07-20)](reviews/2026-07-20-translation-editorial-review.md)** - Locale coverage, editorial findings, permanent regression gates, and the native-review limitation.
 - **[🗺️ Roadmap](../ROADMAP.md)** - The single forward-looking plan: the Road to 3.0, the prioritised open backlog, and the delivered-features catalogue.

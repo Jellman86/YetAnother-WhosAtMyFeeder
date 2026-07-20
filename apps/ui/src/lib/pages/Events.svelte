@@ -35,6 +35,7 @@
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import { toLocalYMD } from '../utils/date-only';
     import { getErrorMessage } from '../utils/error-handling';
+    import { selectReclassificationStrategy } from '../utils/reclassification';
 
     import { getBirdNames } from '../naming';
 
@@ -208,6 +209,8 @@
                     selectedEvent = target;
                     pendingEventId = null;
                     clearEventVideoDeepLinkParams();
+                } else {
+                    await loadDeepLinkedEvent(pendingEventId);
                 }
             }
         } catch (e) {
@@ -221,6 +224,25 @@
             console.error('Failed to load events', e);
         } finally {
             if (loadGeneration === eventsLoadGeneration) loading = false;
+        }
+    }
+
+    async function loadDeepLinkedEvent(eventId: string) {
+        try {
+            const [target] = await fetchEvents({
+                eventId,
+                limit: 1,
+                fields: 'detail',
+                requestKey: 'events-page:deep-link'
+            });
+            if (!target || pendingEventId !== eventId) return;
+            selectedEvent = target;
+            pendingEventId = null;
+            clearEventVideoDeepLinkParams();
+        } catch (e) {
+            if (!(e instanceof Error && e.name === 'AbortError')) {
+                console.error('Failed to resolve event deep link', e);
+            }
         }
     }
 
@@ -584,9 +606,17 @@
     async function handleReclassify() {
         if (!selectedEvent) return;
         const eventId = selectedEvent.frigate_event;
-        const requestedStrategy = selectedEvent.has_clip ? 'video' : 'snapshot';
+        const requestedStrategy = selectReclassificationStrategy(
+            selectedEvent.has_clip,
+            fullVisitFetchState[eventId]
+        );
         try {
             const result = await reclassifyDetection(eventId, requestedStrategy);
+
+            if (!result.updated) {
+                toastStore.warning($_('notifications.reclassify_no_result'));
+                return;
+            }
 
             // Check if backend used a different strategy (fallback occurred)
             if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {

@@ -28,7 +28,10 @@ What stays the same:
 
 1. Back up your current compose file.
 2. Keep your existing `/config` and `/data` volumes unchanged.
-3. Be ready to update your reverse proxy from:
+3. Start with the unsuffixed full compatibility image (`latest`, `dev`, or your
+   pinned release). This keeps every inference runtime available while you prove
+   the deployment migration separately from any image-size optimisation.
+4. Be ready to update your reverse proxy from:
    - `yawamf-frontend:80` and `yawamf-backend:8000`
    to:
    - `yawamf-monalithic:8080`
@@ -90,6 +93,13 @@ See [Reverse Proxy Guide](reverse-proxy.md) for the full proxy examples and SSE/
    - recent clips still play
    - GPU/OpenVINO or CUDA still shows up if you use acceleration
 
+After that verification, you may opt into `latest-cpu`, `latest-intel` or
+`latest-cuda` without changing the service or volumes. Provider-suffixed release
+tags such as `v2.14.0-intel` are also available. See
+[Hardware Acceleration](hardware-acceleration.md) for the exact image/provider
+matrix. If acceleration disappears after changing flavor, restore the unsuffixed
+tag first; no data rollback is needed.
+
 ## Rollback
 
 Rollback should be straightforward because the monolith keeps the same persistent volumes.
@@ -103,9 +113,11 @@ To roll back:
 
 ## Current Status
 
-As of `v2.9.9`:
+For the current `v2.x` transition:
 
 - The monolithic container (`yawamf-monalithic`) is the **recommended deployment** for new installs and migrations.
 - The split deployment (`wamf-backend` + `wamf-frontend`) remains functional on `v2.x` but **will receive no further updates starting with v3.0** — no bug fixes, no new features, and no compatibility guarantee.
 - Migrate before upgrading to v3.0.
-- Use `:latest` or a pinned `:vX.Y.Z` tag for stable installs. The `:dev` tag tracks the development branch and may be unstable.
+- Use `:latest` or a pinned `:vX.Y.Z` tag for the stable full image. The `:dev`
+  tag tracks the full development image and may be unstable; optional `-cpu`,
+  `-intel` and `-cuda` suffixes select the smaller provider-family builds.

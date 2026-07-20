@@ -2,15 +2,16 @@ name: YetAnother-WhosAtMyFeeder-Monolith
 #-----------------------------------------------
 # Yet Another WhosAtMyFeeder - Monolithic Deployment
 #
-# This is the recommended deployment for new installations. The stable image is
-# the safe default; set YAWAMF_MONALITHIC_TAG=dev explicitly to follow development.
+# This is the recommended deployment for new installations. The stable full
+# compatibility image is the safe default. Optional smaller tag suffixes are
+# documented in docs/setup/hardware-acceleration.md.
 #
 # Usage:
 #   docker compose -f docker-compose.monolith.yml up -d
 #
 # Optional overrides:
 #   YAWAMF_MONALITHIC_IMAGE - Full image repository/name override (default: ghcr.io/jellman86/yawamf-monalithic)
-#   YAWAMF_MONALITHIC_TAG  - Image tag (default: latest; use dev only for testing)
+#   YAWAMF_MONALITHIC_TAG  - Image tag (default full: latest; variants: latest-cpu/latest-intel/latest-cuda)
 #   APP_BIND_IP            - Host bind IP for the published app port
 #   APP_PORT               - Host app port (default: 9852)
 #   FRIGATE_URL            - URL to your Frigate instance (default: http://frigate:5000)
@@ -45,7 +46,7 @@ services:
     #   - "44"   # video (example)
     #   - "107"  # render (example — covers both /dev/dri and /dev/accel on most distros)
     # NVIDIA CUDA example (Docker Compose v2.20+):
-    # The official image now includes the CUDA/cuDNN userspace runtime for ORT.
+    # The full and cuda image flavors include the CUDA/cuDNN userspace runtime for ORT.
     # Your host still needs NVIDIA Container Toolkit (or equivalent).
     # gpus: all
     # environment:

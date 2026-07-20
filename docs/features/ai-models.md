@@ -3,7 +3,7 @@
 YA-WAMF supports multiple classifier models, allowing you to balance speed, memory usage, taxonomy scope, and identification accuracy.
 
 ## The Model Market
-You can manage models directly from the **Settings > Detection > Model Manager** page. The current lineup includes:
+You can manage models directly from **Settings → Detection → Model Manager**. The current lineup includes:
 
 - Wildlife-wide ONNX models for broad species coverage
 - Birds-only regional and global models for cleaner feeder-focused confidence
@@ -38,13 +38,22 @@ sweep](model-evaluation.md) also clears the gate.
 
 ## Inference Providers (CPU / CUDA / Intel OpenVINO)
 
-For ONNX models, YA-WAMF supports a provider selector in **Settings > Detection**:
+For ONNX models, YA-WAMF supports a provider selector under
+**Settings → Detection → Inference Provider**:
 
 - `Auto` (recommended): prefers **Intel GPU (OpenVINO)**, then **NVIDIA CUDA**, then CPU.
 - `CPU`: ONNX Runtime CPU execution.
 - `NVIDIA CUDA`: ONNX Runtime with CUDA (falls back to CPU if CUDA is not actually usable).
 - `Intel GPU (OpenVINO)`: OpenVINO GPU plugin (falls back to OpenVINO CPU if the Intel GPU is unavailable).
 - `Intel CPU (OpenVINO)`: OpenVINO CPU execution.
+- `Intel NPU (OpenVINO)`: OpenVINO NPU execution for a model validated on this host.
+
+The selected image must package the provider: full packages every supported
+x86 family, `-cpu` packages ONNX CPU, `-intel` packages ONNX CPU plus OpenVINO,
+and `-cuda` packages ONNX Runtime CUDA plus its CPU execution provider. Image
+choice never proves the hardware works. See
+[Hardware Acceleration](../setup/hardware-acceleration.md) for tags, device
+passthrough, and safe switching.
 
 ### Important behavior (robust fallback)
 
@@ -52,10 +61,14 @@ YA-WAMF intentionally fails soft when acceleration is misconfigured:
 
 - If a provider is selected but unavailable, the backend falls back to a working provider.
 - The UI shows:
-  - **Selected provider**
-  - **Active provider**
+  - **Image** and **Packaged** providers
+  - **Selected** provider
+  - **Active** provider
   - **Backend** (`onnxruntime` or `openvino`)
-  - **Fallback reason**
+  - **Fallback** reason or an image/provider mismatch warning
+- A provider/image mismatch does not rewrite the saved selection. The current
+  image uses CPU fallback and the original selection becomes usable again after
+  switching back to a compatible image.
 - CUDA and OpenVINO availability are probed separately from model loading, then validated again during runtime initialization.
 
 ### What counts as "available"
@@ -68,6 +81,9 @@ YA-WAMF intentionally fails soft when acceleration is misconfigured:
   - OpenVINO runtime can initialize.
 - **Intel GPU auto-detected** means:
   - OpenVINO enumerated a GPU device (or `GPU.*`) and can expose it to YA-WAMF.
+- **Intel NPU auto-detected** means:
+  - OpenVINO enumerated an NPU device and the selected model still has to pass
+    its per-host compatibility validation.
 
 If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can still use **OpenVINO CPU**.
 
@@ -131,29 +147,72 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 #### Best-available event snapshots
 
 **Settings → Data → Snapshot quality → Best available event snapshots** is an automatic outcome,
-not a source selector. When enabled, YA-WAMF samples up to three promising main-stream clip frames,
-builds a full-frame candidate plus every valid Frigate-hint and detector crop, reclassifies the
-candidates, and makes the strongest crop canonical. The full high-quality frame is used only when no
-crop source yields a valid image. The old `bird_crop_source_priority` and
+not a source selector. When enabled, YA-WAMF samples up to three centre/track-weighted moments from
+the main-stream clip, spreading them across the tracked interval when available and otherwise using
+the central clip region. Samples must be at least 250 ms apart; a neighbouring frame can recover a
+decode failure but remains part of the same evidence slot. YA-WAMF builds a full-frame candidate
+plus every valid Frigate-hint and detector crop, then reclassifies the candidates. Event-clip hint
+boxes follow Frigate's timestamped object path; recording clips with an unproven timeline do not
+reuse a potentially stale event box. The full high-quality frame competes with valid,
+identity-consistent crops and remains canonical when it is the clearest trustworthy image. The old
+`bird_crop_source_priority` and
 `media_cache_high_quality_event_snapshot_bird_crop` fields remain readable/writable for API and
 configuration compatibility, but do not override this policy.
+
+Each candidate still goes through the active classifier's declared preprocessing: input size,
+resize mode, interpolation, colour space, normalisation, mean and standard deviation. A generated
+bird crop is marked as already cropped, which prevents a model's optional localisation policy from
+cropping it a second time; it does not bypass the model's normal resize and tensor preparation.
+
+YA-WAMF can also use the crop classifications to refine the detection. It requires the same species
+to clear both the active model's recommended confidence and a conservative 0.60 floor at two or more
+temporally independent offsets. Multiple crop sources or nearby decode fallbacks from one evidence
+slot count as one vote. Missing timestamp provenance cannot vote. A close competing multi-frame
+result blocks promotion. Automatic refinement can upgrade **Unknown Bird** or improve a lower-scoring
+result for the same canonical species, but it never replaces a manual tag or a conflicting known
+species.
 
 The pipeline is fail-soft: the accurate detector retries through the fast detector, a detector miss
 can still use Frigate's tracked-object box, and total crop failure keeps the clear full frame. Recent
 events without generated candidates are reconciled after restart so an in-memory queue loss does not
-permanently strand their upgrade. `/health` exposes `high_quality_snapshots.crop_policy`, selected
-source counts, outcomes, and the recovered-job total for operational verification.
+permanently strand their upgrade. Retry state survives restarts, backs off for five, fifteen, and
+forty-five minutes, and becomes terminal after a fourth failure; an explicit regeneration with newly
+available media can still succeed. `/health` exposes `high_quality_snapshots.crop_policy`, selected
+source counts, snapshot outcomes, classification-refinement outcomes, and the recovered-job total
+for operational verification.
 
 ## Automatic Video Analysis (Deep Analysis)
-In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background task scans the full video clip frame-by-frame (temporal ensemble) to verify the identification.
+In addition to snapshot classification, YA-WAMF can perform **Deep Video Analysis**. This background
+task scans a video across multiple frames (temporal ensemble) to verify the identification. Manual
+video reclassification uses the best playable source already retained by YA-WAMF before contacting
+Frigate: a complete full-visit recording, a decodable partial recording, or the cached event clip.
+An unreadable cache entry is discarded and the next source is tried; a snapshot is the final
+fallback, not a shortcut around usable video.
 
 ![Deep Video Analysis](../images/event_details_modal.png)
 
 This provides significantly higher confidence by seeing the bird from multiple angles and in motion.
+See [Deep Video Analysis](video-analysis.md) for source selection, consensus, fallback, and runtime
+requirements.
 
 
-## Fast Path Efficiency
-If **"Trust Frigate Sublabels"** is enabled, the system will bypass its own AI classification if Frigate has already identified the species. This saves CPU cycles and is recommended if you have already tuned Frigate's own classification models.
+## Frigate sublabel fallback
+
+If **Trust Frigate sublabels** is enabled, YA-WAMF still runs the selected local model first. The
+Frigate label is a fallback when media is unavailable, local inference produces no usable result, or
+the local prediction does not clear policy. Frigate's sublabel confidence is kept separate from its
+bird-object detector score, and YA-WAMF does not echo a fallback label straight back to Frigate.
+
+Deep video uses temporal consensus rather than a single maximum frame. YA-WAMF keeps the unchanged
+full frame, then adds a valid Frigate tracked-object crop and detector crop when available. These
+are alternate views of each sampled frame, not extra votes: each input source must reach its own
+three-frame/60% consensus, and conflicting source winners cause the analysis to abstain. When the
+sources agree, YA-WAMF keeps the strongest consensus and records whether it came from full video
+frames, cropped video frames, a full snapshot fallback, or a cropped snapshot fallback. Detection
+details show that source next to the result. Historical cached snapshots without trustworthy source
+metadata remain usable but are conservatively treated as uncropped instead of being guessed from
+dimensions. If local image evidence does not clear policy and a trusted Frigate sublabel wins, the
+result is labelled as Frigate evidence rather than as snapshot or temporal video inference.
 
 ## Behavioral Analysis (LLMs)
 For advanced insights, YA-WAMF can send high-confidence snapshots to a Large Language Model (LLM) to generate a "Naturalist Note".

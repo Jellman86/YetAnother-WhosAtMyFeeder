@@ -1746,15 +1746,14 @@ async def test_recording_clip_capability_reports_supported_config(client: httpx.
     frigate_config = {
         "record": {
             "enabled": True,
-            "retain": {
-                "days": 7,
-            },
+            "continuous": {"days": 7},
         },
         "cameras": {
             "front_feeder": {
+                "ffmpeg": {"inputs": [{"roles": ["detect", "record"]}]},
                 "record": {
                     "enabled": True,
-                }
+                },
             }
         },
     }

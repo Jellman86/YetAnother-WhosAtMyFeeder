@@ -87,6 +87,22 @@ images below its confidence threshold, rejected 98 candidates as too small, and 
 or inference failures. The complete method, latency measurements, retained artifact paths, limits,
 and follow-up criteria are in the [automatic crop-policy report](../plans/2026-07-16-model-crop-policy.md).
 
+### Distant-camera field check (20 July 2026)
+
+The moved Quark `birdcam` view was checked separately because its birds occupy much less of the
+2560×1920 frame than the public evaluation images. Across 12 recent events with generated HQ
+candidates, a crop was selected for 9. The mean best crop classification score was 0.762, compared
+with 0.154 for the best unchanged full-frame candidate, a mean gain of 0.598. The original live
+classification averaged 0.806, but that path already receives Frigate's event crop and therefore is
+not a wide-frame control.
+
+These are model scores, not hand-labelled accuracy results, so they justify using crop candidates
+as additional evidence rather than claiming that every higher score is correct. One event's best
+crop scored only 0.144 with an implausible conflicting label; this is why automatic refinement
+requires confidence, independent-frame agreement, a clear winner, and compatibility with the
+existing identification. The manually verified feeder fixture remains the required follow-up for
+measuring accuracy rather than confidence.
+
 ---
 
 ## Intel GPU Support
@@ -278,7 +294,12 @@ Contributors with NVIDIA GPUs can run a separate diagnostic suite that tests eve
 
 #### Prerequisites
 
-The official YA-WAMF images now package the CUDA/cuDNN userspace runtime needed by `onnxruntime-gpu`. NVIDIA Container Toolkit must still be installed on the host so the GPU driver/runtime is exposed inside the container. Add GPU access to your compose file. For `docker-compose.monolith.yml`:
+Use the unsuffixed full image or a `-cuda` image for these probes; the CPU,
+Intel, and Raspberry Pi images deliberately omit CUDA. NVIDIA Container Toolkit
+must still be installed on the host so the GPU driver/runtime is exposed inside
+the container. Confirm **Settings → Detection → Runtime diagnostics** lists
+`cuda` under **Packaged**, then add GPU access to your Compose file. For
+`docker-compose.monolith.yml`:
 
 ```yaml
 services:

@@ -6,6 +6,137 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-07-20
+
+### Added
+- **BirdNET history now connects matching sound and video evidence.** Completed automatic video
+  classifications are matched by scientific name, configured time window, and camera/audio source
+  mapping; a compact accessible icon opens the exact visual detection. The leaderboard also links
+  directly to the full listening history, and event deep links resolve independently of pagination.
+- **Distant birds can now be identified from the best high-quality crop automatically.** YA-WAMF
+  classifies Frigate-hint and detector crops from several independent clip frames using the active
+  model's declared input contract, then promotes only a clear multi-frame consensus. This can
+  upgrade an Unknown Bird or strengthen the same existing species, while manual tags, conflicting
+  known identifications, low-confidence crops, single-frame duplicates, and ambiguous competing
+  results remain untouched. The supporting evidence remains in the saved snapshot candidates,
+  deep-video job state stays independent, and `/health` reports refinement outcomes.
+- **HQ snapshot recovery now has persistent bounded retry state.** Missing or unusable upstream
+  media backs off for five, fifteen, and forty-five minutes and becomes terminal on the fourth
+  failed attempt instead of returning to an endless five-minute loop after every restart. The
+  state is separate from classification identity, is deleted with its detection, and is cleared by
+  a successful automatic or explicit regeneration.
+
+### Fixed
+- **Manual video reclassification now uses the video the owner can already play.** An explicit
+  video request no longer stops after a confident snapshot preflight: it prefers the cached
+  full-visit recording, accepts a decodable partial recording when the ideal window is shorter
+  than requested, then tries the cached event clip before Frigate. A fetched full-visit clip also
+  selects video reclassification even when stale event metadata still says `has_clip: false`.
+  Snapshot analysis remains the defensive fallback only when every video source is absent or
+  unusable; an invalid cached candidate is removed and the next video source is tried first. A
+  successful cached-video run also clears stale `event_not_found` status.
+- **Manual reclassification now treats model abstention as a safe outcome.** When video analysis and
+  its snapshot fallback cannot produce a confident species, the API returns `no_result` without
+  changing the existing identification instead of returning HTTP 500. Reclassification now emits
+  exactly one terminal live event, reports genuine media/runtime failures separately, and keeps a
+  video-to-snapshot fallback active rather than briefly presenting it as a failed job. All owner UI
+  surfaces show the translated unchanged-result message.
+- **Nearby BirdNET history now survives mixed source timezones.** BirdNET timestamps are normalized
+  to UTC before indexed storage and an upgrade migration canonicalizes existing rows, fixing valid
+  nearby detections being omitted when visual events used UTC while BirdNET-Go published a local
+  offset such as British Summer Time. Detection details continue to query the configured persisted
+  history and camera/source mapping rather than relying on the short-lived dashboard buffer.
+- **Full-visit availability now means complete continuous coverage.** The Frigate capability check
+  no longer mistakes long alert/detection retention for a contiguous recording timeline, requires
+  an active camera with a real `record` stream role, and requires every selected camera to qualify.
+  Per-camera retention correctly overrides the global value, and the UI reports the guaranteed
+  minimum rather than the most optimistic retention. A quiet inline Settings status now names each
+  affected camera and explains the exact corrective action, while an already-enabled setting can
+  still be switched off safely.
+- **Late BirdNET detections now appear in visual detection details.** Opening a detection checks
+  persisted audio history with the configured time window and camera/source mapping, even when no
+  audio hint was stored during visual ingest. Nearby sounds remain clearly separate from a confirmed
+  visual/audio species match, and rapid previous/next navigation cannot show stale audio context.
+- **Guest detection details no longer expose an unusable reclassify action.** The low-confidence
+  video-result notice now applies the same owner-access guard as every other mutation control.
+- **Image classification evidence is now kept in its correct domain.** Manual species corrections
+  are protected by the same SQL statement that performs any automatic write; Frigate object score
+  is no longer treated as sublabel confidence; local inference runs before a trusted Frigate
+  fallback; BirdNET-Go confirmation no longer replaces visual confidence; and MQTT `update` can
+  recover a missed `new` event without repeatedly classifying detections that already exist.
+- **Deep-video classification now abstains on temporal ambiguity.** At least three frames must be
+  evaluated, low-confidence and non-species frames count as abstentions, and a species needs at
+  least two supporting frames plus 60% of evaluated frames. Confidence is the supporting-frame
+  median, preventing one extreme frame from determining the visit. Full frames, valid Frigate-box
+  crops, and detector crops now build independent temporal consensuses rather than becoming extra
+  votes; conflicting representations cause an abstention, while agreeing representations select
+  the strongest evidence. The exact winning input is persisted and shown in detection details, and
+  snapshot fallbacks are labelled as snapshots rather than presented as video evidence. Snapshot
+  provenance follows any model-driven crop that actually reached preprocessing, while cache
+  metadata continues to describe the retained media; historical backfill no longer assumes an
+  ended Frigate event honoured the live-only `crop` query.
+- **Best-available snapshot selection now rejects misleading crops without sacrificing the HQ
+  frame.** Crops must retain usable detail and agree with the known detection identity (or repeat
+  across independent frames before identity exists); sharpness, exposure, resolution, classifier
+  evidence, and crop confidence share one ranking. The canonical and best full-frame candidates are
+  retained even when the bounded candidate list is crowded.
+- **HQ crop consensus now uses genuinely independent moments.** The snapshot worker no longer
+  treats `target - 1`, `target`, and `target + 1` as three observations. It keeps a centre/track-
+  weighted target, distributes the remaining slots across the tracked interval or central clip
+  region, requires at least 250 ms between votes, and uses neighbouring frames only to recover a
+  failed decode within the same slot. Frigate hint boxes follow the nearest timestamped path point
+  on event clips; unaligned recording timelines fail safely to the model detector or full frame.
+- **Inference failures can now activate provider recovery.** ONNX execution/output failures are
+  typed instead of collapsing into an empty result, HQ candidate scoring uses supervised background
+  admission in both in-process and subprocess modes, and TFLite signed-int8 tensors honour scale
+  and zero point rather than being fed float bytes or misread as raw logits.
+- **Playable short recordings are no longer deleted and downloaded again forever.** Measurable
+  partial clips are retained and reused for HQ/video work, while stubs and unmeasurable corrupt
+  media remain ineligible.
+- **Deployment refresh recovery now shows a real, localized message instead of
+  `error.deploy_refresh_required`.** The browser performs at most one automatic reload for each
+  backend build it encounters, reports the frontend/backend identities and recovery action through
+  client diagnostics, and emits only one warning for a mismatch that remains unresolved. A later
+  deployment can still trigger its own bounded recovery attempt, without trapping a tab in a reload
+  loop. This resolves #100 and explains why affected installations had no corresponding backend log.
+
+### Changed
+- **The Unraid template now makes the runtime/provider contract explicit.** It keeps the safe full
+  image and in-app `Auto` selection as defaults, documents CPU/Intel/CUDA tags and Intel/NVIDIA host
+  setup, and warns against environment overrides that would make the provider selector revert after
+  restart. Image packaging, hardware exposure, selected provider, and active provider are presented
+  as separate states.
+- **Inference runtimes are now available as smaller provider-family images without changing the
+  compatibility path.** Unsuffixed monolith tags remain the full CPU/CUDA/OpenVINO image, while
+  additive `-cpu`, `-intel`, and `-cuda` tags package only the selected runtime family and retain
+  CPU fallback. Every image reports its flavor separately from hardware availability, and an
+  explicit provider/image mismatch is visible in classifier diagnostics. Runtime images no longer
+  retain their build wheelhouse or install pytest, Coverage, and Ruff, reducing distribution size
+  without changing `/config`, `/data`, models, migrations, or application behaviour. The dedicated
+  Raspberry Pi image now explicitly uses the CPU dependency set, while non-Linux ARM development
+  environments no longer select its Linux-only TensorFlow package. Pinned Intel NPU driver assets
+  are checksum-verified and required, preventing a full or Intel image from publishing with a
+  silently incomplete runtime. Mutable flavor tags are now promoted only after every immutable
+  image starts successfully and a full → CPU → full round trip preserves byte-identical application
+  config, model artifact and model sidecar, SQLite integrity, Git identity, and an intentionally
+  incompatible provider setting. Setup, troubleshooting, API, model-testing, development, and
+  release documentation use the same packaging/availability/active-state vocabulary and preserve
+  the established `YAWAMF_MONALITHIC_*` Compose variable spelling.
+- **Routine dependency updates now keep runtime compatibility explicit.** Frontend charts use the
+  ApexCharts 6 slim core rather than shipping its opt-in authoring feature set, telemetry changes
+  are compiled in CI instead of merely installed, and GitHub workflows use setup-node 7. The
+  x86-64 ONNX Runtime GPU dependency is capped to the validated CUDA 12 line until CUDA 13 packages
+  are available from the normal package index; CI now declares coverage.py directly instead of
+  carrying the unused pytest-cov plugin.
+- **The full translation editorial sweep is complete across all nine catalogs.** Every locale has
+  the same 1,981 leaf keys and matching interpolation tokens. Copied English enrichment guidance,
+  accent-stripped settings and video-player strings, Russian open-source terminology, Japanese
+  spacing, French punctuation spacing, stray catalog whitespace, and application-wide ellipsis
+  typography have been corrected. A new CI gate catches encoding damage, whitespace, ASCII prose
+  ellipses, known accent-loss regressions, French double-punctuation spacing, and sentence-length
+  Latin-only copy in Japanese, Russian, or Chinese. This is an application/editorial review, not
+  independent native-speaker certification; that limitation remains explicit for the 3.0 release.
+
 ## [2.13.0] - 2026-07-19
 
 ### Fixed

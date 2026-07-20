@@ -21,6 +21,8 @@ makes clearer, safer, or more enjoyable at their feeder.]
 
 - **[Required action, or “No special steps.”]** [Say exactly what to change,
   back up, check, or expect. Include downtime or migration notes when relevant.]
+<!-- If image flavors are relevant, say that unsuffixed tags remain the full
+compatibility image and link docs/setup/hardware-acceleration.md. -->
 
 ## Good to know
 

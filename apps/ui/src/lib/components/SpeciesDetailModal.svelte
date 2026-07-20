@@ -337,19 +337,26 @@
     async function handleReclassify(strategy: 'snapshot' | 'video') {
         // Get the most recent sighting for reclassification
         const recentSighting = stats?.recent_sightings?.[0];
-        if (!recentSighting || reclassifying) return;
+        if (!authStore.canModify || !recentSighting || reclassifying) return;
         const eventId = recentSighting.frigate_event;
 
         reclassifying = true;
         try {
             const result = await reclassifyDetection(eventId, strategy);
 
-            // Check if backend used a different strategy (fallback occurred)
-            if (result.actual_strategy && result.actual_strategy !== strategy) {
-                toastStore.warning('Video not available — snapshot used instead');
+            if (!result.updated) {
+                toastStore.warning($_('notifications.reclassify_no_result'));
+                return;
             }
 
-            toastStore.success(`Reclassification complete: ${result.new_species} (${(result.new_score * 100).toFixed(0)}%)`);
+            // Check if backend used a different strategy (fallback occurred)
+            if (result.actual_strategy && result.actual_strategy !== strategy) {
+                toastStore.warning($_('notifications.reclassify_fallback'));
+            }
+
+            toastStore.success(
+                `${$_('notifications.event_reclassify')}: ${result.new_species} (${(result.new_score * 100).toFixed(0)}%)`
+            );
 
             // Close modal after successful reclassification
             setTimeout(() => {
@@ -358,7 +365,7 @@
         } catch (e) {
             detectionsStore.dismissReclassification(eventId);
             console.error('Failed to reclassify', e);
-            toastStore.error(`Failed to reclassify: ${getErrorMessage(e)}`);
+            toastStore.error($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
         } finally {
             reclassifying = false;
         }
@@ -467,28 +474,30 @@
 
                                 <!-- Reclassify Buttons -->
                                 <div class="flex flex-wrap gap-3">
-                                    <button
-                                        onclick={() => handleReclassify('snapshot')}
-                                        disabled={reclassifying || !stats?.recent_sightings?.[0]}
-                                        class="flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                                    >
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                        </svg>
-                                        {reclassifying ? $_('common.testing') : $_('actions.deep_reclassify')}
-                                    </button>
+                                    {#if authStore.canModify}
+                                        <button
+                                            onclick={() => handleReclassify('snapshot')}
+                                            disabled={reclassifying || !stats?.recent_sightings?.[0]}
+                                            class="flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                                        >
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                            </svg>
+                                            {reclassifying ? $_('common.testing') : $_('actions.deep_reclassify')}
+                                        </button>
 
-                                    <button
-                                        onclick={() => handleReclassify('video')}
-                                        disabled={reclassifying || !stats?.recent_sightings?.[0]?.has_clip || !stats?.recent_sightings?.[0]}
-                                        class="flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-                                        title={!stats?.recent_sightings?.[0]?.has_clip ? $_('species_detail.video_unavailable') : ''}
-                                    >
-                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                                        </svg>
-                                        {reclassifying ? $_('common.testing') : $_('actions.reclassify')}
-                                    </button>
+                                        <button
+                                            onclick={() => handleReclassify('video')}
+                                            disabled={reclassifying || !stats?.recent_sightings?.[0]?.has_clip || !stats?.recent_sightings?.[0]}
+                                            class="flex min-h-11 items-center gap-2 rounded-lg bg-brand-600 px-4 py-2 font-semibold text-white shadow-sm transition-colors hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                                            title={!stats?.recent_sightings?.[0]?.has_clip ? $_('species_detail.video_unavailable') : ''}
+                                        >
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                            </svg>
+                                            {reclassifying ? $_('common.testing') : $_('actions.reclassify')}
+                                        </button>
+                                    {/if}
 
                                     <button
                                         type="button"

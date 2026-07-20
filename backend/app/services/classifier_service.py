@@ -23,6 +23,7 @@ from typing import Optional, Any, Awaitable, Callable, Literal
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
 from app.utils.canonical_species import should_hide_species_label
+from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
 
 # TFLite runtime
 try:
@@ -132,6 +133,11 @@ from app.services.classifier_supervisor import (  # noqa: E402
     ClassifierWorkerStartupTimeoutError,
 )
 from app.services.personalization_service import personalization_service  # noqa: E402
+from app.services.video_classification_policy import (  # noqa: E402
+    SourceTemporalConsensus,
+    build_temporal_consensus,
+    select_temporal_source_consensus,
+)
 from app.utils.classifier_labels import (  # noqa: E402
     build_grouped_classifier_labels,
     normalize_classifier_label,
@@ -1596,7 +1602,15 @@ class ModelInstance:
         input_data = self._preprocess_image(image, target_width, target_height)
 
         # Normalize based on model input type
-        if input_details["dtype"] == np.float32:
+        raw_input_dtype = input_details.get("dtype")
+        input_dtype = (
+            raw_input_dtype
+            if isinstance(raw_input_dtype, np.dtype)
+            else np.dtype(raw_input_dtype)
+            if isinstance(raw_input_dtype, type) and issubclass(raw_input_dtype, np.generic)
+            else None
+        )
+        if input_dtype == np.dtype(np.float32):
             spec_mean = self.preprocessing.get("mean")
             spec_std = self.preprocessing.get("std")
             if spec_mean is not None or spec_std is not None:
@@ -1607,8 +1621,45 @@ class ModelInstance:
             else:
                 # Legacy MobileNet-style: maps [0, 255] to [-1, 1] via (x / 127.5) - 1
                 input_data = (input_data - 127.5) / 127.5
-        elif input_details["dtype"] == np.uint8:
-            input_data = input_data.astype(np.uint8)
+        elif input_dtype is not None and np.issubdtype(input_dtype, np.integer):
+            normalization = str(self.preprocessing.get("normalization") or "uint8").strip().lower()
+            real_input = input_data
+            if normalization not in {"uint8", "none"}:
+                spec_mean = self.preprocessing.get("mean")
+                spec_std = self.preprocessing.get("std")
+                if spec_mean is not None or spec_std is not None:
+                    mean = np.array(
+                        spec_mean if spec_mean is not None else [0.485, 0.456, 0.406],
+                        dtype=np.float32,
+                    )
+                    std = np.array(
+                        spec_std if spec_std is not None else [0.229, 0.224, 0.225],
+                        dtype=np.float32,
+                    )
+                    real_input = (real_input / 255.0 - mean) / std
+                elif normalization in {"float32_0_1", "0_1"}:
+                    real_input = real_input / 255.0
+                else:
+                    real_input = (real_input - 127.5) / 127.5
+
+            quant_params = input_details.get("quantization_parameters", {})
+            scales = np.asarray(quant_params.get("scales", []), dtype=np.float32)
+            zero_points = np.asarray(quant_params.get("zero_points", []), dtype=np.float32)
+            if scales.size > 0 and float(scales[0]) > 0:
+                zero_point = float(zero_points[0]) if zero_points.size > 0 else 0.0
+                quantized = np.rint(real_input / float(scales[0]) + zero_point)
+                limits = np.iinfo(input_dtype)
+                input_data = np.clip(quantized, limits.min, limits.max).astype(input_dtype)
+            elif input_dtype == np.dtype(np.uint8):
+                # Compatibility for older uint8 models that omit quantization
+                # metadata and directly consume raw RGB bytes.
+                input_data = np.clip(real_input, 0, 255).astype(np.uint8)
+            else:
+                raise InvalidInferenceOutputError(
+                    backend="tflite",
+                    provider="tflite",
+                    detail=f"{self.name} int8 input is missing valid quantization metadata",
+                )
 
         # Add batch dimension
         input_data = np.expand_dims(input_data, axis=0)
@@ -1625,17 +1676,33 @@ class ModelInstance:
         results = np.squeeze(output_data).astype(np.float32)
 
         # Dequantize if needed
-        if output_details["dtype"] == np.uint8:
+        raw_output_dtype = output_details.get("dtype")
+        output_dtype = (
+            raw_output_dtype
+            if isinstance(raw_output_dtype, np.dtype)
+            else np.dtype(raw_output_dtype)
+            if isinstance(raw_output_dtype, type) and issubclass(raw_output_dtype, np.generic)
+            else None
+        )
+        if output_dtype is not None and np.issubdtype(output_dtype, np.integer):
             quant_params = output_details.get("quantization_parameters", {})
-            scales = quant_params.get("scales", None)
-            zero_points = quant_params.get("zero_points", None)
+            scales = np.asarray(quant_params.get("scales", []), dtype=np.float32)
+            zero_points = np.asarray(quant_params.get("zero_points", []), dtype=np.float32)
 
-            if scales is not None and len(scales) > 0:
-                scale = scales[0]
-                zero_point = zero_points[0] if zero_points is not None and len(zero_points) > 0 else 0
-                results = (results - zero_point) * scale
-            else:
+            if scales.size == results.size and results.ndim == 1:
+                zero_values = zero_points if zero_points.size == results.size else np.zeros_like(scales)
+                results = (results - zero_values) * scales
+            elif scales.size > 0 and float(scales[0]) > 0:
+                zero_point = float(zero_points[0]) if zero_points.size > 0 else 0.0
+                results = (results - zero_point) * float(scales[0])
+            elif output_dtype == np.dtype(np.uint8):
                 results = results / 255.0
+            else:
+                raise InvalidInferenceOutputError(
+                    backend="tflite",
+                    provider="tflite",
+                    detail=f"{self.name} int8 output is missing valid quantization metadata",
+                )
 
         # Softmax if needed (logits vs probabilities)
         finite_results = results[np.isfinite(results)]
@@ -1825,74 +1892,74 @@ class ONNXModelInstance:
         """Apply softmax to convert logits to probabilities."""
         return _safe_softmax(x, context=f"{self.name}:onnx")
 
+    def _run_inference(self, input_name: str, input_tensor: np.ndarray) -> list[Any]:
+        """Run the provider and expose execution failures to recovery policy."""
+        try:
+            with self._lock:
+                return self.session.run(None, {input_name: input_tensor})
+        except Exception as exc:
+            log.error(f"ONNX inference failed for {self.name}", error=str(exc))
+            raise InvalidInferenceOutputError(
+                backend="onnxruntime",
+                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                detail=f"{self.name} inference execution failed: {exc}",
+                diagnostics={"exception_type": type(exc).__name__},
+            ) from exc
+
+    def _probabilities_from_outputs(self, outputs: list[Any]) -> np.ndarray:
+        """Validate provider output shape before converting logits to probabilities."""
+        try:
+            logits = np.asarray(outputs[0])[0]
+            probs = self._softmax(logits)
+        except InvalidInferenceOutputError:
+            raise
+        except Exception as exc:
+            raise InvalidInferenceOutputError(
+                backend="onnxruntime",
+                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                detail=f"{self.name} returned an invalid output structure: {exc}",
+                diagnostics={"exception_type": type(exc).__name__},
+            ) from exc
+        if probs.size == 0:
+            raise InvalidInferenceOutputError(
+                backend="onnxruntime",
+                provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
+                detail=f"{self.name} inference produced no finite probabilities",
+            )
+        return probs
+
     def classify(self, image: Image.Image, top_k: int = 5, input_context: Any | None = None) -> list[dict]:
         """Classify an image using this ONNX model."""
         if not self.loaded or not self.session:
             log.warning(f"{self.name} ONNX model not loaded, cannot classify")
             return []
 
-        try:
-            input_tensor = self._preprocess(image)
+        input_tensor = self._preprocess(image)
+        input_name = self.session.get_inputs()[0].name
+        outputs = self._run_inference(input_name, input_tensor)
+        probs = self._probabilities_from_outputs(outputs)
 
-            # Get input name from model
-            input_name = self.session.get_inputs()[0].name
-
-            # Run inference
-            with self._lock:
-                outputs = self.session.run(None, {input_name: input_tensor})
-            logits = outputs[0][0]
-
-            # Apply softmax to get probabilities
-            probs = self._softmax(logits)
-            if probs.size == 0:
-                raise InvalidInferenceOutputError(
-                    backend="onnxruntime",
-                    provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
-                    detail=f"{self.name} inference produced no finite probabilities",
-                )
-
-            grouped_labels = _resolve_grouped_labels(
-                self.labels,
-                label_grouping=self.label_grouping,
-                existing_grouped_labels=self.grouped_labels,
-            )
-            return _build_classification_results(
-                probs,
-                self.labels,
-                top_k=top_k,
-                grouped_labels=grouped_labels,
-            )
-
-        except InvalidInferenceOutputError:
-            raise
-        except Exception as e:
-            log.error(f"ONNX inference failed for {self.name}", error=str(e))
-            return []
+        grouped_labels = _resolve_grouped_labels(
+            self.labels,
+            label_grouping=self.label_grouping,
+            existing_grouped_labels=self.grouped_labels,
+        )
+        return _build_classification_results(
+            probs,
+            self.labels,
+            top_k=top_k,
+            grouped_labels=grouped_labels,
+        )
 
     def classify_raw(self, image: Image.Image) -> np.ndarray:
         """Classify and return the raw probability vector (for ensemble)."""
         if not self.loaded or not self.session:
             return np.array([])
 
-        try:
-            input_tensor = self._preprocess(image)
-            input_name = self.session.get_inputs()[0].name
-            with self._lock:
-                outputs = self.session.run(None, {input_name: input_tensor})
-            logits = outputs[0][0]
-            probs = self._softmax(logits)
-            if probs.size == 0:
-                raise InvalidInferenceOutputError(
-                    backend="onnxruntime",
-                    provider=(self.ort_providers[0] if self.ort_providers else "cpu"),
-                    detail=f"{self.name} inference produced no finite probabilities",
-                )
-            return probs
-        except InvalidInferenceOutputError:
-            raise
-        except Exception as e:
-            log.error("ONNX raw classification failed", error=str(e))
-            return np.array([])
+        input_tensor = self._preprocess(image)
+        input_name = self.session.get_inputs()[0].name
+        outputs = self._run_inference(input_name, input_tensor)
+        return self._probabilities_from_outputs(outputs)
 
     def probe(self, image: Image.Image) -> dict[str, Any]:
         provider = self.ort_providers[0] if self.ort_providers else "CPUExecutionProvider"
@@ -4128,8 +4195,17 @@ class ClassifierService:
             except Exception:
                 pass
 
+        selected_provider = _normalize_inference_provider(
+            getattr(settings.classification, "inference_provider", "auto")
+        )
+        image_flavor = get_image_flavor()
+        packaged_providers = packaged_inference_providers(image_flavor)
+
         status = {
             "image_execution_mode": self._image_execution_mode,
+            "image_flavor": image_flavor,
+            "packaged_inference_providers": list(packaged_providers),
+            "image_flavor_warning": image_flavor_warning(image_flavor, selected_provider),
             "runtime": "tflite-runtime" if "tflite_runtime" in str(tflite) else "tensorflow",
             "runtime_installed": tflite is not None,
             "onnx_available": ONNX_AVAILABLE,
@@ -4159,9 +4235,7 @@ class ClassifierService:
             "process_uid": self._accel_caps.get("process_uid"),
             "process_gid": self._accel_caps.get("process_gid"),
             "process_groups": self._accel_caps.get("process_groups") or [],
-            "selected_provider": _normalize_inference_provider(
-                getattr(settings.classification, "inference_provider", "auto")
-            ),
+            "selected_provider": selected_provider,
             "active_provider": effective_provider,
             "inference_backend": effective_backend,
             "fallback_reason": self._inference_fallback_reason,
@@ -4198,11 +4272,12 @@ class ClassifierService:
             "background_throttled": admission_metrics["background_throttled"],
             "available_providers": [
                 p
-                for p in ["cpu", "cuda", "intel_cpu", "intel_gpu"]
+                for p in ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"]
                 if p == "cpu"
                 or (p == "cuda" and self._accel_caps.get("cuda_available"))
                 or (p == "intel_cpu" and self._accel_caps.get("intel_cpu_available"))
                 or (p == "intel_gpu" and self._accel_caps.get("intel_gpu_available"))
+                or (p == "intel_npu" and self._accel_caps.get("intel_npu_available"))
             ],
             # legacy compatibility (can be removed later)
             "cuda_enabled": _normalize_inference_provider(
@@ -4388,6 +4463,57 @@ class ClassifierService:
         except Exception as exc:
             raise exc
 
+    def _bird_crop_detector_available(self) -> bool:
+        crop_service = self._bird_crop_service
+        if crop_service is None:
+            return False
+        get_status = getattr(crop_service, "get_status", None)
+        if not callable(get_status):
+            return True
+        try:
+            status = get_status()
+        except Exception:
+            return True
+        if not isinstance(status, dict):
+            return True
+        return status.get("installed") is not False and status.get("enabled_for_runtime") is not False
+
+    def _video_frame_candidates(
+        self,
+        image: Image.Image,
+        *,
+        input_context: ClassificationInputContext,
+    ) -> list[tuple[str, Image.Image]]:
+        """Return bounded, independently evaluated views of one video frame."""
+        if bool(input_context.is_cropped):
+            supplied_source = str(self._input_context_extra(input_context, "input_source") or "provided_crop")
+            return [(supplied_source, image)]
+
+        candidates: list[tuple[str, Image.Image]] = [("full_frame", image)]
+        seen_boxes: set[tuple[int, int, int, int]] = set()
+
+        hint_result = self._resolve_frigate_hint_crop(image, input_context=input_context)
+        hint_image = hint_result.get("crop_image") if isinstance(hint_result, dict) else None
+        if isinstance(hint_image, Image.Image):
+            candidates.append(("frigate_hint_crop", hint_image))
+            hint_box = hint_result.get("box")
+            if isinstance(hint_box, tuple) and len(hint_box) == 4:
+                seen_boxes.add(hint_box)
+
+        if self._bird_crop_detector_available():
+            try:
+                model_result = self._resolve_model_crop(image)
+            except Exception as exc:
+                log.debug("Video frame crop detector failed; retaining other inputs", error=str(exc))
+                model_result = None
+            model_image = model_result.get("crop_image") if isinstance(model_result, dict) else None
+            model_box = model_result.get("box") if isinstance(model_result, dict) else None
+            duplicate_box = isinstance(model_box, tuple) and len(model_box) == 4 and model_box in seen_boxes
+            if isinstance(model_image, Image.Image) and not duplicate_box:
+                candidates.append(("model_crop", model_image))
+
+        return candidates
+
     def _resolve_crop_by_priority(
         self,
         crop_source_image: Image.Image,
@@ -4509,6 +4635,10 @@ class ClassifierService:
             "source_reason": "standard",
         }
 
+        if bool(self._input_context_extra(normalized_input_context, "disable_crop_resolution")):
+            diagnostics["crop_reason"] = "explicit_input_representation"
+            return image, diagnostics
+
         try:
             spec = dict(self._resolve_active_bird_model_spec() or {})
         except Exception as exc:
@@ -4610,6 +4740,50 @@ class ClassifierService:
         )
         return image, diagnostics
 
+    def _resolved_classification_input_provenance(
+        self,
+        *,
+        input_context: ClassificationInputContext,
+        crop_diagnostics: dict[str, Any],
+    ) -> tuple[str, bool]:
+        """Describe the image that actually reached model preprocessing."""
+        supplied_source = str(self._input_context_extra(input_context, "input_source") or "").strip().lower()
+        if bool(crop_diagnostics.get("crop_applied")):
+            crop_reason = str(crop_diagnostics.get("crop_reason") or "").strip().lower()
+            if crop_reason in {"frigate_box", "frigate_region"}:
+                return "snapshot_frigate_hint_crop", True
+            return "snapshot_model_crop", True
+        if supplied_source:
+            return supplied_source, bool(input_context.is_cropped)
+        if bool(input_context.is_cropped):
+            return "provided_crop", True
+        return "full_frame", False
+
+    def _attach_classification_input_provenance(
+        self,
+        results: list[dict],
+        *,
+        input_context: ClassificationInputContext,
+        crop_diagnostics: dict[str, Any],
+    ) -> list[dict]:
+        has_explicit_source = bool(str(self._input_context_extra(input_context, "input_source") or "").strip())
+        if (
+            not has_explicit_source
+            and not bool(input_context.is_cropped)
+            and not bool(crop_diagnostics.get("crop_applied"))
+        ):
+            return results
+        input_source, input_is_cropped = self._resolved_classification_input_provenance(
+            input_context=input_context,
+            crop_diagnostics=crop_diagnostics,
+        )
+        for result in results:
+            if not isinstance(result, dict):
+                continue
+            result["input_source"] = input_source
+            result["input_is_cropped"] = input_is_cropped
+        return results
+
     def classify(
         self,
         image: Image.Image,
@@ -4618,6 +4792,7 @@ class ClassifierService:
         input_context: Any | None = None,
     ) -> list[dict]:
         """Classify an image using the bird model."""
+        normalized_input_context = _normalize_classification_input_context(input_context)
         attempted_models: set[int] = set()
         while True:
             self._maybe_restore_gpu_provider()
@@ -4629,14 +4804,18 @@ class ClassifierService:
                 return []
             attempted_models.add(model_identity)
             try:
-                crop_image, _crop_diagnostics = self._resolve_bird_classification_image(
+                crop_image, crop_diagnostics = self._resolve_bird_classification_image(
                     image,
-                    input_context=input_context,
+                    input_context=normalized_input_context,
                 )
-                results = _invoke_model_classify(bird, crop_image, input_context=input_context)
+                results = _invoke_model_classify(bird, crop_image, input_context=normalized_input_context)
                 if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
                     self._record_gpu_success()
-                return results
+                return self._attach_classification_input_provenance(
+                    results,
+                    input_context=normalized_input_context,
+                    crop_diagnostics=crop_diagnostics,
+                )
             except InvalidInferenceOutputError as exc:
                 if not self._recover_from_invalid_bird_output(bird, exc):
                     raise
@@ -4651,6 +4830,13 @@ class ClassifierService:
             image,
             input_context=input_context,
         )
+        return self._classify_resolved_raw_with_runtime_recovery(crop_image)
+
+    def _classify_resolved_raw_with_runtime_recovery(
+        self,
+        image: Image.Image,
+    ) -> tuple[np.ndarray, ModelType | None]:
+        """Classify an image whose full-frame/crop representation is already chosen."""
         attempted_models: set[int] = set()
         while True:
             self._maybe_restore_gpu_provider()
@@ -4662,7 +4848,7 @@ class ClassifierService:
                 return np.array([]), bird
             attempted_models.add(model_identity)
             try:
-                scores = bird.classify_raw(crop_image)
+                scores = bird.classify_raw(image)
                 if self._inference_backend == "openvino" and self._active_inference_provider == "intel_gpu":
                     self._record_gpu_success()
                 return scores, bird
@@ -5265,7 +5451,26 @@ class ClassifierService:
                 clip_variant=clip_variant,
             )
 
-            all_scores = []
+            if bool(normalized_input_context.is_cropped):
+                supplied_source = str(
+                    self._input_context_extra(normalized_input_context, "input_source") or "provided_crop"
+                )
+                expected_input_sources = [supplied_source]
+            else:
+                expected_input_sources = ["full_frame"]
+                has_frigate_hint = any(
+                    isinstance(self._input_context_extra(normalized_input_context, key), (list, tuple))
+                    and len(self._input_context_extra(normalized_input_context, key)) == 4
+                    for key in ("frigate_box", "frigate_region")
+                )
+                if has_frigate_hint:
+                    expected_input_sources.append("frigate_hint_crop")
+                if self._bird_crop_detector_available():
+                    expected_input_sources.append("model_crop")
+
+            scores_by_input_source: dict[str, list[np.ndarray]] = {source: [] for source in expected_input_sources}
+            processed_frame_count = 0
+            any_valid_scores = False
             skipped_unknown_frame_count = 0
 
             active_model_id = None
@@ -5312,34 +5517,70 @@ class ClassifierService:
                 # Convert BGR (OpenCV) to RGB (PIL)
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 image = Image.fromarray(frame_rgb)
+                processed_frame_count += 1
 
-                # Get raw probability vector, recovering from invalid runtime output if possible.
-                scores, active_bird_model = self._classify_raw_with_runtime_recovery(
+                candidate_scores: dict[str, np.ndarray] = {}
+                candidate_images: dict[str, Image.Image] = {}
+                for input_source, candidate_image in self._video_frame_candidates(
                     image,
                     input_context=normalized_input_context,
-                )
-                if active_bird_model is not None:
-                    bird_model = active_bird_model
+                ):
+                    if input_source not in scores_by_input_source:
+                        expected_input_sources.append(input_source)
+                        scores_by_input_source[input_source] = [
+                            np.zeros(len(getattr(bird_model, "labels", []) or []), dtype=np.float32)
+                            for _ in range(processed_frame_count - 1)
+                        ]
+                    candidate_context = dict(normalized_input_context.model_dump())
+                    candidate_context.update(
+                        {
+                            "is_cropped": input_source != "full_frame",
+                            "input_source": input_source,
+                            "disable_crop_resolution": True,
+                        }
+                    )
+                    scores, active_bird_model = self._classify_raw_with_runtime_recovery(
+                        candidate_image,
+                        input_context=_normalize_classification_input_context(candidate_context),
+                    )
+                    if active_bird_model is not None:
+                        bird_model = active_bird_model
+                    if len(scores) > 0:
+                        any_valid_scores = True
+                        candidate_scores[input_source] = scores
+                        candidate_images[input_source] = candidate_image
 
-                if len(scores) > 0:
-                    # Update last valid result metadata
+                labels = list(getattr(bird_model, "labels", []) or [])
+                class_count = len(labels)
+                for input_source in expected_input_sources:
+                    scores = candidate_scores.get(input_source)
+                    if scores is None or len(scores) != class_count:
+                        scores = np.zeros(class_count, dtype=np.float32)
+                    scores_by_input_source[input_source].append(scores)
+
+                strongest_frame_candidate: tuple[float, int, str, Image.Image] | None = None
+                for input_source, scores in candidate_scores.items():
+                    if len(scores) == 0:
+                        continue
                     top_idx = int(np.argmax(scores))
-                    last_top_score = float(scores[top_idx])
+                    top_score = float(scores[top_idx])
+                    candidate = (top_score, top_idx, input_source, candidate_images[input_source])
+                    if strongest_frame_candidate is None or candidate[0] > strongest_frame_candidate[0]:
+                        strongest_frame_candidate = candidate
+
+                if strongest_frame_candidate is not None:
+                    last_top_score, top_idx, _frame_input_source, strongest_image = strongest_frame_candidate
                     last_top_label = (
-                        normalize_classifier_label(bird_model.labels[top_idx])
-                        if top_idx < len(bird_model.labels)
-                        else f"Class {top_idx}"
+                        normalize_classifier_label(labels[top_idx]) if top_idx < len(labels) else f"Class {top_idx}"
                     )
                     if should_hide_species_label(last_top_label):
                         skipped_unknown_frame_count += 1
-                    else:
-                        all_scores.append(scores)
 
                     try:
                         from io import BytesIO
                         import base64
 
-                        thumb = image.copy()
+                        thumb = strongest_image.copy()
                         thumb.thumbnail((96, 72))
                         buf = BytesIO()
                         thumb.save(buf, format="JPEG", quality=60)
@@ -5369,31 +5610,65 @@ class ClassifierService:
                             total_frames=len(frame_indices),
                         )
 
-            if not all_scores:
+            if not any_valid_scores:
                 log.warning("No frames processed from video")
                 return []
 
-            # Best-frame ensemble: keep each class' strongest frame confidence.
-            # This avoids suppressing legitimate transient detections when many
-            # sampled frames are background-heavy.
-            processed_count = len(all_scores)
-            scores_matrix = np.vstack(all_scores)
-            representative_scores = np.max(scores_matrix, axis=0)
-            for class_index, label in enumerate(getattr(bird_model, "labels", []) or []):
-                if class_index >= len(representative_scores):
-                    break
-                normalized_label = normalize_classifier_label(label)
-                if should_hide_species_label(normalized_label):
-                    representative_scores[class_index] = -np.inf
+            labels = list(getattr(bird_model, "labels", []) or [])
+            excluded_class_indices = {
+                class_index
+                for class_index, label in enumerate(labels)
+                if should_hide_species_label(normalize_classifier_label(label))
+            }
+            recommended_threshold = float((model_meta or {}).get("recommended_threshold") or 0.0)
+            minimum_frame_score = max(
+                float(getattr(settings.classification, "min_confidence", 0.0) or 0.0),
+                recommended_threshold,
+            )
+            source_consensuses = [
+                SourceTemporalConsensus(
+                    input_source=input_source,
+                    consensus=build_temporal_consensus(
+                        source_scores,
+                        minimum_frame_score=minimum_frame_score,
+                        excluded_class_indices=excluded_class_indices,
+                    ),
+                )
+                for input_source, source_scores in scores_by_input_source.items()
+            ]
+            selected_source_consensus = select_temporal_source_consensus(source_consensuses)
+            consensus_diagnostics = {
+                item.input_source: (
+                    {
+                        "winner_index": item.consensus.winner_index,
+                        "supporting_frames": item.consensus.supporting_frame_count,
+                        "evaluated_frames": item.consensus.evaluated_frame_count,
+                        "score": round(item.consensus.score, 4),
+                    }
+                    if item.consensus is not None
+                    else None
+                )
+                for item in source_consensuses
+            }
+            if selected_source_consensus is None or selected_source_consensus.consensus is None:
+                log.info(
+                    "Video classification abstained because inputs lacked consensus or disagreed",
+                    processed_frames=processed_frame_count,
+                    minimum_frame_score=minimum_frame_score,
+                    skipped_unknown_frames=skipped_unknown_frame_count,
+                    input_consensus=consensus_diagnostics,
+                )
+                return []
 
-            # Create standard classification list from representative scores
-            finite_indices = np.where(np.isfinite(representative_scores))[0]
-            top_indices = finite_indices[np.argsort(representative_scores[finite_indices])[-5:][::-1]]
+            input_source = selected_source_consensus.input_source
+            consensus = selected_source_consensus.consensus
+            top_evidence = consensus.ranked_classes[:5]
 
             classifications = []
-            for i in top_indices:
-                score = float(representative_scores[i])
-                label = normalize_classifier_label(bird_model.labels[i]) if i < len(bird_model.labels) else f"Class {i}"
+            for evidence in top_evidence:
+                i = evidence.class_index
+                score = evidence.score
+                label = normalize_classifier_label(labels[i]) if i < len(labels) else f"Class {i}"
                 classifications.append(
                     {
                         "index": int(i),
@@ -5403,12 +5678,17 @@ class ClassifierService:
                         "inference_backend": str(self._inference_backend or ""),
                         "model_id": str(active_model_id or ""),
                         "model_name": model_name,
+                        "input_source": input_source,
+                        "input_is_cropped": input_source != "full_frame",
+                        "temporal_supporting_frames": evidence.supporting_frame_count,
+                        "temporal_evaluated_frames": consensus.evaluated_frame_count,
+                        "temporal_required_frames": consensus.required_supporting_frames,
                     }
                 )
 
             if classifications:
                 top_score = float(classifications[0]["score"])
-                class_count = int(len(representative_scores))
+                class_count = int(len(labels))
                 uniform_baseline = (1.0 / class_count) if class_count > 0 else 1.0
                 degenerate_cutoff = uniform_baseline * CLASSIFIER_VIDEO_UNIFORM_SCORE_MULTIPLIER
                 if (not np.isfinite(top_score)) or top_score <= degenerate_cutoff:
@@ -5423,10 +5703,15 @@ class ClassifierService:
                     return []
 
             log.info(
-                f"Video classification complete (Top-K). Analyzed {processed_count} frames.",
+                f"Video classification complete (consensus). Analyzed {processed_frame_count} frames.",
                 top_result=classifications[0]["label"] if classifications else None,
                 top_score=round(classifications[0]["score"], 3),
+                input_source=input_source,
+                supporting_frames=consensus.supporting_frame_count,
+                evaluated_frames=consensus.evaluated_frame_count,
+                required_frames=consensus.required_supporting_frames,
                 skipped_unknown_frames=skipped_unknown_frame_count,
+                input_consensus=consensus_diagnostics,
             )
 
             return classifications

@@ -12,4 +12,13 @@ describe('DetectionModal video promotion gating', () => {
         expect(detectionModalSource).toContain('!reclassifyProgress');
         expect(detectionModalSource).toContain('{#if canShowFavoriteAction}');
     });
+
+    it('does not expose the gated reclassify action to guests', () => {
+        expect(detectionModalSource).toContain(
+            '{#if videoPromotionGated && hasOwnerDetectionActions && onReclassify}'
+        );
+        expect(detectionModalSource).not.toContain(
+            '{#if videoPromotionGated && !readOnly && onReclassify}'
+        );
+    });
 });

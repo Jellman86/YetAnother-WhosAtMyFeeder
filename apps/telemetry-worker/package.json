@@ -4,16 +4,17 @@
   "description": "Cloudflare Worker for YA-WAMF Telemetry",
   "main": "src/index.ts",
   "scripts": {
+    "check": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
     "db:init": "wrangler d1 execute yawamf-telemetry --file=./schema.sql",
     "db:health:init": "wrangler d1 execute yawamf-health-issues --file=./health_schema.sql"
   },
   "dependencies": {
-    "hono": "^4.12.30"
+    "hono": "^4.12.31"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260718.1",
+    "@cloudflare/workers-types": "^5.20260719.1",
     "wrangler": "^4.112.0"
   }
 }

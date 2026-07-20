@@ -119,15 +119,17 @@ Whatever you choose, YA-WAMF caches the snapshot and clip the instant the MQTT e
 While Frigate's detection model often runs at a low resolution (e.g., 320x320), YA-WAMF's high-accuracy models (EVA-02) perform much better if the source snapshot is clear. Ensure your `detect` role is assigned to a stream with decent resolution (720p or higher) for the best identification results.
 
 ### 🎥 Record Mode (Frigate 0.17+)
-YA-WAMF's **Deep Video Analysis** requires access to the recording files. You must have `record: enabled: True` and set `continuous.days` to at least a few days so the system can go back and re-analyze any event. Use `mode: all` under `alerts.retain` and `detections.retain` to ensure all recording segments overlapping bird events are kept.
+YA-WAMF's **Deep Video Analysis** requires access to the recording files. You must have `record: enabled: True` and set `continuous.days` to at least `1`; increase it only if you need to re-analyze older events from Frigate rather than YA-WAMF's media cache. Use `mode: all` under `alerts.retain` and `detections.retain` when you want every recording segment overlapping a retained bird event to remain available.
 
-The optional **Full-visit clips** feature uses the same recording store, but proxies a longer camera-level window around the detection time and persists that result locally in YA-WAMF. In YA-WAMF, this is gated in **Settings → Connection → Frigate** and only becomes switchable when the saved Frigate config indicates that continuous recordings and retention are available for at least one selected camera.
+The optional **Full-visit clips** feature uses the same recording store, but proxies a longer camera-level window around the detection time and persists that result locally in YA-WAMF. In YA-WAMF, this is gated in **Settings → Connection → Frigate** and only becomes switchable when **every selected camera** is enabled, has an FFmpeg input with the `record` role, has recording enabled, and inherits or declares a positive `record.continuous.days` value. The UI reports the guaranteed minimum continuous retention across those cameras and names each camera whose configuration is incomplete.
+
+Frigate treats continuous, motion, alert, and detection retention as separate tiers. Keeping alerts or detections for 30 days does **not** provide an uninterrupted 30-day timeline: with `continuous.days: 0`, only matching event segments survive. YA-WAMF may keep a playable partial event clip as a fallback, but it does not advertise that as reliable Full-visit coverage because the requested pre/post window can start late or end early. See Frigate's [recording retention documentation](https://docs.frigate.video/configuration/record/) for the upstream semantics.
 
 Important behavior:
 - When recording clips and the YA-WAMF media cache are enabled, YA-WAMF automatically tries to generate a full-visit clip after eligible Frigate `end` events and persists it to the filesystem cache.
 - Once that persisted full-visit file exists, YA-WAMF's normal clip route (`/api/frigate/{event_id}/clip.mp4`) prefers it automatically, so the longer clip replaces the short Frigate event clip inside YA-WAMF without altering Frigate's own stored media.
 - The requested recording window is configurable in YA-WAMF with sane defaults of `30` seconds before the detection and `90` seconds after it, for a default target window of about `120` seconds total.
-- The actual returned clip can still be shorter if Frigate has no retained recordings for part of that time range.
+- A legacy or previously cached partial clip can still be shorter. With current capability validation and positive continuous retention, newly requested windows should have contiguous source coverage unless Frigate is still writing the newest segment, emergency storage cleanup has removed footage, or the camera/recording process was offline.
 
 ### ⏱️ “My clips are too short” / “My events are missing”
 This is usually expected for birds. Much like the British summer, bird visits tend to be over before you've had time to put the kettle on.

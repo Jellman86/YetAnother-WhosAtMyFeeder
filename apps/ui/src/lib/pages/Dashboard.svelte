@@ -21,6 +21,7 @@
     import { _ } from 'svelte-i18n';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
+    import { selectReclassificationStrategy } from '../utils/reclassification';
 
     import { getBirdNames } from '../naming';
 
@@ -254,9 +255,17 @@
     async function handleReclassify() {
         if (!selectedEvent) return;
         const eventId = selectedEvent.frigate_event;
-        const requestedStrategy = selectedEvent.has_clip ? 'video' : 'snapshot';
+        const requestedStrategy = selectReclassificationStrategy(
+            selectedEvent.has_clip,
+            fullVisitFetchState[eventId]
+        );
         try {
             const result = await reclassifyDetection(eventId, requestedStrategy);
+
+            if (!result.updated) {
+                toastStore.warning($_('notifications.reclassify_no_result'));
+                return;
+            }
 
             // Check if backend used a different strategy (fallback occurred)
             if (result.actual_strategy && result.actual_strategy !== requestedStrategy) {

@@ -5,7 +5,8 @@ YA-WAMF features deep integration with [BirdNET-Go](https://github.com/tphakala/
 ## How it works
 1. **BirdNET-Go** identifies a bird song and publishes the detection to MQTT.
 2. **YA-WAMF** stores these audio detections in its recent in-memory correlation buffer and persists them to the audio detection history.
-3. When **Frigate** detects a bird visually, YA-WAMF checks its buffer for a matching timestamp (±30s).
+3. When **Frigate** detects a bird visually, YA-WAMF checks its buffer inside the configured
+   audio-correlation window (five minutes by default).
 4. If a match is found, the detection is marked as **"Verified"** in the UI with an audio badge.
 
 ## Setup
@@ -43,5 +44,28 @@ The system ignores "Sound Level" messages (`birdnet/soundlevel`) and focuses onl
 ### Filtering low-confidence detections
 By default YA-WAMF stores every BirdNET-Go detection it receives. To drop noisy low-confidence detections at ingest, set **Minimum audio confidence** (`frigate.audio_min_confidence`, `0.0`–`1.0`). Detections below the threshold are neither buffered for correlation nor written to history. The default `0.0` stores everything. BirdNET-Go also has its own confidence and dynamic-threshold controls upstream; this setting is an additional YA-WAMF-side floor.
 
-## Dashboard Widget
-The dashboard includes a "Recent Audio" widget that shows the live in-memory detections from BirdNET-Go, even if no visual event occurred. The widget includes a **History** link to the full Audio History view, which reads from persisted BirdNET detections and provides date-window, species, source, and confidence filters plus top-species, source, and hourly activity summaries. This audio history is kept separate from the visual feeder leaderboard so "heard" detections do not inflate "seen" detections.
+## Audio history and visual matches
+
+The dashboard includes a "Recent Audio" widget that shows the live in-memory detections from
+BirdNET-Go, even if no visual event occurred. The dashboard and leaderboard both link to the full
+Audio History view, which reads persisted BirdNET detections and provides date-window, species,
+source, and confidence filters plus top-species, source, and hourly activity summaries. This audio
+history stays separate from the visual feeder leaderboard so "heard" detections do not inflate
+"seen" detections.
+
+An audio-history row shows a visual-match icon only when YA-WAMF finds a completed, non-hidden,
+automatic video classification with the same scientific name, inside the configured correlation
+window, and on the camera associated with that BirdNET source. Manual tags are deliberately
+excluded: the icon means the independent video classifier agreed with the audio evidence. The icon
+opens that exact visual detection; guest users receive links only inside their configured public
+event-history window.
+
+Detection details also look up persisted BirdNET history when you open them. This catches audio
+that reached YA-WAMF after the visual event's initial correlation attempt. A matching species is
+still labelled as confirmed only when the correlation rules agree; other sounds inside the same
+configured time and source window appear as nearby audio context instead.
+
+YA-WAMF normalizes incoming BirdNET timestamps to UTC before storing them. This keeps correlation,
+history filters, retention, and leaderboard windows correct when BirdNET-Go publishes local-offset
+timestamps (including daylight-saving changes) while Frigate events are stored as UTC. Existing
+audio history is normalized automatically during the database upgrade.

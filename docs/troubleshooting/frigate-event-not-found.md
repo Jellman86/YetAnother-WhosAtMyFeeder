@@ -77,6 +77,11 @@ Trade-off: a lower `threshold` admits more marginal detections. YA-WAMF's own cl
 
 Whichever you choose, YA-WAMF still caches the snapshot and clip the moment the MQTT event arrives, so a brief visit is classified even when Frigate never persists the event.
 
+Frigate may also lose and reacquire the same bird as a new track. In that case YA-WAMF can retain
+the original MQTT tracker ID while the Frigate history contains a nearby event with a different ID.
+YA-WAMF does not silently substitute the nearby ID: two close tracks can represent different birds,
+so timestamp proximity alone is not a safe identity rule.
+
 ---
 
 ## What YA-WAMF does about it
@@ -86,7 +91,22 @@ YA-WAMF caches the snapshot and clip to local storage the moment the MQTT event 
 - **Cached clip found** → classification proceeds using the local cache. The diagnostic entry will show reason code `precheck_cache_bypass`.
 - **No cached clip** → the detection is marked as failed with error `event_not_found`.
 
-The cached clip path takes precedence over a live Frigate fetch in all subsequent operations (manual reclassify, video analysis retry), so a detection that was cached before Frigate lost the event can still be classified successfully.
+Local video takes precedence over a live Frigate fetch in all subsequent operations (manual
+reclassify, video analysis retry), so a detection that was cached before Frigate lost the event can
+still be classified successfully. Manual video reclassification tries a complete cached full-visit
+recording, a decodable partial recording, the cached event clip, and finally Frigate's event clip.
+The ideal duration controls full-visit completeness, not whether retained frames are valid
+classification evidence. If one cached file is corrupt, YA-WAMF removes that candidate and tries
+the next source before considering a snapshot fallback.
+
+The player and classifier therefore share the same retained-media principle even though they have
+different validation needs: a file must be decodable for inference, not merely present on disk. A
+successful cached-video attempt clears an obsolete `event_not_found` classification error.
+
+The reverse mismatch is also possible: Frigate can contain a persisted event that YA-WAMF did not
+ingest, for example while YA-WAMF was stopped or restarting. An owner-triggered detection backfill
+can import those persisted Frigate events while their snapshots remain available. Backfill cannot
+create an event for a transient MQTT tracker ID that Frigate never persisted.
 
 YA-WAMF can also mark existing detections as **Frigate event missing** during media integrity checks. This means YA-WAMF kept the local detection, but Frigate no longer had the event, clip, or snapshot at the last check. That can happen after normal Frigate retention cleanup, a Frigate database reset, storage repair, or a retention policy that is intentionally shorter than YA-WAMF's local retention.
 

@@ -13,7 +13,7 @@ from app.utils.canonical_species import (
     hidden_species_substrings,
     should_hide_species_label,
 )
-from app.utils.api_datetime import utc_naive_now
+from app.utils.api_datetime import serialize_api_datetime, serialize_storage_datetime, utc_naive_now
 
 log = structlog.get_logger()
 
@@ -26,7 +26,8 @@ DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score
                       d.ai_analysis, d.ai_analysis_timestamp, d.manual_tagged, d.notified_at,
                       CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
                       d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked,
-                      d.frigate_status, d.frigate_missing_since, d.frigate_last_checked_at, d.frigate_last_error"""
+                      d.frigate_status, d.frigate_missing_since, d.frigate_last_checked_at, d.frigate_last_error,
+                      d.video_classification_input_source"""
 
 
 @dataclass
@@ -76,6 +77,7 @@ class Detection:
     video_classification_provider: Optional[str] = None
     video_classification_backend: Optional[str] = None
     video_classification_model_id: Optional[str] = None
+    video_classification_input_source: Optional[str] = None
     # AI naturalist analysis fields
     ai_analysis: Optional[str] = None
     ai_analysis_timestamp: Optional[datetime] = None
@@ -198,6 +200,66 @@ def _extract_birdnet_source_name(sensor_id: str | None, raw_data: str | None) ->
     return None
 
 
+def match_audio_history_visual_events(
+    audio_items: list[dict],
+    candidates: list[dict],
+    *,
+    window_seconds: int,
+    camera_audio_mapping: dict[str, str],
+) -> dict[int, str]:
+    """Conservatively match audio rows to completed automatic video results."""
+    resolved: dict[int, str] = {}
+    bounded_window = max(0, int(window_seconds))
+
+    for audio_item in audio_items:
+        scientific_name = _normalize_species_lookup_name(audio_item.get("scientific_name"))
+        audio_id = audio_item.get("id")
+        if not scientific_name or not isinstance(audio_id, int):
+            continue
+        audio_time = _parse_datetime(audio_item.get("timestamp"))
+        audio_time = (
+            audio_time.replace(tzinfo=timezone.utc)
+            if audio_time.tzinfo is None
+            else audio_time.astimezone(timezone.utc)
+        )
+        audio_keys = {
+            normalized
+            for value in audio_item.get("_mapping_keys", set())
+            if (normalized := _normalize_mapping_key(value))
+        }
+
+        ranked: list[tuple[float, float, float, str]] = []
+        for candidate in candidates:
+            if _normalize_species_lookup_name(candidate.get("video_classification_label")) != scientific_name:
+                continue
+            candidate_time = _parse_datetime(candidate.get("detection_time"))
+            candidate_time = (
+                candidate_time.replace(tzinfo=timezone.utc)
+                if candidate_time.tzinfo is None
+                else candidate_time.astimezone(timezone.utc)
+            )
+            delta = abs((candidate_time - audio_time).total_seconds())
+            if delta > bounded_window:
+                continue
+
+            mapping_value = camera_audio_mapping.get(str(candidate.get("camera_name") or ""))
+            wildcard_mapping, mapping_keys = _parse_mapping_filter_values(mapping_value)
+            if not wildcard_mapping and not audio_keys.intersection(mapping_keys):
+                continue
+
+            event_id = str(candidate.get("frigate_event") or "").strip()
+            if not event_id:
+                continue
+            score = float(candidate.get("video_classification_score") or 0.0)
+            ranked.append((delta, -score, -candidate_time.timestamp(), event_id))
+
+        if ranked:
+            ranked.sort()
+            resolved[audio_id] = ranked[0][3]
+
+    return resolved
+
+
 def _row_to_detection(row: aiosqlite.Row) -> Detection:
     """Convert a database row to a Detection object."""
     d = Detection(
@@ -271,6 +333,8 @@ def _row_to_detection(row: aiosqlite.Row) -> Detection:
         d.frigate_last_checked_at = _parse_datetime(row[42]) if row[42] else None
     if len(row) > 43:
         d.frigate_last_error = row[43]
+    if len(row) > 44:
+        d.video_classification_input_source = row[44]
 
     return d
 
@@ -819,6 +883,7 @@ class DetectionRepository:
         provider: Optional[str] = None,
         backend: Optional[str] = None,
         model_id: Optional[str] = None,
+        input_source: Optional[str] = None,
         blocked: bool = False,
     ) -> None:
         """Update video classification results for an event."""
@@ -835,12 +900,73 @@ class DetectionRepository:
                 video_classification_provider = ?,
                 video_classification_backend = ?,
                 video_classification_model_id = ?,
+                video_classification_input_source = ?,
                 video_result_blocked = ?
             WHERE frigate_event = ?
         """,
-            (label, score, index, now, status, provider, backend, model_id, blocked, frigate_event),
+            (label, score, index, now, status, provider, backend, model_id, input_source, blocked, frigate_event),
         )
         await self.db.commit()
+
+    async def update_primary_classification(
+        self,
+        *,
+        frigate_event: str,
+        display_name: str,
+        category_name: str,
+        score: float,
+        detection_index: int,
+        scientific_name: str | None,
+        common_name: str | None,
+        taxa_id: int | None,
+        audio_confirmed: bool,
+        audio_species: str | None,
+        audio_score: float | None,
+        manual_override: bool,
+    ) -> bool:
+        """Update the canonical identity without racing a manual correction.
+
+        Automatic refinements may still be recorded in their source-specific
+        columns, but they must never replace an identity a user has confirmed.
+        The permission check belongs in the same SQL statement as the write so a
+        concurrent manual tag cannot be lost between a service read and update.
+        """
+        await self.db.execute(
+            """
+            UPDATE detections
+            SET display_name = ?,
+                category_name = ?,
+                score = ?,
+                detection_index = ?,
+                scientific_name = ?,
+                common_name = ?,
+                taxa_id = ?,
+                audio_confirmed = ?,
+                audio_species = ?,
+                audio_score = ?,
+                manual_tagged = CASE WHEN ? = 1 THEN 1 ELSE manual_tagged END
+            WHERE frigate_event = ?
+              AND (? = 1 OR COALESCE(manual_tagged, 0) = 0)
+            """,
+            (
+                display_name,
+                category_name,
+                score,
+                detection_index,
+                scientific_name,
+                common_name,
+                taxa_id,
+                1 if audio_confirmed else 0,
+                audio_species,
+                audio_score,
+                1 if manual_override else 0,
+                frigate_event,
+                1 if manual_override else 0,
+            ),
+        )
+        changed = await self._last_statement_changes() > 0
+        await self.db.commit()
+        return changed
 
     async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None) -> None:
         """Update just the video classification status."""
@@ -1282,6 +1408,7 @@ class DetectionRepository:
                 frigate_last_checked_at = ?,
                 frigate_last_error = NULL
             WHERE frigate_event = ?
+              AND COALESCE(manual_tagged, 0) = 0
               AND (? > score OR (? = 1 AND COALESCE(audio_confirmed, 0) = 0))
         """,
             (
@@ -1386,6 +1513,7 @@ class DetectionRepository:
         include_hidden: bool = False,
         favorite_only: bool = False,
         audio_confirmed_only: bool = False,
+        frigate_event: str | None = None,
     ) -> list[Detection]:
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
         query = (
@@ -1452,6 +1580,9 @@ class DetectionRepository:
             conditions.append("f.detection_id IS NOT NULL")
         if audio_confirmed_only:
             conditions.append("d.audio_confirmed = 1")
+        if frigate_event:
+            conditions.append("d.frigate_event = ?")
+            params.append(frigate_event)
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -1997,7 +2128,7 @@ class DetectionRepository:
         mirror ``delete_older_than`` and avoid long write locks.
         """
         total_deleted = 0
-        cutoff_str = cutoff_date.isoformat(sep=" ")
+        cutoff_str = serialize_storage_datetime(cutoff_date)
 
         while True:
             query = """
@@ -3602,7 +3733,7 @@ class DetectionRepository:
         await self.db.execute(
             """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
                VALUES (?, ?, ?, ?, ?, ?)""",
-            (timestamp.isoformat(sep=" "), species, confidence, sensor_id, payload, scientific_name),
+            (serialize_storage_datetime(timestamp), species, confidence, sensor_id, payload, scientific_name),
         )
         await self.db.commit()
 
@@ -3637,7 +3768,7 @@ class DetectionRepository:
         query = """SELECT timestamp, species, confidence, sensor_id, scientific_name, raw_data
                    FROM audio_detections
                    WHERE timestamp >= ? AND timestamp <= ?"""
-        params: list = [start_dt.isoformat(sep=" "), end_dt.isoformat(sep=" ")]
+        params: list = [serialize_storage_datetime(start_dt), serialize_storage_datetime(end_dt)]
         query += " ORDER BY timestamp DESC"
 
         async with self.db.execute(query, params) as cursor:
@@ -3701,10 +3832,10 @@ class DetectionRepository:
 
         if start_date is not None:
             clauses.append("timestamp >= ?")
-            params.append(start_date.isoformat(sep=" "))
+            params.append(serialize_storage_datetime(start_date))
         if end_date is not None:
             clauses.append("timestamp <= ?")
-            params.append(end_date.isoformat(sep=" "))
+            params.append(serialize_storage_datetime(end_date))
         if species:
             clauses.append("LOWER(species) LIKE ?")
             params.append(f"%{species.strip().casefold()}%")
@@ -3766,13 +3897,14 @@ class DetectionRepository:
             items.append(
                 {
                     "id": row[0],
-                    "timestamp": _parse_datetime(row[1]).isoformat(),
+                    "timestamp": serialize_api_datetime(_parse_datetime(row[1])),
                     "species": row[2],
                     "confidence": row[3],
                     "sensor_id": row[4],
                     "source_name": _extract_birdnet_source_name(row[4], raw_data),
                     "scientific_name": row[5],
                     "birdnet_id": birdnet_id,
+                    "_mapping_keys": _extract_audio_mapping_keys(row[4], raw_data),
                 }
             )
 
@@ -3782,6 +3914,49 @@ class DetectionRepository:
             "limit": limit,
             "offset": offset,
         }
+
+    async def get_audio_visual_match_candidates(
+        self,
+        *,
+        start_date: datetime,
+        end_date: datetime,
+        scientific_names: set[str],
+    ) -> list[dict]:
+        """Return bounded automatic video results eligible for audio-history links."""
+        normalized_names = sorted(
+            {normalized for name in scientific_names if (normalized := _normalize_species_lookup_name(name))}
+        )
+        if not normalized_names:
+            return []
+
+        placeholders = ", ".join("?" for _ in normalized_names)
+        params: list[object] = [
+            start_date.isoformat(sep=" "),
+            end_date.isoformat(sep=" "),
+            *normalized_names,
+        ]
+        query = f"""SELECT frigate_event, detection_time, camera_name,
+                           video_classification_label, video_classification_score
+                    FROM detections
+                    WHERE detection_time >= ?
+                      AND detection_time <= ?
+                      AND (is_hidden = 0 OR is_hidden IS NULL)
+                      AND (manual_tagged = 0 OR manual_tagged IS NULL)
+                      AND video_classification_status = 'completed'
+                      AND video_classification_label IS NOT NULL
+                      AND LOWER(TRIM(video_classification_label)) IN ({placeholders})"""
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+        return [
+            {
+                "frigate_event": row[0],
+                "detection_time": row[1],
+                "camera_name": row[2],
+                "video_classification_label": row[3],
+                "video_classification_score": row[4],
+            }
+            for row in rows
+        ]
 
     async def get_audio_history_summary(
         self,
@@ -3857,7 +4032,7 @@ class DetectionRepository:
                 source_totals[source_name] = {
                     "source_name": source_name,
                     "count": 0,
-                    "last_heard": _parse_datetime(row[0]).isoformat(),
+                    "last_heard": serialize_api_datetime(_parse_datetime(row[0])),
                 }
             source_totals[source_name]["count"] += 1
 
@@ -3868,8 +4043,8 @@ class DetectionRepository:
                 "count": int(row[2] or 0),
                 "avg_confidence": float(row[3] or 0),
                 "max_confidence": float(row[4] or 0),
-                "first_heard": _parse_datetime(row[5]).isoformat() if row[5] else None,
-                "last_heard": _parse_datetime(row[6]).isoformat() if row[6] else None,
+                "first_heard": serialize_api_datetime(_parse_datetime(row[5])) if row[5] else None,
+                "last_heard": serialize_api_datetime(_parse_datetime(row[6])) if row[6] else None,
             }
             for row in top_species_rows
         ]
@@ -3906,13 +4081,8 @@ class DetectionRepository:
         comparison lines up with the ``idx_audio_detections_time`` index.
         """
 
-        def _fmt(dt: datetime) -> str:
-            if dt.tzinfo is None:
-                dt = dt.replace(tzinfo=timezone.utc)
-            return dt.isoformat(sep=" ")
-
-        ws, we = _fmt(window_start), _fmt(window_end)
-        ps, pe = _fmt(prev_start), _fmt(prev_end)
+        ws, we = serialize_storage_datetime(window_start), serialize_storage_datetime(window_end)
+        ps, pe = serialize_storage_datetime(prev_start), serialize_storage_datetime(prev_end)
 
         query = """
             SELECT

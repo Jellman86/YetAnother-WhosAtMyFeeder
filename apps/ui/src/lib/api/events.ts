@@ -13,12 +13,13 @@ export interface FetchEventsOptions {
     includeHidden?: boolean;
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
+    eventId?: string;
     fields?: 'list' | 'detail' | string;
     requestKey?: string | null;
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly, audioConfirmedOnly, fields, requestKey } = options;
+    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly, audioConfirmedOnly, eventId, fields, requestKey } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
@@ -30,6 +31,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     if (includeHidden) params.set('include_hidden', 'true');
     if (favoritesOnly) params.set('favorites', 'true');
     if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
+    if (eventId) params.set('event_id', eventId);
     if (fields) params.set('fields', fields);
 
     const filterKey = [
@@ -40,6 +42,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
         includeHidden ? 'hidden' : 'visible',
         favoritesOnly ? 'favorites' : 'all',
         audioConfirmedOnly ? 'audio' : 'all',
+        eventId || 'all-events',
         fields || 'full',
         startDate || 'none',
         endDate || 'none',

@@ -124,8 +124,11 @@ YA-WAMF/
 │   │           └── taxonomy_service.py # iNaturalist name mapping
 │   ├── migrations/              # Alembic database migrations
 │   ├── tests/                   # pytest test files
-│   ├── Dockerfile               # Backend container build
-│   └── requirements.txt         # Python dependencies
+│   ├── Dockerfile               # Legacy full-runtime backend container build
+│   ├── requirements.txt         # Full local development/CI environment
+│   ├── requirements-base.txt    # Dependencies shared by every runtime image
+│   ├── requirements-dev.txt     # Test/lint tooling (not shipped at runtime)
+│   └── requirements-provider-*.txt # Full/CPU/Intel/CUDA runtime families
 │
 ├── apps/ui/                     # Svelte frontend
 │   ├── src/
@@ -767,8 +770,13 @@ monolithic image.
 ### Building Images
 
 ```bash
-# Build recommended monolithic image
+# Build the recommended full compatibility image (the default)
 docker build -t yawamf-monalithic:local .
+
+# Build a provider-family image for packaging tests
+docker build --build-arg RUNTIME_FLAVOR=cpu -t yawamf-monalithic:cpu-local .
+docker build --build-arg RUNTIME_FLAVOR=intel -t yawamf-monalithic:intel-local .
+docker build --build-arg RUNTIME_FLAVOR=cuda -t yawamf-monalithic:cuda-local .
 
 # Build legacy split images
 docker build -t wamf-backend:local ./backend
@@ -781,13 +789,20 @@ docker compose build
 ### CI/CD Pipeline
 
 GitHub Actions workflow (`.github/workflows/build-and-push.yml`):
-- Triggers on push to `dev` and on release tags (`v*`)
-- Builds and pushes the monolithic image to GHCR
+- Triggers on push to `dev` or `main` and on release tags (`v*`)
+- Builds full, CPU, Intel, and CUDA monoliths from one Dockerfile and commit
+- Publishes SHA candidates first, smoke-starts every flavor without an accelerator,
+  then runs a shared-volume full → CPU → full persistence test
+- Promotes mutable branch/release tags only after that validation succeeds
 - Also builds legacy backend/frontend images for existing split installs
 - Tags:
-  - `:dev` on `dev` pushes
-  - `:latest` on tag pushes (and the tag name itself, e.g. `:v2.7.9`)
-  - SHA tags for traceability
+  - unsuffixed `:dev`, `:main`, `:latest`, `:vX.Y.Z`, and SHA tags are full
+  - `-cpu`, `-intel`, and `-cuda` suffixes select the smaller runtime families
+
+The flavors share `/config` and `/data`. Change only
+`YAWAMF_MONALITHIC_TAG` to compare them; do not override the image-owned
+`YAWAMF_IMAGE_FLAVOR` value. See
+[Hardware Acceleration](docs/setup/hardware-acceleration.md).
 
 ---
 

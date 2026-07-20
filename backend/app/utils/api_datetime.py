@@ -13,6 +13,18 @@ def utc_naive_from_timestamp(timestamp: float) -> datetime:
     return datetime.fromtimestamp(timestamp, tz=timezone.utc).replace(tzinfo=None)
 
 
+def utc_naive_datetime(value: datetime) -> datetime:
+    """Normalize a datetime to the repository's naive-UTC storage convention."""
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def serialize_storage_datetime(value: datetime) -> str:
+    """Serialize a datetime for lexically sortable, timezone-stable SQLite storage."""
+    return utc_naive_datetime(value).isoformat(sep=" ")
+
+
 def serialize_api_datetime(value: datetime | None) -> str | None:
     """Serialize datetimes as explicit UTC ISO-8601 strings for API clients."""
     if value is None:

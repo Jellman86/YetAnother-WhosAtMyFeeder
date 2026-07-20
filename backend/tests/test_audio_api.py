@@ -32,11 +32,13 @@ def reset_auth_config():
     original_public_enabled = settings.public_access.enabled
     original_show_camera_names = settings.public_access.show_camera_names
     original_camera_audio_mapping = dict(settings.frigate.camera_audio_mapping)
+    original_correlation_window = settings.frigate.audio_correlation_window_seconds
     yield
     settings.auth.enabled = original_auth_enabled
     settings.public_access.enabled = original_public_enabled
     settings.public_access.show_camera_names = original_show_camera_names
     settings.frigate.camera_audio_mapping = original_camera_audio_mapping
+    settings.frigate.audio_correlation_window_seconds = original_correlation_window
 
 
 @pytest.mark.asyncio
@@ -227,6 +229,77 @@ async def test_audio_history_filters_persisted_birdnet_detections(client: httpx.
     assert payload["items"][0]["source_name"] == "BirdCam"
     assert payload["items"][0]["birdnet_id"] == 101
     assert "scientific_name" not in payload["items"][0]
+
+
+@pytest.mark.asyncio
+async def test_audio_history_links_only_matching_automatic_video_classifications(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"birdcam": "BirdCam", "nestcam": "NestCam"}
+    settings.frigate.audio_correlation_window_seconds = 300
+
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        await db.execute("DELETE FROM detections")
+        await db.executemany(
+            """INSERT INTO audio_detections
+                   (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+            [
+                (
+                    now.isoformat(sep=" "),
+                    "Woodpigeon",
+                    0.92,
+                    "BirdCam",
+                    json.dumps({"detectionId": 201, "nm": "BirdCam"}),
+                    "Columba palumbus",
+                ),
+                (
+                    (now - timedelta(seconds=10)).isoformat(sep=" "),
+                    "Woodpigeon",
+                    0.89,
+                    "NestCam",
+                    json.dumps({"detectionId": 202, "nm": "NestCam"}),
+                    "Columba palumbus",
+                ),
+            ],
+        )
+        detection_rows = [
+            ("auto-match", "birdcam", 40, 0, 0, "completed", "Columba palumbus", 0.82),
+            ("manual-closer", "birdcam", 5, 1, 0, "completed", "Columba palumbus", 0.99),
+            ("hidden-closer", "birdcam", 8, 0, 1, "completed", "Columba palumbus", 0.99),
+            ("wrong-camera", "nestcam", 3, 0, 0, "completed", "Columba palumbus", 0.98),
+            ("wrong-species", "birdcam", 2, 0, 0, "completed", "Pica pica", 0.99),
+            ("failed-video", "birdcam", 1, 0, 0, "failed", "Columba palumbus", 0.99),
+        ]
+        for event_id, camera, delta, manual, hidden, status, label, score in detection_rows:
+            await db.execute(
+                """INSERT INTO detections
+                       (detection_time, detection_index, score, display_name, category_name,
+                        frigate_event, camera_name, manual_tagged, is_hidden,
+                        video_classification_status, video_classification_label,
+                        video_classification_score)
+                       VALUES (?, 1, 0.8, 'Bird', 'Bird', ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    (now + timedelta(seconds=delta)).isoformat(sep=" "),
+                    event_id,
+                    camera,
+                    manual,
+                    hidden,
+                    status,
+                    label,
+                    score,
+                ),
+            )
+        await db.commit()
+
+    response = await client.get("/api/audio/history", params={"days": 1, "limit": 10})
+    assert response.status_code == 200, response.text
+    items = {item["birdnet_id"]: item for item in response.json()["items"]}
+
+    assert items[201]["matched_visual_event_id"] == "auto-match"
+    assert items[202]["matched_visual_event_id"] == "wrong-camera"
 
 
 @pytest.mark.asyncio
@@ -534,6 +607,130 @@ async def test_audio_context_matches_birdnet_source_name(client: httpx.AsyncClie
     assert response.status_code == 200, response.text
     payload = response.json()
     assert [item["species"] for item in payload] == ["Dunnock"]
+
+
+@pytest.mark.asyncio
+async def test_event_audio_context_finds_late_audio_without_stored_audio_hint(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"birdcam": "BirdCam"}
+    settings.frigate.audio_correlation_window_seconds = 45
+
+    target = datetime.now(timezone.utc).replace(microsecond=0)
+    event_id = f"evt-late-audio-{int(target.timestamp())}"
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM audio_detections")
+        await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                audio_confirmed, audio_species, audio_score
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, 0, NULL, NULL)
+            """,
+            (
+                target.isoformat(sep=" "),
+                1,
+                0.51,
+                "Unknown Bird",
+                "Unknown Bird",
+                event_id,
+                "birdcam",
+            ),
+        )
+        rows = [
+            (
+                (target - timedelta(seconds=30)).isoformat(sep=" "),
+                "Common Kingfisher",
+                0.86,
+                "BirdCam",
+                json.dumps({"detectionId": 26588, "nm": "BirdCam", "src": "rtsp_birdcam"}),
+                "Alcedo atthis",
+            ),
+            (
+                (target + timedelta(seconds=10)).isoformat(sep=" "),
+                "Blue Tit",
+                0.91,
+                "Other Mic",
+                json.dumps({"detectionId": 26589, "nm": "Other Mic", "src": "rtsp_other"}),
+                "Cyanistes caeruleus",
+            ),
+            (
+                (target + timedelta(seconds=60)).isoformat(sep=" "),
+                "Robin",
+                0.93,
+                "BirdCam",
+                json.dumps({"detectionId": 26590, "nm": "BirdCam", "src": "rtsp_birdcam"}),
+                "Erithacus rubecula",
+            ),
+        ]
+        for row in rows:
+            await db.execute(
+                """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                row,
+            )
+        await db.commit()
+
+    response = await client.get(f"/api/audio/context/event/{event_id}")
+
+    assert response.status_code == 200, response.text
+    assert response.json() == [
+        {
+            "timestamp": (target - timedelta(seconds=30)).isoformat(),
+            "species": "Common Kingfisher",
+            "confidence": 0.86,
+            "sensor_id": "BirdCam",
+            "source_name": None,
+            "birdnet_id": 26588,
+            "offset_seconds": -30,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_event_audio_context_returns_not_found_for_unknown_event(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    response = await client.get("/api/audio/context/event/does-not-exist")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_event_audio_context_does_not_expose_hidden_event_to_guest(client: httpx.AsyncClient):
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+
+    target = datetime.now(timezone.utc).replace(microsecond=0)
+    event_id = f"evt-hidden-audio-{int(target.timestamp())}"
+    async with get_db() as db:
+        await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0)
+            """,
+            (
+                target.isoformat(sep=" "),
+                1,
+                0.75,
+                "Robin",
+                "Robin",
+                event_id,
+                "birdcam",
+            ),
+        )
+        await db.commit()
+
+    response = await client.get(f"/api/audio/context/event/{event_id}")
+
+    assert response.status_code == 404
 
 
 @pytest.mark.asyncio

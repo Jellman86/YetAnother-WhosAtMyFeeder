@@ -96,6 +96,7 @@ REQUIRED_COLUMNS = {
         "video_classification_provider",
         "video_classification_backend",
         "video_classification_model_id",
+        "video_classification_input_source",
         "ai_analysis",
         "ai_analysis_timestamp",
         "manual_tagged",

@@ -30,7 +30,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: backend/requirements.txt
+          cache-dependency-path: backend/requirements*.txt
 
       - name: Install backend dependencies
         run: |
@@ -97,7 +97,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -120,14 +120,14 @@ jobs:
         working-directory: apps/ui
 
   telemetry-worker:
-    name: Telemetry worker dependency check
+    name: Telemetry worker checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -135,6 +135,10 @@ jobs:
 
       - name: Install telemetry worker dependencies
         run: npm ci
+        working-directory: apps/telemetry-worker
+
+      - name: Build telemetry worker
+        run: npm run check
         working-directory: apps/telemetry-worker
 
   docs-compose:

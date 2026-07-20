@@ -24,6 +24,7 @@ from app.services.video_classification_waiter import video_classification_waiter
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.frigate_missing_policy import apply_missing_policy
 from app.services.maintenance_coordinator import maintenance_coordinator
+from app.services.classification_input_provenance import load_snapshot_classification_input
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.routers.proxy import _get_valid_cached_recording_clip_path
@@ -1721,6 +1722,27 @@ class AutoVideoClassifierService:
                 error=str(exc),
             )
 
+        partial_recording_path = media_cache.get_recording_clip_path(frigate_event)
+        if partial_recording_path:
+            try:
+                clip_bytes = await asyncio.to_thread(Path(partial_recording_path).read_bytes)
+                if (
+                    clip_bytes
+                    and (clip_bytes.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_bytes[:32])
+                    and await self._clip_decodes(clip_bytes)
+                ):
+                    log.info(
+                        "Using retained partial recording clip for auto video classification",
+                        event_id=frigate_event,
+                    )
+                    return clip_bytes, None, "recording"
+            except Exception as exc:
+                log.debug(
+                    "Failed to read retained partial recording clip",
+                    event_id=frigate_event,
+                    error=str(exc),
+                )
+
         # Check the event clip cache before polling Frigate live.  This covers the
         # case where the precheck bypass fired (Frigate API 404 but clip cached) — if
         # we skip straight to _wait_for_clip, it will call Frigate again, fail for the
@@ -1968,6 +1990,7 @@ class AutoVideoClassifierService:
                                 "video_classification_error": det.video_classification_error,
                                 "video_classification_provider": det.video_classification_provider,
                                 "video_classification_backend": det.video_classification_backend,
+                                "video_classification_input_source": det.video_classification_input_source,
                                 "video_classification_timestamp": serialize_api_datetime(
                                     det.video_classification_timestamp
                                 ),
@@ -2007,6 +2030,7 @@ class AutoVideoClassifierService:
             video_provider=result.get("inference_provider"),
             video_backend=result.get("inference_backend"),
             video_model_id=result.get("model_id"),
+            video_input_source=result.get("input_source"),
         )
         await video_classification_waiter.publish(
             frigate_event,
@@ -2019,7 +2043,11 @@ class AutoVideoClassifierService:
 
     async def _classify_from_snapshot(self, frigate_event: str, camera: str) -> str | None:
         """Fallback path for queued user-initiated analysis when Frigate clips are no longer retained."""
-        snapshot_data = await frigate_client.get_snapshot(frigate_event, crop=True, quality=95)
+        snapshot_data, provenance = await load_snapshot_classification_input(
+            frigate_event,
+            media_cache_service=media_cache,
+            frigate_client_service=frigate_client,
+        )
         if not snapshot_data:
             await self._update_status(frigate_event, "failed", error="snapshot_fetch_failed", broadcast=True)
             await broadcaster.broadcast(
@@ -2030,7 +2058,11 @@ class AutoVideoClassifierService:
         await self._update_status(frigate_event, "processing", error=None, broadcast=False)
         image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
         results: list[dict] = []
-        input_context = {"is_cropped": True, "event_id": frigate_event}
+        input_context = {
+            "is_cropped": provenance.is_cropped,
+            "event_id": frigate_event,
+            "input_source": provenance.input_source,
+        }
         last_unavailable_error: str | None = None
         for attempt in range(1, SNAPSHOT_FALLBACK_MAX_ATTEMPTS + 1):
             try:
@@ -2103,7 +2135,9 @@ class AutoVideoClassifierService:
                 {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
             )
             return reason or "snapshot_no_usable_result"
-        await self._save_results(frigate_event, top)
+        top_with_provenance = dict(top)
+        top_with_provenance.setdefault("input_source", provenance.input_source)
+        await self._save_results(frigate_event, top_with_provenance)
         await broadcaster.broadcast(
             {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": results}}
         )

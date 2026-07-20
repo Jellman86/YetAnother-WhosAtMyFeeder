@@ -45,6 +45,15 @@ describe('Detection settings simplification', () => {
         expect(detectionSettingsSource).not.toMatch(/icon="[🎯🎚️⚡🧪🚫]/u);
     });
 
+    it('explains runtime image/provider mismatches without adding another card', () => {
+        expect(detectionSettingsSource).toContain('classifierStatus.image_flavor');
+        expect(detectionSettingsSource).toContain('classifierStatus.packaged_inference_providers');
+        expect(detectionSettingsSource).toContain("classifierStatus.image_flavor_warning === 'selected_provider_not_packaged'");
+        expect(detectionSettingsSource).toContain('settings.detection.image_flavor_mismatch');
+        expect(detectionSettingsSource).toContain('docs/setup/hardware-acceleration.md');
+        expect(detectionSettingsSource).toContain('role="alert"');
+    });
+
     it('keeps shared disclosures semantic, readable, and keyboard visible', () => {
         expect(advancedSectionSource).toContain('aria-expanded={open}');
         expect(advancedSectionSource).toContain('aria-controls={contentId}');

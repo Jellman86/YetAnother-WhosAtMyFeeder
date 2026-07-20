@@ -139,6 +139,20 @@ class FullVisitClipService:
                 self._mark_fetch_success(event_id)
                 return True
 
+            partial_path = media_cache.get_recording_clip_path(event_id)
+            partial_duration = media_cache.get_recording_clip_duration_seconds(event_id)
+            if partial_path and partial_duration is not None:
+                self._mark_fetch_success(event_id)
+                log.info(
+                    "Using retained partial recording clip",
+                    event_id=event_id,
+                    camera=camera,
+                    source=source,
+                    path=str(partial_path),
+                    actual_duration_seconds=round(partial_duration, 2),
+                )
+                return True
+
             if self._in_failure_cooldown(event_id):
                 log.debug(
                     "Automatic full-visit fetch suppressed by cooldown after wait",
@@ -203,6 +217,8 @@ class FullVisitClipService:
                 detection.frigate_event,
                 min_duration_seconds=min_duration_seconds,
             ):
+                continue
+            if media_cache.get_recording_clip_duration_seconds(detection.frigate_event) is not None:
                 continue
             ready = await self.trigger_for_event(
                 detection.frigate_event,

@@ -12,6 +12,7 @@ It is anchored by two honest assessments of *where we stand*:
 
 - [Gold-Standard Review (2026-07-07)](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md) — quality assessment and the incremental path.
 - [Telemetry Health Findings (2026-07-09)](docs/reviews/2026-07-09-telemetry-health-findings.md) — what actually fails across the fleet.
+- [Image Classification Pipeline Review (2026-07-20)](docs/reviews/2026-07-20-image-classification-pipeline-review.md) — evidence provenance, temporal consensus, HQ media, and runtime recovery.
 
 ---
 
@@ -219,7 +220,7 @@ Completed review tranches:
   consistent, and committed OpenAPI/client artifacts are current.
 
 #### Full translation review 🌍
-**Priority:** P1 | **Effort:** M | **Status:** 🔄 Structural + rot guards done; residual is native editorial polish ([design](docs/plans/2026-07-12-full-translation-review-design.md))
+**Priority:** P1 | **Effort:** M | **Status:** ✅ Editorial sweep complete; independent native validation is not claimed ([design](docs/plans/2026-07-12-full-translation-review-design.md), [review](docs/reviews/2026-07-20-translation-editorial-review.md))
 
 Review every locale against the `en.json` source of truth for completeness, accuracy, and
 consistency; fix missing keys, drift, and machine-translation artefacts. Add CI checks so
@@ -230,20 +231,24 @@ shared controls, telemetry, update messaging, the Frigate media advisory, Dashbo
 Leaderboard source controls, and the complete Audio History surface.
 
 ✅ **Anti-rot CI is in place**: the audit rejects missing/extra keys and placeholder drift, asserts
-a curated set of high-risk strings differs from English, and — new — a baseline ratchet
+a curated set of high-risk strings differs from English, and a baseline ratchet
 (`locales.untranslated-regression.test.ts` + `locales.identical-baseline.json`) fails the build if
 any *new* user-facing string lands byte-identical to English, so untranslated copy can't slip in.
+The editorial gate additionally rejects encoding damage, surrounding whitespace, ASCII ellipses in
+prose, known accent-loss substitutions, incorrect French double-punctuation spacing, and
+sentence-length Latin-only copy in Japanese, Russian, or Chinese.
 
-✅ **No untranslated leftovers**: a measured sweep found ≈0 full English sentences surviving in any
-locale; the remaining byte-identical strings are legitimately shared (brand/protocol names,
-URL/host placeholders, and real cross-language cognates), which is why the ratchet allowlists them
-rather than forcing a spurious "translation".
+✅ **The application-wide editorial sweep is recorded**: all nine catalogs contain the same 1,981
+leaf keys, interpolation tokens are preserved, and no sentence-length English copy remains in the
+non-Latin catalogs outside technical examples. The pass corrected copied English enrichment copy,
+accent-stripped settings and video-player text, Russian and Japanese phrasing, French punctuation
+spacing, catalog whitespace, and application-wide ellipsis typography.
 
-**Remaining** is a genuinely smaller, subjective task than the label implies: a **per-language
-native editorial polish** — idiom, terminology consistency, and locale typography (e.g. French
-spacing before `:` `?`, Japanese/Chinese phrasing). Defect density is low, it is not safely
-automatable, and it is best done per language by a native reviewer in reviewable batches rather
-than by bulk machine edits.
+**Release limitation:** this was a repository-backed editorial and automated quality review, not
+independent native-speaker certification. Before `3.0`, either obtain native sign-off for locales
+presented as fully supported or state that limitation plainly in the release notes, as required by
+the exit criterion above. No automated or structural defect remains open; independent reviewers
+may still refine idiom and choose a single regional convention for the generic Portuguese catalog.
 
 ### 1.3 Candidate feature backlog — non-blocking for 3.0
 
@@ -326,8 +331,10 @@ acceleration, update-channel guidance, and a first-run smoke test.
 
 - **Unraid Community Applications follow-through** — the Docker template and setup guide are
   shipped (`unraid/yawamf.xml`, `docs/setup/unraid.md`). Keep them synced with image names,
-  ports, volume ownership, health checks, and Intel GPU/NPU device guidance; then pursue the
-  normal Community Applications discovery path so users do not need to paste the raw template URL.
+  ports, volume ownership, health checks, provider-family tags, and Intel GPU/NPU plus NVIDIA CUDA
+  host guidance. The template keeps provider choice in-app instead of pinning it through an
+  authoritative environment override. Next, pursue the normal Community Applications discovery
+  path so users do not need to paste the raw template URL.
 - **TrueNAS custom-app docs, then catalog submission** — first document the low-friction
   TrueNAS Custom App path for the monolithic image so users can deploy before catalog acceptance.
   Then submit a community-train app to `truenas/apps` using the current Docker Compose catalog
@@ -355,11 +362,15 @@ These are high-value follow-ups. A measured regression can promote a specific it
 exit criteria; the broad initiatives do not block the release by default.
 
 #### Performance optimization 🚀
-**Priority:** P1 | **Effort:** L | **Status:** ☐ Not started (connection pooling done)
+**Priority:** P1 | **Effort:** L | **Status:** 🔄 Foundations in progress
 
-Tune for large installations: DB query optimization (indexes, optional result caching,
-cursor pagination), backend async hardening + a background task queue (ARQ/Celery), frontend
-lazy-loading/virtual-scrolling/bundle reduction, and a benchmark suite for regression testing.
+✅ Connection pooling, route/locale lazy loading, bounded frontend work, and provider-family runtime
+images are delivered. The full compatibility image remains available, while additive CPU, Intel and
+CUDA images isolate large hardware stacks and remove build-only tooling/layers. Image promotion is
+gated by per-flavor startup checks and a shared-volume full → CPU → full integrity round trip.
+Remaining: DB query optimization (indexes, optional result caching, cursor pagination), further
+backend async hardening + a background task queue (ARQ/Celery), targeted virtual scrolling, and a
+benchmark suite for regression testing.
 
 #### Broader end-to-end coverage 🧪
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Targeted coverage exists
@@ -467,15 +478,26 @@ resolution, the classifier inference-health refactor (`v2.11`, issue #33 resolve
 feeder + auto-fetch model-evaluation harnesses, and the **accurate bird-crop detector tier**
 (optional YOLOX-Tiny with fast→original fallback, model-manager UI, and adapter/eval tests), plus
 **automatic per-model crop policy** validated on Quark and synchronized between the runtime registry
-and downloadable model sidecars.
+and downloadable model sidecars. The classification pipeline now also separates Frigate object and
+sublabel confidence, runs local inference before trusted fallback, recovers missed MQTT `new` events
+from `update`, protects manual identity atomically, uses three-frame/60% deep-video consensus, and
+compares full-frame and cropped video evidence without double-counting frames, persists the winning
+input provenance, and surfaces provider failures for recovery instead of silently treating them as
+empty predictions.
 
 **Acceleration:** Intel iGPU (OpenVINO), **Intel NPU** (`intel_npu` provider, capability probe,
 device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and
 clean fallback chains.
 
-**Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots, recording-frame
+**Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots with conservative,
+temporally independent multi-frame crop refinement for distant subjects, recording-frame
 classification fallback, media caching, and the video player with HTTP-Range seeking + expiring
-watermarked share links.
+watermarked share links. Playable partial recordings are retained instead of refetched forever,
+corrupt media remains rejected, and HQ recovery has persistent bounded backoff across container
+restarts. Manual temporal
+reclassification follows the same best-available-media contract: complete cached recording →
+decodable partial recording → cached event clip → Frigate event clip → snapshot fallback, with an
+invalid cache entry unable to block the next usable source.
 
 **Integrations:** Frigate NVR (MQTT + media proxy), BirdNET-Go audio correlation, multi-platform
 notifications (Discord/Telegram/Pushover/Email + Notification Center), BirdWeather, eBird (sightings,

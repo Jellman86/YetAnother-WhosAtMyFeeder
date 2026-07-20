@@ -99,6 +99,27 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `POST /api/events/{event_id}/reclassify` (owner)
 - `POST /api/events/{event_id}/classify-wildlife` (owner)
 
+Event rows and `GET /api/events/{event_id}/classification-status` expose
+`video_classification_input_source` when YA-WAMF knows which representation produced the retained
+analysis result. Current video values are `full_frame`, `frigate_hint_crop`, `model_crop`, or
+`provided_crop`. Snapshot fallbacks use their cache/media source, such as `high_quality_snapshot`,
+`high_quality_bird_crop`, `frigate_snapshot`, or `frigate_snapshot_cropped`; an additional
+model-driven crop is reported as `snapshot_model_crop` or `snapshot_frigate_hint_crop`. The field is
+`null` for historical results that predate provenance tracking; clients must not infer crop state
+from image dimensions. A trusted upstream label that won because local image evidence did not
+clear policy is reported as `frigate_sublabel` rather than as snapshot or video inference.
+
+`POST /api/events/{event_id}/reclassify` returns `status: "success"` and `updated: true` only after
+the selected result has been persisted. If all video and snapshot candidates are unusable, it
+returns HTTP 200 with `status: "no_result"`, `reason: "no_confident_result"`, and `updated: false`;
+the existing species and score are returned unchanged. Media-fetch, decode, and inference faults
+remain non-2xx errors.
+
+With `strategy=video`, the request performs temporal analysis whenever a usable video exists. The
+source order is complete cached recording, decodable partial cached recording, cached event clip,
+then the live Frigate event clip. A snapshot is used only after those sources are absent or fail
+validation; a confident snapshot does not short-circuit an available cached video.
+
 ### Media Proxy and Share Links
 
 - `GET /api/frigate/{event_id}/snapshot.jpg`
@@ -126,7 +147,15 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `POST /api/video-share/{event_id}/links/{link_id}/revoke`
 
 The HQ snapshot worker also publishes `crop_policy`, selected-source counts, outcomes, and recovered
-job totals under `GET /health` → `high_quality_snapshots`.
+job totals under `GET /health` → `high_quality_snapshots`. Its retry state is persisted independently
+from species identity, with bounded 5/15/45-minute backoff and a terminal fourth failure; successful
+explicit or automatic generation clears the failure state.
+
+Snapshot-candidate `frame_offset_seconds` values are temporal evidence, not presentation metadata.
+Automatic crop selection/refinement requires supporting offsets to be at least 250 ms apart;
+neighbouring decode fallbacks never become additional votes. Event-clip Frigate boxes are translated
+to the nearest timestamped path point. Recording clips do not reuse a static event box when their
+timeline start cannot be proven.
 
 Notes:
 - `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted full-visit clip exists for the event, this route serves that full-visit file before falling back to the shorter Frigate event clip.
@@ -171,6 +200,24 @@ Notes:
 - `GET /api/models/download-status/{model_id}` (owner)
 - `POST /api/models/{model_id}/validate` (owner) — trial-loads the model on this host, runs one frame through it, and records whether it produced finite output. Clears the post-install selection gate on success and restores the previously active model.
 - `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the model has not been validated on this host (unless it is a bundled model or the one already active).
+
+`GET /api/classifier/status` separates packaging, hardware availability, and the
+active model session. Important deployment fields are:
+
+| Field | Meaning |
+|---|---|
+| `image_flavor` | Image-owned runtime family: `full`, `cpu`, `intel`, `cuda`, `rpi`, or `unknown` outside a published image. |
+| `packaged_inference_providers` | Providers the image is designed to contain. This does not claim a host device works. |
+| `image_flavor_warning` | `selected_provider_not_packaged` when the saved explicit provider is outside this image; otherwise `null`. |
+| `available_providers` | Packaged providers whose runtime/device probe passed on this host. |
+| `selected_provider` | Saved preference from configuration. An image mismatch does not rewrite it. |
+| `active_provider` / `inference_backend` | Provider and backend used by the loaded model session. |
+| `fallback_reason` | Why the active session differs from the selected provider, when known. |
+
+Use these fields together. For example, an Intel image can legitimately report
+`intel_gpu` as packaged but unavailable when `/dev/dri` was not passed through.
+See [Hardware Acceleration](setup/hardware-acceleration.md) for the complete
+image/provider contract.
 
 ### AI
 
@@ -219,11 +266,17 @@ Notes:
 
 - Audio:
   - `GET /api/audio/recent`
-  - `GET /api/audio/history`
+  - `GET /api/audio/history` — persisted BirdNET detections; `matched_visual_event_id` identifies a
+    completed automatic video classification that agrees by species, time window, and source mapping
   - `GET /api/audio/summary`
   - `GET /api/audio/species`
   - `GET /api/audio/context`
+  - `GET /api/audio/context/event/{event_id}` — nearby BirdNET detections for one persisted visual
+    event, using the configured correlation window and camera-to-audio-source mapping
   - `GET /api/audio/sources`
+
+`GET /api/events` accepts `event_id` for an exact Frigate event lookup. It retains the same guest
+history, hidden-event, and camera-privacy restrictions as the paginated event list.
 - eBird:
   - `GET /api/ebird/export`
   - `GET /api/ebird/nearby`

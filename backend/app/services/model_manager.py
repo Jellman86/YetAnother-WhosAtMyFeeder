@@ -1251,6 +1251,7 @@ class ModelManager:
                     "runtime": str(merged.get("runtime") or "tflite"),
                     "label_grouping": dict(merged.get("label_grouping") or {}),
                     "supported_inference_providers": list(merged.get("supported_inference_providers") or []),
+                    "recommended_threshold": float(merged.get("recommended_threshold", 0.65) or 0.65),
                     "weights_url": merged.get("weights_url"),
                     "resolved_region": region,
                     "model_config_url": merged.get("model_config_url"),
@@ -1295,6 +1296,7 @@ class ModelManager:
                     "runtime": runtime,
                     "label_grouping": dict(model_meta.get("label_grouping") or {}),
                     "supported_inference_providers": list(model_meta.get("supported_inference_providers") or []),
+                    "recommended_threshold": float(model_meta.get("recommended_threshold", 0.65) or 0.65),
                     "weights_url": model_meta.get("weights_url"),
                     "model_config_url": model_meta.get("model_config_url"),
                     "crop_generator": self._normalize_crop_generator_block(model_meta.get("crop_generator")),
@@ -1322,6 +1324,7 @@ class ModelManager:
                 "runtime": "tflite",
                 "label_grouping": {},
                 "supported_inference_providers": ["cpu"],
+                "recommended_threshold": 0.70,
                 "weights_url": None,
                 "crop_generator": self._normalize_crop_generator_block(None),
             }

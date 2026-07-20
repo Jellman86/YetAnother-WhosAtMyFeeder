@@ -37,7 +37,11 @@ nano .env
 ```
 
 Keep `YAWAMF_MONALITHIC_TAG=latest` for the stable release channel. Set it to
-`dev` only when you intentionally want development builds.
+`dev` only when you intentionally want development builds. Both unsuffixed tags
+use the full compatibility image, so existing installs keep all provider
+runtimes. After the first successful start, you may choose a smaller `-cpu`,
+`-intel` or `-cuda` tag using the
+[hardware-acceleration guide](hardware-acceleration.md).
 
 **Key variables to set:**
 - `DOCKER_NETWORK`: The name of the Docker network Frigate is using.
@@ -101,9 +105,11 @@ docker compose -f docker-compose.monolith.yml up -d
 If you want ONNX model acceleration (`RoPE ViT-B14`, `ConvNeXt`, `EVA-02`, and the ONNX birds-only models):
 
 - **Intel iGPU (OpenVINO):**
+  - Use the default full image or set `YAWAMF_MONALITHIC_TAG=latest-intel`
   - Mount `/dev/dri` into `yawamf`
   - Add `group_add` entries for the host's `/dev/dri` GIDs (check with `ls -ln /dev/dri`)
 - **NVIDIA CUDA:**
+  - Use the default full image or set `YAWAMF_MONALITHIC_TAG=latest-cuda`
   - Install/configure the NVIDIA Container Toolkit on the host
   - Pass through the NVIDIA GPU to `yawamf` (`gpus: all` in Compose, or your platform's NVIDIA runtime equivalent)
   - Optional quick check after startup:
@@ -112,17 +118,20 @@ If you want ONNX model acceleration (`RoPE ViT-B14`, `ConvNeXt`, `EVA-02`, and t
     ```
     You should see `CUDAExecutionProvider` in the list when the CUDA-capable runtime is available in the container.
 
-After startup, go to **Settings > Detection** and check the provider diagnostics:
+After startup, go to **Settings → Detection → Runtime diagnostics** and check:
 
+- `Image` and `Packaged`
 - `OpenVINO` / `CUDA` availability badges
-- `Selected provider` vs `Active provider`
-- `Fallback reason` (if acceleration is unavailable and YA-WAMF fell back)
+- `Selected` versus `Active`
+- `Fallback` or an image/provider mismatch warning
 
-See [AI Models & Performance](../features/ai-models.md) for provider behavior and [Diagnostics & Logs](../troubleshooting/diagnostics.md) for troubleshooting steps.
+See [Hardware Acceleration](hardware-acceleration.md) for the complete image/provider
+matrix, [AI Models & Performance](../features/ai-models.md) for provider behavior,
+and [Diagnostics & Logs](../troubleshooting/diagnostics.md) for troubleshooting steps.
 
 **Portainer Stacks (common deployment):**
 - Create a new Stack from `docker-compose.monolith.yml` (and your `.env`).
-- To update later: use "Pull and redeploy" (or redeploy the stack) after bumping image tags (`:latest`, `:dev`, or a pinned `:vX.Y.Z` tag).
+- To update later: use "Pull and redeploy" (or redeploy the stack) after bumping image tags (`:latest`, `:dev`, a provider-suffixed variant, or a pinned release tag).
 
 ### 4. Verify
 Open your browser to `http://<your-ip>:9852`. You should see the dashboard! Once detections start flowing, they will appear in the Events list:

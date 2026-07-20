@@ -4,6 +4,8 @@ Provides a single source of truth for all Frigate API interactions,
 with connection pooling, authentication, and consistent error handling.
 """
 
+import math
+
 import httpx
 import structlog
 from typing import Optional
@@ -236,18 +238,25 @@ class FrigateClient:
             log.error("Unexpected error fetching event", event_id=event_id, error=str(e))
             return None, "event_unknown_error"
 
-    async def set_sublabel(self, event_id: str, sublabel: str) -> bool:
+    async def set_sublabel(self, event_id: str, sublabel: str, *, score: float | None = None) -> bool:
         """Set sublabel on a Frigate event.
 
         Args:
             event_id: Frigate event ID
-            sublabel: Label to set (max 20 chars)
+            sublabel: Label to set (Frigate accepts up to 100 characters)
+            score: Optional species-classification confidence, distinct from the
+                Frigate object detector score.
 
         Returns:
             True if successful
         """
         try:
-            resp = await self.post(f"api/events/{event_id}/sub_label", json={"subLabel": sublabel[:20]}, timeout=10.0)
+            payload: dict[str, object] = {"subLabel": str(sublabel).strip()[:100]}
+            if score is not None:
+                normalized_score = float(score)
+                if math.isfinite(normalized_score) and 0.0 <= normalized_score <= 1.0:
+                    payload["subLabelScore"] = normalized_score
+            resp = await self.post(f"api/events/{event_id}/sub_label", json=payload, timeout=10.0)
             return resp.status_code == 200
         except Exception as e:
             log.error("Failed to set sublabel", event_id=event_id, error=str(e))

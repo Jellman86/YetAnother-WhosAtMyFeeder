@@ -13,15 +13,31 @@ def _version_tuple(version: str) -> tuple[int, ...]:
 
 
 def _load_requirements() -> str:
-    requirements = Path(__file__).resolve().parents[1] / "requirements.txt"
-    return requirements.read_text(encoding="utf-8")
+    backend_root = Path(__file__).resolve().parents[1]
+    pending = [backend_root / "requirements.txt"]
+    seen: set[Path] = set()
+    contents: list[str] = []
+
+    while pending:
+        requirements = pending.pop()
+        if requirements in seen:
+            continue
+        seen.add(requirements)
+        content = requirements.read_text(encoding="utf-8")
+        contents.append(content)
+        for line in content.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("-r "):
+                pending.append(requirements.parent / stripped.removeprefix("-r ").strip())
+
+    return "\n".join(contents)
 
 
 def test_openvino_version_constraint():
     content = _load_requirements()
     openvino_lines = [line.strip() for line in content.splitlines() if line.strip().startswith("openvino")]
     assert openvino_lines, "openvino requirement missing"
-    assert openvino_lines[0] == "openvino>=2026.2.1,<2027.0"
+    assert all(line.partition(";")[0].strip() == "openvino>=2026.2.1,<2027.0" for line in openvino_lines)
 
 
 def test_msal_pin_is_compatible_with_cryptography_pin():

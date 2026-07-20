@@ -45,12 +45,48 @@ so the run-as user is set with `--user` instead.)
 ## Expected result
 
 Unraid pulls `ghcr.io/jellman86/yawamf-monalithic:latest` and starts the
-container. When its health check passes, click the container's **WebUI** icon (or
+full compatibility container. When its health check passes, click the container's **WebUI** icon (or
 browse to `http://<your-unraid-ip>:9852/`) and you should see the dashboard.
 Authentication is disabled by default for first-time setup — set a password under
 **Settings → Security** before exposing it beyond your trusted network.
 
 ## Optional: hardware acceleration
+
+The template deliberately starts with the full compatibility image and does not
+pin an inference provider. Four separate controls are involved:
+
+| Control | Where to set it in Unraid | What it means |
+|---|---|---|
+| Image family | **Repository** tag | Which inference runtimes are installed |
+| Device/runtime access | Advanced container settings | Which host accelerator the container can see |
+| Selected provider | **Settings → Detection** inside YA-WAMF | The user's preferred provider, normally `Auto` |
+| Active provider | YA-WAMF runtime diagnostics | What actually ran after model, packaging, and hardware checks |
+
+The available stable Repository tags are:
+
+| Repository tag | Packaged providers | Intended host |
+|---|---|---|
+| `latest` | CPU, CUDA, Intel CPU/GPU/NPU | Compatibility and initial setup |
+| `latest-cpu` | CPU | Hosts without an accelerator |
+| `latest-intel` | CPU and Intel OpenVINO | Intel GPU or NPU hosts |
+| `latest-cuda` | CPU and NVIDIA CUDA | NVIDIA hosts |
+
+Start with `latest`. Once the installation is healthy, edit only the tag portion
+of **Repository** if you want a smaller image; keep the same `/config` and `/data`
+paths. Pinned releases use the same suffix, such as `v2.14.0-intel`.
+
+Do not add `YAWAMF_IMAGE_FLAVOR` to the template. It is read-only identity baked
+into each image, and overriding it does not install a runtime. Also avoid adding
+`CLASSIFICATION__INFERENCE_PROVIDER` for an ordinary interactive installation:
+that environment variable overrides the in-app value on every container start,
+so a provider changed in Settings would appear to save but revert after a
+restart. Use it only when you intentionally manage immutable settings outside
+the application.
+
+See [Hardware Acceleration](hardware-acceleration.md) for the complete provider
+contract, diagnostics, and rollback path.
+
+### Intel GPU or NPU
 
 To run inference on an Intel GPU or NPU, add the device yourself (the template
 does not add one, so it never passes an empty `--device` to Docker). In the
@@ -65,6 +101,32 @@ Add only the device you actually have. Then pick the provider under
 container user to be in the host `render` group — see
 [Hardware Acceleration](hardware-acceleration.md) for the full detail and fallback
 behaviour.
+
+### NVIDIA CUDA
+
+1. Install Unraid's
+   [**NVIDIA Driver** plugin](https://forums.unraid.net/topic/98978-plugin-nvidia-driver/)
+   and confirm `nvidia-smi` works in an Unraid terminal. Keep the GPU available
+   to the host rather than binding it exclusively to VFIO.
+2. Keep the full `latest` Repository tag for compatibility testing, or change it
+   to `latest-cuda` for the smaller CUDA image.
+3. Follow the NVIDIA Driver plugin's current container-runtime instructions for
+   your Unraid release. The established Docker-runtime path is to enable
+   **Advanced view**, add `--runtime=nvidia` to **Extra Parameters**, and add:
+   - `NVIDIA_VISIBLE_DEVICES` with the GPU UUID shown by the plugin (or `all` when
+     deliberately exposing every GPU), and
+   - `NVIDIA_DRIVER_CAPABILITIES=compute,utility`.
+   Newer Unraid/NVIDIA toolkit releases may offer CDI device selection instead;
+   use one exposure method, not both.
+4. Start the container, leave the in-app provider on **Auto** initially, and
+   check **Settings → Detection → Runtime diagnostics**. It must show a `full` or
+   `cuda` image, CUDA under **Packaged**, the GPU as available, and CUDA as
+   **Active** during supported-model inference.
+
+The NVIDIA runtime variables expose hardware; they do not select YA-WAMF's
+inference provider. If CUDA cannot initialize or the active model does not
+support it, YA-WAMF retains the provider preference and falls back to CPU with a
+diagnostic reason.
 
 ## If it fails
 

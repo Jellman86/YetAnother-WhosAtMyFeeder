@@ -37,4 +37,11 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toMatch(/data-detection-audio-section[^>]+border-t/);
         expect(detectionModalSource).toMatch(/data-detection-weather-section[^>]+border-t/);
     });
+
+    it('discovers late BirdNET context independently of stored audio hints', () => {
+        expect(detectionModalSource).toContain('fetchEventAudioContext');
+        expect(detectionModalSource).toContain('controller.abort()');
+        expect(detectionModalSource).toContain('for (const audio of audioContext)');
+        expect(detectionModalSource).not.toContain('if (!hasAudioContext) return;');
+    });
 });

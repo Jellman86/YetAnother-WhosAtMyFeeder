@@ -5,9 +5,10 @@ faster or more power-efficient and the CPU stays free for the rest of your stack
 
 ## Outcome
 
-You choose an inference provider in the UI, pass the matching device into the
-container, and YA-WAMF runs the classifier model on that accelerator — falling
-back to CPU automatically if the device or a specific model is not usable.
+You choose an image containing the required runtime, pass the matching device
+into the container, and select an inference provider in the UI. YA-WAMF runs the
+classifier on that accelerator and falls back to CPU if the device or a specific
+model is not usable.
 
 ## Prerequisites
 
@@ -20,32 +21,105 @@ Changing the provider only affects inference. It never touches your detection
 history or configuration, and an unusable device falls back to CPU rather than
 failing classification.
 
+## Choose an image flavor
+
+The default unsuffixed image remains the broad compatibility build. Smaller
+provider-family images avoid downloading runtimes your host cannot use:
+
+| Host | Stable tag | Development tag | Packaged providers |
+|---|---|---|---|
+| Compatibility/testing | `latest` | `dev` | CPU, CUDA, OpenVINO CPU/GPU/NPU |
+| CPU only | `latest-cpu` | `dev-cpu` | ONNX CPU |
+| Intel | `latest-intel` | `dev-intel` | ONNX CPU, OpenVINO CPU/GPU/NPU |
+| NVIDIA | `latest-cuda` | `dev-cuda` | ONNX Runtime CUDA and CPU |
+
+Set the existing tag variable in `.env`; the image repository and Compose file do
+not change:
+
+```env
+YAWAMF_MONALITHIC_TAG=latest-intel
+```
+
+`MONALITHIC` is the established spelling in this public variable. Keep that
+spelling so an existing `.env` continues to control the Compose image tag.
+
+Pinned releases use the same suffix, for example `v2.14.0-intel`. Unsuffixed
+`latest`, `dev`, `main`, release and commit tags always mean `full`, so existing
+installs keep their current runtime. Switching flavor is non-destructive because
+every image uses the same `/config` and `/data` volume contract.
+
+An image flavor states what is **packaged**, not what the host can execute. Intel
+devices still need device passthrough and host support; NVIDIA still needs its
+driver and Container Toolkit. **Settings → Detection → Runtime diagnostics** is
+the source of truth for what is actually available and active.
+
+## Switch safely between flavors
+
+All flavors from one commit contain the same application code and use the same
+`/config` and `/data` mounts. Config, detection history, cached media, and models
+therefore stay outside the image. A flavor switch must change **only the image
+tag**; do not create new mount paths or copy data into the container filesystem.
+
+1. Keep the application version constant while testing. For example, switch
+   `dev` → `dev-intel`, or `v2.14.0` → `v2.14.0-intel`. Immutable commit tags are
+   even safer for comparisons: `<sha>`, `<sha>-cpu`, `<sha>-intel`, and
+   `<sha>-cuda` are built from exactly the same source.
+2. Record the current tag. Export a configuration backup from **Settings → Data
+   → Setup, backup & maintenance tools → Configuration Backup** and protect it
+   like a credential because it contains secrets. This export does not include
+   `/data`; use your normal stopped-volume or storage snapshot procedure as an
+   additional precaution for production data.
+3. Change only `YAWAMF_MONALITHIC_TAG`, pull the selected image, and recreate the
+   existing `yawamf` service with the existing Compose project.
+4. Check **Settings → Detection → Runtime diagnostics**. Confirm **Image**,
+   **Packaged**, **Selected**, and **Active** before comparing inference.
+5. To roll back, restore the recorded tag and recreate the same service. No
+   config import or database rollback is required for a same-commit flavor
+   switch.
+
+An explicitly selected provider is never rewritten merely because the current
+image cannot package it. YA-WAMF reports the mismatch, uses the available CPU
+fallback, and keeps the selection intact for the next compatible image. This
+full → CPU → full round trip, including byte-identical application config,
+model artifact and model sidecar plus SQLite integrity, is a required CI gate
+before mutable image tags are promoted.
+
+On a Git-managed deployment platform, make the tag change through that
+platform's stack workflow. Do not edit or pull the managed Compose project
+directly on the Docker host.
+
 ## Providers
 
 Set the provider at **Settings → Detection → Inference Provider**. The values map
 to `classification.inference_provider` (`auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu`,
 also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable):
 
-| UI label | Value | Host device | Notes |
-|---|---|---|---|
-| Auto | `auto` | — | Prefers Intel GPU, then CUDA, then CPU. |
-| CPU (ONNX Runtime) | `cpu` | none | Always available; the safe default. |
-| NVIDIA CUDA | `cuda` | NVIDIA GPU | Needs the NVIDIA Container Toolkit on the host. |
-| Intel GPU (OpenVINO) | `intel_gpu` | `/dev/dri` | Integrated Arc/UHD graphics. |
-| Intel CPU (OpenVINO) | `intel_cpu` | none | OpenVINO on the CPU. |
-| Intel NPU (OpenVINO) | `intel_npu` | `/dev/accel/accel0` | Core Ultra "AI Boost" NPU. |
+| UI label | Value | Image flavor | Host device | Notes |
+|---|---|---|---|---|
+| Auto | `auto` | any | — | Chooses the best packaged and available path, preferring Intel GPU, then CUDA, then CPU. |
+| CPU (ONNX Runtime) | `cpu` | any | none | Always packaged; the safe fallback. |
+| NVIDIA CUDA | `cuda` | `full` or `cuda` | NVIDIA GPU | Needs the NVIDIA Container Toolkit on the host. |
+| Intel GPU (OpenVINO) | `intel_gpu` | `full` or `intel` | `/dev/dri` | Integrated Arc/UHD graphics. |
+| Intel CPU (OpenVINO) | `intel_cpu` | `full` or `intel` | none | OpenVINO on the CPU. |
+| Intel NPU (OpenVINO) | `intel_npu` | `full` or `intel` | `/dev/accel/accel0` | Core Ultra "AI Boost" NPU. |
 
 `Auto` is recommended unless you have a reason to pin a device.
 
 ## Smallest working path (Intel iGPU or NPU)
 
-1. Check which accelerators the host exposes:
+1. Use the full compatibility image or select the Intel image in `.env`:
+
+   ```env
+   YAWAMF_MONALITHIC_TAG=latest-intel
+   ```
+
+2. Check which accelerators the host exposes:
 
    ```bash
    ls -l /dev/dri /dev/accel
    ```
 
-2. In `docker-compose.monolith.yml`, uncomment the device lines for what you have:
+3. In `docker-compose.monolith.yml`, uncomment the device lines for what you have:
 
    ```yaml
    devices:
@@ -59,13 +133,13 @@ also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable)
    Match the group IDs to your host (`getent group render video`); the numbers
    above are examples.
 
-3. Recreate the container:
+4. Recreate the container:
 
    ```bash
    docker compose up -d
    ```
 
-4. Open **Settings → Detection**, set **Inference Provider** to your device (or
+5. Open **Settings → Detection**, set **Inference Provider** to your device (or
    leave it on **Auto**), and save.
 
 ## Expected result
@@ -92,16 +166,24 @@ The NPU is validated per model, not enabled blanket:
 - The payoff is power and thermal efficiency (freeing the iGPU/CPU), not
   necessarily lower latency.
 
-The container image ships the OpenVINO NPU plugin; the NPU user-mode (Level-Zero)
-driver is installed best-effort in the image. If OpenVINO enumerates only `CPU`
-with `/dev/accel/accel0` passed in, the host is missing the NPU driver.
+The `full` and `intel` images ship OpenVINO and the NPU user-mode (Level-Zero)
+driver. If OpenVINO enumerates only `CPU` with `/dev/accel/accel0` passed in,
+check the host kernel/driver boundary and container permissions. The `cpu` and
+`cuda` images deliberately do not contain OpenVINO.
 
 ## NVIDIA CUDA
 
 Set **Inference Provider** to **NVIDIA CUDA**, install the NVIDIA Container
 Toolkit on the host, and pass the GPU per the CUDA example in
-`docker-compose.monolith.yml`. The image already includes the CUDA/cuDNN
-userspace runtime for ONNX Runtime.
+`docker-compose.monolith.yml`. Use the `full` or `cuda` image; both include the
+CUDA/cuDNN userspace runtime for ONNX Runtime. The `cpu` and `intel` images do
+not advertise CUDA and report `selected_provider_not_packaged` if CUDA is
+explicitly selected.
+
+On Unraid, use the image-tag and NVIDIA Driver plugin workflow in the dedicated
+[Unraid setup guide](unraid.md#nvidia-cuda). Do not translate the Compose-only
+`YAWAMF_MONALITHIC_TAG` into a container environment variable; edit the Unraid
+Repository tag instead.
 
 ## Next steps
 

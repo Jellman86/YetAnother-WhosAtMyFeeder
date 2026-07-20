@@ -123,6 +123,7 @@ export interface components {
     birdnet_id?: number | null;
     confidence: number;
     id: number;
+    matched_visual_event_id?: string | null;
     sensor_id?: string | null;
     source_name?: string | null;
     species: string;
@@ -378,6 +379,7 @@ export interface components {
     event_id: string;
     video_classification_backend?: string | null;
     video_classification_error?: string | null;
+    video_classification_input_source?: string | null;
     video_classification_model_id?: string | null;
     video_classification_model_name?: string | null;
     video_classification_provider?: string | null;
@@ -529,6 +531,7 @@ export interface components {
     temperature?: number | null;
     video_classification_backend?: string | null;
     video_classification_error?: string | null;
+    video_classification_input_source?: string | null;
     video_classification_label?: string | null;
     video_classification_model_id?: string | null;
     video_classification_model_name?: string | null;
@@ -596,6 +599,7 @@ export interface components {
     temperature?: number | null;
     video_classification_backend?: string | null;
     video_classification_error?: string | null;
+    video_classification_input_source?: string | null;
     video_classification_label?: string | null;
     video_classification_model_id?: string | null;
     video_classification_model_name?: string | null;
@@ -1012,13 +1016,14 @@ export interface components {
     new_score: number;
     new_species: string;
     old_species: string;
-    status: string;
+    reason?: "no_confident_result" | null;
+    status: "success" | "no_result";
     updated: boolean;
 };
     RecordingClipCapabilityResponse: {
     eligible_cameras: Array<string>;
-    ineligible_cameras: Record<string, string>;
-    reason?: string | null;
+    ineligible_cameras: Record<string, "camera_disabled" | "camera_not_found" | "recordings_disabled" | "record_stream_missing" | "continuous_retention_disabled" | "retention_unknown">;
+    reason?: "config_unavailable" | "no_matching_cameras" | "recordings_disabled" | "record_stream_missing" | "continuous_retention_disabled" | "camera_disabled" | "camera_not_found" | "partial_camera_coverage" | "camera_configuration_incomplete" | "retention_unknown" | null;
     recordings_enabled: boolean;
     retention_days?: number | null;
     supported: boolean;
@@ -1740,6 +1745,17 @@ export interface paths {
       response: Array<components['schemas']['AudioContextDetectionResponse']>;
     };
   };
+  "/api/audio/context/event/{event_id}": {
+    get: {
+      operationId: "get_event_audio_context_api_audio_context_event__event_id__get";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: Array<components['schemas']['AudioContextDetectionResponse']>;
+    };
+  };
   "/api/audio/history": {
     get: {
       operationId: "get_audio_history_api_audio_history_get";
@@ -2317,6 +2333,7 @@ export interface paths {
     audio_confirmed_only?: boolean;
     camera?: string | null;
     end_date?: string | null;
+    event_id?: string | null;
     favorites?: boolean;
     fields?: string | null;
     include_hidden?: boolean;

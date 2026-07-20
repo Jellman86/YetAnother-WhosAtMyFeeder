@@ -64,6 +64,7 @@ from app.routers import (
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.utils.tasks import create_background_task
+from app.utils.runtime_flavor import get_image_flavor
 from app.ratelimit import limiter
 from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy
@@ -350,6 +351,7 @@ def _log_startup_diagnostics(test_mode: bool) -> None:
         "Startup diagnostics",
         test_mode=test_mode,
         app_version=APP_VERSION,
+        image_flavor=get_image_flavor(),
         db=get_db_path_diagnostics(),
         media_cache=media_cache.get_status(),
         mqtt_server=settings.frigate.mqtt_server,

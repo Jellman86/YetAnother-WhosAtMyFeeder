@@ -156,7 +156,19 @@ export const chart: Action<HTMLElement, ApexOptions> = (node, options) => {
     async function init() {
         if (initPromise) return initPromise;
         initPromise = (async () => {
-            const mod: unknown = await import('apexcharts');
+            // ApexCharts 6 keeps the legacy entry point as the full feature bundle.
+            // Register only the renderers and optional UI used by YA-WAMF before
+            // loading the slim core, keeping premium/authoring features out of the
+            // route-only chart bundle.
+            await Promise.all([
+                import('apexcharts/line'),
+                import('apexcharts/bar'),
+                import('apexcharts/pie'),
+                import('apexcharts/heatmap'),
+                import('apexcharts/features/legend'),
+                import('apexcharts/features/annotations'),
+            ]);
+            const mod: unknown = await import('apexcharts/core');
             if (destroyed) return;
             const ApexCharts = resolveApexConstructor(mod);
             ApexChartsCtor = ApexCharts;

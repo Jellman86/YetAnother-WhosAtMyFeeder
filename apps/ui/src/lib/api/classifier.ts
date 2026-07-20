@@ -38,6 +38,9 @@ export interface ClassifierStatus {
     process_uid?: number | null;
     process_gid?: number | null;
     process_groups?: number[];
+    image_flavor?: string;
+    packaged_inference_providers?: string[];
+    image_flavor_warning?: string | null;
     selected_provider?: string;
     active_provider?: string;
     inference_backend?: string;

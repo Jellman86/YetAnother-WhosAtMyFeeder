@@ -8,6 +8,7 @@ import pytest_asyncio
 from app.main import app
 from app.database import get_db, init_db, close_db
 from app.config import settings
+from app.repositories.detection_repository import DetectionRepository
 
 
 def assert_audio_species_matches(actual: list[str], expected: list[str | set[str]]) -> None:
@@ -192,5 +193,54 @@ async def test_events_handles_mixed_naive_and_aware_timestamps_for_audio_context
     event = next(item for item in payload if item["frigate_event"] == event_id)
     assert_audio_species_matches(
         event["audio_context_species"],
+        [{"Passer domesticus", "House Sparrow"}],
+    )
+
+
+@pytest.mark.asyncio
+async def test_events_normalize_non_utc_audio_offsets_before_context_filtering(client: httpx.AsyncClient):
+    """A local-offset BirdNET timestamp must match a naive-UTC visual event."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"feeder-cam": "OffsetBirdCam"}
+
+    target_utc = datetime.now(timezone.utc).replace(microsecond=0)
+    target_naive = target_utc.replace(tzinfo=None)
+    event_id = f"evt-audio-offset-ts-{int(target_utc.timestamp())}"
+    british_summer_time = timezone(timedelta(hours=1))
+    heard_at = (target_utc + timedelta(seconds=8)).astimezone(british_summer_time)
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0)
+            """,
+            (
+                target_naive.isoformat(sep=" "),
+                1,
+                0.77,
+                "Blue Tit",
+                "Blue Tit",
+                event_id,
+                "feeder-cam",
+            ),
+        )
+        await DetectionRepository(db).insert_audio_detection(
+            timestamp=heard_at,
+            species="Passer domesticus",
+            confidence=0.61,
+            sensor_id="OffsetBirdCam",
+            raw_data={"nm": "OffsetBirdCam", "src": "rtsp_offset_birdcam"},
+            scientific_name="Passer domesticus",
+        )
+
+    response = await client.get(f"/api/audio/context/event/{event_id}")
+    assert response.status_code == 200, response.text
+    assert_audio_species_matches(
+        [item["species"] for item in response.json()],
         [{"Passer domesticus", "House Sparrow"}],
     )

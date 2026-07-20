@@ -84,3 +84,28 @@ async def test_get_recording_clip_with_error_maps_missing_recordings_400_to_clip
 
     assert clip is None
     assert error == "clip_not_retained"
+
+
+@pytest.mark.asyncio
+async def test_set_sublabel_preserves_full_species_name_and_confidence():
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200)
+
+    client = FrigateClient()
+    client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://frigate")
+    try:
+        updated = await client.set_sublabel(
+            "evt-long-species",
+            "Black-crowned Night Heron",
+            score=0.876,
+        )
+    finally:
+        await client._client.aclose()
+        client._client = None
+
+    assert updated is True
+    assert requests[0].url.path == "/api/events/evt-long-species/sub_label"
+    assert requests[0].read().decode() == ('{"subLabel":"Black-crowned Night Heron","subLabelScore":0.876}')
