@@ -145,6 +145,12 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
   Multi-representation video and HQ-snapshot analysis may retain an accurate-detector candidate down
   to `0.02` for distant birds, but only as evidence beside the full frame. Existing identity,
   temporal-consensus, quality, and ambiguity gates must still accept it before it can win.
+- When a timestamp-aligned Frigate hint exists, the accurate detector receives a square HQ search
+  region instead of shrinking the entire camera frame to 416 pixels. Without a hint it tries the
+  native frame first and only a miss on a large image activates four 20%-overlapping tiles. The
+  result keeps at least 160 source pixels of context around a tiny box. A model crop cannot replace
+  an available Frigate crop unless the active classifier agrees on species and improves its score by
+  at least two percentage points; detector confidence is diagnostic, not species evidence.
 - The accurate tier is intended to reduce missed or clipped bird crops in busy feeder scenes, but it should still be treated as experimental until more fixture and real-world benchmarks are published.
 - A hardware compatibility sweep validates crop detectors separately from classifiers. It uses up
   to 24 images selected round-robin across species plus dark, foliage-like, and gradient hard

@@ -23,6 +23,36 @@ runtime available in YA-WAMF's images, and fit its CPU/Intel/CUDA resource budge
 shortlisting signal; the promotion measure is whether the active bird classifier identifies the
 right species from the resulting crop.
 
+## Frigate-guided challenger implementation
+
+The field result also exposed an architectural mismatch: Frigate detects repeatedly inside square
+motion/tracking regions, while the prior YA-WAMF path reduced an entire 2560×1920 frame to YOLOX's
+416-pixel input. YA-WAMF now uses the same-frame Frigate box as a localisation hint, expands it to a
+square high-resolution search region, runs YOLOX inside that region, and restores the selected box
+to full-frame coordinates. Frigate's crop and the unchanged full frame remain independent peers;
+the hint does not become model ground truth.
+
+When a trustworthy hint is unavailable, native inference remains first. Only a native miss on a
+sufficiently large frame activates four 20%-overlapping tiles, bounding both latency and false-positive
+exposure. A detector box may be as small as 24 source pixels in this evidence path, but the
+classifier crop retains at least 160 source pixels of surrounding context. Thumbnail/direct
+replacement keeps the existing stricter policy.
+
+The selection defect is also corrected. Detector confidence and a model-source bonus previously
+could outweigh a better Frigate species-classifier score. They are now diagnostic only. A model
+crop may replace an available Frigate crop only when both produce the same species and the model
+improves classifier confidence by at least `0.02`; otherwise the best Frigate/full-frame baseline
+wins. Deep-video consensus still collapses multiple representations from one frame before voting.
+
+Every saved model candidate records `native`, `frigate_guided`, `sliced_2x2`, or `fast_native`
+strategy provenance. The schema-3 private manifest records structured same-frame Frigate baselines
+and only exposes owner-confirmed labels as promotion truth. The delivered
+`eval_crop_strategy_challenger.py` harness produces downstream Frigate/model win/tie/loss, detector
+p50/p95/max latency, strategy distribution, and hard-negative crop counts. Stale schemas,
+duplicate cases or positive visits, ambiguous multi-box rows, and labels without owner-manual
+provenance fail closed. This implementation creates a fair challenger path; it is not a
+superiority claim until the owner-labelled Quark run clears the gate.
+
 ## Distant falcon replay
 
 The manually identified Eurasian Sparrowhawk event `1784555940.484185-eocv7l` supplied two
@@ -42,11 +72,13 @@ the owner's manual identification.
 
 These two correlated frames are a regression case, not a promotion dataset. The sliced result is
 particularly instructive: detector confidence and classifier usefulness are not interchangeable.
-Sliced inference remains a benchmark variant and is not enabled in production.
+The exact sliced result remains a regression comparison. Production now permits a bounded 2×2
+sliced fallback only after unguided native inference misses; it never displaces a valid native
+result merely because its detector confidence is higher.
 
 ## Varied-panel and provider validation
 
-Quark reran the corrected schema-3 provider sweep as run `20260721-140812` on the Intel image and
+Quark reran the corrected schema-3 provider sweep as run `20260721-154601` on the Intel image and
 OpenVINO 2026.2.1. The automatic panel selected 24 taxonomy-verified images round-robin across
 species and added three deterministic hard negatives. Image keys include their stable selection
 index, so generic upstream names such as `image.jpg` cannot collapse distinct species into one
@@ -55,12 +87,18 @@ proposals below the most permissive `0.02` policy that production can admit.
 
 | Detector/provider | Median inference | Images / CPU agreement | Result |
 |---|---:|---:|---|
-| Fast SSD / CPU | 6.2 ms | 27 evaluated; 16/24 real images admitted | Valid CPU fallback. |
+| Fast SSD / CPU | 6.5 ms | 27 evaluated; 18/24 real images admitted | Valid CPU fallback. |
 | Fast SSD / Intel CPU, GPU, NPU | n/a | compile failed | Remains CPU-only: OpenVINO rejects the artifact's inconsistent `QLinearConv` dequantisation dimensions. |
-| Accurate YOLOX / CPU | 30.0 ms | 27 baseline images; 23/24 real images admitted | Valid baseline. |
-| Accurate YOLOX / Intel CPU | 16.5 ms | 27/27 exact policy agreement | Valid. |
-| Accurate YOLOX / Intel GPU | **11.4 ms** | 27/27 exact policy agreement | Valid and fastest on this sweep. |
-| Accurate YOLOX / Intel NPU | 12.6 ms | 27/27 agreement; mean box IoU 0.999 | Valid. |
+| Accurate YOLOX / CPU | 32.7 ms | 27 baseline images; 23/24 real images admitted | Valid baseline. |
+| Accurate YOLOX / Intel CPU | 14.3 ms | 27/27 exact policy agreement | Valid. |
+| Accurate YOLOX / Intel GPU | **10.7 ms** | 27/27 exact policy agreement | Valid and fastest on this sweep. |
+| Accurate YOLOX / Intel NPU | 14.5 ms | 27/27 agreement; mean box IoU 0.999 | Valid. |
+
+The same full run downloaded and executed all 12 registry classifiers over 254 images covering 112
+species before the provider phase. Every declared classifier/provider combination compiled,
+returned finite output, and matched its CPU policy result. The accurate crop runtime therefore
+activates on Intel GPU on this host, while the fast quantised artifact remains an honest CPU
+fallback rather than advertising an OpenVINO path it cannot compile.
 
 A separate private replay used 30 independent cached events across seven recorded labels, including
 distant/mid-distance and edge-of-frame subjects, plus 10 non-overlapping real feeder/foliage
@@ -73,6 +111,29 @@ than owner-labelled ground truth, so the result cannot promote or reject a repla
 The low 6/30 admitted-crop count makes the next quality question sharper: a replacement candidate
 must recover more distant subjects without creating feeder-clutter false positives, and its crops
 must improve downstream species identification rather than detector confidence alone.
+
+### Optimized-path challenger result
+
+After implementing same-frame Frigate guidance and the bounded sliced fallback, Quark rebuilt the
+private schema-3 panel and ran the end-to-end challenger over 30 independent positive visits and ten
+real feeder/foliage/hardware negative regions. The active classifier was ConvNeXt Large on Intel NPU;
+the accurate detector ran on Intel GPU and the fast fallback on CPU.
+
+The optimized detector returned a candidate for 26/30 positives: 24 used `frigate_guided`, two used
+`sliced_2x2`, and four ended in `fast_native`. The challenger applies the same additional 18% context
+as the production HQ path. Across all 30 cases, seven model crops produced the
+same classifier identity as Frigate with at least a `0.02` score gain, so the production guard would
+promote them; 23 retained Frigate because the model was missing, changed identity, or did not clear
+the gain. Only three visits currently carry owner-manual identities. Direct model-versus-Frigate
+comparison on those was 1 win, 1 tie, and 1 loss, which demonstrates why detector output cannot be
+authoritative. The production guard blocked the loss, yielding 1 win, 2 ties, and 0 losses.
+
+Six of ten deliberately difficult negative regions produced low-floor detector candidates, but none
+of their classifier results reached the active `0.40` minimum. These regions are non-overlapping
+with the known event box rather than guaranteed bird-free scenes, so the raw count is diagnostic;
+the high-confidence count and the retained full-frame/temporal gates are the safety measures. The
+run validates the guarded pathway, not YOLOX superiority. More independent owner labels are still
+required before a detector replacement or threshold change.
 
 ## External candidate screen
 
@@ -208,11 +269,11 @@ the full-frame peer, Frigate hint, or original-image fallback.
 
 1. Retain the evidence-only `0.02` recovery and collect outcome telemetry through existing candidate
    provenance; do not lower the normal automatic-replacement threshold.
-2. Extend the crop benchmark so Frigate baselines and downstream classifier outcomes join the
-   delivered external-adapter, labelled-positive, real-negative, threshold-curve, and per-provider
-   result format.
+2. The crop benchmark now includes structured Frigate baselines, owner-label provenance, downstream
+   classifier outcomes, strategy provenance, latency, and hard-negative counts. Collect enough
+   owner-labelled visits and run it before changing the default model contract.
 3. D-FINE-N and DEIMv2-N screening is complete and neither exact artifact passes. Export and
    benchmark RTMDet-Tiny next, then PP-YOLOE+ S. Test one higher-accuracy DETR only if the
    lightweight set does not clear the Frigate gate.
-4. Consider bounded slicing only for large frames whose native detector result is uncertain, and
-   only if the visit-level benchmark shows a net downstream gain that justifies the extra calls.
+4. Bounded 2×2 slicing is implemented only after an unguided native miss. Retain it only if the
+   visit-level benchmark shows a net downstream gain that justifies the four extra calls.

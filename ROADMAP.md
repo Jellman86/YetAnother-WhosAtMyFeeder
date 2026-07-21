@@ -387,11 +387,15 @@ mutable Raspberry Pi tags are promoted. The open work is expanding Playwright E2
 restart/recovery and GPU/provider fallback paths, plus a physical-Pi smoke/soak pass.
 
 #### Crop-detector field benchmark 🐦
-**Priority:** P1 | **Effort:** M | **Status:** 🔄 Hardware sweep, private panel tooling, and first two candidate screens delivered
+**Priority:** P1 | **Effort:** M | **Status:** 🔄 Production guard validated on Quark; broader owner-labelled promotion and replacement comparison remain
 
 The evidence-only distant-subject threshold recovery is delivered, but a detector replacement is
-not selected from one event or generic COCO AP. Build a manually labelled, visit-grouped Quark panel
-with near/distant birds and hard negatives; compare Frigate, current YOLOX-Tiny, bounded slicing,
+not selected from one event or generic COCO AP. The production challenger now mirrors Frigate's
+small-object advantage: it refines a same-frame tracked region with YOLOX, falls back from native
+inference to four bounded overlapping tiles only on a miss, preserves full-frame evidence, and lets
+the model crop replace Frigate only after a material downstream classifier gain. Build the remaining
+manually labelled, visit-grouped Quark panel with near/distant birds and hard negatives; compare
+Frigate, the optimized current YOLOX-Tiny path,
 D-FINE-N, DEIMv2-N, RTMDet-Tiny, and PP-YOLOE+ S on downstream species correctness, crop recall/clipping,
 false positives, and per-provider resource cost. D-FINE-N and DEIMv2-N have now failed the initial
 varied-image localisation/negative screen: neither beat current YOLOX at a zero-field-false-positive
@@ -406,9 +410,15 @@ and CPU box/confidence agreement. The comparison fails closed on missing/duplica
 raw proposals below every production threshold. Validated crop providers activate at runtime with
 CPU fallback. A private same-frame builder and initial 30-event/10-negative Quark panel now exist,
 but most reference boxes and labels are still Frigate/automatic evidence rather than owner-labelled
-ground truth. The reusable external-candidate probe and first D-FINE-N/DEIMv2-N CPU/Intel GPU/NPU
-screens are complete. Manual labelling, downstream Frigate/classifier win-tie-loss analysis, and
-RTMDet-Tiny/PP-YOLOE+ S comparison remain open.
+ground truth. The reusable external-candidate probe, first D-FINE-N/DEIMv2-N CPU/Intel GPU/NPU
+screens, schema-3 field manifest, and direct Frigate/model downstream win-tie-loss harness are
+complete. The first optimized-path run used 24 guided, two sliced, and four fast-fallback positive
+cases: the production guard promoted 7 same-identity crops with at least a two-point classifier gain
+and retained Frigate for 23. The three owner-labelled cases produced one guarded improvement, two
+ties, and no regression, while none of ten hard-negative regions produced a crop classification
+above the active `0.40` floor.
+That validates the fail-soft selection logic but is not enough owner truth to claim detector
+superiority. Collecting more owner labels and comparing RTMDet-Tiny/PP-YOLOE+ S remain open.
 
 #### High-availability setup 🏗️
 **Priority:** P3 | **Effort:** M | **Status:** ☐ Not started

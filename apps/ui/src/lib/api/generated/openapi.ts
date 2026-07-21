@@ -1443,6 +1443,7 @@ export interface components {
     clip_variant: string;
     crop_box?: Array<number> | null;
     crop_confidence?: number | null;
+    crop_strategy?: string | null;
     frame_index: number;
     frame_offset_seconds?: number | null;
     ranking_score: number;

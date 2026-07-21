@@ -3770,6 +3770,48 @@ async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exist
 
 
 @pytest.mark.asyncio
+async def test_video_model_crop_uses_frigate_hint_as_guided_search_region(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    class _CropService:
+        def __init__(self):
+            self.guided_calls = []
+
+        def get_status(self):
+            return {"installed": True, "enabled_for_runtime": True}
+
+        def generate_guided_classification_candidate_crop(self, image, *, search_box):
+            self.guided_calls.append((image.size, search_box))
+            return {
+                "crop_image": image.crop((20, 20, 80, 80)),
+                "box": (20, 20, 80, 80),
+                "confidence": 0.88,
+                "reason": "selected",
+                "strategy": "frigate_guided",
+            }
+
+        def generate_classification_candidate_crop(self, _image):
+            raise AssertionError("native candidate path should not run when a Frigate hint exists")
+
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        crop_service = _CropService()
+        service._bird_crop_service = crop_service
+        input_context = classifier_service_module._normalize_classification_input_context(
+            {"is_cropped": False, "frigate_box": [0.1, 0.1, 0.78, 0.78]}
+        )
+
+        candidates = service._video_frame_candidates(
+            Image.new("RGB", (100, 100), "white"),
+            input_context=input_context,
+        )
+
+        assert [source for source, _image in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
+        assert crop_service.guided_calls == [((100, 100), (1, 1, 97, 97))]
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_applies_crop_when_enabled_and_input_is_not_cropped(mock_tflite, mock_os_path_exists):
     class _CropAwareBirdModel:
         def __init__(self):

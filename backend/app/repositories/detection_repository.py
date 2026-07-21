@@ -369,6 +369,7 @@ class DetectionRepository:
                     clip_variant,
                     crop_box_json,
                     crop_confidence,
+                    crop_strategy,
                     classifier_label,
                     classifier_score,
                     ranking_score,
@@ -376,7 +377,7 @@ class DetectionRepository:
                     thumbnail_ref,
                     image_ref,
                     snapshot_source
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     frigate_event,
@@ -387,6 +388,7 @@ class DetectionRepository:
                     str(candidate.get("clip_variant") or "event"),
                     crop_box_json,
                     candidate.get("crop_confidence"),
+                    candidate.get("crop_strategy"),
                     candidate.get("classifier_label"),
                     candidate.get("classifier_score"),
                     float(candidate.get("ranking_score") or 0.0),
@@ -411,6 +413,7 @@ class DetectionRepository:
                 clip_variant,
                 crop_box_json,
                 crop_confidence,
+                crop_strategy,
                 classifier_label,
                 classifier_score,
                 ranking_score,
@@ -443,13 +446,14 @@ class DetectionRepository:
                     "clip_variant": row[4],
                     "crop_box": crop_box,
                     "crop_confidence": row[6],
-                    "classifier_label": row[7],
-                    "classifier_score": row[8],
-                    "ranking_score": row[9],
-                    "selected": bool(row[10]),
-                    "thumbnail_ref": row[11],
-                    "image_ref": row[12],
-                    "snapshot_source": row[13],
+                    "crop_strategy": row[7],
+                    "classifier_label": row[8],
+                    "classifier_score": row[9],
+                    "ranking_score": row[10],
+                    "selected": bool(row[11]),
+                    "thumbnail_ref": row[12],
+                    "image_ref": row[13],
+                    "snapshot_source": row[14],
                 }
             )
         return result

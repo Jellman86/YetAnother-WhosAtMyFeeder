@@ -7,6 +7,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+- **Crop quality now has a direct Frigate challenger benchmark.** Private field manifests preserve
+  same-frame Frigate coordinates, structured classifier baselines, and owner-label provenance. A
+  new end-to-end harness classifies the unchanged full frame, Frigate crop, and optimized model
+  crop through the active model, reports owner-labelled win/tie/loss outcomes separately from
+  automatic context, records crop strategy and latency, and counts hard-negative model crops. It
+  also mirrors the production same-identity/two-point guard so raw detector regressions cannot be
+  confused with the image the application would actually select. Quark's 30-positive/10-negative
+  run found 7 guarded model promotions and 23 Frigate retentions. Its three owner-labelled cases
+  produced one improvement, two safe ties, and no guarded loss, while no hard-negative crop reached
+  the active `0.40` classifier floor. The harness now applies the same extra context as the HQ path,
+  and its direct entry point resolves the backend package in production images.
 - **External crop candidates now have a strict, non-promoting benchmark path.** The maintainer probe
   reproduces the official D-FINE/DEIMv2 batch-one ONNX contract, validates shapes and finite output,
   separates positive localisation recall from negative-scene false positives, records compile and
@@ -41,6 +52,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   remain open.
 
 ### Fixed
+- **Monolithic builds no longer depend on a mutable release sidecar.** The bundled fallback
+  classifier's `model_config.json` is now checked in and contract-tested against the canonical
+  registry, while the pinned Coral model and labels remain checksum-verified. Regenerating the
+  public model sidecars can therefore no longer break an unrelated image build with a stale
+  Dockerfile checksum.
+- **AI crops can no longer win merely because the detector was confident.** HQ ranking no longer
+  adds model-source bonuses or detector confidence to species evidence. When a valid Frigate crop
+  exists, a model crop must predict the same species and improve the active classifier score by at
+  least two percentage points; otherwise the best Frigate/full-frame baseline remains selected.
+  The exact model strategy is retained with saved candidates for diagnosis.
 - **Reused download filenames no longer corrupt crop-provider comparisons.** Each validation image
   now has a stable unique identity; missing, unexpected, or duplicate rows fail closed. The gate
   compares detections admitted by the most permissive production policy instead of arbitrary
@@ -66,6 +87,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   passes inside that canary.
 
 ### Changed
+- **Distant-bird localization now uses Frigate-style focus before bounded slicing.** Multi-image HQ
+  and deep-video evidence gives YOLOX a square high-resolution search region around the same-frame
+  Frigate track when available. Without a trustworthy hint, native inference runs first and only a
+  miss on a sufficiently large frame activates four 20%-overlapping tiles. Tiny boxes retain at
+  least 160 source pixels of surrounding context, while the full frame and Frigate crop remain peer
+  candidates and the existing identity/temporal gates remain authoritative.
 - **Full hardware audits can discover stale provider metadata safely.** An owner-only all-model
   sweep can opt into probing every provider packaged by the running image and exposed by the host,
   even when the registry does not yet claim it. Each attempt remains subprocess-isolated and is

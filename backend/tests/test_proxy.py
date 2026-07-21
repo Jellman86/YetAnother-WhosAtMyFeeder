@@ -1452,6 +1452,7 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
                     "clip_variant": "recording",
                     "crop_box": [4, 4, 32, 32],
                     "crop_confidence": 0.93,
+                    "crop_strategy": "frigate_guided",
                     "classifier_label": "Robin",
                     "classifier_score": 0.91,
                     "ranking_score": 0.97,
@@ -1475,6 +1476,7 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     assert body["current_source"] == "hq_candidate_model_crop"
     assert "original_frigate_snapshot_available" not in body
     assert body["candidates"][0]["candidate_id"] == "cand-1"
+    assert body["candidates"][0]["crop_strategy"] == "frigate_guided"
     thumbnail_url = body["candidates"][0]["thumbnail_url"]
     # A cache-busting `?v=<mtime>` query is appended so promoted candidates refresh in the browser.
     assert thumbnail_url.split("?", 1)[0].endswith(

@@ -236,6 +236,8 @@ def test_images_bundle_a_checksum_verified_cpu_fallback_classifier() -> None:
     assert "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9" in dockerfile
     assert "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277" in dockerfile
     assert "sha256sum -c" in dockerfile
+    assert "releases/download/models/mobilenet_v2_birds_model_config.json" not in dockerfile
+    assert (BACKEND_ROOT / "app/assets/model_config.json").exists()
     assert (BACKEND_ROOT / "app/assets/mobilenet-v2-inat-bird.LICENSE.txt").exists()
     assert (BACKEND_ROOT / "app/assets/mobilenet-v2-inat-bird.NOTICE.md").exists()
     assert 'status.get("loaded") is not True' in smoke

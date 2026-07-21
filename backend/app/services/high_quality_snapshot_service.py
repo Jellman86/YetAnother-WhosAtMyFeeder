@@ -56,6 +56,7 @@ HQ_RECONCILE_INTERVAL_SECONDS = 300
 HQ_CANDIDATE_INFERENCE_QUEUE_TIMEOUT_SECONDS = 30.0
 HQ_MIN_CROP_EDGE_PIXELS = 160
 HQ_MIN_CROP_AREA_PIXELS = 25_000
+HQ_MODEL_CROP_MIN_CLASSIFIER_ADVANTAGE = 0.02
 HQ_PATH_HINT_MAX_DISTANCE_SECONDS = 0.75
 HQ_PROCESSING_PIPELINE = "high_quality_snapshot"
 # Four total attempts over roughly one hour. Event media is normally ready in
@@ -550,7 +551,38 @@ class HighQualitySnapshotService:
         pool = full_frames + usable_crops
         if not pool:
             pool = candidates
-        return max(pool, key=lambda item: float(item.get("ranking_score") or 0.0))
+        selected = max(pool, key=lambda item: float(item.get("ranking_score") or 0.0))
+        if str(selected.get("source_mode") or "") != "model_crop":
+            return selected
+
+        frigate_crops = [item for item in usable_crops if str(item.get("source_mode") or "") == "frigate_hint_crop"]
+        if not frigate_crops:
+            return selected
+        best_frigate = max(
+            frigate_crops,
+            key=lambda item: (
+                self._finite_candidate_score(item.get("classifier_score")),
+                float(item.get("ranking_score") or 0.0),
+            ),
+        )
+        model_score = self._finite_candidate_score(selected.get("classifier_score"))
+        frigate_score = self._finite_candidate_score(best_frigate.get("classifier_score"))
+        same_label = self._candidate_label_key(selected.get("classifier_label")) == self._candidate_label_key(
+            best_frigate.get("classifier_label")
+        )
+        if same_label and model_score + 1e-9 >= frigate_score + HQ_MODEL_CROP_MIN_CLASSIFIER_ADVANTAGE:
+            return selected
+
+        baseline_pool = [item for item in pool if str(item.get("source_mode") or "") != "model_crop"]
+        return max(baseline_pool, key=lambda item: float(item.get("ranking_score") or 0.0))
+
+    @staticmethod
+    def _finite_candidate_score(value: Any) -> float:
+        try:
+            score = float(value)
+        except (TypeError, ValueError):
+            return 0.0
+        return score if math.isfinite(score) else 0.0
 
     def _rank_snapshot_candidates(self, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Rank candidates by score (highest first) for persistence and manual selection.
@@ -648,6 +680,9 @@ class HighQualitySnapshotService:
                             "crop_confidence": (crop_result or {}).get("confidence")
                             if isinstance(crop_result, dict)
                             else None,
+                            "crop_strategy": (crop_result or {}).get("strategy")
+                            if isinstance(crop_result, dict)
+                            else None,
                             "thumbnail_ref": thumbnail_ref,
                             "image_ref": image_ref,
                             "snapshot_source": f"hq_candidate_{source_mode}",
@@ -676,7 +711,15 @@ class HighQualitySnapshotService:
         if isinstance(hint_image, Image.Image):
             candidates.append(("frigate_hint_crop", hint_image, hint_result))
         if self._automatic_crop_enabled() and self._bird_crop_model_available():
-            model_result = self._crop_candidate_from_bird_model(image, event_id=event_id)
+            hint_box = hint_result.get("box") if isinstance(hint_result, dict) else None
+            if isinstance(hint_box, (list, tuple)) and len(hint_box) == 4:
+                model_result = self._crop_candidate_from_bird_model(
+                    image,
+                    event_id=event_id,
+                    search_box=tuple(int(value) for value in hint_box),
+                )
+            else:
+                model_result = self._crop_candidate_from_bird_model(image, event_id=event_id)
             model_image = model_result.get("crop_image") if isinstance(model_result, dict) else None
             if isinstance(model_image, Image.Image):
                 candidates.append(("model_crop", model_image, model_result))
@@ -791,23 +834,13 @@ class HighQualitySnapshotService:
                 "Snapshot candidate classifier scoring failed", candidate_id=candidate.get("candidate_id"), error=str(e)
             )
 
-        crop_confidence = float(candidate.get("crop_confidence") or 0.0)
-        source_mode = str(candidate.get("source_mode") or "full_frame")
-        source_bonus = 0.0
-        if source_mode == "model_crop":
-            source_bonus = 0.02
-        elif source_mode == "frigate_hint_crop":
-            source_bonus = 0.01
-
         grayscale = cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2GRAY)
         sharpness = float(cv2.Laplacian(grayscale, cv2.CV_64F).var())
         sharpness_score = min(1.0, math.log1p(max(0.0, sharpness)) / math.log1p(1000.0))
         exposure_score = float(((grayscale >= 8) & (grayscale <= 247)).mean())
         resolution_score = min(1.0, math.sqrt(image.width * image.height) / 512.0)
         image_quality_score = (sharpness_score * 0.45) + (exposure_score * 0.35) + (resolution_score * 0.20)
-        ranking_score = (
-            (classifier_score * 0.75) + (crop_confidence * 0.10) + (image_quality_score * 0.15) + source_bonus
-        )
+        ranking_score = (classifier_score * 0.85) + (image_quality_score * 0.15)
 
         enriched = dict(candidate)
         enriched["classifier_label"] = classifier_label
@@ -1407,8 +1440,24 @@ class HighQualitySnapshotService:
         image: Image.Image,
         *,
         event_id: Optional[str] = None,
+        search_box: tuple[int, int, int, int] | None = None,
     ) -> Optional[dict[str, Any]]:
         """Generate an evidence-only crop while retaining the full-frame peer."""
+        guided_generator = getattr(bird_crop_service, "generate_guided_classification_candidate_crop", None)
+        guided_declared = callable(
+            getattr(type(bird_crop_service), "generate_guided_classification_candidate_crop", None)
+        )
+        if search_box is not None and callable(guided_generator) and guided_declared:
+            try:
+                crop_result = guided_generator(image, search_box=search_box)
+            except Exception as e:
+                log.warning("High-quality guided bird crop generation failed", event_id=event_id, error=str(e))
+                crop_result = None
+            if self._has_crop_image(crop_result):
+                return self._expand_model_crop_context(image, crop_result)
+            if isinstance(crop_result, dict):
+                return crop_result
+
         candidate_generator = getattr(bird_crop_service, "generate_classification_candidate_crop", None)
         declared_on_type = callable(getattr(type(bird_crop_service), "generate_classification_candidate_crop", None))
         if not callable(candidate_generator) or not declared_on_type:

@@ -1,4 +1,10 @@
+import json
+from pathlib import Path
+
 from scripts.generate_model_release_configs import build_release_model_configs
+
+
+ASSETS_DIR = Path(__file__).resolve().parents[1] / "app" / "assets"
 
 
 def test_release_model_configs_cover_every_registry_sidecar_once():
@@ -76,3 +82,9 @@ def test_release_model_configs_include_runtime_preprocessing_and_checksums():
     assert convnext["sha256"] == "4717dd31182c8bbcd1058f7dee1c6099feb604a44d6576315386c4d6d9f781f6"
     assert convnext["weights_sha256"] == "b6157639e013433bb28deae7da5653144822dcaeebfec14fa743c86cd91907c2"
     assert convnext["labels_sha256"] == "f2b1294bc0b3a943425655e8b74cd7489e623d0ec7fa6dc5ce57cc85a93f8ac5"
+
+
+def test_bundled_sidecar_is_generated_from_the_canonical_registry():
+    bundled = json.loads((ASSETS_DIR / "model_config.json").read_text(encoding="utf-8"))
+
+    assert bundled == build_release_model_configs()["mobilenet_v2_birds_model_config.json"]

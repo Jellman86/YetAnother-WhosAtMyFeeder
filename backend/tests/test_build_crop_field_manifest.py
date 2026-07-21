@@ -47,13 +47,14 @@ def test_build_manifest_joins_full_frame_to_same_frame_hint(tmp_path: Path):
         );
         CREATE TABLE detections (
             frigate_event TEXT, detection_time TEXT, common_name TEXT,
-            display_name TEXT, manual_tagged INTEGER
+            display_name TEXT, scientific_name TEXT, category_name TEXT,
+            manual_tagged INTEGER
         );
         """
     )
     connection.execute(
-        "INSERT INTO detections VALUES (?, ?, ?, ?, ?)",
-        ("event-1", "2026-07-21T12:00:00", "Robin", "Robin", 1),
+        "INSERT INTO detections VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ("event-1", "2026-07-21T12:00:00", "Robin", "Robin", "Erithacus rubecula", "Bird", 1),
     )
     for frame, score, box in ((2, 0.2, [10, 10, 60, 60]), (8, 0.9, [180, 120, 240, 190])):
         image_ref = f"event-1__full_frame__f{frame}__image"
@@ -90,5 +91,13 @@ def test_build_manifest_joins_full_frame_to_same_frame_hint(tmp_path: Path):
     negative = next(case for case in manifest["cases"] if not case["boxes"])
     assert "__f8__" in positive["image_path"]
     assert positive["boxes"] == [[180, 120, 240, 190]]
+    assert positive["frame_index"] == 8
+    assert positive["expected_labels"] == ["Robin", "Erithacus rubecula"]
+    assert positive["label_source"] == "owner_manual"
+    assert positive["frigate_baseline"] == {
+        "box": [180, 120, 240, 190],
+        "classifier_label": "Robin",
+        "classifier_score": 0.9,
+    }
     assert Path(negative["image_path"]).is_file()
     assert json.loads((output / "manifest.json").read_text()) == manifest

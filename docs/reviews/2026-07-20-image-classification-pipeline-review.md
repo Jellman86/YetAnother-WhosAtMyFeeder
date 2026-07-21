@@ -156,6 +156,14 @@ recording-frame hint crops also abstain when their timeline cannot be aligned. A
 classification refinement remains stricter than image selection and cannot replace a conflicting
 known species or manual tag.
 
+The later crop-detector field review tightened this further. A timestamp-aligned Frigate box now
+becomes a square HQ search region for YOLOX instead of sending the whole high-resolution frame
+through a 416-pixel bottleneck. Without a trustworthy hint, native inference runs first and only a
+miss activates four bounded overlapping tiles. Detector confidence and crop-source bonuses no
+longer influence species ranking; an AI crop must improve the active classifier by at least two
+points before it can replace an available same-species Frigate crop. Full-frame and temporal gates
+remain unchanged, and strategy provenance is saved for replay.
+
 ### 7. Playable partial recording clips were deleted and fetched forever — high, fixed
 
 Quark exposed the concrete failure: Frigate returned a playable 17-second recording for a requested

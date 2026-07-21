@@ -163,6 +163,33 @@ but are explicitly not claims that the entire source frame contained no other bi
 reports positive recall separately from negative false-positive/specificity rates and groups results
 by manifest tag. Camera images and generated negatives stay in the private config volume.
 
+The schema-3 manifest also records the exact frame index, Frigate crop/classifier baseline, and
+label provenance. Only manual owner identities populate `expected_labels`; automatically inferred
+labels remain useful panel context but cannot become promotion evidence. Run the end-to-end
+challenger after changing crop geometry or selection policy:
+
+```bash
+python backend/scripts/eval_crop_strategy_challenger.py \
+  --manifest /config/yawamf-eval/crop-detector-field/manifest.json \
+  --output /config/yawamf-eval/crop-detector-field/challenger-results.json
+```
+
+This classifies the unchanged full frame, same-frame Frigate crop, and optimized model crop through
+the active classifier with further crop resolution disabled. YOLOX first receives a square
+Frigate-guided HQ region; without a hint it uses native full-frame inference and only then a bounded
+2×2, 20%-overlapping slice fallback on large images. Results retain `native`, `frigate_guided`,
+`sliced_2x2`, or `fast_native` provenance. A model win requires it alone to be correct, or both
+representations to be correct with at least a two-point classifier-score gain. Unlabelled cases and
+hard negatives are reported separately rather than inflating win/tie/loss counts. The evaluator
+fails closed on stale schemas, duplicate cases or positive visits, ambiguous multi-box rows, and
+promotion labels without owner-manual provenance; its summary also records detector p50/p95/max
+latency so an accuracy win cannot hide an impractical runtime cost. A second guarded summary mirrors
+production selection: the model crop replaces Frigate only for the same classifier identity with
+the required score gain. It records model promotions, Frigate retentions, blocked reasons, and
+owner-labelled guarded outcomes. Hard negatives report both raw detector candidates and candidates
+whose classifier score reaches the active minimum. The result captures the image flavour plus
+classifier and crop-detector model/provider provenance, making CPU/GPU/NPU runs directly auditable.
+
 ### External candidate screening
 
 Maintainers can screen an exported candidate without adding it to the model registry or making it
@@ -205,5 +232,6 @@ provider-native `providers` fields.
 - Private crop field-panel builder: `backend/scripts/build_crop_field_manifest.py`
 - Crop detector quality evaluator: `backend/scripts/eval_crop_detector_accuracy.py`
 - External crop-candidate probe: `backend/scripts/probe_crop_candidate.py`
+- End-to-end Frigate challenger: `backend/scripts/eval_crop_strategy_challenger.py`
 - Frontend page: `apps/ui/src/lib/pages/ModelEvaluation.svelte`
 - Design doc: `docs/plans/2026-05-07-model-evaluation-harness-design.md`

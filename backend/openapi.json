@@ -11106,6 +11106,17 @@
             ],
             "title": "Crop Confidence"
           },
+          "crop_strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crop Strategy"
+          },
           "frame_index": {
             "title": "Frame Index",
             "type": "integer"

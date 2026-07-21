@@ -4555,11 +4555,17 @@ class ClassifierService:
     def _resolve_model_candidate_crop(
         self,
         image: Image.Image,
+        *,
+        search_box: tuple[int, int, int, int] | None = None,
     ) -> dict[str, Any] | None:
         """Resolve a distance-tolerant crop only for multi-representation evidence."""
         crop_service = self._bird_crop_service
         if crop_service is None:
             return None
+        guided_generator = getattr(crop_service, "generate_guided_classification_candidate_crop", None)
+        guided_declared = callable(getattr(type(crop_service), "generate_guided_classification_candidate_crop", None))
+        if search_box is not None and callable(guided_generator) and guided_declared:
+            return guided_generator(image, search_box=search_box)
         candidate_generator = getattr(crop_service, "generate_classification_candidate_crop", None)
         declared_on_type = callable(getattr(type(crop_service), "generate_classification_candidate_crop", None))
         if callable(candidate_generator) and declared_on_type:
@@ -4597,15 +4603,17 @@ class ClassifierService:
 
         hint_result = self._resolve_frigate_hint_crop(image, input_context=input_context)
         hint_image = hint_result.get("crop_image") if isinstance(hint_result, dict) else None
+        hint_box: tuple[int, int, int, int] | None = None
         if isinstance(hint_image, Image.Image):
             candidates.append(("frigate_hint_crop", hint_image))
-            hint_box = hint_result.get("box")
-            if isinstance(hint_box, tuple) and len(hint_box) == 4:
-                seen_boxes.add(hint_box)
+            raw_hint_box = hint_result.get("box")
+            if isinstance(raw_hint_box, tuple) and len(raw_hint_box) == 4:
+                hint_box = raw_hint_box
+                seen_boxes.add(raw_hint_box)
 
         if self._bird_crop_detector_available():
             try:
-                model_result = self._resolve_model_candidate_crop(image)
+                model_result = self._resolve_model_candidate_crop(image, search_box=hint_box)
             except Exception as exc:
                 log.debug("Video frame crop detector failed; retaining other inputs", error=str(exc))
                 model_result = None

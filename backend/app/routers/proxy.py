@@ -298,6 +298,9 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
                 crop_confidence=(
                     float(candidate["crop_confidence"]) if candidate.get("crop_confidence") is not None else None
                 ),
+                crop_strategy=(
+                    str(candidate.get("crop_strategy")) if candidate.get("crop_strategy") is not None else None
+                ),
                 classifier_label=(
                     str(candidate.get("classifier_label")) if candidate.get("classifier_label") is not None else None
                 ),
@@ -488,6 +491,7 @@ class SnapshotCandidateResponse(BaseModel):
     clip_variant: str
     crop_box: list[float] | None = None
     crop_confidence: float | None = None
+    crop_strategy: str | None = None
     classifier_label: str | None = None
     classifier_score: float | None = None
     ranking_score: float

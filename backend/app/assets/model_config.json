@@ -1,0 +1,24 @@
+{
+  "artifact_kind": "classifier",
+  "crop_generator": {
+    "enabled": true,
+    "source_preference": "standard"
+  },
+  "input_size": 224,
+  "label_grouping": {},
+  "labels_sha256": "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277",
+  "model_id": "mobilenet_v2_birds",
+  "preprocessing": {
+    "color_space": "RGB",
+    "interpolation": "bicubic",
+    "normalization": "uint8",
+    "padding_color": 128,
+    "resize_mode": "letterbox"
+  },
+  "runtime": "tflite",
+  "sha256": "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9",
+  "supported_inference_providers": [
+    "cpu"
+  ],
+  "taxonomy_scope": "birds_only"
+}

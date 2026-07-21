@@ -125,6 +125,8 @@ validation; a confident snapshot does not short-circuit an available cached vide
 - `GET /api/frigate/{event_id}/snapshot.jpg`
 - `GET /api/frigate/{event_id}/snapshot/status` (owner; reports the effective best-available policy)
 - `GET /api/frigate/{event_id}/snapshot/candidates` (owner)
+  - Candidate rows include optional `crop_strategy` provenance (`native`, `frigate_guided`,
+    `sliced_2x2`, or `fast_native`) for model-generated crops.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/apply` (owner)
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)

@@ -100,8 +100,22 @@ replacement retain `0.05`. Multi-representation video/HQ evidence can admit an a
 box down to `0.02`, while retaining the full frame and requiring the existing identity, quality,
 temporal-consensus, and ambiguity gates. A `2×2` sliced-inference experiment increased detector
 confidence above `0.80` but reduced downstream classifier confidence and required four detector
-calls, so it was not enabled.
+calls, so it was not enabled as a replacement for a valid native crop. It is now available only as
+a bounded fallback after an unguided native miss. When a same-frame Frigate box exists, YOLOX first
+refines a square HQ region around that track, which provides the pixels-on-bird advantage of
+region-based detection without making the upstream box authoritative. The Frigate crop and full
+frame remain peers; detector confidence no longer affects species ranking, and a model crop must
+improve the active classifier by at least two points before replacing an available Frigate crop.
 
 The replacement-model shortlist and visit-level promotion gate are recorded in the
 [crop-detector candidate review](../reviews/2026-07-21-crop-detector-candidate-review.md). No model
 is promoted from this two-frame regression case.
+
+The later 30-positive/10-negative Quark challenger validates the combined policy. Same-frame
+guidance or bounded slicing produced 26 positive model candidates. The ground-truth-independent
+production guard promoted 7 same-identity crops with at least a `0.02` classifier gain and retained
+Frigate for 23. The three owner-labelled visits had one guarded improvement, two ties, and no
+regression; no hard-negative crop classification reached the active `0.40` floor. This is evidence
+that the application selects
+defensively; the small owner-labelled subset is not evidence that the detector itself beats
+Frigate, so broader manual labelling remains required.

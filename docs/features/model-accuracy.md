@@ -48,11 +48,19 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
   returns no usable crop. A 21 July 2026 Quark provider sweep validated CPU and OpenVINO
   CPU/GPU/NPU agreement on a varied clean species panel, with a separate 40-case private field panel
   covering 30 events across seven recorded labels and 10 real hard negatives. This is provider
-  compatibility evidence, not a model-quality promotion; a larger owner-labelled box fixture and
-  downstream Frigate win/tie/loss comparison remain pending. The accurate sweep measured 30.0 ms
-  on CPU, 16.5 ms on Intel CPU, 11.4 ms on Intel GPU, and 12.6 ms on Intel NPU. The private field
+  compatibility evidence, not a model-quality promotion; a larger owner-labelled box fixture
+  remains pending. The latest accurate sweep measured 32.7 ms on CPU, 14.3 ms on Intel CPU,
+  10.7 ms on Intel GPU, and 14.5 ms on Intel NPU. The private unguided field
   replay admitted only 6/30 positives at the safe `0.02` evidence floor (and 0/13 negatives), so
   distant-subject recall—not provider correctness—remains the main replacement-model question.
+  The subsequent runtime optimization uses same-frame Frigate coordinates as a high-resolution
+  YOLOX search region and activates bounded overlapping tiles only after an unguided native miss.
+  Saved candidates retain the strategy, and model crops must materially improve downstream
+  classifier confidence before replacing an available Frigate crop. A 30-positive/10-negative
+  end-to-end run produced 7 guarded model promotions and 23 Frigate retentions, with one win, two
+  ties, and no guarded loss across the three owner-labelled visits and no hard-negative crop above
+  the active `0.40` classifier floor. This validates defensive selection, not detector superiority;
+  more owner truth is still required.
 - **Classifier cropping is separate from thumbnail generation.** Classifier crop-on/off is fixed per
   model from the Quark comparison below. Both crop-enabled classifiers and generated thumbnails try
   the validated accurate detector path automatically with a safe fast fallback.

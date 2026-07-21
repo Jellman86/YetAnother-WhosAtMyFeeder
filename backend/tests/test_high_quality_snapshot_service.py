@@ -204,6 +204,47 @@ def test_candidate_generation_uses_distance_tolerant_evidence_crop_without_repla
     assert candidates[1][2]["confidence"] == 0.03
 
 
+def test_candidate_generation_guides_model_with_same_frame_frigate_crop(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(service, "_bird_crop_model_available", lambda: True)
+    image = Image.new("RGB", (1000, 800))
+    hint_result = {
+        "crop_image": image.crop((300, 200, 700, 600)),
+        "box": (300, 200, 700, 600),
+        "reason": "frigate_box",
+    }
+    monkeypatch.setattr(service, "_crop_from_event_hints", lambda _image, _event_data: hint_result)
+    seen = []
+
+    class _CropService:
+        def generate_guided_classification_candidate_crop(self, candidate_image, *, search_box):
+            seen.append((candidate_image.size, search_box))
+            return {
+                "crop_image": candidate_image.crop((400, 300, 560, 460)),
+                "box": (400, 300, 560, 460),
+                "confidence": 0.72,
+                "reason": "selected",
+                "strategy": "frigate_guided",
+            }
+
+    monkeypatch.setattr(hq_module, "bird_crop_service", _CropService())
+
+    candidates = service._candidate_images_for_frame(
+        image,
+        event_data={"data": {"box": [0.3, 0.25, 0.4, 0.5]}},
+        event_id="evt-guided",
+    )
+
+    assert seen == [((1000, 800), (300, 200, 700, 600))]
+    assert [source for source, _image, _result in candidates] == [
+        "full_frame",
+        "frigate_hint_crop",
+        "model_crop",
+    ]
+    assert candidates[2][2]["strategy"] == "frigate_guided"
+
+
 @pytest.mark.asyncio
 async def test_reconcile_recent_detections_only_reschedules_unfinished_snapshot_jobs(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
@@ -686,6 +727,45 @@ async def test_candidate_scoring_preserves_model_input_contract(monkeypatch, sou
 
 
 @pytest.mark.asyncio
+async def test_candidate_scoring_does_not_reward_detector_confidence_or_crop_source(monkeypatch):
+    from app.services import classifier_service as classifier_module
+
+    service = hq_module.HighQualitySnapshotService()
+    classifier = SimpleNamespace()
+
+    async def classify_async_background(_image, *, input_context, queue_timeout_seconds):
+        return [{"label": "Columba palumbus", "score": 0.84, "index": 123}]
+
+    classifier.classify_async_background = classify_async_background
+    monkeypatch.setattr(classifier_module, "_classifier_instance", classifier)
+    common = {
+        "frame_index": 4,
+        "image_bytes": _jpeg_bytes("green"),
+    }
+
+    hint = await service._score_snapshot_candidate(
+        {
+            **common,
+            "candidate_id": "hint",
+            "source_mode": "frigate_hint_crop",
+            "crop_confidence": None,
+        }
+    )
+    model = await service._score_snapshot_candidate(
+        {
+            **common,
+            "candidate_id": "model",
+            "source_mode": "model_crop",
+            "crop_confidence": 0.99,
+        }
+    )
+
+    assert hint is not None
+    assert model is not None
+    assert model["ranking_score"] == pytest.approx(hint["ranking_score"])
+
+
+@pytest.mark.asyncio
 async def test_hq_consensus_uses_canonical_detection_update_path(monkeypatch):
     from app.services import detection_service as detection_module
     from app.services import model_manager as model_manager_module
@@ -874,6 +954,70 @@ def test_select_canonical_snapshot_candidate_chooses_best_crop_regardless_of_leg
 
     assert selected is not None
     assert selected["candidate_id"] == "hint-crop"
+
+
+def test_model_crop_must_materially_outscore_available_frigate_crop():
+    service = hq_module.HighQualitySnapshotService()
+    common = {
+        "image_width": 320,
+        "image_height": 280,
+        "classifier_label": "Columba palumbus",
+    }
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                **common,
+                "candidate_id": "hint",
+                "source_mode": "frigate_hint_crop",
+                "classifier_score": 0.89,
+                "ranking_score": 0.90,
+            },
+            {
+                **common,
+                "candidate_id": "model",
+                "source_mode": "model_crop",
+                "classifier_score": 0.90,
+                "ranking_score": 0.94,
+            },
+        ],
+        expected_labels={"Columba palumbus"},
+    )
+
+    assert selected is not None
+    assert selected["candidate_id"] == "hint"
+
+
+def test_model_crop_can_win_after_material_classifier_improvement():
+    service = hq_module.HighQualitySnapshotService()
+    common = {
+        "image_width": 320,
+        "image_height": 280,
+        "classifier_label": "Columba palumbus",
+    }
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                **common,
+                "candidate_id": "hint",
+                "source_mode": "frigate_hint_crop",
+                "classifier_score": 0.86,
+                "ranking_score": 0.87,
+            },
+            {
+                **common,
+                "candidate_id": "model",
+                "source_mode": "model_crop",
+                "classifier_score": 0.90,
+                "ranking_score": 0.91,
+            },
+        ],
+        expected_labels={"Columba palumbus"},
+    )
+
+    assert selected is not None
+    assert selected["candidate_id"] == "model"
 
 
 def test_select_canonical_snapshot_candidate_keeps_better_ranked_full_frame(monkeypatch):

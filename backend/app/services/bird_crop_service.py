@@ -151,6 +151,11 @@ class BirdCropService:
     # recovers small, distant birds whose correct YOLOX box can score below the
     # normal thumbnail/single-image replacement threshold.
     CLASSIFICATION_CANDIDATE_CONFIDENCE_FLOOR = 0.02
+    CLASSIFICATION_CANDIDATE_MIN_DETECTION_SIZE = 24
+    CLASSIFICATION_CANDIDATE_MIN_OUTPUT_SIZE = 160
+    CLASSIFICATION_TILE_GRID_SIZE = 2
+    CLASSIFICATION_TILE_OVERLAP_RATIO = 0.20
+    CLASSIFICATION_TILE_MODEL_INPUT_SIZE = 416
     ACCURATE_TIER_MIN_CROP_SIZE = 64
 
     def __init__(
@@ -239,6 +244,8 @@ class BirdCropService:
         *,
         fallback_reason: str | None = None,
         confidence_threshold_ceiling: float | None = None,
+        min_crop_size_ceiling: int | None = None,
+        minimum_output_size: int | None = None,
     ) -> tuple[dict[str, Any], bool]:
         """Run one detector tier and return its fail-soft result plus availability."""
         try:
@@ -300,6 +307,8 @@ class BirdCropService:
                 detector_tier=detector_tier,
                 fallback_reason=fallback_reason,
                 confidence_threshold_ceiling=confidence_threshold_ceiling,
+                min_crop_size_ceiling=min_crop_size_ceiling,
+                minimum_output_size=minimum_output_size,
             ),
             True,
         )
@@ -313,15 +322,250 @@ class BirdCropService:
 
         The caller must retain the full frame and apply downstream identity or
         temporal-consensus gates.  This deliberately does not change the normal
-        thumbnail or single-image replacement policy.
+        thumbnail or single-image replacement policy. Native inference remains
+        the first attempt. If it misses on a high-resolution frame, four bounded
+        overlapping tiles improve the effective pixels-on-bird without creating
+        an unbounded background workload.
         """
-        return self._generate_crop(
+        if not isinstance(image, Image.Image):
+            return self._annotate_candidate_strategy(self._empty_result("invalid_image"), strategy="native")
+        native_result, accurate_available = self._generate_classification_candidate_for_tier(
             image,
-            detector_tier="accurate",
-            accurate_confidence_ceiling=self.CLASSIFICATION_CANDIDATE_CONFIDENCE_FLOOR,
+            strategy="native",
+        )
+        if native_result.get("reason") == "selected":
+            return native_result
+
+        if accurate_available:
+            sliced_result = self._generate_sliced_classification_candidate_crop(image)
+            if sliced_result is not None and sliced_result.get("reason") == "selected":
+                return sliced_result
+
+        accurate_reason = str(native_result.get("reason") or "unavailable").removesuffix("_no_fallback")
+        fallback_reason = "accurate_unavailable" if not accurate_available else f"accurate_{accurate_reason}"
+        fast_result, fast_available = self._generate_crop_for_tier(
+            image,
+            "fast",
+            fallback_reason=fallback_reason,
+        )
+        if fast_available:
+            return self._annotate_candidate_strategy(fast_result, strategy="fast_native")
+        if not accurate_available:
+            return self._annotate_candidate_strategy(
+                self._empty_result(
+                    "load_failed",
+                    detector_tier=None,
+                    fallback_reason="no_detector_available",
+                ),
+                strategy="native",
+            )
+        return native_result
+
+    def generate_guided_classification_candidate_crop(
+        self,
+        image: Image.Image,
+        *,
+        search_box: tuple[int, int, int, int] | list[int],
+    ) -> dict[str, Any]:
+        """Refine a trustworthy Frigate region before falling back to native/sliced inference.
+
+        Frigate's tracked box supplies localisation only. YOLOX still has to find
+        a bird inside the high-resolution region, and the returned coordinates
+        are restored to the unchanged source frame. The caller keeps both the
+        Frigate crop and full frame as independent peers.
+        """
+        if not isinstance(image, Image.Image):
+            return self._annotate_candidate_strategy(self._empty_result("invalid_image"), strategy="frigate_guided")
+        normalized_search_box = self._normalize_search_box(search_box, image.size)
+        if normalized_search_box is None:
+            fallback = self.generate_classification_candidate_crop(image)
+            return self._with_fallback_reason(fallback, "invalid_guided_search_box")
+        normalized_search_box = self._square_search_box(
+            normalized_search_box,
+            image.size,
+            minimum_size=self.CLASSIFICATION_CANDIDATE_MIN_OUTPUT_SIZE,
+        )
+        if normalized_search_box is None:
+            fallback = self.generate_classification_candidate_crop(image)
+            return self._with_fallback_reason(fallback, "invalid_guided_search_box")
+
+        search_image = image.crop(normalized_search_box)
+        guided_result, accurate_available = self._generate_classification_candidate_for_tier(
+            search_image,
+            strategy="frigate_guided",
+        )
+        if guided_result.get("reason") == "selected":
+            return self._restore_region_result_to_image(
+                image,
+                guided_result,
+                region_box=normalized_search_box,
+                strategy="frigate_guided",
+            )
+
+        fallback = self.generate_classification_candidate_crop(image)
+        guided_reason = "unavailable" if not accurate_available else str(guided_result.get("reason") or "miss")
+        return self._with_fallback_reason(fallback, f"guided_{guided_reason}")
+
+    def _generate_classification_candidate_for_tier(
+        self,
+        image: Image.Image,
+        *,
+        strategy: str,
+    ) -> tuple[dict[str, Any], bool]:
+        result, available = self._generate_crop_for_tier(
+            image,
+            "accurate",
+            confidence_threshold_ceiling=self.CLASSIFICATION_CANDIDATE_CONFIDENCE_FLOOR,
+            min_crop_size_ceiling=self.CLASSIFICATION_CANDIDATE_MIN_DETECTION_SIZE,
+            minimum_output_size=self.CLASSIFICATION_CANDIDATE_MIN_OUTPUT_SIZE,
+        )
+        return self._annotate_candidate_strategy(result, strategy=strategy), available
+
+    def _generate_sliced_classification_candidate_crop(self, image: Image.Image) -> dict[str, Any] | None:
+        tile_boxes = self._classification_tile_boxes(image.size)
+        if not tile_boxes:
+            return None
+
+        selected: list[dict[str, Any]] = []
+        for tile_box in tile_boxes:
+            tile = image.crop(tile_box)
+            tile_result, available = self._generate_classification_candidate_for_tier(
+                tile,
+                strategy="sliced_2x2",
+            )
+            if not available:
+                return None
+            if tile_result.get("reason") != "selected":
+                continue
+            selected.append(
+                self._restore_region_result_to_image(
+                    image,
+                    tile_result,
+                    region_box=tile_box,
+                    strategy="sliced_2x2",
+                    tile_count=len(tile_boxes),
+                )
+            )
+        if not selected:
+            return None
+        return max(selected, key=lambda result: float(result.get("confidence") or 0.0))
+
+    def _classification_tile_boxes(self, image_size: tuple[int, int]) -> list[tuple[int, int, int, int]]:
+        width, height = (max(0, int(image_size[0])), max(0, int(image_size[1])))
+        model_input = self.CLASSIFICATION_TILE_MODEL_INPUT_SIZE
+        if min(width, height) < model_input or max(width, height) < model_input * 2:
+            return []
+
+        overlap = min(0.49, max(0.0, float(self.CLASSIFICATION_TILE_OVERLAP_RATIO)))
+        grid_size = max(2, int(self.CLASSIFICATION_TILE_GRID_SIZE))
+        divisor = float(grid_size) - (float(grid_size - 1) * overlap)
+        tile_width = min(width, max(1, int(math.ceil(float(width) / divisor))))
+        tile_height = min(height, max(1, int(math.ceil(float(height) / divisor))))
+        x_positions = [int(round(index * (width - tile_width) / float(grid_size - 1))) for index in range(grid_size)]
+        y_positions = [int(round(index * (height - tile_height) / float(grid_size - 1))) for index in range(grid_size)]
+        return [
+            (left, top, min(width, left + tile_width), min(height, top + tile_height))
+            for top in y_positions
+            for left in x_positions
+        ]
+
+    def _normalize_search_box(
+        self,
+        raw_box: tuple[int, int, int, int] | list[int],
+        image_size: tuple[int, int],
+    ) -> tuple[int, int, int, int] | None:
+        if not isinstance(raw_box, (list, tuple)) or len(raw_box) != 4:
+            return None
+        try:
+            left, top, right, bottom = [float(value) for value in raw_box]
+        except (TypeError, ValueError):
+            return None
+        if not all(math.isfinite(value) for value in (left, top, right, bottom)):
+            return None
+        width, height = image_size
+        normalized = (
+            max(0, min(int(width), int(math.floor(left)))),
+            max(0, min(int(height), int(math.floor(top)))),
+            max(0, min(int(width), int(math.ceil(right)))),
+            max(0, min(int(height), int(math.ceil(bottom)))),
+        )
+        if normalized[2] <= normalized[0] or normalized[3] <= normalized[1]:
+            return None
+        return normalized
+
+    def _square_search_box(
+        self,
+        box: tuple[int, int, int, int],
+        image_size: tuple[int, int],
+        *,
+        minimum_size: int,
+    ) -> tuple[int, int, int, int] | None:
+        left, top, right, bottom = box
+        image_width, image_height = image_size
+        if right <= left or bottom <= top or image_width <= 0 or image_height <= 0:
+            return None
+        target_size = min(
+            int(image_width),
+            int(image_height),
+            max(right - left, bottom - top, int(minimum_size)),
+        )
+        return self._expand_box_to_minimum_size(
+            box,
+            image_size,
+            minimum_size=target_size,
         )
 
-    def get_classification_candidate_crop_policy(self) -> dict[str, float | int | str]:
+    def _restore_region_result_to_image(
+        self,
+        image: Image.Image,
+        result: dict[str, Any],
+        *,
+        region_box: tuple[int, int, int, int],
+        strategy: str,
+        tile_count: int | None = None,
+    ) -> dict[str, Any]:
+        relative_box = self._extract_box(result)
+        if relative_box is None:
+            return self._annotate_candidate_strategy(result, strategy=strategy)
+        offset_x, offset_y = region_box[0], region_box[1]
+        restored = self._normalize_search_box(
+            (
+                relative_box[0] + offset_x,
+                relative_box[1] + offset_y,
+                relative_box[2] + offset_x,
+                relative_box[3] + offset_y,
+            ),
+            image.size,
+        )
+        if restored is None:
+            return self._annotate_candidate_strategy(
+                self._empty_result("invalid_box", detector_tier="accurate"),
+                strategy=strategy,
+            )
+        updated = dict(result)
+        updated["box"] = restored
+        updated["crop_image"] = image.crop(restored)
+        updated["strategy"] = strategy
+        if strategy == "frigate_guided":
+            updated["search_box"] = region_box
+        if tile_count is not None:
+            updated["tile_count"] = int(tile_count)
+        return updated
+
+    @staticmethod
+    def _annotate_candidate_strategy(result: dict[str, Any], *, strategy: str) -> dict[str, Any]:
+        updated = dict(result)
+        updated["strategy"] = strategy
+        return updated
+
+    @staticmethod
+    def _with_fallback_reason(result: dict[str, Any], reason: str) -> dict[str, Any]:
+        updated = dict(result)
+        existing = str(updated.get("fallback_reason") or "").strip()
+        updated["fallback_reason"] = f"{reason}:{existing}" if existing else reason
+        return updated
+
+    def get_classification_candidate_crop_policy(self) -> dict[str, float | int | str | bool]:
         """Describe the bounded policy used for evidence-only crop candidates."""
         policy = dict(self.get_effective_crop_policy("accurate"))
         policy["confidence_threshold"] = min(
@@ -329,6 +573,12 @@ class BirdCropService:
             self.CLASSIFICATION_CANDIDATE_CONFIDENCE_FLOOR,
         )
         policy["selection_mode"] = "evidence_candidate"
+        policy["guided_roi"] = True
+        policy["min_detection_size"] = self.CLASSIFICATION_CANDIDATE_MIN_DETECTION_SIZE
+        policy["min_output_size"] = self.CLASSIFICATION_CANDIDATE_MIN_OUTPUT_SIZE
+        policy["slicing_grid"] = f"{self.CLASSIFICATION_TILE_GRID_SIZE}x{self.CLASSIFICATION_TILE_GRID_SIZE}"
+        policy["slicing_overlap_ratio"] = self.CLASSIFICATION_TILE_OVERLAP_RATIO
+        policy["max_sliced_inference_calls"] = self.CLASSIFICATION_TILE_GRID_SIZE**2
         return policy
 
     def _ensure_model(self) -> Any | None:
@@ -1270,6 +1520,8 @@ class BirdCropService:
         detector_tier: str | None,
         fallback_reason: str | None,
         confidence_threshold_ceiling: float | None = None,
+        min_crop_size_ceiling: int | None = None,
+        minimum_output_size: int | None = None,
     ) -> dict[str, Any]:
         crop_policy = self.get_effective_crop_policy(detector_tier)
         confidence_threshold = float(crop_policy["confidence_threshold"])
@@ -1281,6 +1533,11 @@ class BirdCropService:
             if math.isfinite(ceiling) and ceiling >= 0.0:
                 confidence_threshold = min(confidence_threshold, ceiling)
         min_crop_size = int(crop_policy["min_crop_size"])
+        if min_crop_size_ceiling is not None:
+            try:
+                min_crop_size = min(min_crop_size, max(1, int(min_crop_size_ceiling)))
+            except (TypeError, ValueError):
+                pass
         normalized: list[dict[str, Any]] = []
         for candidate in candidates or []:
             if isinstance(candidate, dict):
@@ -1327,6 +1584,18 @@ class BirdCropService:
                     failure_confidence = confidence
                 continue
 
+            if minimum_output_size is not None:
+                expanded = self._expand_box_to_minimum_size(
+                    expanded,
+                    image.size,
+                    minimum_size=max(1, int(minimum_output_size)),
+                )
+                if expanded is None:
+                    if failure_reason is None:
+                        failure_reason = "invalid_box"
+                        failure_confidence = confidence
+                    continue
+
             crop_width = expanded[2] - expanded[0]
             crop_height = expanded[3] - expanded[1]
             if crop_width < 1 or crop_height < 1:
@@ -1368,6 +1637,32 @@ class BirdCropService:
             "no_candidate",
             detector_tier=detector_tier,
             fallback_reason=fallback_reason,
+        )
+
+    @staticmethod
+    def _expand_box_to_minimum_size(
+        box: tuple[int, int, int, int],
+        image_size: tuple[int, int],
+        *,
+        minimum_size: int,
+    ) -> tuple[int, int, int, int] | None:
+        left, top, right, bottom = box
+        image_width, image_height = image_size
+        if right <= left or bottom <= top or image_width <= 0 or image_height <= 0:
+            return None
+        target_width = min(int(image_width), max(right - left, int(minimum_size)))
+        target_height = min(int(image_height), max(bottom - top, int(minimum_size)))
+        center_x = (left + right) / 2.0
+        center_y = (top + bottom) / 2.0
+        expanded_left = int(math.floor(center_x - target_width / 2.0))
+        expanded_top = int(math.floor(center_y - target_height / 2.0))
+        expanded_left = min(max(0, expanded_left), int(image_width) - target_width)
+        expanded_top = min(max(0, expanded_top), int(image_height) - target_height)
+        return (
+            expanded_left,
+            expanded_top,
+            expanded_left + target_width,
+            expanded_top + target_height,
         )
 
     def _coerce_confidence(self, candidate: Any) -> float | None:

@@ -18,6 +18,17 @@ from typing import Any
 from PIL import Image
 
 
+_NON_IDENTITY_LABELS = {"", "bird", "birds", "unknown", "unknown bird", "background"}
+
+
+def _identity_labels(*values: object) -> list[str]:
+    return list(
+        dict.fromkeys(
+            str(value).strip() for value in values if str(value or "").strip().casefold() not in _NON_IDENTITY_LABELS
+        )
+    )
+
+
 def _intersection_area(left: list[int], right: list[int]) -> int:
     return max(0, min(left[2], right[2]) - max(left[0], right[0])) * max(
         0, min(left[3], right[3]) - max(left[1], right[1])
@@ -64,6 +75,7 @@ def _load_frame_pairs(database: Path, snapshot_dir: Path) -> list[dict[str, Any]
             SELECT f.frigate_event, f.frame_index, f.image_ref,
                    h.crop_box_json, h.classifier_label, h.classifier_score,
                    d.detection_time, COALESCE(d.common_name, d.display_name) AS species,
+                   d.common_name, d.display_name, d.scientific_name, d.category_name,
                    d.manual_tagged
               FROM snapshot_candidates f
               JOIN snapshot_candidates h
@@ -97,7 +109,14 @@ def _load_frame_pairs(database: Path, snapshot_dir: Path) -> list[dict[str, Any]
                 "image_path": image_path,
                 "box": box,
                 "species": str(row["species"] or row["classifier_label"] or "Unknown Bird"),
+                "expected_labels": _identity_labels(
+                    row["common_name"],
+                    row["display_name"],
+                    row["scientific_name"],
+                    row["category_name"],
+                ),
                 "manual": bool(row["manual_tagged"]),
+                "hint_classifier_label": str(row["classifier_label"] or "") or None,
                 "hint_classifier_score": float(row["classifier_score"] or 0.0),
                 "detection_time": str(row["detection_time"] or ""),
             }
@@ -161,6 +180,14 @@ def build_manifest(
                 "source": "cached_hq_full_frame_with_frame_specific_frigate_hint",
                 "image_path": str(item["image_path"]),
                 "boxes": [item["box"]],
+                "frame_index": item["frame_index"],
+                "expected_labels": item["expected_labels"] if item["manual"] else [],
+                "label_source": "owner_manual" if item["manual"] else "automatic_context_only",
+                "frigate_baseline": {
+                    "box": item["box"],
+                    "classifier_label": item["hint_classifier_label"],
+                    "classifier_score": item["hint_classifier_score"],
+                },
                 "tags": tags,
                 "notes": (
                     f"event={item['event_id']}; frame={item['frame_index']}; "
@@ -195,11 +222,12 @@ def build_manifest(
         )
 
     payload = {
-        "version": "2",
+        "version": "3",
         "private": True,
         "method": (
-            "One independent cached HQ full frame per event with its exact same-frame Frigate hint box. "
-            "Hard negatives are non-overlapping real-frame regions."
+            "One independent cached HQ full frame per event with its exact same-frame Frigate hint box and "
+            "structured downstream baseline. Owner-confirmed labels are promotion evidence; automatic labels are "
+            "context only. Hard negatives are non-overlapping real-frame regions."
         ),
         "cases": cases,
     }

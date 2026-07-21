@@ -185,6 +185,7 @@ def test_snapshot_candidates_schema_exists_and_passes_sqlite_checks(tmp_path):
             "snapshot_source",
             "created_at",
             "updated_at",
+            "crop_strategy",
         ]
 
         indexes = conn.execute("PRAGMA index_list(snapshot_candidates);").fetchall()
