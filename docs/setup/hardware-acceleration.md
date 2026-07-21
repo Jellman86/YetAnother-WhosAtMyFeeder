@@ -105,6 +105,19 @@ also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable)
 
 `Auto` is recommended unless you have a reason to pin a device.
 
+The selector is capability-aware. It only offers providers that are included in
+the running image, pass the host runtime/device probe, and are declared compatible
+with the active model. Options begin with the active provider and its concrete
+recovery sequence; any remaining valid manual alternatives follow. The UI prints
+the recovery sequence separately so the order is not confused with a list of
+providers that `Auto` will necessarily try.
+
+Changing to a narrower image or model does not silently rewrite an explicit saved
+choice. That choice remains visible but disabled, with guidance to select `Auto`
+or another available provider. This preserves a deliberate device pin across a
+temporary image-flavor switch while preventing an unavailable provider from being
+selected again.
+
 ## Smallest working path (Intel iGPU or NPU)
 
 1. Use the full compatibility image or select the Intel image in `.env`:

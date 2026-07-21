@@ -209,13 +209,15 @@ active model session. Important deployment fields are:
 | `image_flavor` | Image-owned runtime family: `full`, `cpu`, `intel`, `cuda`, `rpi`, or `unknown` outside a published image. |
 | `packaged_inference_providers` | Providers the image is designed to contain. This does not claim a host device works. |
 | `image_flavor_warning` | `selected_provider_not_packaged` when the saved explicit provider is outside this image; otherwise `null`. |
-| `available_providers` | Packaged providers whose runtime/device probe passed on this host. |
+| `available_providers` | Providers packaged in this image whose runtime/device probe passed and which the active model supports, ordered with the active recovery path first and other valid manual choices afterwards. |
+| `provider_preference_order` | The active provider followed by the concrete providers the current runtime will try if inference recovery is required. This is a subset of `available_providers`. |
 | `selected_provider` | Saved preference from configuration. An image mismatch does not rewrite it. |
 | `active_provider` / `inference_backend` | Provider and backend used by the loaded model session. |
 | `fallback_reason` | Why the active session differs from the selected provider, when known. |
 
 Use these fields together. For example, an Intel image can legitimately report
-`intel_gpu` as packaged but unavailable when `/dev/dri` was not passed through.
+`intel_gpu` as packaged but omit it from `available_providers` when `/dev/dri`
+was not passed through or the active model does not support that provider.
 See [Hardware Acceleration](setup/hardware-acceleration.md) for the complete
 image/provider contract.
 

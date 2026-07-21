@@ -128,7 +128,10 @@ curl -fsS http://yawamf-backend:8000/api/classifier/status
 Key fields:
 
 - `image_flavor`, `packaged_inference_providers`, and `image_flavor_warning`
-- `available_providers` (packaged providers that also passed runtime/device probes)
+- `available_providers` (packaged providers that passed runtime/device probes and
+  are supported by the active model)
+- `provider_preference_order` (the active provider followed by its concrete
+  runtime-recovery path)
 - `cuda_provider_installed` vs `cuda_available`
   - `true` / `false` means the CUDA-capable ONNX Runtime wheel is installed, but no usable NVIDIA GPU is available to the container
 - `openvino_available`

@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+- **Inference provider choices now reflect the runtime that can actually be used.** Settings and
+  first-run setup show only providers included in the running image, detected on the host, and
+  supported by the active model, ordered from the active runtime through its real fallback path.
+  `Auto` remains the recommended default. A saved provider made unavailable by an image, hardware,
+  or model change remains visible as a disabled warning until the owner chooses a valid replacement,
+  and irrelevant CUDA or Intel diagnostic pills are hidden in provider-specific images.
+
 ## [2.14.0] - 2026-07-20
 
 ### Added

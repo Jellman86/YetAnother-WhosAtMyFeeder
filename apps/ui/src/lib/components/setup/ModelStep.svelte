@@ -19,6 +19,11 @@
         type ModelEvalModelSummary
     } from '../../api/model_eval';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
+    import {
+        buildInferenceProviderChoices,
+        getProviderPreferenceOrder,
+        type InferenceProvider,
+    } from '../../settings/inference-providers';
     import WizardStepLayout from './WizardStepLayout.svelte';
 
     let status = $state<ClassifierStatus | null>(null);
@@ -42,8 +47,8 @@
         { id: 'intel_npu', label: 'Intel NPU', available: status?.intel_npu_available },
         { id: 'intel_gpu', label: 'Intel iGPU', available: status?.intel_gpu_available },
         { id: 'cuda', label: 'NVIDIA CUDA', available: status?.cuda_available },
-        { id: 'cpu', label: 'CPU', available: status?.intel_cpu_available ?? true }
-    ]);
+        { id: 'cpu', label: 'CPU', available: status?.available_providers?.includes('cpu') ?? false }
+    ].filter((accelerator) => accelerator.available));
     let verified = $derived(status?.host_device_eligibility?.verified_providers ?? []);
     let activeModel = $derived(setupWizardStore.detailFor('model'));
     let progressPct = $derived(progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0);
@@ -51,6 +56,27 @@
     let selectedModel = $derived(availableModels.find((model) => model.id === selectedModelId) ?? installedModels.find((model) => model.id === selectedModelId)?.metadata ?? null);
     let selectedModelSummary = $derived(summarizeModelMetadata(selectedModel));
     let needsDownload = $derived(!!selectedModelId && !installedIds.has(selectedModelId));
+
+    function providerLabel(provider: InferenceProvider): string {
+        const labels: Record<InferenceProvider, string> = {
+            auto: $_('settings.detection.provider_auto', { default: 'Auto (recommended)' }),
+            cpu: $_('settings.detection.provider_cpu', { default: 'CPU (ONNX Runtime)' }),
+            cuda: $_('settings.detection.provider_cuda', { default: 'NVIDIA CUDA' }),
+            intel_gpu: $_('settings.detection.provider_intel_gpu', { default: 'Intel GPU (OpenVINO)' }),
+            intel_cpu: $_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' }),
+            intel_npu: $_('settings.detection.provider_intel_npu', { default: 'Intel NPU (OpenVINO)' }),
+        };
+        return labels[provider];
+    }
+
+    let providerChoices = $derived(buildInferenceProviderChoices(status, selectedProvider));
+    let providerPreferenceLabel = $derived(
+        getProviderPreferenceOrder(status).map(providerLabel).join(' → ')
+    );
+    let configuredProviderUnavailable = $derived(
+        selectedProvider !== 'auto'
+        && providerChoices.some((choice) => choice.value === selectedProvider && choice.unavailable)
+    );
 
     onMount(async () => {
         try {
@@ -195,14 +221,29 @@
             <div>
                 <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</label>
                 <select id="setup-provider" bind:value={selectedProvider} class="select-base mt-1">
-                    <option value="auto">{$_('settings.detection.provider_auto', { default: 'Auto' })}</option>
-                    <option value="cpu">{$_('settings.detection.provider_cpu', { default: 'CPU (ONNX Runtime)' })}</option>
-                    <option value="cuda">{$_('settings.detection.provider_cuda', { default: 'NVIDIA CUDA' })}</option>
-                    <option value="intel_gpu">{$_('settings.detection.provider_intel_gpu', { default: 'Intel GPU (OpenVINO)' })}</option>
-                    <option value="intel_cpu">{$_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' })}</option>
-                    <option value="intel_npu">{$_('settings.detection.provider_intel_npu', { default: 'Intel NPU (OpenVINO)' })}</option>
+                    {#each providerChoices as choice (choice.value)}
+                        <option value={choice.value} disabled={choice.unavailable}>
+                            {providerLabel(choice.value)}{choice.unavailable ? ` · ${$_('common.unavailable', { default: 'Unavailable' })}` : ''}
+                        </option>
+                    {/each}
                 </select>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.provider_hint', { default: 'Auto uses validated accelerators first and falls back cleanly to CPU.' })}</p>
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.provider_hint', { default: 'Only providers available in this image, on this host, and for the active model are shown.' })}</p>
+                {#if providerPreferenceLabel}
+                    <p aria-live="polite" class="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        {$_('settings.detection.provider_runtime_order', {
+                            values: { order: providerPreferenceLabel },
+                            default: `Current runtime order: ${providerPreferenceLabel}`
+                        })}
+                    </p>
+                {/if}
+                {#if configuredProviderUnavailable}
+                    <p role="status" class="mt-1 border-l-2 border-amber-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
+                        {$_('settings.detection.provider_saved_unavailable', {
+                            values: { provider: providerLabel(selectedProvider as InferenceProvider) },
+                            default: `${providerLabel(selectedProvider as InferenceProvider)} is saved but unavailable. Choose an available provider or Auto.`
+                        })}
+                    </p>
+                {/if}
             </div>
             <div>
                 <label for="setup-execution-mode" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.execution_mode', { default: 'Execution Mode' })}</label>
@@ -214,19 +255,23 @@
             </div>
         </div>
 
-        <div>
-            <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.detected', { default: 'Detected accelerators' })}</p>
-            <div class="mt-1.5 flex flex-wrap gap-2">
-                {#each accelerators as acc (acc.id)}
-                    <span class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold {acc.available ? 'bg-accent-100 text-accent-800 dark:bg-accent-900/30 dark:text-accent-200' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}">
-                        <span aria-hidden="true">{acc.available ? '✓' : '—'}</span> {acc.label}
-                    </span>
-                {/each}
+        {#if accelerators.length || verified.length}
+            <div>
+                <p class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.detected', { default: 'Detected accelerators' })}</p>
+                {#if accelerators.length}
+                    <div class="mt-1.5 flex flex-wrap gap-2">
+                        {#each accelerators as acc (acc.id)}
+                            <span class="inline-flex items-center gap-1 rounded-full bg-accent-100 px-2.5 py-1 text-xs font-semibold text-accent-800 dark:bg-accent-900/30 dark:text-accent-200">
+                                <span aria-hidden="true">✓</span> {acc.label}
+                            </span>
+                        {/each}
+                    </div>
+                {/if}
+                {#if verified.length}
+                    <p class="mt-2 text-xs text-accent-700 dark:text-accent-300">{$_('setup.model.verified', { values: { list: verified.join(', ') }, default: `Validated providers: ${verified.join(', ')}` })}</p>
+                {/if}
             </div>
-            {#if verified.length}
-                <p class="mt-2 text-xs text-accent-700 dark:text-accent-300">{$_('setup.model.verified', { values: { list: verified.join(', ') }, default: `Validated providers: ${verified.join(', ')}` })}</p>
-            {/if}
-        </div>
+        {/if}
 
         {#if validating && progress}
             <div class="space-y-2 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/20">

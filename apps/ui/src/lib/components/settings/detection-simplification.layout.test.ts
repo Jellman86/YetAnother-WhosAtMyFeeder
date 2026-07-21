@@ -54,6 +54,14 @@ describe('Detection settings simplification', () => {
         expect(detectionSettingsSource).toContain('role="alert"');
     });
 
+    it('uses the live provider contract instead of advertising every runtime', () => {
+        expect(detectionSettingsSource).toContain('buildInferenceProviderChoices');
+        expect(detectionSettingsSource).toContain('getProviderPreferenceOrder');
+        expect(detectionSettingsSource).toContain('providerPreferenceLabel');
+        expect(detectionSettingsSource).toContain('configuredProviderUnavailable');
+        expect(detectionSettingsSource).not.toContain("{ value: 'cuda', label:");
+    });
+
     it('keeps shared disclosures semantic, readable, and keyboard visible', () => {
         expect(advancedSectionSource).toContain('aria-expanded={open}');
         expect(advancedSectionSource).toContain('aria-controls={contentId}');

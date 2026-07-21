@@ -47,6 +47,7 @@ export interface ClassifierStatus {
     fallback_reason?: string | null;
     model_config_warnings?: string[];
     available_providers?: string[];
+    provider_preference_order?: string[];
     cuda_enabled?: boolean;
     personalized_rerank_enabled?: boolean;
     personalization_min_feedback_tags?: number;

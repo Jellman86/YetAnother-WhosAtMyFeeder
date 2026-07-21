@@ -34,6 +34,7 @@ from app.services.classifier_service import (  # noqa: E402
     _normalize_inference_provider,
     _probe_openvino_gpu_plugin_error_safe,
     _probe_onnxruntime_cuda_provider_safe,
+    _provider_capability_contract,
     _reconcile_ort_active_provider,
     _resolve_inference_selection,
     _select_video_frame_indices,
@@ -4511,6 +4512,73 @@ def test_resolve_inference_selection_auto_prefers_intel_gpu_then_cuda():
     assert sel["backend"] == "openvino"
     assert sel["openvino_device"] == "GPU"
     assert sel["fallback_reason"] is None
+
+
+def test_provider_capability_contract_filters_image_and_orders_active_runtime_path():
+    contract = _provider_capability_contract(
+        caps={
+            "ort_available": True,
+            "cuda_available": True,
+            "openvino_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+            "intel_npu_available": True,
+        },
+        packaged_providers=("cpu", "intel_cpu", "intel_gpu", "intel_npu"),
+        supported_providers=["cpu", "intel_cpu", "intel_gpu", "intel_npu"],
+        active_backend="openvino",
+        active_provider="intel_npu",
+    )
+
+    assert contract == {
+        "available_providers": ["intel_npu", "intel_cpu", "cpu", "intel_gpu"],
+        "provider_preference_order": ["intel_npu", "intel_cpu", "cpu"],
+    }
+    assert "cuda" not in contract["available_providers"]
+
+
+def test_provider_capability_contract_hides_hardware_the_active_model_cannot_run():
+    contract = _provider_capability_contract(
+        caps={
+            "ort_available": True,
+            "cuda_available": False,
+            "openvino_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+            "intel_npu_available": True,
+        },
+        packaged_providers=("cpu", "intel_cpu", "intel_gpu", "intel_npu"),
+        supported_providers=["cpu", "intel_cpu"],
+        active_backend="openvino",
+        active_provider="intel_cpu",
+    )
+
+    assert contract == {
+        "available_providers": ["intel_cpu", "cpu"],
+        "provider_preference_order": ["intel_cpu", "cpu"],
+    }
+
+
+def test_provider_capability_contract_keeps_cuda_fallback_order_truthful():
+    contract = _provider_capability_contract(
+        caps={
+            "ort_available": True,
+            "cuda_available": True,
+            "openvino_available": False,
+            "intel_cpu_available": False,
+            "intel_gpu_available": False,
+            "intel_npu_available": False,
+        },
+        packaged_providers=("cpu", "cuda"),
+        supported_providers=["cpu", "cuda"],
+        active_backend="onnxruntime",
+        active_provider="cuda",
+    )
+
+    assert contract == {
+        "available_providers": ["cuda", "cpu"],
+        "provider_preference_order": ["cuda", "cpu"],
+    }
 
 
 @pytest.mark.parametrize(

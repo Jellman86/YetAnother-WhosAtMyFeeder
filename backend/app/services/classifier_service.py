@@ -1170,6 +1170,112 @@ def _cuda_unavailable_reason(caps: dict) -> str:
     return "CUDAExecutionProvider is not available"
 
 
+def _runtime_fallback_targets_for(
+    *,
+    active_backend: str,
+    active_provider: str,
+    caps: dict[str, Any],
+) -> list[tuple[str, str]]:
+    """Return the concrete recovery order for the active inference runtime."""
+    targets: list[tuple[str, str]] = []
+
+    def _append(target_backend: str, target_provider: str) -> None:
+        target = (target_backend, target_provider)
+        if target not in targets and target != (active_backend, active_provider):
+            targets.append(target)
+
+    if active_backend == "openvino":
+        if active_provider in {"intel_gpu", "intel_npu"} and caps.get("intel_cpu_available"):
+            _append("openvino", "intel_cpu")
+        if caps.get("ort_available"):
+            _append("onnxruntime", "cpu")
+        _append("tflite", "tflite")
+        return targets
+
+    if active_backend == "onnxruntime":
+        if active_provider != "cpu" and caps.get("ort_available"):
+            _append("onnxruntime", "cpu")
+        if caps.get("openvino_available") and caps.get("intel_cpu_available"):
+            _append("openvino", "intel_cpu")
+        _append("tflite", "tflite")
+        return targets
+
+    if active_backend == "tflite":
+        return targets
+
+    if caps.get("ort_available"):
+        _append("onnxruntime", "cpu")
+    _append("tflite", "tflite")
+    return targets
+
+
+def _provider_capability_contract(
+    *,
+    caps: dict[str, Any],
+    packaged_providers: tuple[str, ...] | list[str],
+    supported_providers: list[str] | tuple[str, ...] | None,
+    active_backend: str,
+    active_provider: str,
+) -> dict[str, list[str]]:
+    """Build the provider list exposed to configuration clients.
+
+    A selectable provider must be packaged by the running image, usable on this
+    host, and supported by the active model when that model declares a provider
+    allow-list. The active runtime and its real recovery targets come first;
+    other valid manual alternatives follow without pretending they are automatic
+    fallbacks.
+    """
+    packaged = {
+        _normalize_inference_provider(provider)
+        for provider in packaged_providers
+        if _normalize_inference_provider(provider) != "auto"
+    }
+    supported = {
+        _normalize_inference_provider(provider)
+        for provider in (supported_providers or [])
+        if _normalize_inference_provider(provider) != "auto"
+    }
+    host_available = {
+        "cpu": bool(caps.get("ort_available")),
+        "cuda": bool(caps.get("cuda_available")),
+        "intel_cpu": bool(caps.get("openvino_available") and caps.get("intel_cpu_available")),
+        "intel_gpu": bool(caps.get("openvino_available") and caps.get("intel_gpu_available")),
+        "intel_npu": bool(caps.get("openvino_available") and caps.get("intel_npu_available")),
+    }
+
+    def _selectable(provider: str) -> bool:
+        return bool(
+            host_available.get(provider)
+            and (not packaged or provider in packaged)
+            and (not supported or provider in supported)
+        )
+
+    fallback_candidates = [active_provider]
+    fallback_candidates.extend(
+        provider
+        for _backend, provider in _runtime_fallback_targets_for(
+            active_backend=active_backend,
+            active_provider=active_provider,
+            caps=caps,
+        )
+    )
+
+    provider_preference_order: list[str] = []
+    for provider in fallback_candidates:
+        if _selectable(provider) and provider not in provider_preference_order:
+            provider_preference_order.append(provider)
+
+    available_providers = list(provider_preference_order)
+    for provider in ("intel_npu", "intel_gpu", "cuda", "intel_cpu", "cpu"):
+        if _selectable(provider) and provider not in available_providers:
+            available_providers.append(provider)
+
+    return {
+        "available_providers": available_providers,
+        "provider_preference_order": provider_preference_order,
+    }
+
+
 def _resolve_inference_selection(
     requested_provider: Optional[str],
     caps: dict,
@@ -2984,40 +3090,11 @@ class ClassifierService:
                     pass
 
     def _runtime_fallback_targets(self) -> list[tuple[str, str]]:
-        targets: list[tuple[str, str]] = []
-
-        def _append(target_backend: str, target_provider: str) -> None:
-            target = (target_backend, target_provider)
-            if target not in targets and not (
-                target_backend == self._inference_backend and target_provider == self._active_inference_provider
-            ):
-                targets.append(target)
-
-        if self._inference_backend == "openvino":
-            if self._active_inference_provider in ("intel_gpu", "intel_npu") and self._accel_caps.get(
-                "intel_cpu_available"
-            ):
-                _append("openvino", "intel_cpu")
-            if self._accel_caps.get("ort_available"):
-                _append("onnxruntime", "cpu")
-            _append("tflite", "tflite")
-            return targets
-
-        if self._inference_backend == "onnxruntime":
-            if self._active_inference_provider != "cpu" and self._accel_caps.get("ort_available"):
-                _append("onnxruntime", "cpu")
-            if self._accel_caps.get("openvino_available") and self._accel_caps.get("intel_cpu_available"):
-                _append("openvino", "intel_cpu")
-            _append("tflite", "tflite")
-            return targets
-
-        if self._inference_backend == "tflite":
-            return targets
-
-        if self._accel_caps.get("ort_available"):
-            _append("onnxruntime", "cpu")
-        _append("tflite", "tflite")
-        return targets
+        return _runtime_fallback_targets_for(
+            active_backend=self._inference_backend,
+            active_provider=self._active_inference_provider,
+            caps=self._accel_caps,
+        )
 
     def _load_runtime_fallback_bird_model(
         self,
@@ -4200,6 +4277,18 @@ class ClassifierService:
         )
         image_flavor = get_image_flavor()
         packaged_providers = packaged_inference_providers(image_flavor)
+        try:
+            active_model_spec = self._resolve_active_bird_model_spec()
+            supported_providers = list(active_model_spec.get("supported_inference_providers") or [])
+        except Exception:
+            supported_providers = []
+        provider_capabilities = _provider_capability_contract(
+            caps=self._accel_caps,
+            packaged_providers=packaged_providers,
+            supported_providers=supported_providers,
+            active_backend=str(effective_backend or ""),
+            active_provider=str(effective_provider or ""),
+        )
 
         status = {
             "image_execution_mode": self._image_execution_mode,
@@ -4270,15 +4359,7 @@ class ClassifierService:
             "late_completions_ignored": admission_metrics["late_completions_ignored"],
             "admission_recent_outcomes": admission_metrics["recent_outcomes"],
             "background_throttled": admission_metrics["background_throttled"],
-            "available_providers": [
-                p
-                for p in ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"]
-                if p == "cpu"
-                or (p == "cuda" and self._accel_caps.get("cuda_available"))
-                or (p == "intel_cpu" and self._accel_caps.get("intel_cpu_available"))
-                or (p == "intel_gpu" and self._accel_caps.get("intel_gpu_available"))
-                or (p == "intel_npu" and self._accel_caps.get("intel_npu_available"))
-            ],
+            **provider_capabilities,
             # legacy compatibility (can be removed later)
             "cuda_enabled": _normalize_inference_provider(
                 getattr(settings.classification, "inference_provider", "auto")
