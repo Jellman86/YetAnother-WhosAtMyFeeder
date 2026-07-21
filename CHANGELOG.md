@@ -7,6 +7,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+- **External crop candidates now have a strict, non-promoting benchmark path.** The maintainer probe
+  reproduces the official D-FINE/DEIMv2 batch-one ONNX contract, validates shapes and finite output,
+  separates positive localisation recall from negative-scene false positives, records compile and
+  median/p95 inference cost, and isolates CPU, Intel CPU/GPU/NPU, and CUDA provider trials. Candidate
+  artifacts and private camera panels remain outside the runtime registry and release assets.
 - **Hardware validation now exercises crop detectors as first-class inference models.** Full sweeps
   download both crop tiers, run each exact artifact in an isolated CPU/CUDA/OpenVINO process, and
   compare finite output plus detection presence, box geometry, and confidence against CPU across a
@@ -25,6 +30,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   43 private field/synthetic cases across Intel CPU, GPU, and NPU. The safe field policy admitted
   6/30 distant/mid-distance event crops and 0/13 negatives, leaving replacement-model recall as
   explicit roadmap work rather than overstating hardware equivalence as detector quality.
+- **The first two external crop candidates were screened on varied images and Quark hardware.**
+  Pinned official D-FINE-N and DEIMv2-N exports were evaluated on eight labelled clean/feeder
+  reference images plus 30 independent field events across seven recorded labels and 10 real
+  feeder/foliage negatives. At each candidate's most permissive tested zero-false-positive field
+  threshold, D-FINE-N produced one IoU≥0.3 crop and DEIMv2-N produced two, versus four from the
+  current YOLOX evidence path. Both matched CPU policy presence across all 40 cases on Intel CPU and
+  GPU, but the Intel NPU compiler process exited for both static batch-one graphs. Neither candidate
+  is promoted; RTMDet-Tiny, PP-YOLOE+ S, manual owner labelling, and downstream classifier comparison
+  remain open.
 
 ### Fixed
 - **Reused download filenames no longer corrupt crop-provider comparisons.** Each validation image

@@ -163,6 +163,31 @@ but are explicitly not claims that the entire source frame contained no other bi
 reports positive recall separately from negative false-positive/specificity rates and groups results
 by manifest tag. Camera images and generated negatives stay in the private config volume.
 
+### External candidate screening
+
+Maintainers can screen an exported candidate without adding it to the model registry or making it
+downloadable. The probe implements the official D-FINE-N and DEIMv2-N deployment contract and runs
+one provider per process so a compiler failure cannot be mistaken for a passing fallback:
+
+```bash
+python backend/scripts/probe_crop_candidate.py \
+  --candidate deimv2_n_coco \
+  --model /config/yawamf-eval/candidates/deimv2_n_coco.onnx \
+  --manifest /config/yawamf-eval/crop-detector-field/manifest.json \
+  --provider intel_gpu \
+  --output-json /config/yawamf-eval/candidates/deimv2-intel-gpu.json
+```
+
+Run CPU first, then each packaged/provider-visible accelerator in a disposable subprocess and retain
+non-zero exits as failures. The JSON records the artifact checksum and input contract, compile time,
+median/p95 preprocessing and inference time, per-case boxes/scores, threshold curves, IoU recall,
+and real-negative false-positive rate. Recall scores the highest-confidence bird box that runtime
+selection would use; any-candidate IoU is retained separately for selection-policy diagnosis. A
+passing provider comparison proves only that the artifact
+executes consistently; promotion still requires manually labelled visit-level downstream species
+results against Frigate. Candidate weights and private camera results must not be committed or
+uploaded to a release while provenance or redistribution terms remain unconfirmed.
+
 Both `summary.json` and `device_matrix.json` contain compatibility-only results. The latter is
 available through `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with `artifact` set to
 `device_matrix.json`; older runs that used `devices` remain readable while new matrices also expose
@@ -179,5 +204,6 @@ provider-native `providers` fields.
 - Crop provider probe: `backend/scripts/probe_crop_model_provider.py`
 - Private crop field-panel builder: `backend/scripts/build_crop_field_manifest.py`
 - Crop detector quality evaluator: `backend/scripts/eval_crop_detector_accuracy.py`
+- External crop-candidate probe: `backend/scripts/probe_crop_candidate.py`
 - Frontend page: `apps/ui/src/lib/pages/ModelEvaluation.svelte`
 - Design doc: `docs/plans/2026-05-07-model-evaluation-harness-design.md`

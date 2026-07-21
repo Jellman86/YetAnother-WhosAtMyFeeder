@@ -387,14 +387,17 @@ mutable Raspberry Pi tags are promoted. The open work is expanding Playwright E2
 restart/recovery and GPU/provider fallback paths, plus a physical-Pi smoke/soak pass.
 
 #### Crop-detector field benchmark 🐦
-**Priority:** P1 | **Effort:** M | **Status:** 🔄 Hardware sweep and private panel tooling delivered; candidate comparison in progress
+**Priority:** P1 | **Effort:** M | **Status:** 🔄 Hardware sweep, private panel tooling, and first two candidate screens delivered
 
 The evidence-only distant-subject threshold recovery is delivered, but a detector replacement is
 not selected from one event or generic COCO AP. Build a manually labelled, visit-grouped Quark panel
 with near/distant birds and hard negatives; compare Frigate, current YOLOX-Tiny, bounded slicing,
 D-FINE-N, DEIMv2-N, RTMDet-Tiny, and PP-YOLOE+ S on downstream species correctness, crop recall/clipping,
-false positives, and per-provider resource cost. Promote only a reproducible permissively licensed
-artifact that beats Frigate without weakening full-frame/fail-soft behaviour. See the
+false positives, and per-provider resource cost. D-FINE-N and DEIMv2-N have now failed the initial
+varied-image localisation/negative screen: neither beat current YOLOX at a zero-field-false-positive
+operating point, and both crashed inside the current Intel NPU compiler despite static batch-one
+exports. They remain benchmark evidence, not runtime or release models. Promote only a reproducible
+permissively licensed artifact that beats Frigate without weakening full-frame/fail-soft behaviour. See the
 [candidate review and promotion gate](docs/reviews/2026-07-21-crop-detector-candidate-review.md).
 
 The shared hardware sweep now includes both exact crop-detector artifacts, a species-diverse
@@ -403,7 +406,9 @@ and CPU box/confidence agreement. The comparison fails closed on missing/duplica
 raw proposals below every production threshold. Validated crop providers activate at runtime with
 CPU fallback. A private same-frame builder and initial 30-event/10-negative Quark panel now exist,
 but most reference boxes and labels are still Frigate/automatic evidence rather than owner-labelled
-ground truth. Manual labelling and the replacement-candidate comparison remain open.
+ground truth. The reusable external-candidate probe and first D-FINE-N/DEIMv2-N CPU/Intel GPU/NPU
+screens are complete. Manual labelling, downstream Frigate/classifier win-tie-loss analysis, and
+RTMDet-Tiny/PP-YOLOE+ S comparison remain open.
 
 #### High-availability setup 🏗️
 **Priority:** P3 | **Effort:** M | **Status:** ☐ Not started

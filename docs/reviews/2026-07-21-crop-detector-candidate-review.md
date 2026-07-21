@@ -1,7 +1,7 @@
 # Crop-detector candidate review
 
 Date: 2026-07-21  
-Status: Evidence-recovery fix implemented; replacement model not yet selected
+Status: Evidence-recovery fix implemented; D-FINE-N and DEIMv2-N screened; replacement not selected
 
 ## Decision
 
@@ -74,6 +74,66 @@ The low 6/30 admitted-crop count makes the next quality question sharper: a repl
 must recover more distant subjects without creating feeder-clutter false positives, and its crops
 must improve downstream species identification rather than detector confidence alone.
 
+## External candidate screen
+
+The first screen did not use the Sparrowhawk alone. It combined the private 30-event panel above
+with eight committed labelled positives: four feeder captures (Blue Tit, pigeon, and robin) and four
+clean references (American Robin, Blue Jay, Mallard, and Rock Pigeon). In total, candidate quality
+was exercised on 38 positive images across clean-reference, near/mid/distant feeder, small-subject,
+and edge-of-frame geometry plus 10 real feeder/foliage/hardware negative regions. The field panel's
+seven recorded labels include Common Wood-Pigeon, Dunnock, Eurasian Blackbird,
+Eurasian Collared-Dove, Eurasian Sparrowhawk, Great Thrush, and Unknown Bird.
+
+Both candidates were exported locally from pinned official source revisions as static batch-one
+ONNX graphs. The artifacts and private results remain only in the maintainer evaluation area; they
+were not added to the registry, images, or GitHub release.
+
+| Candidate | Pinned source | Checkpoint SHA-256 | Static ONNX SHA-256 |
+|---|---|---|---|
+| D-FINE-N | `Peterande/D-FINE@7fe2f8889f0b7b817f20c315b40fc15a4fb64ae6` | `41973938d2784d38a9836990d805b8392855ebf611aba55f0f7add90e110744c` | `1e026c9143606b2ecad694dbfe82c22a17e35ba561127669a9924d7db840cbea` |
+| DEIMv2-N | `Intellindust-AI-Lab/DEIMv2@0fff8d4dcdc272e6cf2d84be31399db471357941` | `2ce67dc3535e345f6ac3f46e735bbc12a93c344aa46cb630f7a047089a88b7e9` | `0d4bc63f8aa633dca8e4d6e0de19d1610dbb0fcc8df39c8f32b636e722703856` |
+
+The table below uses each candidate's most permissive predeclared threshold with zero detections in
+the 10 real negative regions. Thresholds are model-specific and not comparable as confidence
+probabilities. The current YOLOX row uses its production evidence-only `0.02` floor.
+
+| Model / operating point | Public labelled positives: detected / IoU≥0.3 / IoU≥0.5 | Field positives: detected / IoU≥0.3 / IoU≥0.5 | Field false positives |
+|---|---:|---:|---:|
+| Current YOLOX-Tiny / `0.02` | 7 / 3 / 2 of 8 | **6 / 4 / 2 of 30** | **0 / 10** |
+| D-FINE-N / `0.30` | 7 / 3 / 2 of 8 | 2 / 1 / 0 of 30 | 0 / 10 |
+| DEIMv2-N / `0.20` | 8 / 3 / 2 of 8 | 3 / 2 / 0 of 30 | 0 / 10 |
+
+Lowering the candidate floors did not produce a safe win. D-FINE-N at `0.10` reached five field
+IoU≥0.3 matches but also detected birds in 4/10 negative regions; at `0.05` it still had five matches
+and fired in all 10 negatives. DEIMv2-N at `0.10` reached two matches with 1/10 negatives and at
+`0.02` reached five matches with 9/10 negatives. These figures score the highest-confidence bird
+box that production would select; the result JSON also preserves any-candidate IoU as a diagnostic
+for selection-policy research. Neither candidate clears the localisation/specificity gate,
+so running downstream classification on its crops cannot produce promotion evidence and was
+deliberately deferred.
+
+| Candidate/provider | Compile | Median field inference | Safe-point CPU agreement | Result |
+|---|---:|---:|---:|---|
+| D-FINE-N / ONNX CPU | 162.4 ms | 27.8 ms | baseline | Valid. |
+| D-FINE-N / Intel CPU | 554.2 ms | **15.7 ms** | 40/40 presence; mean paired top-box IoU 1.000 | Valid. |
+| D-FINE-N / Intel GPU | 829.5 ms | 16.5 ms | 40/40 presence; mean paired top-box IoU 0.985 | Valid at the safe point; borderline scores diverge at lower floors. |
+| D-FINE-N / Intel NPU | n/a | n/a | compiler process exit 139 | Invalid on the current Quark/OpenVINO stack. |
+| DEIMv2-N / ONNX CPU | 191.5 ms | 37.2 ms | baseline | Valid. |
+| DEIMv2-N / Intel CPU | 589.6 ms | 16.8 ms | 40/40 presence; mean paired top-box IoU 1.000 | Valid. |
+| DEIMv2-N / Intel GPU | 2327.0 ms | **16.4 ms** | 40/40 presence; mean paired top-box IoU 0.992 | Valid at the safe point; borderline scores diverge at lower floors. |
+| DEIMv2-N / Intel NPU | n/a | n/a | compiler process exit 139 | Invalid on the current Quark/OpenVINO stack. |
+
+The NPU result was retested with a true static batch-one export after the official dynamic graph
+first failed on an unbounded batch dimension; both static graphs still terminated inside the Intel
+NPU compiler. This is candidate-specific: the current accurate YOLOX artifact passes on the same
+NPU. Quark has no NVIDIA device, so this run makes no CUDA performance claim.
+
+This is a screening result, not a final statistical model comparison. The public boxes are manually
+curated, while most private field boxes and labels are same-frame Frigate/automatic evidence rather
+than owner ground truth. It is strong enough to reject promotion of these exact artifacts, but the
+final detector decision still requires owner-labelled visits and downstream Frigate win/tie/loss
+analysis for any candidate that clears this first gate.
+
 ## Candidate shortlist
 
 The candidates below use official project results to choose what is worth exporting and testing.
@@ -82,8 +142,8 @@ Quark until the exact exported artifacts pass the on-hardware harness.
 
 | Priority | Candidate | Why it is worth testing | Constraint before promotion |
 |---:|---|---|---|
-| 1 | **D-FINE-N** | 4M parameters, 7 GFLOPs, and 42.8 COCO AP in the official model zoo. The project has an ONNX exporter, and current Frigate documentation independently demonstrates the same exporter with S/M/L Objects365→COCO weights. | Confirm the N export rather than assuming the S/M/L recipe, add a strict output adapter, pin source revision/checksum, verify weight terms, then measure ONNX/OpenVINO providers on Quark. |
-| 2 | **DEIMv2-N** | 3.6M parameters, 6.8 GFLOPs, and 43.0 COCO AP; Pico is an even smaller 1.5M/5.2-GFLOP fallback. Current Frigate docs include DEIMv2 ONNX export guidance. | Newer deployment surface with less field history; require static-shape ONNX, bounded memory, and provider conformance before wider testing. |
+| 1 | **D-FINE-N** | 4M parameters, 7 GFLOPs, and 42.8 COCO AP in the official model zoo. Its official N checkpoint and static ONNX export now run on CPU and Intel GPU. | **Screened, not promoted:** no safe field recall gain and current Intel NPU compiler exit. Retain as reproducible negative evidence; do not distribute until weight terms are independently confirmed. |
+| 2 | **DEIMv2-N** | 3.6M parameters, 6.8 GFLOPs, and 43.0 COCO AP; its official N checkpoint and static ONNX export now run on CPU and Intel GPU. | **Screened, not promoted:** no safe field recall gain and current Intel NPU compiler exit. Retain as reproducible negative evidence; do not distribute until weight terms are independently confirmed. |
 | 3 | **RTMDet-Tiny** | 4.8M parameters, 8.1 GFLOPs, and 41.0 COCO AP; a promising accuracy/size step over YOLOX-Tiny. MMDeploy officially targets ONNX Runtime and OpenVINO. | Use the Apache-licensed MMDetection/MMDeploy route, not the GPL MMYOLO application package, and reproduce post-processing exactly. |
 | 4 | **PP-YOLOE+ S** | 7.93M parameters, 17.36 GFLOPs, and 43.7 COCO AP in PaddleDetection's official table, with an official export workflow. | Export and validate without adding Paddle to runtime images; check NMS/output portability and exact weight licence. |
 | 5 | **RT-DETRv2-S** | 48.1 COCO AP and official ONNX Runtime, TensorRT, OpenVINO, and sliced-inference support. It is a useful higher-accuracy ceiling. | 20M parameters/60 GFLOPs makes it a likely optional accurate tier, not a universal default. |
@@ -148,9 +208,11 @@ the full-frame peer, Frigate hint, or original-image fallback.
 
 1. Retain the evidence-only `0.02` recovery and collect outcome telemetry through existing candidate
    provenance; do not lower the normal automatic-replacement threshold.
-2. Extend the crop benchmark so external detector adapters, Frigate baselines, empty scenes,
-   downstream classifier outcomes, and per-provider latency share one versioned result format.
-3. Export and benchmark D-FINE-N first, then DEIMv2-N, RTMDet-Tiny, and PP-YOLOE+ S. Test one
-   higher-accuracy DETR only if the lightweight set does not clear the Frigate gate.
+2. Extend the crop benchmark so Frigate baselines and downstream classifier outcomes join the
+   delivered external-adapter, labelled-positive, real-negative, threshold-curve, and per-provider
+   result format.
+3. D-FINE-N and DEIMv2-N screening is complete and neither exact artifact passes. Export and
+   benchmark RTMDet-Tiny next, then PP-YOLOE+ S. Test one higher-accuracy DETR only if the
+   lightweight set does not clear the Frigate gate.
 4. Consider bounded slicing only for large frames whose native detector result is uncertain, and
    only if the visit-level benchmark shows a net downstream gain that justifies the extra calls.
