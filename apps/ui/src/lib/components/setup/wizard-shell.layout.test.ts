@@ -3,6 +3,7 @@ import wizardShellSource from './WizardShell.svelte?raw';
 import modelStepSource from './ModelStep.svelte?raw';
 import qualityStepSource from './QualityStep.svelte?raw';
 import dataSettingsSource from '../settings/DataSettings.svelte?raw';
+import settingsTabsSource from '../settings/SettingsTabs.svelte?raw';
 import sidebarSource from '../Sidebar.svelte?raw';
 import appSource from '../../../App.svelte?raw';
 import { WIZARD_STEPS } from '../../stores/setup_wizard.svelte';
@@ -24,13 +25,13 @@ describe('setup wizard wiring', () => {
         expect(wizardShellSource).toContain("setupWizardStore.mode === 'rerun'");
     });
 
-    it('offers an owner navigation action that opens the wizard without changing route', () => {
-        expect(sidebarSource).toContain("setupWizardStore.open('rerun')");
-        expect(sidebarSource).toContain("kind: 'action'");
-        expect(sidebarSource).toContain("action: 'setup_wizard'");
-        expect(sidebarSource).toContain("label: $_('nav.setup_wizard')");
-        expect(sidebarSource).toContain('requiresAuth: true');
-        expect(sidebarSource).toContain("aria-haspopup={item.kind === 'action' ? 'dialog' : undefined}");
+    it('offers the wizard from Settings navigation instead of the application sidebar', () => {
+        expect(settingsTabsSource).toContain("setupWizardStore.open('rerun')");
+        expect(settingsTabsSource).toContain("$_('nav.setup_wizard')");
+        expect(settingsTabsSource).toContain('aria-haspopup="dialog"');
+        expect(settingsTabsSource).toContain('data-setup-wizard-action');
+        expect(sidebarSource).not.toContain("setupWizardStore.open('rerun')");
+        expect(sidebarSource).not.toContain("action: 'setup_wizard'");
         expect(dataSettingsSource).not.toContain("setupWizardStore.open('rerun')");
     });
 

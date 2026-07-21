@@ -142,7 +142,7 @@ A fresh installation opens the guided setup wizard automatically. In its
 **Admin account & access** step, set an owner password before exposing YA-WAMF
 outside your trusted network. You may explicitly choose to run without a
 password on a trusted network. The wizard can be reopened later from
-**Settings → Data**.
+**Settings → Setup wizard** in the Settings navigation.
 
 ### 5. (Optional) Enable Guest Mode
 If you want to share a read‑only public view:

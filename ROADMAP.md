@@ -103,10 +103,10 @@ The headline work that makes `3.0` a major version: a guided first run, a cleane
 surface, a codebase reviewed to the gold standard, and complete translations.
 
 #### First-run setup wizard 🧭
-**Priority:** P1 | **Effort:** L | **Status:** ✅ Shipped on `dev` — multi-part, hardware-validating, re-runnable from the main owner navigation ([design](docs/plans/2026-07-12-first-run-setup-wizard-design.md))
+**Priority:** P1 | **Effort:** L | **Status:** ✅ Shipped on `dev` — multi-part, hardware-validating, re-runnable from the Settings navigation ([design](docs/plans/2026-07-12-first-run-setup-wizard-design.md))
 
 A friendly, **skippable** guided setup that configures YA-WAMF end to end and — crucially —
-is **idempotent and re-runnable at any time** from **Setup wizard** in the main menu (running a step again is safe and
+is **idempotent and re-runnable at any time** from **Setup wizard** in the Settings navigation (running a step again is safe and
 never clobbers unrelated config). Steps:
 
 - **Model selection with on-hardware validation** — pick a classifier and confirm it actually

@@ -137,12 +137,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   `Auto` remains the recommended default. A saved provider made unavailable by an image, hardware,
   or model change remains visible as a disabled warning until the owner chooses a valid replacement,
   and irrelevant CUDA or Intel diagnostic pills are hidden in provider-specific images.
-- **The guided setup is now a first-class owner navigation action.** `Setup wizard` sits beside
-  Settings in the main menu and opens the existing non-destructive section map; the duplicate card
-  is removed from Data maintenance. The wizard now treats an empty camera list correctly as “watch
-  all cameras,” keeps model setup focused on compatible model/provider choices instead of exposing
-  execution-process internals, and stops writing the legacy crop toggle now that best-image and
-  crop selection are automatic policies.
+- **The guided setup now lives with the settings it changes.** `Setup wizard` opens the existing
+  non-destructive section map from the Settings navigation's Operations group instead of occupying
+  a primary application-sidebar slot; mobile exposes the same action directly beneath the grouped
+  Settings selector. The duplicate card remains removed from Data maintenance. The wizard now
+  treats an empty camera list correctly as “watch all cameras,” keeps model setup focused on
+  compatible model/provider choices instead of exposing execution-process internals, and stops
+  writing the legacy crop toggle now that best-image and crop selection are automatic policies.
 - **Hardware validation now understands every runtime image.** The setup wizard, guided model
   install, Detection compatibility check and Model Evaluation diagnostics now share one provider
   sweep: `packaged by image ∩ detected on host ∩ supported by model`. It isolates and tests ONNX

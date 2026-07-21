@@ -22,7 +22,7 @@ On a fresh installation, YA-WAMF opens the guided setup automatically because
 lets you create the owner account or explicitly continue without authentication
 on a trusted network. You do not need to set `AUTH__ENABLED=true` to display the
 wizard. After setup, you can reopen the non-destructive wizard from
-**Settings → Data**.
+**Settings → Setup wizard** in the Settings navigation.
 
 ## Quick Start (Recommended)
 

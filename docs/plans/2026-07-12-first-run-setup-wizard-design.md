@@ -99,7 +99,8 @@ run* on this hardware before leaving the step."
 **First-run mode** — auto-shown when `auth.initial_setup_complete` is false. Linear, start to
 finish, progress bar, ends by setting the completion flag. Fully skippable to a working default.
 
-**Re-run mode** — launched any time from the owner-only **Setup wizard** navigation action.
+**Re-run mode** — launched any time from the owner-only **Setup wizard** action in the Settings
+navigation.
 Opens on a **section map**: every step listed with its current state (✅ configured / ⚠ needs attention /
 — skipped), letting the user jump straight to the one section they want to redo. Because each
 step round-trips only its own slice through `PUT /api/settings`, re-running "Notifications"
@@ -137,8 +138,9 @@ never touches Frigate, models, or anything else. Re-run mode never resets
 - A `setup_wizard.svelte.ts` store holds current step, per-step status, and the section map from
   `/api/setup/state`. Svelte 5 runes, `$derived` for step validity, `$effect` only for the
   route/`aria-live` sync.
-- The main owner navigation gains a "Setup wizard" launch action (re-run mode), keeping the
-  guided path discoverable without burying it among data-maintenance tools.
+- The Settings navigation gains a "Setup wizard" launch action (re-run mode) in its Operations
+  group, keeping the guided path discoverable beside the settings it changes without burying it
+  among data-maintenance tools or promoting it to a primary application destination.
 - All copy through i18n with `{ default }` fallbacks; all API calls through `apps/ui/src/lib/api/`.
 
 **Testing**
@@ -156,8 +158,8 @@ never touches Frigate, models, or anything else. Re-run mode never resets
   gates → **model validated on the detected accelerator** → quality → chosen integrations
   (each tested) → finish, with a visible progress indicator throughout.
 - Every step is skippable; skipping leaves that section's config untouched at its default.
-- The wizard is re-launchable from the main owner navigation at any time, opens on a section map,
-  and lets the user reconfigure a single section without altering any other.
+- The wizard is re-launchable from the Settings navigation at any time, opens on a section map, and
+  lets the user reconfigure a single section without altering any other.
 - Re-running a step is idempotent — it pre-fills from current config and writes back only its
   own slice via the secret-preserving settings write.
 - Step 4 refuses to leave the user on a model that fails compile/finite-output/latency on their
