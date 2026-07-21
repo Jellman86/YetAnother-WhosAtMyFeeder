@@ -382,8 +382,9 @@ benchmark suite for regression testing.
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Targeted coverage exists
 
 Unit/integration tests, CI, coverage reporting, migration-safety checks, and startup smoke
-checks are all in place. The open work is expanding Playwright E2E coverage around
-restart/recovery, GPU/provider fallback paths, and RPi ARM64 startup.
+checks are all in place. ARM64 image startup plus real model inference now run under QEMU before
+mutable Raspberry Pi tags are promoted. The open work is expanding Playwright E2E coverage around
+restart/recovery and GPU/provider fallback paths, plus a physical-Pi smoke/soak pass.
 
 #### High-availability setup 🏗️
 **Priority:** P3 | **Effort:** M | **Status:** ☐ Not started
@@ -454,21 +455,24 @@ data and runs DB migrations cleanly.
 
 ## 2. Raspberry Pi compatibility (best-effort)
 
-**Status:** CI-built ARM64 image available; not yet hardware-validated. Full assessment:
-[`agents/RASPBERRY_PI_ASSESSMENT.md`](agents/RASPBERRY_PI_ASSESSMENT.md).
+**Status:** CI-built and QEMU inference-smoked ARM64 image available; not yet hardware-validated. Full assessment:
+[`docs/reviews/2026-07-21-raspberry-pi-assessment.md`](docs/reviews/2026-07-21-raspberry-pi-assessment.md).
 
 Release builds publish a dedicated ARM64 monolith image
 (`ghcr.io/jellman86/yawamf-monalithic-rpi`); the web stack, MQTT, SQLite, and Nginx run on ARM64
 unmodified, and the inference layer degrades to CPU-only (no CUDA / Intel iGPU-NPU / VideoCore).
 
-**Shipped:** ARM-safe dependency selection (CPU `onnxruntime`, no x86 GPU setup), the multi-arch
-build job, and Pi setup docs + `.env.rpi.example`.
+**Shipped:** ARM-safe dependency selection (CPU `onnxruntime` plus standalone LiteRT, no x86 GPU
+setup), a revision-pinned/checksum-verified bundled MobileNet fallback, Pi-aware first-run model
+selection and download, functional Compose pressure controls, the multi-arch build job, and an
+ARM64 QEMU gate that proves startup, classifier load, labels, and one inference before mutable tags
+are promoted. Pi setup docs and `.env.rpi.example` match the deployed variables.
 
-**Remaining:** ARM64 startup/migration/inference smoke checks in CI, then a real-hardware exit pass
-(cold start, sustained inference, thermal stability, UI responsiveness) before claiming official
-support. Indicative RPi latency: MobileNetV2 TFLite ~150–200 ms/frame (usable); small ONNX CPU
-~500–800 ms/frame (marginal); ConvNeXt-large >1000 ms/frame (not viable). Recommend
-`CLASSIFICATION_IMAGE_MAX_CONCURRENT=1` and an SSD over microSD.
+**Remaining:** a real-hardware exit pass (cold start, migration against preserved `/config` and
+`/data`, sustained inference, thermal throttling, storage endurance, camera/event throughput, and
+UI responsiveness) before claiming official support. Start with
+`CLASSIFIER_IMAGE_MAX_CONCURRENT=1` and an SSD over microSD; measured device results must replace
+estimates before publishing performance claims.
 
 ---
 

@@ -743,8 +743,32 @@ async def test_activate_model_rejects_incomplete_classifier_install(monkeypatch,
     assert manager.active_model_id != "convnext_large_inat21"
 
 
-def test_get_active_model_spec_falls_back_when_active_classifier_install_incomplete(monkeypatch, tmp_path):
+def test_get_active_model_spec_falls_back_to_bundled_model_with_registry_contract(monkeypatch, tmp_path):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    bundled_dir = tmp_path / "bundled"
+    bundled_dir.mkdir()
+    (bundled_dir / "model.tflite").write_bytes(b"tflite")
+    (bundled_dir / "labels.txt").write_text("bird\n", encoding="utf-8")
+    (bundled_dir / "model_config.json").write_text(
+        json.dumps(
+            {
+                "model_id": "mobilenet_v2_birds",
+                "runtime": "tflite",
+                "input_size": 224,
+                "supported_inference_providers": ["cpu"],
+                "preprocessing": {
+                    "color_space": "RGB",
+                    "resize_mode": "letterbox",
+                    "padding_color": 128,
+                    "normalization": "uint8",
+                },
+                "crop_generator": {"enabled": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("app.services.model_manager.BUNDLED_MODELS_DIR", str(bundled_dir))
 
     model_dir = tmp_path / "convnext_large_inat21"
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -756,6 +780,10 @@ def test_get_active_model_spec_falls_back_when_active_classifier_install_incompl
     spec = manager.get_active_model_spec()
 
     assert spec["model_id"] == "mobilenet_v2_birds"
+    assert spec["model_path"] == str(bundled_dir / "model.tflite")
+    assert spec["labels_path"] == str(bundled_dir / "labels.txt")
+    assert spec["preprocessing"]["padding_color"] == 128
+    assert spec["supported_inference_providers"] == ["cpu"]
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,7 @@ export interface ClassifierStatus {
     labels_count: number;
     enabled: boolean;
     active_model_id?: string | null;
+    effective_model_id?: string | null;
     onnx_available?: boolean;
     openvino_available?: boolean;
     openvino_version?: string | null;
@@ -70,6 +71,31 @@ export interface ClassifierStatus {
 export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
     const response = await apiFetch(`${API_BASE}/classifier/status`);
     return handleResponse<ClassifierStatus>(response);
+}
+
+export function selectSetupModelId(
+    status: ClassifierStatus,
+    available: ModelMetadata[],
+    installed: InstalledModel[]
+): string {
+    const installedIds = new Set(installed.map((model) => model.id));
+    const effectiveModelId = status.effective_model_id ?? '';
+    if (effectiveModelId && installedIds.has(effectiveModelId)) return effectiveModelId;
+
+    const activeInstalled = installed.find((model) => model.is_active && model.ready !== false);
+    if (activeInstalled) return activeInstalled.id;
+
+    if (status.image_flavor === 'rpi' && installedIds.has('mobilenet_v2_birds')) {
+        return 'mobilenet_v2_birds';
+    }
+
+    const firstInstalled = installed.find((model) => model.ready !== false);
+    if (firstInstalled) return firstInstalled.id;
+
+    const preferredAvailable = status.image_flavor === 'rpi'
+        ? available.find((model) => model.id === 'mobilenet_v2_birds')
+        : undefined;
+    return preferredAvailable?.id ?? status.active_model_id ?? available[0]?.id ?? '';
 }
 
 export type DownloadModelResult = paths['/api/classifier/download']['post']['response'];

@@ -58,3 +58,43 @@ fi
 # Re-run the in-image healthcheck explicitly so the smoke contract cannot pass
 # because of a stale Docker health state.
 docker exec "$container_name" /usr/local/bin/yawamf-healthcheck.sh
+
+classifier_status="$(
+  docker exec "$container_name" \
+    curl -fsS http://127.0.0.1:8080/api/classifier/status
+)"
+printf '%s' "$classifier_status" | docker exec -i "$container_name" python -c '
+import json
+import sys
+
+status = json.load(sys.stdin)
+if status.get("loaded") is not True:
+    error = status.get("error") or "unknown error"
+    raise SystemExit(f"classifier not loaded: {error}")
+if not status.get("effective_model_id"):
+    raise SystemExit("classifier did not report its effective model")
+if int(status.get("labels_count") or 0) < 2:
+    raise SystemExit("classifier labels were not loaded")
+'
+
+docker exec "$container_name" python -c '
+from PIL import Image
+
+Image.new("RGB", (224, 224), color=(96, 128, 96)).save("/tmp/yawamf-smoke.png")
+'
+classification="$(
+  docker exec "$container_name" \
+    curl -fsS -F image=@/tmp/yawamf-smoke.png \
+    http://127.0.0.1:8080/api/classifier/classify
+)"
+printf '%s' "$classification" | docker exec -i "$container_name" python -c '
+import json
+import sys
+
+result = json.load(sys.stdin)
+if result.get("status") != "ok":
+    error = result.get("error") or "unknown error"
+    raise SystemExit(f"classification failed: {error}")
+if not result.get("predictions"):
+    raise SystemExit("classification returned no predictions")
+'

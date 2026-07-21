@@ -55,7 +55,11 @@ describe('setup wizard wiring', () => {
         expect(modelStepSource).toContain('providerPreferenceLabel');
         expect(modelStepSource).toContain('model_ids: [selectedModelId]');
         expect(modelStepSource).toContain('canContinue={selectedModelReady}');
-        expect(modelStepSource).toContain('disabled={needsDownload || !selectedModelId}');
+        expect(modelStepSource).toContain('selectSetupModelId');
+        expect(modelStepSource).toContain('downloadModel');
+        expect(modelStepSource).toContain('fetchDownloadStatus');
+        expect(modelStepSource).toContain('role="progressbar"');
+        expect(modelStepSource).toContain('downloadPct');
         expect(modelStepSource).not.toContain('id="setup-execution-mode"');
         expect(modelStepSource).toContain('Hardware validation completed successfully.');
     });

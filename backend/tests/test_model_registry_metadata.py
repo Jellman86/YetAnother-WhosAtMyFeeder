@@ -16,6 +16,16 @@ def test_every_classifier_registry_entry_has_an_explicit_crop_policy():
             assert "crop_generator" in model, model["id"]
 
 
+def test_bundled_mobilenet_registry_contract_is_pinned_and_checksum_verified():
+    model = next(entry for entry in REMOTE_REGISTRY if entry["id"] == "mobilenet_v2_birds")
+
+    assert "104342d2d3480b3e66203073dac24f4e2dbb4c41" in model["download_url"]
+    assert "104342d2d3480b3e66203073dac24f4e2dbb4c41" in model["labels_url"]
+    assert model["sha256"] == "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9"
+    assert model["labels_sha256"] == "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277"
+    assert model["preprocessing"]["padding_color"] == 128
+
+
 @pytest.mark.asyncio
 async def test_available_models_expose_tiered_metadata():
     models = await ModelManager().list_available_models()

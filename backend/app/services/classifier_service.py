@@ -31,9 +31,22 @@ try:
     import tflite_runtime.interpreter as tflite
 except ImportError:
     try:
-        import tensorflow.lite as tflite
+        import ai_edge_litert.interpreter as tflite
     except ImportError:
-        tflite = None
+        try:
+            import tensorflow.lite as tflite
+        except ImportError:
+            tflite = None
+
+
+def _tflite_runtime_name() -> str:
+    module_name = str(getattr(tflite, "__name__", "") or "")
+    if module_name.startswith("ai_edge_litert"):
+        return "litert"
+    if module_name.startswith("tflite_runtime"):
+        return "tflite-runtime"
+    return "tensorflow" if tflite is not None else "unavailable"
+
 
 # ONNX runtime (for high-accuracy models)
 try:
@@ -2624,7 +2637,7 @@ class ClassifierService:
             except Exception:
                 startup_status.mark_failed("loading_model")
                 raise
-            startup_status.publish("model_ready", 60)
+            startup_status.publish("model_ready" if self.model_loaded else "model_unavailable", 60)
 
     def _get_model_paths(self, model_file: str, labels_file: str) -> tuple[str, str]:
         """Get full paths for model and labels files."""
@@ -2668,6 +2681,7 @@ class ClassifierService:
             crop_generator = CropGeneratorConfig().model_dump(exclude_none=True)
 
         return {
+            "model_id": model_id,
             "model_path": model_path,
             "labels_path": labels_path,
             "input_size": input_size,
@@ -4130,12 +4144,7 @@ class ClassifierService:
         ) or self._inference_health.most_recent_recovery()
 
         # Determine which TFLite runtime is actually in use
-        tflite_type = "none"
-        if tflite:
-            if "tflite_runtime" in str(tflite):
-                tflite_type = "tflite-runtime"
-            else:
-                tflite_type = "tensorflow-full"
+        tflite_type = _tflite_runtime_name() if tflite is not None else "none"
 
         runtime_recovery = {
             "invalid_output_failures": self._runtime_invalid_output_failures,
@@ -4253,6 +4262,7 @@ class ClassifierService:
             else (self._inference_backend, self._active_inference_provider)
         )
         active_model_id = None
+        effective_model_id = None
         try:
             from app.services.model_manager import model_manager
 
@@ -4276,6 +4286,7 @@ class ClassifierService:
         try:
             active_model_spec = self._resolve_active_bird_model_spec()
             supported_providers = list(active_model_spec.get("supported_inference_providers") or [])
+            effective_model_id = str(active_model_spec.get("model_id") or active_model_id or "").strip() or None
         except Exception:
             supported_providers = []
         provider_capabilities = _provider_capability_contract(
@@ -4291,10 +4302,11 @@ class ClassifierService:
             "image_flavor": image_flavor,
             "packaged_inference_providers": list(packaged_providers),
             "image_flavor_warning": image_flavor_warning(image_flavor, selected_provider),
-            "runtime": "tflite-runtime" if "tflite_runtime" in str(tflite) else "tensorflow",
+            "runtime": _tflite_runtime_name(),
             "runtime_installed": tflite is not None,
             "onnx_available": ONNX_AVAILABLE,
             "active_model_id": active_model_id,
+            "effective_model_id": effective_model_id,
             "openvino_available": bool(self._accel_caps.get("openvino_available")),
             "openvino_version": self._accel_caps.get("openvino_version"),
             "openvino_import_path": self._accel_caps.get("openvino_import_path"),

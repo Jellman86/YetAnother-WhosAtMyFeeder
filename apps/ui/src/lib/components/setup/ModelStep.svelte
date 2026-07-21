@@ -3,9 +3,12 @@
     import { _ } from 'svelte-i18n';
     import {
         activateModel,
+        downloadModel,
         fetchAvailableModels,
         fetchClassifierStatus,
+        fetchDownloadStatus,
         fetchInstalledModels,
+        selectSetupModelId,
         summarizeModelMetadata,
         type ClassifierStatus,
         type InstalledModel,
@@ -29,6 +32,8 @@
     let status = $state<ClassifierStatus | null>(null);
     let loaded = $state(false);
     let saving = $state(false);
+    let downloading = $state(false);
+    let downloadPct = $state(0);
     let validating = $state(false);
     let progress = $state<{ done: number; total: number; label: string; phase: string } | null>(null);
     let results = $state<ModelEvalModelSummary[] | null>(null);
@@ -42,6 +47,7 @@
     let runId = '';
     let poller: ReturnType<typeof setInterval> | null = null;
     let pollInFlight = false;
+    let destroyed = false;
 
     let accelerators = $derived([
         { id: 'intel_npu', label: 'Intel NPU', available: status?.intel_npu_available },
@@ -103,7 +109,7 @@
             status = classifierStatus;
             availableModels = available;
             installedModels = installed;
-            selectedModelId = classifierStatus.active_model_id || installed.find((model) => model.is_active)?.id || available[0]?.id || '';
+            selectedModelId = selectSetupModelId(classifierStatus, available, installed);
             selectedProvider = settings.inference_provider || 'auto';
         } catch {
             status = null;
@@ -113,6 +119,7 @@
     });
 
     onDestroy(() => {
+        destroyed = true;
         if (poller) clearInterval(poller);
     });
 
@@ -179,6 +186,57 @@
         }
     }
 
+    async function downloadSelectedModel(): Promise<void> {
+        if (!selectedModelId || downloading) return;
+        errorMsg = '';
+        validationMsg = '';
+        downloadPct = 0;
+        downloading = true;
+
+        try {
+            const result = await downloadModel(selectedModelId);
+            if (result.status !== 'pending') {
+                throw new Error(result.message || $_('settings.detection.model_manager_start_failed', { default: 'Failed to start download' }));
+            }
+
+            const deadline = Date.now() + (15 * 60 * 1000);
+            let consecutiveStatusFailures = 0;
+            while (!destroyed && Date.now() < deadline) {
+                await new Promise((resolve) => setTimeout(resolve, 1500));
+                try {
+                    const downloadStatus = await fetchDownloadStatus(selectedModelId);
+                    if (!downloadStatus) continue;
+                    consecutiveStatusFailures = 0;
+                    downloadPct = Math.round(downloadStatus.progress ?? 0);
+                    if (downloadStatus.status === 'error') {
+                        throw new Error(downloadStatus.error || $_('settings.detection.model_manager_start_failed', { default: 'Download failed' }));
+                    }
+                    if (downloadStatus.status === 'completed') {
+                        installedModels = await fetchInstalledModels();
+                        status = await fetchClassifierStatus();
+                        validationMsg = $_('settings.detection.model_manager_install_downloaded', { default: 'Downloaded and verified.' });
+                        return;
+                    }
+                } catch (err) {
+                    consecutiveStatusFailures += 1;
+                    if (consecutiveStatusFailures >= 3) throw err;
+                }
+            }
+
+            if (!destroyed) {
+                throw new Error($_('setup.model.download_timeout', { default: 'The download is taking longer than expected. Check the connection and try again.' }));
+            }
+        } catch (err) {
+            if (!destroyed) {
+                errorMsg = err instanceof Error
+                    ? err.message
+                    : $_('settings.detection.model_manager_start_failed', { default: 'Failed to start download' });
+            }
+        } finally {
+            downloading = false;
+        }
+    }
+
     function rowOk(m: ModelEvalModelSummary): boolean {
         return m.ready && !m.warnings.some((w) => w.severity === 'critical');
     }
@@ -230,7 +288,7 @@
 <WizardStepLayout
     title={$_('setup.model.title', { default: 'Classifier model & hardware' })}
     description={$_('setup.model.description', {
-        default: 'YA-WAMF ships with a working classifier. Validate it on your hardware so it runs on your accelerator — with a clean CPU fallback if it does not.'
+        default: 'YA-WAMF includes a lightweight CPU fallback. Choose a model, download it here if needed, then validate the exact image and hardware path before continuing.'
     })}
     showSkip
     canContinue={selectedModelReady}
@@ -240,9 +298,9 @@
     {#if loaded}
         <div>
             <label for="setup-model-id" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.choose_model', { default: 'Model' })}</label>
-            <select id="setup-model-id" bind:value={selectedModelId} onchange={resetValidationResult} disabled={validating} class="select-base mt-1">
+            <select id="setup-model-id" bind:value={selectedModelId} onchange={resetValidationResult} disabled={validating || downloading} class="select-base mt-1">
                 {#each availableModels as model (model.id)}
-                    <option value={model.id}>{model.name}{installedIds.has(model.id) ? '' : ' (download in Settings)'}</option>
+                    <option value={model.id}>{model.name}{installedIds.has(model.id) ? '' : ` · ${$_('common.download_required', { default: 'Download required' })}`}</option>
                 {/each}
             </select>
             {#if selectedModel}
@@ -251,7 +309,7 @@
                     <p class="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">{selectedModelSummary.labels.join(' · ')}</p>
                 {/if}
                 {#if needsDownload}
-                    <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.download_required', { default: 'This model must be downloaded in Settings before it can be activated. Pick an installed model or skip this step.' })}</p>
+                    <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.download_required', { default: 'Download and verify this model here before validating it on this hardware.' })}</p>
                 {:else if !selectedModelReady}
                     <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.validation_required', { default: 'Validate this model on the current image and hardware before continuing.' })}</p>
                 {/if}
@@ -260,7 +318,7 @@
 
         <div>
             <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</label>
-            <select id="setup-provider" bind:value={selectedProvider} onchange={() => (providerTouched = true)} disabled={validating} class="select-base mt-1">
+            <select id="setup-provider" bind:value={selectedProvider} onchange={() => (providerTouched = true)} disabled={validating || downloading} class="select-base mt-1">
                 {#each providerChoices as choice (choice.value)}
                     <option value={choice.value} disabled={choice.unavailable}>
                         {providerLabel(choice.value)}{choice.unavailable ? ` · ${$_('common.unavailable', { default: 'Unavailable' })}` : ''}
@@ -304,7 +362,28 @@
             </div>
         {/if}
 
-        {#if validating && progress}
+        {#if downloading}
+            <div
+                role="progressbar"
+                aria-label={$_('settings.detection.model_manager_install_stage_download', { default: 'Download model' })}
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow={downloadPct}
+                class="space-y-2 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/20"
+            >
+                <div class="flex items-center justify-between text-sm">
+                    <span class="font-medium text-brand-800 dark:text-brand-200">{$_('settings.detection.model_manager_installing_pct', { values: { pct: downloadPct }, default: `Downloading… ${downloadPct}%` })}</span>
+                    <span class="text-xs tabular-nums text-brand-600 dark:text-brand-400">{downloadPct}%</span>
+                </div>
+                <div class="h-2 w-full overflow-hidden rounded-full bg-brand-100 dark:bg-brand-900/40">
+                    <div class="h-full rounded-full bg-brand-500 transition-all duration-500" style="width: {downloadPct}%"></div>
+                </div>
+            </div>
+        {:else if needsDownload}
+            <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={downloadSelectedModel} disabled={!selectedModelId}>
+                {$_('settings.detection.model_manager_install_stage_download', { default: 'Download model' })}
+            </button>
+        {:else if validating && progress}
             <div
                 role="progressbar"
                 aria-label={$_('setup.model.validate', { default: 'Validate on my hardware' })}
@@ -324,7 +403,7 @@
                 <p class="text-xs capitalize text-brand-600 dark:text-brand-400">{progress.phase.replace(/_/g, ' ')}</p>
             </div>
         {:else}
-            <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation} disabled={needsDownload || !selectedModelId}>
+            <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation} disabled={!selectedModelId}>
                 {results ? $_('setup.model.revalidate', { default: 'Re-run validation' }) : $_('setup.model.validate', { default: 'Validate on my hardware' })}
             </button>
         {/if}

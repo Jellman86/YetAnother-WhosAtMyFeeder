@@ -23,6 +23,13 @@
     "notifications": "通知",
     "species": "種"
   },
+  "setup": {
+    "model": {
+      "description": "YA-WAMF には軽量な CPU フォールバックが含まれています。モデルを選び、必要ならここでダウンロードし、続行前に実際のイメージとハードウェア経路を検証してください。",
+      "download_required": "このハードウェアで検証する前に、ここでモデルをダウンロードして確認してください。",
+      "download_timeout": "ダウンロードに予想以上の時間がかかっています。接続を確認して再試行してください。"
+    }
+  },
   "theme": {
     "switch_light": "ライトモードに切り替え",
     "switch_dark": "ダークモードに切り替え",
@@ -161,6 +168,7 @@
     "select": "選択",
     "selected": "選択済み",
     "unavailable": "利用不可",
+    "download_required": "ダウンロードが必要",
     "yes": "はい",
     "no": "いいえ",
     "download": "ダウンロード",
@@ -1187,6 +1195,7 @@
     "startup_phase_detecting_hardware": "利用可能な推論ハードウェアを確認しています",
     "startup_phase_loading_model": "選択した鳥類モデルを読み込んで確認しています",
     "startup_phase_model_ready": "選択した鳥類モデルの準備ができました",
+    "startup_phase_model_unavailable": "分類器を利用できません — バックエンドの起動後にセットアップを続行できます",
     "startup_phase_database": "検出履歴を準備しています",
     "startup_phase_starting_services": "イベントおよびメディアサービスを起動しています",
     "startup_phase_finalizing": "起動確認を完了しています",

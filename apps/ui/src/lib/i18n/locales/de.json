@@ -23,6 +23,13 @@
     "notifications": "Benachrichtigungen",
     "species": "Arten"
   },
+  "setup": {
+    "model": {
+      "description": "YA-WAMF enthält eine schlanke CPU-Rückfalloption. Wähle ein Modell, lade es bei Bedarf hier herunter und prüfe dann den genauen Image- und Hardwarepfad.",
+      "download_required": "Lade dieses Modell hier herunter und verifiziere es, bevor du es auf dieser Hardware prüfst.",
+      "download_timeout": "Der Download dauert länger als erwartet. Prüfe die Verbindung und versuche es erneut."
+    }
+  },
   "theme": {
     "switch_light": "Zum hellen Modus wechseln",
     "switch_dark": "Zum dunklen Modus wechseln",
@@ -139,6 +146,7 @@
     "select": "Auswählen",
     "selected": "Ausgewählt",
     "unavailable": "Nicht verfügbar",
+    "download_required": "Download erforderlich",
     "unsaved_changes": "Ungespeicherte Änderungen",
     "today": "Heute",
     "yesterday": "Gestern",
@@ -1187,6 +1195,7 @@
     "startup_phase_detecting_hardware": "Verfügbare Inferenzhardware wird geprüft",
     "startup_phase_loading_model": "Ausgewähltes Vogelmodell wird geladen und geprüft",
     "startup_phase_model_ready": "Ausgewähltes Vogelmodell ist bereit",
+    "startup_phase_model_unavailable": "Klassifikator nicht verfügbar — die Einrichtung kann nach dem Start des Backends fortgesetzt werden",
     "startup_phase_database": "Erkennungshistorie wird vorbereitet",
     "startup_phase_starting_services": "Ereignis- und Mediendienste werden gestartet",
     "startup_phase_finalizing": "Startprüfungen werden abgeschlossen",

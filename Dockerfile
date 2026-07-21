@@ -138,6 +138,24 @@ COPY docker/monolith/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/monolith/entrypoint.sh /usr/local/bin/yawamf-entrypoint.sh
 COPY docker/monolith/healthcheck.sh /usr/local/bin/yawamf-healthcheck.sh
 
+# Every image must be able to classify on first start, including an offline Pi.
+# Pin the upstream Coral test-data revision and verify every downloaded byte.
+RUN set -eux; \
+    coral_revision=104342d2d3480b3e66203073dac24f4e2dbb4c41; \
+    coral_base="https://raw.githubusercontent.com/google-coral/test_data/${coral_revision}"; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+        -o /app/app/assets/model.tflite \
+        "${coral_base}/mobilenet_v2_1.0_224_inat_bird_quant.tflite"; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+        -o /app/app/assets/labels.txt \
+        "${coral_base}/inat_bird_labels.txt"; \
+    curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+        -o /app/app/assets/model_config.json \
+        https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mobilenet_v2_birds_model_config.json; \
+    echo "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9  /app/app/assets/model.tflite" | sha256sum -c -; \
+    echo "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277  /app/app/assets/labels.txt" | sha256sum -c -; \
+    echo "9f7929a334428d093e854473d478b560053c13a2d766c9d65f8f4d1ba603b9f3  /app/app/assets/model_config.json" | sha256sum -c -
+
 ENV DB_PATH=/data/speciesid.db
 ENV HOME=/tmp
 ENV XDG_CACHE_HOME=/tmp/.cache

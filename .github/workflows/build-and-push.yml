@@ -593,7 +593,7 @@ jobs:
 
   build-monolith-rpi:
     needs: [detect-changes, test-backend, test-frontend, test-monolith]
-    if: needs.detect-changes.outputs.monolith == 'true' && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v'))
+    if: needs.detect-changes.outputs.monolith == 'true' && (github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -649,7 +649,7 @@ jobs:
             echo "PUBLISH_LATEST=false" >> $GITHUB_ENV
           fi
 
-      - name: Build and push Raspberry Pi monolithic image
+      - name: Build and push Raspberry Pi canary image
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -661,7 +661,18 @@ jobs:
             APP_BRANCH=${{ env.APP_BRANCH }}
             RUNTIME_FLAVOR=rpi
           tags: |
-            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ github.sha }}
+
+      - name: Smoke-test Raspberry Pi image
+        run: |
+          tests/e2e/monolith_runtime_flavor_smoke.sh \
+            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ github.sha }}" \
+            "rpi"
+
+      - name: Promote Raspberry Pi monolithic tag
+        run: |
+          docker buildx imagetools create \
+            -t ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ env.IMAGE_TAG }} \
             ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ github.sha }}
 
       - name: Tag Raspberry Pi monolithic latest
@@ -669,7 +680,7 @@ jobs:
         run: |
           docker buildx imagetools create \
             -t ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:latest \
-            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ env.IMAGE_TAG }}
+            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ github.sha }}
 
   verify-monolith-flavor-switch:
     name: Verify full ↔ CPU persistent-state switching

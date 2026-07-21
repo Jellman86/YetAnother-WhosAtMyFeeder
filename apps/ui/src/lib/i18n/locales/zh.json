@@ -23,6 +23,13 @@
     "notifications": "通知",
     "species": "物种"
   },
+  "setup": {
+    "model": {
+      "description": "YA-WAMF 内置轻量级 CPU 后备模型。请选择模型，必要时在此下载，然后在继续前验证实际镜像与硬件路径。",
+      "download_required": "请先在此下载并校验该模型，再在此硬件上进行验证。",
+      "download_timeout": "下载时间超出预期。请检查连接后重试。"
+    }
+  },
   "theme": {
     "switch_light": "切换到浅色模式",
     "switch_dark": "切换到深色模式",
@@ -161,6 +168,7 @@
     "select": "选择",
     "selected": "已选择",
     "unavailable": "不可用",
+    "download_required": "需要下载",
     "yes": "是",
     "no": "否",
     "download": "下载",
@@ -1187,6 +1195,7 @@
     "startup_phase_detecting_hardware": "正在检查可用的推理硬件",
     "startup_phase_loading_model": "正在加载并检查所选鸟类模型",
     "startup_phase_model_ready": "所选鸟类模型已准备就绪",
+    "startup_phase_model_unavailable": "分类器不可用——后端启动后可继续设置",
     "startup_phase_database": "正在准备检测历史记录",
     "startup_phase_starting_services": "正在启动事件和媒体服务",
     "startup_phase_finalizing": "正在完成启动检查",

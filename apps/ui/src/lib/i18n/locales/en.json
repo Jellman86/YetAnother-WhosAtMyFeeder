@@ -23,6 +23,13 @@
     "notifications": "Notifications",
     "species": "Species"
   },
+  "setup": {
+    "model": {
+      "description": "YA-WAMF includes a lightweight CPU fallback. Choose a model, download it here if needed, then validate the exact image and hardware path before continuing.",
+      "download_required": "Download and verify this model here before validating it on this hardware.",
+      "download_timeout": "The download is taking longer than expected. Check the connection and try again."
+    }
+  },
   "theme": {
     "switch_light": "Switch to light mode",
     "switch_dark": "Switch to dark mode",
@@ -139,6 +146,7 @@
     "select": "Select",
     "selected": "Selected",
     "unavailable": "Unavailable",
+    "download_required": "Download required",
     "unsaved_changes": "Unsaved Changes",
     "today": "Today",
     "yesterday": "Yesterday",
@@ -1196,6 +1204,7 @@
     "startup_phase_detecting_hardware": "Checking available inference hardware",
     "startup_phase_loading_model": "Loading and checking the selected bird model",
     "startup_phase_model_ready": "Selected bird model is ready",
+    "startup_phase_model_unavailable": "Classifier unavailable — setup can continue after the backend starts",
     "startup_phase_database": "Preparing detection history",
     "startup_phase_starting_services": "Starting event and media services",
     "startup_phase_finalizing": "Finishing startup checks",

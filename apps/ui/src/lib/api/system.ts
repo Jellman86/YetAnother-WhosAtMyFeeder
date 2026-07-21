@@ -28,6 +28,7 @@ export type StartupPhase =
     | 'detecting_hardware'
     | 'loading_model'
     | 'model_ready'
+    | 'model_unavailable'
     | 'database'
     | 'starting_services'
     | 'finalizing'
@@ -47,6 +48,7 @@ const STARTUP_PHASES = new Set<StartupPhase>([
     'detecting_hardware',
     'loading_model',
     'model_ready',
+    'model_unavailable',
     'database',
     'starting_services',
     'finalizing',

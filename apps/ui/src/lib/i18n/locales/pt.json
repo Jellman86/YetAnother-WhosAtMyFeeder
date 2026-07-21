@@ -23,6 +23,13 @@
     "notifications": "Notificações",
     "species": "Espécies"
   },
+  "setup": {
+    "model": {
+      "description": "O YA-WAMF inclui uma alternativa leve para CPU. Escolha um modelo, transfira-o aqui se necessário e valide o caminho exato da imagem e do hardware antes de continuar.",
+      "download_required": "Transfira e verifique este modelo aqui antes de o validar neste hardware.",
+      "download_timeout": "A transferência está a demorar mais do que o esperado. Verifique a ligação e tente novamente."
+    }
+  },
   "theme": {
     "switch_light": "Mudar para modo claro",
     "switch_dark": "Mudar para modo escuro",
@@ -161,6 +168,7 @@
     "select": "Selecionar",
     "selected": "Selecionado",
     "unavailable": "Indisponível",
+    "download_required": "Transferência necessária",
     "yes": "Sim",
     "no": "Não",
     "download": "Baixar",
@@ -1196,6 +1204,7 @@
     "startup_phase_detecting_hardware": "A verificar o hardware de inferência disponível",
     "startup_phase_loading_model": "A carregar e verificar o modelo de aves selecionado",
     "startup_phase_model_ready": "O modelo de aves selecionado está pronto",
+    "startup_phase_model_unavailable": "Classificador indisponível — a configuração pode continuar após o backend iniciar",
     "startup_phase_database": "A preparar o histórico de deteções",
     "startup_phase_starting_services": "A iniciar os serviços de eventos e multimédia",
     "startup_phase_finalizing": "A concluir as verificações de arranque",

@@ -20,6 +20,7 @@
         detecting_hardware: 'Checking available inference hardware',
         loading_model: 'Loading and checking the selected bird model',
         model_ready: 'Selected bird model is ready',
+        model_unavailable: 'Classifier unavailable — setup can continue after the backend starts',
         database: 'Preparing detection history',
         starting_services: 'Starting event and media services',
         finalizing: 'Finishing startup checks',

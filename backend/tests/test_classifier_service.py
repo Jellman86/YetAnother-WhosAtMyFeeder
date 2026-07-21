@@ -599,6 +599,38 @@ async def test_classifier_service_skips_main_bird_model_init_in_subprocess_mode(
 
 
 @pytest.mark.asyncio
+async def test_classifier_startup_reports_unavailable_when_model_does_not_load():
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch.object(classifier_service_module.startup_status, "publish") as publish,
+    ):
+        service = ClassifierService()
+
+    publish.assert_any_call("model_unavailable", 60)
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_status_distinguishes_configured_and_effective_model_ids():
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+
+    with patch.object(
+        service,
+        "_resolve_active_bird_model_spec",
+        return_value={
+            "model_id": "mobilenet_v2_birds",
+            "supported_inference_providers": ["cpu"],
+        },
+    ):
+        status = service.get_status()
+
+    assert status["effective_model_id"] == "mobilenet_v2_birds"
+    assert "active_model_id" in status
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_caches_acceleration_probe_results():
     caps = {
         "ort_available": False,

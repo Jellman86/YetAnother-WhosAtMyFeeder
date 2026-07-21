@@ -7,6 +7,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Changed
+- **Raspberry Pi images now start classification-ready and are release-gated by real ARM inference.**
+  Every monolith image includes a revision-pinned, checksum-verified MobileNet V2 model and labels
+  as an offline CPU fallback. ARM64 now uses Google's current standalone LiteRT interpreter instead
+  of the much larger retired TensorFlow ARM package. The Raspberry Pi CI job publishes only an
+  immutable canary first, starts it under QEMU, verifies the classifier and label set, runs an
+  uploaded image through inference, and only then promotes `dev`, `main`, version, or `latest` tags.
+  Compose now passes the documented classifier concurrency, admission-timeout, and Frigate clip
+  controls into the container, including the corrected `CLASSIFIER_IMAGE_MAX_CONCURRENT` spelling.
+  Physical Pi thermal, sustained-load, and storage validation remains required before support stops
+  being labelled best-effort.
+- **First-run model setup can now complete without detouring into Settings.** The wizard selects the
+  model the runtime actually loaded (including the bundled MobileNet fallback), downloads a chosen
+  model with accessible live progress and bounded error recovery, then exposes hardware validation.
+  Startup reports a recoverable `model_unavailable` phase instead of claiming `model_ready` when a
+  model load fails, while leaving the backend available so the owner can repair the selection.
 - **Container startup now reports real progress instead of looking offline.** The monolithic web
   shell stays available while the backend checks inference hardware, loads and self-tests the
   selected bird model, prepares the database, and starts event/media services. The existing
@@ -147,8 +162,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   explicit provider/image mismatch is visible in classifier diagnostics. Runtime images no longer
   retain their build wheelhouse or install pytest, Coverage, and Ruff, reducing distribution size
   without changing `/config`, `/data`, models, migrations, or application behaviour. The dedicated
-  Raspberry Pi image now explicitly uses the CPU dependency set, while non-Linux ARM development
-  environments no longer select its Linux-only TensorFlow package. Pinned Intel NPU driver assets
+  Raspberry Pi image now explicitly uses the CPU dependency set and standalone LiteRT interpreter,
+  while non-Linux ARM development environments retain their native TensorFlow package. Pinned Intel NPU driver assets
   are checksum-verified and required, preventing a full or Intel image from publishing with a
   silently incomplete runtime. Mutable flavor tags are now promoted only after every immutable
   image starts successfully and a full → CPU → full round trip preserves byte-identical application

@@ -23,6 +23,13 @@
     "notifications": "Notifications",
     "species": "Espèces"
   },
+  "setup": {
+    "model": {
+      "description": "YA-WAMF inclut une solution de repli légère sur CPU. Choisissez un modèle, téléchargez-le ici si nécessaire, puis validez le chemin exact de l’image et du matériel avant de continuer.",
+      "download_required": "Téléchargez et vérifiez ce modèle ici avant de le valider sur ce matériel.",
+      "download_timeout": "Le téléchargement prend plus de temps que prévu. Vérifiez la connexion et réessayez."
+    }
+  },
   "theme": {
     "switch_light": "Passer au mode clair",
     "switch_dark": "Passer au mode sombre",
@@ -161,6 +168,7 @@
     "select": "Sélectionner",
     "selected": "Sélectionné",
     "unavailable": "Indisponible",
+    "download_required": "Téléchargement requis",
     "yes": "Oui",
     "no": "Non",
     "download": "Télécharger",
@@ -1187,6 +1195,7 @@
     "startup_phase_detecting_hardware": "Vérification du matériel d’inférence disponible",
     "startup_phase_loading_model": "Chargement et vérification du modèle d’oiseaux sélectionné",
     "startup_phase_model_ready": "Le modèle d’oiseaux sélectionné est prêt",
+    "startup_phase_model_unavailable": "Classificateur indisponible — la configuration peut continuer après le démarrage du backend",
     "startup_phase_database": "Préparation de l’historique des détections",
     "startup_phase_starting_services": "Démarrage des services d’événements et de médias",
     "startup_phase_finalizing": "Finalisation des vérifications de démarrage",

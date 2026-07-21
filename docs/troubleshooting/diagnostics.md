@@ -26,6 +26,12 @@ The progress percentage represents completed startup phases, not an elapsed-time
 screen reports a startup issue or switches to **Not responding**, check the container health and
 startup logs; the UI keeps a failed startup distinct from normal model-loading work.
 
+`model_unavailable` is recoverable: the web/backend startup continues so an owner can open the
+setup wizard, keep the bundled MobileNet fallback, or download and validate another model. It does
+not mean a missing classifier was reported as ready. Published images are gated by a model-load and
+inference smoke test, so seeing this phase on a clean image should be treated as a model/storage
+problem and included in a diagnostic bundle.
+
 ## MQTT Pipeline
 If detections aren't appearing, verify the MQTT connection:
 1. Go to **Settings > Integrations**.

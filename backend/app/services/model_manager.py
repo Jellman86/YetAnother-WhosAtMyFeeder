@@ -111,15 +111,17 @@ REMOTE_REGISTRY = [
         "inference_speed": "Fast (~30ms)",
         "runtime": "tflite",
         "supported_inference_providers": ["cpu"],
-        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/master/mobilenet_v2_1.0_224_inat_bird_quant.tflite",
-        "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/master/inat_bird_labels.txt",
+        "download_url": "https://raw.githubusercontent.com/google-coral/test_data/104342d2d3480b3e66203073dac24f4e2dbb4c41/mobilenet_v2_1.0_224_inat_bird_quant.tflite",
+        "labels_url": "https://raw.githubusercontent.com/google-coral/test_data/104342d2d3480b3e66203073dac24f4e2dbb4c41/inat_bird_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mobilenet_v2_birds_model_config.json",
+        "sha256": "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9",
+        "labels_sha256": "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277",
         "input_size": 224,
         "preprocessing": {
             "color_space": "RGB",
             "resize_mode": "letterbox",
             "interpolation": "bicubic",
-            "padding_color": 0,
+            "padding_color": 128,
             "normalization": "uint8",
         },
         "crop_generator": {
@@ -764,6 +766,7 @@ def _maybe_migrate_legacy_models_dir(target_dir: str) -> None:
 
 
 MODELS_DIR = _resolve_models_dir()
+BUNDLED_MODELS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../assets"))
 _maybe_migrate_legacy_models_dir(MODELS_DIR)
 
 _PERSISTENT_MODELS_PREFIX = _PERSISTENT_MODELS_DIR
@@ -1314,20 +1317,23 @@ class ModelManager:
             "Active model not found in registry or on disk, falling back to bundled TFLite model",
             active_model_id=model_id,
         )
+        fallback_meta = self._get_registry_model_meta("mobilenet_v2_birds") or {}
+        fallback_spec = {
+            "model_id": "mobilenet_v2_birds",
+            "model_path": os.path.join(BUNDLED_MODELS_DIR, "model.tflite"),
+            "labels_path": os.path.join(BUNDLED_MODELS_DIR, "labels.txt"),
+            "input_size": int(fallback_meta.get("input_size", 224) or 224),
+            "preprocessing": dict(fallback_meta.get("preprocessing") or {}),
+            "runtime": "tflite",
+            "label_grouping": dict(fallback_meta.get("label_grouping") or {}),
+            "supported_inference_providers": list(fallback_meta.get("supported_inference_providers") or ["cpu"]),
+            "recommended_threshold": float(fallback_meta.get("recommended_threshold", 0.70) or 0.70),
+            "weights_url": None,
+            "model_config_url": fallback_meta.get("model_config_url"),
+            "crop_generator": self._normalize_crop_generator_block(fallback_meta.get("crop_generator")),
+        }
         return self._apply_crop_overrides(
-            {
-                "model_id": "mobilenet_v2_birds",
-                "model_path": "model.tflite",
-                "labels_path": "labels.txt",
-                "input_size": 224,
-                "preprocessing": {},
-                "runtime": "tflite",
-                "label_grouping": {},
-                "supported_inference_providers": ["cpu"],
-                "recommended_threshold": 0.70,
-                "weights_url": None,
-                "crop_generator": self._normalize_crop_generator_block(None),
-            }
+            self._apply_installed_model_config(fallback_spec, model_dir=BUNDLED_MODELS_DIR)
         )
 
     async def list_available_models(self) -> List[ModelMetadata]:
@@ -1379,7 +1385,7 @@ class ModelManager:
 
         # Add bundled assets path
         # backend/app/services/model_manager.py -> backend/app/assets
-        assets_dir = os.path.join(os.path.dirname(__file__), "../assets")
+        assets_dir = BUNDLED_MODELS_DIR
         if os.path.exists(assets_dir):
             paths_to_check.append(assets_dir)
 
@@ -1942,8 +1948,7 @@ class ModelManager:
                 return True
 
             # Check bundled assets
-            assets_dir = os.path.join(os.path.dirname(__file__), "../assets")
-            if os.path.exists(os.path.join(assets_dir, "model.tflite")):
+            if os.path.exists(os.path.join(BUNDLED_MODELS_DIR, "model.tflite")):
                 self._save_active_model_id(model_id)
                 return True
 

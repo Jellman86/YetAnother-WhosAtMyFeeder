@@ -40,6 +40,16 @@ describe('startup status', () => {
         expect(normalizeStartupStatus('starting')).toBeNull();
     });
 
+    it('accepts the recoverable model unavailable startup phase', () => {
+        expect(normalizeStartupStatus({
+            status: 'starting',
+            phase: 'model_unavailable',
+            progress: 60,
+            started_at: '2026-07-21T10:00:00Z',
+            updated_at: '2026-07-21T10:00:01Z'
+        })?.phase).toBe('model_unavailable');
+    });
+
     it('returns null when a split frontend rewrites the status path to HTML', async () => {
         apiFetchMock.mockResolvedValue(new Response('<!doctype html>', {
             status: 200,

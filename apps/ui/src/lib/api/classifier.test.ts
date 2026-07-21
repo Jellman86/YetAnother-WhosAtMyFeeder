@@ -17,11 +17,54 @@ import {
     getVisibleTieredModelLineup,
     groupTieredModelLineup,
     categorizeModel,
+    selectSetupModelId,
     summarizeModelMetadata,
     type ClassifierStatus,
     type InstalledModel,
     type ModelMetadata
 } from './classifier';
+
+describe('selectSetupModelId', () => {
+    const available = [
+        { id: 'mobilenet_v2_birds', name: 'MobileNet' },
+        { id: 'rope_vit_b14_inat21', name: 'RoPE' },
+    ] as ModelMetadata[];
+
+    it('uses the effective loaded fallback instead of an unavailable configured model', () => {
+        const installed = [
+            { id: 'mobilenet_v2_birds', is_active: false, validated: true },
+        ] as InstalledModel[];
+        const status = {
+            loaded: true,
+            error: null,
+            labels_count: 965,
+            enabled: true,
+            active_model_id: 'rope_vit_b14_inat21',
+            effective_model_id: 'mobilenet_v2_birds',
+            image_flavor: 'rpi',
+        } satisfies ClassifierStatus;
+
+        expect(selectSetupModelId(status, available, installed)).toBe('mobilenet_v2_birds');
+    });
+
+    it('preserves an installed active model on non-Pi images', () => {
+        const installed = [
+            { id: 'rope_vit_b14_inat21', is_active: true, validated: true },
+            { id: 'mobilenet_v2_birds', is_active: false, validated: true },
+        ] as InstalledModel[];
+        const status = {
+            loaded: true,
+            error: null,
+            labels_count: 1000,
+            enabled: true,
+            active_model_id: 'rope_vit_b14_inat21',
+            effective_model_id: 'rope_vit_b14_inat21',
+            image_flavor: 'full',
+        } satisfies ClassifierStatus;
+
+        expect(selectSetupModelId(status, available, installed)).toBe('rope_vit_b14_inat21');
+    });
+});
 
 describe('fetchAvailableModels', () => {
     beforeEach(() => {
