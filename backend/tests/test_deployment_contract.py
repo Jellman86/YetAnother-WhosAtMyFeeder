@@ -215,11 +215,15 @@ def test_monolith_compose_passes_classifier_pressure_controls_into_the_container
 def test_rpi_image_is_smoked_before_mutable_tags_are_promoted() -> None:
     workflow = (REPO_ROOT / ".github/workflows/build-and-push.yml").read_text(encoding="utf-8")
     rpi_job = workflow.split("  build-monolith-rpi:", 1)[1].split("  verify-monolith-flavor-switch:", 1)[0]
+    smoke = (REPO_ROOT / "tests/e2e/monolith_runtime_flavor_smoke.sh").read_text(encoding="utf-8")
 
     immutable_tag = "yawamf-monalithic-rpi:${{ github.sha }}"
     assert immutable_tag in rpi_job
     assert "monolith_runtime_flavor_smoke.sh" in rpi_job
     assert '"rpi"' in rpi_job
+    assert '"linux/arm64"' in rpi_job
+    assert 'platform="${3:-}"' in smoke
+    assert 'docker_args+=(--platform "$platform")' in smoke
     assert "yawamf-monalithic-rpi:${{ env.IMAGE_TAG }}" not in rpi_job.split("Smoke-test Raspberry Pi image", 1)[0]
     assert rpi_job.index("Smoke-test Raspberry Pi image") < rpi_job.index("Promote Raspberry Pi monolithic tag")
 

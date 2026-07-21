@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+- **Raspberry Pi release smoke tests now run the ARM64 image on GitHub's x86 runner.** The smoke
+  harness accepts an explicit image platform and the Raspberry Pi job selects `linux/arm64`, allowing
+  the configured QEMU emulator to start the ARM-only canary instead of Docker rejecting it as an
+  unavailable `linux/amd64` manifest. Mutable Raspberry Pi tags remain blocked until real inference
+  passes inside that canary.
+
 ### Changed
 - **Raspberry Pi images now start classification-ready and are release-gated by real ARM inference.**
   Every monolith image includes a revision-pinned, checksum-verified MobileNet V2 model and labels

@@ -3,9 +3,10 @@ set -euo pipefail
 
 image="${1:-}"
 expected_flavor="${2:-}"
+platform="${3:-}"
 
 if [[ -z "$image" || -z "$expected_flavor" ]]; then
-  echo "usage: monolith_runtime_flavor_smoke.sh <image> <expected-flavor>" >&2
+  echo "usage: monolith_runtime_flavor_smoke.sh <image> <expected-flavor> [platform]" >&2
   exit 64
 fi
 
@@ -23,7 +24,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-docker run --detach --name "$container_name" "$image" >/dev/null
+docker_args=(run --detach --name "$container_name")
+if [[ -n "$platform" ]]; then
+  docker_args+=(--platform "$platform")
+fi
+docker "${docker_args[@]}" "$image" >/dev/null
 
 for _attempt in $(seq 1 90); do
   running="$(docker inspect --format '{{.State.Running}}' "$container_name")"

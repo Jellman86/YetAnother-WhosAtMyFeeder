@@ -667,7 +667,8 @@ jobs:
         run: |
           tests/e2e/monolith_runtime_flavor_smoke.sh \
             "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ github.sha }}" \
-            "rpi"
+            "rpi" \
+            "linux/arm64"
 
       - name: Promote Raspberry Pi monolithic tag
         run: |
