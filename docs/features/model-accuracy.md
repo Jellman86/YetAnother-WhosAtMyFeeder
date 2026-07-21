@@ -25,7 +25,7 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
 | **Medium Birds** (EU variant) | medium | birds_only (EU) | 40.0% | 33.3% | 50.0% | 48.3% | 62ms | intel_cpu |
 | **FlexiViT Global** | small | birds_only (global) | 33.3% | 31.7% | 40.0% | 38.3% | 199ms | intel_cpu |
 | **Bird Crop Detector (Fast)** | fast | system | n/a | n/a | n/a | n/a | 5ms | cpu |
-| **Bird Crop Detector Accurate (YOLOX-Tiny)** | accurate | system | n/a | n/a | n/a | n/a | 11–18ms provider sweep | host-validated |
+| **Bird Crop Detector Accurate (YOLOX-Tiny)** | accurate | system | n/a | n/a | n/a | n/a | 11–30ms provider sweep | host-validated |
 
 > **Birds-only model note:** `Small Birds` and `Medium Birds` are region-resolved family entries, `EU FocalNet-B` is Europe-specific, and `FlexiViT Global` trades coverage and size for speed. The shared fixture set is still weighted toward North American species, so these rows should be read as scope-mismatch diagnostics rather than direct leaderboard entries against the wildlife-wide models.
 
@@ -49,7 +49,10 @@ Each run tests two preprocessing modes — **raw** (image sent as-is) and **lett
   CPU/GPU/NPU agreement on a varied clean species panel, with a separate 40-case private field panel
   covering 30 events across seven recorded labels and 10 real hard negatives. This is provider
   compatibility evidence, not a model-quality promotion; a larger owner-labelled box fixture and
-  downstream Frigate win/tie/loss comparison remain pending.
+  downstream Frigate win/tie/loss comparison remain pending. The accurate sweep measured 30.0 ms
+  on CPU, 16.5 ms on Intel CPU, 11.4 ms on Intel GPU, and 12.6 ms on Intel NPU. The private field
+  replay admitted only 6/30 positives at the safe `0.02` evidence floor (and 0/13 negatives), so
+  distant-subject recall—not provider correctness—remains the main replacement-model question.
 - **Classifier cropping is separate from thumbnail generation.** Classifier crop-on/off is fixed per
   model from the Quark comparison below. Both crop-enabled classifiers and generated thumbnails try
   the validated accurate detector path automatically with a safe fast fallback.

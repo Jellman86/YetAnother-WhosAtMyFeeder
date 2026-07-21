@@ -44,6 +44,36 @@ These two correlated frames are a regression case, not a promotion dataset. The 
 particularly instructive: detector confidence and classifier usefulness are not interchangeable.
 Sliced inference remains a benchmark variant and is not enabled in production.
 
+## Varied-panel and provider validation
+
+Quark reran the corrected schema-3 provider sweep as run `20260721-140812` on the Intel image and
+OpenVINO 2026.2.1. The automatic panel selected 24 taxonomy-verified images round-robin across
+species and added three deterministic hard negatives. Image keys include their stable selection
+index, so generic upstream names such as `image.jpg` cannot collapse distinct species into one
+comparison row. The comparator also rejects incomplete or duplicated panels and ignores raw
+proposals below the most permissive `0.02` policy that production can admit.
+
+| Detector/provider | Median inference | Images / CPU agreement | Result |
+|---|---:|---:|---|
+| Fast SSD / CPU | 6.2 ms | 27 evaluated; 16/24 real images admitted | Valid CPU fallback. |
+| Fast SSD / Intel CPU, GPU, NPU | n/a | compile failed | Remains CPU-only: OpenVINO rejects the artifact's inconsistent `QLinearConv` dequantisation dimensions. |
+| Accurate YOLOX / CPU | 30.0 ms | 27 baseline images; 23/24 real images admitted | Valid baseline. |
+| Accurate YOLOX / Intel CPU | 16.5 ms | 27/27 exact policy agreement | Valid. |
+| Accurate YOLOX / Intel GPU | **11.4 ms** | 27/27 exact policy agreement | Valid and fastest on this sweep. |
+| Accurate YOLOX / Intel NPU | 12.6 ms | 27/27 agreement; mean box IoU 0.999 | Valid. |
+
+A separate private replay used 30 independent cached events across seven recorded labels, including
+distant/mid-distance and edge-of-frame subjects, plus 10 non-overlapping real feeder/foliage
+regions and three synthetic negatives. Intel CPU, GPU, and NPU again matched CPU on all 43 cases.
+At the safe `0.02` evidence floor, every provider admitted the same 6/30 positive crops and 0/13
+negative crops. This proves hardware equivalence and safe threshold behaviour, not sufficient
+far-subject recall. Most field labels and reference boxes are automatic/Frigate evidence rather
+than owner-labelled ground truth, so the result cannot promote or reject a replacement model.
+
+The low 6/30 admitted-crop count makes the next quality question sharper: a replacement candidate
+must recover more distant subjects without creating feeder-clutter false positives, and its crops
+must improve downstream species identification rather than detector confidence alone.
+
 ## Candidate shortlist
 
 The candidates below use official project results to choose what is worth exporting and testing.

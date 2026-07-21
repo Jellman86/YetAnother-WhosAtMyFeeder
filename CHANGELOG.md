@@ -21,6 +21,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   complemented by a private same-frame panel builder. The Quark field pass covered 30 independent
   events across seven recorded labels plus 10 real feeder/foliage negatives rather than relying on
   the Sparrowhawk regression alone.
+  Quark's corrected run matched the accurate YOLOX detector on all 27 clean/synthetic cases and all
+  43 private field/synthetic cases across Intel CPU, GPU, and NPU. The safe field policy admitted
+  6/30 distant/mid-distance event crops and 0/13 negatives, leaving replacement-model recall as
+  explicit roadmap work rather than overstating hardware equivalence as detector quality.
 
 ### Fixed
 - **Reused download filenames no longer corrupt crop-provider comparisons.** Each validation image
