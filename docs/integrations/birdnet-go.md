@@ -25,6 +25,14 @@ For correlation to work, YA-WAMF needs to know which audio sensor belongs to whi
 3. Go to **Settings > Integrations > Sensor Mapping**.
 4. Type that ID next to the corresponding Frigate camera name.
 
+For cameras with microphones, BirdNET-Go supports multiple named RTSP audio sources. Enable audio
+in each camera (AAC is the most interoperable choice), add and test each RTSP stream in BirdNET-Go,
+and give it a stable name that matches the corresponding Frigate camera where practical. Map that
+configured source name in YA-WAMF; current BirdNET-Go releases publish a stable `sourceName` as well
+as the runtime `sourceId`. This is easier to maintain than copying a generated hash and lets every
+camera contribute independent audio context. See BirdNET-Go's
+[RTSP/multiple-source guide](https://github.com/tphakala/birdnet-go/wiki/BirdNET%E2%80%90Go-Guide#live-audio-streaming).
+
 ### 3. Dynamic Sensor IDs (Wildcard)
 If your audio source (like a re-streaming camera) generates a new Sensor ID every time it restarts, you can use a **wildcard** to match *any* audio detection to a specific camera.
 

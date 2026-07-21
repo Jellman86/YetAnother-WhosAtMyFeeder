@@ -17,6 +17,7 @@ _CROPPED_SNAPSHOT_SOURCES = frozenset(
         "frigate_snapshot_cropped",
         "high_quality_bird_crop",
         "hq_candidate_frigate_hint_crop",
+        "hq_candidate_frigate_snapshot_fallback",
         "hq_candidate_model_crop",
     }
 )

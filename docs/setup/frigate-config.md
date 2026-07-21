@@ -20,7 +20,7 @@ go2rtc:
   streams:
     birdcam_hq: # Your camera's high-resolution stream
       - rtsp://admin:password@192.168.1.10:554/live
-    birdcam_sub: # Your camera's low-resolution sub-stream (optional, for detection)
+    birdcam_sub: # Your camera's lower-resolution sub-stream (optional, for detection)
       - rtsp://admin:password@192.168.1.10:554/sub
 
 # --- Global Object Tracking ---
@@ -38,7 +38,7 @@ cameras:
         - path: rtsp://localhost:8554/birdcam_hq
           roles:
             - record
-        - path: rtsp://localhost:8554/birdcam_sub # Use sub-stream for detection to save CPU
+        - path: rtsp://localhost:8554/birdcam_sub # Close feeder: use a sufficiently detailed sub-stream
           roles:
             - detect
     
@@ -51,9 +51,10 @@ cameras:
     # --- CRITICAL FOR YA-WAMF SNAPSHOTS ---
     snapshots:
       enabled: True
-      timestamp: True
-      bounding_box: False # YA-WAMF prefers clean images without red boxes
-      crop: True # IMPORTANT: Focuses the AI on the bird
+      clean_copy: True # Gives YA-WAMF Frigate's unmodified final best frame
+      timestamp: False
+      bounding_box: False
+      crop: False # YA-WAMF applies Frigate's exact tracked box itself
       quality: 95 # High quality is better for species identification
       retain:
         default: 7 # Days to keep snapshots in Frigate
@@ -115,8 +116,34 @@ There are two levers, and it is easy to change the wrong one:
 
 Whatever you choose, YA-WAMF caches the snapshot and clip the instant the MQTT event arrives, so brief visits are still classified even when Frigate never persists the event. Full explanation: [Frigate "Event Not Found" guide](../troubleshooting/frigate-event-not-found.md).
 
-### 📷 Snapshot Resolution
-While Frigate's detection model often runs at a low resolution (e.g., 320x320), YA-WAMF's high-accuracy models (EVA-02) perform much better if the source snapshot is clear. Ensure your `detect` role is assigned to a stream with decent resolution (720p or higher) for the best identification results.
+### 📷 Detection stream and snapshot resolution
+
+Frigate chooses its best event frame from the stream assigned the `detect` role. A close feeder can
+usually use a 720p or 1080p sub-stream to save decode and detector work. Do not use a very small
+sub-stream merely because one exists: if birds are distant or occupy only a few pixels, assign
+`detect` to the main stream (it may share the same input as `record`) and cap `detect.fps` at the
+lowest rate that still catches brief visits. This trades additional decode/detection cost for the
+pixels needed by both Frigate tracking and species classification; verify `process_fps`, skipped
+frames, and detector latency after the change.
+
+Frigate 0.17 [selects one best frame over the completed track](https://docs.frigate.video/configuration/snapshots/).
+YA-WAMF fetches its unannotated,
+uncropped, full-resolution clean copy, anchors a crop to Frigate's final tracked box, and scores that
+against independent recording frames. Keep `snapshots.clean_copy: True`, `timestamp: False`,
+`bounding_box: False`, and `crop: False`. Frigate ignores snapshot query overrides after an event
+ends, so a pre-cropped regular snapshot is not a safe substitute for the clean copy.
+
+### Reolink 6MP/4K cameras
+
+For older high-resolution RLC-8xx cameras, Frigate's current
+[camera-specific guidance](https://docs.frigate.video/configuration/camera_specific/#reolink-cameras)
+recommends RTSP. In the camera, select constant bitrate (`On, fluency first` on supported Reolink firmware),
+disable smart `+` codecs, and set the I-frame interval/interframe space to `1x` (the frame rate).
+Use the highest useful main-stream bitrate for recording and distant-subject detection. H.264 is the
+most broadly playable codec; if a 4K mode requires H.265, confirm the browsers used for playback can
+decode it. Frigate's [live-view guidance](https://docs.frigate.video/configuration/live/) recommends
+AAC as the most compatible audio format, and `preset-record-generic-audio-copy` avoids
+unnecessary transcoding when the camera already emits AAC.
 
 ### 🎥 Record Mode (Frigate 0.17+)
 YA-WAMF's **Deep Video Analysis** requires access to the recording files. You must have `record: enabled: True` and set `continuous.days` to at least `1`; increase it only if you need to re-analyze older events from Frigate rather than YA-WAMF's media cache. Use `mode: all` under `alerts.retain` and `detections.retain` when you want every recording segment overlapping a retained bird event to remain available.

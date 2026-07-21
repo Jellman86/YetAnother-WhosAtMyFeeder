@@ -115,6 +115,7 @@ class EventData:
         self.sub_label_score: Optional[float] = parsed_sub_label.score
         self.frigate_score: Optional[float] = after.get("top_score")
         self.data: Dict[str, Any] = after.get("data") if isinstance(after.get("data"), dict) else {}
+        self.snapshot: Dict[str, Any] = after.get("snapshot") if isinstance(after.get("snapshot"), dict) else {}
         self.is_false_positive: bool = after.get("false_positive", False)
 
         if self.frigate_score is None and "data" in after:
@@ -485,6 +486,16 @@ class EventProcessor:
 
         event_type = (event.type or "new").lower()
         if event_type == "end":
+            if media_cache.has_snapshot(event.frigate_event):
+                high_quality_snapshot_service.schedule_final_replacement(
+                    event.frigate_event,
+                    event_data={
+                        "start_time": event.start_time_ts,
+                        "end_time": getattr(event, "end_time_ts", None),
+                        "data": event.data,
+                        **({"snapshot": event.snapshot} if event.snapshot else {}),
+                    },
+                )
             if self._auto_full_visit_enabled():
                 await self._trigger_auto_full_visit_generation(event)
             duration_ms = (time.monotonic() - started) * 1000.0
@@ -1337,7 +1348,18 @@ class EventProcessor:
                     event_payload = getattr(event, "data", {})
                     high_quality_snapshot_service.schedule_replacement(
                         event.frigate_event,
-                        event_data={"data": event_payload if isinstance(event_payload, dict) else {}},
+                        event_data={
+                            "start_time": event.start_time_ts,
+                            "end_time": (
+                                getattr(event, "end_time_ts", None) if getattr(event, "end_time_known", False) else None
+                            ),
+                            "data": event_payload if isinstance(event_payload, dict) else {},
+                            **(
+                                {"snapshot": getattr(event, "snapshot")}
+                                if isinstance(getattr(event, "snapshot", None), dict) and getattr(event, "snapshot")
+                                else {}
+                            ),
+                        },
                     )
 
             # Trigger auto video classification

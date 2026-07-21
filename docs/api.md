@@ -109,6 +109,10 @@ model-driven crop is reported as `snapshot_model_crop` or `snapshot_frigate_hint
 from image dimensions. A trusted upstream label that won because local image evidence did not
 clear policy is reported as `frigate_sublabel` rather than as snapshot or video inference.
 
+An HQ baseline built from Frigate's regular ended-event snapshot because the clean copy was absent
+uses `hq_candidate_frigate_snapshot_fallback`. It is treated conservatively as already cropped: the
+ended-event API ignores crop query overrides, so YA-WAMF must not run localisation a second time.
+
 `POST /api/events/{event_id}/reclassify` returns `status: "success"` and `updated: true` only after
 the selected result has been persisted. If all video and snapshot candidates are unusable, it
 returns HTTP 200 with `status: "no_result"`, `reason: "no_confident_result"`, and `updated: false`;
@@ -126,7 +130,8 @@ validation; a confident snapshot does not short-circuit an available cached vide
 - `GET /api/frigate/{event_id}/snapshot/status` (owner; reports the effective best-available policy)
 - `GET /api/frigate/{event_id}/snapshot/candidates` (owner)
   - Candidate rows include optional `crop_strategy` provenance (`native`, `frigate_guided`,
-    `sliced_2x2`, or `fast_native`) for model-generated crops.
+    `sliced_2x2`, or `fast_native`) for model-generated crops, and `frigate_final_box` for the
+    completed-track clean-snapshot baseline.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/apply` (owner)
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
@@ -148,8 +153,8 @@ validation; a confident snapshot does not short-circuit an available cached vide
 - `PATCH /api/video-share/{event_id}/links/{link_id}`
 - `POST /api/video-share/{event_id}/links/{link_id}/revoke`
 
-The HQ snapshot worker also publishes `crop_policy`, selected-source counts, outcomes, and recovered
-job totals under `GET /health` → `high_quality_snapshots`. Its retry state is persisted independently
+The HQ snapshot worker also publishes `crop_policy`, queued final-refresh count, selected-source
+counts, outcomes, and recovered job totals under `GET /health` → `high_quality_snapshots`. Its retry state is persisted independently
 from species identity, with bounded 5/15/45-minute backoff and a terminal fourth failure; successful
 explicit or automatic generation clears the failure state.
 

@@ -33,9 +33,16 @@ See the full [Recommended Frigate Config](../setup/frigate-config.md) for optimi
 
 In YA-WAMF, set **Settings → Connection → Frigate URL** to the internal URL of your Frigate instance (e.g., `http://frigate:5000`). The backend uses the Frigate HTTP API to fetch:
 
-- **Snapshots** — the high-quality still image for each bird event
+- **Snapshots** — Frigate's final clean best frame plus its tracked-object coordinates
 - **Video clips** — used for Deep Video Analysis and Full-visit clips
 - **Config** — to auto-discover your configured camera names
+
+For best-available snapshots, Frigate's `end` event is important: YA-WAMF uses it to refresh any
+live intermediate result from the completed track. The clean final still is the protected baseline.
+Recorded frames can replace it only when the active classifier predicts a compatible identity and
+improves confidence by the production margin; a failed clean-copy fetch falls back without applying
+normalized box coordinates to a possibly pre-cropped regular snapshot. The completed still remains
+a usable HQ source even when neither an event clip nor a cached recording clip is available.
 
 ## Sublabel Proxy
 

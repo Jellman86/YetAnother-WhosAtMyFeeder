@@ -242,6 +242,41 @@ async def test_process_mqtt_message_skips_end_event_classification():
 
 
 @pytest.mark.asyncio
+async def test_end_event_schedules_final_hq_snapshot_refresh_for_cached_detection():
+    processor = EventProcessor(MagicMock())
+    processor._classify_snapshot = AsyncMock()  # type: ignore[method-assign]
+    processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
+    payload = (
+        b'{"type":"end","after":{"id":"evt-final-hq","label":"bird","camera":"cam1",'
+        b'"start_time":1700000000,"end_time":1700000005,"data":'
+        b'{"box":[0.1,0.2,0.3,0.4],"path_data":[[[0.25,0.6],1700000004]]},'
+        b'"snapshot":{"box":[0.15,0.25,0.2,0.3],"frame_time":1700000004.5}}}'
+    )
+
+    with (
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq,
+    ):
+        mock_cache.has_snapshot.return_value = True
+        mock_hq.schedule_final_replacement = MagicMock(return_value=True)
+        await processor.process_mqtt_message(payload)
+
+    processor._classify_snapshot.assert_not_called()
+    mock_hq.schedule_final_replacement.assert_called_once_with(
+        "evt-final-hq",
+        event_data={
+            "start_time": 1700000000,
+            "end_time": 1700000005,
+            "data": {
+                "box": [0.1, 0.2, 0.3, 0.4],
+                "path_data": [[[0.25, 0.6], 1700000004]],
+            },
+            "snapshot": {"box": [0.15, 0.25, 0.2, 0.3], "frame_time": 1700000004.5},
+        },
+    )
+
+
+@pytest.mark.asyncio
 async def test_process_mqtt_message_does_not_trigger_auto_full_visit_for_new_events():
     processor = EventProcessor(MagicMock())
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
@@ -414,7 +449,11 @@ async def test_handle_detection_save_and_notify_schedules_high_quality_snapshot_
         )
     mock_hq.schedule_replacement.assert_called_once_with(
         "evt-hq-1",
-        event_data={"data": {"box": [0.2, 0.3, 0.4, 0.5]}},
+        event_data={
+            "start_time": 1700000000,
+            "end_time": None,
+            "data": {"box": [0.2, 0.3, 0.4, 0.5]},
+        },
     )
 
 

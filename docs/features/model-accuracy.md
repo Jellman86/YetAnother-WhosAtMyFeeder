@@ -117,6 +117,23 @@ requires confidence, independent-frame agreement, a clear winner, and compatibil
 existing identification. The manually verified feeder fixture remains the required follow-up for
 measuring accuracy rather than confidence.
 
+### Completed-track baseline (21 July 2026)
+
+HQ selection now treats Frigate's completed-event best frame as a protected baseline instead of
+assuming that a sampled recording frame is automatically better. At Frigate `end`, YA-WAMF fetches
+the full-resolution clean copy, applies the box tied to Frigate's selected snapshot (falling back
+to the final track box for older payloads), and scores the clean full frame and
+crop alongside independent video frames. A recording-derived candidate must predict a compatible
+identity and improve classifier confidence by at least `0.02` before it can replace that baseline.
+Both final Frigate candidates remain in the bounded audit set even when video wins.
+The final still can also complete the HQ replacement by itself when all clip sources are absent.
+
+The same correction fixes time-aligned event crops: Frigate `path_data` coordinates describe each
+tracked box's **bottom-centre**, not its geometric centre. YA-WAMF now reconstructs the box with
+`left = path_x - width / 2` and `top = path_y - height`, and compares path samples with the final
+box's bottom-centre when choosing frames. Final-still candidates do not count as an independent
+video moment for multi-frame species refinement, preventing one visual frame from voting twice.
+
 ---
 
 ## Intel GPU Support

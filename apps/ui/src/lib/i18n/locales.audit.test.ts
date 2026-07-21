@@ -168,6 +168,7 @@ const REQUIRED_ACTIVE_KEYS = [
     'detection.snapshot_source_short_full_frame',
     'detection.snapshot_source_short_frigate_hint',
     'detection.snapshot_candidate_frames_hint',
+    'detection.snapshot_candidate_final_frame',
     'detection.snapshot_best',
     'detection.snapshot_model_crop_disabled',
     'detection.snapshot_model_crop_unavailable',
@@ -296,6 +297,7 @@ const MUST_BE_LOCALIZED = [
     'about.feature_list.full_visit_clip.title',
     'detection.snapshot_generate_hint',
     'detection.snapshot_source_full_frame_hint',
+    'detection.snapshot_candidate_final_frame',
     'detection.snapshot_model_crop_disabled',
     'detection.snapshot_model_crop_unavailable',
     'detection.snapshot_model_candidates_empty'

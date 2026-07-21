@@ -119,3 +119,19 @@ regression; no hard-negative crop classification reached the active `0.40` floor
 that the application selects
 defensively; the small owner-labelled subset is not evidence that the detector itself beats
 Frigate, so broader manual labelling remains required.
+
+### Final Frigate snapshot baseline — 21 July 2026
+
+The production selector now begins from Frigate's completed-track best image rather than treating
+any sampled recording frame as an upgrade. Frigate's clean-copy endpoint supplies the unannotated,
+uncropped, full-resolution still; YA-WAMF applies `snapshot.box` from that selected frame (with
+`data.box` as a compatibility fallback), retains both full and cropped
+representations, and allows an event/recording-frame candidate to replace them only after compatible
+identity evidence and a classifier gain of at least `0.02`. If the clean copy is unavailable, the
+regular snapshot remains a fallback baseline but is not cropped again because Frigate ignores API
+crop overrides after an event ends and the file may already reflect its configured crop/resize.
+
+The event-end MQTT message schedules this final refresh even when the initial live-event HQ pass is
+active. Frigate path points are now interpreted according to their upstream bottom-centre contract,
+eliminating the previous half-box vertical displacement. Final stills remain visible in snapshot
+repair diagnostics but are excluded from independent temporal consensus.

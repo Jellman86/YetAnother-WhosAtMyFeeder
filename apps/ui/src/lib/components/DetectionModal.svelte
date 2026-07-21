@@ -3483,7 +3483,11 @@
                                                 {/if}
                                             </div>
                                             <span class="mt-0.5 block truncate text-[11px] font-semibold leading-tight">{candidate.classifier_label || snapshotSourceLabel(candidate.source_mode)}</span>
-                                            <span class="block text-[10px] text-white/40">{formatSnapshotFrameOffset(candidate.frame_offset_seconds) || `Frame ${candidate.frame_index}`}</span>
+                                            <span class="block text-[10px] text-white/40">
+                                                {candidate.clip_variant === 'frigate_snapshot'
+                                                    ? $_('detection.snapshot_candidate_final_frame', { default: 'Frigate final snapshot' })
+                                                    : formatSnapshotFrameOffset(candidate.frame_offset_seconds) || `Frame ${candidate.frame_index}`}
+                                            </span>
                                         </button>
                                     {/each}
                                 </div>

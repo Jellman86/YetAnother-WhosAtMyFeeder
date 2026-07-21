@@ -393,7 +393,10 @@ The evidence-only distant-subject threshold recovery is delivered, but a detecto
 not selected from one event or generic COCO AP. The production challenger now mirrors Frigate's
 small-object advantage: it refines a same-frame tracked region with YOLOX, falls back from native
 inference to four bounded overlapping tiles only on a miss, preserves full-frame evidence, and lets
-the model crop replace Frigate only after a material downstream classifier gain. Build the remaining
+the model crop replace Frigate only after a material downstream classifier gain. Frigate's final
+clean best frame and snapshot-specific tracked-box crop are now protected completed-event baselines; bottom-centre
+path geometry, end-event refresh, auditable fallback candidates, and non-duplicating temporal votes
+are delivered. Build the remaining
 manually labelled, visit-grouped Quark panel with near/distant birds and hard negatives; compare
 Frigate, the optimized current YOLOX-Tiny path,
 D-FINE-N, DEIMv2-N, RTMDet-Tiny, and PP-YOLOE+ S on downstream species correctness, crop recall/clipping,
@@ -539,7 +542,8 @@ test only proposals production could admit. The accurate YOLOX-Tiny tier is vali
 Intel CPU/GPU/NPU; the fast quantized SSD remains CPU-only.
 
 **Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots with conservative,
-temporally independent multi-frame crop refinement for distant subjects, recording-frame
+temporally independent multi-frame crop refinement for distant subjects, a protected Frigate final
+best-frame baseline with correctly reconstructed bottom-centre path coordinates, recording-frame
 classification fallback, media caching, and the video player with HTTP-Range seeking + expiring
 watermarked share links. Playable partial recordings are retained instead of refetched forever,
 corrupt media remains rejected, and HQ recovery has persistent bounded backoff across container

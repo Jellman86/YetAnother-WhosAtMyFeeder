@@ -52,6 +52,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   remain open.
 
 ### Fixed
+- **HQ snapshots now improve on Frigate instead of accidentally replacing its best work.** Frigate's
+  completed-track clean best frame and its snapshot-specific tracked-box crop are scored as protected baselines; a
+  recording-derived frame can replace them only with a compatible species result and at least a
+  two-point classifier gain. The `end` event upgrades or requeues an in-flight live pass, clean-copy
+  failure falls back without cropping a possibly pre-cropped regular snapshot, and both Frigate
+  baselines remain available in snapshot repair. The final still is also usable when both the event
+  clip and cached recording clip are absent. Time-aligned crops now interpret Frigate
+  `path_data` as box bottom-centres rather than centres, removing a half-box vertical offset, while
+  final stills cannot double-count as independent video evidence.
 - **Monolithic builds no longer depend on a mutable release sidecar.** The bundled fallback
   classifier's `model_config.json` is now checked in and contract-tested against the canonical
   registry, while the pinned Coral model and labels remain checksum-verified. Regenerating the

@@ -17,6 +17,13 @@ def test_cached_hq_crop_provenance_preserves_actual_input_source():
     assert provenance.is_cropped is True
 
 
+def test_regular_frigate_snapshot_fallback_fails_safe_to_cropped():
+    provenance = cached_snapshot_input_provenance({"source": "hq_candidate_frigate_snapshot_fallback"})
+
+    assert provenance.input_source == "hq_candidate_frigate_snapshot_fallback"
+    assert provenance.is_cropped is True
+
+
 def test_cached_full_frame_provenance_is_not_marked_as_cropped():
     provenance = cached_snapshot_input_provenance({"source": "hq_candidate_full_frame"})
 

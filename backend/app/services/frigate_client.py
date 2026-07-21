@@ -126,6 +126,31 @@ class FrigateClient:
             log.error("Error fetching snapshot", event_id=event_id, error=str(e))
             return None, "snapshot_unknown_error"
 
+    async def get_clean_snapshot_with_error(
+        self,
+        event_id: str,
+        timeout: float = 30.0,
+    ) -> tuple[Optional[bytes], Optional[str]]:
+        """Fetch Frigate's unannotated, uncropped, full-resolution best frame."""
+        try:
+            resp = await self.get(f"api/events/{event_id}/snapshot-clean.webp", timeout=timeout)
+            if resp.status_code == 200:
+                return resp.content, None
+            if resp.status_code == 404:
+                log.debug("Clean snapshot not found", event_id=event_id)
+                return None, "clean_snapshot_not_found"
+            log.warning("Failed to fetch clean snapshot", event_id=event_id, status=resp.status_code)
+            return None, f"clean_snapshot_http_{resp.status_code}"
+        except httpx.TimeoutException:
+            log.warning("Clean snapshot fetch timed out", event_id=event_id)
+            return None, "clean_snapshot_timeout"
+        except httpx.RequestError as e:
+            log.error("Error fetching clean snapshot", event_id=event_id, error=str(e))
+            return None, "clean_snapshot_request_error"
+        except Exception as e:
+            log.error("Error fetching clean snapshot", event_id=event_id, error=str(e))
+            return None, "clean_snapshot_unknown_error"
+
     async def get_clip_with_error(self, event_id: str, timeout: float = 20.0) -> tuple[Optional[bytes], Optional[str]]:
         """Fetch video clip for an event with explicit error reason."""
         try:

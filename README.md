@@ -71,7 +71,8 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 1. Captures the snapshot and classifies it with local AI (or trusted Frigate sublabels).
 2. Optionally correlates with BirdNET-Go audio detections.
 3. Stores the detection, pushes notifications, and updates the live UI.
-4. Optionally upgrades the cached event image later using a frame from the recorded clip.
+4. Optionally upgrades the cached event image from Frigate's final clean best frame, promoting a
+   recorded-frame crop only when it provides stronger compatible classification evidence.
 5. Optionally performs deeper clip analysis (15+ frames) for better accuracy, preferring retained
    local recordings and event clips before asking Frigate for media again.
 6. Adds optional enrichments like weather, BirdWeather reporting, and AI naturalist insights.

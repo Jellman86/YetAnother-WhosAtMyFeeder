@@ -13,6 +13,24 @@ def test_get_camera_recording_clip_url_uses_start_end_path_segments():
 
 
 @pytest.mark.asyncio
+async def test_get_clean_snapshot_with_error_uses_frigate_clean_copy_endpoint():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/events/evt-clean/snapshot-clean.webp"
+        return httpx.Response(200, content=b"clean-webp")
+
+    client = FrigateClient()
+    client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://frigate")
+    try:
+        snapshot, error = await client.get_clean_snapshot_with_error("evt-clean")
+    finally:
+        await client._client.aclose()
+        client._client = None
+
+    assert snapshot == b"clean-webp"
+    assert error is None
+
+
+@pytest.mark.asyncio
 async def test_get_clip_with_error_maps_missing_recordings_400_to_clip_not_retained():
     async def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path.endswith("/api/events/evt-1/clip.mp4")

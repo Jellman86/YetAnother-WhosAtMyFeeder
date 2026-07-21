@@ -134,8 +134,8 @@ also called the synchronous classifier directly, bypassing the background admiss
 and failing in subprocess mode.
 
 Candidate scoring now uses the supervised background classifier and the active model's normal input
-contract. Ranking combines classifier evidence with sharpness, usable exposure, resolution, crop
-confidence, and a small crop-source bonus. Crops must retain usable source detail and match the
+contract. Ranking combines classifier evidence with sharpness, usable exposure, and resolution;
+detector confidence and crop-source bonuses are not species evidence. Crops must retain usable source detail and match the
 known detection identity; before an identity exists, the same crop label must appear on two
 independent frames. The full frame competes in the same pool and is retained in the bounded saved
 candidate set even when many crops rank above it.
@@ -163,6 +163,16 @@ miss activates four bounded overlapping tiles. Detector confidence and crop-sour
 longer influence species ranking; an AI crop must improve the active classifier by at least two
 points before it can replace an available same-species Frigate crop. Full-frame and temporal gates
 remain unchanged, and strategy provenance is saved for replay.
+
+A completed event now adds Frigate's own final best frame as the protected baseline. YA-WAMF uses
+the full-resolution clean copy, applies the snapshot-specific box (or final track box for legacy
+payloads), and retains both representations in
+the candidate audit. A recording frame must predict a compatible identity and improve classifier
+confidence by at least two points before replacing it. The Frigate `end` message upgrades queued
+metadata or defers one final pass behind active work, while final stills are excluded from temporal
+consensus so one visual moment cannot vote twice. Path-aligned crops now use Frigate's documented
+bottom-centre point geometry; the former centre interpretation displaced boxes downward by half
+their height.
 
 ### 7. Playable partial recording clips were deleted and fetched forever — high, fixed
 
