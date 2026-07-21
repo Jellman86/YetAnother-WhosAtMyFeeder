@@ -71,6 +71,7 @@ def validation_provider_candidates(
     capabilities: dict[str, Any],
     supported_providers: list[str] | tuple[str, ...] | None,
     model_runtime: str,
+    discover_providers: bool = False,
 ) -> list[ValidationProviderCandidate]:
     """Return the provider sweep for one model on the running deployment.
 
@@ -101,7 +102,7 @@ def validation_provider_candidates(
     for provider in VALIDATION_PROVIDER_ORDER:
         if packaged and provider not in packaged:
             continue
-        if supported and provider not in supported:
+        if not discover_providers and supported and provider not in supported:
             continue
         if not host_available.get(provider):
             continue
@@ -356,7 +357,12 @@ def _device_report_ok(report: dict | None) -> tuple[bool, float | None, list[int
     return (finite, latency, top)
 
 
-async def sweep_model_devices(model_id: str, *, image_paths: list[str] | None = None) -> dict:
+async def sweep_model_devices(
+    model_id: str,
+    *,
+    image_paths: list[str] | None = None,
+    discover_providers: bool = False,
+) -> dict:
     """Validate every relevant provider for the active ``model_id``.
 
     The historical function name is retained for callers, but this is now a
@@ -379,7 +385,13 @@ async def sweep_model_devices(model_id: str, *, image_paths: list[str] | None = 
         capabilities=capabilities,
         supported_providers=spec.get("supported_inference_providers"),
         model_runtime=str(spec.get("runtime") or "onnx"),
+        discover_providers=discover_providers,
     )
+    declared_providers = {
+        str(provider or "").strip().lower()
+        for provider in (spec.get("supported_inference_providers") or [])
+        if str(provider or "").strip()
+    }
     baseline_provider = next(
         (candidate.provider for candidate in candidates if candidate.provider == "cpu"),
         next((candidate.provider for candidate in candidates if candidate.provider == "intel_cpu"), None),
@@ -400,7 +412,9 @@ async def sweep_model_devices(model_id: str, *, image_paths: list[str] | None = 
 
     per_provider: list[dict] = []
     eligible: list[str] = []
+    discovered: list[str] = []
     best: dict | None = None
+    best_discovered: dict | None = None
     for candidate in candidates:
         report = reports.get(candidate.provider)
         finite, latency, top = _device_report_ok(report)
@@ -416,11 +430,13 @@ async def sweep_model_devices(model_id: str, *, image_paths: list[str] | None = 
             ]
             agrees = bool(finite and comparisons and all(base[0] == provider[0] for base, provider in comparisons))
         ok = bool(finite and agrees)
+        declared = not declared_providers or candidate.provider in declared_providers
         entry = {
             "provider": candidate.provider,
             "backend": candidate.backend,
             "device": candidate.device,
             "ok": ok,
+            "declared": declared,
             "compiles": bool((report or {}).get("compile", {}).get("ok")),
             "finite": finite,
             "latency_ms": latency,
@@ -447,16 +463,25 @@ async def sweep_model_devices(model_id: str, *, image_paths: list[str] | None = 
         }
         per_provider.append(entry)
         if ok:
-            eligible.append(candidate.provider)
-            if best is None or (
-                latency is not None and (best.get("latency_ms") is None or latency < best["latency_ms"])
-            ):
-                best = {
-                    "device": candidate.device,
-                    "backend": candidate.backend,
-                    "provider": candidate.provider,
-                    "latency_ms": latency,
-                }
+            candidate_summary = {
+                "device": candidate.device,
+                "backend": candidate.backend,
+                "provider": candidate.provider,
+                "latency_ms": latency,
+            }
+            if declared:
+                eligible.append(candidate.provider)
+                if best is None or (
+                    latency is not None and (best.get("latency_ms") is None or latency < best["latency_ms"])
+                ):
+                    best = candidate_summary
+            else:
+                discovered.append(candidate.provider)
+                if best_discovered is None or (
+                    latency is not None
+                    and (best_discovered.get("latency_ms") is None or latency < best_discovered["latency_ms"])
+                ):
+                    best_discovered = candidate_summary
 
     return {
         "image_flavor": image_flavor,
@@ -465,7 +490,9 @@ async def sweep_model_devices(model_id: str, *, image_paths: list[str] | None = 
         # Backwards-compatible response field used by older API clients.
         "devices": per_provider,
         "eligible_providers": eligible,
+        "discovered_providers": discovered,
         "best": best,
+        "best_discovered": best_discovered,
     }
 
 

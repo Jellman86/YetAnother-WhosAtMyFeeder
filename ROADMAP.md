@@ -497,7 +497,9 @@ empty predictions.
 
 **Acceleration:** Intel iGPU (OpenVINO), **Intel NPU** (`intel_npu` provider, capability probe,
 device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and
-clean fallback chains.
+clean fallback chains. Full registry audits can probe undeclared host providers without making them
+eligible, and reproducible release sidecars prevent older provider metadata from narrowing or
+widening the current application contract.
 
 **Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots with conservative,
 temporally independent multi-frame crop refinement for distant subjects, recording-frame

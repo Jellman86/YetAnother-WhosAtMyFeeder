@@ -7,6 +7,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Fixed
+- **Installed model sidecars can no longer hide a provider validated by the current application.**
+  Provider compatibility is now reconciled to the current registry in both directions: obsolete
+  sidecar providers are removed and newly supported providers remain available for the hardware
+  sweep. The warning identifies both differences without repeating on every status poll. Every
+  GitHub-hosted model, label, and external-weight asset is now checksum-pinned in the registry.
 - **Raspberry Pi release smoke tests now run the ARM64 image on GitHub's x86 runner.** The smoke
   harness accepts an explicit image platform and the Raspberry Pi job selects `linux/arm64`, allowing
   the configured QEMU emulator to start the ARM-only canary instead of Docker rejecting it as an
@@ -14,6 +19,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   passes inside that canary.
 
 ### Changed
+- **Full hardware audits can discover stale provider metadata safely.** An owner-only all-model
+  sweep can opt into probing every provider packaged by the running image and exposed by the host,
+  even when the registry does not yet claim it. Each attempt remains subprocess-isolated and is
+  checked on real bird images for finite output and CPU top-1 agreement. Passing undeclared
+  providers are reported separately and cannot become runtime-eligible until the reviewed registry
+  is updated. Release sidecars are now generated from that registry, keeping provider,
+  preprocessing, checksum, and automatic crop-policy metadata reproducible.
 - **Raspberry Pi images now start classification-ready and are release-gated by real ARM inference.**
   Every monolith image includes a revision-pinned, checksum-verified MobileNet V2 model and labels
   as an offline CPU fallback. ARM64 now uses Google's current standalone LiteRT interpreter instead

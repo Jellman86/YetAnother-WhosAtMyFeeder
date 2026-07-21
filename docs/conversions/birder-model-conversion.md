@@ -108,3 +108,15 @@ will appear in the results table; check the `runtime.json` file under
 `/config/yawamf-eval/<run_id>/` for the per-model `gpu_diagnostic` block to
 confirm the active provider, observed compile result, and preprocessing match
 what the registry declared.
+
+After provider and crop-policy review, generate release-ready sidecars from the registry rather than
+editing JSON assets by hand:
+
+```bash
+python backend/scripts/generate_model_release_configs.py /tmp/yawamf-model-configs
+```
+
+The output is the canonical install contract for runtime, input size, preprocessing, checksums,
+provider policy, and classifier crop policy. Crop-detector metadata remains a separate artifact
+contract and does not acquire the classifier `crop_generator` block. Upload only after the model
+asset digests and a real-image provider sweep agree with the registry.

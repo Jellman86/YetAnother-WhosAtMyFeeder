@@ -109,6 +109,32 @@ defaults to that result and removes providers that failed for the selected model
 the recommendation only after the model switch succeeds. Re-running a failed sweep invalidates old
 evidence for that model instead of silently retaining a previously passing result.
 
+Maintainers auditing registry metadata can send `discover_providers: true` with an owner-only run.
+Discovery tests every provider packaged by the image and exposed by the host, including providers
+the model does not currently declare. The matrix marks those rows `declared: false` and reports
+passing candidates under `discovered_providers`. Discovery evidence is deliberately informational:
+it does not widen `device_eligibility.json`, change the activation recommendation, or let historical
+host evidence override the reviewed registry contract. This makes known-risk probes such as a model
+that crashes an Intel GPU safe to contain in the existing child process.
+
+For a complete metadata audit on the Intel image, use:
+
+```json
+{
+  "sweep_devices": true,
+  "compat_only": true,
+  "sweep_all_models": true,
+  "discover_providers": true
+}
+```
+
+The hardware sweep validates runtime compatibility, not classifier image-selection accuracy. Crop
+policy is evaluated separately with the feeder harness. Distant-bird validation must retain each
+full frame and compare it with timestamp-distinct Frigate-hint and detector crops; multiple crops of
+one frame are one vote, and a confident crop consensus is not ground truth without an owner-labelled
+field set. This preserves the fail-soft full-frame path while still measuring whether localization
+helps small, distant subjects.
+
 Both `summary.json` and `device_matrix.json` contain compatibility-only results. The latter is
 available through `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with `artifact` set to
 `device_matrix.json`; older runs that used `devices` remain readable while new matrices also expose
@@ -121,5 +147,6 @@ provider-native `providers` fields.
 - Image fetch + species panel: `backend/app/services/eval/`
 - Sanity checks: `backend/app/services/eval/sanity_checks.py`
 - HTTP router: `backend/app/routers/model_eval.py`
+- Release-sidecar generator: `backend/scripts/generate_model_release_configs.py`
 - Frontend page: `apps/ui/src/lib/pages/ModelEvaluation.svelte`
 - Design doc: `docs/plans/2026-05-07-model-evaluation-harness-design.md`

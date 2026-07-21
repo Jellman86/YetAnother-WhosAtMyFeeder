@@ -79,6 +79,25 @@ def test_validation_provider_candidates_never_probe_a_provider_the_model_exclude
     assert [candidate.provider for candidate in candidates] == ["cpu", "intel_npu"]
 
 
+def test_validation_provider_discovery_can_probe_packaged_host_providers_outside_the_registry():
+    candidates = mv.validation_provider_candidates(
+        image_flavor="intel",
+        capabilities={
+            "ort_available": True,
+            "cuda_available": False,
+            "openvino_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+            "intel_npu_available": True,
+        },
+        supported_providers=["cpu", "intel_cpu"],
+        model_runtime="onnx",
+        discover_providers=True,
+    )
+
+    assert [candidate.provider for candidate in candidates] == ["cpu", "intel_cpu", "intel_gpu", "intel_npu"]
+
+
 def test_validation_provider_candidates_keep_tflite_on_cpu():
     candidates = mv.validation_provider_candidates(
         image_flavor="full",
@@ -95,6 +114,56 @@ def test_validation_provider_candidates_keep_tflite_on_cpu():
     )
 
     assert [candidate.provider for candidate in candidates] == ["cpu"]
+
+
+@pytest.mark.asyncio
+async def test_provider_discovery_reports_undeclared_success_without_widening_eligibility(monkeypatch):
+    from app.services import classifier_service
+    from app.services.model_manager import model_manager
+
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
+    monkeypatch.setattr(
+        classifier_service,
+        "_detect_acceleration_capabilities",
+        lambda: {
+            "ort_available": True,
+            "cuda_available": False,
+            "openvino_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+            "intel_npu_available": True,
+        },
+    )
+    monkeypatch.setattr(
+        model_manager,
+        "get_active_model_spec",
+        lambda: {
+            "model_id": "small_birds",
+            "runtime": "onnx",
+            "supported_inference_providers": ["cpu", "intel_cpu"],
+        },
+    )
+
+    async def successful_probe(provider, **_kwargs):
+        return {
+            "provider": provider,
+            "compile": {"ok": True},
+            "output_summary": {"finite_count": 2, "element_count": 2},
+            "per_image_top_indices": [[3, 2, 1]],
+            "inference_latency_ms": 10.0 if provider == "intel_npu" else 20.0,
+        }
+
+    monkeypatch.setattr(mv, "_probe_one_provider", successful_probe)
+
+    result = await mv.sweep_model_devices("small_birds", image_paths=["bird.jpg"], discover_providers=True)
+
+    assert result["eligible_providers"] == ["cpu", "intel_cpu"]
+    assert result["discovered_providers"] == ["intel_gpu", "intel_npu"]
+    assert result["best"]["provider"] == "cpu"
+    assert result["best_discovered"]["provider"] == "intel_npu"
+    by_provider = {row["provider"]: row for row in result["providers"]}
+    assert by_provider["intel_npu"]["declared"] is False
+    assert by_provider["intel_npu"]["ok"] is True
 
 
 def test_probe_report_parser_ignores_structured_logs_before_the_final_report():

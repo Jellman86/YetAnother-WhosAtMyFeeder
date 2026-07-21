@@ -226,7 +226,7 @@ See [Hardware Acceleration](setup/hardware-acceleration.md) for the complete
 image/provider contract.
 
 The owner-only model-evaluation API accepts `sweep_devices`, `compat_only`,
-`sweep_all_models`, and an optional `model_ids` list on
+`sweep_all_models`, `discover_providers`, and an optional `model_ids` list on
 `POST /api/diagnostics/model-eval/runs`. The setup wizard sends its selected installed
 model as the sole `model_ids` entry; Diagnostics defaults to installed models and can
 opt into downloading the full registry. Compatibility runs publish their normal
@@ -234,7 +234,10 @@ summary plus `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with
 `artifact=device_matrix.json`. Its provider matrix records image flavor, baseline,
 compile/finite-output status, real-image agreement, eligibility, and inference latency.
 Compatibility summaries also expose `validated_providers` and `failed_providers` per model; the
-fastest passing provider becomes the current-image activation recommendation.
+fastest passing declared provider becomes the current-image activation recommendation.
+`discover_providers=true` additionally probes packaged, host-visible providers omitted by current
+model metadata. Passing undeclared rows are reported as `declared: false` and under
+`discovered_providers`; they do not widen runtime eligibility until the registry is reviewed.
 
 ### AI
 

@@ -46,6 +46,8 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_ssd_mobilenet_v1_12_int8.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_model_config.json",
+        "sha256": "2b79e6a7fb1ec6a33f332b9b10d82d9de4b7b49dcd26b5946921bb356895c954",
+        "labels_sha256": "a9d03262d23184d1a74b5b309fe85fcfc9ea7ad48a21fe1dd21372496f836fbc",
         "input_size": 300,
         "preprocessing": {
             "color_space": "RGB",
@@ -174,6 +176,8 @@ REMOTE_REGISTRY = [
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate_labels.txt",
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate_model_config.json",
+                "sha256": "dccbb727fce3ed0eba460a857de5c2203e8858364de5093d45b9a8c364eb7786",
+                "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
                 "file_size_mb": 122.7,
                 "input_size": 384,
                 "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
@@ -196,6 +200,8 @@ REMOTE_REGISTRY = [
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/n2b8_efficientnet_b0_nabirds.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/n2b8_class_labels.txt",
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_na_efficientnet_b0_candidate_model_config.json",
+                "sha256": "2ffd557011229b1705750a4f38274379af0f28f61730bf41fe9b87b31e6d1821",
+                "labels_sha256": "ca3a5500fd0aa02f3f969ee304733c76384a38b92da82b802b614246fcd2a57d",
                 "file_size_mb": 18.0,
                 "input_size": 224,
                 "preprocessing": {
@@ -239,6 +245,9 @@ REMOTE_REGISTRY = [
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21_model_config.json",
+        "sha256": "4717dd31182c8bbcd1058f7dee1c6099feb604a44d6576315386c4d6d9f781f6",
+        "weights_sha256": "b6157639e013433bb28deae7da5653144822dcaeebfec14fa743c86cd91907c2",
+        "labels_sha256": "f2b1294bc0b3a943425655e8b74cd7489e623d0ec7fa6dc5ce57cc85a93f8ac5",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -276,6 +285,8 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b_model_config.json",
+        "sha256": "2a639ad3c7324a7dbdd800b7ffaf5b42ed7e1297d7cc172e213ce731affcd76d",
+        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -314,6 +325,9 @@ REMOTE_REGISTRY = [
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all_model_config.json",
+        "sha256": "951c2cf3ca828db604bcd06a64d8eae46b757bb5f6535021675f1c4fe60963a4",
+        "weights_sha256": "5b14d70b10086efe2530577fbe57b06cbf1fc01a897b73fd5c33028bb722db0b",
+        "labels_sha256": "f65bff0e822832ba992c7a4ef60366ffe22f465d00747e163af07a8f139fc74c",
         "input_size": 240,
         "preprocessing": {
             "color_space": "RGB",
@@ -375,6 +389,8 @@ REMOTE_REGISTRY = [
                 "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate.onnx",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate_labels.txt",
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate_model_config.json",
+                "sha256": "3daeaa8069a927f9114ef576c31b72dc445416574e1914a61779f2fc83f00d11",
+                "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
                 "file_size_mb": 108.5,
                 "input_size": 256,
                 "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
@@ -398,6 +414,9 @@ REMOTE_REGISTRY = [
                 "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate.onnx.data",
                 "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate_labels.txt",
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_na_binocular_candidate_model_config.json",
+                "sha256": "5c3e6b63f865dd94b1c283e551e892c2a45cb5499f06d87daf888c1d7266d015",
+                "weights_sha256": "46d188c7baa1c917d23115d1d8f9e8a469796e50ae7e3dbdb45972320e55bcca",
+                "labels_sha256": "040ef98617b146efe34fa8db4276d191226de69332a1219749dde991472beb11",
                 "file_size_mb": 333.0,
                 "input_size": 224,
                 "preprocessing": {
@@ -441,6 +460,8 @@ REMOTE_REGISTRY = [
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_model_config.json",
+        "sha256": "59e80421d89d3018af817c09d1ab9da4b0e379830302d04d3c660dece5e3c0aa",
+        "labels_sha256": "6ec358029cdad4cb9182e159f7eee44fba5a3842e2c81590e2b8a2f11cc0f188",
         "input_size": 224,
         "preprocessing": {
             "color_space": "RGB",
@@ -485,6 +506,9 @@ REMOTE_REGISTRY = [
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_model_config.json",
+        "sha256": "319d7a73a24444bcb698265a21aa0621527f94c67baf9a3cb62ae7b8e1104fbc",
+        "weights_sha256": "371e73e5a430350dabac9790e6abc3977ac697ea5fcd1c04b0aee9aa130933da",
+        "labels_sha256": "f2b1294bc0b3a943425655e8b74cd7489e623d0ec7fa6dc5ce57cc85a93f8ac5",
         "input_size": 336,
         "preprocessing": {
             "color_space": "RGB",
@@ -797,7 +821,7 @@ class ModelManager:
         # get_active_model_spec runs on every inference path; without deduping,
         # the same "unsupported inference providers" warning was emitted on
         # every detection, spamming logs and the diagnostic bundle.
-        self._unsupported_provider_warn_cache: set[tuple[str, tuple[str, ...]]] = set()
+        self._provider_config_warn_cache: set[tuple[str, tuple[str, ...], tuple[str, ...]]] = set()
 
     def _load_active_model_id(self) -> str:
         """Load the active model ID from a local config file."""
@@ -1052,13 +1076,23 @@ class ModelManager:
             log.warning("Failed to load installed model config", model_dir=model_dir, error=str(exc))
             return {}
 
-    def _sanitize_installed_inference_providers(
+    def _reconcile_installed_inference_providers(
         self,
         *,
         installed_providers: list[Any],
         registry_providers: list[Any],
         model_dir: str,
     ) -> tuple[list[str], list[str]]:
+        """Apply the current registry's provider policy to an installed model.
+
+        Release sidecars are copied into persistent storage and can outlive the
+        application version that downloaded them.  They are useful artifact
+        metadata, but they must neither re-enable a provider the current registry
+        removed nor hide a provider validated by a newer release.  The registry is
+        therefore authoritative whenever it declares a provider list; differences
+        remain visible as one deduplicated operator warning until the sidecar is
+        refreshed.
+        """
         allowed_registry: list[str] = []
         allowed_registry_set: set[str] = set()
         for provider in registry_providers:
@@ -1077,44 +1111,36 @@ class ModelManager:
             installed_normalized.append(normalized)
             seen_installed.add(normalized)
 
-        supported = [provider for provider in installed_normalized if provider in allowed_registry_set]
+        if not allowed_registry:
+            return installed_normalized, []
+
         unsupported = [provider for provider in installed_normalized if provider not in allowed_registry_set]
+        missing = [provider for provider in allowed_registry if provider not in seen_installed]
 
-        if not unsupported:
-            return supported, []
+        if not unsupported and not missing:
+            return allowed_registry, []
 
-        unsupported_text = ", ".join(unsupported)
-        warn_key = (model_dir, tuple(sorted(unsupported)))
-        already_warned = warn_key in self._unsupported_provider_warn_cache
-        if not already_warned:
-            self._unsupported_provider_warn_cache.add(warn_key)
-        if supported:
-            warning = (
-                "Installed model_config.json advertised providers no longer supported by the current "
-                f"registry and they were ignored: {unsupported_text}"
-            )
-            if not already_warned:
-                log.warning(
-                    "Installed model config advertised unsupported inference providers; ignoring extras",
-                    model_dir=model_dir,
-                    unsupported_providers=unsupported,
-                    registry_supported_providers=allowed_registry,
-                    retained_providers=supported,
-                )
-            return supported, [warning]
-
+        changes: list[str] = []
+        if unsupported:
+            changes.append(f"removed: {', '.join(unsupported)}")
+        if missing:
+            changes.append(f"added: {', '.join(missing)}")
         warning = (
-            "Installed model_config.json only advertised providers no longer supported by the current "
-            f"registry: {unsupported_text}. Falling back to registry-supported providers."
+            "Installed model_config.json provider metadata is stale; current registry policy was applied "
+            f"({'; '.join(changes)})."
         )
+        warn_key = (model_dir, tuple(sorted(unsupported)), tuple(sorted(missing)))
+        already_warned = warn_key in self._provider_config_warn_cache
         if not already_warned:
+            self._provider_config_warn_cache.add(warn_key)
             log.warning(
-                "Installed model config advertised only unsupported inference providers; falling back to registry providers",
+                "Installed model provider metadata differs from current registry; applying registry policy",
                 model_dir=model_dir,
                 unsupported_providers=unsupported,
+                missing_providers=missing,
                 registry_supported_providers=allowed_registry,
             )
-        return list(allowed_registry), [warning]
+        return allowed_registry, [warning]
 
     def _apply_installed_model_config(
         self,
@@ -1177,17 +1203,24 @@ class ModelManager:
                     continue
                 registry_unsupported_providers.append(normalized)
                 seen_registry_unsupported.add(normalized)
-            sanitized_providers, provider_warnings = self._sanitize_installed_inference_providers(
+            reconciled_providers, provider_warnings = self._reconcile_installed_inference_providers(
                 installed_providers=providers,
                 registry_providers=list(spec.get("supported_inference_providers") or []),
                 model_dir=model_dir,
             )
-            if sanitized_providers:
-                merged["supported_inference_providers"] = sanitized_providers
+            if reconciled_providers:
+                merged["supported_inference_providers"] = reconciled_providers
             if provider_warnings:
+                registry_missing_providers = [
+                    provider
+                    for provider in reconciled_providers
+                    if provider
+                    not in {str(installed_provider or "").strip().lower() for installed_provider in providers}
+                ]
                 model_config_warnings.extend(provider_warnings)
                 merged["model_config_provider_warnings"] = list(provider_warnings)
                 merged["model_config_registry_unsupported_providers"] = registry_unsupported_providers
+                merged["model_config_registry_missing_providers"] = registry_missing_providers
         if model_config_warnings:
             merged["model_config_warnings"] = model_config_warnings
         return merged

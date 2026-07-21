@@ -100,6 +100,7 @@ class ModelEvalRunner:
         sweep_devices: bool = False,
         compat_only: bool = False,
         sweep_all_models: bool = False,
+        discover_providers: bool = False,
         model_ids: list[str] | None = None,
     ) -> str:
         if self.is_running():
@@ -123,6 +124,7 @@ class ModelEvalRunner:
                 sweep_devices=sweep_devices,
                 compat_only=compat_only,
                 sweep_all_models=sweep_all_models,
+                discover_providers=discover_providers,
                 model_ids=model_ids,
             ),
             name=f"model_eval:{run_id}",
@@ -234,6 +236,7 @@ class ModelEvalRunner:
         sweep_devices: bool = False,
         compat_only: bool = False,
         sweep_all_models: bool = False,
+        discover_providers: bool = False,
         model_ids: list[str] | None = None,
     ) -> None:
         async with self._lock:
@@ -246,6 +249,7 @@ class ModelEvalRunner:
                     sweep_devices=sweep_devices,
                     compat_only=compat_only,
                     sweep_all_models=sweep_all_models,
+                    discover_providers=discover_providers,
                     model_ids=model_ids,
                 )
             except asyncio.CancelledError:
@@ -280,6 +284,7 @@ class ModelEvalRunner:
         sweep_devices: bool = False,
         compat_only: bool = False,
         sweep_all_models: bool = False,
+        discover_providers: bool = False,
         model_ids: list[str] | None = None,
     ) -> None:
         from app.services.classifier_service import get_classifier
@@ -379,7 +384,12 @@ class ModelEvalRunner:
             compatibility_payload: dict[str, Any] | None = None
             try:
                 if sweep_devices:
-                    compatibility_payload = await self._device_sweep(run_id, run_dir, classifiers)
+                    compatibility_payload = await self._device_sweep(
+                        run_id,
+                        run_dir,
+                        classifiers,
+                        discover_providers=discover_providers,
+                    )
             finally:
                 if original_active and original_active != model_manager.active_model_id:
                     try:
@@ -692,7 +702,12 @@ class ModelEvalRunner:
             # top-5 agreement vs CPU), each compile isolated in a subprocess.
             if sweep_devices:
                 try:
-                    await self._device_sweep(run_id, run_dir, classifiers)
+                    await self._device_sweep(
+                        run_id,
+                        run_dir,
+                        classifiers,
+                        discover_providers=discover_providers,
+                    )
                 except Exception as e:
                     log.exception("model_eval_device_sweep_failed", run_id=run_id, error=str(e))
         finally:
@@ -783,7 +798,14 @@ class ModelEvalRunner:
                 },
             )
 
-    async def _device_sweep(self, run_id: str, run_dir: Path, classifiers: list) -> dict[str, Any]:
+    async def _device_sweep(
+        self,
+        run_id: str,
+        run_dir: Path,
+        classifiers: list,
+        *,
+        discover_providers: bool = False,
+    ) -> dict[str, Any]:
         """Validate each model across the providers owned by this deployment.
 
         The method name is retained for compatibility with stored run terminology.
@@ -840,7 +862,11 @@ class ModelEvalRunner:
                 continue
 
             try:
-                result = await sweep_model_devices(model.id, image_paths=image_paths)
+                result = await sweep_model_devices(
+                    model.id,
+                    image_paths=image_paths,
+                    discover_providers=discover_providers,
+                )
             except Exception as e:
                 # One broken runtime/model pairing must not discard the results for
                 # every other installed model.  Keep the failure visible in the
@@ -879,6 +905,8 @@ class ModelEvalRunner:
                 "baseline_provider": result.get("baseline_provider"),
                 "best_provider": best.get("provider"),
                 "providers": per_provider,
+                "discovered_providers": list(result.get("discovered_providers") or []),
+                "best_discovered_provider": (result.get("best_discovered") or {}).get("provider"),
                 # Compatibility alias so historical UI code can read new runs.
                 "devices": per_provider,
             }

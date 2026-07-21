@@ -315,7 +315,8 @@ async def test_provider_sweep_contains_one_model_failure_and_continues(tmp_path,
     async def activate_model(_model_id):
         return True
 
-    async def sweep_model_devices(model_id, *, image_paths):
+    async def sweep_model_devices(model_id, *, image_paths, discover_providers=False):
+        assert discover_providers is True
         if model_id == "broken":
             raise RuntimeError("driver crashed")
         return {
@@ -341,6 +342,7 @@ async def test_provider_sweep_contains_one_model_failure_and_continues(tmp_path,
         "run-1",
         tmp_path,
         [SimpleNamespace(id="broken"), SimpleNamespace(id="healthy")],
+        discover_providers=True,
     )
 
     assert payload["models"]["broken"]["error"].startswith("provider_sweep_failed")

@@ -211,6 +211,12 @@ The NPU is validated per model, not enabled blanket:
 - The payoff is power and thermal efficiency (freeing the iGPU/CPU), not
   necessarily lower latency.
 
+The ordinary compatibility check probes only providers declared for the model. A maintainer's
+full-registry discovery sweep may probe an undeclared NPU/GPU in an isolated child process to find
+stale metadata. A successful discovery is visible in the downloadable matrix but is not selectable
+until the registry and release sidecar have been reviewed and updated; a failed or crashing probe
+cannot take down the main backend.
+
 The `full` and `intel` images ship OpenVINO and the NPU user-mode (Level-Zero)
 driver. If OpenVINO enumerates only `CPU` with `/dev/accel/accel0` passed in,
 check the host kernel/driver boundary and container permissions. The `cpu` and

@@ -11875,6 +11875,11 @@
             "title": "Compat Only",
             "type": "boolean"
           },
+          "discover_providers": {
+            "default": false,
+            "title": "Discover Providers",
+            "type": "boolean"
+          },
           "include_per_image": {
             "default": false,
             "title": "Include Per Image",
@@ -15242,6 +15247,7 @@
                 "$ref": "#/components/schemas/StartRunRequest",
                 "default": {
                   "compat_only": false,
+                  "discover_providers": false,
                   "include_per_image": false,
                   "model_ids": [],
                   "sweep_all_models": false,

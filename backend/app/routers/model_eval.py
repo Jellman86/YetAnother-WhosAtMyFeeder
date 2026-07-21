@@ -28,6 +28,7 @@ class StartRunRequest(BaseModel):
     sweep_devices: bool = False
     compat_only: bool = False  # device sweep only, skip accuracy scoring
     sweep_all_models: bool = False  # download + test every model (else installed only)
+    discover_providers: bool = False  # probe packaged host providers even when registry metadata excludes them
     model_ids: list[str] = Field(default_factory=list)
 
 
@@ -47,6 +48,7 @@ async def start_run(
             sweep_devices=body.sweep_devices,
             compat_only=body.compat_only,
             sweep_all_models=body.sweep_all_models,
+            discover_providers=body.discover_providers,
             model_ids=body.model_ids,
         )
     except ModelEvalAlreadyRunning as e:

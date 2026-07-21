@@ -1546,6 +1546,7 @@ export interface components {
 };
     StartRunRequest: {
     compat_only?: boolean;
+    discover_providers?: boolean;
     include_per_image?: boolean;
     model_ids?: Array<string>;
     region_override?: string | null;

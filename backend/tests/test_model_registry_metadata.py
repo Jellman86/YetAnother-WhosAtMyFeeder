@@ -1,7 +1,27 @@
+from urllib.parse import urlparse
+
 import pytest
 
 from app.config import settings
 from app.services.model_manager import REMOTE_REGISTRY, ModelManager
+
+
+def test_every_github_release_model_asset_has_a_pinned_checksum():
+    for registry_entry in REMOTE_REGISTRY:
+        variants = registry_entry.get("region_variants") or {}
+        model_metas = [{**registry_entry, **variant} for variant in variants.values()] if variants else [registry_entry]
+        for model_meta in model_metas:
+            for url_key, checksum_key in (
+                ("download_url", "sha256"),
+                ("weights_url", "weights_sha256"),
+                ("labels_url", "labels_sha256"),
+            ):
+                url = str(model_meta.get(url_key) or "")
+                if "/releases/download/models/" not in urlparse(url).path:
+                    continue
+                checksum = str(model_meta.get(checksum_key) or "")
+                assert len(checksum) == 64, f"{registry_entry['id']} {url_key} is not checksum-pinned"
+                assert all(character in "0123456789abcdef" for character in checksum)
 
 
 def test_every_classifier_registry_entry_has_an_explicit_crop_policy():
