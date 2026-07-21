@@ -32,7 +32,13 @@
         return matrix.providers?.length ? matrix.providers : matrix.devices;
     }
 
-    function deviceCell(row: DeviceMatrix['models'][string] | undefined, dev: string): { label: string; cls: string } {
+    type MatrixRow = DeviceMatrix['models'][string] | NonNullable<DeviceMatrix['crop_detectors']>[string];
+
+    function matrixRows(matrix: DeviceMatrix): Array<[string, MatrixRow]> {
+        return [...Object.entries(matrix.models), ...Object.entries(matrix.crop_detectors ?? {})];
+    }
+
+    function deviceCell(row: MatrixRow | undefined, dev: string): { label: string; cls: string } {
         if (!row || row.error) return { label: '—', cls: 'text-gray-400' };
         const e = row.providers?.[dev] ?? row.devices?.[dev];
         if (!e) return { label: '—', cls: 'text-gray-400' };
@@ -40,7 +46,16 @@
         if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
         if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { label: `✓ baseline (${e.images_evaluated ?? 0})`, cls: 'text-gray-600 dark:text-gray-400' };
         const n = e.images_compared;
+        if (row.comparison_kind === 'crop_box' && e.matches_cpu && n) {
+            const iou = e.mean_box_iou;
+            return { label: `✓ ${n}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-accent-600 dark:text-accent-400' };
+        }
         if (e.matches_cpu && n) return { label: `✓ ${n}/${n} top-1`, cls: 'text-accent-600 dark:text-accent-400' };
+        if (typeof e.detection_match_rate === 'number' && n) {
+            const hits = Math.round(e.detection_match_rate * n);
+            const iou = e.mean_box_iou;
+            return { label: `⚠ ${hits}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-amber-600 dark:text-amber-400' };
+        }
         if (typeof e.top1_match_rate === 'number' && n) {
             const hits = Math.round(e.top1_match_rate * n);
             const ov = e.mean_top5_overlap;
@@ -325,8 +340,9 @@
             <p class="mt-1 text-xs text-gray-600 dark:text-gray-400">
                 Image {deviceMatrix.image_flavor ?? 'unknown'} tested each packaged, detected, and
                 model-compatible provider in an isolated subprocess. Accelerators are compared with
-                the CPU baseline on {deviceMatrix.image_count ?? 0} real bird images — shown as top-1
-                match rate (and mean top-5 overlap /5).
+                the CPU baseline on {deviceMatrix.image_count ?? 0} varied real bird images. Classifiers
+                compare ranking; crop detectors compare detection presence, box geometry and confidence,
+                with three additional hard-negative images.
             </p>
             <div class="mt-3 overflow-x-auto">
                 <table class="w-full text-sm">
@@ -339,9 +355,11 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {#each Object.entries(deviceMatrix.models) as [modelId, row]}
+                        {#each matrixRows(deviceMatrix) as [modelId, row]}
                             <tr class="border-b border-gray-100 dark:border-gray-800">
-                                <td class="py-2 pr-4 font-medium text-gray-800 dark:text-gray-200">{modelId}</td>
+                                <td class="py-2 pr-4 font-medium text-gray-800 dark:text-gray-200">
+                                    {modelId}{#if row.comparison_kind === 'crop_box'} <span class="text-gray-400">· crop detector</span>{/if}
+                                </td>
                                 {#each matrixProviders(deviceMatrix) as dev}
                                     {@const c = deviceCell(row, dev)}
                                     <td class="px-2 text-xs {c.cls}">{c.label}</td>

@@ -191,6 +191,89 @@ def test_load_model_uses_local_onnx_detector_path(monkeypatch, tmp_path):
     assert loaded["session"].__class__.__name__ == "_FakeSession"
 
 
+def test_load_model_uses_current_validated_crop_provider(monkeypatch, tmp_path):
+    model_path = tmp_path / "bird_crop.onnx"
+    model_path.write_bytes(b"fake")
+    service = BirdCropService()
+    calls = []
+
+    monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
+    monkeypatch.setattr(
+        "app.services.model_validation.activation_provider_recommendation",
+        lambda model_id: "intel_gpu" if model_id == "bird_crop_detector" else None,
+    )
+    monkeypatch.setattr(
+        service,
+        "_load_model_on_provider",
+        lambda **kwargs: calls.append(kwargs["provider"]) or {"provider": kwargs["provider"]},
+    )
+
+    loaded = service._load_model()
+
+    assert loaded["provider"] == "intel_gpu"
+    assert calls == ["intel_gpu"]
+    assert service._active_providers["fast"] == "intel_gpu"
+
+
+def test_load_model_falls_back_to_cpu_when_validated_accelerator_stops_compiling(monkeypatch, tmp_path):
+    model_path = tmp_path / "bird_crop.onnx"
+    model_path.write_bytes(b"fake")
+    service = BirdCropService(provider_override="intel_npu")
+    calls = []
+
+    monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
+
+    def load(**kwargs):
+        calls.append(kwargs["provider"])
+        if kwargs["provider"] == "intel_npu":
+            raise RuntimeError("compiler rejected graph")
+        return {"provider": kwargs["provider"]}
+
+    monkeypatch.setattr(service, "_load_model_on_provider", load)
+
+    loaded = service._load_model()
+
+    assert loaded["provider"] == "cpu"
+    assert calls == ["intel_npu", "cpu"]
+    assert service._provider_fallbacks["fast"] == "intel_npu"
+
+
+def test_strict_crop_provider_probe_never_falls_back(monkeypatch, tmp_path):
+    model_path = tmp_path / "bird_crop.onnx"
+    model_path.write_bytes(b"fake")
+    service = BirdCropService(provider_override="intel_npu", strict_provider=True)
+
+    monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
+    monkeypatch.setattr(
+        service,
+        "_load_model_on_provider",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("NPU compile failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="NPU compile failed"):
+        service._load_model()
+
+
+def test_accelerated_inference_failure_switches_cached_tier_to_cpu(monkeypatch):
+    service = BirdCropService(detector_tier="fast", expand_ratio=0.0, min_crop_size=10)
+    gpu_model = {"provider": "intel_gpu"}
+    cpu_model = {"provider": "cpu"}
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda _tier: gpu_model)
+    monkeypatch.setattr(service, "_replace_tier_with_cpu", lambda _tier, failed_provider: cpu_model)
+
+    def infer(model, _image):
+        if model is gpu_model:
+            raise RuntimeError("device lost")
+        return [{"box": (10, 10, 80, 80), "confidence": 0.9}]
+
+    monkeypatch.setattr(service, "_infer_candidates", infer)
+
+    result = service.generate_crop(_make_image())
+
+    assert result["reason"] == "selected"
+    assert result["box"] == (10, 10, 80, 80)
+
+
 def test_load_model_autodiscovers_standard_detector_path_without_env(monkeypatch, tmp_path):
     model_dir = tmp_path / "bird_crop"
     model_dir.mkdir(parents=True)

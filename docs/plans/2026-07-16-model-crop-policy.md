@@ -86,3 +86,22 @@ concrete species must clear the active model's recommended threshold and a 0.60 
 least two distinct frames, with an 0.08 margin over any competing multi-frame consensus. Crop
 sources from the same frame count once. The result may upgrade Unknown Bird or strengthen the same
 known species, but cannot replace a manual tag or a conflicting known identification.
+
+### Distant-subject threshold validation — 21 July 2026
+
+The manually identified Eurasian Sparrowhawk event `1784555940.484185-eocv7l` established that an
+apparent accurate-detector miss was a policy miss. YOLOX-Tiny found the bird in two 2560×1920 frames
+at detector confidence `0.0264` and `0.0450`; both valid boxes were discarded by the normal `0.05`
+floor. When admitted as classifier candidates, both produced the correct species and the stronger
+frame scored `0.9800`, above the `0.8668` result from the saved Frigate crop.
+
+The application now has two deliberately separate thresholds. Thumbnail and direct single-image
+replacement retain `0.05`. Multi-representation video/HQ evidence can admit an accurate-detector
+box down to `0.02`, while retaining the full frame and requiring the existing identity, quality,
+temporal-consensus, and ambiguity gates. A `2×2` sliced-inference experiment increased detector
+confidence above `0.80` but reduced downstream classifier confidence and required four detector
+calls, so it was not enabled.
+
+The replacement-model shortlist and visit-level promotion gate are recorded in the
+[crop-detector candidate review](../reviews/2026-07-21-crop-detector-candidate-review.md). No model
+is promoted from this two-frame regression case.

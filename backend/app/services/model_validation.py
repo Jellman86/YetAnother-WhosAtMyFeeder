@@ -336,6 +336,70 @@ async def _probe_one_provider(
     return report
 
 
+async def _probe_one_crop_provider(
+    provider: str,
+    *,
+    model_id: str,
+    timeout: float = 300.0,
+    image_paths: list[str] | None = None,
+) -> dict | None:
+    """Compile and run one exact crop detector in a disposable child process."""
+    import sys as _sys
+
+    try:
+        import app as _app_pkg
+
+        backend_root = str(Path(_app_pkg.__file__).resolve().parent.parent)
+    except Exception:
+        backend_root = None
+    args = [
+        _sys.executable,
+        "-m",
+        "scripts.probe_crop_model_provider",
+        "--provider",
+        provider,
+        "--model-id",
+        model_id,
+    ]
+    if image_paths:
+        args += ["--images", ",".join(image_paths)]
+    proc: asyncio.subprocess.Process | None = None
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            cwd=backend_root,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except asyncio.TimeoutError:
+        try:
+            if proc is not None:
+                proc.kill()
+                await proc.communicate()
+        except ProcessLookupError:
+            pass
+        return {
+            "provider": provider,
+            "compile": {"ok": False, "error": f"crop provider probe timed out after {timeout:.0f} seconds"},
+        }
+    except Exception as exc:
+        log.warning("crop_validation_provider_probe_spawn_failed", provider=provider, error=str(exc))
+        return {"provider": provider, "compile": {"ok": False, "error": f"crop probe could not start: {exc}"}}
+    if proc.returncode != 0:
+        return {
+            "provider": provider,
+            "compile": {"ok": False, "error": f"crop provider probe exited with status {proc.returncode}"},
+        }
+    report = _parse_probe_report(stdout)
+    if report is None:
+        return {
+            "provider": provider,
+            "compile": {"ok": False, "error": "crop provider probe returned no valid report"},
+        }
+    return report
+
+
 def _device_report_ok(report: dict | None) -> tuple[bool, float | None, list[int]]:
     """Reduce a device probe report to (compiled-and-finite, latency_ms, top-indices)."""
     if not report:
@@ -355,6 +419,82 @@ def _device_report_ok(report: dict | None) -> tuple[bool, float | None, list[int
     latency = report.get("inference_latency_ms")
     top = [int(i) for i in (report.get("output_top_indices") or [])]
     return (finite, latency, top)
+
+
+def _normalized_box_iou(left: list[float], right: list[float]) -> float:
+    if len(left) != 4 or len(right) != 4:
+        return 0.0
+    inter_left = max(float(left[0]), float(right[0]))
+    inter_top = max(float(left[1]), float(right[1]))
+    inter_right = min(float(left[2]), float(right[2]))
+    inter_bottom = min(float(left[3]), float(right[3]))
+    intersection = max(0.0, inter_right - inter_left) * max(0.0, inter_bottom - inter_top)
+    left_area = max(0.0, float(left[2]) - float(left[0])) * max(0.0, float(left[3]) - float(left[1]))
+    right_area = max(0.0, float(right[2]) - float(right[0])) * max(0.0, float(right[3]) - float(right[1]))
+    union = left_area + right_area - intersection
+    return intersection / union if union > 0 else 0.0
+
+
+def _crop_report_ok(report: dict | None) -> tuple[bool, float | None, list[dict[str, Any]]]:
+    if not report or not (report.get("compile") or {}).get("ok") or report.get("runtime_error"):
+        return (False, None, [])
+    summary = report.get("output_summary") or {}
+    element_count = int(summary.get("element_count") or 0)
+    finite_count = int(summary.get("finite_count") or 0)
+    finite = bool(
+        element_count
+        and element_count == finite_count
+        and not int(summary.get("nan_count") or 0)
+        and not int(summary.get("pos_inf_count") or 0)
+        and not int(summary.get("neg_inf_count") or 0)
+    )
+    rows = [row for row in (report.get("per_image_detections") or []) if isinstance(row, dict)]
+    return (finite, report.get("inference_latency_ms"), rows)
+
+
+def _compare_crop_detections(
+    baseline_rows: list[dict[str, Any]],
+    provider_rows: list[dict[str, Any]],
+    *,
+    min_iou: float = 0.90,
+    max_confidence_delta: float = 0.03,
+) -> dict[str, Any]:
+    provider_by_image = {str(row.get("image") or ""): row for row in provider_rows}
+    comparisons = matches = 0
+    ious: list[float] = []
+    confidence_deltas: list[float] = []
+    for baseline in baseline_rows:
+        image_key = str(baseline.get("image") or "")
+        provider = provider_by_image.get(image_key)
+        if provider is None:
+            continue
+        comparisons += 1
+        baseline_detection = baseline.get("top_detection")
+        provider_detection = provider.get("top_detection")
+        if baseline_detection is None and provider_detection is None:
+            matches += 1
+            continue
+        if not isinstance(baseline_detection, dict) or not isinstance(provider_detection, dict):
+            continue
+        iou = _normalized_box_iou(
+            list(baseline_detection.get("normalized_box") or []),
+            list(provider_detection.get("normalized_box") or []),
+        )
+        confidence_delta = abs(
+            float(baseline_detection.get("confidence") or 0.0) - float(provider_detection.get("confidence") or 0.0)
+        )
+        ious.append(iou)
+        confidence_deltas.append(confidence_delta)
+        if iou >= min_iou and confidence_delta <= max_confidence_delta:
+            matches += 1
+    return {
+        "images_compared": comparisons,
+        "matches": matches,
+        "match_rate": (matches / comparisons) if comparisons else None,
+        "mean_box_iou": (sum(ious) / len(ious)) if ious else None,
+        "mean_confidence_delta": (sum(confidence_deltas) / len(confidence_deltas)) if confidence_deltas else None,
+        "agrees": bool(comparisons and matches == comparisons),
+    }
 
 
 async def sweep_model_devices(
@@ -488,6 +628,162 @@ async def sweep_model_devices(
         "baseline_provider": baseline_provider,
         "providers": per_provider,
         # Backwards-compatible response field used by older API clients.
+        "devices": per_provider,
+        "eligible_providers": eligible,
+        "discovered_providers": discovered,
+        "best": best,
+        "best_discovered": best_discovered,
+    }
+
+
+async def sweep_crop_model_devices(
+    model_id: str,
+    *,
+    image_paths: list[str] | None = None,
+    discover_providers: bool = False,
+) -> dict[str, Any]:
+    """Validate an exact crop detector across CPU/GPU/NPU providers.
+
+    Raw output must be finite and every top detection must agree with the CPU
+    baseline in presence, geometry, and confidence. Three deterministic hard
+    negatives are added by the child probe to catch provider-specific false
+    positives alongside the varied real bird images supplied by the eval run.
+    """
+    from app.services.classifier_service import _detect_acceleration_capabilities
+    from app.services.model_manager import model_manager
+
+    spec = model_manager.get_crop_detector_spec_by_model_id(model_id)
+    if not spec.get("healthy"):
+        raise RuntimeError(f"crop detector {model_id} is not installed and ready: {spec.get('reason')}")
+    metadata = dict(spec.get("metadata") or {})
+    image_flavor = get_image_flavor()
+    capabilities = await asyncio.to_thread(_detect_acceleration_capabilities)
+    candidates = validation_provider_candidates(
+        image_flavor=image_flavor,
+        capabilities=capabilities,
+        supported_providers=metadata.get("supported_inference_providers"),
+        model_runtime=str(metadata.get("runtime") or "onnx"),
+        discover_providers=discover_providers,
+    )
+    declared_providers = {
+        str(provider or "").strip().lower()
+        for provider in (metadata.get("supported_inference_providers") or [])
+        if str(provider or "").strip()
+    }
+    baseline_provider = next(
+        (candidate.provider for candidate in candidates if candidate.provider == "cpu"),
+        next((candidate.provider for candidate in candidates if candidate.provider == "intel_cpu"), None),
+    )
+
+    reports: dict[str, dict | None] = {}
+    for candidate in candidates:
+        reports[candidate.provider] = await _probe_one_crop_provider(
+            candidate.provider,
+            model_id=model_id,
+            image_paths=image_paths,
+        )
+
+    baseline_report = reports.get(baseline_provider) if baseline_provider else None
+    baseline_finite, _baseline_latency, baseline_rows = _crop_report_ok(baseline_report)
+    baseline_real_detections = sum(
+        1 for row in baseline_rows if row.get("kind") == "real" and row.get("top_detection") is not None
+    )
+    baseline_usable = bool(baseline_finite and baseline_rows and baseline_real_detections)
+
+    per_provider: list[dict[str, Any]] = []
+    eligible: list[str] = []
+    discovered: list[str] = []
+    best: dict[str, Any] | None = None
+    best_discovered: dict[str, Any] | None = None
+    for candidate in candidates:
+        report = reports.get(candidate.provider)
+        finite, latency, rows = _crop_report_ok(report)
+        comparison = (
+            _compare_crop_detections(baseline_rows, rows)
+            if baseline_rows and rows
+            else {
+                "images_compared": 0,
+                "matches": 0,
+                "match_rate": None,
+                "mean_box_iou": None,
+                "mean_confidence_delta": None,
+                "agrees": False,
+            }
+        )
+        if candidate.provider == baseline_provider:
+            agrees = baseline_usable
+            comparison = {
+                "images_compared": 0,
+                "matches": 0,
+                "match_rate": None,
+                "mean_box_iou": None,
+                "mean_confidence_delta": None,
+                "agrees": agrees,
+            }
+        else:
+            agrees = bool(finite and baseline_usable and comparison["agrees"])
+        ok = bool(finite and agrees)
+        declared = not declared_providers or candidate.provider in declared_providers
+        entry = {
+            "provider": candidate.provider,
+            "backend": candidate.backend,
+            "device": candidate.device,
+            "comparison_kind": "crop_box",
+            "ok": ok,
+            "declared": declared,
+            "compiles": bool((report or {}).get("compile", {}).get("ok")),
+            "finite": finite,
+            "latency_ms": latency,
+            "baseline": candidate.provider == baseline_provider,
+            "images_evaluated": len(rows),
+            "real_images_evaluated": sum(1 for row in rows if row.get("kind") == "real"),
+            "negative_images_evaluated": sum(1 for row in rows if row.get("kind") == "negative"),
+            "real_detections": sum(
+                1 for row in rows if row.get("kind") == "real" and row.get("top_detection") is not None
+            ),
+            "images_compared": comparison["images_compared"],
+            "matches_baseline": agrees if candidate.provider != baseline_provider else None,
+            "matches_cpu": agrees if candidate.provider != baseline_provider else None,
+            "detection_match_rate": (
+                round(float(comparison["match_rate"]), 3) if comparison["match_rate"] is not None else None
+            ),
+            "mean_box_iou": (
+                round(float(comparison["mean_box_iou"]), 3) if comparison["mean_box_iou"] is not None else None
+            ),
+            "mean_confidence_delta": (
+                round(float(comparison["mean_confidence_delta"]), 4)
+                if comparison["mean_confidence_delta"] is not None
+                else None
+            ),
+            "error": (report or {}).get("runtime_error") or (report or {}).get("compile", {}).get("error"),
+        }
+        per_provider.append(entry)
+        if not ok:
+            continue
+        candidate_summary = {
+            "device": candidate.device,
+            "backend": candidate.backend,
+            "provider": candidate.provider,
+            "latency_ms": latency,
+        }
+        target_list = eligible if declared else discovered
+        target_list.append(candidate.provider)
+        if declared:
+            if best is None or (
+                latency is not None and (best.get("latency_ms") is None or latency < best["latency_ms"])
+            ):
+                best = candidate_summary
+        elif best_discovered is None or (
+            latency is not None
+            and (best_discovered.get("latency_ms") is None or latency < best_discovered["latency_ms"])
+        ):
+            best_discovered = candidate_summary
+
+    return {
+        "image_flavor": image_flavor,
+        "comparison_kind": "crop_box",
+        "baseline_provider": baseline_provider,
+        "providers": per_provider,
         "devices": per_provider,
         "eligible_providers": eligible,
         "discovered_providers": discovered,

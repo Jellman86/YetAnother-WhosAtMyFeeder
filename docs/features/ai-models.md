@@ -141,7 +141,22 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - Generated crops try `Accurate` first and `Fast` second. Crop-enabled classifier models use the same
   detector fallback while retaining their separately validated crop-on/off policy. The legacy tier
   setting remains API-compatible but no longer lowers the automatic quality path.
+- The normal accurate-detector floor remains `0.05` for thumbnails and direct image replacement.
+  Multi-representation video and HQ-snapshot analysis may retain an accurate-detector candidate down
+  to `0.02` for distant birds, but only as evidence beside the full frame. Existing identity,
+  temporal-consensus, quality, and ambiguity gates must still accept it before it can win.
 - The accurate tier is intended to reduce missed or clipped bird crops in busy feeder scenes, but it should still be treated as experimental until more fixture and real-world benchmarks are published.
+- A hardware compatibility sweep validates crop detectors separately from classifiers. It uses up
+  to 24 images selected round-robin across species plus dark, foliage-like, and gradient hard
+  negatives. Every provider runs in an isolated child process and must produce finite output and
+  match the CPU baseline's detection presence, top box (IoU at least `0.90`), and confidence (delta
+  at most `0.03`) on every image. Passing undeclared providers remain informational until the model
+  registry is updated from on-hardware evidence.
+- At runtime, a crop detector uses only a provider recommended by a current validation record for
+  the exact running image flavour. CUDA and OpenVINO CPU/GPU/NPU sessions are supported; Intel GPU
+  uses f32 inference precision and accelerators use a static batch where needed. Compile or inference
+  failure replaces that cached detector session with CPU while preserving the accurate-to-fast and
+  original-image fallbacks.
 
 #### Best-available event snapshots
 
@@ -162,6 +177,9 @@ Each candidate still goes through the active classifier's declared preprocessing
 resize mode, interpolation, colour space, normalisation, mean and standard deviation. A generated
 bird crop is marked as already cropped, which prevents a model's optional localisation policy from
 cropping it a second time; it does not bypass the model's normal resize and tensor preparation.
+Low detector confidence is never fused into visual species confidence. It controls candidate
+admission only; classifier evidence and the independent-frame rules decide whether that candidate
+is useful.
 
 YA-WAMF can also use the crop classifications to refine the detection. It requires the same species
 to clear both the active model's recommended confidence and a conservative 0.60 floor at two or more

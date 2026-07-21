@@ -67,6 +67,50 @@ def test_generate_classification_crop_uses_validated_tier_independently_of_thumb
     assert result["detector_tier"] == "accurate"
 
 
+def test_classification_candidate_crop_admits_distant_box_without_weakening_normal_policy(monkeypatch):
+    service = BirdCropService(detector_tier="accurate", expand_ratio=0.0)
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+
+    def _infer(model, _image):
+        if model["tier"] == "accurate":
+            return [{"box": (16, 16, 96, 112), "confidence": 0.03}]
+        return []
+
+    monkeypatch.setattr(service, "_infer_candidates", _infer)
+
+    normal = service.generate_classification_crop(_img())
+    candidate = service.generate_classification_candidate_crop(_img())
+
+    assert normal["crop_image"] is None
+    assert normal["fallback_reason"] == "accurate_below_threshold"
+    assert candidate["reason"] == "selected"
+    assert candidate["detector_tier"] == "accurate"
+    assert candidate["confidence"] == 0.03
+    assert service.get_effective_crop_policy("accurate")["confidence_threshold"] == 0.05
+    assert service.get_classification_candidate_crop_policy() == {
+        "detector_tier": "accurate",
+        "confidence_threshold": 0.02,
+        "min_crop_size": 64,
+        "expand_ratio": 0.0,
+        "selection_mode": "evidence_candidate",
+    }
+
+
+def test_classification_candidate_crop_still_rejects_noise_below_distance_floor(monkeypatch):
+    service = BirdCropService(detector_tier="accurate", expand_ratio=0.0)
+    monkeypatch.setattr(service, "_load_model_for_tier", lambda tier: {"tier": tier})
+    monkeypatch.setattr(
+        service,
+        "_infer_candidates",
+        lambda model, _image: [{"box": (16, 16, 96, 112), "confidence": 0.019}] if model["tier"] == "accurate" else [],
+    )
+
+    result = service.generate_classification_candidate_crop(_img())
+
+    assert result["crop_image"] is None
+    assert result["fallback_reason"] == "accurate_below_threshold"
+
+
 def test_generate_crop_falls_back_to_fast_when_accurate_unavailable(monkeypatch):
     service = BirdCropService(detector_tier="accurate")
 

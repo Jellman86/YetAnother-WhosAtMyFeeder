@@ -734,6 +734,29 @@ async def test_list_installed_models_includes_crop_detector_when_downloaded(monk
     assert by_id["bird_crop_detector"].metadata is not None
 
 
+def test_exact_crop_detector_spec_never_falls_back_to_fast(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+    fast_dir = tmp_path / "bird_crop_detector"
+    fast_dir.mkdir(parents=True)
+    (fast_dir / "model.onnx").write_bytes(b"fast")
+    (fast_dir / "model_config.json").write_text("{}", encoding="utf-8")
+
+    manager = ModelManager()
+    runtime_spec = manager.get_crop_detector_spec("accurate")
+    exact_spec = manager.get_crop_detector_spec_by_model_id("bird_crop_detector_accurate_yolox_tiny")
+
+    assert runtime_spec["model_id"] == "bird_crop_detector"
+    assert runtime_spec["reason"] == "fallback_fast"
+    assert exact_spec["model_id"] == "bird_crop_detector_accurate_yolox_tiny"
+    assert exact_spec["healthy"] is False
+    assert exact_spec["reason"] == "not_installed"
+
+
+def test_exact_crop_detector_spec_rejects_classifier():
+    with pytest.raises(ValueError, match="Unknown crop detector"):
+        ModelManager().get_crop_detector_spec_by_model_id("mobilenet_v2_birds")
+
+
 @pytest.mark.asyncio
 async def test_list_installed_models_reports_incomplete_classifier_install(monkeypatch, tmp_path):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))

@@ -928,6 +928,27 @@ class ModelManager:
         fallback_spec["enabled_for_runtime"] = bool(fallback_spec["healthy"])
         return fallback_spec
 
+    def get_crop_detector_spec_by_model_id(self, model_id: str) -> dict[str, Any]:
+        """Return one exact crop-detector artifact without tier fallback.
+
+        Runtime crop generation intentionally falls from the accurate tier to the
+        fast tier. Hardware validation must not: otherwise a missing or broken
+        accurate model could be reported as a successful fast-model probe. This
+        exact lookup is therefore the fail-closed boundary used by validation.
+        """
+        normalized_model_id = str(model_id or "").strip()
+        meta = self._get_registry_model_meta(normalized_model_id)
+        if not meta or str(meta.get("artifact_kind") or "classifier") != "crop_detector":
+            raise ValueError(f"Unknown crop detector model: {normalized_model_id or '<empty>'}")
+        tier = str(meta.get("tier") or "fast").strip().lower()
+        if tier not in {"fast", "accurate"}:
+            tier = "fast"
+        return self._build_crop_detector_spec(
+            normalized_model_id,
+            selected_tier=tier,
+            resolved_tier=tier,
+        )
+
     def _is_family_model(self, model_meta: Optional[dict[str, Any]]) -> bool:
         return bool((model_meta or {}).get("region_variants"))
 

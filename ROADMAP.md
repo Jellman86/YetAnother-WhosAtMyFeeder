@@ -386,6 +386,23 @@ checks are all in place. ARM64 image startup plus real model inference now run u
 mutable Raspberry Pi tags are promoted. The open work is expanding Playwright E2E coverage around
 restart/recovery and GPU/provider fallback paths, plus a physical-Pi smoke/soak pass.
 
+#### Crop-detector field benchmark 🐦
+**Priority:** P1 | **Effort:** M | **Status:** 🔄 Hardware sweep delivered; candidate field panel in progress
+
+The evidence-only distant-subject threshold recovery is delivered, but a detector replacement is
+not selected from one event or generic COCO AP. Build a manually labelled, visit-grouped Quark panel
+with near/distant birds and hard negatives; compare Frigate, current YOLOX-Tiny, bounded slicing,
+D-FINE-N, DEIMv2-N, RTMDet-Tiny, and PP-YOLOE+ S on downstream species correctness, crop recall/clipping,
+false positives, and per-provider resource cost. Promote only a reproducible permissively licensed
+artifact that beats Frigate without weakening full-frame/fail-soft behaviour. See the
+[candidate review and promotion gate](docs/reviews/2026-07-21-crop-detector-candidate-review.md).
+
+The shared hardware sweep now includes both exact crop-detector artifacts, a species-diverse
+round-robin image sample, deterministic hard negatives, isolated CPU/CUDA/OpenVINO compilation,
+and CPU box/confidence agreement. Validated crop providers activate at runtime with CPU fallback.
+This proves execution equivalence, not detector quality; the independent-visit field benchmark and
+replacement-candidate comparison remain open.
+
 #### High-availability setup 🏗️
 **Priority:** P3 | **Effort:** M | **Status:** ☐ Not started
 

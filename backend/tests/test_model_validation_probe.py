@@ -166,6 +166,113 @@ async def test_provider_discovery_reports_undeclared_success_without_widening_el
     assert by_provider["intel_npu"]["ok"] is True
 
 
+def test_crop_detection_comparison_covers_positive_and_empty_images():
+    baseline = [
+        {
+            "image": "real:small-bird.jpg",
+            "top_detection": {"normalized_box": [0.1, 0.2, 0.4, 0.6], "confidence": 0.6},
+        },
+        {"image": "negative_foliage", "top_detection": None},
+    ]
+    provider = [
+        {
+            "image": "real:small-bird.jpg",
+            "top_detection": {"normalized_box": [0.101, 0.2, 0.401, 0.6], "confidence": 0.61},
+        },
+        {"image": "negative_foliage", "top_detection": None},
+    ]
+
+    result = mv._compare_crop_detections(baseline, provider)
+
+    assert result["images_compared"] == 2
+    assert result["matches"] == 2
+    assert result["agrees"] is True
+    assert result["mean_box_iou"] > 0.98
+
+
+def test_crop_detection_comparison_rejects_provider_only_false_positive():
+    result = mv._compare_crop_detections(
+        [{"image": "negative_foliage", "top_detection": None}],
+        [
+            {
+                "image": "negative_foliage",
+                "top_detection": {"normalized_box": [0.1, 0.1, 0.8, 0.8], "confidence": 0.8},
+            }
+        ],
+    )
+
+    assert result["agrees"] is False
+    assert result["match_rate"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_crop_provider_sweep_keeps_discovered_hardware_informational(monkeypatch):
+    from app.services import classifier_service
+    from app.services.model_manager import model_manager
+
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
+    monkeypatch.setattr(
+        classifier_service,
+        "_detect_acceleration_capabilities",
+        lambda: {
+            "ort_available": True,
+            "cuda_available": False,
+            "openvino_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+            "intel_npu_available": True,
+        },
+    )
+    monkeypatch.setattr(
+        model_manager,
+        "get_crop_detector_spec_by_model_id",
+        lambda model_id: {
+            "model_id": model_id,
+            "healthy": True,
+            "metadata": {
+                "runtime": "onnx",
+                "supported_inference_providers": ["cpu", "intel_cpu"],
+            },
+        },
+    )
+
+    async def successful_probe(provider, **_kwargs):
+        offset = 0.001 if provider == "intel_npu" else 0.0
+        return {
+            "provider": provider,
+            "compile": {"ok": True},
+            "output_summary": {"finite_count": 100, "element_count": 100},
+            "per_image_detections": [
+                {
+                    "image": "real:bird-a.jpg",
+                    "kind": "real",
+                    "top_detection": {
+                        "normalized_box": [0.1 + offset, 0.2, 0.5 + offset, 0.7],
+                        "confidence": 0.7,
+                    },
+                },
+                {"image": "negative_foliage", "kind": "negative", "top_detection": None},
+            ],
+            "inference_latency_ms": 5.0 if provider == "intel_npu" else 20.0,
+        }
+
+    monkeypatch.setattr(mv, "_probe_one_crop_provider", successful_probe)
+
+    result = await mv.sweep_crop_model_devices(
+        "bird_crop_detector",
+        image_paths=["bird-a.jpg"],
+        discover_providers=True,
+    )
+
+    assert result["eligible_providers"] == ["cpu", "intel_cpu"]
+    assert result["discovered_providers"] == ["intel_gpu", "intel_npu"]
+    assert result["best"]["provider"] == "cpu"
+    assert result["best_discovered"]["provider"] == "intel_npu"
+    npu = next(row for row in result["providers"] if row["provider"] == "intel_npu")
+    assert npu["comparison_kind"] == "crop_box"
+    assert npu["detection_match_rate"] == 1.0
+
+
 def test_probe_report_parser_ignores_structured_logs_before_the_final_report():
     stdout = b'{"event":"loading"}\nnoise\n{"provider":"cuda","compile":{"ok":true}}\n'
 

@@ -209,11 +209,20 @@
             : provider;
     }
 
-    function compatEntry(row: DeviceMatrix['models'][string] | undefined, provider: string) {
+    type CompatRow = DeviceMatrix['models'][string] | NonNullable<DeviceMatrix['crop_detectors']>[string];
+
+    function compatRows(matrix: DeviceMatrix): Array<[string, CompatRow]> {
+        return [
+            ...Object.entries(matrix.models),
+            ...Object.entries(matrix.crop_detectors ?? {}),
+        ];
+    }
+
+    function compatEntry(row: CompatRow | undefined, provider: string) {
         return row?.providers?.[provider] ?? row?.devices?.[provider];
     }
 
-    function compatDeviceCell(row: DeviceMatrix['models'][string] | undefined, dev: string): { label: string; cls: string } {
+    function compatDeviceCell(row: CompatRow | undefined, dev: string): { label: string; cls: string } {
         if (!row || row.error) return { label: '—', cls: 'text-slate-400' };
         const e = compatEntry(row, dev);
         if (!e) return { label: '—', cls: 'text-slate-400' };
@@ -222,6 +231,9 @@
         if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { label: '✓ baseline', cls: 'text-slate-500' };
         const n = e.images_compared;
         if (e.matches_cpu && n) return { label: `✓ ${n}/${n}`, cls: 'text-accent-600 dark:text-accent-400' };
+        if (typeof e.detection_match_rate === 'number' && n) {
+            return { label: `⚠ ${Math.round(e.detection_match_rate * n)}/${n}`, cls: 'text-amber-600 dark:text-amber-400' };
+        }
         if (typeof e.top1_match_rate === 'number' && n) {
             return { label: `⚠ ${Math.round(e.top1_match_rate * n)}/${n}`, cls: 'text-amber-600 dark:text-amber-400' };
         }
@@ -234,8 +246,6 @@
     let cdOpen = $state(false);
     let cdRunId = $state(0);
 
-    type CompatRow = DeviceMatrix['models'][string];
-
     function compatCellOutcome(row: CompatRow | undefined, dev: string): { state: DiagnosticStageState; note: string } {
         if (!row || row.error) return { state: 'skipped', note: '—' };
         const e = compatEntry(row, dev);
@@ -245,6 +255,9 @@
         if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { state: 'passed', note: $_('settings.detection.compat_note_baseline', { default: 'CPU baseline' }) };
         const n = e.images_compared;
         if (e.matches_cpu && n) return { state: 'passed', note: $_('settings.detection.compat_note_match', { default: '{n}/{n} match CPU', values: { n } }) };
+        if (typeof e.detection_match_rate === 'number' && n) {
+            return { state: 'warning', note: `${Math.round(e.detection_match_rate * n)}/${n} boxes match CPU` };
+        }
         if (typeof e.top1_match_rate === 'number' && n) {
             return { state: 'warning', note: $_('settings.detection.compat_note_partial', { default: '{m}/{n} match CPU', values: { m: Math.round(e.top1_match_rate * n), n } }) };
         }
@@ -256,7 +269,7 @@
     function compatDeviceStage(matrix: DeviceMatrix, dev: string): DiagnosticStage {
         let state: DiagnosticStageState = 'skipped';
         const parts: string[] = [];
-        for (const [mid, row] of Object.entries(matrix.models)) {
+        for (const [mid, row] of compatRows(matrix)) {
             const outcome = compatCellOutcome(row, dev);
             if (compatStateRank[outcome.state] > compatStateRank[state]) state = outcome.state;
             parts.push(`${mid}: ${outcome.note}`);
@@ -908,9 +921,11 @@
                                 <tr><th class="text-left py-1 pr-3">{$_('settings.detection.compat_model', { default: 'Model' })}</th>{#each (compatMatrix.providers?.length ? compatMatrix.providers : compatMatrix.devices) as dev}<th class="text-left px-2">{compatProviderLabel(dev)}</th>{/each}</tr>
                             </thead>
                             <tbody>
-                                {#each Object.entries(compatMatrix.models) as [mid, row]}
+                                {#each compatRows(compatMatrix) as [mid, row]}
                                     <tr class="border-b border-slate-100 dark:border-slate-800">
-                                        <td class="py-1 pr-3 font-medium text-slate-700 dark:text-slate-300">{mid}</td>
+                                        <td class="py-1 pr-3 font-medium text-slate-700 dark:text-slate-300">
+                                            {mid}{#if row.comparison_kind === 'crop_box'} <span class="text-slate-400">· crop</span>{/if}
+                                        </td>
                                         {#each (compatMatrix.providers?.length ? compatMatrix.providers : compatMatrix.devices) as dev}
                                             {@const c = compatDeviceCell(row, dev)}
                                             <td class="px-2 {c.cls}">{c.label}</td>

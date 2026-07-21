@@ -6,6 +6,7 @@ import math
 import os
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Callable
 
 import numpy as np
@@ -17,10 +18,139 @@ from app.config import settings
 log = structlog.get_logger()
 
 
+def _openvino_dimension_value(dimension: Any) -> int | str:
+    """Convert an OpenVINO dimension into the ORT-like shape form we consume."""
+    try:
+        if bool(getattr(dimension, "is_static")):
+            return int(dimension.get_length())
+    except Exception:
+        pass
+    try:
+        value = int(dimension)
+        return value if value > 0 else "dynamic"
+    except (TypeError, ValueError):
+        return "dynamic"
+
+
+def _openvino_port_name(port: Any, fallback: str) -> str:
+    for method_name in ("get_any_name", "get_names"):
+        try:
+            value = getattr(port, method_name)()
+            if isinstance(value, set):
+                value = sorted(value)[0] if value else None
+            if value:
+                return str(value)
+        except Exception:
+            continue
+    return fallback
+
+
+def _openvino_tensor_type(port: Any) -> str:
+    try:
+        element_type = str(port.get_element_type()).strip().lower()
+    except Exception:
+        element_type = "f32"
+    return "tensor(uint8)" if "u8" in element_type or "uint8" in element_type else "tensor(float)"
+
+
+class _OpenVINODetectorSession:
+    """Small ORT-compatible adapter for detector inference on Intel devices."""
+
+    def __init__(self, model_path: Path, *, device: str):
+        try:
+            openvino = importlib.import_module("openvino")
+            core_cls = getattr(openvino, "Core")
+        except Exception:
+            runtime = importlib.import_module("openvino.runtime")
+            core_cls = getattr(runtime, "Core")
+
+        self.device = str(device or "CPU")
+        self._lock = threading.Lock()
+        self._core = core_cls()
+        cache_dir = os.getenv("OPENVINO_CACHE_DIR", "/tmp/openvino_cache")
+        os.makedirs(cache_dir, exist_ok=True)
+        try:
+            self._core.set_property({"CACHE_DIR": cache_dir})
+        except Exception:
+            pass
+        model = self._core.read_model(str(model_path))
+
+        is_gpu = self.device == "GPU" or self.device.startswith("GPU.")
+        is_npu = self.device == "NPU" or self.device.startswith("NPU.")
+        if is_gpu or is_npu:
+            try:
+                partial = model.inputs[0].get_partial_shape()
+                if partial.rank.is_static and partial[0].is_dynamic:
+                    static_shape = [1] + [partial[index].get_length() for index in range(1, partial.rank.get_length())]
+                    model.reshape(static_shape)
+            except Exception:
+                # Static reshape is a compatibility aid. Compilation remains the
+                # authoritative test and will fail closed in the provider probe.
+                pass
+
+        config: dict[str, str] = {"PERFORMANCE_HINT": "LATENCY", "NUM_STREAMS": "1"}
+        if is_gpu:
+            # The detector outputs include large intermediate activations. Avoid
+            # silent f16 overflow on Intel GPUs, matching the classifier policy.
+            config["INFERENCE_PRECISION_HINT"] = "f32"
+        self._compiled = self._core.compile_model(model, self.device, config)
+        self._input_port = self._compiled.inputs[0]
+        self._output_ports = list(self._compiled.outputs)
+
+        try:
+            partial_shape = self._input_port.get_partial_shape()
+            shape = [
+                _openvino_dimension_value(partial_shape[index]) for index in range(partial_shape.rank.get_length())
+            ]
+        except Exception:
+            try:
+                shape = [int(value) for value in self._input_port.shape]
+            except Exception:
+                shape = []
+        self._input = SimpleNamespace(
+            name=_openvino_port_name(self._input_port, "images"),
+            shape=shape,
+            type=_openvino_tensor_type(self._input_port),
+        )
+        self._outputs = [
+            SimpleNamespace(name=_openvino_port_name(port, f"output_{index}"))
+            for index, port in enumerate(self._output_ports)
+        ]
+
+    def get_inputs(self) -> list[Any]:
+        return [self._input]
+
+    def get_outputs(self) -> list[Any]:
+        return list(self._outputs)
+
+    def get_providers(self) -> list[str]:
+        return [f"OpenVINO:{self.device}"]
+
+    def run(self, _output_names: Any, feeds: dict[str, np.ndarray]) -> list[np.ndarray]:
+        if self._input.name not in feeds:
+            raise ValueError(f"Missing detector input {self._input.name}")
+        with self._lock:
+            request = self._compiled.create_infer_request()
+            values = request.infer({self._input.name: feeds[self._input.name]})
+        outputs: list[np.ndarray] = []
+        for port in self._output_ports:
+            try:
+                outputs.append(np.asarray(values[port]))
+            except Exception:
+                outputs.append(np.asarray(values[_openvino_port_name(port, "")]))
+        return outputs
+
+
 class BirdCropService:
     """Fail-soft helper for producing a tighter bird crop."""
 
     ACCURATE_TIER_CONFIDENCE_FLOOR = 0.05
+    # Exploratory crops are never allowed to replace a full frame by themselves.
+    # They are admitted only into pathways that retain the full frame and require
+    # downstream classifier/temporal evidence before promotion.  The lower floor
+    # recovers small, distant birds whose correct YOLOX box can score below the
+    # normal thumbnail/single-image replacement threshold.
+    CLASSIFICATION_CANDIDATE_CONFIDENCE_FLOOR = 0.02
     ACCURATE_TIER_MIN_CROP_SIZE = 64
 
     def __init__(
@@ -34,6 +164,8 @@ class BirdCropService:
         min_crop_size: int = 96,
         fallback_to_original: bool = True,
         model_loader: Callable[[], Any] | None = None,
+        provider_override: str | None = None,
+        strict_provider: bool = False,
     ):
         self.model_id = str(model_id or "bird_crop")
         normalized_detector_tier = str(detector_tier or "").strip().lower()
@@ -44,19 +176,39 @@ class BirdCropService:
         self.min_crop_size = max(1, int(min_crop_size))
         self.fallback_to_original = bool(fallback_to_original)
         self._model_loader = model_loader
+        self.provider_override = str(provider_override or "").strip().lower() or None
+        self.strict_provider = bool(strict_provider)
         self._model_lock = threading.Lock()
         self._models: dict[str, Any | None] = {}
         self._models_loaded: dict[str, bool] = {}
         self._model_error: str | None = None
         self._model_errors: dict[str, str | None] = {}
+        self._active_providers: dict[str, str] = {}
+        self._provider_fallbacks: dict[str, str | None] = {}
 
     def generate_crop(self, image: Image.Image, *, detector_tier: str | None = None) -> dict[str, Any]:
         """Return the best crop candidate, failing from accurate to fast on any miss."""
+        return self._generate_crop(
+            image,
+            detector_tier=detector_tier,
+        )
+
+    def _generate_crop(
+        self,
+        image: Image.Image,
+        *,
+        detector_tier: str | None = None,
+        accurate_confidence_ceiling: float | None = None,
+    ) -> dict[str, Any]:
         if not isinstance(image, Image.Image):
             return self._empty_result("invalid_image")
 
         requested_tier = self._normalize_detector_tier(detector_tier)
-        result, model_available = self._generate_crop_for_tier(image, requested_tier)
+        result, model_available = self._generate_crop_for_tier(
+            image,
+            requested_tier,
+            confidence_threshold_ceiling=(accurate_confidence_ceiling if requested_tier == "accurate" else None),
+        )
         if requested_tier != "accurate" or (model_available and result.get("reason") == "selected"):
             return result
 
@@ -86,6 +238,7 @@ class BirdCropService:
         detector_tier: str,
         *,
         fallback_reason: str | None = None,
+        confidence_threshold_ceiling: float | None = None,
     ) -> tuple[dict[str, Any], bool]:
         """Run one detector tier and return its fail-soft result plus availability."""
         try:
@@ -109,15 +262,36 @@ class BirdCropService:
         try:
             candidates = self._infer_candidates(model, image)
         except Exception as exc:
-            log.warning("Bird crop inference failed", detector_tier=detector_tier, error=str(exc))
-            return (
-                self._empty_result(
-                    "inference_failed",
-                    detector_tier=detector_tier,
-                    fallback_reason=fallback_reason,
-                ),
-                True,
-            )
+            active_provider = str((model or {}).get("provider") or "cpu") if isinstance(model, dict) else "cpu"
+            if not self.strict_provider and active_provider != "cpu":
+                try:
+                    model = self._replace_tier_with_cpu(detector_tier, failed_provider=active_provider)
+                    candidates = self._infer_candidates(model, image)
+                except Exception as fallback_exc:
+                    log.warning(
+                        "Bird crop inference and CPU fallback failed",
+                        detector_tier=detector_tier,
+                        provider=active_provider,
+                        error=str(fallback_exc),
+                    )
+                    return (
+                        self._empty_result(
+                            "inference_failed",
+                            detector_tier=detector_tier,
+                            fallback_reason=fallback_reason,
+                        ),
+                        True,
+                    )
+            else:
+                log.warning("Bird crop inference failed", detector_tier=detector_tier, error=str(exc))
+                return (
+                    self._empty_result(
+                        "inference_failed",
+                        detector_tier=detector_tier,
+                        fallback_reason=fallback_reason,
+                    ),
+                    True,
+                )
 
         return (
             self._select_best_valid_candidate(
@@ -125,6 +299,7 @@ class BirdCropService:
                 candidates,
                 detector_tier=detector_tier,
                 fallback_reason=fallback_reason,
+                confidence_threshold_ceiling=confidence_threshold_ceiling,
             ),
             True,
         )
@@ -132,6 +307,29 @@ class BirdCropService:
     def generate_classification_crop(self, image: Image.Image) -> dict[str, Any]:
         """Use the detector tier validated for automatic classifier image preparation."""
         return self.generate_crop(image, detector_tier="accurate")
+
+    def generate_classification_candidate_crop(self, image: Image.Image) -> dict[str, Any]:
+        """Return a distance-tolerant crop for evidence-comparison pathways only.
+
+        The caller must retain the full frame and apply downstream identity or
+        temporal-consensus gates.  This deliberately does not change the normal
+        thumbnail or single-image replacement policy.
+        """
+        return self._generate_crop(
+            image,
+            detector_tier="accurate",
+            accurate_confidence_ceiling=self.CLASSIFICATION_CANDIDATE_CONFIDENCE_FLOOR,
+        )
+
+    def get_classification_candidate_crop_policy(self) -> dict[str, float | int | str]:
+        """Describe the bounded policy used for evidence-only crop candidates."""
+        policy = dict(self.get_effective_crop_policy("accurate"))
+        policy["confidence_threshold"] = min(
+            float(policy["confidence_threshold"]),
+            self.CLASSIFICATION_CANDIDATE_CONFIDENCE_FLOOR,
+        )
+        policy["selection_mode"] = "evidence_candidate"
+        return policy
 
     def _ensure_model(self) -> Any | None:
         return self._ensure_model_for_tier("fast")
@@ -144,6 +342,9 @@ class BirdCropService:
 
     def _model_id_for_tier(self, tier: str) -> str:
         return self.accurate_model_id if str(tier or "").strip().lower() == "accurate" else self.model_id
+
+    def _registry_model_id_for_tier(self, tier: str) -> str:
+        return self.accurate_model_id if str(tier or "").strip().lower() == "accurate" else "bird_crop_detector"
 
     def _normalize_detector_tier(self, detector_tier: str | None = None) -> str:
         normalized = str(detector_tier or "").strip().lower()
@@ -194,16 +395,80 @@ class BirdCropService:
         if model_path is None:
             return None
         model_config = self._load_model_config(model_path)
+        requested_provider = self._provider_for_tier(tier)
+        try:
+            model = self._load_model_on_provider(
+                tier=tier,
+                model_path=model_path,
+                model_config=model_config,
+                provider=requested_provider,
+            )
+            self._active_providers[tier] = requested_provider
+            self._provider_fallbacks[tier] = None
+            return model
+        except Exception as exc:
+            if self.strict_provider or requested_provider == "cpu":
+                raise
+            log.warning(
+                "Bird crop accelerated provider load failed; falling back to CPU",
+                detector_tier=tier,
+                provider=requested_provider,
+                error=str(exc),
+            )
+            model = self._load_model_on_provider(
+                tier=tier,
+                model_path=model_path,
+                model_config=model_config,
+                provider="cpu",
+            )
+            self._active_providers[tier] = "cpu"
+            self._provider_fallbacks[tier] = requested_provider
+            return model
+
+    def _provider_for_tier(self, tier: str) -> str:
+        if self.provider_override:
+            return self.provider_override
+        try:
+            from app.services.model_validation import activation_provider_recommendation
+
+            recommendation = activation_provider_recommendation(self._registry_model_id_for_tier(tier))
+        except Exception:
+            recommendation = None
+        return str(recommendation or "cpu").strip().lower()
+
+    def _load_model_on_provider(
+        self,
+        *,
+        tier: str,
+        model_path: Path,
+        model_config: dict[str, Any],
+        provider: str,
+    ) -> dict[str, Any]:
         detector_config = dict(model_config.get("detector") or {})
         preprocessing = dict(model_config.get("preprocessing") or {})
         preferred_input_size = self._resolve_config_input_size(model_config)
-        ort = self._import_onnxruntime()
-        sess_options = ort.SessionOptions()
-        session = ort.InferenceSession(
-            str(model_path),
-            sess_options=sess_options,
-            providers=["CPUExecutionProvider"],
-        )
+        normalized_provider = str(provider or "cpu").strip().lower()
+        if normalized_provider in {"cpu", "cuda"}:
+            ort = self._import_onnxruntime()
+            sess_options = ort.SessionOptions()
+            ort_provider = "CUDAExecutionProvider" if normalized_provider == "cuda" else "CPUExecutionProvider"
+            session = ort.InferenceSession(
+                str(model_path),
+                sess_options=sess_options,
+                providers=[ort_provider],
+            )
+            active = list(getattr(session, "get_providers", lambda: [ort_provider])() or [])
+            if not active or active[0] != ort_provider:
+                raise RuntimeError(f"{ort_provider} was requested but is not the primary active provider")
+        else:
+            device = {
+                "intel_cpu": "CPU",
+                "intel_gpu": "GPU",
+                "intel_npu": "NPU",
+            }.get(normalized_provider)
+            if not device:
+                raise ValueError(f"Unsupported crop detector provider: {normalized_provider}")
+            session = _OpenVINODetectorSession(model_path, device=device)
         model_input = session.get_inputs()[0]
         input_shape = getattr(model_input, "shape", None)
         input_layout = self._infer_input_layout(input_shape)
@@ -226,7 +491,40 @@ class BirdCropService:
             "detector_tier": "accurate" if str(tier or "").strip().lower() == "accurate" else "fast",
             "detector_config": detector_config,
             "model_path": str(model_path),
+            "provider": normalized_provider,
         }
+
+    def reset_models(self) -> None:
+        """Release cached detector sessions so a new validation result takes effect."""
+        with self._model_lock:
+            self._models.clear()
+            self._models_loaded.clear()
+            self._active_providers.clear()
+            self._provider_fallbacks.clear()
+            self._model_error = None
+            self._model_errors.clear()
+
+    def _replace_tier_with_cpu(self, tier: str, *, failed_provider: str) -> dict[str, Any]:
+        model_path = self._resolve_model_path(tier)
+        if model_path is None:
+            raise FileNotFoundError(f"Crop detector model for {tier} is no longer installed")
+        replacement = self._load_model_on_provider(
+            tier=tier,
+            model_path=model_path,
+            model_config=self._load_model_config(model_path),
+            provider="cpu",
+        )
+        with self._model_lock:
+            self._models[tier] = replacement
+            self._models_loaded[tier] = True
+            self._active_providers[tier] = "cpu"
+            self._provider_fallbacks[tier] = failed_provider
+        log.warning(
+            "Bird crop provider failed during inference; CPU fallback activated",
+            detector_tier=tier,
+            failed_provider=failed_provider,
+        )
+        return replacement
 
     def _load_model_config(self, model_path: Path) -> dict[str, Any]:
         config_path = model_path.with_name("model_config.json")
@@ -320,7 +618,31 @@ class BirdCropService:
             }
         status["load_error"] = self._model_error
         status["policy"] = "accurate_then_fast"
+        status["classification_candidate_policy"] = self.get_classification_candidate_crop_policy()
+        status["active_providers"] = dict(self._active_providers)
+        status["provider_fallbacks"] = dict(self._provider_fallbacks)
         return status
+
+    def run_detector_outputs(self, model: Any, image: Image.Image) -> tuple[list[Any], dict[str, float]]:
+        """Run one detector and return raw outputs plus its geometric transform."""
+        if not isinstance(model, dict):
+            raise TypeError("Raw detector output is only available for managed sessions")
+        session = model.get("session")
+        if session is None:
+            raise RuntimeError("Detector session is not loaded")
+        input_tensor, transform = self._prepare_detector_input(
+            image,
+            input_width=int(model.get("input_width") or 640),
+            input_height=int(model.get("input_height") or 640),
+            input_layout=str(model.get("input_layout") or "nchw").strip().lower(),
+            input_type=str(model.get("input_type") or "tensor(float)").strip().lower(),
+            dynamic_input_hw=bool(model.get("dynamic_input_hw", False)),
+            preferred_input_width=int(model.get("preferred_input_width") or 0),
+            preferred_input_height=int(model.get("preferred_input_height") or 0),
+            preprocessing=dict(model.get("preprocessing") or {}),
+        )
+        outputs = session.run(None, {str(model.get("input_name") or "images"): input_tensor})
+        return list(outputs or []), transform
 
     def _infer_candidates(self, model: Any, image: Image.Image) -> list[dict[str, Any]]:
         infer_fn = getattr(model, "infer", None)
@@ -329,32 +651,9 @@ class BirdCropService:
             return list(results or [])
         if not isinstance(model, dict):
             return []
-        session = model.get("session")
-        input_name = str(model.get("input_name") or "images")
-        input_height = int(model.get("input_height") or 640)
-        input_width = int(model.get("input_width") or 640)
-        input_layout = str(model.get("input_layout") or "nchw").strip().lower()
-        input_type = str(model.get("input_type") or "tensor(float)").strip().lower()
-        dynamic_input_hw = bool(model.get("dynamic_input_hw", False))
-        preferred_input_height = int(model.get("preferred_input_height") or 0)
-        preferred_input_width = int(model.get("preferred_input_width") or 0)
         output_names = [str(name or "") for name in (model.get("output_names") or [])]
         detector_config = dict(model.get("detector_config") or {})
-        preprocessing = dict(model.get("preprocessing") or {})
-        if session is None:
-            return []
-        input_tensor, transform = self._prepare_detector_input(
-            image,
-            input_width=input_width,
-            input_height=input_height,
-            input_layout=input_layout,
-            input_type=input_type,
-            dynamic_input_hw=dynamic_input_hw,
-            preferred_input_width=preferred_input_width,
-            preferred_input_height=preferred_input_height,
-            preprocessing=preprocessing,
-        )
-        outputs = session.run(None, {input_name: input_tensor})
+        outputs, transform = self.run_detector_outputs(model, image)
         return self._parse_detector_outputs(
             outputs,
             transform=transform,
@@ -970,9 +1269,17 @@ class BirdCropService:
         *,
         detector_tier: str | None,
         fallback_reason: str | None,
+        confidence_threshold_ceiling: float | None = None,
     ) -> dict[str, Any]:
         crop_policy = self.get_effective_crop_policy(detector_tier)
         confidence_threshold = float(crop_policy["confidence_threshold"])
+        if confidence_threshold_ceiling is not None:
+            try:
+                ceiling = float(confidence_threshold_ceiling)
+            except (TypeError, ValueError):
+                ceiling = confidence_threshold
+            if math.isfinite(ceiling) and ceiling >= 0.0:
+                confidence_threshold = min(confidence_threshold, ceiling)
         min_crop_size = int(crop_policy["min_crop_size"])
         normalized: list[dict[str, Any]] = []
         for candidate in candidates or []:

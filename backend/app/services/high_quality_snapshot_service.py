@@ -676,7 +676,7 @@ class HighQualitySnapshotService:
         if isinstance(hint_image, Image.Image):
             candidates.append(("frigate_hint_crop", hint_image, hint_result))
         if self._automatic_crop_enabled() and self._bird_crop_model_available():
-            model_result = self._crop_from_bird_model(image, event_id=event_id)
+            model_result = self._crop_candidate_from_bird_model(image, event_id=event_id)
             model_image = model_result.get("crop_image") if isinstance(model_result, dict) else None
             if isinstance(model_image, Image.Image):
                 candidates.append(("model_crop", model_image, model_result))
@@ -1402,6 +1402,26 @@ class HighQualitySnapshotService:
             return crop_result if isinstance(crop_result, dict) else None
         return self._expand_model_crop_context(image, crop_result)
 
+    def _crop_candidate_from_bird_model(
+        self,
+        image: Image.Image,
+        *,
+        event_id: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        """Generate an evidence-only crop while retaining the full-frame peer."""
+        candidate_generator = getattr(bird_crop_service, "generate_classification_candidate_crop", None)
+        declared_on_type = callable(getattr(type(bird_crop_service), "generate_classification_candidate_crop", None))
+        if not callable(candidate_generator) or not declared_on_type:
+            return self._crop_from_bird_model(image, event_id=event_id)
+        try:
+            crop_result = candidate_generator(image)
+        except Exception as e:
+            log.warning("High-quality bird crop candidate generation failed", event_id=event_id, error=str(e))
+            return None
+        if not self._has_crop_image(crop_result):
+            return crop_result if isinstance(crop_result, dict) else None
+        return self._expand_model_crop_context(image, crop_result)
+
     @staticmethod
     def _has_crop_image(crop_result: Any) -> bool:
         return isinstance(crop_result, dict) and isinstance(crop_result.get("crop_image"), Image.Image)
@@ -1875,7 +1895,7 @@ class HighQualitySnapshotService:
             log.debug("High-quality crop frame conversion failed", error=str(e))
             return None
 
-        crop_result = self._crop_from_bird_model(image)
+        crop_result = self._crop_candidate_from_bird_model(image)
         if not self._has_crop_image(crop_result):
             return None
         return self._score_crop_result(crop_result, image.size, frame_order=frame_order)

@@ -354,7 +354,7 @@ class ModelEvalRunner:
         # model; a standalone compatibility check only downloads all when asked
         # (default: test the models already installed — faster, no big downloads).
         if sweep_devices and (sweep_all_models or not compat_only):
-            await self._download_all_classifier_models(run_id)
+            await self._download_all_validation_models(run_id)
 
         # Discover classifier models
         installed = await model_manager.list_installed_models()
@@ -362,6 +362,11 @@ class ModelEvalRunner:
             m
             for m in installed
             if m.ready and (m.metadata is None or (m.metadata.artifact_kind or "classifier") == "classifier")
+        ]
+        crop_detectors = [
+            m
+            for m in installed
+            if m.ready and m.metadata is not None and (m.metadata.artifact_kind or "classifier") == "crop_detector"
         ]
         requested_model_ids = {str(model_id).strip() for model_id in (model_ids or []) if str(model_id).strip()}
         if requested_model_ids:
@@ -388,6 +393,7 @@ class ModelEvalRunner:
                         run_id,
                         run_dir,
                         classifiers,
+                        crop_detectors,
                         discover_providers=discover_providers,
                     )
             finally:
@@ -706,6 +712,7 @@ class ModelEvalRunner:
                         run_id,
                         run_dir,
                         classifiers,
+                        crop_detectors,
                         discover_providers=discover_providers,
                     )
                 except Exception as e:
@@ -751,8 +758,8 @@ class ModelEvalRunner:
             },
         )
 
-    async def _download_all_classifier_models(self, run_id: str) -> None:
-        """Install every registry classifier model that isn't present yet.
+    async def _download_all_validation_models(self, run_id: str) -> None:
+        """Install every registry classifier and crop detector not present yet.
 
         The device sweep needs the full set; missing ones are auto-downloaded.
         Fail-soft: a download failure is logged and skipped, never fatal.
@@ -769,7 +776,8 @@ class ModelEvalRunner:
         targets = [
             m
             for m in available
-            if ((getattr(m, "artifact_kind", None) or "classifier") == "classifier") and m.id not in installed_ready
+            if ((getattr(m, "artifact_kind", None) or "classifier") in {"classifier", "crop_detector"})
+            and m.id not in installed_ready
         ]
         total = len(targets)
         for idx, m in enumerate(targets):
@@ -803,6 +811,7 @@ class ModelEvalRunner:
         run_id: str,
         run_dir: Path,
         classifiers: list,
+        crop_detectors: list | None = None,
         *,
         discover_providers: bool = False,
     ) -> dict[str, Any]:
@@ -814,6 +823,7 @@ class ModelEvalRunner:
         child process and compared against a real-image CPU baseline.
         """
         from app.services.model_validation import (
+            sweep_crop_model_devices,
             sweep_model_devices,
             write_eligibility_entry,
             write_validation_record,
@@ -823,12 +833,13 @@ class ModelEvalRunner:
         # Real bird images fetched earlier in the run — compare devices on these
         # (not just a synthetic gradient) so f16 NPU divergence on real data is caught.
         exts = {".jpg", ".jpeg", ".png", ".webp"}
-        image_paths = await asyncio.to_thread(_list_eval_images, run_dir / IMAGES_SUBDIR, exts, 12)
+        image_paths = await asyncio.to_thread(_list_diverse_eval_images, run_dir / IMAGES_SUBDIR, exts, 24)
 
         matrix: dict[str, Any] = {}
         provider_order: list[str] = []
         image_flavor = get_image_flavor()
-        total = len(classifiers)
+        crop_detectors = list(crop_detectors or [])
+        total = len(classifiers) + len(crop_detectors)
         for m_idx, model in enumerate(classifiers):
             await self._emit(
                 run_id,
@@ -931,8 +942,95 @@ class ModelEvalRunner:
                 latency_ms=best.get("latency_ms"),
             )
 
+        crop_matrix: dict[str, Any] = {}
+        for crop_idx, model in enumerate(crop_detectors):
+            progress_index = len(classifiers) + crop_idx
+            await self._emit(
+                run_id,
+                phase="device_sweep",
+                progress={
+                    "done": progress_index,
+                    "total": total,
+                    "label": f"sweeping crop detector {model.id}",
+                },
+            )
+            try:
+                result = await sweep_crop_model_devices(
+                    model.id,
+                    image_paths=image_paths,
+                    discover_providers=discover_providers,
+                )
+            except Exception as exc:
+                log.exception(
+                    "model_eval_crop_provider_sweep_failed",
+                    run_id=run_id,
+                    model_id=model.id,
+                    error=str(exc),
+                )
+                crop_matrix[model.id] = {"error": f"provider_sweep_failed: {exc}"}
+                await asyncio.to_thread(
+                    write_eligibility_entry,
+                    model.id,
+                    [],
+                    run_id=run_id,
+                    image_flavor=image_flavor,
+                )
+                await asyncio.to_thread(
+                    write_validation_record,
+                    model.id,
+                    provider="cpu",
+                    ok=False,
+                    reason=f"crop provider sweep failed: {exc}",
+                )
+                continue
+            image_flavor = str(result.get("image_flavor") or image_flavor)
+            per_provider = {
+                str(entry.get("provider")): entry for entry in result.get("providers") or [] if entry.get("provider")
+            }
+            for provider in per_provider:
+                if provider not in provider_order:
+                    provider_order.append(provider)
+            best = result.get("best") or {}
+            crop_matrix[model.id] = {
+                "comparison_kind": "crop_box",
+                "baseline_provider": result.get("baseline_provider"),
+                "best_provider": best.get("provider"),
+                "providers": per_provider,
+                "discovered_providers": list(result.get("discovered_providers") or []),
+                "best_discovered_provider": (result.get("best_discovered") or {}).get("provider"),
+                "devices": per_provider,
+            }
+            eligible = list(result.get("eligible_providers") or [])
+            await asyncio.to_thread(
+                write_eligibility_entry,
+                model.id,
+                eligible,
+                run_id=run_id,
+                image_flavor=image_flavor,
+            )
+            await asyncio.to_thread(
+                write_validation_record,
+                model.id,
+                provider=str(best.get("provider") or "cpu"),
+                ok=bool(eligible),
+                reason=(
+                    "crop detector validated against the CPU box baseline on real birds and hard negatives"
+                    if eligible
+                    else "crop detector did not match the CPU box baseline on any declared provider"
+                ),
+                latency_ms=best.get("latency_ms"),
+            )
+
+        # Apply a newly validated crop provider without waiting for a restart.
+        try:
+            from app.services.bird_crop_service import bird_crop_service
+
+            bird_crop_service.reset_models()
+        except Exception as exc:
+            log.warning("model_eval_crop_runtime_reset_failed", error=str(exc))
+
         payload = {
-            "schema_version": 2,
+            "schema_version": 3,
             "run_id": run_id,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "image_flavor": image_flavor,
@@ -941,6 +1039,7 @@ class ModelEvalRunner:
             "devices": provider_order,
             "image_count": len(image_paths),
             "models": matrix,
+            "crop_detectors": crop_matrix,
         }
         try:
             await asyncio.to_thread((run_dir / DEVICE_MATRIX_FILENAME).write_text, json.dumps(payload, indent=2))
@@ -1131,6 +1230,35 @@ def _list_eval_images(root: Path, extensions: set[str], limit: int) -> list[str]
     return [str(path) for path in sorted(root.rglob("*")) if path.is_file() and path.suffix.lower() in extensions][
         :limit
     ]
+
+
+def _list_diverse_eval_images(root: Path, extensions: set[str], limit: int) -> list[str]:
+    """Round-robin species folders instead of taking one alphabetical cluster."""
+    groups: dict[str, list[Path]] = {}
+    for path in sorted(root.rglob("*")):
+        if not path.is_file() or path.suffix.lower() not in extensions:
+            continue
+        try:
+            relative = path.relative_to(root)
+            group = relative.parts[0] if len(relative.parts) > 1 else path.stem
+        except ValueError:
+            group = path.parent.name
+        groups.setdefault(group, []).append(path)
+    selected: list[str] = []
+    index = 0
+    while len(selected) < limit:
+        added = False
+        for group in sorted(groups):
+            paths = groups[group]
+            if index < len(paths):
+                selected.append(str(paths[index]))
+                added = True
+                if len(selected) >= limit:
+                    break
+        if not added:
+            break
+        index += 1
+    return selected
 
 
 async def _write_summary(run_dir: Path, payload: dict[str, Any]) -> None:

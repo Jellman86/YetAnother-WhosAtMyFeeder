@@ -125,6 +125,13 @@ export interface DeviceSweepEntry {
     images_compared?: number;
     top1_match_rate?: number;   // vs CPU, over real images (0..1)
     mean_top5_overlap?: number; // vs CPU, over real images (0..5)
+    comparison_kind?: 'classifier_top1' | 'crop_box';
+    detection_match_rate?: number; // detector presence/box/confidence agreement vs CPU
+    mean_box_iou?: number;
+    mean_confidence_delta?: number;
+    real_images_evaluated?: number;
+    negative_images_evaluated?: number;
+    real_detections?: number;
     matches_cpu?: boolean;      // top-1 matched CPU on every compared image
     matches_baseline?: boolean;
     baseline?: boolean;
@@ -140,6 +147,15 @@ export interface DeviceMatrix {
     image_count?: number;
     models: Record<string, {
         error?: string;
+        comparison_kind?: 'classifier_top1';
+        baseline_provider?: string;
+        best_provider?: string;
+        providers?: Record<string, DeviceSweepEntry>;
+        devices?: Record<string, DeviceSweepEntry>;
+    }>;
+    crop_detectors?: Record<string, {
+        error?: string;
+        comparison_kind?: 'crop_box';
         baseline_provider?: string;
         best_provider?: string;
         providers?: Record<string, DeviceSweepEntry>;

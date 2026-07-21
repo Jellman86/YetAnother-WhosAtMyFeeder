@@ -28,6 +28,7 @@ from app.services.model_eval_service import (
     _gpu_diagnostic,
     _inference_health_for,
     _is_correct_match,
+    _list_diverse_eval_images,
     _percentile,
     _provider_summary,
     _resolve_label_taxa,
@@ -353,6 +354,67 @@ async def test_provider_sweep_contains_one_model_failure_and_continues(tmp_path,
 
     assert read_validation_record("broken")["validated"] is False
     assert read_validation_record("healthy")["provider"] == "cuda"
+
+
+@pytest.mark.asyncio
+async def test_device_sweep_persists_crop_detectors_separately(tmp_path, monkeypatch):
+    from app.services import model_validation
+
+    runner = ModelEvalRunner()
+
+    async def sweep_crop_model_devices(model_id, *, image_paths, discover_providers=False):
+        assert model_id == "bird_crop_detector"
+        assert discover_providers is True
+        return {
+            "image_flavor": "intel",
+            "baseline_provider": "cpu",
+            "eligible_providers": ["cpu", "intel_npu"],
+            "discovered_providers": [],
+            "best": {"provider": "intel_npu", "latency_ms": 4.0},
+            "providers": [
+                {"provider": "cpu", "ok": True, "compiles": True, "latency_ms": 20.0},
+                {
+                    "provider": "intel_npu",
+                    "ok": True,
+                    "compiles": True,
+                    "latency_ms": 4.0,
+                    "comparison_kind": "crop_box",
+                    "detection_match_rate": 1.0,
+                },
+            ],
+        }
+
+    async def emit(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setattr(model_validation, "sweep_crop_model_devices", sweep_crop_model_devices)
+    monkeypatch.setattr(runner, "_emit", emit)
+
+    payload = await runner._device_sweep(
+        "run-1",
+        tmp_path,
+        [],
+        [SimpleNamespace(id="bird_crop_detector")],
+        discover_providers=True,
+    )
+
+    assert payload["schema_version"] == 3
+    assert payload["models"] == {}
+    assert payload["crop_detectors"]["bird_crop_detector"]["best_provider"] == "intel_npu"
+    assert payload["providers"] == ["cpu", "intel_npu"]
+
+
+def test_diverse_eval_image_selection_round_robins_species(tmp_path):
+    for species in ("alpha", "beta", "gamma"):
+        folder = tmp_path / species
+        folder.mkdir()
+        for index in range(3):
+            (folder / f"{index}.jpg").write_bytes(b"image")
+
+    selected = _list_diverse_eval_images(tmp_path, {".jpg"}, 5)
+
+    assert [Path(path).parent.name for path in selected] == ["alpha", "beta", "gamma", "alpha", "beta"]
 
 
 def test_build_summary_envelope_counts_panels():

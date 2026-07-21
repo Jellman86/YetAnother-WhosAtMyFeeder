@@ -4552,6 +4552,20 @@ class ClassifierService:
         except Exception as exc:
             raise exc
 
+    def _resolve_model_candidate_crop(
+        self,
+        image: Image.Image,
+    ) -> dict[str, Any] | None:
+        """Resolve a distance-tolerant crop only for multi-representation evidence."""
+        crop_service = self._bird_crop_service
+        if crop_service is None:
+            return None
+        candidate_generator = getattr(crop_service, "generate_classification_candidate_crop", None)
+        declared_on_type = callable(getattr(type(crop_service), "generate_classification_candidate_crop", None))
+        if callable(candidate_generator) and declared_on_type:
+            return candidate_generator(image)
+        return self._resolve_model_crop(image)
+
     def _bird_crop_detector_available(self) -> bool:
         crop_service = self._bird_crop_service
         if crop_service is None:
@@ -4591,7 +4605,7 @@ class ClassifierService:
 
         if self._bird_crop_detector_available():
             try:
-                model_result = self._resolve_model_crop(image)
+                model_result = self._resolve_model_candidate_crop(image)
             except Exception as exc:
                 log.debug("Video frame crop detector failed; retaining other inputs", error=str(exc))
                 model_result = None

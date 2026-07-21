@@ -248,6 +248,23 @@ therefore retained the centre-weighted full frame, recorded `insufficient_eviden
 un-tagged detection as Unknown Bird because no second independent frame supported the weak 0.305
 Wood Pigeon result. That is the intended best-available-media and safe-abstention outcome.
 
+### Distant falcon follow-up — 21 July 2026
+
+The later manually identified Eurasian Sparrowhawk event `1784555940.484185-eocv7l` exposed a more
+specific edge case. Raw YOLOX-Tiny inference did localise the small distant bird in two independent
+full frames, but confidence `0.0264` and `0.0450` fell below the accurate tier's `0.05` selection
+floor. The pathway therefore reported no usable model crop even though the boxes produced correct
+classifier results; the stronger crop reached `0.9800`, compared with `0.8668` for Frigate's saved
+crop on the same frame.
+
+The fix does not weaken ordinary crop replacement. Only multi-representation video/HQ evidence can
+admit accurate-detector candidates down to `0.02`; the full frame remains present and all existing
+identity, quality, independent-frame, and ambiguity checks remain authoritative. Tiled inference
+and YOLOX-S both raised detector confidence in an exploratory replay but did not improve downstream
+classification, reinforcing that detector confidence is not the product metric. The broader
+[candidate review and promotion benchmark](2026-07-21-crop-detector-candidate-review.md) now governs
+any future model change.
+
 ## Verification requirements
 
 The implementation is covered by focused tests for manual-write races, Frigate payload variants,

@@ -6,7 +6,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+- **Hardware validation now exercises crop detectors as first-class inference models.** Full sweeps
+  download both crop tiers, run each exact artifact in an isolated CPU/CUDA/OpenVINO process, and
+  compare finite output plus detection presence, box geometry, and confidence against CPU across a
+  round-robin 24-image species panel and three deterministic hard negatives. Diagnostics keeps
+  detector rows separate from classifier scoring while showing both in the compatibility UI.
+- **Validated crop detectors can use the fastest proven provider.** Crop sessions now support CUDA
+  and OpenVINO CPU/GPU/NPU, activate only from current image-specific validation evidence, use
+  static accelerator batches and Intel GPU f32 precision where required, and demote to CPU after
+  either compile-time or inference-time failure without losing the original-image fallback.
+
 ### Fixed
+- **Small distant birds are no longer discarded solely by the normal crop-replacement floor.** The
+  accurate detector may admit a box down to `0.02` only in video/HQ multi-representation evidence
+  paths, where the full frame remains available and identity, image-quality, temporal-independence,
+  and ambiguity gates still decide the result. Thumbnail and direct single-image replacement keep
+  the normal `0.05` floor. A manually identified distant Sparrowhawk replay recovered two correct
+  crops, including one that outscored Frigate's saved crop; sliced inference and YOLOX-S remain
+  benchmark candidates because neither improved downstream classification in that replay.
 - **Installed model sidecars can no longer hide a provider validated by the current application.**
   Provider compatibility is now reconciled to the current registry in both directions: obsolete
   sidecar providers are removed and newly supported providers remain available for the hardware

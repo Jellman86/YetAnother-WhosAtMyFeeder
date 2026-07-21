@@ -3727,10 +3727,19 @@ async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exist
             return np.array([0.84, 0.16], dtype=np.float32)
 
     class _CropService:
+        def __init__(self):
+            self.normal_calls = 0
+            self.candidate_calls = 0
+
         def get_status(self):
             return {"installed": True, "enabled_for_runtime": True}
 
         def generate_classification_crop(self, image):
+            self.normal_calls += 1
+            return {"crop_image": None, "reason": "below_threshold"}
+
+        def generate_classification_candidate_crop(self, image):
+            self.candidate_calls += 1
             return {
                 "crop_image": image.crop((20, 20, 80, 80)),
                 "box": (20, 20, 80, 80),
@@ -3741,7 +3750,8 @@ async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exist
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
         service._models["bird"] = _FrameAwareBirdModel()
-        service._bird_crop_service = _CropService()
+        crop_service = _CropService()
+        service._bird_crop_service = crop_service
         monkeypatch.setattr(classifier_service_module.cv2, "VideoCapture", _ThreeFrameCapture)
         monkeypatch.setattr(classifier_service_module.cv2, "cvtColor", lambda frame, _code: frame)
         monkeypatch.setattr(settings.classification, "min_confidence", 0.45)
@@ -3754,6 +3764,8 @@ async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exist
 
         assert results[0]["input_source"] == "model_crop"
         assert results[0]["input_is_cropped"] is True
+        assert crop_service.candidate_calls == 3
+        assert crop_service.normal_calls == 0
         await service.shutdown()
 
 

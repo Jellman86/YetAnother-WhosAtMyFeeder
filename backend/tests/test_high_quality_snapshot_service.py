@@ -157,7 +157,7 @@ def test_candidate_generation_attempts_model_crop_when_legacy_crop_flag_is_off(m
     monkeypatch.setattr(service, "_crop_from_event_hints", lambda image, event_data: None)
     monkeypatch.setattr(
         service,
-        "_crop_from_bird_model",
+        "_crop_candidate_from_bird_model",
         lambda image, event_id=None: {
             "crop_image": image.crop((8, 8, 96, 96)),
             "box": (8, 8, 96, 96),
@@ -172,6 +172,36 @@ def test_candidate_generation_attempts_model_crop_when_legacy_crop_flag_is_off(m
     )
 
     assert [source for source, _image, _result in candidates] == ["full_frame", "model_crop"]
+
+
+def test_candidate_generation_uses_distance_tolerant_evidence_crop_without_replacing_frame(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(service, "_bird_crop_model_available", lambda: True)
+    monkeypatch.setattr(service, "_crop_from_event_hints", lambda image, event_data: None)
+
+    class _CropService:
+        def generate_crop(self, _image, *, detector_tier=None):
+            raise AssertionError(f"normal replacement policy should not run: {detector_tier}")
+
+        def generate_classification_candidate_crop(self, image):
+            return {
+                "crop_image": image.crop((16, 16, 96, 112)),
+                "box": (16, 16, 96, 112),
+                "confidence": 0.03,
+                "reason": "selected",
+            }
+
+    monkeypatch.setattr(hq_module, "bird_crop_service", _CropService())
+
+    candidates = service._candidate_images_for_frame(
+        Image.new("RGB", (128, 128)),
+        event_data=None,
+        event_id="evt-distant",
+    )
+
+    assert [source for source, _image, _result in candidates] == ["full_frame", "model_crop"]
+    assert candidates[1][2]["confidence"] == 0.03
 
 
 @pytest.mark.asyncio
