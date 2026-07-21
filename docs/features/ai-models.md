@@ -134,7 +134,7 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - Shown separately as **Cropped thumbnails**, not as a classifier model option. Crop generation and
   classifier crop-on/off policy are both automatic.
 - `Fast` is the default SSD-MobileNet crop detector. It is CPU-friendly and remains the safe fallback path.
-- `Accurate` is the experimental YOLOX-Tiny crop detector tier. It is optional, CPU-first, and
+- `Accurate` is the experimental YOLOX-Tiny crop detector tier. It is optional, provider-validated, and
   automatically retries with `Fast` when the artifact is unavailable or when accurate inference
   cannot produce a usable crop (including no candidate, low confidence, an undersized/invalid box,
   or inference failure).
@@ -149,14 +149,25 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - A hardware compatibility sweep validates crop detectors separately from classifiers. It uses up
   to 24 images selected round-robin across species plus dark, foliage-like, and gradient hard
   negatives. Every provider runs in an isolated child process and must produce finite output and
-  match the CPU baseline's detection presence, top box (IoU at least `0.90`), and confidence (delta
-  at most `0.03`) on every image. Passing undeclared providers remain informational until the model
-  registry is updated from on-hardware evidence.
+  match the CPU baseline's runtime-significant detection presence, top box (IoU at least `0.90`),
+  and confidence (delta at most `0.03`) on every image. Proposals below the most permissive runtime
+  evidence floor are excluded so arbitrary near-zero detector noise cannot create a false mismatch.
+  Image identities remain unique even when download sources reuse filenames. Missing, unexpected,
+  or duplicated panel rows fail the comparison. Passing undeclared providers remain informational
+  until the model registry is updated from on-hardware evidence.
 - At runtime, a crop detector uses only a provider recommended by a current validation record for
   the exact running image flavour. CUDA and OpenVINO CPU/GPU/NPU sessions are supported; Intel GPU
   uses f32 inference precision and accelerators use a static batch where needed. Compile or inference
   failure replaces that cached detector session with CPU while preserving the accurate-to-fast and
   original-image fallbacks.
+
+On Quark's Arrow Lake-S/OpenVINO 2026.2.1 runtime, the accurate tier matched CPU across a private
+40-case field panel on Intel CPU and GPU, and all runtime-significant detections matched on Intel
+NPU. The panel contains 30 independent events across seven recorded labels, distant/mid-distance
+and edge-of-frame scenes, plus 10 real feeder/foliage hard negatives. The normal sweep adds up to 24
+taxonomy-verified species images. This evidence enables `intel_npu` in the model contract, but the
+current-image, per-host gate must still pass before any installation uses it. The quantized fast SSD
+artifact remains CPU-only because OpenVINO rejects its `QLinearConv` graph.
 
 #### Best-available event snapshots
 

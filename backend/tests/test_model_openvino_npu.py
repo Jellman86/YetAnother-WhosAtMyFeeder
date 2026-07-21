@@ -56,6 +56,11 @@ MIN_TOP5_OVERLAP = 1
 # full-device sweep on 2026-07-18. Every entry compiled, produced finite output
 # for 12 real images, and matched CPU top-1 on all 12.
 NPU_VALIDATED: set[str] = {
+    # YOLOX-Tiny crop detector: provider-isolated real-image sweep plus a
+    # 40-case private Quark field panel (30 visits, 10 hard negatives),
+    # OpenVINO 2026.2.1 on Arrow Lake-S, 2026-07-21. Runtime-significant boxes
+    # matched CPU on every case; sub-0.02 raw proposals are deliberately ignored.
+    "bird_crop_detector_accurate_yolox_tiny",
     "convnext_large_inat21",
     "convnext_v1_tiny_eu_common",
     "eu_medium_focalnet_b",

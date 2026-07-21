@@ -459,6 +459,17 @@ def _compare_crop_detections(
     min_iou: float = 0.90,
     max_confidence_delta: float = 0.03,
 ) -> dict[str, Any]:
+    baseline_keys = [str(row.get("image") or "") for row in baseline_rows]
+    provider_keys = [str(row.get("image") or "") for row in provider_rows]
+    duplicate_keys = (len(baseline_keys) != len(set(baseline_keys))) or (len(provider_keys) != len(set(provider_keys)))
+    baseline_key_set = set(baseline_keys)
+    provider_key_set = set(provider_keys)
+    coverage_complete = bool(
+        baseline_keys
+        and not duplicate_keys
+        and len(baseline_keys) == len(provider_keys)
+        and baseline_key_set == provider_key_set
+    )
     provider_by_image = {str(row.get("image") or ""): row for row in provider_rows}
     comparisons = matches = 0
     ious: list[float] = []
@@ -488,12 +499,17 @@ def _compare_crop_detections(
         if iou >= min_iou and confidence_delta <= max_confidence_delta:
             matches += 1
     return {
+        "images_expected": len(baseline_rows),
         "images_compared": comparisons,
         "matches": matches,
         "match_rate": (matches / comparisons) if comparisons else None,
         "mean_box_iou": (sum(ious) / len(ious)) if ious else None,
         "mean_confidence_delta": (sum(confidence_deltas) / len(confidence_deltas)) if confidence_deltas else None,
-        "agrees": bool(comparisons and matches == comparisons),
+        "coverage_complete": coverage_complete,
+        "duplicate_image_keys": duplicate_keys,
+        "missing_images": len(baseline_key_set - provider_key_set),
+        "unexpected_images": len(provider_key_set - baseline_key_set),
+        "agrees": bool(coverage_complete and comparisons and matches == comparisons),
     }
 
 
@@ -702,22 +718,32 @@ async def sweep_crop_model_devices(
             _compare_crop_detections(baseline_rows, rows)
             if baseline_rows and rows
             else {
+                "images_expected": len(baseline_rows),
                 "images_compared": 0,
                 "matches": 0,
                 "match_rate": None,
                 "mean_box_iou": None,
                 "mean_confidence_delta": None,
+                "coverage_complete": False,
+                "duplicate_image_keys": False,
+                "missing_images": len(baseline_rows),
+                "unexpected_images": len(rows),
                 "agrees": False,
             }
         )
         if candidate.provider == baseline_provider:
             agrees = baseline_usable
             comparison = {
+                "images_expected": len(baseline_rows),
                 "images_compared": 0,
                 "matches": 0,
                 "match_rate": None,
                 "mean_box_iou": None,
                 "mean_confidence_delta": None,
+                "coverage_complete": True,
+                "duplicate_image_keys": False,
+                "missing_images": 0,
+                "unexpected_images": 0,
                 "agrees": agrees,
             }
         else:
@@ -742,6 +768,10 @@ async def sweep_crop_model_devices(
                 1 for row in rows if row.get("kind") == "real" and row.get("top_detection") is not None
             ),
             "images_compared": comparison["images_compared"],
+            "image_set_complete": comparison["coverage_complete"],
+            "duplicate_image_keys": comparison["duplicate_image_keys"],
+            "missing_images": comparison["missing_images"],
+            "unexpected_images": comparison["unexpected_images"],
             "matches_baseline": agrees if candidate.provider != baseline_provider else None,
             "matches_cpu": agrees if candidate.provider != baseline_provider else None,
             "detection_match_rate": (

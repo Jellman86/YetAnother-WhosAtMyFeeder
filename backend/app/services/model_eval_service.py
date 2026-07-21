@@ -379,6 +379,7 @@ class ModelEvalRunner:
                 )
         if not classifiers:
             raise RuntimeError("no installed classifier models found")
+        validation_model_count = len(classifiers) + (len(crop_detectors) if sweep_devices else 0)
 
         original_active = model_manager.active_model_id
 
@@ -426,8 +427,8 @@ class ModelEvalRunner:
                 run_id,
                 phase="complete",
                 progress={
-                    "done": len(classifiers),
-                    "total": len(classifiers),
+                    "done": validation_model_count,
+                    "total": validation_model_count,
                     "label": "complete",
                 },
             )
@@ -752,8 +753,8 @@ class ModelEvalRunner:
             run_id,
             phase="complete",
             progress={
-                "done": len(classifiers),
-                "total": len(classifiers),
+                "done": validation_model_count,
+                "total": validation_model_count,
                 "label": "complete",
             },
         )
@@ -913,6 +914,7 @@ class ModelEvalRunner:
                     provider_order.append(provider)
             best = result.get("best") or {}
             matrix[model.id] = {
+                "comparison_kind": "classifier_top1",
                 "baseline_provider": result.get("baseline_provider"),
                 "best_provider": best.get("provider"),
                 "providers": per_provider,

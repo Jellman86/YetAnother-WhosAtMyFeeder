@@ -16,8 +16,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   and OpenVINO CPU/GPU/NPU, activate only from current image-specific validation evidence, use
   static accelerator batches and Intel GPU f32 precision where required, and demote to CPU after
   either compile-time or inference-time failure without losing the original-image fallback.
+- **Crop validation now uses both broad and field-specific image variety.** Provider sweeps select
+  up to 24 taxonomy-verified species round-robin, add deterministic hard negatives, and can be
+  complemented by a private same-frame panel builder. The Quark field pass covered 30 independent
+  events across seven recorded labels plus 10 real feeder/foliage negatives rather than relying on
+  the Sparrowhawk regression alone.
 
 ### Fixed
+- **Reused download filenames no longer corrupt crop-provider comparisons.** Each validation image
+  now has a stable unique identity; missing, unexpected, or duplicate rows fail closed. The gate
+  compares detections admitted by the most permissive production policy instead of arbitrary
+  sub-threshold YOLO noise, removing both false accelerator disagreements and false hard-negative
+  detections. The accurate YOLOX-Tiny contract now includes Intel NPU after CPU-equivalent Quark
+  validation; the quantized fast SSD remains CPU-only because its OpenVINO graph does not compile.
 - **Small distant birds are no longer discarded solely by the normal crop-replacement floor.** The
   accurate detector may admit a box down to `0.02` only in video/HQ multi-representation evidence
   paths, where the full frame remains available and identity, image-quality, temporal-independence,
@@ -81,7 +92,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Hardware validation now understands every runtime image.** The setup wizard, guided model
   install, Detection compatibility check and Model Evaluation diagnostics now share one provider
   sweep: `packaged by image ∩ detected on host ∩ supported by model`. It isolates and tests ONNX
-  CPU/CUDA plus OpenVINO CPU/GPU/NPU as applicable, compares up to 12 real bird images against a CPU
+  CPU/CUDA plus OpenVINO CPU/GPU/NPU as applicable, compares up to 24 real bird images against a CPU
   baseline, records median inference latency and the fastest verified provider, applies that
   recommendation only after model activation succeeds, and never lets
   OpenVINO CPU hide CUDA in the full image. The setup wizard validates only its selected model;

@@ -72,24 +72,49 @@ def _synthetic_negatives(size: int) -> list[tuple[str, Image.Image]]:
 
 def _load_images(image_paths: list[str], *, input_size: int) -> list[tuple[str, Image.Image]]:
     images: list[tuple[str, Image.Image]] = []
-    for path_value in image_paths:
+    for index, path_value in enumerate(image_paths):
         path = Path(path_value)
         if not path.is_file():
             continue
         try:
             with Image.open(path) as source:
-                images.append((f"real:{path.name}", source.convert("RGB")))
+                # Model-evaluation downloads commonly reuse names such as
+                # ``image.jpg`` in per-species directories.  The validation
+                # comparator keys rows by this label, so a basename-only key
+                # silently collapsed a varied panel onto its final image and
+                # produced false CPU/accelerator disagreement.  Preserve the
+                # caller's stable ordering without exposing full local paths.
+                images.append((f"real:{index:03d}:{path.name}", source.convert("RGB")))
         except Exception:
             continue
     images.extend(_synthetic_negatives(input_size))
     return images
 
 
-def _top_detection(candidates: list[dict[str, Any]], image: Image.Image) -> dict[str, Any] | None:
-    usable = [candidate for candidate in candidates if candidate.get("box") is not None]
-    if not usable:
+def _top_detection(
+    service: BirdCropService,
+    candidates: list[dict[str, Any]],
+    image: Image.Image,
+    *,
+    tier: str,
+) -> dict[str, Any] | None:
+    # Compare the most permissive detection the application can actually admit,
+    # not arbitrary sub-threshold YOLO proposals.  The accurate tier's 0.02
+    # evidence path is deliberately included; thumbnails still use the normal
+    # 0.05 floor.  This catches hardware disagreement that could affect runtime
+    # while ignoring meaningless near-zero hard-negative noise.
+    confidence_ceiling = (
+        service.CLASSIFICATION_CANDIDATE_CONFIDENCE_FLOOR if str(tier).strip().lower() == "accurate" else None
+    )
+    selected = service._select_best_valid_candidate(
+        image,
+        candidates,
+        detector_tier=tier,
+        fallback_reason=None,
+        confidence_threshold_ceiling=confidence_ceiling,
+    )
+    if selected.get("box") is None or selected.get("confidence") is None:
         return None
-    selected = max(usable, key=lambda candidate: float(candidate.get("confidence") or 0.0))
     box = [float(value) for value in selected["box"]]
     width, height = image.size
     return {
@@ -151,7 +176,7 @@ def probe_provider(provider: str, model_id: str, image_paths: list[str]) -> dict
                 {
                     "image": label,
                     "kind": "negative" if label.startswith("negative_") else "real",
-                    "top_detection": _top_detection(candidates, image),
+                    "top_detection": _top_detection(service, candidates, image, tier=tier),
                     "detection_count": len(candidates),
                 }
             )
@@ -160,6 +185,11 @@ def probe_provider(provider: str, model_id: str, image_paths: list[str]) -> dict
         report["images_evaluated"] = len(detections)
         report["real_images_evaluated"] = sum(1 for row in detections if row["kind"] == "real")
         report["negative_images_evaluated"] = sum(1 for row in detections if row["kind"] == "negative")
+        report["selection_policy"] = (
+            service.get_classification_candidate_crop_policy()
+            if tier == "accurate"
+            else service.get_effective_crop_policy(tier)
+        )
         report["inference_latency_ms"] = round(float(statistics.median(timings)), 1) if timings else None
         return report
     except Exception as exc:

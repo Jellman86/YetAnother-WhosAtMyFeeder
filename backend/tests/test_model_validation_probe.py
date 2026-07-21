@@ -4,9 +4,12 @@ The probe is exercised with a fake classifier and fake manager so no real model,
 network, or accelerator is touched.
 """
 
+from PIL import Image
 import pytest
 
 from app.services import model_validation as mv
+from app.services.bird_crop_service import BirdCropService
+from scripts.probe_crop_model_provider import _load_images, _top_detection
 
 
 def test_judge_accepts_finite_positive_scores():
@@ -205,6 +208,34 @@ def test_crop_detection_comparison_rejects_provider_only_false_positive():
     assert result["match_rate"] == 0.0
 
 
+def test_crop_detection_comparison_rejects_incomplete_provider_panel():
+    baseline = [
+        {"image": "real:000:image.jpg", "top_detection": None},
+        {"image": "real:001:image.jpg", "top_detection": None},
+    ]
+    provider = [{"image": "real:000:image.jpg", "top_detection": None}]
+
+    result = mv._compare_crop_detections(baseline, provider)
+
+    assert result["matches"] == 1
+    assert result["coverage_complete"] is False
+    assert result["missing_images"] == 1
+    assert result["agrees"] is False
+
+
+def test_crop_detection_comparison_rejects_duplicate_image_keys():
+    duplicated = [
+        {"image": "real:image.jpg", "top_detection": None},
+        {"image": "real:image.jpg", "top_detection": None},
+    ]
+
+    result = mv._compare_crop_detections(duplicated, duplicated)
+
+    assert result["duplicate_image_keys"] is True
+    assert result["coverage_complete"] is False
+    assert result["agrees"] is False
+
+
 @pytest.mark.asyncio
 async def test_crop_provider_sweep_keeps_discovered_hardware_informational(monkeypatch):
     from app.services import classifier_service
@@ -277,6 +308,43 @@ def test_probe_report_parser_ignores_structured_logs_before_the_final_report():
     stdout = b'{"event":"loading"}\nnoise\n{"provider":"cuda","compile":{"ok":true}}\n'
 
     assert mv._parse_probe_report(stdout) == {"provider": "cuda", "compile": {"ok": True}}
+
+
+def test_crop_probe_labels_reused_basenames_uniquely(tmp_path):
+    first = tmp_path / "species-a" / "image.jpg"
+    second = tmp_path / "species-b" / "image.jpg"
+    first.parent.mkdir()
+    second.parent.mkdir()
+    Image.new("RGB", (8, 8), "red").save(first)
+    Image.new("RGB", (8, 8), "blue").save(second)
+
+    rows = _load_images([str(first), str(second)], input_size=64)
+
+    real_labels = [label for label, _image in rows if label.startswith("real:")]
+    assert real_labels == ["real:000:image.jpg", "real:001:image.jpg"]
+    assert len(real_labels) == len(set(real_labels))
+
+
+def test_crop_probe_ignores_raw_proposals_below_the_runtime_evidence_floor():
+    service = BirdCropService(detector_tier="accurate")
+    image = Image.new("RGB", (200, 200), "black")
+
+    below = _top_detection(
+        service,
+        [{"box": [20, 20, 180, 180], "confidence": 0.004}],
+        image,
+        tier="accurate",
+    )
+    admitted = _top_detection(
+        service,
+        [{"box": [20, 20, 180, 180], "confidence": 0.021}],
+        image,
+        tier="accurate",
+    )
+
+    assert below is None
+    assert admitted is not None
+    assert admitted["confidence"] == pytest.approx(0.021)
 
 
 class _FakeManager:

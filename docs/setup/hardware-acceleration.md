@@ -203,7 +203,9 @@ The NPU is validated per model, not enabled blanket:
 
 - YA-WAMF only runs a model on the NPU when that model is marked NPU-validated
   (compiles, produces finite output, and its top-k agrees with the CPU baseline).
-  The `rope_vit_b14` model is validated on Arrow Lake (f16, top-5 matching CPU).
+  The `rope_vit_b14` classifier and accurate YOLOX-Tiny crop detector are validated on Arrow Lake;
+  classifiers compare top-k output while crop detectors compare admitted detection presence,
+  geometry, and confidence.
 - The NPU is stricter than the GPU on some operations, so not every model is
   NPU-viable. When a model cannot compile on the selected device, YA-WAMF keeps
   the model installed and runs inference on the OpenVINO CPU fallback, and the

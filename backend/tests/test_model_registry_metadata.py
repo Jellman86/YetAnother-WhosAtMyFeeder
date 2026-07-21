@@ -174,6 +174,13 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["bird_crop_detector"].notes
     assert by_id["bird_crop_detector"].input_size == 300
     assert by_id["bird_crop_detector"].preprocessing["resize_mode"] == "direct_resize"
+    assert by_id["bird_crop_detector_accurate_yolox_tiny"].supported_inference_providers == [
+        "cpu",
+        "intel_cpu",
+        "cuda",
+        "intel_gpu",
+        "intel_npu",
+    ]
 
 
 @pytest.mark.asyncio

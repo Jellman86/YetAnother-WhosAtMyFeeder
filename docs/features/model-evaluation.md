@@ -20,7 +20,7 @@ Each run writes a directory at `/config/yawamf-eval/<run_id>/` containing:
 | `runtime.json` | per-model provider / device / startup benchmark / drift factor / `InferenceHealth` snapshot |
 | `confusions.csv` | top wrong→right confusions per model, ranked by frequency |
 | `results.jsonl` | per-image top-5 predictions with scores and taxa_id resolution — only when **Include per-image details** is checked |
-| `device_matrix.json` | image-aware per-model/provider compile, finite-output, real-image agreement and median inference latency results when provider validation is enabled |
+| `device_matrix.json` | image-aware classifier and crop-detector provider compile, finite-output, CPU-agreement and median inference-latency results when provider validation is enabled |
 
 The container mount means you can pull these straight off the host:
 
@@ -94,15 +94,22 @@ The `compat_only` provider sweep writes a per-host, per-image `device_eligibilit
 every provider that compiled, produced finite output, and agreed with its CPU baseline. Candidates
 are limited to the running image/host/model intersection, covering ONNX CPU/CUDA and OpenVINO
 CPU/GPU/NPU when applicable. Each compile and inference run is isolated in a child process; one
-model/provider failure is retained in the matrix without aborting the rest of the run. The matrix
-uses up to 12 real panel images and records the provider's own median inference latency.
+model/provider failure is retained in the matrix without aborting the rest of the run. Classifiers
+use up to 24 images selected round-robin across species and compare their output ranking. Installed
+crop detectors use the same real panel plus three deterministic hard negatives and compare
+detection presence, top-box IoU, and confidence with CPU. Detector rows live under the separate
+schema-3 `crop_detectors` key, so they cannot affect classifier scoring or setup recommendations.
+Panel labels include their stable selection index because upstream downloads often reuse a generic
+basename such as `image.jpg`; duplicate, missing, or unexpected comparison rows now fail closed.
+Detector comparison applies the most permissive crop threshold production can admit (`0.02` for an
+accurate evidence candidate), rather than comparing arbitrary near-zero raw proposals.
 
 This record clears the **post-install selection gate** — a model cannot become active until this
 host has proven at least one valid route. The Model Manager's **Validate & enable** endpoint
 (`POST /api/models/{id}/validate`) uses the same provider engine for one model and restores the
 previously active model after the trial. The setup wizard also requests a single-model
 compatibility run; Detection Diagnostics tests installed models by default and can optionally
-download and test every registry classifier. See
+download and test every registry classifier and crop detector. See
 [AI Models — Validate before you select](ai-models.md#validate-before-you-select-post-install-gate).
 Every sweep also stores its fastest passing provider as the activation recommendation. Setup
 defaults to that result and removes providers that failed for the selected model; activation applies
@@ -135,6 +142,27 @@ one frame are one vote, and a confident crop consensus is not ground truth witho
 field set. This preserves the fail-soft full-frame path while still measuring whether localization
 helps small, distant subjects.
 
+For a private, repeatable detector-quality panel, build same-frame references from persisted HQ
+candidates rather than applying an event's final box to a different video frame:
+
+```bash
+python backend/scripts/build_crop_field_manifest.py \
+  --database /data/speciesid.db \
+  --snapshot-dir /config/media_cache/snapshots \
+  --output-dir /config/yawamf-eval/crop-detector-field
+
+python backend/scripts/eval_crop_detector_accuracy.py \
+  --manifest /config/yawamf-eval/crop-detector-field/manifest.json \
+  --output-json /config/yawamf-eval/crop-detector-field/results.json
+```
+
+The builder selects one independent event per visit, round-robins apparent distance and recorded
+species, and uses only a Frigate hint persisted for the exact same frame. It also creates real
+feeder/foliage regions that do not intersect the known hint box. Those are useful hard negatives,
+but are explicitly not claims that the entire source frame contained no other bird. The evaluator
+reports positive recall separately from negative false-positive/specificity rates and groups results
+by manifest tag. Camera images and generated negatives stay in the private config volume.
+
 Both `summary.json` and `device_matrix.json` contain compatibility-only results. The latter is
 available through `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with `artifact` set to
 `device_matrix.json`; older runs that used `devices` remain readable while new matrices also expose
@@ -148,5 +176,8 @@ provider-native `providers` fields.
 - Sanity checks: `backend/app/services/eval/sanity_checks.py`
 - HTTP router: `backend/app/routers/model_eval.py`
 - Release-sidecar generator: `backend/scripts/generate_model_release_configs.py`
+- Crop provider probe: `backend/scripts/probe_crop_model_provider.py`
+- Private crop field-panel builder: `backend/scripts/build_crop_field_manifest.py`
+- Crop detector quality evaluator: `backend/scripts/eval_crop_detector_accuracy.py`
 - Frontend page: `apps/ui/src/lib/pages/ModelEvaluation.svelte`
 - Design doc: `docs/plans/2026-05-07-model-evaluation-harness-design.md`

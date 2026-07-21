@@ -74,7 +74,7 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Higher",
         "inference_speed": "Medium",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "cuda", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "intel_cpu", "cuda", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_yolox_tiny.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_yolox_tiny_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_yolox_tiny_model_config.json",
@@ -101,7 +101,7 @@ REMOTE_REGISTRY = [
         "advanced_only": True,
         "sort_order": 6,
         "status": "experimental",
-        "notes": "Experimental accurate tier for cropped thumbnails. Automatic classifier localization uses this validated tier independently and falls back to the fast SSD detector when unavailable.",
+        "notes": "Experimental accurate tier for cropped thumbnails. CPU, CUDA, and OpenVINO CPU/GPU/NPU routes remain subject to the per-host validation gate. Automatic classifier localization uses this validated tier independently and falls back to the fast SSD detector when unavailable.",
     },
     {
         "id": "mobilenet_v2_birds",

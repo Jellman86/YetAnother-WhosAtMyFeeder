@@ -387,7 +387,7 @@ mutable Raspberry Pi tags are promoted. The open work is expanding Playwright E2
 restart/recovery and GPU/provider fallback paths, plus a physical-Pi smoke/soak pass.
 
 #### Crop-detector field benchmark 🐦
-**Priority:** P1 | **Effort:** M | **Status:** 🔄 Hardware sweep delivered; candidate field panel in progress
+**Priority:** P1 | **Effort:** M | **Status:** 🔄 Hardware sweep and private panel tooling delivered; candidate comparison in progress
 
 The evidence-only distant-subject threshold recovery is delivered, but a detector replacement is
 not selected from one event or generic COCO AP. Build a manually labelled, visit-grouped Quark panel
@@ -399,9 +399,11 @@ artifact that beats Frigate without weakening full-frame/fail-soft behaviour. Se
 
 The shared hardware sweep now includes both exact crop-detector artifacts, a species-diverse
 round-robin image sample, deterministic hard negatives, isolated CPU/CUDA/OpenVINO compilation,
-and CPU box/confidence agreement. Validated crop providers activate at runtime with CPU fallback.
-This proves execution equivalence, not detector quality; the independent-visit field benchmark and
-replacement-candidate comparison remain open.
+and CPU box/confidence agreement. The comparison fails closed on missing/duplicated rows and ignores
+raw proposals below every production threshold. Validated crop providers activate at runtime with
+CPU fallback. A private same-frame builder and initial 30-event/10-negative Quark panel now exist,
+but most reference boxes and labels are still Frigate/automatic evidence rather than owner-labelled
+ground truth. Manual labelling and the replacement-candidate comparison remain open.
 
 #### High-availability setup 🏗️
 **Priority:** P3 | **Effort:** M | **Status:** ☐ Not started
@@ -516,7 +518,10 @@ empty predictions.
 device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and
 clean fallback chains. Full registry audits can probe undeclared host providers without making them
 eligible, and reproducible release sidecars prevent older provider metadata from narrowing or
-widening the current application contract.
+widening the current application contract. Crop-detector audits now use unique identities across a
+round-robin clean species panel and hard negatives, fail on incomplete comparison coverage, and
+test only proposals production could admit. The accurate YOLOX-Tiny tier is validated on Quark's
+Intel CPU/GPU/NPU; the fast quantized SSD remains CPU-only.
 
 **Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots with conservative,
 temporally independent multi-frame crop refinement for distant subjects, recording-frame

@@ -27,6 +27,13 @@ def test_release_model_configs_use_current_provider_policy():
         "intel_gpu",
         "intel_npu",
     ]
+    assert configs["bird_crop_detector_accurate_yolox_tiny_model_config.json"]["supported_inference_providers"] == [
+        "cpu",
+        "intel_cpu",
+        "cuda",
+        "intel_gpu",
+        "intel_npu",
+    ]
     assert configs["small_birds_eu_mobilenet_v4_l_candidate_model_config.json"] == {
         **configs["small_birds_eu_mobilenet_v4_l_candidate_model_config.json"],
         "model_id": "small_birds",
