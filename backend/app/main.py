@@ -65,6 +65,7 @@ from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.utils.tasks import create_background_task
 from app.utils.runtime_flavor import get_image_flavor
+from app.services.startup_status import startup_status
 from app.ratelimit import limiter
 from app.auth import AuthContext
 from app.auth import get_auth_context_with_legacy
@@ -321,8 +322,12 @@ async def _run_lifecycle_phase(
     phase: str,
     action: Callable[[], Awaitable[None]],
     fatal: bool,
+    startup_phase: str | None = None,
+    startup_progress: int | None = None,
 ) -> None:
     """Run startup/shutdown phase with explicit timing and failure context."""
+    if startup_phase is not None and startup_progress is not None:
+        await asyncio.to_thread(startup_status.publish, startup_phase, startup_progress)
     started_at = monotonic()
     log.info("Lifecycle phase starting", phase=phase, fatal=fatal)
     try:
@@ -338,6 +343,7 @@ async def _run_lifecycle_phase(
             exc_info=True,
         )
         if fatal:
+            await asyncio.to_thread(startup_status.mark_failed, startup_phase or phase)
             raise RuntimeError(f"Lifecycle phase failed: {phase}") from e
         _record_startup_warning(app, phase, str(e))
     else:
@@ -389,24 +395,82 @@ async def lifespan(app: FastAPI):
         # Keep tests fast and deterministic: skip migrations + external/background services.
         log.info("Test mode enabled: skipping DB init and background services startup")
     else:
-        await _run_lifecycle_phase(app, "db_init", init_db, fatal=True)
-        await _run_lifecycle_phase(app, "notification_dispatcher_start", notification_dispatcher.start, fatal=False)
+        await _run_lifecycle_phase(
+            app,
+            "db_init",
+            init_db,
+            fatal=True,
+            startup_phase="database",
+            startup_progress=68,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "notification_dispatcher_start",
+            notification_dispatcher.start,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=76,
+        )
         from app.services.model_manager import model_manager
 
         create_background_task(model_manager.ensure_installed_model_configs(), name="model_config_refresh")
-        await _run_lifecycle_phase(app, "mqtt_service_task_start", _start_mqtt_service_task, fatal=False)
-        await _run_lifecycle_phase(app, "telemetry_start", telemetry_service.start, fatal=False)
-        await _run_lifecycle_phase(app, "auto_video_classifier_start", auto_video_classifier.start, fatal=False)
-        await _run_lifecycle_phase(app, "high_quality_snapshot_start", high_quality_snapshot_service.start, fatal=False)
-        await _run_lifecycle_phase(app, "full_visit_clip_start", full_visit_clip_service.start, fatal=False)
-        await _run_lifecycle_phase(app, "cleanup_scheduler_task_start", _start_cleanup_scheduler_task, fatal=False)
+        await _run_lifecycle_phase(
+            app,
+            "mqtt_service_task_start",
+            _start_mqtt_service_task,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=80,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "telemetry_start",
+            telemetry_service.start,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=83,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "auto_video_classifier_start",
+            auto_video_classifier.start,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=86,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "high_quality_snapshot_start",
+            high_quality_snapshot_service.start,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=89,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "full_visit_clip_start",
+            full_visit_clip_service.start,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=92,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "cleanup_scheduler_task_start",
+            _start_cleanup_scheduler_task,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=95,
+        )
         backfill.start_watchdog()
+        await asyncio.to_thread(startup_status.publish, "finalizing", 97)
         log.info(
             "Background cleanup scheduler started",
             interval_hours=CLEANUP_INTERVAL_HOURS,
             retention_days=settings.maintenance.retention_days,
             enabled=settings.maintenance.cleanup_enabled,
         )
+    await asyncio.to_thread(startup_status.mark_ready)
     yield
 
     # Shutdown

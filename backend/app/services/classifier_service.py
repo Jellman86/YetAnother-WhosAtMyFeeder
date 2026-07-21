@@ -22,6 +22,7 @@ from PIL import Image
 from typing import Optional, Any, Awaitable, Callable, Literal
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
+from app.services.startup_status import startup_status
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
 
@@ -2614,9 +2615,16 @@ class ClassifierService:
         self._bird_model_compatibility: dict[str, Any] = {}
         self._accel_caps_ttl_seconds = CLASSIFIER_ACCEL_PROBE_TTL_SECONDS
         self._accel_caps_last_refreshed_monotonic: float | None = None
+        startup_status.publish("detecting_hardware", 15)
         self._accel_caps = self._refresh_accel_caps(force=True)
         if self._worker_process_mode or self._image_execution_mode != "subprocess":
-            self._init_bird_model()
+            startup_status.publish("loading_model", 30)
+            try:
+                self._init_bird_model()
+            except Exception:
+                startup_status.mark_failed("loading_model")
+                raise
+            startup_status.publish("model_ready", 60)
 
     def _get_model_paths(self, model_file: str, labels_file: str) -> tuple[str, str]:
         """Get full paths for model and labels files."""

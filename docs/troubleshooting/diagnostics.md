@@ -2,6 +2,30 @@
 
 If you are experiencing issues with detections or integrations, use the built-in diagnostic tools.
 
+## Container startup takes time
+
+The monolithic container serves the YA-WAMF web shell before the backend is ready. During startup,
+the service screen shows the current phase and phase-based progress while YA-WAMF:
+
+1. checks which inference hardware is available
+2. loads the selected bird model and runs its bounded accelerator self-test when applicable
+3. prepares the detection database
+4. starts event, media, notification, and maintenance services
+
+This is not the full hardware-validation sweep. YA-WAMF runs that larger, multi-model comparison
+only when you start it from setup or diagnostics. The synthetic accelerated-versus-CPU startup
+benchmark is also off by default unless you set `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED=true`.
+
+To inspect the same non-sensitive status outside the browser:
+
+```bash
+curl -fsS http://localhost:9852/startup-status.json
+```
+
+The progress percentage represents completed startup phases, not an elapsed-time estimate. If the
+screen reports a startup issue or switches to **Not responding**, check the container health and
+startup logs; the UI keeps a failed startup distinct from normal model-loading work.
+
 ## MQTT Pipeline
 If detections aren't appearing, verify the MQTT connection:
 1. Go to **Settings > Integrations**.

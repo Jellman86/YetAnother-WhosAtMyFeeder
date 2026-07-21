@@ -7,6 +7,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Changed
+- **Container startup now reports real progress instead of looking offline.** The monolithic web
+  shell stays available while the backend checks inference hardware, loads and self-tests the
+  selected bird model, prepares the database, and starts event/media services. The existing
+  service-status screen polls a no-cache, non-sensitive phase file and shows a phase-based progress
+  bar; it still presents a distinct actionable error when startup fails or the backend is genuinely
+  unavailable. The full hardware-validation sweep remains an explicit operator action, and the
+  slower accelerated-versus-CPU startup benchmark remains opt-in.
 - **Inference provider choices now reflect the runtime that can actually be used.** Settings and
   first-run setup show only providers included in the running image, detected on the host, and
   supported by the active model, ordered from the active runtime through its real fallback path.

@@ -21,6 +21,72 @@ export interface HealthStatus {
     };
 }
 
+export type StartupState = 'starting' | 'ready' | 'failed';
+
+export type StartupPhase =
+    | 'launching'
+    | 'detecting_hardware'
+    | 'loading_model'
+    | 'model_ready'
+    | 'database'
+    | 'starting_services'
+    | 'finalizing'
+    | 'ready';
+
+export interface StartupStatus {
+    status: StartupState;
+    phase: StartupPhase;
+    progress: number;
+    started_at: string;
+    updated_at: string;
+}
+
+const STARTUP_STATES = new Set<StartupState>(['starting', 'ready', 'failed']);
+const STARTUP_PHASES = new Set<StartupPhase>([
+    'launching',
+    'detecting_hardware',
+    'loading_model',
+    'model_ready',
+    'database',
+    'starting_services',
+    'finalizing',
+    'ready'
+]);
+
+export function normalizeStartupStatus(payload: unknown): StartupStatus | null {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    const record = payload as Record<string, unknown>;
+    if (typeof record.status !== 'string' || !STARTUP_STATES.has(record.status as StartupState)) return null;
+    if (typeof record.phase !== 'string' || !STARTUP_PHASES.has(record.phase as StartupPhase)) return null;
+    if (typeof record.progress !== 'number' || !Number.isFinite(record.progress)) return null;
+    if (typeof record.started_at !== 'string' || typeof record.updated_at !== 'string') return null;
+
+    return {
+        status: record.status as StartupState,
+        phase: record.phase as StartupPhase,
+        progress: Math.min(100, Math.max(0, Math.round(record.progress))),
+        started_at: record.started_at,
+        updated_at: record.updated_at
+    };
+}
+
+export async function fetchStartupStatus(): Promise<StartupStatus | null> {
+    try {
+        const response = await apiFetch('/startup-status.json', {
+            cache: 'no-store',
+            headers: { Accept: 'application/json' },
+            timeoutMs: 2_500
+        });
+        if (!response.ok || !response.headers.get('content-type')?.toLowerCase().includes('application/json')) {
+            return null;
+        }
+        const payload: unknown = await response.json();
+        return normalizeStartupStatus(payload);
+    } catch {
+        return null;
+    }
+}
+
 export type FrigateTestResult = paths['/api/frigate/test']['get']['response'];
 
 export type RecordingClipCapability = paths['/api/frigate/recording-clip-capability']['get']['response'];
