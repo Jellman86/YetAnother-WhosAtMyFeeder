@@ -112,11 +112,43 @@ recovery sequence; any remaining valid manual alternatives follow. The UI prints
 the recovery sequence separately so the order is not confused with a list of
 providers that `Auto` will necessarily try.
 
+The setup wizard applies the same contract to the model currently selected in the
+wizard, even before that model is activated. This prevents the previous active
+model from hiding a valid accelerator or exposing one the replacement cannot use.
+
 Changing to a narrower image or model does not silently rewrite an explicit saved
 choice. That choice remains visible but disabled, with guidance to select `Auto`
 or another available provider. This preserves a deliberate device pin across a
 temporary image-flavor switch while preventing an unavailable provider from being
 selected again.
+
+## Validate this host
+
+The **Setup wizard**, guided Model Manager flow, and **Settings → Detection → Device
+compatibility** use the same provider-validation engine. Candidates are the exact
+intersection of:
+
+1. providers packaged by the running image;
+2. providers whose runtime and device probe succeeds on this host; and
+3. providers declared compatible with the selected model.
+
+Each candidate is compiled and executed in an isolated child process so a native
+CUDA, GPU, or NPU failure cannot restart the application. The compatibility sweep
+uses up to 12 taxonomy-verified bird images, requires finite output, compares every
+accelerator's top prediction with the CPU baseline, and records median inference
+latency. The fastest passing candidate is reported without treating a merely
+installed runtime as working hardware.
+
+The resulting matrix is image-aware: `cpu`/`rpi` test CPU, `cuda` tests ONNX CPU and
+CUDA, `intel` tests ONNX CPU plus the detected OpenVINO targets, and `full` tests all
+applicable targets. In particular, OpenVINO CPU in the full image does not suppress
+CUDA validation. Switching flavors keeps the underlying history but filters it
+through an exact per-model image-flavor record, so even a provider name shared by
+two flavors must be revalidated after the switch. Stale Intel, CUDA, or CPU evidence
+cannot authorize a model in a different runtime image.
+
+Published images fail closed when their expected runtime is missing: a bundled live
+fallback cannot be mistaken for successful validation of the selected ONNX model.
 
 ## Smallest working path (Intel iGPU or NPU)
 

@@ -6,11 +6,12 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel, Field, JsonValue
 
 from app.auth import AuthContext, require_owner
 from app.services.model_eval_service import (
     CONFUSIONS_FILENAME,
+    DEVICE_MATRIX_FILENAME,
     ModelEvalAlreadyRunning,
     RESULTS_FILENAME,
     RUNTIME_FILENAME,
@@ -27,6 +28,7 @@ class StartRunRequest(BaseModel):
     sweep_devices: bool = False
     compat_only: bool = False  # device sweep only, skip accuracy scoring
     sweep_all_models: bool = False  # download + test every model (else installed only)
+    model_ids: list[str] = Field(default_factory=list)
 
 
 class StartRunResponse(BaseModel):
@@ -45,6 +47,7 @@ async def start_run(
             sweep_devices=body.sweep_devices,
             compat_only=body.compat_only,
             sweep_all_models=body.sweep_all_models,
+            model_ids=body.model_ids,
         )
     except ModelEvalAlreadyRunning as e:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
@@ -73,7 +76,13 @@ async def get_artifact(
     artifact: str,
     _auth: AuthContext = Depends(require_owner),
 ):
-    if artifact not in {SUMMARY_FILENAME, RUNTIME_FILENAME, RESULTS_FILENAME, CONFUSIONS_FILENAME}:
+    if artifact not in {
+        SUMMARY_FILENAME,
+        RUNTIME_FILENAME,
+        RESULTS_FILENAME,
+        CONFUSIONS_FILENAME,
+        DEVICE_MATRIX_FILENAME,
+    }:
         raise HTTPException(status_code=400, detail="unknown artifact")
     path = model_eval_runner.artifact_path(run_id, artifact)
     if path is None:

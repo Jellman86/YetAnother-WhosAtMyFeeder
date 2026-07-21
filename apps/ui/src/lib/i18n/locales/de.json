@@ -11,6 +11,7 @@
     "leaderboard": "Bestenliste",
     "audio_history": "Audioverlauf",
     "settings": "Einstellungen",
+    "setup_wizard": "Einrichtungsassistent",
     "about": "Über uns",
     "toggle_menu": "Menü umschalten",
     "close_menu": "Menü schließen",
@@ -191,7 +192,7 @@
       "until": "Neuer Versuch nach: {time}"
     },
     "data": {
-      "tools_title": "Einrichtung, Sicherung und Wartung",
+      "tools_title": "Sicherung und Wartung",
       "title": "Datenverwaltung",
       "records": "Gesamtdatensätze",
       "oldest": "Ältester Eintrag",
@@ -1049,7 +1050,7 @@
       "model_manager_install_note": "Jeder Schritt läuft auf Ihrer Hardware. Nichts wird aktiv, bevor die Validierung bestanden ist.",
       "model_manager_install_stage_download": "Modell herunterladen",
       "model_manager_device_sweeping": "Geräte werden verglichen…",
-      "model_manager_device_set": "Schnellstes Gerät: {provider}{ms} — als Inferenzgerät festgelegt.",
+      "model_manager_device_set": "Schnellster verifizierter Anbieter: {provider}{ms} — wird beim Aktivieren dieses Modells angewendet.",
       "model_manager_installing_pct": "Wird heruntergeladen… {pct}%",
       "model_manager_install_downloaded": "Heruntergeladen und geprüft.",
       "model_manager_install_already_downloaded": "Bereits heruntergeladen.",
@@ -1125,7 +1126,9 @@
       "inference_diagnostics_title": "Laufzeit-Diagnose",
       "image_flavor_label": "Container-Image",
       "packaged_providers_label": "Enthalten",
-      "image_flavor_mismatch": "Die {provider}-Laufzeit ist im {flavor}-Image nicht enthalten. Verwenden Sie das vollständige Image oder ein passendes Anbieter-Image und erstellen Sie den Container neu. Der CPU-Fallback bleibt verfügbar."
+      "image_flavor_mismatch": "Die {provider}-Laufzeit ist im {flavor}-Image nicht enthalten. Verwenden Sie das vollständige Image oder ein passendes Anbieter-Image und erstellen Sie den Container neu. Der CPU-Fallback bleibt verfügbar.",
+      "compat_unverified": "Auf diesem Host noch nicht ausgeführt – führen Sie die Prüfung aus, um die in diesem Image verfügbaren Anbieter zu verifizieren.",
+      "compat_test_subtitle": "Validiert jeden für dieses Image und Modell verfügbaren Anbieter anhand der CPU-Referenz."
     },
     "llm": {
       "title": "KI-Einblicke",

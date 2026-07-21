@@ -11,6 +11,7 @@
     "leaderboard": "Ranking",
     "audio_history": "Histórico de áudio",
     "settings": "Configurações",
+    "setup_wizard": "Assistente de configuração",
     "about": "Sobre",
     "toggle_menu": "Alternar menu",
     "collapse_sidebar": "Recolher barra lateral",
@@ -715,7 +716,7 @@
       "clear_feedback_confirm": "Tens a certeza de que queres limpar todos os dados de re-ranking personalizado? Isto reverte a IA para a sua precisão de base e não pode ser desfeito."
     },
     "data": {
-      "tools_title": "Configuração, backup e manutenção",
+      "tools_title": "Cópias de segurança e manutenção",
       "title": "Gestão de dados",
       "records": "Total de registos",
       "oldest": "Mais antigo",
@@ -1010,7 +1011,7 @@
       "model_manager_install_note": "Cada etapa é executada no seu hardware. Nada é ativado até a validação passar.",
       "model_manager_install_stage_download": "Baixar modelo",
       "model_manager_device_sweeping": "Comparando seus dispositivos…",
-      "model_manager_device_set": "Dispositivo mais rápido: {provider}{ms} — definido como dispositivo de inferência.",
+      "model_manager_device_set": "Fornecedor verificado mais rápido: {provider}{ms} — será aplicado quando este modelo for ativado.",
       "model_manager_installing_pct": "Baixando… {pct}%",
       "model_manager_install_downloaded": "Baixado e verificado.",
       "model_manager_install_already_downloaded": "Já baixado.",
@@ -1086,7 +1087,9 @@
       "inference_diagnostics_title": "Diagnóstico em tempo de execução",
       "image_flavor_label": "Imagem",
       "packaged_providers_label": "Incluídos",
-      "image_flavor_mismatch": "O runtime {provider} não está incluído na imagem {flavor}. Use a imagem completa ou a imagem do fornecedor correspondente e recrie o contentor. A alternativa de CPU continua disponível."
+      "image_flavor_mismatch": "O runtime {provider} não está incluído na imagem {flavor}. Use a imagem completa ou a imagem do fornecedor correspondente e recrie o contentor. A alternativa de CPU continua disponível.",
+      "compat_unverified": "Ainda não foi executado neste anfitrião — execute a verificação para validar os fornecedores disponíveis nesta imagem.",
+      "compat_test_subtitle": "Valida cada fornecedor disponível para esta imagem e modelo em relação à referência da CPU."
     },
     "llm": {
       "title": "Análises de IA",

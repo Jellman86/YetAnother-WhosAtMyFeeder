@@ -2,7 +2,7 @@
 
 **Roadmap item:** [The Road to 3.0 §1.2 — First-run setup wizard](../../ROADMAP.md#12-major-initiatives-the-release-defining-work).
 **Standards applied:** [UI/UX standard](../standards/ui-ux.md), [Code-quality standard](../standards/code-quality.md).
-**Status:** Design — not yet implemented.
+**Status:** Implemented on `dev`; maintained as the behavioural design record.
 
 A friendly, multi-part wizard that guides a new user through the whole of YA-WAMF's
 configuration end to end, **validates their hardware**, and — crucially — can be **re-run at
@@ -31,9 +31,9 @@ Grounded in the researched onboarding gold standards (see [References](#referenc
   completion, re-entering reflects saved state. A lightweight "furthest step reached" marker
   keeps in-session resume smooth.
 - **Re-runnable for the whole app lifecycle.** The wizard is not a one-time gate. It is
-  launchable any time from Settings, in a **non-linear** mode where the user can jump straight
-  to the section they want to reconfigure. (NN/g: non-linear steppers suit experienced users
-  and independent steps.)
+  launchable any time from the owner navigation, in a **non-linear** mode where the user can
+  jump straight to the section they want to reconfigure. (NN/g: non-linear steppers suit
+  experienced users and independent steps.)
 - **Idempotent.** Re-running a step reads current config, pre-fills it, and writes back **only
   that step's slice** through the existing secret-preserving `PUT /api/settings`. Running a
   step again is always safe.
@@ -59,10 +59,12 @@ Grounded in the researched onboarding gold standards (see [References](#referenc
   + `/probe`.
 - **Hardware validation engine** — the classifier capability probe
   (`cuda_available` / `intel_gpu_available` / `intel_npu_available` / OpenVINO device probe,
-  surfaced on classifier status) plus the **model-eval device sweep**
+  surfaced on classifier status) plus the **model-eval provider sweep**
   (`POST /api/diagnostics/model-eval/runs` with `sweep_devices` / `compat_only`): compile +
-  finite-output + latency check per device. This is exactly the "prove the model runs on *this*
-  box" machinery the model step needs.
+  finite-output + real-image CPU-baseline agreement + median latency. The wizard sends the selected
+  installed model in `model_ids`; candidates are the running image/host/model intersection,
+  including CUDA even when the full image also exposes OpenVINO. This is exactly the "prove the
+  model runs on *this* box" machinery the model step needs.
 - **Model management** — `GET /api/models/installed`, activation, crop-detector tiers
   (fast/accurate) for the model + crop steps.
 
@@ -81,8 +83,8 @@ component with the shape `{ load(currentConfig), validate(), test?(), save(slice
 | 1 | **Admin account & access** | `auth` | password policy; or explicit "skip auth" (existing) |
 | 2 | **Frigate & MQTT connection** | `frigate`, `mqtt` | `GET /frigate/test`, `POST /settings/mqtt/test-publish` — Continue disabled until a green test |
 | 3 | **Cameras & detection gates** | `frigate` (cameras, `min_score`/`min_initialized`/`threshold`), recording-retention guidance | camera list pulled from Frigate; inline guidance on the Event-Not-Found gates |
-| 4 | **Classifier model & hardware** | `classification` (model, provider) | **capability probe → device sweep** (compile + finite-output + latency per NPU/GPU/CPU); user leaves on a model proven to run on their accelerator, with a clean CPU fallback |
-| 5 | **Snapshot & crop quality** | `classification` (HQ snapshots, crop source priority, crop-detector tier) | preview against a recent detection where possible |
+| 4 | **Classifier model & hardware** | `classification` (model, provider) | **capability probe → provider sweep** (packaged ∩ detected ∩ model-compatible; isolated compile + finite output + real-image agreement + latency for ONNX CPU/CUDA and OpenVINO CPU/GPU/NPU as applicable); only passing providers remain and the fastest is selected |
+| 5 | **Snapshot & crop quality** | `classification` (HQ snapshots and automatic best-image policy) | preview against a recent detection where possible |
 | 6 | **Integrations** (opt-in, branching) | `birdnet`, `notifications`, `ebird`, `inaturalist`, `birdweather`, `ai`, Home Assistant | each sub-card uses its *test* endpoint; only chosen integrations expand (branching wizard) |
 | 7 | **Review & finish** | — | summary of what was set / skipped; marks `initial_setup_complete` on first run |
 
@@ -97,8 +99,8 @@ run* on this hardware before leaving the step."
 **First-run mode** — auto-shown when `auth.initial_setup_complete` is false. Linear, start to
 finish, progress bar, ends by setting the completion flag. Fully skippable to a working default.
 
-**Re-run mode** — launched any time from **Settings → a "Setup wizard" entry**. Opens on a
-**section map**: every step listed with its current state (✅ configured / ⚠ needs attention /
+**Re-run mode** — launched any time from the owner-only **Setup wizard** navigation action.
+Opens on a **section map**: every step listed with its current state (✅ configured / ⚠ needs attention /
 — skipped), letting the user jump straight to the one section they want to redo. Because each
 step round-trips only its own slice through `PUT /api/settings`, re-running "Notifications"
 never touches Frigate, models, or anything else. Re-run mode never resets
@@ -135,7 +137,8 @@ never touches Frigate, models, or anything else. Re-run mode never resets
 - A `setup_wizard.svelte.ts` store holds current step, per-step status, and the section map from
   `/api/setup/state`. Svelte 5 runes, `$derived` for step validity, `$effect` only for the
   route/`aria-live` sync.
-- Settings gains a "Setup wizard" launch entry (re-run mode).
+- The main owner navigation gains a "Setup wizard" launch action (re-run mode), keeping the
+  guided path discoverable without burying it among data-maintenance tools.
 - All copy through i18n with `{ default }` fallbacks; all API calls through `apps/ui/src/lib/api/`.
 
 **Testing**
@@ -153,8 +156,8 @@ never touches Frigate, models, or anything else. Re-run mode never resets
   gates → **model validated on the detected accelerator** → quality → chosen integrations
   (each tested) → finish, with a visible progress indicator throughout.
 - Every step is skippable; skipping leaves that section's config untouched at its default.
-- The wizard is re-launchable from Settings at any time, opens on a section map, and lets the
-  user reconfigure a single section without altering any other.
+- The wizard is re-launchable from the main owner navigation at any time, opens on a section map,
+  and lets the user reconfigure a single section without altering any other.
 - Re-running a step is idempotent — it pre-fills from current config and writes back only its
   own slice via the secret-preserving settings write.
 - Step 4 refuses to leave the user on a model that fails compile/finite-output/latency on their

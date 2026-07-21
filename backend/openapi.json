@@ -6612,9 +6612,68 @@
       },
       "ModelValidateDevice": {
         "properties": {
+          "backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backend"
+          },
+          "baseline": {
+            "default": false,
+            "title": "Baseline",
+            "type": "boolean"
+          },
+          "compiles": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compiles"
+          },
           "device": {
             "title": "Device",
             "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finite": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finite"
+          },
+          "images_compared": {
+            "default": 0,
+            "title": "Images Compared",
+            "type": "integer"
+          },
+          "images_evaluated": {
+            "default": 0,
+            "title": "Images Evaluated",
+            "type": "integer"
           },
           "latency_ms": {
             "anyOf": [
@@ -6626,6 +6685,17 @@
               }
             ],
             "title": "Latency Ms"
+          },
+          "matches_baseline": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matches Baseline"
           },
           "ok": {
             "title": "Ok",
@@ -6658,12 +6728,22 @@
             "title": "Best Provider"
           },
           "devices": {
-            "default": [],
             "items": {
               "$ref": "#/components/schemas/ModelValidateDevice"
             },
             "title": "Devices",
             "type": "array"
+          },
+          "image_flavor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Flavor"
           },
           "latency_ms": {
             "anyOf": [
@@ -6692,6 +6772,13 @@
             "default": false,
             "title": "Provider Set",
             "type": "boolean"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ModelValidateDevice"
+            },
+            "title": "Providers",
+            "type": "array"
           },
           "reason": {
             "title": "Reason",
@@ -11793,6 +11880,13 @@
             "title": "Include Per Image",
             "type": "boolean"
           },
+          "model_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Model Ids",
+            "type": "array"
+          },
           "region_override": {
             "anyOf": [
               {
@@ -15149,6 +15243,7 @@
                 "default": {
                   "compat_only": false,
                   "include_per_image": false,
+                  "model_ids": [],
                   "sweep_all_models": false,
                   "sweep_devices": false
                 }
@@ -19637,7 +19732,7 @@
     },
     "/api/models/{model_id}/validate": {
       "post": {
-        "description": "Validate an installed model on this host and pick its fastest inference device.\n\nSweeps this model's OpenVINO devices (CPU / Intel GPU / NPU), records which passed,\nand \u2014 when a faster accelerator wins \u2014 sets it as the inference provider so the\nmodel runs on the best hardware for this machine. On a CPU-only / CUDA host it runs\none frame on the resolved provider instead. Clears the selection gate on success and\nrestores the previously active model. Owner only.",
+        "description": "Validate an installed model and recommend its fastest passing provider.\n\nSweeps every provider in the current image/host/model contract, records which\npassed, and returns the fastest verified provider. The recommendation is applied\nonly if model activation subsequently succeeds, so validation cannot disturb the\nlive model/provider pair. Clears the selection gate on success and restores the\npreviously active model. Owner only.",
         "operationId": "validate_model_api_models__model_id__validate_post",
         "parameters": [
           {

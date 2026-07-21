@@ -13,6 +13,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   `Auto` remains the recommended default. A saved provider made unavailable by an image, hardware,
   or model change remains visible as a disabled warning until the owner chooses a valid replacement,
   and irrelevant CUDA or Intel diagnostic pills are hidden in provider-specific images.
+- **The guided setup is now a first-class owner navigation action.** `Setup wizard` sits beside
+  Settings in the main menu and opens the existing non-destructive section map; the duplicate card
+  is removed from Data maintenance. The wizard now treats an empty camera list correctly as “watch
+  all cameras,” keeps model setup focused on compatible model/provider choices instead of exposing
+  execution-process internals, and stops writing the legacy crop toggle now that best-image and
+  crop selection are automatic policies.
+- **Hardware validation now understands every runtime image.** The setup wizard, guided model
+  install, Detection compatibility check and Model Evaluation diagnostics now share one provider
+  sweep: `packaged by image ∩ detected on host ∩ supported by model`. It isolates and tests ONNX
+  CPU/CUDA plus OpenVINO CPU/GPU/NPU as applicable, compares up to 12 real bird images against a CPU
+  baseline, records median inference latency and the fastest verified provider, applies that
+  recommendation only after model activation succeeds, and never lets
+  OpenVINO CPU hide CUDA in the full image. The setup wizard validates only its selected model;
+  Diagnostics can still opt into downloading and testing all models. Compatibility matrices are
+  now downloadable through their API route and compatibility-only summaries are populated, fixing
+  empty wizard results and stuck fast-completion/error polling. Each model failure is contained so
+  the rest of a sweep completes, subprocess timeouts/crashes produce actionable results, failed
+  reruns invalidate stale passes, and validation evidence is scoped to the exact image flavor. The
+  wizard defaults to the fastest result and offers only providers that passed for its selected model.
 
 ## [2.14.0] - 2026-07-20
 

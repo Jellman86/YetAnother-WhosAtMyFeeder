@@ -4,7 +4,7 @@
     import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
     import { searchSpecies, type ClassifierStatus, type SearchResult } from '../../api';
-    import { startModelEvalRun, listModelEvalRuns, getModelEvalDeviceMatrix, type DeviceMatrix } from '../../api/model_eval';
+    import { startModelEvalRun, listModelEvalRuns, getModelEvalRun, getModelEvalDeviceMatrix, type DeviceMatrix } from '../../api/model_eval';
     import type { BlockedSpeciesEntry } from '../../api/settings';
     import { getManualTagSearchOptions } from '../../search/manual-tag-search';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
@@ -148,7 +148,20 @@
                         seenActive = true;
                         compatPhase = list.active.phase ?? null;
                         compatProgress = list.active.progress ?? null;
-                    } else if (seenActive) {
+                    } else {
+                        if (!seenActive) {
+                            const summary = await getModelEvalRun(run_id).catch(() => null);
+                            if (!summary?.finished_at && !summary?.error) return;
+                            if (summary?.error) {
+                                clearInterval(compatPoll ?? undefined);
+                                compatPoll = null;
+                                compatRunning = false;
+                                compatPhase = 'error';
+                                compatError = summary.error;
+                                cdRunId += 1;
+                                return;
+                            }
+                        }
                         clearInterval(compatPoll ?? undefined);
                         compatPoll = null;
                         compatRunning = false;
@@ -186,13 +199,27 @@
         }
     }
 
+    function compatProviders(matrix: DeviceMatrix): string[] {
+        return matrix.providers?.length ? matrix.providers : matrix.devices;
+    }
+
+    function compatProviderLabel(provider: string): string {
+        return ['auto', 'cpu', 'cuda', 'intel_cpu', 'intel_gpu', 'intel_npu'].includes(provider)
+            ? providerLabel(provider as InferenceProvider)
+            : provider;
+    }
+
+    function compatEntry(row: DeviceMatrix['models'][string] | undefined, provider: string) {
+        return row?.providers?.[provider] ?? row?.devices?.[provider];
+    }
+
     function compatDeviceCell(row: DeviceMatrix['models'][string] | undefined, dev: string): { label: string; cls: string } {
         if (!row || row.error) return { label: '—', cls: 'text-slate-400' };
-        const e = row.devices?.[dev];
+        const e = compatEntry(row, dev);
         if (!e) return { label: '—', cls: 'text-slate-400' };
         if (!e.compiles) return { label: '✗ fails', cls: 'text-red-600 dark:text-red-400' };
         if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
-        if (dev === 'CPU') return { label: '✓ baseline', cls: 'text-slate-500' };
+        if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { label: '✓ baseline', cls: 'text-slate-500' };
         const n = e.images_compared;
         if (e.matches_cpu && n) return { label: `✓ ${n}/${n}`, cls: 'text-accent-600 dark:text-accent-400' };
         if (typeof e.top1_match_rate === 'number' && n) {
@@ -211,11 +238,11 @@
 
     function compatCellOutcome(row: CompatRow | undefined, dev: string): { state: DiagnosticStageState; note: string } {
         if (!row || row.error) return { state: 'skipped', note: '—' };
-        const e = row.devices?.[dev];
+        const e = compatEntry(row, dev);
         if (!e) return { state: 'skipped', note: '—' };
         if (!e.compiles) return { state: 'failed', note: $_('settings.detection.compat_note_fails', { default: 'fails to compile' }) };
         if (e.finite === false) return { state: 'failed', note: $_('settings.detection.compat_note_nan', { default: 'non-finite output' }) };
-        if (dev === 'CPU') return { state: 'passed', note: $_('settings.detection.compat_note_baseline', { default: 'CPU baseline' }) };
+        if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { state: 'passed', note: $_('settings.detection.compat_note_baseline', { default: 'CPU baseline' }) };
         const n = e.images_compared;
         if (e.matches_cpu && n) return { state: 'passed', note: $_('settings.detection.compat_note_match', { default: '{n}/{n} match CPU', values: { n } }) };
         if (typeof e.top1_match_rate === 'number' && n) {
@@ -234,7 +261,7 @@
             if (compatStateRank[outcome.state] > compatStateRank[state]) state = outcome.state;
             parts.push(`${mid}: ${outcome.note}`);
         }
-        return { id: dev, label: dev, state, message: parts.join(' · ') };
+        return { id: dev, label: compatProviderLabel(dev), state, message: parts.join(' · ') };
     }
 
     const compatDialogStages = $derived.by((): DiagnosticStage[] => {
@@ -249,7 +276,7 @@
                     : $_('settings.detection.compat_stage_run_hint', { default: 'Compiling and comparing each device against the CPU baseline…' })
             }];
         }
-        return matrix.devices.map((dev) => compatDeviceStage(matrix, dev));
+        return compatProviders(matrix).map((dev) => compatDeviceStage(matrix, dev));
     });
 
     const compatDialogResult = $derived.by((): DiagnosticResult | null => {
@@ -845,7 +872,7 @@
                     {/if}
                 </div>
             {/if}
-            {#if classifierStatus && ((classifierStatus.intel_gpu_available ?? false) || (classifierStatus.intel_npu_available ?? false))}
+            {#if classifierStatus && ((classifierStatus.host_available_providers?.length ?? classifierStatus.available_providers?.length ?? 0) > 0)}
                 <div class="border-t border-slate-200 pt-4 dark:border-slate-700">
                     <h4 class="text-sm font-black text-slate-900 dark:text-white">
                         {$_('settings.detection.compat_card_title', { default: 'Device compatibility' })}
@@ -856,7 +883,7 @@
                         {#if verifiedProviders.length}
                             {$_('settings.detection.compat_verified', { default: 'Verified on this host:' })} <span class="font-bold">{verifiedProviders.join(', ')}</span>{#if classifierStatus.host_device_eligibility?.generated_at} · {formatDateTime(classifierStatus.host_device_eligibility.generated_at)}{/if}
                         {:else}
-                            {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host — iGPU/NPU are only used for models verified here. Run the check to enable them.' })}
+                            {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host — run the check to verify the providers available in this image.' })}
                         {/if}
                     </p>
                     <div class="flex items-center gap-2 shrink-0">
@@ -878,13 +905,13 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-xs">
                             <thead class="border-b border-slate-200 text-xs uppercase text-slate-600 dark:border-slate-700 dark:text-slate-400">
-                                <tr><th class="text-left py-1 pr-3">{$_('settings.detection.compat_model', { default: 'Model' })}</th>{#each compatMatrix.devices as dev}<th class="text-left px-2">{dev}</th>{/each}</tr>
+                                <tr><th class="text-left py-1 pr-3">{$_('settings.detection.compat_model', { default: 'Model' })}</th>{#each (compatMatrix.providers?.length ? compatMatrix.providers : compatMatrix.devices) as dev}<th class="text-left px-2">{compatProviderLabel(dev)}</th>{/each}</tr>
                             </thead>
                             <tbody>
                                 {#each Object.entries(compatMatrix.models) as [mid, row]}
                                     <tr class="border-b border-slate-100 dark:border-slate-800">
                                         <td class="py-1 pr-3 font-medium text-slate-700 dark:text-slate-300">{mid}</td>
-                                        {#each compatMatrix.devices as dev}
+                                        {#each (compatMatrix.providers?.length ? compatMatrix.providers : compatMatrix.devices) as dev}
                                             {@const c = compatDeviceCell(row, dev)}
                                             <td class="px-2 {c.cls}">{c.label}</td>
                                         {/each}
@@ -1006,7 +1033,7 @@
 {#if cdOpen}
     <DiagnosticDialog
         title={$_('settings.detection.compat_test_title', { default: 'Device compatibility check' })}
-        subtitle={$_('settings.detection.compat_test_subtitle', { default: 'Validates each detected device (Intel GPU/NPU, CUDA) against the CPU baseline for the installed model(s).' })}
+        subtitle={$_('settings.detection.compat_test_subtitle', { default: 'Validates every provider available to this image and model against the CPU baseline.' })}
         stages={compatDialogStages}
         busy={compatRunning}
         result={compatDialogResult}

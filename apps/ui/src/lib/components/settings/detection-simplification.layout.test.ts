@@ -78,8 +78,14 @@ describe('Detection settings simplification', () => {
         expect(detectionSettingsSource).not.toContain("if (state === 'skipped') state = 'passed'");
         expect(detectionSettingsSource).toContain('ok: !failed && !warned && !skipped');
         expect(detectionSettingsSource).toContain('compat_results_unavailable');
-        expect(detectionSettingsSource.match(/cdRunId \+= 1/g)).toHaveLength(3);
+        expect(detectionSettingsSource.match(/cdRunId \+= 1/g)).toHaveLength(4);
         expect(diagnosticDialogSource).toContain("s.state === 'skipped'");
         expect(diagnosticDialogSource).toContain("stage.state === 'warning'");
+    });
+
+    it('offers provider validation in every runtime image rather than only on Intel hosts', () => {
+        expect(detectionSettingsSource).toContain('classifierStatus.host_available_providers');
+        expect(detectionSettingsSource).not.toContain("classifierStatus && ((classifierStatus.intel_gpu_available ?? false) || (classifierStatus.intel_npu_available ?? false))");
+        expect(detectionSettingsSource).toContain('compatMatrix.providers');
     });
 });

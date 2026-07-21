@@ -36,7 +36,7 @@
 <WizardStepLayout
     title={$_('setup.welcome.title', { default: 'Welcome to YA-WAMF' })}
     description={$_('setup.welcome.description', {
-        default: "Let's get your feeder online. This takes a few minutes, every step is optional, and you can re-run this setup any time from Settings."
+        default: "Let's get your feeder online. This takes a few minutes, every step is optional, and you can re-run it any time from Setup wizard in the main menu."
     })}
     showBack={false}
     continueLabel={$_('setup.welcome.start', { default: 'Get started' })}

@@ -11,6 +11,7 @@
     "leaderboard": "排行榜",
     "audio_history": "音频历史",
     "settings": "设置",
+    "setup_wizard": "设置向导",
     "about": "关于",
     "toggle_menu": "切换菜单",
     "collapse_sidebar": "收起侧边栏",
@@ -706,7 +707,7 @@
       "clear_feedback_confirm": "确定要清除所有个性化重排序数据吗?这会将 AI 还原为基线准确度,且无法撤销。"
     },
     "data": {
-      "tools_title": "设置、备份与维护",
+      "tools_title": "备份与维护",
       "title": "数据管理",
       "records": "记录总数",
       "oldest": "最早记录",
@@ -1001,7 +1002,7 @@
       "model_manager_install_note": "每个步骤都在您的硬件上运行。在验证通过之前不会激活任何模型。",
       "model_manager_install_stage_download": "下载模型",
       "model_manager_device_sweeping": "正在比较您的设备…",
-      "model_manager_device_set": "最快设备：{provider}{ms} — 已设为推理设备。",
+      "model_manager_device_set": "最快的已验证提供程序：{provider}{ms} — 启用此模型时将应用该提供程序。",
       "model_manager_installing_pct": "下载中… {pct}%",
       "model_manager_install_downloaded": "已下载并验证。",
       "model_manager_install_already_downloaded": "已下载。",
@@ -1077,7 +1078,9 @@
       "inference_diagnostics_title": "运行时诊断",
       "image_flavor_label": "镜像",
       "packaged_providers_label": "已包含",
-      "image_flavor_mismatch": "{flavor} 镜像未包含 {provider} 运行时。请使用完整镜像或匹配的提供程序镜像，然后重新创建容器。CPU 回退仍然可用。"
+      "image_flavor_mismatch": "{flavor} 镜像未包含 {provider} 运行时。请使用完整镜像或匹配的提供程序镜像，然后重新创建容器。CPU 回退仍然可用。",
+      "compat_unverified": "尚未在此主机上运行；请执行检查以验证此镜像中可用的提供程序。",
+      "compat_test_subtitle": "根据 CPU 基准验证此镜像和模型可用的每个提供程序。"
     },
     "llm": {
       "title": "AI 洞察",

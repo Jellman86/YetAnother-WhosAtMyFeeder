@@ -9,7 +9,6 @@
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
-    import { setupWizardStore } from '../../stores/setup_wizard.svelte';
 
     let {
         maintenanceStats,
@@ -477,18 +476,9 @@
 
     <AdvancedSection
         id="data-tools"
-        title={$_('settings.data.tools_title', { default: 'Setup, backup & maintenance tools' })}
+        title={$_('settings.data.tools_title', { default: 'Backup & maintenance tools' })}
         openByDefault={backfilling || weatherBackfilling || analyzingUnknowns || syncingTaxonomy || previewingTimezoneRepair || applyingTimezoneRepair || exportingConfigBackup || importingConfigBackup}
     >
-    <SettingsCard
-        title={$_('settings.data.setup_wizard_title', { default: 'Setup wizard' })}
-        description={$_('settings.data.setup_wizard_desc', { default: 'Re-run the guided setup any time to reconfigure a section. Only the sections you change are touched.' })}
-    >
-        <button type="button" class="btn btn-secondary" onclick={() => setupWizardStore.open('rerun')}>
-            {$_('settings.data.setup_wizard_launch', { default: 'Open setup wizard' })}
-        </button>
-    </SettingsCard>
-
     <SettingsCard
         title={$_('settings.data.config_backup_title', { default: 'Configuration Backup' })}
         description={$_('settings.data.config_backup_desc', { default: 'Export or restore the complete YA-WAMF configuration as JSON, including secrets.' })}

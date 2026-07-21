@@ -36,7 +36,7 @@
     let installedModels = $state<InstalledModel[]>([]);
     let selectedModelId = $state('');
     let selectedProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu' | string>('auto');
-    let executionMode = $state<'in_process' | 'subprocess' | string>('in_process');
+    let providerTouched = $state(false);
     let errorMsg = $state('');
     let validationMsg = $state('');
     let runId = '';
@@ -53,9 +53,16 @@
     let activeModel = $derived(setupWizardStore.detailFor('model'));
     let progressPct = $derived(progress && progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0);
     let installedIds = $derived(new Set(installedModels.map((model) => model.id)));
+    let selectedInstalledModel = $derived(installedModels.find((model) => model.id === selectedModelId) ?? null);
     let selectedModel = $derived(availableModels.find((model) => model.id === selectedModelId) ?? installedModels.find((model) => model.id === selectedModelId)?.metadata ?? null);
     let selectedModelSummary = $derived(summarizeModelMetadata(selectedModel));
+    let selectedValidation = $derived(results?.find((result) => result.model_id === selectedModelId) ?? null);
     let needsDownload = $derived(!!selectedModelId && !installedIds.has(selectedModelId));
+    let selectedModelReady = $derived(
+        !!selectedModelId
+        && !needsDownload
+        && (selectedModelId === status?.active_model_id || selectedInstalledModel?.validated === true)
+    );
 
     function providerLabel(provider: InferenceProvider): string {
         const labels: Record<InferenceProvider, string> = {
@@ -69,9 +76,16 @@
         return labels[provider];
     }
 
-    let providerChoices = $derived(buildInferenceProviderChoices(status, selectedProvider));
+    let providerChoices = $derived(buildInferenceProviderChoices(
+        status,
+        selectedProvider,
+        selectedModel?.supported_inference_providers,
+        selectedValidation?.validated_providers,
+    ));
     let providerPreferenceLabel = $derived(
-        getProviderPreferenceOrder(status).map(providerLabel).join(' → ')
+        selectedModelId === status?.active_model_id
+            ? getProviderPreferenceOrder(status).map(providerLabel).join(' → ')
+            : ''
     );
     let configuredProviderUnavailable = $derived(
         selectedProvider !== 'auto'
@@ -91,7 +105,6 @@
             installedModels = installed;
             selectedModelId = classifierStatus.active_model_id || installed.find((model) => model.is_active)?.id || available[0]?.id || '';
             selectedProvider = settings.inference_provider || 'auto';
-            executionMode = settings.image_execution_mode || 'in_process';
         } catch {
             status = null;
         } finally {
@@ -117,13 +130,25 @@
                 progress = { ...list.active.progress, phase: list.active.phase };
                 return;
             }
-            // No active run for our id -> it finished; pull the results once.
-            stopPolling();
             const summary = await getModelEvalRun(runId);
+            if (!summary.finished_at && !summary.error) return;
+            stopPolling();
+            if (summary.error) {
+                errorMsg = summary.error;
+                validating = false;
+                progress = null;
+                return;
+            }
             results = summary.models ?? [];
+            const selectedResult = results.find((result) => result.model_id === selectedModelId);
+            if (selectedResult && rowOk(selectedResult) && selectedResult.active_provider) {
+                selectedProvider = selectedResult.active_provider;
+                providerTouched = true;
+            }
             validating = false;
             progress = null;
             validationMsg = validationSummary(results);
+            installedModels = await fetchInstalledModels();
             await fetchClassifierStatus().then((s) => (status = s)).catch(() => {});
             await setupWizardStore.refresh();
         } catch {
@@ -140,7 +165,11 @@
         validating = true;
         progress = { done: 0, total: 0, label: $_('setup.model.starting', { default: 'Starting…' }), phase: 'starting' };
         try {
-            const { run_id } = await startModelEvalRun({ sweep_devices: true, compat_only: true });
+            const { run_id } = await startModelEvalRun({
+                sweep_devices: true,
+                compat_only: true,
+                model_ids: [selectedModelId],
+            });
             runId = run_id;
             poller = setInterval(poll, 2000);
         } catch (err) {
@@ -169,6 +198,14 @@
             : $_('setup.model.validation_partial', { values: { ok, total: models.length }, default: `Hardware validation completed: ${ok}/${models.length} models ready.` });
     }
 
+    function resetValidationResult(): void {
+        results = null;
+        validationMsg = '';
+        errorMsg = '';
+        selectedProvider = 'auto';
+        providerTouched = false;
+    }
+
     // Continue commits the choices and advances, matching the other wizard steps.
     async function save() {
         errorMsg = '';
@@ -177,7 +214,9 @@
             if (selectedModelId && installedIds.has(selectedModelId) && selectedModelId !== status?.active_model_id) {
                 await activateModel(selectedModelId);
             }
-            await updateSettings({ inference_provider: selectedProvider, image_execution_mode: executionMode });
+            if (providerTouched) {
+                await updateSettings({ inference_provider: selectedProvider });
+            }
             await setupWizardStore.refresh();
             setupWizardStore.next();
         } catch (err) {
@@ -194,14 +233,14 @@
         default: 'YA-WAMF ships with a working classifier. Validate it on your hardware so it runs on your accelerator — with a clean CPU fallback if it does not.'
     })}
     showSkip
-    canContinue={!needsDownload}
+    canContinue={selectedModelReady}
     busy={saving}
     onContinue={save}
 >
     {#if loaded}
         <div>
             <label for="setup-model-id" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.choose_model', { default: 'Model' })}</label>
-            <select id="setup-model-id" bind:value={selectedModelId} class="select-base mt-1">
+            <select id="setup-model-id" bind:value={selectedModelId} onchange={resetValidationResult} disabled={validating} class="select-base mt-1">
                 {#each availableModels as model (model.id)}
                     <option value={model.id}>{model.name}{installedIds.has(model.id) ? '' : ' (download in Settings)'}</option>
                 {/each}
@@ -213,46 +252,38 @@
                 {/if}
                 {#if needsDownload}
                     <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.download_required', { default: 'This model must be downloaded in Settings before it can be activated. Pick an installed model or skip this step.' })}</p>
+                {:else if !selectedModelReady}
+                    <p class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('setup.model.validation_required', { default: 'Validate this model on the current image and hardware before continuing.' })}</p>
                 {/if}
             {/if}
         </div>
 
-        <div class="grid gap-3 sm:grid-cols-2">
-            <div>
-                <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</label>
-                <select id="setup-provider" bind:value={selectedProvider} class="select-base mt-1">
-                    {#each providerChoices as choice (choice.value)}
-                        <option value={choice.value} disabled={choice.unavailable}>
-                            {providerLabel(choice.value)}{choice.unavailable ? ` · ${$_('common.unavailable', { default: 'Unavailable' })}` : ''}
-                        </option>
-                    {/each}
-                </select>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.provider_hint', { default: 'Only providers available in this image, on this host, and for the active model are shown.' })}</p>
-                {#if providerPreferenceLabel}
-                    <p aria-live="polite" class="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        {$_('settings.detection.provider_runtime_order', {
-                            values: { order: providerPreferenceLabel },
-                            default: `Current runtime order: ${providerPreferenceLabel}`
-                        })}
-                    </p>
-                {/if}
-                {#if configuredProviderUnavailable}
-                    <p role="status" class="mt-1 border-l-2 border-amber-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
-                        {$_('settings.detection.provider_saved_unavailable', {
-                            values: { provider: providerLabel(selectedProvider as InferenceProvider) },
-                            default: `${providerLabel(selectedProvider as InferenceProvider)} is saved but unavailable. Choose an available provider or Auto.`
-                        })}
-                    </p>
-                {/if}
-            </div>
-            <div>
-                <label for="setup-execution-mode" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.execution_mode', { default: 'Execution Mode' })}</label>
-                <select id="setup-execution-mode" bind:value={executionMode} class="select-base mt-1">
-                    <option value="in_process">{$_('settings.detection.mode_in_process', { default: 'In-Process (Shared RAM)' })}</option>
-                    <option value="subprocess">{$_('settings.detection.mode_subprocess', { default: 'Subprocess (Isolated)' })}</option>
-                </select>
-                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.mode_hint', { default: 'In-process is lighter on RAM; subprocess gives stronger isolation on larger hosts.' })}</p>
-            </div>
+        <div>
+            <label for="setup-provider" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('settings.detection.inference_provider', { default: 'Inference Provider' })}</label>
+            <select id="setup-provider" bind:value={selectedProvider} onchange={() => (providerTouched = true)} disabled={validating} class="select-base mt-1">
+                {#each providerChoices as choice (choice.value)}
+                    <option value={choice.value} disabled={choice.unavailable}>
+                        {providerLabel(choice.value)}{choice.unavailable ? ` · ${$_('common.unavailable', { default: 'Unavailable' })}` : ''}
+                    </option>
+                {/each}
+            </select>
+            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.provider_hint', { default: 'Only providers available in this image, on this host, and for the selected model are shown.' })}</p>
+            {#if providerPreferenceLabel}
+                <p aria-live="polite" class="mt-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    {$_('settings.detection.provider_runtime_order', {
+                        values: { order: providerPreferenceLabel },
+                        default: `Current runtime order: ${providerPreferenceLabel}`
+                    })}
+                </p>
+            {/if}
+            {#if configuredProviderUnavailable}
+                <p role="status" class="mt-1 border-l-2 border-amber-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
+                    {$_('settings.detection.provider_saved_unavailable', {
+                        values: { provider: providerLabel(selectedProvider as InferenceProvider) },
+                        default: `${providerLabel(selectedProvider as InferenceProvider)} is saved but unavailable. Choose an available provider or Auto.`
+                    })}
+                </p>
+            {/if}
         </div>
 
         {#if accelerators.length || verified.length}
@@ -274,7 +305,15 @@
         {/if}
 
         {#if validating && progress}
-            <div class="space-y-2 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/20">
+            <div
+                role="progressbar"
+                aria-label={$_('setup.model.validate', { default: 'Validate on my hardware' })}
+                aria-valuemin="0"
+                aria-valuemax={progress.total > 0 ? progress.total : undefined}
+                aria-valuenow={progress.total > 0 ? progress.done : undefined}
+                aria-valuetext={progress.label}
+                class="space-y-2 rounded-lg bg-brand-50 p-3 dark:bg-brand-950/20"
+            >
                 <div class="flex items-center justify-between text-sm">
                     <span class="font-medium text-brand-800 dark:text-brand-200">{progress.label}</span>
                     {#if progress.total > 0}<span class="text-xs text-brand-600 dark:text-brand-400">{progress.done}/{progress.total}</span>{/if}
@@ -285,13 +324,13 @@
                 <p class="text-xs capitalize text-brand-600 dark:text-brand-400">{progress.phase.replace(/_/g, ' ')}</p>
             </div>
         {:else}
-            <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation}>
+            <button type="button" class="btn btn-secondary px-5 py-2.5" onclick={runValidation} disabled={needsDownload || !selectedModelId}>
                 {results ? $_('setup.model.revalidate', { default: 'Re-run validation' }) : $_('setup.model.validate', { default: 'Validate on my hardware' })}
             </button>
         {/if}
 
         {#if errorMsg}
-            <div role="status" class="rounded-md bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">{errorMsg}</div>
+            <div role="alert" class="rounded-md bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">{errorMsg}</div>
         {/if}
         {#if validationMsg}
             <div role="status" class="rounded-md bg-accent-50 p-2 text-sm text-accent-800 dark:bg-accent-900/20 dark:text-accent-200">{validationMsg}</div>
@@ -307,7 +346,7 @@
                             <div class="min-w-0">
                                 <p class="truncate text-sm font-medium text-slate-800 dark:text-slate-100">{m.model_id}</p>
                                 <p class="text-xs text-slate-500 dark:text-slate-400">
-                                    {m.device ?? m.active_provider ?? 'cpu'}{#if m.mean_latency_ms} · {m.mean_latency_ms.toFixed(0)} ms{/if}
+                                    {m.active_provider ? providerLabel(m.active_provider as InferenceProvider) : (m.device ?? 'CPU')}{#if m.mean_latency_ms} · {m.mean_latency_ms.toFixed(0)} ms{/if}
                                 </p>
                             </div>
                             <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {rowOk(m) ? 'bg-accent-100 text-accent-800 dark:bg-accent-900/30 dark:text-accent-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'}">

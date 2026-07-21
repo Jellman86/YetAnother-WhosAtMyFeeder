@@ -60,7 +60,7 @@ def _cameras(settings) -> SetupSectionState:
     if cameras:
         label = "1 camera" if len(cameras) == 1 else f"{len(cameras)} cameras"
         return SetupSectionState(id="cameras", status="ok", detail=label)
-    return SetupSectionState(id="cameras", status="attention", detail="No cameras selected")
+    return SetupSectionState(id="cameras", status="ok", detail="All cameras")
 
 
 def _model(settings) -> SetupSectionState:

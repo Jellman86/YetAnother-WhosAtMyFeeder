@@ -18,6 +18,7 @@ describe('inference provider choices', () => {
             ...baseStatus,
             image_flavor: 'intel',
             packaged_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
+            host_available_providers: ['intel_npu', 'intel_cpu', 'cpu', 'intel_gpu'],
             available_providers: ['intel_npu', 'intel_cpu', 'cpu', 'intel_gpu'],
             provider_preference_order: ['intel_npu', 'intel_cpu', 'cpu'],
             selected_provider: 'intel_npu',
@@ -32,6 +33,47 @@ describe('inference provider choices', () => {
             { value: 'intel_gpu', unavailable: false },
         ]);
         expect(getProviderPreferenceOrder(status)).toEqual(['intel_npu', 'intel_cpu', 'cpu']);
+    });
+
+    it('uses host capabilities and the prospective model contract during setup', () => {
+        const status: ClassifierStatus = {
+            ...baseStatus,
+            image_flavor: 'intel',
+            packaged_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
+            host_available_providers: ['intel_gpu', 'intel_cpu', 'cpu', 'intel_npu'],
+            available_providers: ['intel_gpu', 'intel_cpu', 'cpu'],
+            provider_preference_order: ['intel_gpu', 'intel_cpu', 'cpu'],
+            selected_provider: 'auto',
+            active_provider: 'intel_gpu',
+        };
+
+        expect(buildInferenceProviderChoices(status, 'auto', ['intel_npu', 'intel_cpu', 'cpu'])).toEqual([
+            { value: 'auto', unavailable: false },
+            { value: 'intel_cpu', unavailable: false },
+            { value: 'cpu', unavailable: false },
+            { value: 'intel_npu', unavailable: false },
+        ]);
+    });
+
+    it('offers only providers that passed validation for the prospective model', () => {
+        const status: ClassifierStatus = {
+            ...baseStatus,
+            image_flavor: 'full',
+            packaged_inference_providers: ['cpu', 'cuda', 'intel_cpu'],
+            host_available_providers: ['cuda', 'intel_cpu', 'cpu'],
+            available_providers: ['cuda', 'intel_cpu', 'cpu'],
+        };
+
+        expect(buildInferenceProviderChoices(
+            status,
+            'auto',
+            ['cpu', 'cuda', 'intel_cpu'],
+            ['cpu', 'cuda'],
+        )).toEqual([
+            { value: 'auto', unavailable: false },
+            { value: 'cuda', unavailable: false },
+            { value: 'cpu', unavailable: false },
+        ]);
     });
 
     it('keeps a stale configured provider visible but disabled until it is replaced', () => {

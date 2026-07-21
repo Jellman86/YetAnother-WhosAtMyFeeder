@@ -90,6 +90,29 @@ async def test_activate_validated_model_succeeds(client, monkeypatch, stub_activ
 
 
 @pytest.mark.asyncio
+async def test_activation_applies_the_verified_provider_only_after_model_activation(
+    client, monkeypatch, stub_activation
+):
+    async def fake_installed():
+        return [_installed("small_birds", validated=True)]
+
+    monkeypatch.setattr(models_router.model_manager, "list_installed_models", fake_installed)
+    monkeypatch.setattr(
+        models_router,
+        "activation_provider_recommendation",
+        lambda _model_id: "cuda",
+    )
+    original_provider = settings.classification.inference_provider
+    try:
+        resp = await client.post("/api/models/small_birds/activate")
+        assert resp.status_code == 200, resp.text
+        assert stub_activation["id"] == "small_birds"
+        assert settings.classification.inference_provider == "cuda"
+    finally:
+        settings.classification.inference_provider = original_provider
+
+
+@pytest.mark.asyncio
 async def test_activate_missing_model_is_404(client, monkeypatch, stub_activation):
     async def fake_installed():
         return [_installed("small_birds", validated=True)]
@@ -116,6 +139,7 @@ async def test_validate_route_runs_probe_and_returns_result(client, monkeypatch)
     body = resp.json()
     assert body["ok"] is True
     assert body["model_id"] == "small_birds"
+    assert body["provider_set"] is False
 
 
 @pytest.mark.asyncio

@@ -42,14 +42,30 @@ export function getProviderPreferenceOrder(status: ClassifierStatus | null): Inf
 export function buildInferenceProviderChoices(
     status: ClassifierStatus | null,
     configuredProvider: string,
+    prospectiveModelProviders?: string[] | null,
+    validatedModelProviders?: string[] | null,
 ): InferenceProviderChoice[] {
     const choices: InferenceProviderChoice[] = [{ value: 'auto', unavailable: false }];
-    const available = status ? uniqueSelectableProviders(status.available_providers) : [];
+    const supported = uniqueSelectableProviders(prospectiveModelProviders);
+    const available = status
+        ? uniqueSelectableProviders(
+            supported.length > 0
+                ? (status.host_available_providers ?? status.available_providers)
+                : status.available_providers
+        )
+        : [];
     const packaged = uniqueSelectableProviders(status?.packaged_inference_providers);
     const packagedSet = new Set(packaged);
-    const filteredAvailable = packaged.length
+    const packagedAvailable = packaged.length
         ? available.filter((provider) => packagedSet.has(provider))
         : available;
+    let filteredAvailable = supported.length > 0
+        ? packagedAvailable.filter((provider) => supported.includes(provider))
+        : packagedAvailable;
+    if (Array.isArray(validatedModelProviders)) {
+        const validated = uniqueSelectableProviders(validatedModelProviders);
+        filteredAvailable = filteredAvailable.filter((provider) => validated.includes(provider));
+    }
 
     for (const provider of filteredAvailable) {
         choices.push({ value: provider, unavailable: false });

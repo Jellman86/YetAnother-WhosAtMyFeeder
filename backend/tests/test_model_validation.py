@@ -54,14 +54,65 @@ def test_empty_eligibility_list_does_not_clear_gate(tmp_path, monkeypatch):
     assert ok is False
 
 
+def test_eligibility_from_a_different_image_flavor_cannot_clear_the_gate(tmp_path, monkeypatch):
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "cuda")
+    (tmp_path / "device_eligibility.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "models": {"small_birds": ["cpu"]},
+                "model_image_flavors": {"small_birds": "intel"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    ok, reason = mv.is_model_validated("small_birds", active_model_id="rope_vit", bundled_ids=set())
+
+    assert ok is False
+    assert reason == "unvalidated"
+
+
+def test_legacy_eligibility_requires_revalidation_inside_a_published_image(tmp_path, monkeypatch):
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "cuda")
+    _write_eligibility(tmp_path, {"small_birds": ["cpu", "cuda"]})
+
+    assert mv.host_eligible_providers("small_birds") == []
+
+
+def test_probe_record_from_a_different_image_flavor_cannot_clear_the_gate(tmp_path, monkeypatch):
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "intel")
+    mv.write_validation_record("small_birds", provider="cpu", ok=True, reason="old image")
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "cuda")
+
+    ok, reason = mv.is_model_validated("small_birds", active_model_id="rope_vit", bundled_ids=set())
+
+    assert ok is False
+    assert reason == "unvalidated"
+
+
 def test_probe_record_clears_gate_on_any_host(tmp_path, monkeypatch):
-    """A CPU-only or CUDA host has no device_eligibility.json entry; the host-agnostic
-    probe record is what clears the gate there."""
+    """Unknown development environments can still use the fallback probe record."""
     monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
     mv.write_validation_record("convnext_large_inat21", provider="cpu", ok=True, reason="probe ok")
     ok, reason = mv.is_model_validated("convnext_large_inat21", active_model_id="rope_vit", bundled_ids=set())
     assert ok is True
     assert reason == "probe"
+
+
+def test_activation_recommendation_requires_current_matching_evidence(tmp_path, monkeypatch):
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "cuda")
+    mv.write_eligibility_entry("small_birds", ["cpu", "cuda"], image_flavor="cuda")
+    mv.write_validation_record("small_birds", provider="cuda", ok=True, reason="fastest")
+
+    assert mv.activation_provider_recommendation("small_birds") == "cuda"
+
+    mv.write_eligibility_entry("small_birds", ["cpu"], image_flavor="cuda")
+    assert mv.activation_provider_recommendation("small_birds") is None
 
 
 def test_failed_probe_record_does_not_clear_gate(tmp_path, monkeypatch):
@@ -88,6 +139,20 @@ def test_writing_one_record_preserves_others(tmp_path, monkeypatch):
     mv.write_validation_record("medium_birds", provider="cpu", ok=False, reason="crash")
     assert mv.read_validation_record("small_birds")["validated"] is True
     assert mv.read_validation_record("medium_birds")["validated"] is False
+
+
+def test_writing_provider_eligibility_preserves_other_models_and_records_image(tmp_path, monkeypatch):
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+
+    mv.write_eligibility_entry("small_birds", ["cpu", "cuda"], run_id="r1", image_flavor="cuda")
+    mv.write_eligibility_entry("medium_birds", ["cpu"], run_id="r2", image_flavor="cuda")
+
+    payload = json.loads((tmp_path / "device_eligibility.json").read_text(encoding="utf-8"))
+    assert payload["schema_version"] == 2
+    assert payload["image_flavor"] == "cuda"
+    assert payload["run_id"] == "r2"
+    assert payload["models"] == {"small_birds": ["cpu", "cuda"], "medium_birds": ["cpu"]}
+    assert payload["model_image_flavors"] == {"small_birds": "cuda", "medium_birds": "cuda"}
 
 
 def test_missing_files_fail_soft(tmp_path, monkeypatch):

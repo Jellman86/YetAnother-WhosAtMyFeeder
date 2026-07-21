@@ -973,19 +973,29 @@ export interface components {
     weights_url?: string | null;
 };
     ModelValidateDevice: {
+    backend?: string | null;
+    baseline?: boolean;
+    compiles?: boolean | null;
     device: string;
+    error?: string | null;
+    finite?: boolean | null;
+    images_compared?: number;
+    images_evaluated?: number;
     latency_ms?: number | null;
+    matches_baseline?: boolean | null;
     ok: boolean;
     provider: string;
 };
     ModelValidateResponse: {
     best_provider?: string | null;
     devices?: Array<components['schemas']['ModelValidateDevice']>;
+    image_flavor?: string | null;
     latency_ms?: number | null;
     model_id: string;
     ok: boolean;
     provider: string;
     provider_set?: boolean;
+    providers?: Array<components['schemas']['ModelValidateDevice']>;
     reason: string;
 };
     NotificationTestRequest: {
@@ -1537,6 +1547,7 @@ export interface components {
     StartRunRequest: {
     compat_only?: boolean;
     include_per_image?: boolean;
+    model_ids?: Array<string>;
     region_override?: string | null;
     sweep_all_models?: boolean;
     sweep_devices?: boolean;

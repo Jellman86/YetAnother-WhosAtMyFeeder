@@ -57,7 +57,7 @@ describe('Settings progressive disclosure', () => {
         expect(appearanceSource).toContain('id="appearance-typography-and-colour"');
         expect(dataSource).toContain('id="data-tools"');
         expect(dataSource).toContain('id="data-danger"');
-        expect(dataSource.indexOf('id="data-tools"')).toBeLessThan(dataSource.indexOf('settings.data.setup_wizard_title'));
+        expect(dataSource).not.toContain('settings.data.setup_wizard_title');
         expect(dataSource.indexOf('id="data-danger"')).toBeLessThan(dataSource.indexOf('settings.danger.reset_desc'));
         expect(settingsPageSource).toContain('id="debug-model-evaluation"');
         expect(settingsPageSource).toContain('<SettingsToggle');

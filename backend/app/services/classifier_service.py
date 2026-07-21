@@ -419,59 +419,37 @@ def _normalize_inference_provider(value: Optional[str]) -> str:
 
 
 def _host_validated_providers(model_id: str) -> list[str]:
-    """Inference providers this *host* validated for ``model_id`` via the device
-    sweep (``device_eligibility.json``, written by the model-eval harness).
+    """Providers validated for this model, host, and exact runtime image.
 
-    Device support is hardware-specific — a newer iGPU/NPU can run models the
-    shared registry excludes for older silicon. Merging these host-validated
-    providers into the registry list lets the resolver use them on this machine
-    without weakening the global defaults that protect other hardware. Fail-soft:
-    a missing/unreadable file yields no extra providers.
+    The model-validation service owns the persisted schema and legacy migration
+    rules. Keeping one reader prevents the live classifier and setup UI from
+    disagreeing after an image-flavor switch.
     """
     if not model_id:
         return []
     try:
-        base = os.environ.get("YAWAMF_EVAL_RUNS_DIR", "/config/yawamf-eval")
-        path = Path(base) / "device_eligibility.json"
-        if not path.is_file():
-            return []
-        data = json.loads(path.read_text())
-        providers = (data.get("models") or {}).get(model_id) or []
-        return [str(p).strip().lower() for p in providers if str(p).strip()]
+        from app.services.model_validation import host_eligible_providers
+
+        return host_eligible_providers(model_id)
     except Exception:
         return []
 
 
 def _apply_host_validated_provider_policy(spec: dict[str, Any], *, model_id: str) -> dict[str, Any]:
-    """Merge this host's proven accelerators and retire resolved registry warnings.
+    """Attach validation evidence without widening the model's provider contract.
 
-    The shared registry stays conservative for hardware generations that have not
-    been tested. A device sweep can safely widen that policy for one model on one
-    host. Once it does, an installed-sidecar warning for the same provider is no
-    longer actionable and must not be presented as an operational fault.
+    Eligibility files persist across upgrades and image switches. They prove a
+    provider ran at one point; they do not override current registry/sidecar
+    compatibility metadata. This fail-closed boundary prevents stale historical
+    sweeps from re-enabling a provider deliberately removed from a model config.
     """
     resolved = dict(spec)
     supported = [str(provider).strip().lower() for provider in spec.get("supported_inference_providers") or []]
-    host_validated = _host_validated_providers(model_id)
-    host_added = [provider for provider in host_validated if provider not in supported]
-    if host_added:
-        supported.extend(host_added)
     resolved["supported_inference_providers"] = supported
-    resolved["host_added_inference_providers"] = host_added
-
-    registry_unsupported = {
-        str(provider).strip().lower()
-        for provider in spec.get("model_config_registry_unsupported_providers") or []
-        if str(provider).strip()
-    }
-    host_validated_set = set(host_validated)
-    provider_warnings = {
-        str(warning).strip() for warning in spec.get("model_config_provider_warnings") or [] if str(warning).strip()
-    }
-    warnings = [str(warning).strip() for warning in spec.get("model_config_warnings") or [] if str(warning).strip()]
-    if registry_unsupported and registry_unsupported.issubset(host_validated_set):
-        warnings = [warning for warning in warnings if warning not in provider_warnings]
-    resolved["model_config_warnings"] = warnings
+    resolved["host_added_inference_providers"] = []
+    resolved["host_validated_inference_providers"] = [
+        provider for provider in _host_validated_providers(model_id) if provider in supported
+    ]
     return resolved
 
 
@@ -487,14 +465,17 @@ def _host_device_eligibility_summary() -> dict[str, Any]:
         data = json.loads(path.read_text())
         models = data.get("models") or {}
         union: set[str] = set()
-        for provs in models.values():
-            for p in provs or []:
-                union.add(str(p).strip().lower())
+        current_model_count = 0
+        for model_id in models:
+            providers = _host_validated_providers(str(model_id))
+            if providers:
+                current_model_count += 1
+                union.update(providers)
         return {
             "verified_providers": sorted(union),
             "generated_at": data.get("generated_at"),
             "run_id": data.get("run_id"),
-            "model_count": len(models),
+            "model_count": current_model_count,
         }
     except Exception:
         return {"verified_providers": [], "generated_at": None, "run_id": None, "model_count": 0}
@@ -1243,12 +1224,11 @@ def _provider_capability_contract(
         "intel_npu": bool(caps.get("openvino_available") and caps.get("intel_npu_available")),
     }
 
+    def _host_selectable(provider: str) -> bool:
+        return bool(host_available.get(provider) and (not packaged or provider in packaged))
+
     def _selectable(provider: str) -> bool:
-        return bool(
-            host_available.get(provider)
-            and (not packaged or provider in packaged)
-            and (not supported or provider in supported)
-        )
+        return bool(_host_selectable(provider) and (not supported or provider in supported))
 
     fallback_candidates = [active_provider]
     fallback_candidates.extend(
@@ -1265,12 +1245,20 @@ def _provider_capability_contract(
         if _selectable(provider) and provider not in provider_preference_order:
             provider_preference_order.append(provider)
 
+    host_available_providers: list[str] = []
+    for provider in fallback_candidates:
+        if _host_selectable(provider) and provider not in host_available_providers:
+            host_available_providers.append(provider)
+
     available_providers = list(provider_preference_order)
     for provider in ("intel_npu", "intel_gpu", "cuda", "intel_cpu", "cpu"):
+        if _host_selectable(provider) and provider not in host_available_providers:
+            host_available_providers.append(provider)
         if _selectable(provider) and provider not in available_providers:
             available_providers.append(provider)
 
     return {
+        "host_available_providers": host_available_providers,
         "available_providers": available_providers,
         "provider_preference_order": provider_preference_order,
     }

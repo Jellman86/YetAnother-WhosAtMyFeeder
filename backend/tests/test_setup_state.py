@@ -74,10 +74,12 @@ def test_connection_ok_when_url_set():
     assert conn.detail == "http://frigate:5000"
 
 
-def test_cameras_attention_when_none_selected():
+def test_cameras_ok_when_empty_list_watches_all_cameras():
     frigate = FrigateSettings(frigate_url="http://frigate:5000", camera=[])
     state = compute_setup_state(_settings(frigate=frigate))
-    assert _by_id(state)["cameras"].status == "attention"
+    cameras = _by_id(state)["cameras"]
+    assert cameras.status == "ok"
+    assert cameras.detail == "All cameras"
 
 
 def test_cameras_ok_and_counts():

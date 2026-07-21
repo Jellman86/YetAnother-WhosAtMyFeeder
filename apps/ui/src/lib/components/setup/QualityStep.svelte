@@ -24,8 +24,7 @@
         busy = true;
         try {
             await updateSettings({
-                media_cache_high_quality_event_snapshots: hqSnapshots,
-                media_cache_high_quality_event_snapshot_bird_crop: hqSnapshots
+                media_cache_high_quality_event_snapshots: hqSnapshots
             });
             await setupWizardStore.refresh();
             setupWizardStore.next();

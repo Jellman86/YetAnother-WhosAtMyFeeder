@@ -9,16 +9,15 @@ per-host check proves it actually does on this silicon.
 Two records back the gate, both on the config volume under
 ``$YAWAMF_EVAL_RUNS_DIR`` (default ``/config/yawamf-eval``):
 
-- ``device_eligibility.json`` — written by the OpenVINO device sweep
-  (``model_eval_service``). Present only on Intel/OpenVINO hosts; keyed
-  ``model_id -> [intel_cpu|intel_gpu|intel_npu]``.
-- ``model_validation.json`` — written by the host-agnostic validate probe
-  (``/api/models/{id}/validate``). Works on every host (CPU-only, CUDA,
-  OpenVINO); keyed ``model_id -> {validated, provider, checked_at, reason}``.
+- ``device_eligibility.json`` — written by the shared provider sweep; keyed
+  ``model_id -> [verified providers]`` with an exact per-model image flavor.
+- ``model_validation.json`` — written by both the single-model endpoint and
+  compatibility runs; keyed
+  ``model_id -> {validated, provider, image_flavor, checked_at, reason}``.
 
-Either record clearing the gate keeps the flow honest without stranding the
-non-Intel hosts the device sweep cannot cover. The currently-active model and
-bundled models are grandfathered so an upgrade never blocks a working install.
+Either current-image record clearing the gate keeps the flow honest across CPU,
+CUDA and Intel images. The currently-active model and bundled models are
+grandfathered so an upgrade never blocks a working install.
 
 Everything here is fail-soft: a missing or unreadable record yields "not
 validated", never an exception.
@@ -31,16 +30,84 @@ import json
 import math
 import os
 import time
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import structlog
 
+from app.utils.runtime_flavor import get_image_flavor, packaged_inference_providers
+
 log = structlog.get_logger()
 
 VALIDATION_FILENAME = "model_validation.json"
 ELIGIBILITY_FILENAME = "device_eligibility.json"
+
+VALIDATION_PROVIDER_ORDER = ("cpu", "intel_cpu", "cuda", "intel_gpu", "intel_npu")
+
+
+@dataclass(frozen=True)
+class ValidationProviderCandidate:
+    """One concrete inference runtime that is safe and meaningful to probe."""
+
+    provider: str
+    backend: str
+    device: str
+
+
+_VALIDATION_PROVIDER_TARGETS = {
+    "cpu": ("onnxruntime", "CPUExecutionProvider"),
+    "cuda": ("onnxruntime", "CUDAExecutionProvider"),
+    "intel_cpu": ("openvino", "CPU"),
+    "intel_gpu": ("openvino", "GPU"),
+    "intel_npu": ("openvino", "NPU"),
+}
+
+
+def validation_provider_candidates(
+    *,
+    image_flavor: str,
+    capabilities: dict[str, Any],
+    supported_providers: list[str] | tuple[str, ...] | None,
+    model_runtime: str,
+) -> list[ValidationProviderCandidate]:
+    """Return the provider sweep for one model on the running deployment.
+
+    The contract is deliberately the intersection of what the image packages,
+    what this host can actually expose, and what the model declares compatible.
+    Unknown local-development images have no packaging restriction, but published
+    images can never accidentally validate a runtime they do not own.
+    """
+
+    runtime = str(model_runtime or "onnx").strip().lower()
+    supported = {
+        str(provider or "").strip().lower() for provider in (supported_providers or []) if str(provider or "").strip()
+    }
+    packaged = set(packaged_inference_providers(image_flavor))
+
+    if runtime in {"tflite", "tensorflow-lite", "tensorflow_lite"}:
+        return [ValidationProviderCandidate("cpu", "tflite", "CPU")]
+
+    host_available = {
+        "cpu": bool(capabilities.get("ort_available")),
+        "cuda": bool(capabilities.get("cuda_available")),
+        "intel_cpu": bool(capabilities.get("openvino_available") and capabilities.get("intel_cpu_available")),
+        "intel_gpu": bool(capabilities.get("openvino_available") and capabilities.get("intel_gpu_available")),
+        "intel_npu": bool(capabilities.get("openvino_available") and capabilities.get("intel_npu_available")),
+    }
+
+    candidates: list[ValidationProviderCandidate] = []
+    for provider in VALIDATION_PROVIDER_ORDER:
+        if packaged and provider not in packaged:
+            continue
+        if supported and provider not in supported:
+            continue
+        if not host_available.get(provider):
+            continue
+        backend, device = _VALIDATION_PROVIDER_TARGETS[provider]
+        candidates.append(ValidationProviderCandidate(provider, backend, device))
+    return candidates
 
 
 def _eval_root() -> Path:
@@ -49,8 +116,7 @@ def _eval_root() -> Path:
 
 
 def host_eligible_providers(model_id: str) -> list[str]:
-    """Inference providers the OpenVINO device sweep validated for ``model_id`` on
-    this host. Empty on hosts without an Intel/OpenVINO sweep record."""
+    """Providers the unified sweep validated for ``model_id`` in this image."""
     if not model_id:
         return []
     try:
@@ -58,14 +124,22 @@ def host_eligible_providers(model_id: str) -> list[str]:
         if not path.is_file():
             return []
         data = json.loads(path.read_text(encoding="utf-8"))
-        providers = (data.get("models") or {}).get(model_id) or []
-        return [str(p).strip().lower() for p in providers if str(p).strip()]
+        providers = [str(p).strip().lower() for p in (data.get("models") or {}).get(model_id) or [] if str(p).strip()]
+        current_flavor = get_image_flavor()
+        recorded_flavor = str((data.get("model_image_flavors") or {}).get(model_id) or "").strip().lower()
+        # Published images require evidence from the exact runtime image tested.
+        # Legacy records lacked this metadata and therefore require one revalidation;
+        # the already-active and bundled models remain grandfathered by the gate.
+        if current_flavor != "unknown" and recorded_flavor != current_flavor:
+            return []
+        packaged = set(packaged_inference_providers(current_flavor))
+        return [provider for provider in providers if not packaged or provider in packaged]
     except Exception:
         return []
 
 
 def read_validation_record(model_id: str) -> dict | None:
-    """The host-agnostic validate-probe record for ``model_id``, or ``None``."""
+    """The raw persisted validation record for ``model_id``, or ``None``."""
     if not model_id:
         return None
     try:
@@ -79,11 +153,35 @@ def read_validation_record(model_id: str) -> dict | None:
         return None
 
 
+def activation_provider_recommendation(model_id: str) -> str | None:
+    """Return a current, eligible provider recommendation for activation.
+
+    The two persisted records must agree: the single-model recommendation must
+    belong to this image flavor and the provider sweep must still list it as
+    eligible. This keeps activation atomic and fail-closed across image switches,
+    interrupted sweeps, and hand-edited state files.
+    """
+
+    record = read_validation_record(model_id) or {}
+    if record.get("validated") is not True:
+        return None
+    provider = str(record.get("provider") or "").strip().lower()
+    if provider not in _VALIDATION_PROVIDER_TARGETS:
+        return None
+    current_flavor = get_image_flavor()
+    recorded_flavor = str(record.get("image_flavor") or "").strip().lower()
+    if current_flavor != "unknown" and recorded_flavor != current_flavor:
+        return None
+    return provider if provider in host_eligible_providers(model_id) else None
+
+
 def write_validation_record(
     model_id: str, *, provider: str, ok: bool, reason: str, latency_ms: float | None = None
 ) -> None:
-    """Record the outcome of a host-agnostic validate probe, preserving every other
-    model's record. Fail-soft: a write error is logged, never raised."""
+    """Record this image's validation outcome while preserving every other model.
+
+    Fail-soft: a write error is logged, never raised.
+    """
     if not model_id:
         return
     root = _eval_root()
@@ -100,6 +198,7 @@ def write_validation_record(
         models[model_id] = {
             "validated": bool(ok),
             "provider": str(provider or "").strip().lower(),
+            "image_flavor": get_image_flavor(),
             "reason": reason,
             "latency_ms": latency_ms,
             "checked_at": datetime.now(timezone.utc).isoformat(),
@@ -112,7 +211,13 @@ def write_validation_record(
         log.warning("model_validation_write_failed", model_id=model_id, error=str(e))
 
 
-def write_eligibility_entry(model_id: str, providers: list[str]) -> None:
+def write_eligibility_entry(
+    model_id: str,
+    providers: list[str],
+    *,
+    run_id: str | None = None,
+    image_flavor: str | None = None,
+) -> None:
     """Record which inference providers this host validated for ``model_id`` in
     ``device_eligibility.json``, preserving every other model's entry. Fail-soft."""
     if not model_id:
@@ -123,46 +228,57 @@ def write_eligibility_entry(model_id: str, providers: list[str]) -> None:
         root.mkdir(parents=True, exist_ok=True)
         models: dict = {}
         generated: dict = {}
+        model_image_flavors: dict[str, str] = {}
         if path.is_file():
             try:
                 existing = json.loads(path.read_text(encoding="utf-8"))
                 models = existing.get("models") or {}
-                generated = {k: existing.get(k) for k in ("run_id",) if existing.get(k)}
+                model_image_flavors = existing.get("model_image_flavors") or {}
+                generated = {k: existing.get(k) for k in ("run_id", "image_flavor") if existing.get(k)}
             except Exception:
                 models = {}
+                model_image_flavors = {}
         models[model_id] = [str(p).strip().lower() for p in providers if str(p).strip()]
-        payload = {"generated_at": datetime.now(timezone.utc).isoformat(), "models": models, **generated}
+        if run_id:
+            generated["run_id"] = run_id
+        if image_flavor:
+            generated["image_flavor"] = image_flavor
+            model_image_flavors[model_id] = image_flavor
+        payload = {
+            "schema_version": 2,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "models": models,
+            "model_image_flavors": model_image_flavors,
+            **generated,
+        }
         path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     except OSError as e:
         log.warning("model_eligibility_write_failed", model_id=model_id, error=str(e))
 
 
-# OpenVINO sweep devices map to the inference-provider setting values.
-_DEVICE_TO_PROVIDER = {"CPU": "intel_cpu", "GPU": "intel_gpu", "NPU": "intel_npu"}
+def _parse_probe_report(stdout: bytes) -> dict | None:
+    """Extract the final JSON object while tolerating structured log lines."""
+
+    text = stdout.decode("utf-8", "replace")
+    for start in range(len(text) - 1, -1, -1):
+        if text[start] != "{":
+            continue
+        try:
+            value = json.loads(text[start:])
+        except json.JSONDecodeError:
+            continue
+        return value if isinstance(value, dict) else None
+    return None
 
 
-def _openvino_devices() -> list[str]:
-    """CPU / GPU / NPU available to OpenVINO on this host, or ``[]`` when OpenVINO
-    is not installed (CPU-only / CUDA hosts). Enumerating devices is safe; only
-    compiling a model on one can crash, and that runs in an isolated subprocess."""
-    try:
-        import openvino as _ov
-
-        avail = list(_ov.Core().available_devices)
-    except Exception:
-        return []
-    devices: list[str] = ["CPU"] if any(str(d).split(".")[0] == "CPU" for d in avail) else []
-    for d in avail:
-        base = str(d).split(".")[0]
-        if base in ("GPU", "NPU") and base not in devices:
-            devices.append(base)
-    return devices
-
-
-async def _probe_one_device(device: str, *, timeout: float = 240.0) -> dict | None:
-    """Compile + run the *active* model on ``device`` in a child process so a GPU/NPU
-    driver fault cannot take down the app. Returns the parsed JSON report, or ``None``
-    on crash / timeout / parse failure."""
+async def _probe_one_provider(
+    provider: str,
+    *,
+    model_id: str,
+    timeout: float = 300.0,
+    image_paths: list[str] | None = None,
+) -> dict | None:
+    """Compile and run the active model on one provider in a child process."""
     import sys as _sys
 
     try:
@@ -171,7 +287,18 @@ async def _probe_one_device(device: str, *, timeout: float = 240.0) -> dict | No
         backend_root = str(Path(_app_pkg.__file__).resolve().parent.parent)
     except Exception:
         backend_root = None
-    args = [_sys.executable, "-m", "scripts.probe_openvino_bird_model", "--device", device]
+    args = [
+        _sys.executable,
+        "-m",
+        "scripts.probe_bird_model_provider",
+        "--provider",
+        provider,
+        "--model-id",
+        model_id,
+    ]
+    if image_paths:
+        args += ["--images", ",".join(image_paths)]
+    proc: asyncio.subprocess.Process | None = None
     try:
         proc = await asyncio.create_subprocess_exec(
             *args,
@@ -181,18 +308,31 @@ async def _probe_one_device(device: str, *, timeout: float = 240.0) -> dict | No
         )
         stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
     except asyncio.TimeoutError:
-        return None
+        try:
+            if proc is not None:
+                proc.kill()
+                await proc.communicate()
+        except ProcessLookupError:
+            pass
+        return {
+            "provider": provider,
+            "compile": {"ok": False, "error": f"provider probe timed out after {timeout:.0f} seconds"},
+        }
     except Exception as e:
-        log.warning("model_validation_device_probe_spawn_failed", device=device, error=str(e))
-        return None
+        log.warning("model_validation_provider_probe_spawn_failed", provider=provider, error=str(e))
+        return {"provider": provider, "compile": {"ok": False, "error": f"provider probe could not start: {e}"}}
     if proc.returncode != 0:
-        return None
-    try:
-        text = stdout.decode("utf-8", "replace")
-        start = text.find("{")
-        return json.loads(text[start:]) if start >= 0 else None
-    except Exception:
-        return None
+        return {
+            "provider": provider,
+            "compile": {"ok": False, "error": f"provider probe exited with status {proc.returncode}"},
+        }
+    report = _parse_probe_report(stdout)
+    if report is None:
+        return {
+            "provider": provider,
+            "compile": {"ok": False, "error": "provider probe returned no valid report"},
+        }
+    return report
 
 
 def _device_report_ok(report: dict | None) -> tuple[bool, float | None, list[int]]:
@@ -202,45 +342,131 @@ def _device_report_ok(report: dict | None) -> tuple[bool, float | None, list[int
     if not (report.get("compile") or {}).get("ok"):
         return (False, None, [])
     out = report.get("output_summary") or {}
-    finite = bool(out.get("finite_count")) and not (out.get("nan_count") or 0)
+    finite_count = int(out.get("finite_count") or 0)
+    element_count = int(out.get("element_count") or 0)
+    finite = bool(
+        finite_count
+        and finite_count == element_count
+        and not (out.get("nan_count") or 0)
+        and not (out.get("pos_inf_count") or 0)
+        and not (out.get("neg_inf_count") or 0)
+    )
     latency = report.get("inference_latency_ms")
     top = [int(i) for i in (report.get("output_top_indices") or [])]
     return (finite, latency, top)
 
 
-async def sweep_model_devices(model_id: str) -> dict | None:
-    """Probe ``model_id`` (which must already be the active model) on every OpenVINO
-    device, and choose the fastest that compiled, produced finite output, and agreed
-    with the CPU baseline on the probe image. Returns a summary, or ``None`` when this
-    host has no OpenVINO devices (so the caller falls back to the generic probe).
-    """
-    devices = await asyncio.to_thread(_openvino_devices)
-    if not devices:
-        return None
+async def sweep_model_devices(model_id: str, *, image_paths: list[str] | None = None) -> dict:
+    """Validate every relevant provider for the active ``model_id``.
 
-    per_device: list[dict] = []
+    The historical function name is retained for callers, but this is now a
+    provider sweep: ONNX Runtime CPU/CUDA and OpenVINO CPU/GPU/NPU are all
+    considered according to the running image, host probes, and model metadata.
+    """
+
+    from app.services.classifier_service import _detect_acceleration_capabilities
+    from app.services.model_manager import model_manager
+
+    spec = model_manager.get_active_model_spec()
+    if str(spec.get("model_id") or "") != model_id:
+        raise RuntimeError(
+            f"active model changed before validation (expected {model_id}, found {spec.get('model_id')})"
+        )
+    image_flavor = get_image_flavor()
+    capabilities = await asyncio.to_thread(_detect_acceleration_capabilities)
+    candidates = validation_provider_candidates(
+        image_flavor=image_flavor,
+        capabilities=capabilities,
+        supported_providers=spec.get("supported_inference_providers"),
+        model_runtime=str(spec.get("runtime") or "onnx"),
+    )
+    baseline_provider = next(
+        (candidate.provider for candidate in candidates if candidate.provider == "cpu"),
+        next((candidate.provider for candidate in candidates if candidate.provider == "intel_cpu"), None),
+    )
+
+    reports: dict[str, dict | None] = {}
+    for candidate in candidates:
+        reports[candidate.provider] = await _probe_one_provider(
+            candidate.provider,
+            model_id=model_id,
+            image_paths=image_paths,
+        )
+
+    baseline_report = reports.get(baseline_provider) if baseline_provider else None
+    baseline_tops = (baseline_report or {}).get("per_image_top_indices") or []
+    if not baseline_tops and (baseline_report or {}).get("output_top_indices"):
+        baseline_tops = [(baseline_report or {}).get("output_top_indices")]
+
+    per_provider: list[dict] = []
     eligible: list[str] = []
-    cpu_top: list[int] = []
     best: dict | None = None
-    for dev in devices:
-        report = await _probe_one_device(dev)
+    for candidate in candidates:
+        report = reports.get(candidate.provider)
         finite, latency, top = _device_report_ok(report)
-        provider = _DEVICE_TO_PROVIDER.get(dev, dev.lower())
-        if dev == "CPU":
-            cpu_top = top
+        tops = (report or {}).get("per_image_top_indices") or ([top] if top else [])
+        comparisons: list[tuple[list[int], list[int]]] = []
+        if candidate.provider == baseline_provider:
             agrees = finite
         else:
-            # An accelerator must match the CPU top-1 or it is silently wrong (the
-            # NaN / precision-divergence failure mode) even when it "runs".
-            agrees = finite and bool(cpu_top) and bool(top) and top[0] == cpu_top[0]
+            comparisons = [
+                (baseline_top, provider_top)
+                for baseline_top, provider_top in zip(baseline_tops, tops)
+                if baseline_top and provider_top
+            ]
+            agrees = bool(finite and comparisons and all(base[0] == provider[0] for base, provider in comparisons))
         ok = bool(finite and agrees)
-        per_device.append({"device": dev, "provider": provider, "ok": ok, "latency_ms": latency})
+        entry = {
+            "provider": candidate.provider,
+            "backend": candidate.backend,
+            "device": candidate.device,
+            "ok": ok,
+            "compiles": bool((report or {}).get("compile", {}).get("ok")),
+            "finite": finite,
+            "latency_ms": latency,
+            "baseline": candidate.provider == baseline_provider,
+            "images_evaluated": len([indices for indices in tops if indices]),
+            "images_compared": len(
+                [1 for baseline_top, provider_top in zip(baseline_tops, tops) if baseline_top and provider_top]
+            )
+            if candidate.provider != baseline_provider
+            else 0,
+            "matches_baseline": agrees if candidate.provider != baseline_provider else None,
+            "matches_cpu": agrees if candidate.provider != baseline_provider else None,
+            "top1_match_rate": (
+                round(sum(1 for base, provider in comparisons if base[0] == provider[0]) / len(comparisons), 3)
+                if comparisons
+                else None
+            ),
+            "mean_top5_overlap": (
+                round(sum(len(set(base) & set(provider)) for base, provider in comparisons) / len(comparisons), 2)
+                if comparisons
+                else None
+            ),
+            "error": (report or {}).get("runtime_error") or (report or {}).get("compile", {}).get("error"),
+        }
+        per_provider.append(entry)
         if ok:
-            eligible.append(provider)
-            if latency is not None and (best is None or latency < best["latency_ms"]):
-                best = {"device": dev, "provider": provider, "latency_ms": latency}
+            eligible.append(candidate.provider)
+            if best is None or (
+                latency is not None and (best.get("latency_ms") is None or latency < best["latency_ms"])
+            ):
+                best = {
+                    "device": candidate.device,
+                    "backend": candidate.backend,
+                    "provider": candidate.provider,
+                    "latency_ms": latency,
+                }
 
-    return {"devices": per_device, "eligible_providers": eligible, "best": best}
+    return {
+        "image_flavor": image_flavor,
+        "baseline_provider": baseline_provider,
+        "providers": per_provider,
+        # Backwards-compatible response field used by older API clients.
+        "devices": per_provider,
+        "eligible_providers": eligible,
+        "best": best,
+    }
 
 
 def is_model_validated(
@@ -267,7 +493,13 @@ def is_model_validated(
         return (True, "device_sweep")
     record = read_validation_record(model_id)
     if record and record.get("validated") is True:
-        return (True, "probe")
+        provider = str(record.get("provider") or "").strip().lower()
+        current_flavor = get_image_flavor()
+        recorded_flavor = str(record.get("image_flavor") or "").strip().lower()
+        packaged = set(packaged_inference_providers(current_flavor))
+        flavor_matches = current_flavor == "unknown" or recorded_flavor == current_flavor
+        if flavor_matches and (not packaged or not provider or provider in packaged):
+            return (True, "probe")
     return (False, "unvalidated")
 
 
@@ -302,14 +534,13 @@ def _judge_predictions(results: Any) -> tuple[bool, str]:
 
 
 async def run_validation_probe(model_id: str) -> dict:
-    """Validate ``model_id`` on this host and pick its fastest inference device.
+    """Validate ``model_id`` on this host and pick its fastest provider.
 
     Trial-activates the model, then:
-    - On an OpenVINO host, sweeps CPU / Intel GPU / NPU (each compile isolated in a
-      subprocess), records which providers passed, and returns the fastest one as
-      ``best_provider`` so the caller can set it.
-    - On a CPU-only / CUDA host (no OpenVINO), runs one frame through the live
-      classifier on whatever provider it resolves.
+    - Sweeps the CPU, CUDA and/or OpenVINO providers belonging to the current image,
+      host and model contract. Each compile runs in an isolated subprocess.
+    - Falls back to the live classifier only in an unknown development environment
+      where no concrete packaged provider can be discovered.
 
     Restores the previously active model afterwards. Never raises: a failure is
     captured as a failed record and returned.
@@ -326,6 +557,7 @@ async def run_validation_probe(model_id: str) -> dict:
         activated = await model_manager.activate_model(model_id)
         if not activated:
             reason = "model files are missing or incomplete"
+            write_eligibility_entry(model_id, [], image_flavor=get_image_flavor())
             write_validation_record(model_id, provider=provider, ok=False, reason=reason)
             return {
                 "model_id": model_id,
@@ -334,21 +566,22 @@ async def run_validation_probe(model_id: str) -> dict:
                 "reason": reason,
                 "latency_ms": None,
                 "devices": [],
+                "providers": [],
+                "image_flavor": get_image_flavor(),
                 "best_provider": None,
             }
 
-        await classifier.reload_bird_model()
-
-        # Preferred path: sweep this model's OpenVINO devices and pick the fastest.
+        # Preferred path: sweep every provider that belongs to this image and is
+        # both present on the host and declared compatible with this model.
         sweep = await sweep_model_devices(model_id)
-        if sweep is not None:
+        if sweep.get("providers"):
             eligible = sweep["eligible_providers"]
             best = sweep["best"]
             if eligible:
-                write_eligibility_entry(model_id, eligible)
+                write_eligibility_entry(model_id, eligible, image_flavor=sweep["image_flavor"])
                 best_provider = best["provider"] if best else eligible[0]
                 latency_ms = best["latency_ms"] if best else None
-                reason = "validated on this host's devices"
+                reason = "validated against this image's providers on this host"
                 write_validation_record(model_id, provider=best_provider, ok=True, reason=reason, latency_ms=latency_ms)
                 return {
                     "model_id": model_id,
@@ -357,9 +590,12 @@ async def run_validation_probe(model_id: str) -> dict:
                     "reason": reason,
                     "latency_ms": latency_ms,
                     "devices": sweep["devices"],
+                    "providers": sweep["providers"],
+                    "image_flavor": sweep["image_flavor"],
                     "best_provider": best_provider,
                 }
-            reason = "model did not run correctly on any of this host's devices"
+            reason = "model did not run correctly on any provider in this image"
+            write_eligibility_entry(model_id, [], image_flavor=sweep["image_flavor"])
             write_validation_record(model_id, provider="cpu", ok=False, reason=reason)
             return {
                 "model_id": model_id,
@@ -368,10 +604,34 @@ async def run_validation_probe(model_id: str) -> dict:
                 "reason": reason,
                 "latency_ms": None,
                 "devices": sweep["devices"],
+                "providers": sweep["providers"],
+                "image_flavor": sweep["image_flavor"],
                 "best_provider": None,
             }
 
-        # Fallback (no OpenVINO): run a few frames on the resolved provider.
+        # Published images have an explicit packaging contract. No candidate there
+        # means the expected runtime is broken or absent, so never let a bundled/live
+        # fallback accidentally validate a different model.
+        if get_image_flavor() != "unknown":
+            reason = "no compatible provider runtime is available in this image"
+            write_eligibility_entry(model_id, [], image_flavor=get_image_flavor())
+            write_validation_record(model_id, provider="cpu", ok=False, reason=reason)
+            return {
+                "model_id": model_id,
+                "ok": False,
+                "provider": "cpu",
+                "reason": reason,
+                "latency_ms": None,
+                "devices": [],
+                "providers": [],
+                "image_flavor": get_image_flavor(),
+                "best_provider": None,
+            }
+
+        # Last-resort compatibility path for unknown development environments
+        # whose runtime probe exposed no concrete provider target.
+        write_eligibility_entry(model_id, [], image_flavor=get_image_flavor())
+        await classifier.reload_bird_model()
         try:
             status = classifier.get_status()
             provider = str(status.get("active_provider") or status.get("selected_provider") or "cpu")
@@ -396,11 +656,14 @@ async def run_validation_probe(model_id: str) -> dict:
             "reason": reason,
             "latency_ms": latency_ms,
             "devices": [],
+            "providers": [],
+            "image_flavor": get_image_flavor(),
             "best_provider": None,
         }
     except Exception as e:
         reason = f"validation errored: {e}"
         log.warning("model_validation_probe_failed", model_id=model_id, error=str(e))
+        write_eligibility_entry(model_id, [], image_flavor=get_image_flavor())
         write_validation_record(model_id, provider=provider, ok=False, reason=reason)
         return {
             "model_id": model_id,
@@ -409,6 +672,8 @@ async def run_validation_probe(model_id: str) -> dict:
             "reason": reason,
             "latency_ms": None,
             "devices": [],
+            "providers": [],
+            "image_flavor": get_image_flavor(),
             "best_provider": None,
         }
     finally:

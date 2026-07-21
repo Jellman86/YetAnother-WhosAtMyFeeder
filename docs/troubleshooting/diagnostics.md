@@ -128,6 +128,8 @@ curl -fsS http://yawamf-backend:8000/api/classifier/status
 Key fields:
 
 - `image_flavor`, `packaged_inference_providers`, and `image_flavor_warning`
+- `host_available_providers` (packaged providers that passed runtime/device probes,
+  before model compatibility is applied)
 - `available_providers` (packaged providers that passed runtime/device probes and
   are supported by the active model)
 - `provider_preference_order` (the active provider followed by its concrete
@@ -148,17 +150,16 @@ Key fields:
 
 `image_flavor_warning: selected_provider_not_packaged` means the saved provider
 does not belong to this image. YA-WAMF keeps that saved selection intact and
-uses CPU fallback. Switch to the full or matching provider image using the
+uses an actually available fallback. Switch to the full or matching provider image using the
 [safe flavor procedure](../setup/hardware-acceleration.md#switch-safely-between-flavors);
 do not try to install packages into the running container.
 
-The shared model registry is deliberately conservative across Intel hardware generations. A full
-device sweep can approve an extra provider for one model on this host; that host-specific result is
-reported under `host_device_eligibility` and may become the `active_provider`. YA-WAMF does not show
-an installed-provider warning when the same provider has passed the host sweep. A remaining
-`model_config_warnings` entry is therefore actionable: repair or download the model again in
-**Settings → Detection → Model Manager**, or include it in a diagnostics bundle when asking for
-help.
+Provider validation is model- and image-specific. The sweep only tests providers that the running
+image packages, the host probe exposes, and the model declares compatible. Passing results are
+reported under `host_device_eligibility`; results left on the persistent volume by another image
+flavor are rejected unless that exact flavor validated the model. A remaining `model_config_warnings`
+entry is therefore actionable: repair or download the model again in **Settings → Detection →
+Model Manager**, or include it in a diagnostics bundle when asking for help.
 
 ### Intel iGPU (OpenVINO) checklist
 

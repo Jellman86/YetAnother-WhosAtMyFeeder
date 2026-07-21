@@ -20,6 +20,7 @@ Each run writes a directory at `/config/yawamf-eval/<run_id>/` containing:
 | `runtime.json` | per-model provider / device / startup benchmark / drift factor / `InferenceHealth` snapshot |
 | `confusions.csv` | top wrong→right confusions per model, ranked by frequency |
 | `results.jsonl` | per-image top-5 predictions with scores and taxa_id resolution — only when **Include per-image details** is checked |
+| `device_matrix.json` | image-aware per-model/provider compile, finite-output, real-image agreement and median inference latency results when provider validation is enabled |
 
 The container mount means you can pull these straight off the host:
 
@@ -87,15 +88,31 @@ load, inference fails, or no image is actually cropped, preventing a fail-soft p
 from becoming false benchmark evidence. The current decision rule and baseline measurements are
 documented in [`../plans/2026-07-16-model-crop-policy.md`](../plans/2026-07-16-model-crop-policy.md).
 
-## Post-install validation gate
+## Provider compatibility and the post-install gate
 
-The `compat_only` device sweep writes a per-host `device_eligibility.json` (Intel/OpenVINO devices
-that compiled and matched the CPU baseline). That record is one of two signals that clear the
-**post-install selection gate** — a model cannot be made active until this host has proven it runs
-here. The other, host-agnostic signal is the Model Manager's **Validate & enable** probe
-(`POST /api/models/{id}/validate`), which trial-loads the model and runs one frame through the live
-classifier, so CPU-only and CUDA hosts (which the OpenVINO sweep does not cover) can also clear the
-gate. See [AI Models — Validate before you select](ai-models.md#validate-before-you-select-post-install-gate).
+The `compat_only` provider sweep writes a per-host, per-image `device_eligibility.json` containing
+every provider that compiled, produced finite output, and agreed with its CPU baseline. Candidates
+are limited to the running image/host/model intersection, covering ONNX CPU/CUDA and OpenVINO
+CPU/GPU/NPU when applicable. Each compile and inference run is isolated in a child process; one
+model/provider failure is retained in the matrix without aborting the rest of the run. The matrix
+uses up to 12 real panel images and records the provider's own median inference latency.
+
+This record clears the **post-install selection gate** — a model cannot become active until this
+host has proven at least one valid route. The Model Manager's **Validate & enable** endpoint
+(`POST /api/models/{id}/validate`) uses the same provider engine for one model and restores the
+previously active model after the trial. The setup wizard also requests a single-model
+compatibility run; Detection Diagnostics tests installed models by default and can optionally
+download and test every registry classifier. See
+[AI Models — Validate before you select](ai-models.md#validate-before-you-select-post-install-gate).
+Every sweep also stores its fastest passing provider as the activation recommendation. Setup
+defaults to that result and removes providers that failed for the selected model; activation applies
+the recommendation only after the model switch succeeds. Re-running a failed sweep invalidates old
+evidence for that model instead of silently retaining a previously passing result.
+
+Both `summary.json` and `device_matrix.json` contain compatibility-only results. The latter is
+available through `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with `artifact` set to
+`device_matrix.json`; older runs that used `devices` remain readable while new matrices also expose
+provider-native `providers` fields.
 
 ## Related files
 

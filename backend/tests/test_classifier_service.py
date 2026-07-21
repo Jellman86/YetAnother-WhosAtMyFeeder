@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import types
 import asyncio
+import json
 import threading
 import importlib
 from concurrent.futures import ThreadPoolExecutor
@@ -1211,7 +1212,7 @@ async def test_init_bird_model_surfaces_model_config_provider_warning_in_status(
         await service.shutdown()
 
 
-def test_host_validated_provider_policy_suppresses_only_resolved_registry_warning(monkeypatch):
+def test_host_validated_provider_policy_never_widens_current_model_contract(monkeypatch):
     provider_warning = (
         "Installed model_config.json advertised providers no longer supported by the current "
         "registry and they were ignored: intel_gpu"
@@ -1234,9 +1235,25 @@ def test_host_validated_provider_policy_suppresses_only_resolved_registry_warnin
         model_id="eva02_large_inat21",
     )
 
-    assert resolved["supported_inference_providers"] == ["cpu", "intel_cpu", "intel_gpu"]
-    assert resolved["model_config_warnings"] == [unrelated_warning]
-    assert resolved["host_added_inference_providers"] == ["intel_gpu"]
+    assert resolved["supported_inference_providers"] == ["cpu", "intel_cpu"]
+    assert resolved["model_config_warnings"] == [provider_warning, unrelated_warning]
+    assert resolved["host_added_inference_providers"] == []
+    assert resolved["host_validated_inference_providers"] == ["intel_cpu"]
+
+
+def test_live_classifier_ignores_validation_from_another_image_flavor(tmp_path, monkeypatch):
+    eligibility = {
+        "schema_version": 2,
+        "generated_at": "2026-07-21T00:00:00Z",
+        "models": {"small_birds": ["cpu"]},
+        "model_image_flavors": {"small_birds": "intel"},
+    }
+    (tmp_path / "device_eligibility.json").write_text(json.dumps(eligibility), encoding="utf-8")
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "cuda")
+
+    assert classifier_service_module._host_validated_providers("small_birds") == []
+    assert classifier_service_module._host_device_eligibility_summary()["model_count"] == 0
 
 
 @pytest.mark.asyncio
@@ -4531,6 +4548,7 @@ def test_provider_capability_contract_filters_image_and_orders_active_runtime_pa
     )
 
     assert contract == {
+        "host_available_providers": ["intel_npu", "intel_cpu", "cpu", "intel_gpu"],
         "available_providers": ["intel_npu", "intel_cpu", "cpu", "intel_gpu"],
         "provider_preference_order": ["intel_npu", "intel_cpu", "cpu"],
     }
@@ -4554,6 +4572,7 @@ def test_provider_capability_contract_hides_hardware_the_active_model_cannot_run
     )
 
     assert contract == {
+        "host_available_providers": ["intel_cpu", "cpu", "intel_npu", "intel_gpu"],
         "available_providers": ["intel_cpu", "cpu"],
         "provider_preference_order": ["intel_cpu", "cpu"],
     }
@@ -4576,6 +4595,7 @@ def test_provider_capability_contract_keeps_cuda_fallback_order_truthful():
     )
 
     assert contract == {
+        "host_available_providers": ["cuda", "cpu"],
         "available_providers": ["cuda", "cpu"],
         "provider_preference_order": ["cuda", "cpu"],
     }

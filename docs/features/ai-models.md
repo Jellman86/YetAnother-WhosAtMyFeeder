@@ -20,21 +20,20 @@ by the connection tests — with three stages:
 
 1. **Download** — fetches the model with live progress shown in the dialog (skipped when the model
    is already downloaded).
-2. **Run on this hardware** — trial-loads the model and pushes a few frames through it on this host,
-   checking it produces finite output (not NaN/garbage on an unsupported accelerator) and reporting
-   the per-frame inference latency.
-3. **Find fastest device** — sweeps this host's inference devices (CPU / Intel GPU / NPU) with each
-   compile isolated in a subprocess, then sets your inference provider to the fastest one that
-   passed. Hosts with no accelerator simply stay on CPU/Auto; a busy or unavailable sweep is
-   non-fatal and leaves your current setting untouched.
-4. **Enable for selection** — makes it active, restoring your previous model if validation fails.
+2. **Validate and tune on this hardware** — intersects the running image, host probe, and model
+   contract; then tests ONNX CPU/CUDA and OpenVINO CPU/GPU/NPU as applicable. Each provider runs in
+   an isolated process, must produce finite output matching the CPU baseline, and reports median
+   per-frame inference latency. The fastest passing provider becomes the recommendation.
+3. **Enable for selection** — makes the model active, restoring the previous model if validation
+   fails. Only after activation succeeds is the still-eligible recommendation applied.
 
 A model that has never been validated on this host shows **Validate to enable** instead of **Use
 this model**, and the API rejects activating it (`409`). The model already running and bundled
 models are grandfathered, so upgrading never blocks a working install. Validation works on every
-host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO — because it exercises the real classifier on
-whatever provider your machine resolves. On Intel/OpenVINO hosts the [device compatibility
-sweep](model-evaluation.md) also clears the gate.
+image flavor and tests only providers that image actually owns. Evidence is scoped to the exact
+image flavor, so switching images requires a new proof even for a shared provider such as CPU. The
+same [provider compatibility sweep](model-evaluation.md) backs the setup wizard, Model Manager, and
+Detection Diagnostics.
 
 ## Inference Providers (CPU / CUDA / Intel OpenVINO)
 

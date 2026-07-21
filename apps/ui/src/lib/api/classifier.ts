@@ -46,6 +46,7 @@ export interface ClassifierStatus {
     inference_backend?: string;
     fallback_reason?: string | null;
     model_config_warnings?: string[];
+    host_available_providers?: string[];
     available_providers?: string[];
     provider_preference_order?: string[];
     cuda_enabled?: boolean;
@@ -350,9 +351,10 @@ export async function activateModel(modelId: string): Promise<ModelActionResult>
 export type ModelValidateResult = components['schemas']['ModelValidateResponse'];
 
 /**
- * Validate an installed model on this host: the backend trial-loads it, runs one
- * frame through it, and records whether it produced finite output here. Clears the
- * post-install selection gate on success and restores the previously active model.
+ * Validate an installed model on this host. The backend trial-activates it and
+ * isolates every provider in the running image/host/model intersection, requiring
+ * finite CPU-baseline-consistent output before recording eligibility and restoring
+ * the previously active model.
  */
 export async function validateModel(modelId: string): Promise<ModelValidateResult> {
     const response = await apiFetch(`${API_BASE}/models/${encodeURIComponent(modelId)}/validate`, {

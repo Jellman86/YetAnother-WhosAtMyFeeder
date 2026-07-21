@@ -12,6 +12,7 @@
     "audio_history": "Audio History",
     "jobs": "Jobs",
     "settings": "Settings",
+    "setup_wizard": "Setup wizard",
     "about": "About",
     "toggle_menu": "Toggle menu",
     "close_menu": "Close menu",
@@ -201,7 +202,7 @@
     },
     "data": {
       "title": "Data Management",
-      "tools_title": "Setup, backup & maintenance tools",
+      "tools_title": "Backup & maintenance tools",
       "records": "Total Records",
       "oldest": "Oldest Seen",
       "retention": "Retention",
@@ -1068,7 +1069,7 @@
       "model_manager_install_note": "Each step runs on your hardware. Nothing becomes active until validation passes.",
       "model_manager_install_stage_download": "Download model",
       "model_manager_device_sweeping": "Comparing your devices…",
-      "model_manager_device_set": "Fastest device: {provider}{ms} — set as your inference device.",
+      "model_manager_device_set": "Fastest verified provider: {provider}{ms} — it will be applied when this model is enabled.",
       "model_manager_installing_pct": "Downloading… {pct}%",
       "model_manager_install_downloaded": "Downloaded and verified.",
       "model_manager_install_already_downloaded": "Already downloaded.",
@@ -1134,7 +1135,9 @@
       "inference_diagnostics_title": "Runtime diagnostics",
       "image_flavor_label": "Image",
       "packaged_providers_label": "Packaged",
-      "image_flavor_mismatch": "The {provider} runtime is not included in the {flavor} image. Use the full image or a matching provider image, then recreate the container. CPU fallback remains available."
+      "image_flavor_mismatch": "The {provider} runtime is not included in the {flavor} image. Use the full image or a matching provider image, then recreate the container. CPU fallback remains available.",
+      "compat_unverified": "Not yet run on this host — run the check to verify the providers available in this image.",
+      "compat_test_subtitle": "Validates every provider available to this image and model against the CPU baseline."
     },
     "llm": {
       "title": "AI Insights",

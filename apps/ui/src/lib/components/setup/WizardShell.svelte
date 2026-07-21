@@ -41,7 +41,12 @@
 </script>
 
 <div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-900/60 to-brand-950/50 p-4 backdrop-blur-sm">
-    <div class="my-8 w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900">
+    <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={$_('nav.setup_wizard', { default: 'Setup wizard' })}
+        class="my-8 w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900"
+    >
         <!-- Header -->
         <div class="space-y-3 bg-gradient-to-r from-brand-50 via-accent-50 to-white px-6 py-4 dark:from-brand-950/40 dark:via-accent-950/20 dark:to-slate-900">
             <div class="flex items-center justify-between">

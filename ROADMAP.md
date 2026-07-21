@@ -103,16 +103,18 @@ The headline work that makes `3.0` a major version: a guided first run, a cleane
 surface, a codebase reviewed to the gold standard, and complete translations.
 
 #### First-run setup wizard 🧭
-**Priority:** P1 | **Effort:** L | **Status:** ✅ Shipped on `dev` — multi-part, hardware-validating, re-runnable from Settings ([design](docs/plans/2026-07-12-first-run-setup-wizard-design.md))
+**Priority:** P1 | **Effort:** L | **Status:** ✅ Shipped on `dev` — multi-part, hardware-validating, re-runnable from the main owner navigation ([design](docs/plans/2026-07-12-first-run-setup-wizard-design.md))
 
 A friendly, **skippable** guided setup that configures YA-WAMF end to end and — crucially —
-is **idempotent and re-runnable at any time** from Settings (running a step again is safe and
+is **idempotent and re-runnable at any time** from **Setup wizard** in the main menu (running a step again is safe and
 never clobbers unrelated config). Steps:
 
 - **Model selection with on-hardware validation** — pick a classifier and confirm it actually
-  loads and runs on the detected accelerator (reuse the model-eval / device-sweep machinery:
-  compile + finite-output + latency check per NPU/GPU/CPU), so the user leaves the step on a
-  model proven to work on *their* box.
+  loads and runs on the providers available to the running image. The shared provider sweep now
+  intersects the image package, host probe, and selected model; tests ONNX CPU/CUDA and OpenVINO
+  CPU/GPU/NPU as applicable; compares real-image output with a CPU baseline; and persists the
+  fastest verified provider. The wizard validates only the selected installed model, while the
+  Diagnostics surface can optionally download and test the whole registry.
 - **Integrations** — Frigate, BirdNET-Go, media servers, notifications: guided connect + test.
 - **Frigate settings** — cameras, recording-retention guidance, and the detection gates that
   drive the Event-Not-Found problem (`min_score` / `min_initialized` / `threshold`).
@@ -368,6 +370,10 @@ exit criteria; the broad initiatives do not block the release by default.
 images are delivered. The full compatibility image remains available, while additive CPU, Intel and
 CUDA images isolate large hardware stacks and remove build-only tooling/layers. Image promotion is
 gated by per-flavor startup checks and a shared-volume full → CPU → full integrity round trip.
+Runtime hardware validation is now governed by the same per-flavor contract, including CUDA in the
+full image even when OpenVINO CPU is also present. Evidence is scoped per model to the exact image
+flavor, failed reruns invalidate stale passes, and activation uses only a recommendation that still
+matches the current eligibility record.
 Remaining: DB query optimization (indexes, optional result caching, cursor pagination), further
 backend async hardening + a background task queue (ARQ/Celery), targeted virtual scrolling, and a
 benchmark suite for regression testing.

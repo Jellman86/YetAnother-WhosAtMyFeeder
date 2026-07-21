@@ -470,8 +470,8 @@
         }
 
         // Stage 2 — validate on this hardware and pick the fastest device. The backend
-        // sweeps just this model's devices (CPU / Intel GPU / NPU), records what passed,
-        // and sets the fastest as the inference provider.
+        // sweeps just this model across the providers owned by the running image
+        // (CPU / CUDA / Intel), records what passed, and selects the fastest result.
         set(1, { state: 'running', message: t('settings.detection.model_manager_device_sweeping', 'Comparing your devices…') });
         try {
             const result = await validateModel(model.id);
@@ -480,8 +480,8 @@
                 return;
             }
             const ms = result.latency_ms ? ` · ${Math.round(result.latency_ms)} ms/frame` : '';
-            const msg = result.provider_set
-                ? t('settings.detection.model_manager_device_set', 'Fastest device: {provider}{ms} — set as your inference device.', { provider: result.provider, ms })
+            const msg = result.best_provider
+                ? t('settings.detection.model_manager_device_set', 'Fastest verified provider: {provider}{ms} — it will be applied when this model is enabled.', { provider: result.best_provider, ms })
                 : t('settings.detection.model_manager_validate_ran_ok', 'Ran on {provider}{ms} and produced valid output.', { provider: result.provider, ms });
             set(1, { state: 'passed', message: msg });
         } catch (e) {

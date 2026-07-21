@@ -6,7 +6,7 @@ vi.mock('../api/setup', () => ({
         sections: [
             { id: 'account', status: 'attention', detail: 'Not configured' },
             { id: 'connection', status: 'ok', detail: 'http://frigate:5000' },
-            { id: 'cameras', status: 'attention', detail: 'No cameras selected' },
+            { id: 'cameras', status: 'ok', detail: 'All cameras' },
             { id: 'model', status: 'ok', detail: 'rope_vit_b14_inat21' },
             { id: 'quality', status: 'ok', detail: null },
             { id: 'integrations', status: 'optional', detail: 'None enabled' }
@@ -61,7 +61,7 @@ describe('setupWizardStore', () => {
 
     it('exposes section readiness after refresh', async () => {
         await setupWizardStore.refresh();
-        expect(setupWizardStore.statusFor('cameras')).toBe('attention');
+        expect(setupWizardStore.statusFor('cameras')).toBe('ok');
         expect(setupWizardStore.statusFor('connection')).toBe('ok');
         expect(setupWizardStore.detailFor('connection')).toBe('http://frigate:5000');
         expect(setupWizardStore.statusFor(null)).toBeNull();

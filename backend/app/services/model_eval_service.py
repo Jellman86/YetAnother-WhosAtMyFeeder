@@ -42,6 +42,7 @@ from app.services.eval.species_panel import (
     build_panel,
 )
 from app.utils.canonical_species import is_unknown_species_label
+from app.utils.runtime_flavor import get_image_flavor
 
 log = structlog.get_logger()
 
@@ -99,6 +100,7 @@ class ModelEvalRunner:
         sweep_devices: bool = False,
         compat_only: bool = False,
         sweep_all_models: bool = False,
+        model_ids: list[str] | None = None,
     ) -> str:
         if self.is_running():
             raise ModelEvalAlreadyRunning("a model evaluation run is already in progress")
@@ -121,6 +123,7 @@ class ModelEvalRunner:
                 sweep_devices=sweep_devices,
                 compat_only=compat_only,
                 sweep_all_models=sweep_all_models,
+                model_ids=model_ids,
             ),
             name=f"model_eval:{run_id}",
         )
@@ -231,6 +234,7 @@ class ModelEvalRunner:
         sweep_devices: bool = False,
         compat_only: bool = False,
         sweep_all_models: bool = False,
+        model_ids: list[str] | None = None,
     ) -> None:
         async with self._lock:
             try:
@@ -242,6 +246,7 @@ class ModelEvalRunner:
                     sweep_devices=sweep_devices,
                     compat_only=compat_only,
                     sweep_all_models=sweep_all_models,
+                    model_ids=model_ids,
                 )
             except asyncio.CancelledError:
                 log.info("model_eval_run_cancelled", run_id=run_id)
@@ -275,6 +280,7 @@ class ModelEvalRunner:
         sweep_devices: bool = False,
         compat_only: bool = False,
         sweep_all_models: bool = False,
+        model_ids: list[str] | None = None,
     ) -> None:
         from app.services.classifier_service import get_classifier
         from app.services.model_manager import model_manager
@@ -352,6 +358,15 @@ class ModelEvalRunner:
             for m in installed
             if m.ready and (m.metadata is None or (m.metadata.artifact_kind or "classifier") == "classifier")
         ]
+        requested_model_ids = {str(model_id).strip() for model_id in (model_ids or []) if str(model_id).strip()}
+        if requested_model_ids:
+            classifiers = [model for model in classifiers if model.id in requested_model_ids]
+            found_model_ids = {model.id for model in classifiers}
+            missing_model_ids = sorted(requested_model_ids - found_model_ids)
+            if missing_model_ids:
+                raise RuntimeError(
+                    f"requested classifier models are not installed and ready: {', '.join(missing_model_ids)}"
+                )
         if not classifiers:
             raise RuntimeError("no installed classifier models found")
 
@@ -361,9 +376,10 @@ class ModelEvalRunner:
         # real-image agreement per device) and skip the full accuracy scoring pass.
         # This is what the Detection Settings "Run compatibility check" button uses.
         if compat_only:
+            compatibility_payload: dict[str, Any] | None = None
             try:
                 if sweep_devices:
-                    await self._device_sweep(run_id, run_dir, classifiers)
+                    compatibility_payload = await self._device_sweep(run_id, run_dir, classifiers)
             finally:
                 if original_active and original_active != model_manager.active_model_id:
                     try:
@@ -386,7 +402,7 @@ class ModelEvalRunner:
                     total_images=total_images,
                     image_sources=image_sources_count,
                     region_label=region_label,
-                    models=[],
+                    models=_compatibility_model_summaries(compatibility_payload),
                     skipped_models=[],
                 ),
             )
@@ -767,30 +783,20 @@ class ModelEvalRunner:
                 },
             )
 
-    async def _device_sweep(self, run_id: str, run_dir: Path, classifiers: list) -> None:
-        """Compile + run every model on each available OpenVINO device and compare
-        each device's top-5 to the CPU baseline. Every compile runs in an isolated
-        subprocess so a GPU/NPU driver crash (e.g. CL_OUT_OF_RESOURCES / SIGABRT)
-        cannot take down the app process.
+    async def _device_sweep(self, run_id: str, run_dir: Path, classifiers: list) -> dict[str, Any]:
+        """Validate each model across the providers owned by this deployment.
+
+        The method name is retained for compatibility with stored run terminology.
+        The implementation is provider-aware: CPU, CUDA and OpenVINO targets are
+        selected from the image/host/model contract, then each is isolated in a
+        child process and compared against a real-image CPU baseline.
         """
+        from app.services.model_validation import (
+            sweep_model_devices,
+            write_eligibility_entry,
+            write_validation_record,
+        )
         from app.services.model_manager import model_manager
-
-        # Enumerating devices is safe; only compilation can crash, and that is
-        # isolated in the probe subprocess. CPU is the correctness baseline.
-        try:
-            import openvino as _ov
-
-            avail = list(_ov.Core().available_devices)
-        except Exception as e:
-            log.warning("model_eval_openvino_unavailable", error=str(e))
-            return
-        devices: list[str] = ["CPU"] if any(str(d).split(".")[0] == "CPU" for d in avail) else []
-        for d in avail:
-            base = str(d).split(".")[0]
-            if base in ("GPU", "NPU") and base not in devices:
-                devices.append(base)
-        if not devices:
-            return
 
         # Real bird images fetched earlier in the run — compare devices on these
         # (not just a synthetic gradient) so f16 NPU divergence on real data is caught.
@@ -798,6 +804,8 @@ class ModelEvalRunner:
         image_paths = await asyncio.to_thread(_list_eval_images, run_dir / IMAGES_SUBDIR, exts, 12)
 
         matrix: dict[str, Any] = {}
+        provider_order: list[str] = []
+        image_flavor = get_image_flavor()
         total = len(classifiers)
         for m_idx, model in enumerate(classifiers):
             await self._emit(
@@ -815,65 +823,94 @@ class ModelEvalRunner:
                 activated = False
             if not activated:
                 matrix[model.id] = {"error": "activation_failed"}
+                await asyncio.to_thread(
+                    write_eligibility_entry,
+                    model.id,
+                    [],
+                    run_id=run_id,
+                    image_flavor=image_flavor,
+                )
+                await asyncio.to_thread(
+                    write_validation_record,
+                    model.id,
+                    provider="cpu",
+                    ok=False,
+                    reason="model activation failed before provider validation",
+                )
                 continue
 
-            cpu_imgs: list[list[int]] | None = None
-            per_device: dict[str, Any] = {}
-            for dev in devices:
-                started = time.perf_counter()
-                report = await self._run_probe_subprocess(dev, timeout=300.0, image_paths=image_paths)
-                elapsed_ms = round((time.perf_counter() - started) * 1000.0, 1)
-                if report is None:
-                    per_device[dev] = {"compiles": False, "error": "crashed_or_timed_out", "latency_ms": elapsed_ms}
-                    continue
-                compile_info = report.get("compile") or {}
-                out = report.get("output_summary") or {}
-                # per-image top-5 (real images), falling back to the single synthetic probe
-                imgs = report.get("per_image_top_indices")
-                if not imgs:
-                    syn = report.get("output_top_indices")
-                    imgs = [syn] if syn else []
-                compiles = bool(compile_info.get("ok"))
-                finite = None
-                if compiles:
-                    finite = (
-                        bool(out.get("finite_count"))
-                        and not (out.get("nan_count") or 0)
-                        and not ((out.get("pos_inf_count") or 0) + (out.get("neg_inf_count") or 0))
-                    )
-                entry: dict[str, Any] = {
-                    "compiles": compiles,
-                    "error": compile_info.get("error"),
-                    "finite": finite,
-                    "images_evaluated": len([t for t in imgs if t]),
-                    "latency_ms": elapsed_ms,
-                }
-                if dev == "CPU" and compiles:
-                    cpu_imgs = imgs
-                if dev != "CPU" and compiles and cpu_imgs:
-                    overlaps: list[int] = []
-                    top1_hits = 0
-                    n = 0
-                    for i, dtop in enumerate(imgs):
-                        ctop = cpu_imgs[i] if i < len(cpu_imgs) else []
-                        if not dtop or not ctop:
-                            continue
-                        n += 1
-                        overlaps.append(len(set(dtop) & set(ctop)))
-                        if dtop[0] == ctop[0]:
-                            top1_hits += 1
-                    if n:
-                        entry["images_compared"] = n
-                        entry["top1_match_rate"] = round(top1_hits / n, 3)
-                        entry["mean_top5_overlap"] = round(sum(overlaps) / n, 2)
-                        entry["matches_cpu"] = top1_hits == n
-                per_device[dev] = entry
-            matrix[model.id] = {"devices": per_device}
+            try:
+                result = await sweep_model_devices(model.id, image_paths=image_paths)
+            except Exception as e:
+                # One broken runtime/model pairing must not discard the results for
+                # every other installed model.  Keep the failure visible in the
+                # matrix and continue with the remaining candidates.
+                log.exception(
+                    "model_eval_provider_sweep_failed",
+                    run_id=run_id,
+                    model_id=model.id,
+                    error=str(e),
+                )
+                matrix[model.id] = {"error": f"provider_sweep_failed: {e}"}
+                await asyncio.to_thread(
+                    write_eligibility_entry,
+                    model.id,
+                    [],
+                    run_id=run_id,
+                    image_flavor=image_flavor,
+                )
+                await asyncio.to_thread(
+                    write_validation_record,
+                    model.id,
+                    provider="cpu",
+                    ok=False,
+                    reason=f"provider sweep failed: {e}",
+                )
+                continue
+            image_flavor = str(result.get("image_flavor") or image_flavor)
+            per_provider = {
+                str(entry.get("provider")): entry for entry in result.get("providers") or [] if entry.get("provider")
+            }
+            for provider in per_provider:
+                if provider not in provider_order:
+                    provider_order.append(provider)
+            best = result.get("best") or {}
+            matrix[model.id] = {
+                "baseline_provider": result.get("baseline_provider"),
+                "best_provider": best.get("provider"),
+                "providers": per_provider,
+                # Compatibility alias so historical UI code can read new runs.
+                "devices": per_provider,
+            }
+            await asyncio.to_thread(
+                write_eligibility_entry,
+                model.id,
+                list(result.get("eligible_providers") or []),
+                run_id=run_id,
+                image_flavor=image_flavor,
+            )
+            best_provider = str(best.get("provider") or "cpu")
+            await asyncio.to_thread(
+                write_validation_record,
+                model.id,
+                provider=best_provider,
+                ok=bool(result.get("eligible_providers")),
+                reason=(
+                    "validated against this image's providers on this host"
+                    if result.get("eligible_providers")
+                    else "model did not run correctly on any provider in this image"
+                ),
+                latency_ms=best.get("latency_ms"),
+            )
 
         payload = {
+            "schema_version": 2,
             "run_id": run_id,
             "generated_at": datetime.now(timezone.utc).isoformat(),
-            "devices": devices,
+            "image_flavor": image_flavor,
+            "providers": provider_order,
+            # Compatibility alias for previously shipped clients/artifacts.
+            "devices": provider_order,
             "image_count": len(image_paths),
             "models": matrix,
         }
@@ -881,40 +918,6 @@ class ModelEvalRunner:
             await asyncio.to_thread((run_dir / DEVICE_MATRIX_FILENAME).write_text, json.dumps(payload, indent=2))
         except OSError as e:
             log.warning("model_eval_device_matrix_write_failed", error=str(e))
-
-        # Persist a stable, per-host eligibility map the classifier resolver can
-        # consult, so this machine can use accelerators it validated even when the
-        # shared registry excludes them (older iGPUs). A device counts as eligible
-        # only if it compiled, produced finite output, and matched the CPU top-1 on
-        # every real image — CPU is always its own baseline.
-        dev_to_provider = {"CPU": "intel_cpu", "GPU": "intel_gpu", "NPU": "intel_npu"}
-        eligibility: dict[str, list[str]] = {}
-        for mid, row in matrix.items():
-            if not isinstance(row, dict) or row.get("error"):
-                continue
-            passed: list[str] = []
-            for dev, e in (row.get("devices") or {}).items():
-                prov = dev_to_provider.get(dev)
-                if not prov or not e.get("compiles") or e.get("finite") is False:
-                    continue
-                if dev == "CPU" or e.get("matches_cpu"):
-                    passed.append(prov)
-            if passed:
-                eligibility[mid] = passed
-        try:
-            await asyncio.to_thread(
-                (_eval_runs_root() / "device_eligibility.json").write_text,
-                json.dumps(
-                    {
-                        "generated_at": datetime.now(timezone.utc).isoformat(),
-                        "run_id": run_id,
-                        "models": eligibility,
-                    },
-                    indent=2,
-                ),
-            )
-        except OSError as e:
-            log.warning("model_eval_eligibility_write_failed", error=str(e))
 
         await self._emit(
             run_id,
@@ -925,53 +928,73 @@ class ModelEvalRunner:
                 "label": "device sweep complete",
             },
         )
-
-    async def _run_probe_subprocess(
-        self, device: str, *, timeout: float, image_paths: Optional[list[str]] = None
-    ) -> Optional[dict[str, Any]]:
-        """Probe the ACTIVE model on `device` in a child process; return the parsed
-        JSON report, or None on crash / timeout / parse failure. When image_paths are
-        given the probe runs those real images; otherwise it uses a synthetic image."""
-        import sys as _sys
-
-        try:
-            import app as _app_pkg
-
-            backend_root = str(Path(_app_pkg.__file__).resolve().parent.parent)
-        except Exception:
-            backend_root = None
-        args = [_sys.executable, "-m", "scripts.probe_openvino_bird_model", "--device", device]
-        if image_paths:
-            args += ["--images", ",".join(image_paths)]
-        try:
-            proc = await asyncio.create_subprocess_exec(
-                *args,
-                cwd=backend_root,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.DEVNULL,
-            )
-        except Exception as e:
-            log.warning("model_eval_probe_spawn_failed", device=device, error=str(e))
-            return None
-        try:
-            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=timeout)
-        except asyncio.TimeoutError:
-            try:
-                proc.kill()
-            except ProcessLookupError:
-                pass
-            return None
-        if proc.returncode != 0:
-            return None
-        try:
-            text = stdout.decode("utf-8", "replace")
-            start = text.find("{")
-            return json.loads(text[start:]) if start >= 0 else None
-        except Exception:
-            return None
+        return payload
 
 
 # ---------- helpers ----------
+
+
+def _compatibility_model_summaries(payload: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """Project a provider matrix into the normal run-summary shape.
+
+    Compatibility-only callers (notably the setup wizard) consume ``summary.json``
+    while Diagnostics consumes ``device_matrix.json``. Both now report the same
+    result instead of the wizard receiving an empty model list.
+    """
+
+    summaries: list[dict[str, Any]] = []
+    for model_id, row in ((payload or {}).get("models") or {}).items():
+        provider_rows = (row or {}).get("providers") or (row or {}).get("devices") or {}
+        best_provider = (row or {}).get("best_provider")
+        best = provider_rows.get(best_provider) or {}
+        passed = [entry for entry in provider_rows.values() if entry.get("ok")]
+        failed = [provider for provider, entry in provider_rows.items() if not entry.get("ok")]
+        error = (row or {}).get("error")
+        warnings: list[dict[str, str]] = []
+        if error or not passed:
+            warnings.append(
+                {
+                    "code": "provider_validation_failed",
+                    "message": str(error or "No provider produced baseline-consistent finite output."),
+                    "severity": "critical",
+                }
+            )
+        elif failed:
+            warnings.append(
+                {
+                    "code": "provider_validation_partial",
+                    "message": f"Unavailable or incompatible providers: {', '.join(failed)}",
+                    "severity": "warning",
+                }
+            )
+        summaries.append(
+            {
+                "model_id": model_id,
+                "active_provider": best_provider,
+                "requested_provider": "validation_sweep",
+                "device": best.get("device") or best_provider,
+                "ready": bool(passed),
+                "ready_reason": "provider_validated" if passed else "provider_validation_failed",
+                "validated_providers": [provider for provider, entry in provider_rows.items() if entry.get("ok")],
+                "failed_providers": failed,
+                "images_evaluated": max(
+                    (int(entry.get("images_evaluated") or 0) for entry in provider_rows.values()),
+                    default=0,
+                ),
+                "top1_accuracy": 0.0,
+                "top3_accuracy": 0.0,
+                "top5_accuracy": 0.0,
+                "abstention_rate": 0.0,
+                "high_confidence_unknown_rate": 0.0,
+                "mean_latency_ms": best.get("latency_ms"),
+                "p50_latency_ms": best.get("latency_ms"),
+                "p95_latency_ms": best.get("latency_ms"),
+                "shared_core_top1": 0,
+                "regional_top1": 0,
+                "warnings": warnings,
+            }
+        )
+    return summaries
 
 
 def _safe_div(numerator: int, denominator: int) -> float:

@@ -3,6 +3,7 @@
     import { themeStore } from '../stores/theme.svelte';
     import { layoutStore } from '../stores/layout.svelte';
     import { authStore } from '../stores/auth.svelte';
+    import { setupWizardStore } from '../stores/setup_wizard.svelte';
     import { updateStatusStore } from '../stores/update_status.svelte';
     import { _ } from 'svelte-i18n';
     import BrandMark from './BrandMark.svelte';
@@ -23,30 +24,48 @@
     // Direct reactive access to stores
     let collapsed = $derived(layoutStore.sidebarCollapsed);
 
-    const allNavItems = $derived.by(() => ([
-        { path: '/', label: $_('nav.dashboard'), icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-        { path: '/events', label: $_('nav.explorer'), icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
-        { path: '/species', label: $_('nav.leaderboard'), icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-        { path: '/settings', label: $_('nav.settings'), icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z', requiresAuth: true },
-        { path: '/about', label: $_('nav.about'), icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+    type NavItem = {
+        kind: 'route' | 'action';
+        path?: string;
+        action?: 'setup_wizard';
+        label: string;
+        icon: string;
+        requiresAuth?: boolean;
+    };
+
+    const allNavItems = $derived.by((): NavItem[] => ([
+        { kind: 'route', path: '/', label: $_('nav.dashboard'), icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
+        { kind: 'route', path: '/events', label: $_('nav.explorer'), icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
+        { kind: 'route', path: '/species', label: $_('nav.leaderboard'), icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+        { kind: 'route', path: '/settings', label: $_('nav.settings'), icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z', requiresAuth: true },
+        { kind: 'action', action: 'setup_wizard', label: $_('nav.setup_wizard'), icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2m-4 0a2 2 0 002 2h0a2 2 0 002-2m-4 7l2 2 4-4', requiresAuth: true },
+        { kind: 'route', path: '/about', label: $_('nav.about'), icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
     ]));
 
     // Filter nav items based on auth status
     const navItems = $derived(allNavItems.filter(item => !item.requiresAuth || authStore.showSettings));
 
-    function handleNavClick(path: string) {
+    function navigateAndClose(path: string): void {
         onNavigate(path);
-        // Close mobile sidebar after navigation
-        if (onMobileClose) {
-            onMobileClose();
-        }
+        onMobileClose?.();
     }
 
-    function isRouteActive(itemPath: string): boolean {
-        if (itemPath === '/') {
+    function handleNavClick(item: NavItem) {
+        if (item.kind === 'action' && item.action === 'setup_wizard') {
+            setupWizardStore.open('rerun');
+        } else if (item.path) {
+            navigateAndClose(item.path);
+            return;
+        }
+        onMobileClose?.();
+    }
+
+    function isRouteActive(item: NavItem): boolean {
+        if (item.kind !== 'route' || !item.path) return false;
+        if (item.path === '/') {
             return currentRoute === '/';
         }
-        return currentRoute.startsWith(itemPath);
+        return currentRoute.startsWith(item.path);
     }
 </script>
 
@@ -68,7 +87,7 @@
     <div class="relative flex flex-col items-center w-full p-4 border-b border-slate-200/80 dark:border-slate-700/50 text-center gap-3">
         <button
             class="flex flex-col items-center gap-3 focus-ring rounded-lg p-1 -m-1"
-            onclick={() => handleNavClick('/')}
+            onclick={() => navigateAndClose('/')}
         >
             <BrandMark
                 alt={$_('app.title')}
@@ -93,12 +112,14 @@
         {#each navItems as item}
             <button
                 class="nav-button w-full flex items-center gap-3 text-left"
-                class:nav-button-active={isRouteActive(item.path)}
-                class:nav-button-inactive={!isRouteActive(item.path)}
-                onclick={() => handleNavClick(item.path)}
+                class:nav-button-active={isRouteActive(item)}
+                class:nav-button-inactive={!isRouteActive(item)}
+                onclick={() => handleNavClick(item)}
                 title={collapsed ? item.label : ''}
+                aria-label={item.label}
+                aria-haspopup={item.kind === 'action' ? 'dialog' : undefined}
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
                 </svg>
                 {#if !collapsed}

@@ -11,6 +11,7 @@
     "leaderboard": "リーダーボード",
     "audio_history": "音声履歴",
     "settings": "設定",
+    "setup_wizard": "セットアップウィザード",
     "about": "このアプリについて",
     "toggle_menu": "メニューの切り替え",
     "collapse_sidebar": "サイドバーを折りたたむ",
@@ -706,7 +707,7 @@
       "clear_feedback_confirm": "パーソナライズされた再ランキングデータをすべて消去してもよろしいですか?AI はベースラインの精度に戻り、元に戻すことはできません。"
     },
     "data": {
-      "tools_title": "セットアップ、バックアップ、メンテナンス",
+      "tools_title": "バックアップとメンテナンス",
       "title": "データ管理",
       "records": "総レコード数",
       "oldest": "最古の記録",
@@ -1001,7 +1002,7 @@
       "model_manager_install_note": "各ステップはお使いのハードウェアで実行されます。検証に合格するまで何も有効になりません。",
       "model_manager_install_stage_download": "モデルをダウンロード",
       "model_manager_device_sweeping": "デバイスを比較しています…",
-      "model_manager_device_set": "最速のデバイス: {provider}{ms} — 推論デバイスに設定しました。",
+      "model_manager_device_set": "検証済みの最速プロバイダー: {provider}{ms} — このモデルを有効にすると適用されます。",
       "model_manager_installing_pct": "ダウンロード中… {pct}%",
       "model_manager_install_downloaded": "ダウンロードして検証しました。",
       "model_manager_install_already_downloaded": "ダウンロード済み。",
@@ -1077,7 +1078,9 @@
       "inference_diagnostics_title": "ランタイム診断",
       "image_flavor_label": "イメージ",
       "packaged_providers_label": "同梱済み",
-      "image_flavor_mismatch": "{provider} ランタイムは {flavor} イメージに含まれていません。完全版イメージまたは対応するプロバイダー用イメージを使用し、コンテナを再作成してください。CPU フォールバックは引き続き利用できます。"
+      "image_flavor_mismatch": "{provider} ランタイムは {flavor} イメージに含まれていません。完全版イメージまたは対応するプロバイダー用イメージを使用し、コンテナを再作成してください。CPU フォールバックは引き続き利用できます。",
+      "compat_unverified": "このホストではまだ実行されていません。このイメージで利用可能なプロバイダーを検証するにはチェックを実行してください。",
+      "compat_test_subtitle": "このイメージとモデルで利用可能な各プロバイダーを CPU ベースラインと比較して検証します。"
     },
     "llm": {
       "title": "AI インサイト",

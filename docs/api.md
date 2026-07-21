@@ -198,8 +198,8 @@ Notes:
 - `GET /api/models/families/resolved` (owner)
 - `POST /api/models/{model_id}/download` (owner)
 - `GET /api/models/download-status/{model_id}` (owner)
-- `POST /api/models/{model_id}/validate` (owner) — trial-loads the model on this host, runs one frame through it, and records whether it produced finite output. Clears the post-install selection gate on success and restores the previously active model.
-- `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the model has not been validated on this host (unless it is a bundled model or the one already active).
+- `POST /api/models/{model_id}/validate` (owner) — trial-activates the model, validates every provider in the running image/host/model intersection in isolated processes, compares accelerator output with a CPU baseline, records provider eligibility and median inference latency, chooses the fastest passing provider, and restores the previously active model.
+- `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the model has not been validated in the current image on this host (unless it is bundled or already active); after activation succeeds, applies the fastest still-eligible provider recorded by the shared validation engine.
 
 `GET /api/classifier/status` separates packaging, hardware availability, and the
 active model session. Important deployment fields are:
@@ -209,6 +209,7 @@ active model session. Important deployment fields are:
 | `image_flavor` | Image-owned runtime family: `full`, `cpu`, `intel`, `cuda`, `rpi`, or `unknown` outside a published image. |
 | `packaged_inference_providers` | Providers the image is designed to contain. This does not claim a host device works. |
 | `image_flavor_warning` | `selected_provider_not_packaged` when the saved explicit provider is outside this image; otherwise `null`. |
+| `host_available_providers` | Providers packaged in this image whose runtime/device probe passed, before applying a model-specific compatibility filter. Used when choosing a different model. |
 | `available_providers` | Providers packaged in this image whose runtime/device probe passed and which the active model supports, ordered with the active recovery path first and other valid manual choices afterwards. |
 | `provider_preference_order` | The active provider followed by the concrete providers the current runtime will try if inference recovery is required. This is a subset of `available_providers`. |
 | `selected_provider` | Saved preference from configuration. An image mismatch does not rewrite it. |
@@ -220,6 +221,17 @@ Use these fields together. For example, an Intel image can legitimately report
 was not passed through or the active model does not support that provider.
 See [Hardware Acceleration](setup/hardware-acceleration.md) for the complete
 image/provider contract.
+
+The owner-only model-evaluation API accepts `sweep_devices`, `compat_only`,
+`sweep_all_models`, and an optional `model_ids` list on
+`POST /api/diagnostics/model-eval/runs`. The setup wizard sends its selected installed
+model as the sole `model_ids` entry; Diagnostics defaults to installed models and can
+opt into downloading the full registry. Compatibility runs publish their normal
+summary plus `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with
+`artifact=device_matrix.json`. Its provider matrix records image flavor, baseline,
+compile/finite-output status, real-image agreement, eligibility, and inference latency.
+Compatibility summaries also expose `validated_providers` and `failed_providers` per model; the
+fastest passing provider becomes the current-image activation recommendation.
 
 ### AI
 

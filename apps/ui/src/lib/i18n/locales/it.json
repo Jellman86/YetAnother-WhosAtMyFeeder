@@ -11,6 +11,7 @@
     "leaderboard": "Classifica",
     "audio_history": "Cronologia audio",
     "settings": "Impostazioni",
+    "setup_wizard": "Configurazione guidata",
     "about": "Informazioni",
     "toggle_menu": "Attiva/disattiva menu",
     "collapse_sidebar": "Comprimi barra laterale",
@@ -715,7 +716,7 @@
       "clear_feedback_confirm": "Sei sicuro di voler cancellare tutti i dati di re-ranking personalizzato? L'IA tornerà alla sua precisione di base e l'operazione non può essere annullata."
     },
     "data": {
-      "tools_title": "Configurazione, backup e manutenzione",
+      "tools_title": "Backup e manutenzione",
       "title": "Gestione dati",
       "records": "Totale record",
       "oldest": "Più vecchio",
@@ -1010,7 +1011,7 @@
       "model_manager_install_note": "Ogni passaggio viene eseguito sul tuo hardware. Nulla diventa attivo finché la convalida non è superata.",
       "model_manager_install_stage_download": "Scarica modello",
       "model_manager_device_sweeping": "Confronto dei tuoi dispositivi…",
-      "model_manager_device_set": "Dispositivo più veloce: {provider}{ms} — impostato come dispositivo di inferenza.",
+      "model_manager_device_set": "Provider verificato più veloce: {provider}{ms} — verrà applicato quando questo modello sarà abilitato.",
       "model_manager_installing_pct": "Download… {pct}%",
       "model_manager_install_downloaded": "Scaricato e verificato.",
       "model_manager_install_already_downloaded": "Già scaricato.",
@@ -1086,7 +1087,9 @@
       "inference_diagnostics_title": "Diagnostica runtime",
       "image_flavor_label": "Immagine",
       "packaged_providers_label": "Inclusi",
-      "image_flavor_mismatch": "Il runtime {provider} non è incluso nell’immagine {flavor}. Usa l’immagine completa o quella del provider corrispondente, quindi ricrea il container. Il fallback sulla CPU rimane disponibile."
+      "image_flavor_mismatch": "Il runtime {provider} non è incluso nell’immagine {flavor}. Usa l’immagine completa o quella del provider corrispondente, quindi ricrea il container. Il fallback sulla CPU rimane disponibile.",
+      "compat_unverified": "Non ancora eseguito su questo host: avvia il controllo per verificare i provider disponibili in questa immagine.",
+      "compat_test_subtitle": "Convalida ogni provider disponibile per questa immagine e questo modello rispetto al riferimento CPU."
     },
     "llm": {
       "title": "Analisi IA",
