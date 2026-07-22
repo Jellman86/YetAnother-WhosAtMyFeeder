@@ -185,6 +185,7 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
         "input_source": "frigate_snapshot",
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],
+        "restore_frigate_snapshot_crop": True,
     }
     service._save_results.assert_awaited_once_with(
         "evt-batch-fallback",

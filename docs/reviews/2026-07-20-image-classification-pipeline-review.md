@@ -120,8 +120,10 @@ full frame even when a crop detector is available. The original snapshot classif
 available and the video job can still report completion without replacing the primary species.
 
 Snapshot fallback now also carries durable provenance. Known cache metadata is preserved; an
-ended Frigate event is never assumed to honour a live crop request; and legacy cache entries with
-unknown provenance are treated as uncropped. The detection detail UI labels snapshot fallbacks as
+ended Frigate event is fetched explicitly as a full frame; and legacy cache entries with unknown
+provenance are treated as uncropped. An aligned completed snapshot restores Frigate's tracked-object
+crop before model inference independently of the model's detector-crop policy, then uses the same
+acceptance gate as live ingest. The detection detail UI labels snapshot fallbacks as
 single-frame results rather than implying that temporal video evidence produced them. Media-cache
 metadata describes the bytes actually retained, while classification provenance follows any
 additional Frigate-hint or detector crop that reached model preprocessing. Historical backfill uses

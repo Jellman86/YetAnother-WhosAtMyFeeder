@@ -130,16 +130,18 @@ Frigate 0.17 [selects one best frame over the completed track](https://docs.frig
 YA-WAMF fetches its unannotated,
 uncropped, full-resolution clean copy, anchors a crop to Frigate's final tracked box, and scores that
 against independent recording frames. Keep `snapshots.clean_copy: True`, `timestamp: False`,
-`bounding_box: False`, and `crop: False`. Frigate ignores snapshot query overrides after an event
-ends, so a pre-cropped regular snapshot is not a safe substitute for the clean copy.
+`bounding_box: False`, and `crop: False`. Completed-event query transformations depend on the Frigate
+version and whether a clean saved snapshot is available, so YA-WAMF deliberately requests the
+uncropped representation and reconstructs the tracked-object crop locally.
 
 That completed-event behaviour also applies to detection backfill and snapshot reclassification.
-YA-WAMF treats the returned file as a full frame and forwards Frigate's validated `data.box` and
-`data.region` only when those coordinates are aligned with that saved snapshot. A live/pre-cropped
-snapshot is not cropped twice, and a full frame sampled from another recording moment does not reuse
-the final event box. Historical bird events that remain below the species classifier's absolute
-confidence floor are imported as **Unknown Bird** rather than disappearing; the cached snapshot can
-then enter best-quality refinement or later video analysis.
+YA-WAMF uses Frigate's square snapshot geometry (1.1× the tracked box with at least 300 pixels of
+context) when validated `box` or `region` coordinates are aligned with that saved snapshot. This
+restores the input supplied to live classification and is independent of the model's optional local
+crop-detector policy. A live/pre-cropped snapshot is not cropped twice, and a full frame sampled from
+another recording moment does not reuse the final event box. The resulting classification then passes
+through exactly the same confidence and filtering gate as a live detection; below-floor results remain
+visible in the backfill reason counts rather than being stored under a different historical-only rule.
 
 ### Reolink 6MP/4K cameras
 

@@ -318,15 +318,16 @@ Backfill accepts `day`, `week`, `month`, or `custom`. Custom `start_date` and `e
 calendar dates in the browser timezone, and the final day is inclusive. Detection import is
 idempotent by Frigate event ID: a stronger image result can update classification fields, but it
 preserves existing audio confirmation, weather, same-species taxonomy, the strongest Frigate score,
-and sublabel evidence. A valid Frigate bird event with a classifier result below the absolute
-confidence floor is persisted as `Unknown Bird` rather than counted as imported and then discarded.
-For completed clean-copy snapshots, valid Frigate box/region metadata guides crop-enabled models;
-already-cropped and temporally unaligned cached images do not receive those coordinates. Taxonomy
-from a replaced species is cleared rather than attached to the new identity. Missing cached snapshots
-can still be repaired for an existing row. Frigate history fetch or pagination failures fail the job
-explicitly; partial history is never reported as a completed empty import. Job status includes
-`last_progress_at`, structured skip/error reason counts, and a terminal message. A completed detection
-import queues an only-missing weather pass when the maintenance lane becomes available.
+and sublabel evidence. Backfill applies the same confidence, abstention, blocked-species, and trusted-
+sublabel rules as live ingest. Completed snapshots are requested explicitly without a crop and valid,
+aligned Frigate box/region metadata restores Frigate's tracked-object crop locally before that shared
+gate, independent of the selected classifier's own detector-crop policy. Already-cropped and
+temporally unaligned cached images do not receive those coordinates. Taxonomy from a replaced species
+is cleared rather than attached to the new identity. Missing cached snapshots can still be repaired
+for an existing row. Frigate history fetch or pagination failures fail the job explicitly; partial
+history is never reported as a completed empty import. Job status includes `last_progress_at`,
+structured skip/error reason counts, and a terminal message. A completed detection import queues an
+only-missing weather pass when the maintenance lane becomes available.
 
 ### Jobs
 

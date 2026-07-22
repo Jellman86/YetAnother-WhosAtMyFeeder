@@ -4372,6 +4372,86 @@ async def test_classifier_service_prefers_frigate_box_hint_before_detector(mock_
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_restores_completed_frigate_crop_when_model_crop_policy_is_disabled(
+    mock_tflite, mock_os_path_exists
+):
+    class _CropAwareBirdModel:
+        def __init__(self):
+            self.loaded = True
+            self.error = None
+            self.labels = ["Robin"]
+            self.seen_images = []
+
+        def classify(self, image, input_context=None):
+            self.seen_images.append(image)
+            return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        bird_model = _CropAwareBirdModel()
+        service._models["bird"] = bird_model
+        service._bird_crop_service = None
+        spec_resolver = MagicMock(return_value={"crop_generator": {"enabled": False}})
+        service._resolve_active_bird_model_spec = spec_resolver
+
+        image = Image.new("RGB", (800, 600), color="red")
+        results = service.classify(
+            image,
+            input_context={
+                "is_cropped": False,
+                "event_id": "evt-completed",
+                "input_source": "frigate_snapshot",
+                "frigate_box": [0.25, 0.25, 0.25, 0.25],
+                "restore_frigate_snapshot_crop": True,
+            },
+        )
+
+        assert results[0]["label"] == "Robin"
+        assert results[0]["input_source"] == "snapshot_frigate_hint_crop"
+        assert results[0]["input_is_cropped"] is True
+        assert bird_model.seen_images[0].size == (300, 300)
+        spec_resolver.assert_not_called()
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_never_restores_frigate_crop_over_known_crop(mock_tflite, mock_os_path_exists):
+    class _CropAwareBirdModel:
+        def __init__(self):
+            self.loaded = True
+            self.error = None
+            self.labels = ["Robin"]
+            self.seen_images = []
+
+        def classify(self, image, input_context=None):
+            self.seen_images.append(image)
+            return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        bird_model = _CropAwareBirdModel()
+        service._models["bird"] = bird_model
+        service._resolve_active_bird_model_spec = MagicMock(return_value={"crop_generator": {"enabled": True}})
+
+        image = Image.new("RGB", (120, 120), color="red")
+        results = service.classify(
+            image,
+            input_context={
+                "is_cropped": True,
+                "input_source": "frigate_snapshot_cropped",
+                "frigate_box": [0.25, 0.25, 0.5, 0.5],
+                "restore_frigate_snapshot_crop": True,
+            },
+        )
+
+        assert bird_model.seen_images[0] is image
+        assert results[0]["input_source"] == "frigate_snapshot_cropped"
+        assert results[0]["input_is_cropped"] is True
+        service._resolve_active_bird_model_spec.assert_not_called()
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_can_prefer_crop_model_before_frigate_hint(mock_tflite, mock_os_path_exists):
     class _CropAwareBirdModel:
         def __init__(self):

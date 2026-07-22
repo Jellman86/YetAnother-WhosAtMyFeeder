@@ -201,8 +201,6 @@ class DetectionService:
         frigate_sub_label: str = None,
         frigate_score: float = None,
         frigate_sub_label_score: float = None,
-        *,
-        preserve_low_confidence_as_unknown: bool = False,
     ) -> tuple[dict | None, str | None]:
         """Return the first classifier result that survives filtering.
 
@@ -211,7 +209,6 @@ class DetectionService:
         labels, so lower-ranked concrete species should still get a chance.
         """
         last_reason: str | None = None
-        low_confidence_candidate: dict | None = None
         for classification in classifications or []:
             top, reason = self.filter_and_label(
                 classification,
@@ -222,13 +219,6 @@ class DetectionService:
             )
             if top:
                 return top, reason
-            if reason == "low_confidence" and low_confidence_candidate is None:
-                try:
-                    score = float(classification.get("score"))
-                except (TypeError, ValueError):
-                    score = float("nan")
-                if math.isfinite(score):
-                    low_confidence_candidate = {**classification, "score": score}
             last_reason = reason
         fallback_label = normalize_sub_label(frigate_sub_label)
         if settings.classification.trust_frigate_sublabel and fallback_label:
@@ -244,14 +234,6 @@ class DetectionService:
                 "source": "frigate_fallback",
                 "input_source": "frigate_sublabel",
             }, "frigate_fallback"
-        if preserve_low_confidence_as_unknown and low_confidence_candidate is not None:
-            return (
-                self._build_unknown_catchall(
-                    low_confidence_candidate,
-                    source="historical_low_confidence_catchall",
-                ),
-                "historical_unknown_catchall",
-            )
         return None, last_reason
 
     async def _is_blocked_with_taxonomy(

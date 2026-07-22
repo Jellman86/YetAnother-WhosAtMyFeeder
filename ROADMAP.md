@@ -185,9 +185,9 @@ and blockers remain distinct; queued work is not counted as running. The global 
 only prominent owner-triggered work, while routine per-detection work remains available in Jobs.
 The surface uses one divided information region, accessible progress semantics, translated status
 copy, explicit retry feedback, and no control that merely hides server-owned active work. Historical
-bird imports now remain lossless below the classifier floor by creating reviewable Unknown Bird
-records, while completed clean snapshots receive aligned Frigate crop hints and stale/unaligned
-coordinates are rejected.
+bird imports now use the same acceptance gate as live detections. Completed snapshots are fetched in
+a deterministic full-frame representation and receive a locally restored, aligned Frigate crop before
+that shared gate, while already-cropped and temporally unaligned inputs reject stale coordinates.
 
 #### File-by-file code-quality review 🔬
 **Priority:** P1 | **Effort:** XL | **Status:** ✅ Completed

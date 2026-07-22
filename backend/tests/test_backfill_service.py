@@ -137,12 +137,13 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
         "input_source": "frigate_snapshot",
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],
+        "restore_frigate_snapshot_crop": True,
     }
     save_mock.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_process_historical_event_preserves_low_confidence_bird_as_unknown(monkeypatch):
+async def test_process_historical_event_applies_same_low_confidence_gate_as_live(monkeypatch):
     classifier = MagicMock()
     classifier.classify_async_background = AsyncMock(
         return_value=[
@@ -186,19 +187,12 @@ async def test_process_historical_event_preserves_low_confidence_bird_as_unknown
         }
     )
 
-    assert status == "new"
-    assert reason is None
-    assert save_mock.await_args.kwargs["classification"] == {
-        "label": "Unknown Bird",
-        "score": 0.12,
-        "index": 4,
-        "source": "historical_low_confidence_catchall",
-        "inference_provider": "intel_cpu",
-        "inference_backend": "openvino",
-        "model_id": "convnext_large_inat21",
-        "input_source": "snapshot_frigate_hint_crop",
-        "input_is_cropped": True,
-    }
+    assert status == "skipped"
+    assert reason == "low_confidence"
+    save_mock.assert_not_awaited()
+    assert (
+        classifier.classify_async_background.await_args.kwargs["input_context"]["restore_frigate_snapshot_crop"] is True
+    )
 
 
 @pytest.mark.asyncio

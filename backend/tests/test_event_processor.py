@@ -1561,7 +1561,13 @@ async def test_classify_snapshot_does_not_claim_crop_for_ended_frigate_event():
         "input_source": "frigate_snapshot",
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],
+        "restore_frigate_snapshot_crop": True,
     }
+    mock_frigate.get_snapshot_with_error.assert_awaited_once_with(
+        "evt-ended",
+        crop=False,
+        quality=95,
+    )
 
 
 @pytest.mark.asyncio

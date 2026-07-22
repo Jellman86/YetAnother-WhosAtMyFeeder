@@ -74,12 +74,13 @@ def build_snapshot_classification_input_context(
 ) -> dict[str, object]:
     """Build the canonical context for a snapshot classification request.
 
-    Completed Frigate events return their configured saved snapshot even when
-    ``crop=true`` is requested. When that snapshot is a clean full frame, pass
-    the event's tracked box/region so crop-enabled classifiers can use a guided
-    crop before their detector and fail safely to the original frame. A snapshot
-    already known to be cropped must never receive those hints, which prevents
-    applying full-frame coordinates to a smaller image.
+    Completed Frigate snapshots are fetched explicitly as full frames so their
+    representation does not depend on the installed Frigate version or saved
+    snapshot format. When that frame is aligned with the event metadata, request
+    local reconstruction of Frigate's crop before classification. This is input
+    restoration, not the selected model's optional crop-detector policy. A
+    snapshot already known to be cropped must never receive those hints, which
+    prevents applying full-frame coordinates to a smaller image.
     """
     context: dict[str, object] = {
         "is_cropped": bool(provenance.is_cropped),
@@ -89,14 +90,17 @@ def build_snapshot_classification_input_context(
     if provenance.is_cropped or provenance.input_source not in _FRIGATE_HINT_ALIGNED_SNAPSHOT_SOURCES:
         return context
 
-    payload = event_data.get("data") if isinstance(event_data, dict) else None
+    event_payload = event_data if isinstance(event_data, dict) else {}
+    payload = event_payload.get("data")
     payload = payload if isinstance(payload, dict) else {}
-    frigate_box = _validated_frigate_hint(payload.get("box"))
-    frigate_region = _validated_frigate_hint(payload.get("region"))
+    frigate_box = _validated_frigate_hint(payload.get("box") or event_payload.get("box"))
+    frigate_region = _validated_frigate_hint(payload.get("region") or event_payload.get("region"))
     if frigate_box is not None:
         context["frigate_box"] = frigate_box
     if frigate_region is not None:
         context["frigate_region"] = frigate_region
+    if frigate_box is not None or frigate_region is not None:
+        context["restore_frigate_snapshot_crop"] = True
     return context
 
 
@@ -153,5 +157,6 @@ async def load_snapshot_classification_input(
             metadata = None
         return cached, cached_snapshot_input_provenance(metadata)
 
-    snapshot = await client.get_snapshot(event_id, crop=True, quality=95)
-    return snapshot, frigate_snapshot_input_provenance(event_data)
+    provenance = frigate_snapshot_input_provenance(event_data)
+    snapshot = await client.get_snapshot(event_id, crop=provenance.is_cropped, quality=95)
+    return snapshot, provenance

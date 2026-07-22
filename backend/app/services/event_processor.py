@@ -991,21 +991,23 @@ class EventProcessor:
         try:
             retry_budget = self._snapshot_unavailable_retry_budget(event)
             snapshot_data: bytes | None = None
-            event_snapshot_state = (
-                {
-                    "end_time": getattr(event, "end_time_ts", None),
-                    "data": getattr(event, "data", {}),
-                }
-                if bool(getattr(event, "end_time_known", False))
-                else None
-            )
+            # This is the live MQTT path: an absent/unknown end marker is an
+            # active event, while a known non-null end marker is completed.
+            # Keeping that distinction aligned with the requested Frigate
+            # representation prevents both missed crops and double-cropping.
+            event_snapshot_state = {
+                "end_time": (
+                    getattr(event, "end_time_ts", None) if bool(getattr(event, "end_time_known", False)) else None
+                ),
+                "data": getattr(event, "data", {}),
+            }
             snapshot_provenance = frigate_snapshot_input_provenance(event_snapshot_state)
             snapshot_source = snapshot_provenance.input_source
             last_snapshot_error: str | None = None
             for retry_index in range(retry_budget + 1):
                 snapshot_data, last_snapshot_error = await frigate_client.get_snapshot_with_error(
                     event.frigate_event,
-                    crop=True,
+                    crop=snapshot_provenance.is_cropped,
                     quality=95,
                 )
                 if snapshot_data:

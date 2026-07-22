@@ -682,6 +682,7 @@ async def test_reclassify_completed_snapshot_does_not_assume_crop_query_was_appl
             "input_source": "frigate_snapshot",
             "frigate_box": [0.2, 0.3, 0.4, 0.5],
             "frigate_region": [0.1, 0.2, 0.8, 0.9],
+            "restore_frigate_snapshot_crop": True,
         }
     finally:
         await _delete_detection(event_id)

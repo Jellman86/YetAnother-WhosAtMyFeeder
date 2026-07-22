@@ -91,14 +91,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   invalid-payload, stalled-pagination, and page-budget failures can no longer look like a successful
   empty import. A higher image-classification score preserves existing BirdNET audio, weather,
   same-species taxonomy, the strongest Frigate score, and sublabel evidence; stale taxonomy is
-  cleared when the stronger result changes species. Completed clean-copy snapshots now carry their
-  validated Frigate box/region into crop-enabled classification instead of silently becoming unguided
-  full frames. Valid Frigate bird events below the classifier's absolute confidence floor are retained
-  honestly as `Unknown Bird`, including runtime/input provenance, so the import is not lossy and HQ or
-  later video analysis can refine them. Already-cropped or temporally unaligned cached images are never
-  cropped with stale final-event coordinates. An existing row can still repair a missing cached
-  snapshot and enter the HQ replacement path. Custom ranges follow the browser timezone with an
-  inclusive final calendar day, automatic weather follow-up waits for the maintenance lane instead
+  cleared when the stronger result changes species. Completed snapshots are now fetched explicitly as
+  full frames and, when aligned Frigate box/region metadata exists, reconstruct Frigate's tracked-object
+  crop before classification—even when the selected model's own detector-crop policy is disabled.
+  Live and backfilled results use the same confidence, blocked-species, abstention, and Frigate-sublabel
+  gates; below-floor history remains skipped rather than gaining a backfill-only exception. Already-
+  cropped or temporally unaligned cached images are never cropped with stale final-event coordinates.
+  An existing row can still repair a missing cached snapshot and enter the HQ replacement path.
+  Custom ranges follow the browser timezone with an inclusive final calendar day, automatic weather
+  follow-up waits for the maintenance lane instead
   of being dropped, reset cancels and awaits active work before deleting data, and the watchdog
   reports idle jobs rather than penalizing a long job that is still progressing. The Settings result
   surface now exposes reason counts—including an explicit below-confidence count—while vanished

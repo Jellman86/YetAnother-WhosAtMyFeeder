@@ -241,7 +241,10 @@ class BackfillService:
 
         try:
             # Fetch snapshot from Frigate using centralized client
-            snapshot_data = await frigate_client.get_snapshot(frigate_event, crop=True, quality=95)
+            # Fetch a deterministic full-frame source. Completed-event crop query
+            # handling varies with the Frigate version and saved snapshot format;
+            # the aligned Frigate crop is reconstructed locally below.
+            snapshot_data = await frigate_client.get_snapshot(frigate_event, crop=False, quality=95)
             if not snapshot_data:
                 error_diagnostics_history.record(
                     source="backfill",
@@ -313,7 +316,6 @@ class BackfillService:
                 sub_label,
                 frigate_score,
                 parsed_sub_label.score,
-                preserve_low_confidence_as_unknown=True,
             )
             if not top:
                 if reason == "invalid_score":
