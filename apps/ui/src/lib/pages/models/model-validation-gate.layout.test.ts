@@ -44,4 +44,11 @@ describe('Model Manager guided install + selection gate', () => {
     it('cannot be dismissed mid-run', () => {
         expect(modelManagerSource).toContain('if (wizardBusy) return;');
     });
+
+    it('separates live runtime state from hardware-neutral model guidance', () => {
+        expect(modelManagerSource).toContain("getRuntimeProviderOrder(classifierStatus, getProviderSupport(model))");
+        expect(modelManagerSource).toContain('model_manager_current_runtime');
+        expect(modelManagerSource).toContain('model_manager_runtime_order');
+        expect(modelManagerSource).toContain("case 'intel_npu':");
+    });
 });

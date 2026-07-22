@@ -17,6 +17,7 @@ import {
     getVisibleTieredModelLineup,
     groupTieredModelLineup,
     categorizeModel,
+    MODEL_CATEGORY_INFO,
     selectSetupModelId,
     summarizeModelMetadata,
     type ClassifierStatus,
@@ -408,6 +409,12 @@ describe('categorizeModel', () => {
     it('returns cpu_high_accuracy for Elite / Very High accuracy without iGPU', () => {
         expect(categorizeModel(base({ accuracy_tier: 'Elite (91%+)', supported_inference_providers: ['cpu', 'intel_cpu'] }))).toBe('cpu_high_accuracy');
         expect(categorizeModel(base({ accuracy_tier: 'Very High (89%+)', supported_inference_providers: ['cpu'] }))).toBe('cpu_high_accuracy');
+    });
+
+    it('keeps model-fit labels independent from the currently active hardware', () => {
+        expect(MODEL_CATEGORY_INFO.cpu_high_accuracy.label).toBe('Highest accuracy');
+        expect(MODEL_CATEGORY_INFO.cpu_standard.label).toBe('Balanced');
+        expect(MODEL_CATEGORY_INFO.cpu_alternative.label).toBe('Architectural alternatives');
     });
 
     it('returns cpu_alternative for advanced_only experimental models', () => {

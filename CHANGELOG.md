@@ -52,6 +52,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   remain open.
 
 ### Fixed
+- **The Model Manager now reports the provider that is actually running.** Hardware-neutral
+  model recommendations no longer label high-accuracy models as CPU-only, and the active model
+  shows its live provider plus the backend's real automatic fallback order. Intel NPU is included,
+  unavailable providers stay hidden, and stale installed metadata cannot conceal the active path.
 - **HQ snapshots now improve on Frigate instead of accidentally replacing its best work.** Frigate's
   completed-track clean best frame and its snapshot-specific tracked-box crop are scored as protected baselines; a
   recording-derived frame can replace them only with a compatible species result and at least a

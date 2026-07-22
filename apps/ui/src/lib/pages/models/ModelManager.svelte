@@ -5,6 +5,7 @@
     import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, validateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
+    import { getRuntimeProviderOrder } from '../../settings/inference-providers';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
     let availableModels = $state<ModelMetadata[]>([]);
@@ -234,8 +235,8 @@
         if (Array.isArray(model.supported_inference_providers) && model.supported_inference_providers.length > 0) {
             return model.supported_inference_providers;
         }
-        if (model.runtime === 'onnx') return ['cpu', 'cuda', 'intel_cpu', 'intel_gpu'];
-        if (model.runtime === 'tflite') return ['cpu'];
+        // Older registries may not declare a provider contract. CPU is the only
+        // path that can be advertised safely without per-model validation.
         return ['cpu'];
     }
 
@@ -249,8 +250,10 @@
                 return t('settings.detection.model_manager_provider_intel_cpu', 'Intel CPU (OpenVINO)');
             case 'intel_gpu':
                 return t('settings.detection.model_manager_provider_intel_gpu', 'Intel GPU (OpenVINO)');
+            case 'intel_npu':
+                return t('settings.detection.model_manager_provider_intel_npu', 'Intel NPU (OpenVINO)');
             default:
-                return provider;
+                return formatMetadataLabel(provider);
         }
     }
 
@@ -260,6 +263,8 @@
                 return 'bg-accent-500/10 text-accent-700 dark:text-accent-300 border-accent-500/20';
             case 'intel_gpu':
                 return 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20';
+            case 'intel_npu':
+                return 'bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/20';
             case 'intel_cpu':
                 return 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20';
             default:
@@ -270,15 +275,8 @@
     function getDynamicProviderChips(model: ModelMetadata, active: boolean): Array<{ label: string; className: string; title: string }> {
         if (!active) return [];
 
-        const compileDevice = (classifierStatus?.openvino_model_compile_device || '').toUpperCase();
-        const compileForIntelGpuFailed = classifierStatus?.openvino_model_compile_ok === false && compileDevice === 'GPU';
-        const compileForIntelCpuFailed = classifierStatus?.openvino_model_compile_ok === false && compileDevice === 'CPU';
-        const providerOrder = ['cpu', 'cuda', 'intel_cpu', 'intel_gpu'];
         const activeProvider = classifierStatus?.active_provider ?? null;
-        const supportedProviders = getProviderSupport(model);
-
-        return providerOrder
-            .filter((p) => supportedProviders.includes(p))
+        return getRuntimeProviderOrder(classifierStatus, getProviderSupport(model))
             .map((provider) => {
                 const baseLabel = providerLabel(provider);
                 const isActive = activeProvider === provider;
@@ -290,58 +288,10 @@
                         title: t('settings.detection.active_provider_label', 'Active')
                     };
                 }
-
-                if (provider === 'cpu') {
-                    return {
-                        label: `${baseLabel}: ${t('settings.detection.model_manager_provider_available_suffix', 'Available')}`,
-                        className: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20',
-                        title: t('settings.detection.model_manager_provider_cpu_fallback_title', 'CPU fallback path is available')
-                    };
-                }
-
-                if (provider === 'cuda') {
-                    const available = classifierStatus?.cuda_available ?? false;
-                    return {
-                        label: `${baseLabel}: ${available ? t('settings.detection.model_manager_provider_available_suffix', 'Available') : t('settings.detection.model_manager_provider_unavailable_suffix', 'Unavailable')}`,
-                        className: available
-                            ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20'
-                            : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20',
-                        title: available ? t('settings.detection.model_manager_provider_cuda_available_title', 'CUDA provider is available on this host') : t('settings.detection.model_manager_provider_cuda_unavailable_title', 'CUDA provider is not available on this host')
-                    };
-                }
-
-                if (provider === 'intel_cpu') {
-                    if (compileForIntelCpuFailed) {
-                        return {
-                            label: `${baseLabel}: ${t('settings.detection.model_manager_provider_fallback_suffix', 'Fallback')}`,
-                            className: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20',
-                            title: t('settings.detection.model_manager_provider_openvino_cpu_fallback_title', 'OpenVINO CPU compile failed and fallback is active')
-                        };
-                    }
-                    const available = classifierStatus?.intel_cpu_available ?? false;
-                    return {
-                        label: `${baseLabel}: ${available ? t('settings.detection.model_manager_provider_available_suffix', 'Available') : t('settings.detection.model_manager_provider_unavailable_suffix', 'Unavailable')}`,
-                        className: available
-                            ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20'
-                            : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20',
-                        title: available ? t('settings.detection.model_manager_provider_openvino_cpu_available_title', 'OpenVINO CPU is available on this host') : t('settings.detection.model_manager_provider_openvino_cpu_unavailable_title', 'OpenVINO CPU is not available on this host')
-                    };
-                }
-
-                if (compileForIntelGpuFailed) {
-                    return {
-                        label: `${baseLabel}: ${t('settings.detection.model_manager_provider_fallback_suffix', 'Fallback')}`,
-                        className: 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/20',
-                        title: t('settings.detection.model_manager_provider_openvino_gpu_fallback_title', 'OpenVINO GPU compile failed and fallback is active')
-                    };
-                }
-                const available = classifierStatus?.intel_gpu_available ?? false;
                 return {
-                    label: `${baseLabel}: ${available ? t('settings.detection.model_manager_provider_available_suffix', 'Available') : t('settings.detection.model_manager_provider_unavailable_suffix', 'Unavailable')}`,
-                    className: available
-                        ? 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/20'
-                        : 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/20',
-                    title: available ? t('settings.detection.model_manager_provider_openvino_gpu_available_title', 'OpenVINO GPU is available on this host') : t('settings.detection.model_manager_provider_openvino_gpu_unavailable_title', 'OpenVINO GPU is not available on this host')
+                    label: `${baseLabel}: ${t('settings.detection.model_manager_provider_fallback_suffix', 'Fallback')}`,
+                    className: 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20',
+                    title: t('settings.detection.model_manager_provider_fallback_title', 'Automatic fallback in the order shown')
                 };
             });
     }
@@ -625,6 +575,7 @@
                     {@const download = downloadStatuses[model.id]}
                     {@const inProgress = download?.status === 'downloading' || download?.status === 'pending'}
                     {@const category = categorizeModel(model)}
+                    {@const runtimeProviderOrder = active ? getRuntimeProviderOrder(classifierStatus, getProviderSupport(model)) : []}
                     {@const dynamicProviderChips = getDynamicProviderChips(model, active)}
 
                     <section aria-labelledby="selected-model-name">
@@ -660,6 +611,25 @@
                                     </dt>
                                     <dd class="text-sm font-medium text-slate-800 dark:text-slate-100">{model.recommended_for}</dd>
                                 </div>
+                                {#if active && classifierStatus?.active_provider}
+                                    <div class="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-5" aria-live="polite">
+                                        <dt class="text-sm font-semibold text-slate-500 dark:text-slate-400">
+                                            {$_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}
+                                        </dt>
+                                        <dd class="text-sm text-slate-800 dark:text-slate-100">
+                                            <span class="inline-flex items-center gap-2 font-semibold">
+                                                <span class="h-2 w-2 rounded-full bg-accent-500" aria-hidden="true"></span>
+                                                {providerLabel(classifierStatus.active_provider)}
+                                            </span>
+                                            {#if runtimeProviderOrder.length > 1}
+                                                <span class="mt-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                                                    {$_('settings.detection.model_manager_runtime_order', { default: 'Automatic order' })}:
+                                                    {runtimeProviderOrder.map(providerLabel).join(' → ')}
+                                                </span>
+                                            {/if}
+                                        </dd>
+                                    </div>
+                                {/if}
                                 <div class="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-5">
                                     <dt class="text-sm font-semibold text-slate-500 dark:text-slate-400">
                                         {$_('settings.detection.model_manager_best_fit', { default: 'Best fit' })}
@@ -742,7 +712,9 @@
 
                                 <div>
                                     <h4 class="text-sm font-bold text-slate-900 dark:text-white">
-                                        {$_('settings.detection.model_manager_provider_pills', { default: 'Inference providers' })}
+                                        {active
+                                            ? $_('settings.detection.model_manager_runtime_order', { default: 'Automatic order' })
+                                            : $_('settings.detection.model_manager_provider_pills', { default: 'Supported providers' })}
                                     </h4>
                                     <div class="mt-2 flex flex-wrap gap-2">
                                         {#if dynamicProviderChips.length > 0}

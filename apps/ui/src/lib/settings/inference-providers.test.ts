@@ -3,6 +3,7 @@ import type { ClassifierStatus } from '../api/classifier';
 import {
     buildInferenceProviderChoices,
     getProviderPreferenceOrder,
+    getRuntimeProviderOrder,
 } from './inference-providers';
 
 const baseStatus: ClassifierStatus = {
@@ -33,6 +34,51 @@ describe('inference provider choices', () => {
             { value: 'intel_gpu', unavailable: false },
         ]);
         expect(getProviderPreferenceOrder(status)).toEqual(['intel_npu', 'intel_cpu', 'cpu']);
+        expect(getRuntimeProviderOrder(status, ['intel_npu', 'intel_cpu', 'cpu'])).toEqual([
+            'intel_npu',
+            'intel_cpu',
+            'cpu',
+        ]);
+    });
+
+    it('does not present available manual alternatives as automatic fallbacks', () => {
+        const status: ClassifierStatus = {
+            ...baseStatus,
+            available_providers: ['intel_npu', 'intel_gpu', 'intel_cpu', 'cpu'],
+            provider_preference_order: ['intel_npu', 'intel_cpu', 'cpu'],
+            active_provider: 'intel_npu',
+        };
+
+        expect(getRuntimeProviderOrder(status, ['intel_npu', 'intel_gpu', 'intel_cpu', 'cpu'])).toEqual([
+            'intel_npu',
+            'intel_cpu',
+            'cpu',
+        ]);
+    });
+
+    it('keeps the live provider visible when installed metadata is stale', () => {
+        const status: ClassifierStatus = {
+            ...baseStatus,
+            available_providers: ['intel_npu', 'intel_cpu', 'cpu'],
+            provider_preference_order: ['intel_npu', 'intel_cpu', 'cpu'],
+            active_provider: 'intel_npu',
+        };
+
+        expect(getRuntimeProviderOrder(status, ['intel_cpu', 'cpu'])).toEqual([
+            'intel_npu',
+            'intel_cpu',
+            'cpu',
+        ]);
+    });
+
+    it('shows only the known active provider when an older backend omits its runtime order', () => {
+        const status: ClassifierStatus = {
+            ...baseStatus,
+            available_providers: ['intel_npu', 'intel_cpu', 'cpu'],
+            active_provider: 'intel_npu',
+        };
+
+        expect(getRuntimeProviderOrder(status, ['intel_npu', 'intel_cpu', 'cpu'])).toEqual(['intel_npu']);
     });
 
     it('uses host capabilities and the prospective model contract during setup', () => {

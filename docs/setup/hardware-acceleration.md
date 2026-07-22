@@ -194,6 +194,11 @@ found. For example **Intel NPU: Auto-detected · verified ✓** means the NPU wa
 detected and has passed validation for the loaded model. A device that is present
 but not yet proven for the current model shows **unverified**.
 
+Open **Advanced model manager** to inspect the active model. **Current runtime**
+shows the provider that is running now, and **Automatic order** lists its verified
+fallbacks in the order YA-WAMF will try them. **Best fit** describes the model's
+accuracy and use case; it does not claim which device is active.
+
 If it fails, the pill shows **Not detected** — recheck the `devices:` and
 `group_add:` entries and that the host driver is installed.
 

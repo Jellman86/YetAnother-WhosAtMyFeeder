@@ -39,6 +39,45 @@ export function getProviderPreferenceOrder(status: ClassifierStatus | null): Inf
     return uniqueSelectableProviders(status.provider_preference_order).filter((provider) => available.has(provider));
 }
 
+export function getRuntimeProviderOrder(
+    status: ClassifierStatus | null,
+    supportedProviders?: string[] | null,
+): InferenceProvider[] {
+    if (!status) return [];
+
+    const available = uniqueSelectableProviders(status.available_providers);
+    const availableSet = new Set(available);
+    const supported = uniqueSelectableProviders(supportedProviders);
+    const supportedSet = new Set(supported);
+    const activeProvider = isInferenceProvider(status.active_provider) && status.active_provider !== 'auto'
+        ? status.active_provider
+        : null;
+    const preferenceOrder = uniqueSelectableProviders(status.provider_preference_order);
+
+    if (preferenceOrder.length === 0) {
+        return activeProvider && (available.length === 0 || availableSet.has(activeProvider))
+            ? [activeProvider]
+            : [];
+    }
+
+    const runtimeOrder = preferenceOrder.filter((provider) =>
+        (available.length === 0 || availableSet.has(provider))
+        && (provider === activeProvider || supported.length === 0 || supportedSet.has(provider))
+    );
+
+    // Live runtime state is stronger evidence than an installed model sidecar.
+    // Keep the active provider visible while the backend reconciles stale metadata.
+    if (
+        activeProvider
+        && (available.length === 0 || availableSet.has(activeProvider))
+        && !runtimeOrder.includes(activeProvider)
+    ) {
+        runtimeOrder.unshift(activeProvider);
+    }
+
+    return runtimeOrder;
+}
+
 export function buildInferenceProviderChoices(
     status: ClassifierStatus | null,
     configuredProvider: string,

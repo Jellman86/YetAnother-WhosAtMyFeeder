@@ -218,18 +218,18 @@ export const MODEL_CATEGORY_INFO: Record<ModelCategory, ModelCategoryInfo> = {
         icon: '🚀',
     },
     cpu_high_accuracy: {
-        label: 'Highest accuracy (CPU)',
-        hint: 'Slower but most accurate. Best for owners who can trade latency for breadth.',
+        label: 'Highest accuracy',
+        hint: 'The broadest, most accurate option. Runtime speed depends on the provider validated on this hardware.',
         icon: '🎯',
     },
     cpu_standard: {
-        label: 'Balanced (CPU)',
-        hint: 'Moderate accuracy and latency on CPU.',
+        label: 'Balanced',
+        hint: 'A practical balance of accuracy, latency, and memory use.',
         icon: '⚖️',
     },
     cpu_alternative: {
-        label: 'Architectural alternatives (CPU)',
-        hint: 'Experimental options for accuracy comparison via the model-eval harness.',
+        label: 'Architectural alternatives',
+        hint: 'Experimental options for accuracy comparison via the model-evaluation harness.',
         icon: '🧪',
     },
     bundled: {
