@@ -325,6 +325,22 @@ import. Job status includes `last_progress_at`, structured skip/error reason cou
 message. A completed detection import queues an only-missing weather pass when the maintenance lane
 becomes available.
 
+### Jobs
+
+- `GET /api/jobs` (owner) — returns the current server-owned background-work snapshot.
+
+The response keeps each workload in its own lane: `auto_video`, `video_analysis`,
+`high_quality_snapshot`, `full_visit`, `backfill`, and `weather_backfill`. Each item includes its
+event ID when applicable, status, current phase, progress counters and unit, timestamps, and an
+application route. Lane summaries report queued/running/terminal counts, queue capacity, configured
+and effective worker concurrency, and a machine-readable blocker such as
+`paused_after_failures`, `waiting_for_live_detections`, or `waiting_for_capacity`.
+
+`include_routine=false` omits automatic per-detection media work while retaining prominent
+owner-triggered work. `limit` controls returned item detail (`1`–`500`); lane totals are calculated
+before that item limit so capacity reporting remains accurate. This endpoint is a no-cache status
+snapshot, not a destructive queue-control API.
+
 ### Integrations
 
 - Audio:

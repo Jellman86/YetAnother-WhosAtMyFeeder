@@ -316,7 +316,7 @@ async def test_classifier_worker_process_handles_video_request_and_progress():
     ):
         assert video_path == "/tmp/demo.mp4"
         seen_contexts.append(input_context)
-        progress_callback(1, 3, 0.7, "Robin", None, 0, 3, "bird")
+        progress_callback(1, 3, 0.7, "Robin", None, 0, 3, "bird", 0.75)
         return [{"label": "Robin", "score": 0.91, "index": 0}]
 
     process = ClassifierWorkerProcess(
@@ -348,7 +348,10 @@ async def test_classifier_worker_process_handles_video_request_and_progress():
     reader.feed_eof()
     await task
 
-    assert any(message["type"] == "progress" and message["top_label"] == "Robin" for message in writer.messages)
+    assert any(
+        message["type"] == "progress" and message["top_label"] == "Robin" and message["frame_offset_seconds"] == 0.75
+        for message in writer.messages
+    )
     assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)
     assert seen_contexts[0]["event_id"] == "evt-video"
 
@@ -369,6 +372,7 @@ async def test_classifier_worker_process_accepts_keyword_progress_callback_argum
             frame_index=0,
             clip_total=3,
             model_name="bird",
+            frame_offset_seconds=0.5,
         )
         return [{"label": "Robin", "score": 0.91, "index": 0}]
 
@@ -400,7 +404,10 @@ async def test_classifier_worker_process_accepts_keyword_progress_callback_argum
     reader.feed_eof()
     await task
 
-    assert any(message["type"] == "progress" and message["top_label"] == "Robin" for message in writer.messages)
+    assert any(
+        message["type"] == "progress" and message["top_label"] == "Robin" and message["frame_offset_seconds"] == 0.5
+        for message in writer.messages
+    )
     assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)
     assert not any(message["type"] == "error" for message in writer.messages)
 

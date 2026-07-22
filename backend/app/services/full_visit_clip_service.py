@@ -23,6 +23,8 @@ FULL_VISIT_RECONCILE_INTERVAL_SECONDS = 300.0
 FULL_VISIT_RECONCILE_LOOKBACK_HOURS = 24
 FULL_VISIT_RECONCILE_LIMIT = 100
 FULL_VISIT_FAILURE_COOLDOWN_SECONDS = 1800.0
+FULL_VISIT_QUEUE_MAX = 128
+FULL_VISIT_WORKERS = 2
 
 
 class FullVisitClipService:
@@ -31,6 +33,13 @@ class FullVisitClipService:
         self._failure_retry_after: dict[str, float] = {}
         self._running = False
         self._task: asyncio.Task | None = None
+        self._queue: asyncio.Queue[tuple[str, str | None, str, str]] = asyncio.Queue(maxsize=FULL_VISIT_QUEUE_MAX)
+        self._queued_ids: set[str] = set()
+        self._active_ids: set[str] = set()
+        self._workers: list[asyncio.Task] = []
+        self._queue_full_rejections = 0
+        # Queue workers, reconciliation and direct calls all share this ceiling.
+        self._execution_semaphore = asyncio.Semaphore(FULL_VISIT_WORKERS)
 
     def _auto_generation_enabled(self) -> bool:
         return bool(
@@ -45,12 +54,12 @@ class FullVisitClipService:
         return lock
 
     def _in_failure_cooldown(self, event_id: str) -> bool:
+        now = time.time()
+        for expired_id, retry_at in list(self._failure_retry_after.items()):
+            if retry_at <= now:
+                self._failure_retry_after.pop(expired_id, None)
         next_retry_at = self._failure_retry_after.get(event_id)
         if next_retry_at is None:
-            return False
-
-        if time.time() >= next_retry_at:
-            self._failure_retry_after.pop(event_id, None)
             return False
 
         return True
@@ -81,13 +90,24 @@ class FullVisitClipService:
         *,
         source: str = "mqtt_end",
         lang: str = "en",
-    ) -> asyncio.Task | None:
-        if not self._auto_generation_enabled():
-            return None
-        return create_background_task(
-            self.trigger_for_event(event_id, camera, source=source, lang=lang),
-            name=f"full_visit_clip:{event_id}:{source}",
-        )
+    ) -> bool:
+        if not self._auto_generation_enabled() or not self._running:
+            return False
+        if event_id in self._queued_ids or event_id in self._active_ids:
+            return False
+        try:
+            self._queue.put_nowait((event_id, camera, source, lang))
+        except asyncio.QueueFull:
+            self._queue_full_rejections += 1
+            log.warning(
+                "Full-visit queue is full; reconciliation will retry later",
+                event_id=event_id,
+                queue_size=self._queue.qsize(),
+                queue_max=FULL_VISIT_QUEUE_MAX,
+            )
+            return False
+        self._queued_ids.add(event_id)
+        return True
 
     async def start(self) -> None:
         if self._running:
@@ -97,6 +117,10 @@ class FullVisitClipService:
             self._reconcile_loop(),
             name="full_visit_clip_reconcile",
         )
+        self._workers = [
+            create_background_task(self._worker_loop(index), name=f"full_visit_clip_worker:{index}")
+            for index in range(FULL_VISIT_WORKERS)
+        ]
 
     async def stop(self) -> None:
         self._running = False
@@ -107,6 +131,82 @@ class FullVisitClipService:
             except asyncio.CancelledError:
                 pass
             self._task = None
+        for worker in self._workers:
+            worker.cancel()
+        if self._workers:
+            await asyncio.gather(*self._workers, return_exceptions=True)
+        self._workers.clear()
+        while not self._queue.empty():
+            try:
+                self._queue.get_nowait()
+                self._queue.task_done()
+            except asyncio.QueueEmpty:
+                break
+        self._queued_ids.clear()
+        self._active_ids.clear()
+
+    async def _worker_loop(self, worker_index: int) -> None:
+        while self._running:
+            try:
+                event_id, camera, source, lang = await asyncio.wait_for(self._queue.get(), timeout=1.0)
+            except asyncio.TimeoutError:
+                continue
+            except asyncio.CancelledError:
+                break
+            self._queued_ids.discard(event_id)
+            self._active_ids.add(event_id)
+            try:
+                await self.trigger_for_event(event_id, camera, source=source, lang=lang)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log.error(
+                    "Full-visit worker failed",
+                    worker=worker_index,
+                    event_id=event_id,
+                    error=str(exc),
+                )
+            finally:
+                self._active_ids.discard(event_id)
+                self._queue.task_done()
+
+    def get_status(self) -> dict[str, object]:
+        return {
+            "enabled": self._auto_generation_enabled(),
+            "running": self._running,
+            "queued": self._queue.qsize(),
+            "active": len(self._active_ids),
+            "workers": len(self._workers),
+            "queue_capacity": FULL_VISIT_QUEUE_MAX,
+            "queue_full_rejections": self._queue_full_rejections,
+            "cooldowns": len(self._failure_retry_after),
+        }
+
+    def get_jobs_snapshot(self) -> list[dict[str, object]]:
+        jobs: list[dict[str, object]] = []
+        for event_id in sorted(self._active_ids):
+            jobs.append(self._job_snapshot(event_id, "running", "fetching_media"))
+        for event_id in sorted(self._queued_ids):
+            jobs.append(self._job_snapshot(event_id, "queued", "waiting"))
+        return jobs
+
+    @staticmethod
+    def _job_snapshot(event_id: str, status: str, phase: str) -> dict[str, object]:
+        return {
+            "id": f"full_visit:{event_id}",
+            "event_id": event_id,
+            "kind": "full_visit",
+            "source": "automatic",
+            "status": status,
+            "phase": phase,
+            "current": 0,
+            "total": 0,
+            "unit": "items",
+            "route": f"/events?detection={event_id}",
+            "created_at": None,
+            "updated_at": None,
+            "error": None,
+        }
 
     async def trigger_for_event(
         self,
@@ -118,6 +218,19 @@ class FullVisitClipService:
     ) -> bool:
         if not self._auto_generation_enabled():
             return False
+
+        async with self._execution_semaphore:
+            return await self._trigger_for_event(event_id, camera, source=source, lang=lang)
+
+    async def _trigger_for_event(
+        self,
+        event_id: str,
+        camera: str | None,
+        *,
+        source: str,
+        lang: str,
+    ) -> bool:
+        """Fetch one visit clip after admission through the shared concurrency gate."""
 
         if self._in_failure_cooldown(event_id):
             log.debug(
@@ -213,6 +326,8 @@ class FullVisitClipService:
             )
         )
         for detection in candidates:
+            if detection.frigate_event in self._queued_ids or detection.frigate_event in self._active_ids:
+                continue
             if media_cache.get_recording_clip_path(
                 detection.frigate_event,
                 min_duration_seconds=min_duration_seconds,

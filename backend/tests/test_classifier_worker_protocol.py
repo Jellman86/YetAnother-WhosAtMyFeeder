@@ -158,6 +158,7 @@ def test_classifier_worker_protocol_round_trips_video_messages():
         total_frames=12,
         frame_score=0.81,
         top_label="Robin",
+        frame_offset_seconds=1.25,
     )
 
     decoded_request = decode_protocol_message(encode_protocol_message(request))
@@ -169,3 +170,4 @@ def test_classifier_worker_protocol_round_trips_video_messages():
     assert decoded_progress["type"] == "progress"
     assert decoded_progress["current_frame"] == 3
     assert decoded_progress["top_label"] == "Robin"
+    assert decoded_progress["frame_offset_seconds"] == 1.25

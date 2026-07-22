@@ -1178,6 +1178,7 @@ async def _create_audio_detections_table(db: aiosqlite.Connection) -> None:
             species TEXT NOT NULL,
             confidence FLOAT NOT NULL,
             sensor_id TEXT,
+            source_event_id TEXT UNIQUE,
             raw_data TEXT,
             scientific_name TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

@@ -2015,6 +2015,30 @@ async def test_schedule_snapshot_replacement_defers_when_queue_full(tmp_path, mo
 
 
 @pytest.mark.asyncio
+async def test_schedule_snapshot_replacement_rejects_when_bounded_overflow_is_full(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    for event_id in ("evt-bound-1", "evt-bound-2", "evt-bound-3"):
+        await cache_service.cache_snapshot(event_id, b"frigate-bytes")
+    settings.media_cache.high_quality_event_snapshots = True
+
+    service = hq_module.high_quality_snapshot_service
+    monkeypatch.setattr(service, "MAX_PENDING_QUEUE", 1, raising=False)
+    monkeypatch.setattr(service, "MAX_DEFERRED_EVENTS", 1, raising=False)
+    await service.reset_state()
+    monkeypatch.setattr(service, "_ensure_workers_started", lambda: None)
+
+    assert service.schedule_replacement("evt-bound-1") is True
+    assert service.schedule_replacement("evt-bound-2") is True
+    assert service.schedule_replacement("evt-bound-3") is False
+
+    status = service.get_status()
+    assert status["queue_size"] == 1
+    assert status["deferred"] == 1
+    assert status["queue_full_rejections"] == 1
+    assert "evt-bound-3" not in service._crop_event_hints
+
+
+@pytest.mark.asyncio
 async def test_deferred_snapshot_replacements_drain_after_capacity_frees(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt-drain-1", b"frigate-bytes")

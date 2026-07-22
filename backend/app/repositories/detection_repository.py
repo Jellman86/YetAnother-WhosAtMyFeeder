@@ -972,8 +972,8 @@ class DetectionRepository:
         await self.db.commit()
         return changed
 
-    async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None) -> None:
-        """Update just the video classification status."""
+    async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None) -> bool:
+        """Update video classification status and report whether the detection exists."""
         now = utc_naive_now()
         await self.db.execute(
             """
@@ -985,7 +985,9 @@ class DetectionRepository:
         """,
             (status, error, now, frigate_event),
         )
+        changed = await self._last_statement_changes()
         await self.db.commit()
+        return changed > 0
 
     async def reset_stale_video_statuses(self, max_age_minutes: int) -> int:
         """Mark pending/processing video classifications as failed if they are too old."""
@@ -1005,6 +1007,27 @@ class DetectionRepository:
         changed = await self._last_statement_changes()
         await self.db.commit()
         return changed
+
+    async def get_video_classification_recovery_candidates(self, limit: int = 1000) -> list[dict[str, str]]:
+        """Return unfinished video jobs that must be reclaimed after a restart."""
+        safe_limit = max(1, min(int(limit), 5000))
+        async with self.db.execute(
+            """
+            SELECT frigate_event, camera_name, COALESCE(video_classification_status, 'pending')
+            FROM detections
+            WHERE video_classification_status IN ('pending', 'processing')
+              AND (is_hidden = 0 OR is_hidden IS NULL)
+            ORDER BY COALESCE(video_classification_timestamp, detection_time) ASC
+            LIMIT ?
+            """,
+            (safe_limit,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [
+            {"event_id": str(row[0]), "camera": str(row[1] or ""), "status": str(row[2])}
+            for row in rows
+            if row[0] and row[1]
+        ]
 
     async def mark_notified(self, frigate_event: str, timestamp: Optional[datetime] = None) -> None:
         """Mark a detection as notified."""
@@ -3770,19 +3793,60 @@ class DetectionRepository:
         sensor_id: Optional[str],
         raw_data: Optional[dict],
         scientific_name: Optional[str] = None,
+        source_event_id: Optional[str] = None,
     ) -> int:
+        row_id, _inserted = await self.insert_audio_detection_idempotent(
+            timestamp=timestamp,
+            species=species,
+            confidence=confidence,
+            sensor_id=sensor_id,
+            raw_data=raw_data,
+            scientific_name=scientific_name,
+            source_event_id=source_event_id,
+        )
+        return row_id
+
+    async def insert_audio_detection_idempotent(
+        self,
+        timestamp: datetime,
+        species: str,
+        confidence: float,
+        sensor_id: Optional[str],
+        raw_data: Optional[dict],
+        scientific_name: Optional[str] = None,
+        source_event_id: Optional[str] = None,
+    ) -> tuple[int, bool]:
+        """Insert one BirdNET detection and report whether this call created it."""
         payload = json.dumps(raw_data or {}, ensure_ascii=True)
         cursor = await self.db.execute(
-            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (serialize_storage_datetime(timestamp), species, confidence, sensor_id, payload, scientific_name),
+            """INSERT INTO audio_detections (
+                   timestamp, species, confidence, sensor_id, raw_data, scientific_name, source_event_id
+               ) VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(source_event_id) DO NOTHING""",
+            (
+                serialize_storage_datetime(timestamp),
+                species,
+                confidence,
+                sensor_id,
+                payload,
+                scientific_name,
+                source_event_id,
+            ),
         )
+        inserted = cursor.rowcount > 0
         row_id = cursor.lastrowid
         await cursor.close()
+        if not inserted and source_event_id:
+            async with self.db.execute(
+                "SELECT id FROM audio_detections WHERE source_event_id = ?",
+                (source_event_id,),
+            ) as existing_cursor:
+                existing = await existing_cursor.fetchone()
+            row_id = existing[0] if existing else None
         await self.db.commit()
         if row_id is None:
             raise RuntimeError("Audio detection insert did not return a row id")
-        return int(row_id)
+        return int(row_id), inserted
 
     async def delete_audio_detection(self, detection_id: int) -> bool:
         """Delete one diagnostic audio row immediately after its write was proven."""

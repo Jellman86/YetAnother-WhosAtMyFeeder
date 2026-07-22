@@ -13,6 +13,7 @@ It is anchored by two honest assessments of *where we stand*:
 - [Gold-Standard Review (2026-07-07)](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md) — quality assessment and the incremental path.
 - [Telemetry Health Findings (2026-07-09)](docs/reviews/2026-07-09-telemetry-health-findings.md) — what actually fails across the fleet.
 - [Image Classification Pipeline Review (2026-07-20)](docs/reviews/2026-07-20-image-classification-pipeline-review.md) — evidence provenance, temporal consensus, HQ media, and runtime recovery.
+- [Detection Queue and Jobs Review (2026-07-22)](docs/reviews/2026-07-22-detection-queue-and-jobs-review.md) — bounded intake, restart recovery, lifecycle ordering, and owner-visible work.
 
 ---
 
@@ -176,6 +177,14 @@ ticks, and navigation cleanup. Camera health now comes from one lightweight Frig
 than image success, while its looping viewer fetches only the selected camera and pauses when closed
 or hidden.
 The remaining audit is focused on page-owned empty, error, refresh, and destructive states.
+
+✅ **Background-work and Jobs pass:** the Jobs workspace now uses a canonical owner-only server
+snapshot for automatic video analysis, HQ snapshots, full-visit clips, and backfills instead of
+depending only on browser-local progress. Queue depth, actual worker concurrency, waiting phases,
+and blockers remain distinct; queued work is not counted as running. The global banner includes
+only prominent owner-triggered work, while routine per-detection work remains available in Jobs.
+The surface uses one divided information region, accessible progress semantics, translated status
+copy, explicit retry feedback, and no control that merely hides server-owned active work.
 
 #### File-by-file code-quality review 🔬
 **Priority:** P1 | **Effort:** XL | **Status:** ✅ Completed
@@ -387,9 +396,14 @@ Runtime hardware validation is now governed by the same per-flavor contract, inc
 full image even when OpenVINO CPU is also present. Evidence is scoped per model to the exact image
 flavor, failed reruns invalidate stale passes, and activation uses only a recommendation that still
 matches the current eligibility record.
-Remaining: DB query optimization (indexes, optional result caching, cursor pagination), further
-backend async hardening + a background task queue (ARQ/Celery), targeted virtual scrolling, and a
-benchmark suite for regression testing.
+The first queue-reliability tranche is also delivered: MQTT intake starts after its consumers and
+drains before they stop; distinct BirdNET observations are ordered and idempotent when BirdNET
+publishes a stable ID; final Frigate events recover missed initial state; automatic video jobs are
+reclaimed from durable detection status; and full-visit/HQ overflow uses bounded worker lanes with
+reconciliation. Remaining: DB query optimization (indexes, optional result caching, cursor
+pagination), a durable multi-process job broker only if deployment scale requires work beyond the
+current single-container contract, targeted virtual scrolling, and a benchmark suite for
+regression testing.
 
 #### Broader end-to-end coverage 🧪
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Targeted coverage exists
@@ -581,7 +595,8 @@ Docker template + setup guide.
 **Backend & quality:** Alembic-only migrations, the repository pattern, opt-in anonymous telemetry
 + Cloudflare dashboard, backfill service, health checks + Prometheus metrics, weather enrichment,
 password-based + optional API-key auth (timing-safe), connection pooling, global exception handling,
-background-task visibility, a typed OpenAPI contract with generated SPA types, and the CI enforcement
+bounded background-work lanes with owner-visible server status and restart recovery for automatic
+video jobs, a typed OpenAPI contract with generated SPA types, and the CI enforcement
 suite (lint/format/coverage/OpenAPI-drift/type-freshness/migration-safety).
 
 ---

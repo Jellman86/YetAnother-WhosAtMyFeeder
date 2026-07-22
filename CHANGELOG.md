@@ -7,6 +7,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Added
+- **Background work now has one owner-facing status contract.** `GET /api/jobs` reports queued and
+  running video analysis, best-quality snapshot, full-visit clip, and backfill work as distinct
+  lanes with truthful queue depth, worker concurrency, phase, blocker, and event routes. The Jobs
+  workspace and global progress bar consume that server state, keep queued work separate from
+  running work, use accessible progress semantics, and retain local live updates only as a
+  fail-soft supplement.
 - **Crop quality now has a direct Frigate challenger benchmark.** Private field manifests preserve
   same-frame Frigate coordinates, structured classifier baselines, and owner-label provenance. A
   new end-to-end harness classifies the unchanged full frame, Frigate crop, and optimized model
@@ -52,6 +58,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   remain open.
 
 ### Fixed
+- **Detection intake and background work now degrade safely under bursts and restarts.** BirdNET-Go
+  messages use a source-scoped stable detection identity when one is published, making broker
+  redelivery idempotent in both persisted history and the live correlation buffer; distinct audio
+  observations are processed in order instead of being coalesced away. Frigate false-positive
+  tombstones cannot be overwritten by a later pending update, a final event can recover a missed
+  initial detection, and post-commit media, notification, or sublabel failures can no longer make a
+  saved detection look lost. Automatic video jobs persist `pending` before entering memory and are
+  reclaimed after restart. Full-visit generation now uses two bounded workers, HQ overflow is
+  capped at 32 pending plus 128 deferred items, classifier progress retains exact frame offsets
+  across subprocesses, and shutdown drains MQTT intake before stopping downstream workers.
 - **First-run setup now remains secure, truthful, and recoverable across every step.** Enabling
   authentication returns the initial owner token atomically so setup can continue through the
   newly protected API, while serialized first-run claims and rollback on save failure close the
@@ -130,6 +146,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   passes inside that canary.
 
 ### Changed
+- **The Jobs workspace is calmer and more operationally honest.** Repeated cards were replaced by
+  one divided activity surface, routine automatic work stays out of the global banner, queued and
+  running counts are no longer conflated, unavailable server status retries automatically, and
+  circuit-breaker recovery uses plain-language actions and translated feedback across all nine
+  locale catalogs.
 - **Distant-bird localization now uses Frigate-style focus before bounded slicing.** Multi-image HQ
   and deep-video evidence gives YOLOX a square high-resolution search region around the same-frame
   Frigate track when available. Without a trustworthy hint, native inference runs first and only a

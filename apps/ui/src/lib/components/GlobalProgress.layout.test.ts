@@ -19,9 +19,12 @@ describe('Global progress layout', () => {
         expect(mobileTopBarSource).toContain('h-[var(--app-chrome-height,4rem)]');
     });
 
-    it('caps expanded details height and limits hover expansion to hover-capable pointers', () => {
+    it('caps expanded details height and uses explicit, dismissible disclosure', () => {
         expect(bannerSource).toContain('max-h-[40vh] overflow-auto');
-        expect(bannerSource).toContain("(hover: hover) and (pointer: fine)");
+        expect(bannerSource).toContain('onclick={() => showDetails = !showDetails}');
+        expect(bannerSource).toContain("event.key === 'Escape'");
+        expect(bannerSource).toContain("window.addEventListener('pointerdown', closeOnOutsidePress)");
+        expect(bannerSource).not.toContain('onmouseenter');
     });
 
     it('surfaces queue-only work lanes in the global progress details', () => {

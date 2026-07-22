@@ -1,4 +1,4 @@
-export type JobStatus = 'running' | 'stale' | 'completed' | 'failed';
+export type JobStatus = 'queued' | 'running' | 'stale' | 'completed' | 'failed';
 export type JobSource = 'sse' | 'poll' | 'ui' | 'system';
 
 export interface JobProgressItem {
@@ -16,6 +16,9 @@ export interface JobProgressItem {
     ratePerMinute?: number;
     etaSeconds?: number;
     source: JobSource;
+    phase?: string;
+    unit?: string;
+    visibility?: 'prominent' | 'routine';
 }
 
 export interface JobProgressUpdateInput {
@@ -49,7 +52,7 @@ class JobProgressStore {
 
     get activeJobs(): JobProgressItem[] {
         return this.items
-            .filter((item) => item.status === 'running' || item.status === 'stale')
+            .filter((item) => item.status === 'queued' || item.status === 'running' || item.status === 'stale')
             .sort((a, b) => b.updatedAt - a.updatedAt);
     }
 
@@ -188,7 +191,9 @@ class JobProgressStore {
     }
 
     clearHistory() {
-        this.items = this.items.filter((item) => item.status === 'running' || item.status === 'stale');
+        this.items = this.items.filter(
+            (item) => item.status === 'queued' || item.status === 'running' || item.status === 'stale'
+        );
     }
 
     clearAll() {
@@ -239,7 +244,9 @@ class JobProgressStore {
     }
 
     private enforceHistoryCap() {
-        const active = this.items.filter((item) => item.status === 'running' || item.status === 'stale');
+        const active = this.items.filter(
+            (item) => item.status === 'queued' || item.status === 'running' || item.status === 'stale'
+        );
         const history = this.items
             .filter((item) => item.status === 'completed' || item.status === 'failed')
             .sort((a, b) => (b.finishedAt ?? b.updatedAt) - (a.finishedAt ?? a.updatedAt))

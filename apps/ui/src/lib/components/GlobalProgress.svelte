@@ -10,35 +10,51 @@
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
     import { backfillStatusStore } from '../stores/backfill_status.svelte';
     import { toAppPath } from '../app/url-base';
+    import { serverJobsStore } from '../stores/server_jobs.svelte';
     let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
 
     let nowTs = $state(Date.now());
     let showDetails = $state(false);
-    let canHoverExpand = $state(false);
+    let container = $state<HTMLDivElement | null>(null);
     const detailLimit = 4;
     onMount(() => {
         const tick = setInterval(() => {
             nowTs = Date.now();
         }, 1000);
-        const hoverQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
-        const syncHoverCapability = () => {
-            canHoverExpand = hoverQuery.matches;
+        const releaseServerJobs = serverJobsStore.retain();
+        const closeOnEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') showDetails = false;
         };
-        syncHoverCapability();
-        hoverQuery.addEventListener?.('change', syncHoverCapability);
+        const closeOnOutsidePress = (event: PointerEvent) => {
+            if (showDetails && container && event.target instanceof Node && !container.contains(event.target)) {
+                showDetails = false;
+            }
+        };
+        window.addEventListener('keydown', closeOnEscape);
+        window.addEventListener('pointerdown', closeOnOutsidePress);
 
         return () => {
-            hoverQuery.removeEventListener?.('change', syncHoverCapability);
+            window.removeEventListener('keydown', closeOnEscape);
+            window.removeEventListener('pointerdown', closeOnOutsidePress);
+            releaseServerJobs();
             clearInterval(tick);
         };
     });
 
-    let activeJobs = $derived(jobProgressStore.activeJobs);
+    let activeJobs = $derived(serverJobsStore.mergeActive(jobProgressStore.activeJobs, true));
     let hasRunningBackfill = $derived(activeJobs.some((item) =>
         item.status === 'running' && (item.kind === 'backfill' || item.kind === 'weather_backfill')
     ));
     let staleJobs = $derived(activeJobs.filter((item) => item.status === 'stale'));
-    let queueByKind = $derived(analysisQueueStatusStore.queueByKind);
+    let queueByKind = $derived({
+        ...analysisQueueStatusStore.queueByKind,
+        ...Object.fromEntries(
+            Object.entries(serverJobsStore.queueByKind).filter(([kind]) => {
+                const jobs = serverJobsStore.activeJobs.filter((job) => job.kind === kind);
+                return jobs.some((job) => job.visibility === 'prominent');
+            })
+        )
+    });
     let analysisStatus = $derived(analysisQueueStatusStore.analysisStatus);
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, [], queueByKind));
     let rowsByKind = $derived.by(() => new Map(pipeline.kinds.map((row) => [row.kind, row])));
@@ -54,6 +70,7 @@
         if (kind === 'backfill') return $_('jobs.kind_backfill', { default: 'Detection Backfill' });
         if (kind === 'weather_backfill') return $_('jobs.kind_weather_backfill', { default: 'Weather Backfill' });
         if (kind === 'taxonomy_sync') return $_('jobs.kind_taxonomy_sync', { default: 'Taxonomy Sync' });
+        if (kind === 'video_analysis') return $_('jobs.kind_video_analysis', { default: 'Video analysis' });
         return kind.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
     }
 
@@ -62,6 +79,10 @@
     $effect(() => {
         if (!hasRunningBackfill) return;
         return backfillStatusStore.retain();
+    });
+
+    $effect(() => {
+        if (authStore.showSettings) void serverJobsStore.refresh();
     });
 
     function openJobsPage() {
@@ -76,10 +97,9 @@
 
 {#if activeJobs.length > 0 || pipeline.kinds.length > 0}
     <div
+        bind:this={container}
         class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-hidden relative shrink-0"
         transition:slide={{ duration: 300 }}
-        role="status"
-        aria-live="polite"
     >
         <div class="absolute inset-0 bg-accent-500/5 pointer-events-none"></div>
 
@@ -88,23 +108,21 @@
                 <div class="flex items-center justify-between gap-3">
                     <button
                         type="button"
-                        class="flex items-center gap-3 min-w-0 flex-1 text-left bg-transparent focus:outline-none focus:ring-2 focus:ring-accent-500 rounded-lg"
-                        onmouseenter={() => { if (canHoverExpand) showDetails = true; }}
-                        onmouseleave={() => { if (canHoverExpand) showDetails = false; }}
+                        class="flex min-h-11 items-center gap-3 min-w-0 flex-1 text-left bg-transparent focus:outline-none focus:ring-2 focus:ring-accent-500 rounded-lg"
                         onclick={() => showDetails = !showDetails}
                         aria-expanded={showDetails}
                         aria-controls="global-progress-details"
                     >
                         <div class="w-6 h-6 rounded-lg bg-accent-100 dark:bg-accent-900/30 flex items-center justify-center text-accent-600 dark:text-accent-400 flex-shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 {pipeline.lanes.running > 0 ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 {pipeline.lanes.running > 0 ? 'motion-safe:animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                         </div>
                         <div class="min-w-0">
-                            <p class="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">
+                            <p class="text-xs font-bold text-slate-900 dark:text-white truncate">
                                 {aggregate.headline}
                             </p>
-                            <p class="text-[10px] font-semibold text-slate-600 dark:text-slate-300 truncate">
+                            <p class="text-xs text-slate-600 dark:text-slate-300 truncate">
                                 {aggregate.subline}
                                 {#if staleJobs.length > 0}
                                     · {$_('notifications.global_progress_stale', { values: { count: staleJobs.length }, default: '{count} stale' })}
@@ -115,23 +133,30 @@
 
                     <button
                         type="button"
-                        class="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-accent-100 text-accent-800 dark:bg-accent-900/40 dark:text-accent-300 hover:bg-accent-200 dark:hover:bg-accent-800/50 transition-colors"
+                        class="btn btn-ghost min-h-11 px-3 text-xs"
                         onclick={openJobsPage}
                     >
                         {$_('jobs.open', { default: 'Open Jobs' })}
                     </button>
                 </div>
 
-                <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-300">{aggregate.progressLabel}</p>
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-300">{aggregate.progressLabel}</p>
 
-                <div class="h-2 w-full bg-accent-100 dark:bg-accent-950/60 rounded-full overflow-hidden relative">
+                <div
+                    class="h-2 w-full bg-accent-100 dark:bg-accent-950/60 rounded-full overflow-hidden relative"
+                    role="progressbar"
+                    aria-label={aggregate.progressLabel}
+                    aria-valuemin={0}
+                    aria-valuemax={aggregate.determinate ? 100 : undefined}
+                    aria-valuenow={aggregate.determinate && aggregate.percent !== null ? aggregate.percent : undefined}
+                >
                     {#if aggregate.determinate && aggregate.percent !== null}
                         <div
                             class="h-full bg-gradient-to-r from-accent-500 via-brand-500 to-sky-500 transition-all duration-500"
                             style="width: {aggregate.percent}%"
                         ></div>
                     {:else}
-                        <div class="h-full w-2/5 bg-gradient-to-r from-accent-500/70 via-brand-500/70 to-sky-500/70 animate-pulse"></div>
+                        <div class="h-full w-2/5 bg-gradient-to-r from-accent-500/70 via-brand-500/70 to-sky-500/70 motion-safe:animate-pulse"></div>
                     {/if}
                 </div>
 

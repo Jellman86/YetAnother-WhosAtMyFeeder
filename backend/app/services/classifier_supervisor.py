@@ -154,6 +154,7 @@ class ClassifierSupervisor:
             "video": deque(),
         }
         self._consumer_tasks: set[asyncio.Task[None]] = set()
+        self._progress_tasks: set[asyncio.Task[Any]] = set()
         self._request_counter = itertools.count(1)
         self._condition = asyncio.Condition()
         self._start_locks: dict[WorkPriority, asyncio.Lock] = {
@@ -207,6 +208,11 @@ class ClassifierSupervisor:
                 await task
             except asyncio.CancelledError:
                 pass
+        for task in list(self._progress_tasks):
+            task.cancel()
+        if self._progress_tasks:
+            await asyncio.gather(*self._progress_tasks, return_exceptions=True)
+        self._progress_tasks.clear()
 
     async def restart_pool(self, priority: WorkPriority | None = None) -> None:
         """
@@ -604,9 +610,12 @@ class ClassifierSupervisor:
                         message.get("frame_index"),
                         message.get("clip_total"),
                         message.get("model_name"),
+                        message.get("frame_offset_seconds"),
                     )
                     if inspect.isawaitable(callback_result):
                         progress_task = asyncio.create_task(callback_result)
+                        self._progress_tasks.add(progress_task)
+                        progress_task.add_done_callback(self._progress_tasks.discard)
                         progress_task.add_done_callback(self._consume_progress_exception)
                 continue
             if assignment is None:

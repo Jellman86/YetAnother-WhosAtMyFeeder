@@ -60,6 +60,7 @@ from app.routers import (
     model_eval,
     setup as setup_router,
     auth as auth_router,
+    jobs as jobs_router,
 )
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
@@ -416,14 +417,6 @@ async def lifespan(app: FastAPI):
         create_background_task(model_manager.ensure_installed_model_configs(), name="model_config_refresh")
         await _run_lifecycle_phase(
             app,
-            "mqtt_service_task_start",
-            _start_mqtt_service_task,
-            fatal=False,
-            startup_phase="starting_services",
-            startup_progress=80,
-        )
-        await _run_lifecycle_phase(
-            app,
             "telemetry_start",
             telemetry_service.start,
             fatal=False,
@@ -454,6 +447,15 @@ async def lifespan(app: FastAPI):
             startup_phase="starting_services",
             startup_progress=92,
         )
+        # Intake opens only after every downstream worker can accept work.
+        await _run_lifecycle_phase(
+            app,
+            "mqtt_service_task_start",
+            _start_mqtt_service_task,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=94,
+        )
         await _run_lifecycle_phase(
             app,
             "cleanup_scheduler_task_start",
@@ -482,12 +484,15 @@ async def lifespan(app: FastAPI):
         except asyncio.CancelledError:
             pass
     if not test_mode:
+        # Quiesce external intake first. MQTT drains in-flight handlers before
+        # downstream queues are stopped, preventing late work from being
+        # accepted into a service that has already shut down.
+        await _run_lifecycle_phase(app, "mqtt_service_stop", mqtt_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "notification_dispatcher_stop", notification_dispatcher.stop, fatal=False)
         await _run_lifecycle_phase(app, "high_quality_snapshot_stop", high_quality_snapshot_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
         await _run_lifecycle_phase(app, "full_visit_clip_stop", full_visit_clip_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
-        await _run_lifecycle_phase(app, "mqtt_service_stop", mqtt_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "frigate_client_close", frigate_client.close, fatal=False)
         await _run_lifecycle_phase(app, "classifier_shutdown", shutdown_classifier, fatal=False)
     await close_db()  # Close database connection pool
@@ -572,6 +577,7 @@ app.include_router(
 app.include_router(
     model_eval.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)]
 )
+app.include_router(jobs_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(
     inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)]

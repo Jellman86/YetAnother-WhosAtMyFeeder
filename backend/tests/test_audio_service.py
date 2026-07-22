@@ -76,6 +76,64 @@ async def test_add_detection_birdnet_go_format(audio_service):
 
 
 @pytest.mark.asyncio
+async def test_add_detection_deduplicates_birdnet_redelivery_by_source_and_id(audio_service):
+    payload = {
+        "detectionId": 4242,
+        "nm": "BirdCam",
+        "CommonName": "Robin",
+        "ScientificName": "Erithacus rubecula",
+        "Confidence": 0.91,
+        "BeginTime": datetime.now(timezone.utc).isoformat(),
+    }
+
+    assert await audio_service.add_detection(payload) is True
+    assert await audio_service.add_detection(payload) is True
+
+    assert len(audio_service._buffer) == 1
+    async with get_db() as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM audio_detections WHERE source_event_id = ?",
+            ("birdcam:4242",),
+        ) as cursor:
+            assert (await cursor.fetchone())[0] == 1
+
+
+@pytest.mark.asyncio
+async def test_add_detection_keeps_one_buffer_observation_across_storage_retry(audio_service):
+    payload = {
+        "detectionId": 4343,
+        "nm": "BirdCam",
+        "CommonName": "Robin",
+        "ScientificName": "Erithacus rubecula",
+        "Confidence": 0.91,
+        "BeginTime": datetime.now(timezone.utc).isoformat(),
+    }
+
+    with patch("app.services.audio.audio_service.get_db", side_effect=RuntimeError("database unavailable")):
+        assert await audio_service.add_detection(payload) is False
+    assert len(audio_service._buffer) == 1
+
+    assert await audio_service.add_detection(payload) is True
+    assert len(audio_service._buffer) == 1
+
+
+@pytest.mark.asyncio
+async def test_cleanup_buffer_removes_expired_out_of_order_observations(audio_service):
+    now = datetime.now(timezone.utc)
+    audio_service._buffer_duration = timedelta(minutes=1)
+    audio_service._buffer.extend(
+        [
+            AudioDetection(now, "Recent Bird", 0.8, "mic", {}),
+            AudioDetection(now - timedelta(minutes=5), "Late old Bird", 0.8, "mic", {}),
+        ]
+    )
+
+    audio_service._cleanup_buffer()
+
+    assert [item.species for item in audio_service._buffer] == ["Recent Bird"]
+
+
+@pytest.mark.asyncio
 async def test_add_detection_prefers_birdnet_nm_for_mapping_key(audio_service):
     now = datetime.now(timezone.utc)
     ts = (now - timedelta(seconds=5)).isoformat().replace("+00:00", "Z")

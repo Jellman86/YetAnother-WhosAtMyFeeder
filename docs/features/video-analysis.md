@@ -49,6 +49,12 @@ Once complete, the detection card updates with the new result. A valid abstentio
 normally and explains that the existing identification was kept; missing or unreadable media and
 runtime faults remain explicit failures.
 
+The owner **Jobs** view also shows automatic and maintenance video work from the backend. A queued
+item remains labelled **Queued** until a worker starts it, and pending/processing automatic jobs are
+reclaimed from the detections database after a container restart. Frame progress sent by a
+subprocess retains the sampled frame number and exact clip offset, so saved top-frame evidence can
+be traced back to the media position that produced it.
+
 ## Settings
 
 | Setting | Location | Description |

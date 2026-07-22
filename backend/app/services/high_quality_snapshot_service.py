@@ -93,6 +93,7 @@ class HighQualitySnapshotService:
     CLIP_RETRY_INTERVAL_SECONDS = 2
     CLIP_FETCH_TIMEOUT_SECONDS = 10.0
     MAX_PENDING_QUEUE = 32
+    MAX_DEFERRED_EVENTS = 128
     MAX_CONCURRENT_TASKS = 2
 
     def __init__(self):
@@ -147,9 +148,9 @@ class HighQualitySnapshotService:
 
         self._ensure_workers_started()
         if not self._enqueue_pending(event_id):
-            self._deferred_ids.add(event_id)
-            self._deferred_order.append(event_id)
-            self._queue_full_deferrals += 1
+            if not self._defer_event(event_id):
+                self._crop_event_hints.pop(event_id, None)
+                return False
         self._scheduled_total += 1
         return True
 
@@ -169,16 +170,19 @@ class HighQualitySnapshotService:
             # stored final metadata is enough; a second queue entry is wasteful.
             return False
         if event_id in self._active_ids:
-            self._deferred_ids.add(event_id)
-            self._deferred_order.append(event_id)
+            if not self._defer_event(event_id):
+                self._final_refresh_ids.discard(event_id)
+                self._crop_event_hints.pop(event_id, None)
+                return False
             self._scheduled_total += 1
             return True
 
         self._ensure_workers_started()
         if not self._enqueue_pending(event_id):
-            self._deferred_ids.add(event_id)
-            self._deferred_order.append(event_id)
-            self._queue_full_deferrals += 1
+            if not self._defer_event(event_id):
+                self._final_refresh_ids.discard(event_id)
+                self._crop_event_hints.pop(event_id, None)
+                return False
         self._scheduled_total += 1
         return True
 
@@ -1491,12 +1495,68 @@ class HighQualitySnapshotService:
             "last_result": self._last_result,
         }
 
+    def get_jobs_snapshot(self) -> list[dict[str, object]]:
+        jobs: list[dict[str, object]] = []
+        for event_id in sorted(self._active_ids):
+            jobs.append(
+                {
+                    "id": f"high_quality_snapshot:{event_id}",
+                    "event_id": event_id,
+                    "kind": "high_quality_snapshot",
+                    "source": "automatic",
+                    "status": "running",
+                    "phase": "selecting_best_frame",
+                    "current": 0,
+                    "total": 0,
+                    "unit": "items",
+                    "route": f"/events?detection={event_id}",
+                    "created_at": None,
+                    "updated_at": None,
+                    "error": None,
+                }
+            )
+        for event_id in sorted(self._queued_ids | self._deferred_ids):
+            jobs.append(
+                {
+                    "id": f"high_quality_snapshot:{event_id}",
+                    "event_id": event_id,
+                    "kind": "high_quality_snapshot",
+                    "source": "automatic",
+                    "status": "queued",
+                    "phase": "waiting",
+                    "current": 0,
+                    "total": 0,
+                    "unit": "items",
+                    "route": f"/events?detection={event_id}",
+                    "created_at": None,
+                    "updated_at": None,
+                    "error": None,
+                }
+            )
+        return jobs
+
     def _enqueue_pending(self, event_id: str) -> bool:
         try:
             self._pending_queue.put_nowait(event_id)
         except asyncio.QueueFull:
             return False
         self._queued_ids.add(event_id)
+        return True
+
+    def _defer_event(self, event_id: str) -> bool:
+        """Bound overflow memory while leaving the detection itself intact for reconciliation."""
+        if len(self._deferred_ids) >= self.MAX_DEFERRED_EVENTS:
+            self._queue_full_rejections += 1
+            log.warning(
+                "High-quality snapshot overflow queue is full",
+                event_id=event_id,
+                pending=self._pending_queue.qsize(),
+                deferred=len(self._deferred_ids),
+            )
+            return False
+        self._deferred_ids.add(event_id)
+        self._deferred_order.append(event_id)
+        self._queue_full_deferrals += 1
         return True
 
     def _promote_deferred_events(self) -> None:

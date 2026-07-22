@@ -2385,7 +2385,7 @@ async def _run_analyze_unknowns() -> dict:
                         fallback_to_snapshot=True,
                         source="maintenance",
                     )
-                    if result == "queued":
+                    if result in {"queued", "deferred"}:
                         accepted += 1
                         if accepted >= BATCH_ANALYSIS_MAX_QUEUE_PER_RUN:
                             break

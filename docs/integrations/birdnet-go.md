@@ -93,3 +93,9 @@ YA-WAMF normalizes incoming BirdNET timestamps to UTC before storing them. This 
 history filters, retention, and leaderboard windows correct when BirdNET-Go publishes local-offset
 timestamps (including daylight-saving changes) while Frigate events are stored as UTC. Existing
 audio history is normalized automatically during the database upgrade.
+
+Modern BirdNET-Go payloads also include a stable detection ID. YA-WAMF combines that ID with the
+normalized source name before writing history, so an MQTT redelivery does not create a second row
+or a second live-correlation observation. Different detections are never coalesced: the audio lane
+processes them in broker order and remains independent of slower visual inference. Legacy payloads
+without a stable numeric ID are still accepted, but cannot receive this source-level deduplication.

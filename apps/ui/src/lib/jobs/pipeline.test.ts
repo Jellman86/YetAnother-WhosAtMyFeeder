@@ -34,6 +34,14 @@ function terminalJob(id: string, kind: string, status: 'completed' | 'failed'): 
     };
 }
 
+function queuedJob(id: string, kind: string): JobProgressItem {
+    return {
+        ...runningJob(id, kind),
+        status: 'queued',
+        current: 0
+    };
+}
+
 describe('buildJobsPipelineModel', () => {
     it('aggregates queued/running/completed/failed across kinds and marks unknown queue depth', () => {
         const activeJobs: JobProgressItem[] = [
@@ -101,6 +109,21 @@ describe('buildJobsPipelineModel', () => {
             queued: 5,
             queueDepthKnown: true
         });
+    });
+
+    it('does not count a server-reported queued item as a running worker', () => {
+        const model = buildJobsPipelineModel([queuedJob('video:evt-1', 'video_analysis')], [], {
+            video_analysis: {
+                queued: 1,
+                running: 0,
+                queueDepthKnown: true,
+                updatedAt: 8_000
+            }
+        });
+
+        expect(model.lanes.queuedKnown).toBe(1);
+        expect(model.lanes.running).toBe(0);
+        expect(model.kinds[0]).toMatchObject({ queued: 1, running: 0 });
     });
 
     it('hides idle queue-only kinds when queued and running are both zero', () => {

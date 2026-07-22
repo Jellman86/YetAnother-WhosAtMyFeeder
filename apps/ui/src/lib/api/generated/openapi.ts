@@ -860,6 +860,40 @@ export interface components {
     validated?: boolean;
     validation_reason?: string;
 };
+    JobLaneSnapshot: {
+    blocker?: string | null;
+    capacity?: number | null;
+    completed?: number;
+    failed?: number;
+    kind: string;
+    max_concurrent_configured?: number | null;
+    max_concurrent_effective?: number | null;
+    queued?: number;
+    running?: number;
+    state?: string;
+};
+    JobSnapshotItem: {
+    created_at?: string | null;
+    current?: number;
+    error?: string | null;
+    event_id?: string | null;
+    finished_at?: string | null;
+    id: string;
+    kind: string;
+    phase: string;
+    route?: string | null;
+    source: string;
+    status: "queued" | "running" | "completed" | "failed" | "stale" | "retrying";
+    total?: number;
+    unit?: string;
+    updated_at?: string | null;
+    visibility?: "prominent" | "routine";
+};
+    JobsSnapshotResponse: {
+    captured_at: string;
+    items: Array<components['schemas']['JobSnapshotItem']>;
+    lanes: Array<components['schemas']['JobLaneSnapshot']>;
+};
     JsonValue: unknown;
     LeaderboardAnalysisRequest: {
     config: Record<string, unknown>;
@@ -2815,6 +2849,18 @@ export interface paths {
       query: never;
       requestBody: components['schemas']['InaturalistSubmitRequest'];
       response: components['schemas']['InaturalistSubmitResponse'];
+    };
+  };
+  "/api/jobs": {
+    get: {
+      operationId: "get_jobs_snapshot_api_jobs_get";
+      path: never;
+      query: {
+    include_routine?: boolean;
+    limit?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['JobsSnapshotResponse'];
     };
   };
   "/api/leaderboard/analysis": {

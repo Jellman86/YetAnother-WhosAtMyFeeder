@@ -118,6 +118,7 @@ function lowercaseLeadingChar(value: string): string {
 }
 
 function resolveProgressUnit(job: JobProgressItem): string {
+    if (typeof job.unit === 'string' && job.unit.trim().length > 0) return job.unit.trim();
     if (job.kind === 'reclassify') return 'frames';
     return 'items';
 }
@@ -150,6 +151,18 @@ function resolveActivityLabel(
     analysisStatus: AnalysisStatus | null | undefined,
     t: JobsTranslateFn
 ): string {
+    if (job.phase === 'waiting') {
+        return t('jobs.activity_waiting', undefined, 'Waiting for a worker');
+    }
+    if (job.phase === 'selecting_best_frame') {
+        return t('jobs.activity_selecting_best_frame', undefined, 'Choosing the best-quality frame');
+    }
+    if (job.phase === 'fetching_media') {
+        return t('jobs.activity_fetching_media', undefined, 'Fetching retained media');
+    }
+    if (job.phase === 'analyzing') {
+        return t('jobs.activity_reclassify_running', undefined, 'Analyzing clips');
+    }
     if (job.kind === 'reclassify') {
         if (analysisStatus?.circuit_open) {
             return t('jobs.activity_circuit_open', undefined, 'Paused by circuit breaker');
@@ -297,7 +310,7 @@ export function presentActiveJob(
     nowTs: number,
     t: JobsTranslateFn
 ): PresentedActiveJob {
-    const determinate = job.total > 0 && job.current > 0;
+    const determinate = job.total > 0 && job.current >= 0;
     const percent = determinate ? Math.min(100, Math.max(0, Math.round((job.current / job.total) * 100))) : null;
     const progressLabel = determinate
         ? formatProgress(job.current, job.total, resolveProgressUnit(job), t)
@@ -422,7 +435,8 @@ export function buildGlobalProgressSummary(
     const dominantJob = activeJobs.find((job) => job.kind === dominantKind) ?? activeJobs[0];
     const dominantRow = rowsByKind.get(dominantKind) ?? null;
     const units = new Set(activeJobs.map((job) => resolveProgressUnit(job)));
-    const compatible = units.size === 1 && activeJobs.every((job) => job.total > 0 && job.current > 0);
+    const kinds = new Set(activeJobs.map((job) => job.kind));
+    const compatible = units.size === 1 && kinds.size === 1 && activeJobs.every((job) => job.total > 0 && job.current >= 0);
     let progressLabel = t('jobs.progress_working', undefined, 'Working...');
     let percent: number | null = null;
 

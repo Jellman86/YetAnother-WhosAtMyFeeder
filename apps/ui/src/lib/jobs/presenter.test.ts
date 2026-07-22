@@ -313,7 +313,7 @@ describe('jobs presenter', () => {
         expect(summary.percent).toBe(42);
     });
 
-    it('treats a job with known total but zero current as indeterminate', () => {
+    it('shows truthful zero-percent progress when the total is known', () => {
         // Backfill: Frigate has returned 200 events but none have been processed yet.
         const presented = presentActiveJob(
             makeJob({ kind: 'backfill', current: 0, total: 200 }),
@@ -323,12 +323,12 @@ describe('jobs presenter', () => {
             t
         );
 
-        expect(presented.determinate).toBe(false);
-        expect(presented.percent).toBeNull();
-        expect(presented.progressLabel).toBe('Working...');
+        expect(presented.determinate).toBe(true);
+        expect(presented.percent).toBe(0);
+        expect(presented.progressLabel).toBe('0 / 200 items');
     });
 
-    it('treats a not-yet-started job as indeterminate in the global banner', () => {
+    it('shows zero-percent progress for a not-yet-started known batch', () => {
         const summary = buildGlobalProgressSummary(
             [makeJob({ kind: 'backfill', current: 0, total: 200, title: 'Backfill' })],
             new Map([['backfill', makeRow({ kind: 'backfill', queued: 0, running: 1, maxConcurrentConfigured: null, maxConcurrentEffective: null })]]),
@@ -338,9 +338,9 @@ describe('jobs presenter', () => {
             () => 'Backfill'
         );
 
-        expect(summary.determinate).toBe(false);
-        expect(summary.percent).toBeNull();
-        expect(summary.progressLabel).toBe('Working...');
+        expect(summary.determinate).toBe(true);
+        expect(summary.percent).toBe(0);
+        expect(summary.progressLabel).toBe('0 / 200 items');
     });
 
     it('builds a determinate banner summary when active jobs share a unit', () => {

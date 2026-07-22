@@ -193,6 +193,7 @@ def build_progress_event(
     top_label: str,
     frame_thumb: str | None = None,
     frame_index: int | None = None,
+    frame_offset_seconds: float | None = None,
     clip_total: int | None = None,
     model_name: str | None = None,
 ) -> dict[str, Any]:
@@ -211,6 +212,8 @@ def build_progress_event(
         message["frame_thumb"] = str(frame_thumb)
     if frame_index is not None:
         message["frame_index"] = int(frame_index)
+    if frame_offset_seconds is not None:
+        message["frame_offset_seconds"] = float(frame_offset_seconds)
     if clip_total is not None:
         message["clip_total"] = int(clip_total)
     if model_name is not None:

@@ -90,12 +90,14 @@ audio_detections = Table(
     Column("species", String, nullable=False),
     Column("confidence", Float, nullable=False),
     Column("sensor_id", String),
+    Column("source_event_id", String),
     Column("raw_data", String),
     Column("created_at", TIMESTAMP, server_default=func.now()),
 )
 
 Index("idx_audio_detections_time", audio_detections.c.timestamp)
 Index("idx_audio_detections_sensor", audio_detections.c.sensor_id)
+Index("uq_audio_detections_source_event_id", audio_detections.c.source_event_id, unique=True)
 
 leaderboard_analyses = Table(
     "leaderboard_analyses",

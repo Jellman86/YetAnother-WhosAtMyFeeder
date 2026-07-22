@@ -949,6 +949,7 @@ async def test_classifier_supervisor_does_not_block_result_on_slow_async_progres
     created: list[_FakeWorker] = []
     progress_started = asyncio.Event()
     release_progress = asyncio.Event()
+    progress_args: list[tuple] = []
 
     async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
         worker = _FakeWorker(worker_name, worker_generation)
@@ -965,7 +966,8 @@ async def test_classifier_supervisor_does_not_block_result_on_slow_async_progres
     )
     await supervisor.start("video")
 
-    async def _slow_progress(*_args):
+    async def _slow_progress(*args):
+        progress_args.append(args)
         progress_started.set()
         await release_progress.wait()
 
@@ -993,6 +995,7 @@ async def test_classifier_supervisor_does_not_block_result_on_slow_async_progres
             "total_frames": 3,
             "frame_score": 0.7,
             "top_label": "Robin",
+            "frame_offset_seconds": 1.25,
         }
     )
     await progress_started.wait()
@@ -1009,6 +1012,7 @@ async def test_classifier_supervisor_does_not_block_result_on_slow_async_progres
 
     results = await asyncio.wait_for(task, timeout=0.2)
     assert results[0]["label"] == "Robin"
+    assert progress_args[0][8] == 1.25
 
     release_progress.set()
     await supervisor.shutdown()
