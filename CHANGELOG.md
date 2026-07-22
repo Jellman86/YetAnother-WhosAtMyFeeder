@@ -91,13 +91,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   invalid-payload, stalled-pagination, and page-budget failures can no longer look like a successful
   empty import. A higher image-classification score preserves existing BirdNET audio, weather,
   same-species taxonomy, the strongest Frigate score, and sublabel evidence; stale taxonomy is
-  cleared when the stronger result changes species. An existing row can still repair a missing
-  cached snapshot and enter the HQ replacement path. Custom ranges follow the browser timezone with an
+  cleared when the stronger result changes species. Completed clean-copy snapshots now carry their
+  validated Frigate box/region into crop-enabled classification instead of silently becoming unguided
+  full frames. Valid Frigate bird events below the classifier's absolute confidence floor are retained
+  honestly as `Unknown Bird`, including runtime/input provenance, so the import is not lossy and HQ or
+  later video analysis can refine them. Already-cropped or temporally unaligned cached images are never
+  cropped with stale final-event coordinates. An existing row can still repair a missing cached
+  snapshot and enter the HQ replacement path. Custom ranges follow the browser timezone with an
   inclusive final calendar day, automatic weather follow-up waits for the maintenance lane instead
   of being dropped, reset cancels and awaits active work before deleting data, and the watchdog
   reports idle jobs rather than penalizing a long job that is still progressing. The Settings result
-  surface now exposes reason counts, while vanished backend jobs are marked stale rather than
-  falsely completed.
+  surface now exposes reason counts—including an explicit below-confidence count—while vanished
+  backend jobs are marked stale rather than falsely completed.
 - **The Model Manager now reports the provider that is actually running.** Hardware-neutral
   model recommendations no longer label high-accuracy models as CPU-only, and the active model
   shows its live provider plus the backend's real automatic fallback order. Intel NPU is included,

@@ -14,6 +14,7 @@ from PIL import Image
 from app.config import settings
 from app.services.classification_admission import ClassificationLeaseExpiredError
 from app.services.classification_input_provenance import (
+    build_snapshot_classification_input_context,
     cached_snapshot_input_provenance,
     frigate_snapshot_input_provenance,
 )
@@ -991,7 +992,10 @@ class EventProcessor:
             retry_budget = self._snapshot_unavailable_retry_budget(event)
             snapshot_data: bytes | None = None
             event_snapshot_state = (
-                {"end_time": getattr(event, "end_time_ts", None)}
+                {
+                    "end_time": getattr(event, "end_time_ts", None),
+                    "data": getattr(event, "data", {}),
+                }
                 if bool(getattr(event, "end_time_known", False))
                 else None
             )
@@ -1052,11 +1056,11 @@ class EventProcessor:
             results = await self.classifier.classify_async_live(
                 image,
                 camera_name=event.camera,
-                input_context={
-                    "is_cropped": snapshot_provenance.is_cropped,
-                    "event_id": event.frigate_event,
-                    "input_source": snapshot_source,
-                },
+                input_context=build_snapshot_classification_input_context(
+                    event_id=event.frigate_event,
+                    event_data=event_snapshot_state,
+                    provenance=snapshot_provenance,
+                ),
                 queue_timeout_seconds=self._live_classification_queue_timeout_seconds(event),
             )
 

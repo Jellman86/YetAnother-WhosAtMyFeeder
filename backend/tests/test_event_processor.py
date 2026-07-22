@@ -1537,6 +1537,10 @@ async def test_classify_snapshot_does_not_claim_crop_for_ended_frigate_event():
         received_at_ts=1700000001.0,
         end_time_known=True,
         end_time_ts=1700000000.5,
+        data={
+            "box": [0.2, 0.3, 0.4, 0.5],
+            "region": [0.1, 0.2, 0.8, 0.9],
+        },
     )
 
     with (
@@ -1555,6 +1559,8 @@ async def test_classify_snapshot_does_not_claim_crop_for_ended_frigate_event():
         "is_cropped": False,
         "event_id": "evt-ended",
         "input_source": "frigate_snapshot",
+        "frigate_box": [0.2, 0.3, 0.4, 0.5],
+        "frigate_region": [0.1, 0.2, 0.8, 0.9],
     }
 
 

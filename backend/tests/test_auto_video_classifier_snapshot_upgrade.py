@@ -151,7 +151,18 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
         patch.object(
             auto_video_classifier_module.frigate_client,
             "get_event_with_error",
-            new=AsyncMock(return_value=({"has_clip": True}, None)),
+            new=AsyncMock(
+                return_value=(
+                    {
+                        "has_clip": True,
+                        "data": {
+                            "box": [0.2, 0.3, 0.4, 0.5],
+                            "region": [0.1, 0.2, 0.8, 0.9],
+                        },
+                    },
+                    None,
+                )
+            ),
         ),
         patch.object(
             auto_video_classifier_module.frigate_client, "get_snapshot", new=AsyncMock(return_value=b"snapshot-bytes")
@@ -172,6 +183,8 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
         "is_cropped": False,
         "event_id": "evt-batch-fallback",
         "input_source": "frigate_snapshot",
+        "frigate_box": [0.2, 0.3, 0.4, 0.5],
+        "frigate_region": [0.1, 0.2, 0.8, 0.9],
     }
     service._save_results.assert_awaited_once_with(
         "evt-batch-fallback",
@@ -646,7 +659,11 @@ async def test_process_event_maintenance_timeout_falls_back_to_snapshot_without_
                 source="maintenance",
             )
 
-        service._classify_from_snapshot.assert_awaited_once_with("evt-video-timeout-fallback", "cam1")
+        service._classify_from_snapshot.assert_awaited_once_with(
+            "evt-video-timeout-fallback",
+            "cam1",
+            event_data={"has_clip": True},
+        )
         service._record_success.assert_called_once_with("evt-video-timeout-fallback", source="maintenance")
         service._record_failure.assert_not_called()
         service._update_status.assert_any_await("evt-video-timeout-fallback", "processing", error=None, broadcast=False)

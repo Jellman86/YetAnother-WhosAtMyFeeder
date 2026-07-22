@@ -184,7 +184,10 @@ depending only on browser-local progress. Queue depth, actual worker concurrency
 and blockers remain distinct; queued work is not counted as running. The global banner includes
 only prominent owner-triggered work, while routine per-detection work remains available in Jobs.
 The surface uses one divided information region, accessible progress semantics, translated status
-copy, explicit retry feedback, and no control that merely hides server-owned active work.
+copy, explicit retry feedback, and no control that merely hides server-owned active work. Historical
+bird imports now remain lossless below the classifier floor by creating reviewable Unknown Bird
+records, while completed clean snapshots receive aligned Frigate crop hints and stale/unaligned
+coordinates are rejected.
 
 #### File-by-file code-quality review 🔬
 **Priority:** P1 | **Effort:** XL | **Status:** ✅ Completed

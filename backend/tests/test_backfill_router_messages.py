@@ -26,6 +26,10 @@ def test_build_skipped_message_reports_invalid_scores():
     assert _build_skipped_message(2, {"invalid_score": 2}) == "2 had invalid classifier scores"
 
 
+def test_build_skipped_message_reports_low_confidence_results():
+    assert _build_skipped_message(93, {"low_confidence": 93}) == "93 were below the confidence threshold"
+
+
 def test_build_skipped_message_mixed_reasons():
     msg = _build_skipped_message(
         17,
@@ -36,7 +40,10 @@ def test_build_skipped_message_mixed_reasons():
             "blocked_label": 3,
         },
     )
-    assert msg == "5 already existed, 2 had invalid classifier scores, 10 skipped by filters/validation"
+    assert msg == (
+        "5 already existed, 2 had invalid classifier scores, "
+        "7 were below the confidence threshold, 3 skipped by filters/validation"
+    )
 
 
 def test_build_error_message_without_reasons():

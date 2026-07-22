@@ -118,7 +118,11 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
             "camera": "front",
             "start_time": 1700000000,
             "sub_label": "Columba palumbus",
-            "data": {"top_score": 0.91},
+            "data": {
+                "top_score": 0.91,
+                "box": [0.2, 0.3, 0.4, 0.5],
+                "region": [0.1, 0.2, 0.8, 0.9],
+            },
         }
     )
 
@@ -131,8 +135,70 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
         "is_cropped": False,
         "event_id": "evt-frigate-score",
         "input_source": "frigate_snapshot",
+        "frigate_box": [0.2, 0.3, 0.4, 0.5],
+        "frigate_region": [0.1, 0.2, 0.8, 0.9],
     }
     save_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_historical_event_preserves_low_confidence_bird_as_unknown(monkeypatch):
+    classifier = MagicMock()
+    classifier.classify_async_background = AsyncMock(
+        return_value=[
+            {
+                "label": "Robin",
+                "score": 0.12,
+                "index": 4,
+                "inference_provider": "intel_cpu",
+                "inference_backend": "openvino",
+                "model_id": "convnext_large_inat21",
+                "input_source": "snapshot_frigate_hint_crop",
+                "input_is_cropped": True,
+            }
+        ]
+    )
+    service = BackfillService(classifier)
+
+    image = Image.new("RGB", (8, 8), color="white")
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+
+    async def _fake_snapshot(*_args, **_kwargs):
+        return buffer.getvalue()
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.get_snapshot", _fake_snapshot)
+    monkeypatch.setattr(backfill_module.settings.classification, "threshold", 0.45)
+    monkeypatch.setattr(backfill_module.settings.classification, "min_confidence", 0.4)
+    monkeypatch.setattr(backfill_module.settings.classification, "trust_frigate_sublabel", False)
+
+    save_mock = AsyncMock(return_value=(True, True))
+    service.detection_service.save_detection = save_mock
+
+    status, reason = await service.process_historical_event(
+        {
+            "id": "evt-backfill-low-confidence",
+            "camera": "birdcam",
+            "start_time": 1700000000,
+            "top_score": 0.91,
+            "sub_label": None,
+            "data": {"box": [0.2, 0.3, 0.4, 0.5]},
+        }
+    )
+
+    assert status == "new"
+    assert reason is None
+    assert save_mock.await_args.kwargs["classification"] == {
+        "label": "Unknown Bird",
+        "score": 0.12,
+        "index": 4,
+        "source": "historical_low_confidence_catchall",
+        "inference_provider": "intel_cpu",
+        "inference_backend": "openvino",
+        "model_id": "convnext_large_inat21",
+        "input_source": "snapshot_frigate_hint_crop",
+        "input_is_cropped": True,
+    }
 
 
 @pytest.mark.asyncio

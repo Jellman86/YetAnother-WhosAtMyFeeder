@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from app.services.classification_input_provenance import (
+    build_snapshot_classification_input_context,
     cached_snapshot_input_provenance,
     frigate_snapshot_input_provenance,
     load_snapshot_classification_input,
@@ -49,6 +50,89 @@ def test_frigate_snapshot_is_only_marked_cropped_while_event_is_live():
     assert ended.is_cropped is False
     assert unknown.input_source == "frigate_snapshot"
     assert unknown.is_cropped is False
+
+
+def test_completed_full_frame_context_includes_valid_frigate_localisation_hints():
+    provenance = frigate_snapshot_input_provenance({"end_time": 1234.5})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-1",
+        event_data={
+            "end_time": 1234.5,
+            "data": {
+                "box": [0.2, 0.3, 0.4, 0.5],
+                "region": (0.1, 0.2, 0.8, 0.9),
+            },
+        },
+        provenance=provenance,
+    )
+
+    assert context == {
+        "is_cropped": False,
+        "event_id": "event-1",
+        "input_source": "frigate_snapshot",
+        "frigate_box": [0.2, 0.3, 0.4, 0.5],
+        "frigate_region": [0.1, 0.2, 0.8, 0.9],
+    }
+
+
+def test_cropped_snapshot_context_does_not_add_hints_or_double_crop():
+    provenance = frigate_snapshot_input_provenance({"end_time": None})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-live",
+        event_data={
+            "end_time": None,
+            "data": {
+                "box": [0.2, 0.3, 0.4, 0.5],
+                "region": [0.1, 0.2, 0.8, 0.9],
+            },
+        },
+        provenance=provenance,
+    )
+
+    assert context == {
+        "is_cropped": True,
+        "event_id": "event-live",
+        "input_source": "frigate_snapshot_cropped",
+    }
+
+
+def test_temporally_unaligned_cached_full_frame_does_not_use_final_event_hints():
+    provenance = cached_snapshot_input_provenance({"source": "hq_candidate_full_frame"})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-hq-frame",
+        event_data={
+            "data": {
+                "box": [0.2, 0.3, 0.4, 0.5],
+                "region": [0.1, 0.2, 0.8, 0.9],
+            }
+        },
+        provenance=provenance,
+    )
+
+    assert context == {
+        "is_cropped": False,
+        "event_id": "event-hq-frame",
+        "input_source": "hq_candidate_full_frame",
+    }
+
+
+def test_full_frame_context_ignores_malformed_localisation_hints():
+    provenance = frigate_snapshot_input_provenance({"end_time": 1234.5})
+
+    context = build_snapshot_classification_input_context(
+        event_id="event-invalid-hints",
+        event_data={"data": {"box": [0.2, 0.3, 0.4], "region": "not-a-region"}},
+        provenance=provenance,
+    )
+
+    assert context == {
+        "is_cropped": False,
+        "event_id": "event-invalid-hints",
+        "input_source": "frigate_snapshot",
+    }
 
 
 @pytest.mark.asyncio

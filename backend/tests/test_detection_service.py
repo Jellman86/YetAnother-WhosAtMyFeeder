@@ -716,6 +716,68 @@ def test_low_confidence_catchall_preserves_runtime_and_input_provenance():
     assert result["model_id"] == "rope_vit_b14_inat21"
 
 
+def test_select_usable_classification_can_preserve_historical_low_confidence_as_unknown():
+    service = DetectionService(MagicMock())
+
+    with patch("app.services.detection_service.settings") as mock_settings:
+        mock_settings.classification.unknown_bird_labels = ["Unknown Bird"]
+        mock_settings.classification.blocked_labels = []
+        mock_settings.classification.blocked_species = []
+        mock_settings.classification.threshold = 0.45
+        mock_settings.classification.min_confidence = 0.4
+        mock_settings.classification.trust_frigate_sublabel = False
+
+        result, reason = service.select_usable_classification(
+            [
+                {
+                    "label": "Robin",
+                    "score": 0.12,
+                    "index": 4,
+                    "inference_provider": "intel_cpu",
+                    "inference_backend": "openvino",
+                    "model_id": "convnext_large_inat21",
+                    "input_source": "frigate_snapshot",
+                    "input_is_cropped": False,
+                }
+            ],
+            "evt-historical-low-confidence",
+            preserve_low_confidence_as_unknown=True,
+        )
+
+    assert reason == "historical_unknown_catchall"
+    assert result == {
+        "label": "Unknown Bird",
+        "score": 0.12,
+        "index": 4,
+        "source": "historical_low_confidence_catchall",
+        "inference_provider": "intel_cpu",
+        "inference_backend": "openvino",
+        "model_id": "convnext_large_inat21",
+        "input_source": "frigate_snapshot",
+        "input_is_cropped": False,
+    }
+
+
+def test_select_usable_classification_still_drops_live_results_below_absolute_floor():
+    service = DetectionService(MagicMock())
+
+    with patch("app.services.detection_service.settings") as mock_settings:
+        mock_settings.classification.unknown_bird_labels = ["Unknown Bird"]
+        mock_settings.classification.blocked_labels = []
+        mock_settings.classification.blocked_species = []
+        mock_settings.classification.threshold = 0.45
+        mock_settings.classification.min_confidence = 0.4
+        mock_settings.classification.trust_frigate_sublabel = False
+
+        result, reason = service.select_usable_classification(
+            [{"label": "Robin", "score": 0.12, "index": 4}],
+            "evt-live-low-confidence",
+        )
+
+    assert result is None
+    assert reason == "low_confidence"
+
+
 def test_trusted_frigate_fallback_never_uses_object_detection_score_as_species_confidence():
     service = DetectionService(MagicMock())
 

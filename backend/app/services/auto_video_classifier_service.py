@@ -24,7 +24,10 @@ from app.services.video_classification_waiter import video_classification_waiter
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.frigate_missing_policy import apply_missing_policy
 from app.services.maintenance_coordinator import maintenance_coordinator
-from app.services.classification_input_provenance import load_snapshot_classification_input
+from app.services.classification_input_provenance import (
+    build_snapshot_classification_input_context,
+    load_snapshot_classification_input,
+)
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.routers.proxy import _get_valid_cached_recording_clip_path
@@ -1410,7 +1413,11 @@ class AutoVideoClassifierService:
                     # all race the single background-image admission slot at the
                     # same instant, generating a burst of admission timeouts.
                     await asyncio.sleep(random.uniform(0.0, 0.5))
-                    snapshot_error = await self._classify_from_snapshot(frigate_event, camera)
+                    snapshot_error = await self._classify_from_snapshot(
+                        frigate_event,
+                        camera,
+                        event_data=event_data,
+                    )
                     if snapshot_error is None:
                         self._record_success(frigate_event, source=source)
                     else:
@@ -1540,7 +1547,11 @@ class AutoVideoClassifierService:
 
                     if source == "maintenance" and fallback_to_snapshot:
                         timeout_context["snapshot_fallback_attempted"] = True
-                        snapshot_error = await self._classify_from_snapshot(frigate_event, camera)
+                        snapshot_error = await self._classify_from_snapshot(
+                            frigate_event,
+                            camera,
+                            event_data=event_data,
+                        )
                         timeout_context["snapshot_fallback_recovered"] = snapshot_error is None
                         if snapshot_error is not None:
                             timeout_context["snapshot_fallback_error"] = snapshot_error
@@ -2166,10 +2177,17 @@ class AutoVideoClassifierService:
         )
         # _record_success is already called on completion in _process_event.
 
-    async def _classify_from_snapshot(self, frigate_event: str, camera: str) -> str | None:
+    async def _classify_from_snapshot(
+        self,
+        frigate_event: str,
+        camera: str,
+        *,
+        event_data: dict | None = None,
+    ) -> str | None:
         """Fallback path for queued user-initiated analysis when Frigate clips are no longer retained."""
         snapshot_data, provenance = await load_snapshot_classification_input(
             frigate_event,
+            event_data=event_data,
             media_cache_service=media_cache,
             frigate_client_service=frigate_client,
         )
@@ -2183,11 +2201,11 @@ class AutoVideoClassifierService:
         await self._update_status(frigate_event, "processing", error=None, broadcast=False)
         image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
         results: list[dict] = []
-        input_context = {
-            "is_cropped": provenance.is_cropped,
-            "event_id": frigate_event,
-            "input_source": provenance.input_source,
-        }
+        input_context = build_snapshot_classification_input_context(
+            event_id=frigate_event,
+            event_data=event_data,
+            provenance=provenance,
+        )
         last_unavailable_error: str | None = None
         for attempt in range(1, SNAPSHOT_FALLBACK_MAX_ATTEMPTS + 1):
             try:

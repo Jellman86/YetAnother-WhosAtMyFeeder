@@ -286,6 +286,7 @@ def _build_skipped_message(skipped: int, skipped_reasons: Optional[dict[str, int
 
     already_exists = reasons.pop("already_exists", 0)
     invalid_scores = reasons.pop("invalid_score", 0)
+    low_confidence = reasons.pop("low_confidence", 0)
     other_skips = sum(reasons.values())
 
     parts: list[str] = []
@@ -293,6 +294,8 @@ def _build_skipped_message(skipped: int, skipped_reasons: Optional[dict[str, int
         parts.append(f"{already_exists} already existed")
     if invalid_scores > 0:
         parts.append(f"{invalid_scores} had invalid classifier scores")
+    if low_confidence > 0:
+        parts.append(f"{low_confidence} were below the confidence threshold")
     if other_skips > 0:
         parts.append(f"{other_skips} skipped by filters/validation")
 

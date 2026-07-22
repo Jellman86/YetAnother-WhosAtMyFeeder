@@ -657,7 +657,18 @@ async def test_reclassify_completed_snapshot_does_not_assume_crop_query_was_appl
             patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
             patch("app.routers.events.Image.open", return_value=MagicMock()),
         ):
-            mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": False}, None))
+            mock_frigate.get_event_with_error = AsyncMock(
+                return_value=(
+                    {
+                        "has_clip": False,
+                        "data": {
+                            "box": [0.2, 0.3, 0.4, 0.5],
+                            "region": [0.1, 0.2, 0.8, 0.9],
+                        },
+                    },
+                    None,
+                )
+            )
             mock_frigate.get_snapshot = AsyncMock(return_value=b"snapshot-bytes")
             mock_detection_service.return_value.apply_video_result = AsyncMock()
 
@@ -669,6 +680,8 @@ async def test_reclassify_completed_snapshot_does_not_assume_crop_query_was_appl
             "is_cropped": False,
             "event_id": event_id,
             "input_source": "frigate_snapshot",
+            "frigate_box": [0.2, 0.3, 0.4, 0.5],
+            "frigate_region": [0.1, 0.2, 0.8, 0.9],
         }
     finally:
         await _delete_detection(event_id)

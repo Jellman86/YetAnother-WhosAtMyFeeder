@@ -133,6 +133,14 @@ against independent recording frames. Keep `snapshots.clean_copy: True`, `timest
 `bounding_box: False`, and `crop: False`. Frigate ignores snapshot query overrides after an event
 ends, so a pre-cropped regular snapshot is not a safe substitute for the clean copy.
 
+That completed-event behaviour also applies to detection backfill and snapshot reclassification.
+YA-WAMF treats the returned file as a full frame and forwards Frigate's validated `data.box` and
+`data.region` only when those coordinates are aligned with that saved snapshot. A live/pre-cropped
+snapshot is not cropped twice, and a full frame sampled from another recording moment does not reuse
+the final event box. Historical bird events that remain below the species classifier's absolute
+confidence floor are imported as **Unknown Bird** rather than disappearing; the cached snapshot can
+then enter best-quality refinement or later video analysis.
+
 ### Reolink 6MP/4K cameras
 
 For older high-resolution RLC-8xx cameras, Frigate's current

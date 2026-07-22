@@ -11,7 +11,10 @@ from app.services.classifier_service import (
     ClassifierService,
     resolve_live_classifier,
 )
-from app.services.classification_input_provenance import frigate_snapshot_input_provenance
+from app.services.classification_input_provenance import (
+    build_snapshot_classification_input_context,
+    frigate_snapshot_input_provenance,
+)
 from app.services.frigate_client import frigate_client
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 from app.services.media_cache import media_cache
@@ -261,11 +264,11 @@ class BackfillService:
             results = await self.classifier.classify_async_background(
                 image,
                 camera_name=event.get("camera"),
-                input_context={
-                    "is_cropped": snapshot_provenance.is_cropped,
-                    "event_id": frigate_event,
-                    "input_source": snapshot_provenance.input_source,
-                },
+                input_context=build_snapshot_classification_input_context(
+                    event_id=frigate_event,
+                    event_data=event,
+                    provenance=snapshot_provenance,
+                ),
                 queue_timeout_seconds=BACKFILL_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS,
             )
 
@@ -310,6 +313,7 @@ class BackfillService:
                 sub_label,
                 frigate_score,
                 parsed_sub_label.score,
+                preserve_low_confidence_as_unknown=True,
             )
             if not top:
                 if reason == "invalid_score":
