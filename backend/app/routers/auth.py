@@ -1,8 +1,9 @@
 """Authentication endpoints for YA-WAMF."""
 
 import aiosqlite
+import asyncio
 from fastapi import APIRouter, Depends, HTTPException, status, Request
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
 import structlog
@@ -29,6 +30,7 @@ from app.ratelimit import login_rate_limit
 
 router = APIRouter()
 log = structlog.get_logger()
+_initial_setup_lock = asyncio.Lock()
 
 
 class LoginRequest(BaseModel):
@@ -124,6 +126,22 @@ class InitialPasswordRequest(BaseModel):
             raise ValueError("Password must contain at least one letter and one number")
 
         return v
+
+    @model_validator(mode="after")
+    def require_password_when_enabling_auth(self) -> "InitialPasswordRequest":
+        if self.enable_auth and not self.password:
+            raise ValueError("Password is required when enabling authentication")
+        return self
+
+
+class InitialSetupResponse(BaseModel):
+    """Initial setup result, including the owner session created atomically with a password."""
+
+    message: str
+    access_token: Optional[str] = None
+    token_type: Optional[str] = None
+    username: Optional[str] = None
+    expires_in_hours: Optional[int] = None
 
 
 @router.post("/auth/login", response_model=LoginResponse)
@@ -281,12 +299,12 @@ async def get_auth_status(request: Request):
     )
 
 
-@router.post("/auth/initial-setup", response_model=MessageResponse)
-async def set_initial_password(request: InitialPasswordRequest) -> MessageResponse:
+@router.post("/auth/initial-setup", response_model=InitialSetupResponse)
+async def set_initial_password(request: InitialPasswordRequest) -> InitialSetupResponse:
     """Set initial password for first-run setup.
 
-    Can only be called when auth is disabled OR no password is set.
-    This prevents unauthorized password changes.
+    Can only be called before initial setup is complete and while no password is
+    set. This prevents unauthorized password changes or auth-disabled takeover.
 
     Args:
         request: Initial password setup request
@@ -297,24 +315,44 @@ async def set_initial_password(request: InitialPasswordRequest) -> MessageRespon
     Raises:
         HTTPException: If setup already completed or invalid request
     """
-    # Security check: Only allow if no password currently set
-    if settings.auth.password_hash:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Password already configured. Use Settings to change password.",
+    async with _initial_setup_lock:
+        # This unauthenticated endpoint exists only for the untouched first-run
+        # state. Re-check inside the lock so two concurrent requests cannot both
+        # claim the installation.
+        if settings.auth.initial_setup_complete:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Initial setup already completed. Use Settings to change authentication.",
+            )
+        if settings.auth.password_hash:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Password already configured. Use Settings to change password.",
+            )
+
+        previous = (
+            settings.auth.username,
+            settings.auth.password_hash,
+            settings.auth.enabled,
+            settings.auth.initial_setup_complete,
         )
-
-    # Update config
-    if request.enable_auth and request.password:
-        settings.auth.username = request.username
-        settings.auth.password_hash = hash_password(request.password)
-        settings.auth.enabled = True
-    else:
-        settings.auth.enabled = False
-    settings.auth.initial_setup_complete = True
-
-    # Save to config.json
-    await settings.save()
+        try:
+            if request.enable_auth and request.password:
+                settings.auth.username = request.username
+                settings.auth.password_hash = hash_password(request.password)
+                settings.auth.enabled = True
+            else:
+                settings.auth.enabled = False
+            settings.auth.initial_setup_complete = True
+            await settings.save()
+        except Exception:
+            (
+                settings.auth.username,
+                settings.auth.password_hash,
+                settings.auth.enabled,
+                settings.auth.initial_setup_complete,
+            ) = previous
+            raise
 
     log.info(
         "AUTH_AUDIT: Initial setup completed",
@@ -323,7 +361,17 @@ async def set_initial_password(request: InitialPasswordRequest) -> MessageRespon
         event_type="initial_setup",
     )
 
-    return MessageResponse(message="Setup completed successfully")
+    if not settings.auth.enabled:
+        return InitialSetupResponse(message="Setup completed successfully")
+
+    token = create_access_token(settings.auth.username, AuthLevel.OWNER)
+    return InitialSetupResponse(
+        message="Setup completed successfully",
+        access_token=token,
+        token_type="bearer",
+        username=settings.auth.username,
+        expires_in_hours=settings.auth.session_expiry_hours,
+    )
 
 
 @router.post("/auth/logout", response_model=MessageResponse)

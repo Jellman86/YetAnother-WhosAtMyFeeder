@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel, Field, JsonValue
 from typing import List, Optional
 from app.config import settings
-from app.services.model_manager import model_manager
+from app.services.model_manager import model_manager, registry_artifact_kind
 from app.services.model_validation import activation_provider_recommendation, run_validation_probe
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 from app.services.classifier_service import get_classifier
@@ -44,6 +44,19 @@ class ModelValidateResponse(BaseModel):
     # so validating a candidate never mutates the currently live model session.
     best_provider: Optional[str] = None
     provider_set: bool = False
+
+
+def _require_classifier_artifact(target: InstalledModel) -> None:
+    metadata_kind = target.metadata.artifact_kind if target.metadata is not None else None
+    artifact_kind = str(metadata_kind or registry_artifact_kind(target.id)).strip().lower()
+    if artifact_kind != "classifier":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This artifact is a crop detector, not a classifier model. "
+                "Crop detectors are managed by the automatic best-image policy."
+            ),
+        )
 
 
 @router.get("/models/available", response_model=List[ModelMetadata])
@@ -100,6 +113,7 @@ async def validate_model(model_id: str, auth: AuthContext = Depends(require_owne
     target = next((m for m in installed if m.id == model_id), None)
     if target is None:
         raise HTTPException(status_code=404, detail="Model not installed")
+    _require_classifier_artifact(target)
     if not target.ready:
         raise HTTPException(
             status_code=409,
@@ -128,6 +142,7 @@ async def activate_model(model_id: str, background_tasks: BackgroundTasks, auth:
     target = next((m for m in installed if m.id == model_id), None)
     if target is None:
         raise HTTPException(status_code=404, detail="Model not installed")
+    _require_classifier_artifact(target)
     if not target.validated:
         raise HTTPException(
             status_code=409,

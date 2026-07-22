@@ -2,6 +2,7 @@ import pytest
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch
 from app.services.audio.audio_service import AudioService, AudioDetection
+from app.database import get_db
 
 
 @pytest.fixture
@@ -31,6 +32,30 @@ async def test_add_detection_basic(audio_service):
     assert det.confidence == 0.85
     assert det.sensor_id == "mic1"
     assert det.timestamp.tzinfo == timezone.utc
+
+
+@pytest.mark.asyncio
+async def test_diagnostic_detection_proves_storage_then_removes_synthetic_evidence(audio_service):
+    species = "Diagnostic-only Blue Tit"
+
+    result = await audio_service.add_detection(
+        {
+            "species": species,
+            "ScientificName": "Cyanistes caeruleus",
+            "confidence": 0.95,
+            "timestamp": datetime.now(timezone.utc).timestamp(),
+        },
+        diagnostic=True,
+    )
+
+    assert result is True
+    assert len(audio_service._buffer) == 0
+    async with get_db() as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM audio_detections WHERE species = ?",
+            (species,),
+        ) as cursor:
+            assert (await cursor.fetchone())[0] == 0
 
 
 @pytest.mark.asyncio

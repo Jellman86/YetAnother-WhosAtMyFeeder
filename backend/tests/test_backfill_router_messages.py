@@ -1,8 +1,15 @@
+import asyncio
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+from app.routers import backfill as backfill_router
 from app.routers.backfill import (
     BackfillJobStatus,
     _build_error_message,
     _build_running_message,
     _build_skipped_message,
+    _check_stale_backfill_jobs,
+    _resolve_date_range,
 )
 
 
@@ -165,3 +172,120 @@ def test_build_running_message_reports_stalled_queue():
         )
         == "Stalled while waiting for maintenance classifier capacity"
     )
+
+
+def test_custom_backfill_range_uses_browser_timezone_and_an_exclusive_next_day_boundary():
+    start, end = _resolve_date_range(
+        "custom",
+        "2026-07-01",
+        "2026-07-01",
+        "en",
+        user_timezone=ZoneInfo("Europe/London"),
+    )
+
+    assert start == datetime(2026, 6, 30, 23, 0, tzinfo=timezone.utc)
+    assert end == datetime(2026, 7, 1, 23, 0, tzinfo=timezone.utc)
+    assert end - start == timedelta(days=1)
+
+
+def test_custom_backfill_range_before_start_produces_an_empty_or_reversed_interval():
+    start, end = _resolve_date_range(
+        "custom",
+        "2026-07-03",
+        "2026-07-02",
+        "en",
+        user_timezone=timezone.utc,
+    )
+
+    assert start >= end
+
+
+def test_backfill_watchdog_uses_last_progress_instead_of_total_runtime(monkeypatch):
+    now = datetime.now(timezone.utc)
+    job = BackfillJobStatus(
+        id="job-progressing",
+        kind="detections",
+        status="running",
+        started_at=(now - timedelta(hours=2)).isoformat(),
+        last_progress_at=now.isoformat(),
+        processed=500,
+        total=1000,
+    )
+    backfill_router._JOB_STORE.clear()
+    backfill_router._JOB_STORE[job.id] = job
+    backfill_router._stale_job_ids_reported.clear()
+    recorded: list[dict] = []
+    monkeypatch.setattr(backfill_router.error_diagnostics_history, "record", lambda **kwargs: recorded.append(kwargs))
+
+    _check_stale_backfill_jobs()
+
+    assert recorded == []
+    assert job.id not in backfill_router._stale_job_ids_reported
+    backfill_router._JOB_STORE.clear()
+
+
+def test_weather_followup_waits_and_retries_instead_of_being_dropped(monkeypatch):
+    attempts: list[int] = []
+
+    async def fake_start(*_args, **_kwargs):
+        attempts.append(len(attempts) + 1)
+        if len(attempts) < 3:
+            return None
+        return BackfillJobStatus(id="weather-followup", kind="weather", status="running")
+
+    monkeypatch.setattr(backfill_router, "_start_weather_backfill_async", fake_start)
+    monkeypatch.setattr(backfill_router, "WEATHER_FOLLOWUP_RETRY_SECONDS", 0.001)
+    backfill_router._JOB_TASKS.clear()
+
+    async def exercise() -> None:
+        backfill_router._schedule_weather_followup(
+            backfill_router.WeatherBackfillRequest(date_range="day", only_missing=True),
+            "en",
+            timezone.utc,
+            detection_job_id="detection-1",
+        )
+        task = backfill_router._JOB_TASKS["weather_followup:detection-1"]
+        await asyncio.wait_for(task, timeout=1.0)
+
+    asyncio.run(exercise())
+
+    assert attempts == [1, 2, 3]
+    assert "weather_followup:detection-1" not in backfill_router._JOB_TASKS
+
+
+def test_terminal_backfill_history_is_bounded_without_dropping_running_or_latest_jobs(monkeypatch):
+    monkeypatch.setattr(backfill_router, "BACKFILL_JOB_HISTORY_LIMIT", 2)
+    backfill_router._JOB_STORE.clear()
+    backfill_router._LATEST_JOB_BY_KIND.clear()
+
+    for index in range(4):
+        job = BackfillJobStatus(
+            id=f"done-{index}",
+            kind="detections",
+            status="completed",
+            started_at=f"2026-07-22T10:0{index}:00+00:00",
+            finished_at=f"2026-07-22T10:0{index}:30+00:00",
+        )
+        backfill_router._JOB_STORE[job.id] = job
+    running = BackfillJobStatus(id="running", kind="weather", status="running")
+    backfill_router._JOB_STORE[running.id] = running
+    backfill_router._LATEST_JOB_BY_KIND.update({"detections": "done-0", "weather": running.id})
+
+    backfill_router._prune_terminal_jobs()
+
+    assert set(backfill_router._JOB_STORE) == {"done-0", "done-2", "done-3", "running"}
+    backfill_router._JOB_STORE.clear()
+    backfill_router._LATEST_JOB_BY_KIND.clear()
+
+
+def test_request_task_registration_fails_closed_during_reset():
+    async def exercise() -> None:
+        backfill_router._JOB_TASKS.clear()
+        backfill_router._RESET_IN_PROGRESS = True
+        try:
+            assert await backfill_router._register_request_task("sync-request") is False
+            assert "sync-request" not in backfill_router._JOB_TASKS
+        finally:
+            backfill_router._RESET_IN_PROGRESS = False
+
+    asyncio.run(exercise())

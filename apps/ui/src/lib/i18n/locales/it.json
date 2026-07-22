@@ -24,10 +24,46 @@
     "species": "Specie"
   },
   "setup": {
+    "action_failed": "Non è stato possibile salvare la modifica. Controlla i dati e riprova.",
+    "load": { "loading": "Caricamento delle impostazioni salvate…", "failed": "Impossibile caricare le impostazioni salvate. Non è stato modificato nulla.", "retry": "Riprova il caricamento" },
+    "status": {
+      "ok": "Configurato",
+      "attention": "Richiede attenzione",
+      "optional": "Facoltativo"
+    },
+    "account": {
+      "title": "Account amministratore e accesso"
+    },
+    "connection": {
+      "title": "Connessione Frigate e MQTT",
+      "save_failed": "Non è stato possibile salvare le impostazioni di connessione. Controlla i valori e riprova.",
+      "mqtt_auth": "Autenticazione MQTT", "mqtt_auth_hint": "Attivala solo se il broker richiede nome utente e password.", "mqtt_username": "Nome utente", "mqtt_password": "Parola d’accesso", "mqtt_password_saved": "La password salvata verrà mantenuta finché non ne inserisci una nuova."
+    },
+    "cameras": {
+      "title": "Telecamere e rilevamento",
+      "description": "Scegli le telecamere Frigate che YA-WAMF deve monitorare. Le soglie avanzate di rilevamento e classificazione restano nelle impostazioni Rilevamento."
+    },
     "model": {
+      "title": "Modello di classificazione e hardware",
       "description": "YA-WAMF include un’alternativa leggera per CPU. Scegli un modello, scaricalo qui se necessario, quindi convalida il percorso esatto dell’immagine e dell’hardware prima di continuare.",
       "download_required": "Scarica e verifica qui questo modello prima di convalidarlo su questo hardware.",
-      "download_timeout": "Il download sta richiedendo più tempo del previsto. Controlla la connessione e riprova."
+      "download_timeout": "Il download sta richiedendo più tempo del previsto. Controlla la connessione e riprova.",
+      "validation_timeout": "La convalida hardware ha superato 30 minuti. Potrebbe essere ancora in corso in Diagnostica; controllane lo stato prima di avviare un’altra esecuzione."
+    },
+    "quality": {
+      "title": "Migliori istantanee disponibili"
+    },
+    "integrations": {
+      "title": "Integrazioni",
+      "birdnet_test_subtitle": "Il test a fasi usa questo URL, poi verifica il broker MQTT salvato e l’archiviazione locale dei rilevamenti."
+    },
+    "history": { "title": "Importa rilevamenti esistenti", "description": "Classifica facoltativamente gli eventi di uccelli ancora conservati da Frigate. L’importazione viene eseguita in background.", "enable": "Importa gli eventi conservati da Frigate", "enable_help": "I rilevamenti vengono aggiornati solo se la classificazione migliora; audio e meteo salvati restano intatti.", "range": "Intervallo cronologia", "import_continue": "Importa e continua", "continue_without": "Continua senza importare", "job_title": "Importazione cronologia", "job_starting": "Analisi della cronologia Frigate", "audio_note": "La cronologia Frigate ripristina rilevamenti visivi e istantanee, ma non può ricreare l’audio BirdNET-Go non salvato." },
+    "review": {
+      "loading": "Controllo della configurazione salvata…",
+      "load_failed": "Impossibile caricare il riepilogo della configurazione. Le impostazioni salvate non sono state modificate.",
+      "retry": "Riprova riepilogo",
+      "stale": "Viene mostrato l’ultimo riepilogo perché l’aggiornamento più recente non è riuscito.",
+      "detail": { "account_password_protected": "Protetto da password", "account_auth_disabled": "Autenticazione disattivata", "account_not_configured": "Non configurato", "frigate_url": "URL Frigate", "mqtt_broker": "Broker MQTT", "mqtt_username": "Nome utente MQTT", "mqtt_password": "Password MQTT", "connection_missing": "Imposta {items}", "cameras_count": "{count} telecamere", "cameras_all": "Tutte le telecamere", "model_wrong_kind": "È selezionato un rilevatore di ritaglio come classificatore", "model_fallback": "Alternativa inclusa", "quality_best": "Migliori istantanee disponibili", "quality_standard": "Istantanee standard", "integrations_needs": "Da configurare: {integrations}", "integrations_configured": "Configurato: {integrations}", "integrations_none": "Nessuna attivata" }
     }
   },
   "theme": {
@@ -271,6 +307,9 @@
         "match_window_help": "Finestra temporale per abbinare audio e video (±5-3600 secondi)",
         "test_button": "Test rilevazione audio",
         "test_loading": "Simulazione…",
+        "stage_reachable": "BirdNET-Go raggiungibile",
+        "stage_mqtt": "Pubblicazione sul broker MQTT",
+        "stage_pipeline": "Acquisizione e archiviazione dei rilevamenti",
         "sensor_mapping_title": "Mappatura sensori (opzionale)",
         "sensor_id_placeholder": "ID sensore",
         "sensor_id_label": "ID sensore audio per {camera}",
@@ -311,6 +350,7 @@
         "oauth_desc": "Collega il tuo account iNaturalist per inviare rilevamenti verificati.",
         "app_owner_note": "Richiede approvazione App Owner iNaturalist (account da 2+ mesi e 10 identificazioni migliorative nell’ultimo mese).",
         "connect": "Collega iNaturalist",
+        "popup_blocked": "La finestra di accesso è stata bloccata. Consenti i popup per questo sito e riprova.",
         "connect_label": "Collega account iNaturalist",
         "disconnect": "Disconnetti",
         "disconnect_label": "Disconnetti account iNaturalist",
@@ -783,6 +823,8 @@
       "backfill_new": "Nuove",
       "backfill_skip": "Saltate",
       "backfill_err": "Errore",
+      "backfill_updated": "Aggiornate",
+      "backfill_error_breakdown": "Errori che richiedono attenzione",
       "backfill_skipped_breakdown": "Dettaglio saltate",
       "backfill_reasons": {
         "low_confidence": "Sotto il limite minimo di confidenza",
@@ -2102,6 +2144,7 @@
     "kind_reclassify": "Riclassificazione",
     "kind_backfill": "Recupero rilevamenti",
     "kind_weather_backfill": "Recupero meteo",
+    "backfill_status_unavailable": "Stato non disponibile dopo un riavvio del backend o un cambio di sessione. Il processo potrebbe essere stato interrotto.",
     "kind_taxonomy_sync": "Sincronizzazione tassonomica",
     "errors_title": "Salute",
     "errors_subtitle": "Diagnostica raggruppata per evitare spam; esporta JSON per la risoluzione dei problemi.",

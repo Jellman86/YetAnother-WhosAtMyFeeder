@@ -41,6 +41,22 @@ If your audio source (like a re-streaming camera) generates a new Sensor ID ever
 
 > ⚠️ **Important:** For correlation to work, your **Timezone (TZ)** must be synced across all containers. See the [Getting Started](../setup/getting-started.md#🌍-the-importance-of-timezone-tz) guide for more details.
 
+### 4. Test the complete path
+
+Use **Test BirdNET-Go path** in the setup wizard or **Test Audio detection** under
+**Settings > Integrations**. The staged diagnostic checks, in order:
+
+1. the BirdNET-Go URL currently shown in the form, when one is set;
+2. an isolated publish through the configured MQTT broker; and
+3. synchronous ingestion of a mock Blue Tit detection into the correlation buffer and database.
+
+The diagnostic stops at the first failed stage. A green result therefore means that every
+displayed stage actually completed; it does not merely mean a background task was queued.
+The MQTT probe uses a separate short-lived client, so it does not interrupt live event ingestion.
+If a saved password is left blank in Settings, the stored secret is reused without returning it
+to the browser. After proving insert and delete access, YA-WAMF removes the synthetic database row
+and buffer entry so a diagnostic can never appear in history or confirm a real visual detection.
+
 ## 🛠 Technical Details
 
 YA-WAMF is compatible with multiple BirdNET message formats:

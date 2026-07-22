@@ -1,3 +1,5 @@
+import { get } from 'svelte/store';
+import { _ } from 'svelte-i18n';
 import type { BackfillJobStatus } from '../api/backfill';
 import { jobProgressStore } from '../stores/job_progress.svelte';
 
@@ -10,6 +12,14 @@ import {
 
 export type BackfillKind = 'detections' | 'weather';
 
+function t(key: string, fallback: string): string {
+    try {
+        return get(_)(key, { default: fallback });
+    } catch {
+        return fallback;
+    }
+}
+
 function safeCount(value: unknown): number {
     const parsed = Number(value ?? 0);
     return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
@@ -19,21 +29,20 @@ function settleObsoleteBackfillJobs(prefix: string, keepId?: string) {
     for (const item of jobProgressStore.activeJobs) {
         if (!item.id.startsWith(prefix)) continue;
         if (keepId && item.id === keepId) continue;
-        const completedTotal = Math.max(safeCount(item.total), safeCount(item.current));
-        if (completedTotal > 0) {
-            jobProgressStore.markCompleted({
-                id: item.id,
-                kind: item.kind,
-                title: item.title,
-                message: item.message,
-                route: item.route,
-                current: completedTotal,
-                total: completedTotal,
-                source: 'poll'
-            });
-            continue;
-        }
-        jobProgressStore.remove(item.id);
+        jobProgressStore.upsertRunning({
+            id: item.id,
+            kind: item.kind,
+            title: item.title,
+            message: t(
+                'jobs.backfill_status_unavailable',
+                'Status unavailable after a backend restart or session change. The job may have been interrupted.'
+            ),
+            route: item.route,
+            current: item.current,
+            total: item.total,
+            source: 'poll'
+        });
+        jobProgressStore.closeActiveByPrefix(item.id, 'stale');
     }
 }
 
@@ -63,7 +72,9 @@ export function syncBackfillJobProgress(
     const progressTotal = normalizedTotal > 0
         ? normalizedTotal
         : (status.status === 'running' ? 0 : processed);
-    const title = kind === 'weather' ? 'Weather Backfill' : 'Detection Backfill';
+    const title = kind === 'weather'
+        ? t('jobs.kind_weather_backfill', 'Weather Backfill')
+        : t('jobs.kind_backfill', 'Detection Backfill');
     const message = status.status === 'running'
         ? resolveRunningBackfillMessage(
             status,

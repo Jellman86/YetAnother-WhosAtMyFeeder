@@ -18,7 +18,7 @@
     async function save() {
         error = null;
         if (alreadyConfigured) {
-            setupWizardStore.next();
+            setupWizardStore.completeStep();
             return;
         }
         if (!skipAuth) {
@@ -40,7 +40,7 @@
                 enableAuth: !skipAuth
             });
             await setupWizardStore.refresh();
-            setupWizardStore.next();
+            setupWizardStore.completeStep();
         } catch (err) {
             error = err instanceof Error ? err.message : get(_)('first_run.setup_failed', { default: 'Setup failed' });
         } finally {

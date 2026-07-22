@@ -3,6 +3,7 @@ import asyncio
 from datetime import datetime
 from dataclasses import dataclass, field
 from collections import defaultdict
+from collections.abc import Callable
 
 from app.config import settings
 from app.services.classifier_service import (
@@ -33,6 +34,10 @@ BACKFILL_TRANSIENT_RETRY_REASONS = {
     "background_image_worker_startup_timeout",
     "background_image_worker_timed_out",
 }
+
+
+class BackfillEventHistoryIncompleteError(RuntimeError):
+    """The requested Frigate history could not be enumerated completely."""
 
 
 @dataclass
@@ -99,11 +104,13 @@ class BackfillService:
         after_ts: float,
         before_ts: float,
         camera: str | None,
+        progress_callback: Callable[[int], None] | None = None,
     ) -> list[dict]:
         all_events: list[dict] = []
         cursor_before = float(before_ts)
         pages = 0
 
+        exhausted = False
         while pages < BACKFILL_EVENTS_MAX_PAGES_PER_CAMERA:
             events = await frigate_client.list_events(
                 after=after_ts,
@@ -114,12 +121,16 @@ class BackfillService:
                 limit=BACKFILL_EVENTS_PAGE_LIMIT,
             )
             if not events:
+                exhausted = True
                 break
 
             all_events.extend(events)
             pages += 1
+            if progress_callback:
+                progress_callback(len(all_events))
 
             if len(events) < BACKFILL_EVENTS_PAGE_LIMIT:
+                exhausted = True
                 break
 
             next_cursor = self._oldest_event_cursor(events, cursor_before)
@@ -129,7 +140,9 @@ class BackfillService:
                     camera=camera,
                     pages=pages,
                 )
-                break
+                raise BackfillEventHistoryIncompleteError(
+                    "Frigate event pagination stopped because an event page had no usable timestamps"
+                )
 
             next_cursor = max(after_ts, next_cursor - 0.001)
             if next_cursor >= cursor_before:
@@ -140,23 +153,35 @@ class BackfillService:
                     next_before=next_cursor,
                     pages=pages,
                 )
-                break
+                raise BackfillEventHistoryIncompleteError(
+                    "Frigate event pagination stopped because the history cursor did not advance"
+                )
             if next_cursor <= after_ts:
+                exhausted = True
                 break
 
             cursor_before = next_cursor
 
-        if pages >= BACKFILL_EVENTS_MAX_PAGES_PER_CAMERA:
+        if not exhausted and pages >= BACKFILL_EVENTS_MAX_PAGES_PER_CAMERA:
             log.warning(
                 "Backfill pagination hit maximum page budget",
                 camera=camera,
                 max_pages=BACKFILL_EVENTS_MAX_PAGES_PER_CAMERA,
                 page_limit=BACKFILL_EVENTS_PAGE_LIMIT,
             )
+            raise BackfillEventHistoryIncompleteError(
+                "Frigate event history exceeded the safe pagination limit; no partial import was reported as complete"
+            )
 
         return all_events
 
-    async def fetch_frigate_events(self, after_ts: float, before_ts: float, cameras: list[str] = None) -> list[dict]:
+    async def fetch_frigate_events(
+        self,
+        after_ts: float,
+        before_ts: float,
+        cameras: list[str] = None,
+        progress_callback: Callable[[int], None] | None = None,
+    ) -> list[dict]:
         """
         Fetch bird events from Frigate API for a given time range.
         """
@@ -166,10 +191,17 @@ class BackfillService:
 
         if camera_list:
             for camera in camera_list:
+                previously_fetched = len(all_events)
+
+                def report_camera_progress(count: int, *, offset: int = previously_fetched) -> None:
+                    if progress_callback:
+                        progress_callback(offset + count)
+
                 events = await self._fetch_camera_events(
                     after_ts=after_ts,
                     before_ts=before_ts,
                     camera=camera,
+                    progress_callback=report_camera_progress,
                 )
                 all_events.extend(events)
         else:
@@ -177,6 +209,7 @@ class BackfillService:
                 after_ts=after_ts,
                 before_ts=before_ts,
                 camera=None,
+                progress_callback=progress_callback,
             )
             all_events.extend(events)
 
@@ -185,7 +218,9 @@ class BackfillService:
         unique_events = []
         for event in all_events:
             event_id = event.get("id")
-            if event_id and event_id not in seen_ids:
+            if not event_id:
+                unique_events.append(event)
+            elif event_id not in seen_ids:
                 seen_ids.add(event_id)
                 unique_events.append(event)
 
@@ -294,18 +329,22 @@ class BackfillService:
                 sub_label=sub_label,
             )
 
+            if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
+                snapshot_cached = await asyncio.to_thread(media_cache.has_snapshot, frigate_event)
+                if not snapshot_cached:
+                    snapshot_cached = bool(
+                        await media_cache.cache_snapshot(
+                            frigate_event,
+                            snapshot_data,
+                            source=snapshot_provenance.input_source,
+                        )
+                    )
+                if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
+                    high_quality_snapshot_service.schedule_replacement(frigate_event, event_data=event)
+
             if not changed:
                 log.debug("Event already exists and score not improved, skipped", event_id=frigate_event)
                 return "skipped", "already_exists"
-
-            if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                cached_snapshot = await media_cache.cache_snapshot(
-                    frigate_event,
-                    snapshot_data,
-                    source=snapshot_provenance.input_source,
-                )
-                if cached_snapshot and settings.media_cache.high_quality_event_snapshots:
-                    high_quality_snapshot_service.schedule_replacement(frigate_event, event_data=event)
 
             log.info("Backfilled detection", event_id=frigate_event, species=top["label"], score=top["score"])
             return "new", None

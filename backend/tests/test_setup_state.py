@@ -8,9 +8,12 @@ from app.config import Settings
 from app.config_models import (
     AuthSettings,
     BirdWeatherSettings,
+    ClassificationSettings,
     EbirdSettings,
     FrigateSettings,
+    InaturalistSettings,
     LLMSettings,
+    NotificationSettings,
 )
 from app.services.setup_state_service import SETUP_SECTION_IDS, compute_setup_state
 
@@ -74,12 +77,38 @@ def test_connection_ok_when_url_set():
     assert conn.detail == "http://frigate:5000"
 
 
+def test_connection_attention_when_mqtt_broker_missing():
+    frigate = FrigateSettings(frigate_url="http://frigate:5000", mqtt_server="", camera=["front"])
+    state = compute_setup_state(_settings(frigate=frigate))
+
+    connection = _by_id(state)["connection"]
+    assert connection.status == "attention"
+    assert "MQTT" in connection.detail
+
+
+def test_connection_attention_when_mqtt_auth_credentials_are_missing():
+    frigate = FrigateSettings(
+        frigate_url="http://frigate:5000",
+        mqtt_server="mqtt",
+        mqtt_auth=True,
+        mqtt_username="",
+        mqtt_password="",
+        camera=["front"],
+    )
+    state = compute_setup_state(_settings(frigate=frigate))
+
+    connection = _by_id(state)["connection"]
+    assert connection.status == "attention"
+    assert connection.detail_values == {"items": "mqtt_username,mqtt_password"}
+
+
 def test_cameras_ok_when_empty_list_watches_all_cameras():
     frigate = FrigateSettings(frigate_url="http://frigate:5000", camera=[])
     state = compute_setup_state(_settings(frigate=frigate))
     cameras = _by_id(state)["cameras"]
     assert cameras.status == "ok"
     assert cameras.detail == "All cameras"
+    assert cameras.detail_code == "cameras_all"
 
 
 def test_cameras_ok_and_counts():
@@ -88,10 +117,20 @@ def test_cameras_ok_and_counts():
     cameras = _by_id(state)["cameras"]
     assert cameras.status == "ok"
     assert cameras.detail == "2 cameras"
+    assert cameras.detail_values == {"count": 2}
 
 
 def test_model_is_always_ok():
     assert _by_id(compute_setup_state(_settings()))["model"].status == "ok"
+
+
+def test_model_needs_attention_when_crop_detector_was_saved_as_classifier():
+    state = compute_setup_state(_settings(classification=ClassificationSettings(model="bird_crop_detector")))
+
+    model = _by_id(state)["model"]
+    assert model.status == "attention"
+    assert "crop detector" in model.detail.lower()
+    assert model.detail_code == "model_wrong_kind"
 
 
 def test_integrations_optional_when_all_disabled():
@@ -100,7 +139,7 @@ def test_integrations_optional_when_all_disabled():
     assert _by_id(state)["integrations"].status == "optional"
 
 
-def test_integrations_ok_lists_enabled():
+def test_integrations_need_attention_when_enabled_without_required_credentials():
     frigate = FrigateSettings(frigate_url="http://frigate:5000", camera=["front"], birdnet_enabled=True)
     state = compute_setup_state(
         _settings(
@@ -111,8 +150,38 @@ def test_integrations_ok_lists_enabled():
         )
     )
     integrations = _by_id(state)["integrations"]
-    assert integrations.status == "ok"
+    assert integrations.status == "attention"
+    assert integrations.detail_code == "integrations_incomplete"
     for name in ("BirdNET-Go", "eBird", "BirdWeather", "AI analysis"):
+        assert name in integrations.detail
+
+
+def test_integrations_ok_only_when_enabled_integrations_have_required_configuration():
+    frigate = FrigateSettings(
+        frigate_url="http://frigate:5000",
+        mqtt_server="mqtt",
+        audio_topic="birdnet",
+        camera=["front"],
+        birdnet_enabled=True,
+    )
+    notifications = NotificationSettings()
+    notifications.discord.enabled = True
+    notifications.discord.webhook_url = "https://discord.example/webhook"
+    state = compute_setup_state(
+        _settings(
+            frigate=frigate,
+            notifications=notifications,
+            ebird=EbirdSettings(enabled=True, api_key="ebird-key"),
+            inaturalist=InaturalistSettings(enabled=True, client_id="client", client_secret="secret"),
+            birdweather=BirdWeatherSettings(enabled=True, station_token="station"),
+            llm=LLMSettings(enabled=True, api_key="llm-key"),
+        )
+    )
+
+    integrations = _by_id(state)["integrations"]
+    assert integrations.status == "ok"
+    assert integrations.detail_code == "integrations_configured"
+    for name in ("BirdNET-Go", "Notifications", "eBird", "iNaturalist", "BirdWeather", "AI analysis"):
         assert name in integrations.detail
 
 

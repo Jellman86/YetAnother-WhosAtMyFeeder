@@ -80,8 +80,21 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 
 - `POST /api/auth/login`
 - `GET /api/auth/status`
-- `POST /api/auth/initial-setup`
+- `POST /api/auth/initial-setup` — available only while
+  `auth.initial_setup_complete=false` and no password exists. Enabling auth requires a
+  password and returns `access_token`, `token_type`, `username`, and
+  `expires_in_hours` so the first-run UI can continue across the newly protected API
+  boundary. Skipping auth returns those session fields as `null`. Once either choice
+  succeeds, later calls are rejected and authentication changes use the owner-only
+  Settings API.
 - `POST /api/auth/logout`
+
+### Guided setup
+
+- `GET /api/setup/state` (owner; also reachable before auth is enabled) — returns
+  deterministic `ok`, `attention`, or `optional` states for account, connection,
+  cameras, classifier, snapshot quality, and integrations. This is saved
+  configuration/credential readiness, not a live external-service health check.
 
 ### Events
 
@@ -144,7 +157,9 @@ validation; a confident snapshot does not short-circuit an available cached vide
 - `GET /api/frigate/{event_id}/clip-thumbnails.jpg`
 - `GET /api/frigate/cameras/status` (owner; normalized camera health from Frigate stats, never cached)
 - `GET /api/frigate/camera/{camera}/latest.jpg` (owner; current frame, never cached)
-- `GET /api/frigate/test`
+- `GET /api/frigate/test` (owner) — accepts an optional `url` query override for testing
+  the value currently being edited without saving it. Stored Frigate credentials are
+  forwarded only when the normalized override matches the saved Frigate base URL.
 - `GET /api/frigate/config`
 - `GET /api/frigate/recording-clip-capability`
 - `POST /api/video-share`
@@ -205,8 +220,8 @@ Notes:
 - `GET /api/models/families/resolved` (owner)
 - `POST /api/models/{model_id}/download` (owner)
 - `GET /api/models/download-status/{model_id}` (owner)
-- `POST /api/models/{model_id}/validate` (owner) — trial-activates the model, validates every provider in the running image/host/model intersection in isolated processes, compares accelerator output with a CPU baseline, records provider eligibility and median inference latency, chooses the fastest passing provider, and restores the previously active model.
-- `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the model has not been validated in the current image on this host (unless it is bundled or already active); after activation succeeds, applies the fastest still-eligible provider recorded by the shared validation engine.
+- `POST /api/models/{model_id}/validate` (owner) — trial-activates a classifier, validates every provider in the running image/host/model intersection in isolated processes, compares accelerator output with a CPU baseline, records provider eligibility and median inference latency, chooses the fastest passing provider, and restores the previously active model. Crop-detector artifacts are rejected with `409`.
+- `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the artifact is a crop detector or the classifier has not been validated in the current image on this host (unless it is bundled or already active); after activation succeeds, applies the fastest still-eligible provider recorded by the shared validation engine.
 
 `GET /api/classifier/status` separates packaging, hardware availability, and the
 active model session. Important deployment fields are:
@@ -258,9 +273,17 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 
 - `GET /api/settings` (owner)
 - `POST /api/settings` (owner)
-- `POST /api/settings/birdnet/test` (owner)
-- `GET /api/settings/birdnet/reachability` (owner) — checks the configured BirdNET-Go URL answers over HTTP
-- `POST /api/settings/mqtt/test-publish` (owner)
+- `POST /api/settings/birdnet/test` (owner) — synchronously proves a mock detection can
+  enter the audio-correlation buffer and complete a database insert/delete; returns `502`
+  rather than a false success when persistence or cleanup fails. The synthetic row and buffer
+  entry are removed so the test cannot affect history or audio confirmation.
+- `GET /api/settings/birdnet/reachability` (owner) — checks that BirdNET-Go answers over
+  HTTP; accepts an optional credential-free HTTP(S) `url` query override so an edited
+  value can be tested without saving it.
+- `POST /api/settings/mqtt/test-publish` (owner) — JSON body accepts optional `server`,
+  `port`, `auth`, `username`, and `password` overrides. Send `{}` to test saved values.
+  Empty/redacted passwords retain the stored secret; the probe uses an isolated,
+  time-bounded MQTT client and never replaces the live ingest connection.
 - `POST /api/settings/notifications/test` (owner)
 - `POST /api/settings/birdweather/test` (owner)
 - `POST /api/settings/llm/test` (owner) — returns structured AI diagnostic metadata (`provider`,
@@ -281,13 +304,26 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 
 ### Backfill
 
-- `POST /api/backfill` (owner)
-- `POST /api/backfill/async` (owner)
-- `GET /api/backfill/status` (owner)
-- `GET /api/backfill/status/{job_id}` (owner)
-- `POST /api/backfill/weather` (owner)
-- `POST /api/backfill/weather/async` (owner)
-- `DELETE /api/backfill/reset` (owner)
+- `POST /api/backfill` (owner) — synchronously imports retained Frigate bird events.
+- `POST /api/backfill/async` (owner) — starts the same import as a background job.
+- `GET /api/backfill/status` (owner) — returns the latest detection or weather job; `kind` can be
+  `detections` or `weather`.
+- `GET /api/backfill/status/{job_id}` (owner) — returns one retained in-process job status.
+- `POST /api/backfill/weather` (owner) — synchronously fills historical weather fields.
+- `POST /api/backfill/weather/async` (owner) — starts weather enrichment as a background job.
+- `DELETE /api/backfill/reset` (owner) — irreversibly deletes all detections and cached media after
+  cancelling and awaiting in-process backfill work.
+
+Backfill accepts `day`, `week`, `month`, or `custom`. Custom `start_date` and `end_date` values are
+calendar dates in the browser timezone, and the final day is inclusive. Detection import is
+idempotent by Frigate event ID: a stronger image result can update classification fields, but it
+preserves existing audio confirmation, weather, same-species taxonomy, the strongest Frigate score,
+and sublabel evidence. Taxonomy from a replaced species is cleared rather than attached to the new
+identity. Missing cached snapshots can still be repaired for an existing row. Frigate history fetch or
+pagination failures fail the job explicitly; partial history is never reported as a completed empty
+import. Job status includes `last_progress_at`, structured skip/error reason counts, and a terminal
+message. A completed detection import queues an only-missing weather pass when the maintenance lane
+becomes available.
 
 ### Integrations
 

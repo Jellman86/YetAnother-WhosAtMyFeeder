@@ -1674,6 +1674,17 @@
             "title": "Kind",
             "type": "string"
           },
+          "last_progress_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Progress At"
+          },
           "message": {
             "default": "",
             "title": "Message",
@@ -5763,6 +5774,64 @@
         "title": "InitialPasswordRequest",
         "type": "object"
       },
+      "InitialSetupResponse": {
+        "description": "Initial setup result, including the owner session created atomically with a password.",
+        "properties": {
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token"
+          },
+          "expires_in_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Hours"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "token_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Type"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "InitialSetupResponse",
+        "type": "object"
+      },
       "InstalledModel": {
         "properties": {
           "id": {
@@ -6180,6 +6249,73 @@
           "expires_in_hours"
         ],
         "title": "LoginResponse",
+        "type": "object"
+      },
+      "MQTTTestRequest": {
+        "properties": {
+          "auth": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "MQTTTestRequest",
         "type": "object"
       },
       "MaintenanceStatsResponse": {
@@ -10841,6 +10977,31 @@
             ],
             "title": "Detail"
           },
+          "detail_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail Code"
+          },
+          "detail_values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Detail Values",
+            "type": "object"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -13757,7 +13918,7 @@
     },
     "/api/auth/initial-setup": {
       "post": {
-        "description": "Set initial password for first-run setup.\n\nCan only be called when auth is disabled OR no password is set.\nThis prevents unauthorized password changes.\n\nArgs:\n    request: Initial password setup request\n\nReturns:\n    Success message\n\nRaises:\n    HTTPException: If setup already completed or invalid request",
+        "description": "Set initial password for first-run setup.\n\nCan only be called before initial setup is complete and while no password is\nset. This prevents unauthorized password changes or auth-disabled takeover.\n\nArgs:\n    request: Initial password setup request\n\nReturns:\n    Success message\n\nRaises:\n    HTTPException: If setup already completed or invalid request",
         "operationId": "set_initial_password_api_auth_initial_setup_post",
         "requestBody": {
           "content": {
@@ -13774,7 +13935,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
+                  "$ref": "#/components/schemas/InitialSetupResponse"
                 }
               }
             },
@@ -17652,6 +17813,25 @@
       "get": {
         "description": "Test connection to Frigate and return status with details.",
         "operationId": "test_frigate_connection_api_frigate_test_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "url",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2048,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Url"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -17662,6 +17842,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -19883,6 +20073,25 @@
       "get": {
         "description": "Verify the configured BirdNET-Go instance answers over HTTP. Owner only.\n\nBirdNET-Go detections arrive over MQTT, so the URL is optional (it powers\nspectrograms). When it is set, an HTTP response \u2014 any status \u2014 proves the\nBirdNET-Go server itself is up and reachable from the backend.",
         "operationId": "test_birdnet_reachability_api_settings_birdnet_reachability_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "url",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2048,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Url"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -19893,6 +20102,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -19911,7 +20130,7 @@
     },
     "/api/settings/birdnet/test": {
       "post": {
-        "description": "Test BirdNET-Go integration by injecting a mock detection. Owner only.",
+        "description": "Test local BirdNET ingestion by synchronously persisting a mock detection.",
         "operationId": "test_birdnet_api_settings_birdnet_test_post",
         "responses": {
           "200": {
@@ -20121,8 +20340,18 @@
     },
     "/api/settings/mqtt/test-publish": {
       "post": {
-        "description": "Publish a test message to the MQTT broker to verify connectivity. Owner only.",
+        "description": "Connect independently and publish using saved or on-screen MQTT values. Owner only.",
         "operationId": "test_mqtt_publish_api_settings_mqtt_test_publish_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MQTTTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -20133,6 +20362,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [

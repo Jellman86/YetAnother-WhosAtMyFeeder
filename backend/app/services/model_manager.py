@@ -684,6 +684,13 @@ REMOTE_REGISTRY = [
 ]
 
 
+def registry_artifact_kind(model_id: str) -> str:
+    """Return the registry artifact role, treating unknown legacy models as classifiers."""
+    normalized = str(model_id or "").strip()
+    metadata = next((model for model in REMOTE_REGISTRY if model["id"] == normalized), None)
+    return str((metadata or {}).get("artifact_kind") or "classifier").strip().lower()
+
+
 def _configured_models_dir() -> str:
     return str(os.getenv("MODEL_DIR") or "").strip()
 
@@ -1969,6 +1976,14 @@ class ModelManager:
 
     def _activate_model_sync(self, model_id: str) -> bool:
         """Set a model as active."""
+        if registry_artifact_kind(model_id) != "classifier":
+            log.warning(
+                "Activation rejected: artifact is not a classifier",
+                model_id=model_id,
+                artifact_kind=registry_artifact_kind(model_id),
+            )
+            return False
+
         # 1. Check if it's a directory-based model in persistent storage
         target_dir = os.path.join(MODELS_DIR, model_id)
         if os.path.exists(target_dir) and os.path.isdir(target_dir):

@@ -950,6 +950,52 @@ class MQTTService:
                 await asyncio.sleep(delay)
                 self._increase_backoff()
 
+    async def test_connection(
+        self,
+        *,
+        server: str,
+        port: int,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> bool:
+        """Open an isolated MQTT session and prove it can publish.
+
+        Diagnostics must not depend on the daemon's existing connection: a user
+        may be testing edited host or credential values before a restart. The
+        short-lived client never replaces or interrupts the ingest client.
+        """
+        client_kwargs = {
+            "hostname": server,
+            "port": port,
+            "identifier": f"yawamf-test-{uuid.uuid4().hex[:8]}",
+            "timeout": 10.0,
+        }
+        if username:
+            client_kwargs["username"] = username
+            client_kwargs["password"] = password or ""
+
+        try:
+            async with asyncio.timeout(12.0):
+                async with Client(**client_kwargs) as client:
+                    await client.publish(
+                        "yawamf/test",
+                        json.dumps(
+                            {
+                                "message": "Hello from YA-WAMF Backend!",
+                                "timestamp": time.time(),
+                            }
+                        ),
+                    )
+            return True
+        except (MqttError, OSError, TimeoutError) as exc:
+            log.warning(
+                "MQTT diagnostic connection failed",
+                server=server,
+                port=port,
+                error_type=type(exc).__name__,
+            )
+            return False
+
     async def publish(self, topic: str, payload: dict | str) -> bool:
         """Publish a message to a specific topic."""
         if not self.client:

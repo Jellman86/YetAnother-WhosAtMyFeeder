@@ -24,10 +24,46 @@
     "species": "物种"
   },
   "setup": {
+    "action_failed": "无法保存此更改。请检查内容后重试。",
+    "load": { "loading": "正在加载已保存的设置…", "failed": "无法加载已保存的设置。未进行任何更改。", "retry": "重试加载设置" },
+    "status": {
+      "ok": "已配置",
+      "attention": "需要处理",
+      "optional": "可选"
+    },
+    "account": {
+      "title": "管理员账户与访问权限"
+    },
+    "connection": {
+      "title": "Frigate 与 MQTT 连接",
+      "save_failed": "无法保存连接设置。请检查各项值后重试。",
+      "mqtt_auth": "MQTT 身份验证", "mqtt_auth_hint": "仅当代理要求用户名和密码时启用。", "mqtt_username": "用户名", "mqtt_password": "密码", "mqtt_password_saved": "除非输入新密码，否则将保留已保存的密码。"
+    },
+    "cameras": {
+      "title": "摄像头与检测",
+      "description": "选择 YA-WAMF 要监控的 Frigate 摄像头。高级检测和分类阈值仍在“检测”设置中管理。"
+    },
     "model": {
+      "title": "分类模型与硬件",
       "description": "YA-WAMF 内置轻量级 CPU 后备模型。请选择模型，必要时在此下载，然后在继续前验证实际镜像与硬件路径。",
       "download_required": "请先在此下载并校验该模型，再在此硬件上进行验证。",
-      "download_timeout": "下载时间超出预期。请检查连接后重试。"
+      "download_timeout": "下载时间超出预期。请检查连接后重试。",
+      "validation_timeout": "硬件验证已超过 30 分钟。任务可能仍在“诊断”中收尾；请先查看其状态，再开始新的验证。"
+    },
+    "quality": {
+      "title": "最佳可用快照"
+    },
+    "integrations": {
+      "title": "集成",
+      "birdnet_test_subtitle": "分阶段测试会使用此 URL，然后验证已保存的 MQTT 代理和本地检测存储。"
+    },
+    "history": { "title": "导入现有检测", "description": "可选择分类 Frigate 仍保留的鸟类事件。导入会在后台安全运行。", "enable": "导入 Frigate 保留的鸟类事件", "enable_help": "仅在分类质量提高时更新检测，并保留已保存的音频与天气信息。", "range": "历史范围", "import_continue": "导入并继续", "continue_without": "不导入并继续", "job_title": "检测历史导入", "job_starting": "正在扫描 Frigate 事件历史", "audio_note": "Frigate 历史可恢复视觉检测和快照，但无法重建未保存的 BirdNET-Go 音频。" },
+    "review": {
+      "loading": "正在检查已保存的设置…",
+      "load_failed": "无法加载设置摘要。已保存的设置未被更改。",
+      "retry": "重试加载摘要",
+      "stale": "由于最新刷新失败，当前显示上一次的设置摘要。",
+      "detail": { "account_password_protected": "密码保护", "account_auth_disabled": "身份验证已禁用", "account_not_configured": "未配置", "frigate_url": "Frigate 地址", "mqtt_broker": "MQTT 代理", "mqtt_username": "MQTT 用户名", "mqtt_password": "MQTT 密码", "connection_missing": "设置 {items}", "cameras_count": "{count} 个摄像头", "cameras_all": "所有摄像头", "model_wrong_kind": "裁剪检测器被选作分类器", "model_fallback": "内置后备模型", "quality_best": "最佳可用快照", "quality_standard": "标准快照", "integrations_needs": "需要设置：{integrations}", "integrations_configured": "已配置：{integrations}", "integrations_none": "均未启用" }
     }
   },
   "theme": {
@@ -262,6 +298,9 @@
         "match_window_help": "音频与视频匹配时间窗口（±5-3600秒）",
         "test_button": "测试音频检测",
         "test_loading": "正在模拟…",
+        "stage_reachable": "BirdNET-Go 可访问",
+        "stage_mqtt": "MQTT 代理发布",
+        "stage_pipeline": "检测接收与存储",
         "sensor_mapping_title": "传感器映射（可选）",
         "sensor_id_placeholder": "传感器ID",
         "sensor_id_label": "{camera} 的音频传感器ID",
@@ -302,6 +341,7 @@
         "oauth_desc": "连接你的 iNaturalist 账号以提交已验证的检测。",
         "app_owner_note": "需要 iNaturalist App Owner 批准（账号 2+ 个月且最近 1 个月有 10 次改进鉴定）。",
         "connect": "连接 iNaturalist",
+        "popup_blocked": "登录窗口已被拦截。请允许此站点弹出窗口后重试。",
         "connect_label": "连接 iNaturalist 账号",
         "disconnect": "断开连接",
         "disconnect_label": "断开 iNaturalist 账号",
@@ -774,6 +814,8 @@
       "backfill_new": "新增",
       "backfill_skip": "跳过",
       "backfill_err": "错误",
+      "backfill_updated": "已更新",
+      "backfill_error_breakdown": "需要处理的错误",
       "backfill_skipped_breakdown": "跳过明细",
       "backfill_reasons": {
         "low_confidence": "低于最低置信度下限",
@@ -2098,6 +2140,7 @@
     "kind_reclassify": "重新分类",
     "kind_backfill": "检测回填",
     "kind_weather_backfill": "天气回填",
+    "backfill_status_unavailable": "后端重启或会话更改后无法获取状态。该任务可能已中断。",
     "kind_taxonomy_sync": "分类同步",
     "errors_title": "健康",
     "errors_subtitle": "分组诊断以避免垃圾信息；导出 JSON 进行故障排除。",

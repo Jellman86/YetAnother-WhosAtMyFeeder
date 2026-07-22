@@ -24,10 +24,83 @@
     "species": "Species"
   },
   "setup": {
+    "action_failed": "That change could not be saved. Check the details and try again.",
+    "load": {
+      "loading": "Loading your saved settings…",
+      "failed": "Saved settings could not be loaded. Nothing has been changed.",
+      "retry": "Retry loading settings"
+    },
+    "status": {
+      "ok": "Configured",
+      "attention": "Needs attention",
+      "optional": "Optional"
+    },
+    "account": {
+      "title": "Admin account & access"
+    },
+    "connection": {
+      "title": "Frigate & MQTT connection",
+      "save_failed": "The connection settings could not be saved. Check the values and try again.",
+      "mqtt_auth": "MQTT authentication",
+      "mqtt_auth_hint": "Enable this only when your broker requires a username and password.",
+      "mqtt_username": "Username",
+      "mqtt_password": "Password",
+      "mqtt_password_saved": "A saved password will be kept unless you enter a replacement."
+    },
+    "cameras": {
+      "title": "Cameras & detection",
+      "description": "Choose which Frigate cameras YA-WAMF watches. Advanced detection and classifier gates stay in Detection settings."
+    },
     "model": {
+      "title": "Classifier model & hardware",
       "description": "YA-WAMF includes a lightweight CPU fallback. Choose a model, download it here if needed, then validate the exact image and hardware path before continuing.",
       "download_required": "Download and verify this model here before validating it on this hardware.",
-      "download_timeout": "The download is taking longer than expected. Check the connection and try again."
+      "download_timeout": "The download is taking longer than expected. Check the connection and try again.",
+      "validation_timeout": "Hardware validation exceeded 30 minutes. It may still be finishing in Diagnostics; check its status before starting another run."
+    },
+    "quality": {
+      "title": "Best available snapshots"
+    },
+    "integrations": {
+      "title": "Integrations",
+      "birdnet_test_subtitle": "The staged test uses this URL, then verifies the saved MQTT broker and local detection storage."
+    },
+    "history": {
+      "title": "Import existing detections",
+      "description": "Optionally classify bird events that Frigate still retains. The import runs safely in the background while you finish setup.",
+      "enable": "Import retained Frigate bird events",
+      "enable_help": "Existing detections are updated only when classification quality improves; saved audio and weather context is preserved.",
+      "range": "History window",
+      "import_continue": "Import & continue",
+      "continue_without": "Continue without importing",
+      "job_title": "Detection history import",
+      "job_starting": "Scanning Frigate event history",
+      "audio_note": "Frigate history can restore visual detections and snapshots, but it cannot recreate BirdNET-Go audio that was not already stored."
+    },
+    "review": {
+      "loading": "Checking the saved setup…",
+      "load_failed": "The setup summary could not be loaded. Your saved settings were not changed.",
+      "retry": "Retry summary",
+      "stale": "Showing the last setup summary because the latest refresh failed.",
+      "detail": {
+        "account_password_protected": "Password protected",
+        "account_auth_disabled": "Authentication disabled",
+        "account_not_configured": "Not configured",
+        "frigate_url": "Frigate URL",
+        "mqtt_broker": "MQTT broker",
+        "mqtt_username": "MQTT username",
+        "mqtt_password": "MQTT password",
+        "connection_missing": "Set {items}",
+        "cameras_count": "{count} cameras",
+        "cameras_all": "All cameras",
+        "model_wrong_kind": "A crop detector is selected as the classifier",
+        "model_fallback": "Bundled fallback",
+        "quality_best": "Best available snapshots",
+        "quality_standard": "Standard snapshots",
+        "integrations_needs": "Needs setup: {integrations}",
+        "integrations_configured": "Configured: {integrations}",
+        "integrations_none": "None enabled"
+      }
     }
   },
   "theme": {
@@ -277,6 +350,8 @@
       "backfill_new": "New",
       "backfill_skip": "Skip",
       "backfill_err": "Err",
+      "backfill_updated": "Updated",
+      "backfill_error_breakdown": "Errors that need attention",
       "backfill_skipped_breakdown": "Skipped Breakdown",
       "backfill_reasons": {
         "low_confidence": "Below Minimum Confidence Floor",
@@ -477,6 +552,9 @@
         "match_window_help": "Time window for matching audio with visual (±5-3600 seconds)",
         "test_button": "Test Audio detection",
         "test_loading": "Simulating…",
+        "stage_reachable": "BirdNET-Go reachable",
+        "stage_mqtt": "MQTT broker publish",
+        "stage_pipeline": "Detection ingest and storage",
         "sensor_mapping_title": "BirdNET Source Mapping (Optional)",
         "sensor_id_placeholder": "BirdNET Source Name",
         "sensor_id_label": "BirdNET source name for {camera}",
@@ -517,6 +595,7 @@
         "oauth_desc": "Connect your iNaturalist account to submit verified detections.",
         "app_owner_note": "Requires iNaturalist App Owner approval (account 2+ months old and 10 improving IDs in the last month).",
         "connect": "Connect iNaturalist",
+        "popup_blocked": "The sign-in window was blocked. Allow popups for this site and try again.",
         "connect_label": "Connect iNaturalist account",
         "disconnect": "Disconnect",
         "disconnect_label": "Disconnect iNaturalist account",
@@ -2004,6 +2083,7 @@
     "kind_reclassify": "Reclassification",
     "kind_backfill": "Detection Backfill",
     "kind_weather_backfill": "Weather Backfill",
+    "backfill_status_unavailable": "Status unavailable after a backend restart or session change. The job may have been interrupted.",
     "kind_taxonomy_sync": "Taxonomy Sync",
     "active": "Active",
     "active_empty": "No active jobs.",

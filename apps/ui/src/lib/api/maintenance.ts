@@ -194,12 +194,19 @@ export async function testBirdNET(): Promise<{ status: string; message: string }
     return handleResponse<{ status: string; message: string }>(response);
 }
 
-export async function checkBirdNetReachability(): Promise<{ status: string; message: string }> {
-    const response = await apiFetch(`${API_BASE}/settings/birdnet/reachability`);
+export async function checkBirdNetReachability(url?: string): Promise<{ status: string; message: string }> {
+    const query = url?.trim() ? `?${new URLSearchParams({ url: url.trim() }).toString()}` : '';
+    const response = await apiFetch(`${API_BASE}/settings/birdnet/reachability${query}`);
     return handleResponse<{ status: string; message: string }>(response);
 }
 
-export async function testMQTTPublish(): Promise<{ status: string; message: string }> {
-    const response = await apiFetch(`${API_BASE}/settings/mqtt/test-publish`, { method: 'POST' });
+export type MQTTTestRequest = paths['/api/settings/mqtt/test-publish']['post']['requestBody'];
+
+export async function testMQTTPublish(options: MQTTTestRequest = {}): Promise<{ status: string; message: string }> {
+    const response = await apiFetch(`${API_BASE}/settings/mqtt/test-publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(options)
+    });
     return handleResponse<{ status: string; message: string }>(response);
 }

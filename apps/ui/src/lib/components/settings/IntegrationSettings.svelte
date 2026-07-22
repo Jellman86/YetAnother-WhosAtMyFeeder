@@ -51,6 +51,7 @@
         locationState = $bindable(''),
         locationCountry = $bindable(''),
         locationWeatherUnitSystem = $bindable<'metric' | 'imperial' | 'british'>('metric'),
+        prepareInaturalistOAuth,
         initiateInaturalistOAuth,
         disconnectInaturalistOAuth,
         refreshInaturalistStatus,
@@ -99,6 +100,7 @@
         locationState: string;
         locationCountry: string;
         locationWeatherUnitSystem: 'metric' | 'imperial' | 'british';
+        prepareInaturalistOAuth: () => Promise<void>;
         initiateInaturalistOAuth: () => Promise<{ authorization_url: string }>;
         disconnectInaturalistOAuth: () => Promise<{ status: string }>;
         refreshInaturalistStatus: () => Promise<void>;
@@ -148,7 +150,7 @@
         // otherwise reached purely over MQTT, so we don't fabricate a check.
         const steps = [];
         if (birdnetUrl.trim()) {
-            steps.push({ id: 'reachable', label: $_('settings.integrations.birdnet.stage_reachable', { default: 'BirdNET-Go reachable' }), run: checkBirdNetReachability });
+            steps.push({ id: 'reachable', label: $_('settings.integrations.birdnet.stage_reachable', { default: 'BirdNET-Go reachable' }), run: () => checkBirdNetReachability(birdnetUrl.trim()) });
         }
         steps.push({ id: 'mqtt', label: $_('settings.integrations.birdnet.stage_mqtt', { default: 'MQTT broker publish' }), run: testMQTTPublish });
         steps.push({ id: 'pipeline', label: $_('settings.integrations.birdnet.stage_pipeline', { default: 'Detection pipeline (mock detection)' }), run: testBirdNET });
@@ -163,11 +165,41 @@
         bwRunId += 1;
         bwResult = await runSequentialDiagnostic(
             [
-                { id: 'station', label: $_('settings.integrations.birdweather.stage_station', { default: 'BirdWeather station token' }), run: () => testBirdWeather(birdweatherStationToken) }
+                { id: 'station', label: $_('settings.integrations.birdweather.stage_station', { default: 'BirdWeather station token' }), run: () => testBirdWeather(birdweatherStationToken || undefined) }
             ],
             (stages) => (bwStages = stages)
         );
         bwRunning = false;
+    }
+
+    async function connectInaturalist(): Promise<void> {
+        // Open while the click still owns browser activation. Waiting for a save
+        // before window.open causes legitimate OAuth popups to be blocked.
+        const popup = window.open('', 'yawamf-inaturalist-oauth', 'width=600,height=700');
+        if (!popup) {
+            onActionFeedback(
+                'error',
+                $_('settings.integrations.inaturalist.popup_blocked', {
+                    default: 'The sign-in window was blocked. Allow popups for this site and try again.'
+                })
+            );
+            return;
+        }
+
+        popup.opener = null;
+        try {
+            inatConnecting = true;
+            await prepareInaturalistOAuth();
+            const response = await initiateInaturalistOAuth();
+            popup.location.replace(response.authorization_url);
+            popup.focus();
+            onActionFeedback('success', $_('settings.integrations.inaturalist.connect'));
+        } catch (error) {
+            popup.close();
+            onActionFeedback('error', actionErrorMessage(error));
+        } finally {
+            inatConnecting = false;
+        }
     }
 
     $effect(() => {
@@ -625,18 +657,7 @@
             <div class="flex flex-wrap gap-2">
                 <button
                     type="button"
-                    onclick={async () => {
-                        try {
-                            inatConnecting = true;
-                            const response = await initiateInaturalistOAuth();
-                            window.open(response.authorization_url, '_blank', 'width=600,height=700');
-                            onActionFeedback('success', $_('settings.integrations.inaturalist.connect'));
-                        } catch (error) {
-                            onActionFeedback('error', actionErrorMessage(error));
-                        } finally {
-                            inatConnecting = false;
-                        }
-                    }}
+                    onclick={connectInaturalist}
                     aria-label={$_('settings.integrations.inaturalist.connect_label')}
                     disabled={inatConnecting || inatRefreshing || inatDisconnecting}
                     class="flex-1 min-w-[150px] {buttonPrimaryClass}"
@@ -945,7 +966,7 @@
         <button
             type="button"
             onclick={runBirdWeatherDiagnostic}
-            disabled={bwRunning || !birdweatherStationToken}
+            disabled={bwRunning || (!birdweatherStationToken && !birdweatherStationTokenSaved)}
             aria-label={$_('settings.integrations.birdweather.test_button')}
             class="w-full {buttonPrimaryClass}"
         >

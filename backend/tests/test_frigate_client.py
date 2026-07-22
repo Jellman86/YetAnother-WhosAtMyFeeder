@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from app.services.frigate_client import FrigateClient
+from app.services.frigate_client import FrigateClient, FrigateEventsFetchError
 
 
 def test_get_camera_recording_clip_url_uses_start_end_path_segments():
@@ -10,6 +10,54 @@ def test_get_camera_recording_clip_url_uses_start_end_path_segments():
         client.get_camera_recording_clip_url("BirdCam", 1774511034, 1774511094)
         == f"{client.base_url}/api/BirdCam/start/1774511034/end/1774511094/clip.mp4"
     )
+
+
+@pytest.mark.asyncio
+async def test_list_events_returns_only_a_valid_event_list():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/api/events"
+        assert request.url.params["label"] == "bird"
+        return httpx.Response(200, json=[{"id": "evt-1"}])
+
+    client = FrigateClient()
+    client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://frigate")
+    try:
+        events = await client.list_events(label="bird")
+    finally:
+        await client._client.aclose()
+        client._client = None
+
+    assert events == [{"id": "evt-1"}]
+
+
+@pytest.mark.asyncio
+async def test_list_events_raises_when_frigate_does_not_confirm_success():
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"message": "starting"})
+
+    client = FrigateClient()
+    client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://frigate")
+    try:
+        with pytest.raises(FrigateEventsFetchError, match="HTTP 503"):
+            await client.list_events(label="bird")
+    finally:
+        await client._client.aclose()
+        client._client = None
+
+
+@pytest.mark.asyncio
+async def test_list_events_raises_when_success_payload_is_not_a_list():
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"events": []})
+
+    client = FrigateClient()
+    client._client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://frigate")
+    try:
+        with pytest.raises(FrigateEventsFetchError, match="invalid event history payload"):
+            await client.list_events(label="bird")
+    finally:
+        await client._client.aclose()
+        client._client = None
 
 
 @pytest.mark.asyncio

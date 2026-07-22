@@ -24,10 +24,46 @@
     "species": "種"
   },
   "setup": {
+    "action_failed": "変更を保存できませんでした。内容を確認して、もう一度お試しください。",
+    "load": { "loading": "保存済み設定を読み込んでいます…", "failed": "保存済み設定を読み込めませんでした。変更は行われていません。", "retry": "設定を再読み込み" },
+    "status": {
+      "ok": "設定済み",
+      "attention": "確認が必要",
+      "optional": "任意"
+    },
+    "account": {
+      "title": "管理者アカウントとアクセス"
+    },
+    "connection": {
+      "title": "Frigate と MQTT の接続",
+      "save_failed": "接続設定を保存できませんでした。値を確認して、もう一度お試しください。",
+      "mqtt_auth": "MQTT 認証", "mqtt_auth_hint": "ブローカーがユーザー名とパスワードを要求する場合のみ有効にしてください。", "mqtt_username": "ユーザー名", "mqtt_password": "パスワード", "mqtt_password_saved": "新しい値を入力しない限り、保存済みパスワードが保持されます。"
+    },
+    "cameras": {
+      "title": "カメラと検出",
+      "description": "YA-WAMF が監視する Frigate カメラを選択します。高度な検出・分類ゲートは「検出」設定で管理します。"
+    },
     "model": {
+      "title": "分類モデルとハードウェア",
       "description": "YA-WAMF には軽量な CPU フォールバックが含まれています。モデルを選び、必要ならここでダウンロードし、続行前に実際のイメージとハードウェア経路を検証してください。",
       "download_required": "このハードウェアで検証する前に、ここでモデルをダウンロードして確認してください。",
-      "download_timeout": "ダウンロードに予想以上の時間がかかっています。接続を確認して再試行してください。"
+      "download_timeout": "ダウンロードに予想以上の時間がかかっています。接続を確認して再試行してください。",
+      "validation_timeout": "ハードウェア検証が 30 分を超えました。診断画面でまだ完了処理中の可能性があります。別の検証を開始する前に状態を確認してください。"
+    },
+    "quality": {
+      "title": "利用可能な最良のスナップショット"
+    },
+    "integrations": {
+      "title": "連携",
+      "birdnet_test_subtitle": "段階テストではこの URL を使用し、保存済みの MQTT ブローカーとローカル検出ストレージを確認します。"
+    },
+    "history": { "title": "既存の検出をインポート", "description": "Frigate に残っている鳥イベントを必要に応じて分類します。インポートはバックグラウンドで安全に実行されます。", "enable": "Frigate に保存された鳥イベントをインポート", "enable_help": "分類品質が向上した場合のみ更新し、保存済みの音声と天気情報は保持します。", "range": "履歴の範囲", "import_continue": "インポートして続行", "continue_without": "インポートせず続行", "job_title": "検出履歴のインポート", "job_starting": "Frigate のイベント履歴を確認中", "audio_note": "Frigate の履歴から視覚検出とスナップショットは復元できますが、保存されていない BirdNET-Go 音声は再作成できません。" },
+    "review": {
+      "loading": "保存済み設定を確認しています…",
+      "load_failed": "設定の概要を読み込めませんでした。保存済みの設定は変更されていません。",
+      "retry": "概要を再読み込み",
+      "stale": "最新の更新に失敗したため、前回の設定概要を表示しています。",
+      "detail": { "account_password_protected": "パスワード保護あり", "account_auth_disabled": "認証無効", "account_not_configured": "未設定", "frigate_url": "Frigate の URL", "mqtt_broker": "MQTT ブローカー", "mqtt_username": "MQTT ユーザー名", "mqtt_password": "MQTT パスワード", "connection_missing": "{items} を設定", "cameras_count": "{count} 台のカメラ", "cameras_all": "すべてのカメラ", "model_wrong_kind": "クロップ検出器が分類器として選択されています", "model_fallback": "同梱フォールバック", "quality_best": "利用可能な最良のスナップショット", "quality_standard": "標準スナップショット", "integrations_needs": "設定が必要: {integrations}", "integrations_configured": "設定済み: {integrations}", "integrations_none": "有効な連携なし" }
     }
   },
   "theme": {
@@ -262,6 +298,9 @@
         "match_window_help": "音声と映像の一致時間（±5〜3600秒）",
         "test_button": "音声検出をテスト",
         "test_loading": "シミュレーション中…",
+        "stage_reachable": "BirdNET-Go への接続",
+        "stage_mqtt": "MQTT ブローカーへの送信",
+        "stage_pipeline": "検出の取り込みと保存",
         "sensor_mapping_title": "センサーマッピング（任意）",
         "sensor_id_placeholder": "センサーID",
         "sensor_id_label": "{camera} の音声センサーID",
@@ -302,6 +341,7 @@
         "oauth_desc": "iNaturalist アカウントを接続して検出を送信します。",
         "app_owner_note": "iNaturalist の App Owner 承認が必要です（アカウント2か月以上＋直近1か月で改善ID10件）。",
         "connect": "iNaturalist を接続",
+        "popup_blocked": "サインイン画面がブロックされました。このサイトのポップアップを許可して、もう一度お試しください。",
         "connect_label": "iNaturalist アカウントを接続",
         "disconnect": "切断",
         "disconnect_label": "iNaturalist アカウントを切断",
@@ -774,6 +814,8 @@
       "backfill_new": "新規",
       "backfill_skip": "スキップ",
       "backfill_err": "エラー",
+      "backfill_updated": "更新済み",
+      "backfill_error_breakdown": "確認が必要なエラー",
       "backfill_skipped_breakdown": "スキップ内訳",
       "backfill_reasons": {
         "low_confidence": "最小信頼度しきい値未満",
@@ -2098,6 +2140,7 @@
     "kind_reclassify": "再分類",
     "kind_backfill": "検出バックフィル",
     "kind_weather_backfill": "天気バックフィル",
+    "backfill_status_unavailable": "バックエンドの再起動またはセッション変更後のため、状態を取得できません。ジョブが中断された可能性があります。",
     "kind_taxonomy_sync": "分類同期",
     "errors_title": "ヘルス",
     "errors_subtitle": "スパムを防ぐためにグループ化された診断情報。トラブルシューティング用にJSONをエクスポートできます。",

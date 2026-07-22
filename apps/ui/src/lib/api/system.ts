@@ -147,8 +147,9 @@ export function shouldShowUpdateBanner(status: UpdateStatus | null | undefined, 
     return dismissedVersion !== status.latest_version;
 }
 
-export async function testFrigateConnection(): Promise<FrigateTestResult> {
-    const response = await apiFetch(`${API_BASE}/frigate/test`);
+export async function testFrigateConnection(url?: string): Promise<FrigateTestResult> {
+    const query = url?.trim() ? `?${new URLSearchParams({ url: url.trim() }).toString()}` : '';
+    const response = await apiFetch(`${API_BASE}/frigate/test${query}`);
     return handleResponse<FrigateTestResult>(response);
 }
 

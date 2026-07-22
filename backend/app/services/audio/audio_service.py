@@ -140,8 +140,17 @@ class AudioService:
         detection_keys.update(cls._extract_birdnet_source_keys(detection.raw_data))
         return bool(expected_keys.intersection(detection_keys))
 
-    async def add_detection(self, data: dict):
-        """Ingest a detection from MQTT."""
+    async def add_detection(self, data: dict, *, diagnostic: bool = False) -> bool:
+        """Ingest and persist a detection from MQTT.
+
+        Returns ``True`` only after the detection has reached both the correlation
+        buffer and durable storage. MQTT callers may ignore the result, while
+        diagnostics use it to avoid reporting a queued or failed write as success.
+        A diagnostic proves insert/delete access, then removes its synthetic row and
+        buffer entry so it cannot confirm a real visual detection. Normal MQTT ingest
+        deliberately keeps a buffered detection during a database outage so short-lived
+        audio/visual correlation can still work.
+        """
         try:
             # Use UTC timezone-aware datetime by default
             timestamp = datetime.now(timezone.utc)
@@ -165,7 +174,7 @@ class AudioService:
                     confidence=confidence,
                     min_confidence=min_confidence,
                 )
-                return
+                return False
 
             # Canonical BirdNET source key for camera mapping (prefer stable source names)
             sensor_id = self._extract_birdnet_mapping_key(data)
@@ -232,7 +241,7 @@ class AudioService:
             try:
                 async with get_db() as db:
                     repo = DetectionRepository(db)
-                    await repo.insert_audio_detection(
+                    detection_id = await repo.insert_audio_detection(
                         timestamp=timestamp,
                         species=species,
                         confidence=float(confidence),
@@ -240,11 +249,33 @@ class AudioService:
                         raw_data=data,
                         scientific_name=scientific_name,
                     )
+                    if diagnostic and not await repo.delete_audio_detection(detection_id):
+                        raise RuntimeError("Diagnostic audio row could not be removed")
             except Exception as e:
                 log.warning("Failed to persist audio detection", error=str(e))
+                if diagnostic:
+                    # A diagnostic must not leave a false-positive item in the live
+                    # correlation buffer when the durable half of its contract failed.
+                    # Removing by identity is safe during concurrent MQTT ingestion.
+                    async with self._lock:
+                        try:
+                            self._buffer.remove(detection)
+                        except ValueError:
+                            pass
+                return False
+
+            if diagnostic:
+                async with self._lock:
+                    try:
+                        self._buffer.remove(detection)
+                    except ValueError:
+                        pass
+
+            return True
 
         except Exception as e:
             log.error("Failed to process audio detection", error=str(e))
+            return False
 
     def _cleanup_buffer(self):
         """Remove old detections from buffer."""

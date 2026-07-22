@@ -21,7 +21,15 @@ On a fresh installation, YA-WAMF opens the guided setup automatically because
 `auth.initial_setup_complete` is false and no password exists. The account step
 lets you create the owner account or explicitly continue without authentication
 on a trusted network. You do not need to set `AUTH__ENABLED=true` to display the
-wizard. After setup, you can reopen the non-destructive wizard from
+wizard. Creating the password and owner session is one first-run operation: the
+`POST /api/auth/initial-setup` response contains a bearer token, which the UI stores
+before it loads the now owner-protected setup state. Concurrent first-run claims are
+serialized, and a failed config write restores the previous in-memory auth state.
+
+Choosing either password-protected or trusted-network mode sets
+`initial_setup_complete`. The unauthenticated endpoint then refuses every later
+request, including on an auth-disabled installation, preventing it from becoming
+an account-takeover path. After setup, you can reopen the non-destructive wizard from
 **Settings → Setup wizard** in the Settings navigation.
 
 ## Quick Start (Recommended)

@@ -37,12 +37,33 @@ In YA-WAMF, set **Settings → Connection → Frigate URL** to the internal URL 
 - **Video clips** — used for Deep Video Analysis and Full-visit clips
 - **Config** — to auto-discover your configured camera names
 
+**Test connection** probes the Frigate URL currently visible in the form, before you save it. When
+that URL differs from the saved Frigate origin, YA-WAMF deliberately does not forward the stored
+Frigate bearer token to the new host. The companion MQTT stage opens a separate, time-bounded
+client with the current host, port, username, and entered-or-saved password, so testing cannot
+interrupt the live event connection.
+
 For best-available snapshots, Frigate's `end` event is important: YA-WAMF uses it to refresh any
 live intermediate result from the completed track. The clean final still is the protected baseline.
 Recorded frames can replace it only when the active classifier predicts a compatible identity and
 improves confidence by the production margin; a failed clean-copy fetch falls back without applying
 normalized box coordinates to a possibly pre-cropped regular snapshot. The completed still remains
 a usable HQ source even when neither an event clip nor a cached recording clip is available.
+
+### Import retained event history
+
+During first-run setup, **Import existing detections** can start a one-day, seven-day, or 30-day
+background import. You can run a custom range later under **Settings → Data → Missed Detections**.
+Custom dates use your browser timezone and include the whole final day.
+
+YA-WAMF imports only bird events Frigate still returns with a snapshot. Reprocessing the same event
+does not create a duplicate. A better image classification may update the species result, while
+existing audio confirmation, weather, same-species taxonomy, the strongest Frigate score, and
+sublabel evidence is preserved. Taxonomy from a replaced species is cleared rather than attached
+to the new identity. If Frigate returns an error, invalid response, or incomplete pagination, the job fails visibly
+instead of treating partial history as a successful empty result. The import can restore visual
+detections and missing cached snapshots, but it cannot recreate BirdNET-Go audio that YA-WAMF never
+stored.
 
 ## Sublabel Proxy
 

@@ -59,6 +59,32 @@ describe('setupWizardStore', () => {
         expect(setupWizardStore.current.id).toBe('model');
     });
 
+    it('returns to review after completing, skipping, or backing out of a re-run section', () => {
+        setupWizardStore.open('rerun');
+
+        setupWizardStore.gotoStep('model');
+        setupWizardStore.completeStep();
+        expect(setupWizardStore.current.id).toBe('review');
+
+        setupWizardStore.gotoStep('quality');
+        setupWizardStore.skipStep();
+        expect(setupWizardStore.current.id).toBe('review');
+
+        setupWizardStore.gotoStep('integrations');
+        setupWizardStore.leaveStep();
+        expect(setupWizardStore.current.id).toBe('review');
+    });
+
+    it('keeps first-run completion, skip, and back navigation linear', () => {
+        setupWizardStore.open('first_run');
+        setupWizardStore.completeStep();
+        expect(setupWizardStore.current.id).toBe('account');
+        setupWizardStore.skipStep();
+        expect(setupWizardStore.current.id).toBe('connection');
+        setupWizardStore.leaveStep();
+        expect(setupWizardStore.current.id).toBe('account');
+    });
+
     it('exposes section readiness after refresh', async () => {
         await setupWizardStore.refresh();
         expect(setupWizardStore.statusFor('cameras')).toBe('ok');

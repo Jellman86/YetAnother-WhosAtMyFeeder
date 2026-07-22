@@ -24,10 +24,46 @@
     "species": "Arten"
   },
   "setup": {
+    "action_failed": "Die Änderung konnte nicht gespeichert werden. Prüfe die Angaben und versuche es erneut.",
+    "load": { "loading": "Gespeicherte Einstellungen werden geladen…", "failed": "Die gespeicherten Einstellungen konnten nicht geladen werden. Es wurde nichts geändert.", "retry": "Einstellungen erneut laden" },
+    "status": {
+      "ok": "Konfiguriert",
+      "attention": "Aktion erforderlich",
+      "optional": "Wahlweise"
+    },
+    "account": {
+      "title": "Administratorkonto & Zugriff"
+    },
+    "connection": {
+      "title": "Frigate- & MQTT-Verbindung",
+      "save_failed": "Die Verbindungseinstellungen konnten nicht gespeichert werden. Prüfe die Werte und versuche es erneut.",
+      "mqtt_auth": "MQTT-Authentifizierung", "mqtt_auth_hint": "Nur aktivieren, wenn der Broker Benutzername und Passwort verlangt.", "mqtt_username": "Benutzername", "mqtt_password": "Passwort", "mqtt_password_saved": "Das gespeicherte Passwort bleibt erhalten, solange kein Ersatz eingegeben wird."
+    },
+    "cameras": {
+      "title": "Kameras & Erkennung",
+      "description": "Wähle die Frigate-Kameras aus, die YA-WAMF überwacht. Erweiterte Erkennungs- und Klassifizierungsgrenzen bleiben in den Erkennungseinstellungen."
+    },
     "model": {
+      "title": "Klassifizierungsmodell & Hardware",
       "description": "YA-WAMF enthält eine schlanke CPU-Rückfalloption. Wähle ein Modell, lade es bei Bedarf hier herunter und prüfe dann den genauen Image- und Hardwarepfad.",
       "download_required": "Lade dieses Modell hier herunter und verifiziere es, bevor du es auf dieser Hardware prüfst.",
-      "download_timeout": "Der Download dauert länger als erwartet. Prüfe die Verbindung und versuche es erneut."
+      "download_timeout": "Der Download dauert länger als erwartet. Prüfe die Verbindung und versuche es erneut.",
+      "validation_timeout": "Die Hardwareprüfung hat 30 Minuten überschritten. Sie läuft möglicherweise noch unter Diagnose; prüfe dort den Status, bevor du einen neuen Lauf startest."
+    },
+    "quality": {
+      "title": "Bestmögliche Schnappschüsse"
+    },
+    "integrations": {
+      "title": "Integrationen",
+      "birdnet_test_subtitle": "Der Stufentest verwendet diese URL und prüft danach den gespeicherten MQTT-Broker sowie den lokalen Erkennungsspeicher."
+    },
+    "history": { "title": "Vorhandene Erkennungen importieren", "description": "Optional noch in Frigate vorhandene Vogelereignisse klassifizieren. Der Import läuft sicher im Hintergrund.", "enable": "Gespeicherte Frigate-Vogelereignisse importieren", "enable_help": "Vorhandene Erkennungen werden nur bei besserer Klassifizierung aktualisiert; Audio- und Wetterdaten bleiben erhalten.", "range": "Zeitraum", "import_continue": "Importieren & weiter", "continue_without": "Ohne Import fortfahren", "job_title": "Import des Erkennungsverlaufs", "job_starting": "Frigate-Ereignisverlauf wird durchsucht", "audio_note": "Der Frigate-Verlauf kann visuelle Erkennungen und Schnappschüsse wiederherstellen, aber nicht bereits fehlendes BirdNET-Go-Audio." },
+    "review": {
+      "loading": "Gespeicherte Einrichtung wird geprüft…",
+      "load_failed": "Die Einrichtungsübersicht konnte nicht geladen werden. Deine gespeicherten Einstellungen wurden nicht verändert.",
+      "retry": "Übersicht erneut laden",
+      "stale": "Die letzte Einrichtungsübersicht wird angezeigt, weil die Aktualisierung fehlgeschlagen ist.",
+      "detail": { "account_password_protected": "Passwortgeschützt", "account_auth_disabled": "Authentifizierung deaktiviert", "account_not_configured": "Nicht konfiguriert", "frigate_url": "Frigate-URL", "mqtt_broker": "MQTT-Broker", "mqtt_username": "MQTT-Benutzername", "mqtt_password": "MQTT-Passwort", "connection_missing": "{items} festlegen", "cameras_count": "{count} Kameras", "cameras_all": "Alle Kameras", "model_wrong_kind": "Ein Zuschneidemodell ist als Klassifizierer ausgewählt", "model_fallback": "Mitgelieferter Ersatz", "quality_best": "Bestmögliche Schnappschüsse", "quality_standard": "Standard-Schnappschüsse", "integrations_needs": "Einrichtung nötig: {integrations}", "integrations_configured": "Konfiguriert: {integrations}", "integrations_none": "Keine aktiviert" }
     }
   },
   "theme": {
@@ -259,6 +295,8 @@
       "backfill_new": "Neu",
       "backfill_skip": "Übersprungen",
       "backfill_err": "Fehler",
+      "backfill_updated": "Aktualisiert",
+      "backfill_error_breakdown": "Fehler mit Handlungsbedarf",
       "backfill_skipped_breakdown": "Aufschlüsselung der übersprungenen Einträge",
       "backfill_reasons": {
         "low_confidence": "Unter der Mindest-Vertrauenskappe",
@@ -420,6 +458,9 @@
         "match_window_help": "Zeitfenster zum Abgleich von Audio und Video (±5–3600 Sekunden)",
         "test_button": "Audio-Erkennung testen",
         "test_loading": "Simulation läuft…",
+        "stage_reachable": "BirdNET-Go erreichbar",
+        "stage_mqtt": "Veröffentlichung am MQTT-Broker",
+        "stage_pipeline": "Erkennungseingang und Speicherung",
         "sensor_mapping_title": "Sensor-Zuordnung (optional)",
         "sensor_id_placeholder": "Sensor-ID",
         "sensor_id_label": "Audio-Sensor-ID für {camera}",
@@ -460,6 +501,7 @@
         "oauth_desc": "Verbinde dein iNaturalist-Konto, um verifizierte Erkennungen zu übermitteln.",
         "app_owner_note": "Erfordert iNaturalist App-Owner-Freigabe (Konto 2+ Monate alt und 10 verbessernde IDs im letzten Monat).",
         "connect": "iNaturalist verbinden",
+        "popup_blocked": "Das Anmeldefenster wurde blockiert. Erlaube Pop-ups für diese Website und versuche es erneut.",
         "connect_label": "iNaturalist-Konto verbinden",
         "disconnect": "Trennen",
         "disconnect_label": "iNaturalist-Konto trennen",
@@ -2119,6 +2161,7 @@
     "kind_reclassify": "Reklassifizierung",
     "kind_backfill": "Erkennungs-Backfill",
     "kind_weather_backfill": "Wetter-Backfill",
+    "backfill_status_unavailable": "Status nach einem Backend-Neustart oder Sitzungswechsel nicht verfügbar. Der Auftrag wurde möglicherweise unterbrochen.",
     "kind_taxonomy_sync": "Taxonomie-Synchronisierung",
     "errors_title": "Zustand",
     "errors_subtitle": "Gruppierte Diagnosen zur Vermeidung von Spam; JSON für die Fehlersuche exportieren.",

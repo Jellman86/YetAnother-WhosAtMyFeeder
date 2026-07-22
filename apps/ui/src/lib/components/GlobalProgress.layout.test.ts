@@ -35,6 +35,12 @@ describe('Global progress layout', () => {
         expect(bannerSource).not.toContain('presentActiveJob');
     });
 
+    it('polls backend backfill status only while a running backfill is visible', () => {
+        expect(bannerSource).toContain('hasRunningBackfill');
+        expect(bannerSource).toContain("item.status === 'running'");
+        expect(bannerSource).toContain('return backfillStatusStore.retain();');
+    });
+
     it('removes desktop header route tabs and the appearance layout picker', () => {
         expect(headerSource).not.toContain('<!-- Desktop Navigation -->');
         expect(headerSource).not.toContain('class="hidden md:flex items-center gap-1"');

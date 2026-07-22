@@ -13,4 +13,8 @@ Every time a bird is identified with a specific species (i.e., not "Unknown Bird
 5. Click **Apply Settings**.
 
 ## Testing
-You can verify the connection by clicking the **Verifying...** button in the BirdWeather settings section. This sends a mock "House Sparrow" detection to your station.
+Click **Test connection** in the BirdWeather settings section. This sends a mock
+"House Sparrow" detection to your station. A token already saved by YA-WAMF can be
+tested without entering it again; typing a replacement tests the value currently in
+the form. The staged dialog reports the real provider response and keeps failures
+visible until you close or retry it.

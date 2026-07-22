@@ -8,6 +8,7 @@
     import { buildJobsPipelineModel } from '../jobs/pipeline';
     import { buildGlobalProgressSummary, presentWorkLane, type JobsTranslateFn } from '../jobs/presenter';
     import { analysisQueueStatusStore } from '../stores/analysis_queue_status.svelte';
+    import { backfillStatusStore } from '../stores/backfill_status.svelte';
     import { toAppPath } from '../app/url-base';
     let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
 
@@ -33,6 +34,9 @@
     });
 
     let activeJobs = $derived(jobProgressStore.activeJobs);
+    let hasRunningBackfill = $derived(activeJobs.some((item) =>
+        item.status === 'running' && (item.kind === 'backfill' || item.kind === 'weather_backfill')
+    ));
     let staleJobs = $derived(activeJobs.filter((item) => item.status === 'stale'));
     let queueByKind = $derived(analysisQueueStatusStore.queueByKind);
     let analysisStatus = $derived(analysisQueueStatusStore.analysisStatus);
@@ -54,6 +58,11 @@
     }
 
     let aggregate = $derived(buildGlobalProgressSummary(activeJobs, rowsByKind, analysisStatus, nowTs, t, kindLabel));
+
+    $effect(() => {
+        if (!hasRunningBackfill) return;
+        return backfillStatusStore.retain();
+    });
 
     function openJobsPage() {
         const jobsTabPath = getNotificationsTabPathForAccess('jobs', authStore.showSettings);

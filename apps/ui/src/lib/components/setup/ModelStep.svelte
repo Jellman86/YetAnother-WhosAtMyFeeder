@@ -8,6 +8,7 @@
         fetchClassifierStatus,
         fetchDownloadStatus,
         fetchInstalledModels,
+        getVisibleTieredModelLineup,
         selectSetupModelId,
         summarizeModelMetadata,
         type ClassifierStatus,
@@ -28,9 +29,10 @@
         type InferenceProvider,
     } from '../../settings/inference-providers';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
 
     let status = $state<ClassifierStatus | null>(null);
-    let loaded = $state(false);
+    let loadState = $state<WizardLoadStatus>('loading');
     let saving = $state(false);
     let downloading = $state(false);
     let downloadPct = $state(0);
@@ -48,6 +50,8 @@
     let poller: ReturnType<typeof setInterval> | null = null;
     let pollInFlight = false;
     let destroyed = false;
+    const VALIDATION_TIMEOUT_MS = 30 * 60 * 1000;
+    let validationDeadline = 0;
 
     let accelerators = $derived([
         { id: 'intel_npu', label: 'Intel NPU', available: status?.intel_npu_available },
@@ -69,6 +73,10 @@
         && !needsDownload
         && (selectedModelId === status?.active_model_id || selectedInstalledModel?.validated === true)
     );
+
+    function classifierModels(models: InstalledModel[]): InstalledModel[] {
+        return models.filter((model) => (model.metadata?.artifact_kind || 'classifier') === 'classifier');
+    }
 
     function providerLabel(provider: InferenceProvider): string {
         const labels: Record<InferenceProvider, string> = {
@@ -98,7 +106,9 @@
         && providerChoices.some((choice) => choice.value === selectedProvider && choice.unavailable)
     );
 
-    onMount(async () => {
+    async function load(): Promise<void> {
+        loadState = 'loading';
+        errorMsg = '';
         try {
             const [classifierStatus, available, installed, settings] = await Promise.all([
                 fetchClassifierStatus(),
@@ -107,15 +117,24 @@
                 fetchSettings()
             ]);
             status = classifierStatus;
-            availableModels = available;
-            installedModels = installed;
-            selectedModelId = selectSetupModelId(classifierStatus, available, installed);
+            availableModels = getVisibleTieredModelLineup(
+                available,
+                true,
+                classifierStatus.effective_model_id ?? classifierStatus.active_model_id
+            );
+            installedModels = classifierModels(installed);
+            selectedModelId = selectSetupModelId(classifierStatus, availableModels, installedModels);
             selectedProvider = settings.inference_provider || 'auto';
         } catch {
             status = null;
-        } finally {
-            loaded = true;
+            loadState = 'error';
+            return;
         }
+        loadState = 'ready';
+    }
+
+    onMount(() => {
+        void load();
     });
 
     onDestroy(() => {
@@ -126,9 +145,23 @@
     function stopPolling() {
         if (poller) clearInterval(poller);
         poller = null;
+        validationDeadline = 0;
+    }
+
+    function failValidationTimeout(): void {
+        stopPolling();
+        validating = false;
+        progress = null;
+        errorMsg = $_('setup.model.validation_timeout', {
+            default: 'Hardware validation exceeded 30 minutes. It may still be finishing in Diagnostics; check its status before starting another run.'
+        });
     }
 
     async function poll() {
+        if (validationDeadline > 0 && Date.now() >= validationDeadline) {
+            failValidationTimeout();
+            return;
+        }
         if (pollInFlight || document.hidden) return;
         pollInFlight = true;
         try {
@@ -155,11 +188,14 @@
             validating = false;
             progress = null;
             validationMsg = validationSummary(results);
-            installedModels = await fetchInstalledModels();
+            installedModels = classifierModels(await fetchInstalledModels());
             await fetchClassifierStatus().then((s) => (status = s)).catch(() => {});
             await setupWizardStore.refresh();
         } catch {
-            // Transient; keep polling until it resolves or the user leaves the step.
+            if (validationDeadline > 0 && Date.now() >= validationDeadline) {
+                failValidationTimeout();
+            }
+            // Otherwise transient; keep polling until it resolves or the deadline.
         } finally {
             pollInFlight = false;
         }
@@ -178,7 +214,9 @@
                 model_ids: [selectedModelId],
             });
             runId = run_id;
+            validationDeadline = Date.now() + VALIDATION_TIMEOUT_MS;
             poller = setInterval(poll, 2000);
+            void poll();
         } catch (err) {
             validating = false;
             progress = null;
@@ -212,7 +250,7 @@
                         throw new Error(downloadStatus.error || $_('settings.detection.model_manager_start_failed', { default: 'Download failed' }));
                     }
                     if (downloadStatus.status === 'completed') {
-                        installedModels = await fetchInstalledModels();
+                        installedModels = classifierModels(await fetchInstalledModels());
                         status = await fetchClassifierStatus();
                         validationMsg = $_('settings.detection.model_manager_install_downloaded', { default: 'Downloaded and verified.' });
                         return;
@@ -266,6 +304,7 @@
 
     // Continue commits the choices and advances, matching the other wizard steps.
     async function save() {
+        if (loadState !== 'ready') return;
         errorMsg = '';
         saving = true;
         try {
@@ -276,7 +315,7 @@
                 await updateSettings({ inference_provider: selectedProvider });
             }
             await setupWizardStore.refresh();
-            setupWizardStore.next();
+            setupWizardStore.completeStep();
         } catch (err) {
             errorMsg = err instanceof Error ? err.message : $_('setup.model.save_error', { default: 'Could not save model choices.' });
         } finally {
@@ -291,11 +330,11 @@
         default: 'YA-WAMF includes a lightweight CPU fallback. Choose a model, download it here if needed, then validate the exact image and hardware path before continuing.'
     })}
     showSkip
-    canContinue={selectedModelReady}
+    canContinue={loadState === 'ready' && selectedModelReady}
     busy={saving}
     onContinue={save}
 >
-    {#if loaded}
+    <WizardLoadState state={loadState} onRetry={load}>
         <div>
             <label for="setup-model-id" class="text-sm font-medium text-slate-700 dark:text-slate-300">{$_('setup.model.choose_model', { default: 'Model' })}</label>
             <select id="setup-model-id" bind:value={selectedModelId} onchange={resetValidationResult} disabled={validating || downloading} class="select-base mt-1">
@@ -437,5 +476,5 @@
                 <p class="text-xs text-slate-500 dark:text-slate-400">{$_('setup.model.results_hint', { default: 'Full per-device compile, latency, and accuracy detail is in Diagnostics → Model evaluation.' })}</p>
             {/if}
         {/if}
-    {/if}
+    </WizardLoadState>
 </WizardStepLayout>

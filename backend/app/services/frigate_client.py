@@ -14,6 +14,10 @@ from app.config import settings
 log = structlog.get_logger()
 
 
+class FrigateEventsFetchError(RuntimeError):
+    """Frigate did not return a confirmed, usable event-history response."""
+
+
 class FrigateClient:
     """HTTP client for Frigate API interactions.
 
@@ -321,7 +325,11 @@ class FrigateClient:
             limit: Max events to return
 
         Returns:
-            List of event dictionaries
+            List of event dictionaries from a confirmed HTTP 200 response.
+
+        Raises:
+            FrigateEventsFetchError: Frigate is unreachable, rejects the query,
+                or returns a payload that cannot safely be treated as an event list.
         """
         params = {"limit": limit}
         if after is not None:
@@ -337,11 +345,29 @@ class FrigateClient:
 
         try:
             resp = await self.get("api/events", params=params)
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception as e:
-            log.error("Error listing events", error=str(e))
-        return []
+        except httpx.TimeoutException as exc:
+            log.warning("Frigate event history request timed out", camera=camera)
+            raise FrigateEventsFetchError("Frigate event history request timed out") from exc
+        except httpx.RequestError as exc:
+            log.warning("Frigate event history request failed", camera=camera, error_type=type(exc).__name__)
+            raise FrigateEventsFetchError("Frigate event history is unreachable") from exc
+        except Exception as exc:
+            log.error("Unexpected Frigate event history failure", camera=camera, error_type=type(exc).__name__)
+            raise FrigateEventsFetchError("Frigate event history request failed") from exc
+
+        if resp.status_code != 200:
+            log.warning("Frigate event history returned an error", camera=camera, status=resp.status_code)
+            raise FrigateEventsFetchError(f"Frigate event history request failed (HTTP {resp.status_code})")
+
+        try:
+            payload = resp.json()
+        except ValueError as exc:
+            log.warning("Frigate event history returned invalid JSON", camera=camera)
+            raise FrigateEventsFetchError("Frigate returned an invalid event history payload") from exc
+        if not isinstance(payload, list) or any(not isinstance(event, dict) for event in payload):
+            log.warning("Frigate event history returned an unexpected payload", camera=camera)
+            raise FrigateEventsFetchError("Frigate returned an invalid event history payload")
+        return payload
 
     async def close(self):
         """Close the HTTP client and release resources."""

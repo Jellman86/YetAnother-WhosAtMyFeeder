@@ -21,6 +21,7 @@ export const WIZARD_STEPS: readonly WizardStep[] = [
     { id: 'model', section: 'model', optional: false },
     { id: 'quality', section: 'quality', optional: true },
     { id: 'integrations', section: 'integrations', optional: true },
+    { id: 'history', section: null, optional: true },
     { id: 'telemetry', section: null, optional: true },
     { id: 'review', section: null, optional: false }
 ];
@@ -38,6 +39,9 @@ class SetupWizardStore {
     index = $state(0);
     setupState = $state<SetupState | null>(null);
     active = $state(false);
+    refreshing = $state(false);
+    refreshFailed = $state(false);
+    private refreshPromise: Promise<void> | null = null;
 
     /** Open the wizard. First-run mode starts at the beginning; re-run opens on the section map. */
     open(mode: WizardMode = 'first_run'): void {
@@ -52,11 +56,22 @@ class SetupWizardStore {
     }
 
     async refresh(): Promise<void> {
-        try {
-            this.setupState = await fetchSetupState();
-        } catch {
-            this.setupState = null;
-        }
+        if (this.refreshPromise) return this.refreshPromise;
+        this.refreshPromise = (async () => {
+            this.refreshing = true;
+            this.refreshFailed = false;
+            try {
+                this.setupState = await fetchSetupState();
+            } catch {
+                // Preserve the last known section map so a transient refresh does
+                // not replace useful state with an empty, misleading review.
+                this.refreshFailed = true;
+            } finally {
+                this.refreshing = false;
+                this.refreshPromise = null;
+            }
+        })();
+        return this.refreshPromise;
     }
 
     indexOf(stepId: string): number {
@@ -78,6 +93,20 @@ class SetupWizardStore {
 
     back(): void {
         this.goto(this.index - 1);
+    }
+
+    completeStep(): void {
+        if (this.mode === 'rerun') this.gotoStep('review');
+        else this.next();
+    }
+
+    skipStep(): void {
+        this.completeStep();
+    }
+
+    leaveStep(): void {
+        if (this.mode === 'rerun') this.gotoStep('review');
+        else this.back();
     }
 
     get current(): WizardStep {

@@ -49,6 +49,7 @@
     }: Props = $props();
 
     let modalElement = $state<HTMLElement | null>(null);
+    let previouslyFocused: HTMLElement | null = null;
 
     // Auto-progress: results may arrive from the backend all at once, but we
     // reveal them one check at a time so the dialog visibly steps forward like
@@ -93,11 +94,13 @@
 
     onMount(() => {
         const previousOverflow = document.body.style.overflow;
+        previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         document.body.style.overflow = 'hidden';
         const releaseFocus = modalElement ? trapFocus(modalElement) : () => {};
         return () => {
             releaseFocus();
             document.body.style.overflow = previousOverflow;
+            previouslyFocused?.focus();
         };
     });
 
@@ -141,7 +144,9 @@
                         <p id="diagnostic-description" class="text-sm text-slate-600 dark:text-slate-300">{subtitle}</p>
                     {/if}
                 </div>
-                <button type="button" class="btn btn-ghost p-2" aria-label={closeLabel ?? $_('common.close', { default: 'Close' })} onclick={onClose}>✕</button>
+                <button type="button" class="btn btn-ghost flex h-11 w-11 items-center justify-center rounded-full p-0" aria-label={closeLabel ?? $_('common.close', { default: 'Close' })} onclick={onClose}>
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+                </button>
             </div>
 
             <div class="flex items-center gap-1.5" aria-hidden="true">

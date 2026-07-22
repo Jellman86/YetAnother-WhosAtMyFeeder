@@ -1254,7 +1254,8 @@ class DetectionRepository:
             SELECT frigate_event, detection_time, temperature, weather_condition, weather_cloud_cover,
                    weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall
             FROM detections
-            WHERE datetime(detection_time) BETWEEN datetime(?) AND datetime(?)
+            WHERE datetime(detection_time) >= datetime(?)
+              AND datetime(detection_time) < datetime(?)
         """
         params = [start, end]
         if only_missing:
@@ -1385,63 +1386,100 @@ class DetectionRepository:
         await self.db.execute(
             """
             UPDATE detections
-            SET detection_time = ?,
-                detection_index = ?,
-                score = ?,
-                display_name = ?,
-                category_name = ?,
-                frigate_score = ?,
-                sub_label = ?,
-                audio_confirmed = ?,
-                audio_species = ?,
-                audio_score = ?,
-                temperature = ?,
-                weather_condition = ?,
-                weather_cloud_cover = ?,
-                weather_wind_speed = ?,
-                weather_wind_direction = ?,
-                weather_precipitation = ?,
-                weather_rain = ?,
-                weather_snowfall = ?,
-                scientific_name = ?,
-                common_name = ?,
-                taxa_id = ?,
+            SET detection_time = :detection_time,
+                detection_index = :detection_index,
+                score = :score,
+                display_name = :display_name,
+                category_name = :category_name,
+                frigate_score = CASE
+                    WHEN :frigate_score IS NULL THEN frigate_score
+                    WHEN frigate_score IS NULL THEN :frigate_score
+                    ELSE MAX(:frigate_score, frigate_score)
+                END,
+                sub_label = COALESCE(:sub_label, sub_label),
+                audio_confirmed = CASE
+                    WHEN :audio_confirmed = 1 THEN 1
+                    ELSE COALESCE(audio_confirmed, 0)
+                END,
+                audio_species = CASE
+                    WHEN :audio_confirmed = 1
+                     AND COALESCE(:audio_score, -1) >= COALESCE(audio_score, -1)
+                    THEN COALESCE(:audio_species, audio_species)
+                    ELSE audio_species
+                END,
+                audio_score = CASE
+                    WHEN :audio_confirmed = 1
+                     AND :audio_score IS NOT NULL
+                     AND :audio_score >= COALESCE(audio_score, -1)
+                    THEN :audio_score
+                    ELSE audio_score
+                END,
+                temperature = COALESCE(:temperature, temperature),
+                weather_condition = COALESCE(:weather_condition, weather_condition),
+                weather_cloud_cover = COALESCE(:weather_cloud_cover, weather_cloud_cover),
+                weather_wind_speed = COALESCE(:weather_wind_speed, weather_wind_speed),
+                weather_wind_direction = COALESCE(:weather_wind_direction, weather_wind_direction),
+                weather_precipitation = COALESCE(:weather_precipitation, weather_precipitation),
+                weather_rain = COALESCE(:weather_rain, weather_rain),
+                weather_snowfall = COALESCE(:weather_snowfall, weather_snowfall),
+                scientific_name = CASE
+                    WHEN LOWER(TRIM(:category_name)) = LOWER(TRIM(category_name))
+                    THEN COALESCE(:scientific_name, scientific_name)
+                    ELSE :scientific_name
+                END,
+                common_name = CASE
+                    WHEN LOWER(TRIM(:category_name)) = LOWER(TRIM(category_name))
+                    THEN COALESCE(:common_name, common_name)
+                    ELSE :common_name
+                END,
+                taxa_id = CASE
+                    WHEN LOWER(TRIM(:category_name)) = LOWER(TRIM(category_name))
+                    THEN COALESCE(:taxa_id, taxa_id)
+                    ELSE :taxa_id
+                END,
                 manual_tagged = manual_tagged,
                 frigate_status = 'present',
                 frigate_missing_since = NULL,
-                frigate_last_checked_at = ?,
+                frigate_last_checked_at = :checked_at,
                 frigate_last_error = NULL
-            WHERE frigate_event = ?
+            WHERE frigate_event = :frigate_event
               AND COALESCE(manual_tagged, 0) = 0
-              AND (? > score OR (? = 1 AND COALESCE(audio_confirmed, 0) = 0))
+              AND (
+                    :score > score
+                    OR (
+                        :audio_confirmed = 1
+                        AND (
+                            COALESCE(audio_confirmed, 0) = 0
+                            OR COALESCE(:audio_score, -1) > COALESCE(audio_score, -1)
+                        )
+                    )
+              )
         """,
-            (
-                detection.detection_time,
-                detection.detection_index,
-                detection.score,
-                detection.display_name,
-                detection.category_name,
-                detection.frigate_score,
-                sub_label,
-                1 if detection.audio_confirmed else 0,
-                detection.audio_species,
-                detection.audio_score,
-                detection.temperature,
-                detection.weather_condition,
-                detection.weather_cloud_cover,
-                detection.weather_wind_speed,
-                detection.weather_wind_direction,
-                detection.weather_precipitation,
-                detection.weather_rain,
-                detection.weather_snowfall,
-                getattr(detection, "scientific_name", None),
-                getattr(detection, "common_name", None),
-                getattr(detection, "taxa_id", None),
-                checked_at,
-                detection.frigate_event,
-                detection.score,
-                1 if detection.audio_confirmed else 0,
-            ),
+            {
+                "detection_time": detection.detection_time,
+                "detection_index": detection.detection_index,
+                "score": detection.score,
+                "display_name": detection.display_name,
+                "category_name": detection.category_name,
+                "frigate_score": detection.frigate_score,
+                "sub_label": sub_label,
+                "audio_confirmed": 1 if detection.audio_confirmed else 0,
+                "audio_species": detection.audio_species,
+                "audio_score": detection.audio_score,
+                "temperature": detection.temperature,
+                "weather_condition": detection.weather_condition,
+                "weather_cloud_cover": detection.weather_cloud_cover,
+                "weather_wind_speed": detection.weather_wind_speed,
+                "weather_wind_direction": detection.weather_wind_direction,
+                "weather_precipitation": detection.weather_precipitation,
+                "weather_rain": detection.weather_rain,
+                "weather_snowfall": detection.weather_snowfall,
+                "scientific_name": getattr(detection, "scientific_name", None),
+                "common_name": getattr(detection, "common_name", None),
+                "taxa_id": getattr(detection, "taxa_id", None),
+                "checked_at": checked_at,
+                "frigate_event": detection.frigate_event,
+            },
         )
         updated = await self._last_statement_changes() > 0
         await self.db.commit()
@@ -3732,14 +3770,27 @@ class DetectionRepository:
         sensor_id: Optional[str],
         raw_data: Optional[dict],
         scientific_name: Optional[str] = None,
-    ) -> None:
+    ) -> int:
         payload = json.dumps(raw_data or {}, ensure_ascii=True)
-        await self.db.execute(
+        cursor = await self.db.execute(
             """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
                VALUES (?, ?, ?, ?, ?, ?)""",
             (serialize_storage_datetime(timestamp), species, confidence, sensor_id, payload, scientific_name),
         )
+        row_id = cursor.lastrowid
+        await cursor.close()
         await self.db.commit()
+        if row_id is None:
+            raise RuntimeError("Audio detection insert did not return a row id")
+        return int(row_id)
+
+    async def delete_audio_detection(self, detection_id: int) -> bool:
+        """Delete one diagnostic audio row immediately after its write was proven."""
+        cursor = await self.db.execute("DELETE FROM audio_detections WHERE id = ?", (detection_id,))
+        deleted = cursor.rowcount > 0
+        await cursor.close()
+        await self.db.commit()
+        return deleted
 
     async def get_recent_audio_source_observations(self, limit: int = 200) -> list[dict]:
         """Return recent raw audio rows for source discovery/deduping."""

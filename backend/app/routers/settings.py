@@ -5,7 +5,7 @@ import httpx
 from typing import Any, List, Optional, Literal
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
-from fastapi import APIRouter, Body, Depends, HTTPException, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, create_model, field_validator
 import structlog
@@ -46,6 +46,7 @@ from app.config_models import (
 from app.utils.enrichment import get_effective_enrichment_settings, is_ebird_active
 from app.utils.frigate_recording import get_camera_retention_days
 from app.utils.api_datetime import utc_naive_now  # noqa: F401 - compatibility for tests and maintenance helpers
+from app.utils.integration_url import validated_http_base_url
 
 from fastapi import BackgroundTasks
 
@@ -59,20 +60,7 @@ def _validated_birdnet_base_url(value: str | None) -> str:
     this is a server-to-server integration. Credentials, query strings, fragments,
     and non-HTTP schemes are not valid for a base URL.
     """
-    candidate = str(value or "").strip().rstrip("/")
-    if not candidate:
-        raise ValueError("BirdNET-Go URL is empty")
-    try:
-        parsed = httpx.URL(candidate)
-    except (TypeError, ValueError) as exc:
-        raise ValueError("BirdNET-Go URL is invalid") from exc
-    if parsed.scheme not in {"http", "https"} or not parsed.host:
-        raise ValueError("BirdNET-Go URL must use http:// or https://")
-    if parsed.username or parsed.password:
-        raise ValueError("BirdNET-Go URL must not contain credentials")
-    if parsed.query or parsed.fragment:
-        raise ValueError("BirdNET-Go URL must not contain a query string or fragment")
-    return candidate
+    return validated_http_base_url(value, integration_name="BirdNET-Go")
 
 
 log = structlog.get_logger()
@@ -202,28 +190,41 @@ async def start_taxonomy_sync(background_tasks: BackgroundTasks, auth: AuthConte
 
 
 @router.post("/settings/birdnet/test", response_model=ActionStatusResponse)
-async def test_birdnet(
-    background_tasks: BackgroundTasks, _auth: AuthContext = Depends(require_owner)
-) -> ActionStatusResponse:
-    """Test BirdNET-Go integration by injecting a mock detection. Owner only."""
+async def test_birdnet(_auth: AuthContext = Depends(require_owner)) -> ActionStatusResponse | JSONResponse:
+    """Test local BirdNET ingestion by synchronously persisting a mock detection."""
     from app.services.audio.audio_service import audio_service
 
     mock_data = {
-        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": datetime.now(timezone.utc).timestamp(),
         "species": "Cyanistes caeruleus",
+        "ScientificName": "Cyanistes caeruleus",
         "common_name": "Eurasian Blue Tit (BirdNET Test)",
         "confidence": 0.95,
         "sensor_id": "test_mic",
     }
 
-    # Process it directly through audio service as if it came from MQTT
-    background_tasks.add_task(audio_service.add_detection, mock_data)
+    # Await the same ingest path used by MQTT. A queued background task would only
+    # prove that the request was accepted, not that buffer and database writes work.
+    if not await audio_service.add_detection(mock_data, diagnostic=True):
+        return JSONResponse(
+            status_code=502,
+            content={
+                "status": "error",
+                "message": "The mock detection could not be stored. Check backend and database diagnostics.",
+            },
+        )
 
-    return ActionStatusResponse(status="ok", message="Mock audio detection injected. Check Discovery feed for updates.")
+    return ActionStatusResponse(
+        status="ok",
+        message="Detection ingest and database write passed; the synthetic test record was removed.",
+    )
 
 
 @router.get("/settings/birdnet/reachability", response_model=ActionStatusResponse)
-async def test_birdnet_reachability(_auth: AuthContext = Depends(require_owner)) -> ActionStatusResponse | JSONResponse:
+async def test_birdnet_reachability(
+    url: Optional[str] = Query(default=None, max_length=2048),
+    _auth: AuthContext = Depends(require_owner),
+) -> ActionStatusResponse | JSONResponse:
     """Verify the configured BirdNET-Go instance answers over HTTP. Owner only.
 
     BirdNET-Go detections arrive over MQTT, so the URL is optional (it powers
@@ -231,7 +232,7 @@ async def test_birdnet_reachability(_auth: AuthContext = Depends(require_owner))
     BirdNET-Go server itself is up and reachable from the backend.
     """
     try:
-        base_url = _validated_birdnet_base_url(settings.frigate.birdnet_url)
+        base_url = _validated_birdnet_base_url(url if url is not None else settings.frigate.birdnet_url)
     except ValueError:
         return JSONResponse(
             status_code=400,
@@ -263,16 +264,37 @@ async def test_birdnet_reachability(_auth: AuthContext = Depends(require_owner))
         )
 
 
+class MQTTTestRequest(BaseModel):
+    server: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    port: Optional[int] = Field(default=None, ge=1, le=65535)
+    auth: Optional[bool] = None
+    username: Optional[str] = Field(default=None, max_length=255)
+    password: Optional[str] = Field(default=None, max_length=512)
+
+
 @router.post("/settings/mqtt/test-publish", response_model=ActionStatusResponse)
-async def test_mqtt_publish(_auth: AuthContext = Depends(require_owner)) -> ActionStatusResponse | JSONResponse:
-    """Publish a test message to the MQTT broker to verify connectivity. Owner only."""
-    # Broadcaster uses the shared mqtt_service internally for non-SSE tasks if needed,
-    # but here we should use the mqtt_service directly.
+async def test_mqtt_publish(
+    request: MQTTTestRequest,
+    _auth: AuthContext = Depends(require_owner),
+) -> ActionStatusResponse | JSONResponse:
+    """Connect independently and publish using saved or on-screen MQTT values. Owner only."""
     from app.services.mqtt_service import mqtt_service
 
+    server = request.server or settings.frigate.mqtt_server
+    port = request.port or settings.frigate.mqtt_port
+    use_auth = settings.frigate.mqtt_auth if request.auth is None else request.auth
+    username = (
+        (request.username if request.username is not None else settings.frigate.mqtt_username) if use_auth else None
+    )
+    supplied_password = request.password if request.password not in (None, "", "***REDACTED***") else None
+    password = (supplied_password or settings.frigate.mqtt_password) if use_auth else None
+
     try:
-        success = await mqtt_service.publish(
-            "yawamf/test", {"message": "Hello from YA-WAMF Backend!", "timestamp": datetime.now().isoformat()}
+        success = await mqtt_service.test_connection(
+            server=server,
+            port=port,
+            username=username,
+            password=password,
         )
         if success:
             return ActionStatusResponse(status="ok", message="Test message published to 'yawamf/test'")
@@ -280,9 +302,15 @@ async def test_mqtt_publish(_auth: AuthContext = Depends(require_owner)) -> Acti
             return JSONResponse(
                 status_code=502, content={"status": "error", "message": "Failed to publish MQTT message. Check logs."}
             )
-    except Exception as e:
-        log.error("MQTT Test Publish Failed", error=str(e))
-        return JSONResponse(status_code=502, content={"status": "error", "message": str(e)})
+    except Exception as exc:
+        log.error("MQTT Test Publish Failed", error_type=type(exc).__name__)
+        return JSONResponse(
+            status_code=502,
+            content={
+                "status": "error",
+                "message": "Could not connect to the MQTT broker. Check the host, port, and credentials.",
+            },
+        )
 
 
 class NotificationTestRequest(BaseModel):

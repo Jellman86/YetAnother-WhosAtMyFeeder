@@ -1,6 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { applyTimezoneRepair, fetchAnalysisStatus, fetchTimezoneRepairPreview, purgeMissingMedia, testLlm } from './maintenance';
+import {
+    applyTimezoneRepair,
+    checkBirdNetReachability,
+    fetchAnalysisStatus,
+    fetchTimezoneRepairPreview,
+    purgeMissingMedia,
+    testLlm,
+    testMQTTPublish
+} from './maintenance';
 
 describe('fetchAnalysisStatus', () => {
     afterEach(() => {
@@ -134,6 +142,47 @@ describe('AI model diagnostic api', () => {
             retryable: true,
             retry_after_seconds: 15,
             http_status: 503
+        });
+    });
+});
+
+describe('integration diagnostic overrides', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it('passes the BirdNET-Go URL currently on screen as a query override', async () => {
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({ status: 'ok', message: 'reachable' })));
+        vi.stubGlobal('fetch', fetchMock);
+
+        await checkBirdNetReachability('http://edited-birdnet:8080');
+
+        const request = fetchMock.mock.calls[0] as unknown as [string, RequestInit?];
+        const requestUrl = String(request[0]);
+        expect(requestUrl).toContain('/settings/birdnet/reachability?');
+        expect(requestUrl).toContain('url=http%3A%2F%2Fedited-birdnet%3A8080');
+    });
+
+    it('posts the MQTT values currently on screen', async () => {
+        const fetchMock = vi.fn(async () => new Response(JSON.stringify({ status: 'ok', message: 'published' })));
+        vi.stubGlobal('fetch', fetchMock);
+
+        await testMQTTPublish({
+            server: 'edited-mqtt',
+            port: 2883,
+            auth: true,
+            username: 'birder',
+            password: ''
+        });
+
+        const request = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+        expect(request[1]).toMatchObject({ method: 'POST' });
+        expect(JSON.parse(String(request[1].body))).toEqual({
+            server: 'edited-mqtt',
+            port: 2883,
+            auth: true,
+            username: 'birder',
+            password: ''
         });
     });
 });

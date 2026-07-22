@@ -52,6 +52,36 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   remain open.
 
 ### Fixed
+- **First-run setup now remains secure, truthful, and recoverable across every step.** Enabling
+  authentication returns the initial owner token atomically so setup can continue through the
+  newly protected API, while serialized first-run claims and rollback on save failure close the
+  auth-disabled takeover and partial-write paths. Crop detectors can no longer appear or activate
+  as classifiers. Section readiness now checks the credentials required by enabled integrations
+  without claiming live health; re-run sections return to their review map; failed refreshes keep
+  the last trustworthy summary; save failures are visible; focus is trapped/restored with scoped
+  Escape; and model validation has a bounded 30-minute UI deadline. Frigate, MQTT, BirdNET-Go, and
+  BirdWeather diagnostics test current or saved-secret-preserving values without mutating config,
+  and BirdNET's final stage waits for a real database insert/delete before turning green, then
+  removes its synthetic evidence so it cannot affect history or audio confirmation. New setup and
+  recovery copy is present in all nine active locale catalogs.
+- **First-run configuration can no longer overwrite saved settings after a failed read.** Every
+  settings-backed step now has explicit loading, retry, and ready states and keeps Continue disabled
+  until the current configuration is known. The connection step supports authenticated MQTT
+  brokers without exposing a saved password, the camera step no longer presents the raw classifier
+  confidence threshold as a routine choice, and setup offers an opt-in retained-Frigate history
+  import that continues as a visible background job. The review summary uses localized structured
+  readiness details instead of displaying backend English prose.
+- **Historical backfill is now fail-closed and preserves enriched history.** Frigate HTTP, timeout,
+  invalid-payload, stalled-pagination, and page-budget failures can no longer look like a successful
+  empty import. A higher image-classification score preserves existing BirdNET audio, weather,
+  same-species taxonomy, the strongest Frigate score, and sublabel evidence; stale taxonomy is
+  cleared when the stronger result changes species. An existing row can still repair a missing
+  cached snapshot and enter the HQ replacement path. Custom ranges follow the browser timezone with an
+  inclusive final calendar day, automatic weather follow-up waits for the maintenance lane instead
+  of being dropped, reset cancels and awaits active work before deleting data, and the watchdog
+  reports idle jobs rather than penalizing a long job that is still progressing. The Settings result
+  surface now exposes reason counts, while vanished backend jobs are marked stale rather than
+  falsely completed.
 - **The Model Manager now reports the provider that is actually running.** Hardware-neutral
   model recommendations no longer label high-accuracy models as CPU-only, and the active model
   shows its live provider plus the backend's real automatic fallback order. Intel NPU is included,

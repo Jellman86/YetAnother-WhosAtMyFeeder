@@ -119,8 +119,21 @@ never clobbers unrelated config). Steps:
 - **Frigate settings** — cameras, recording-retention guidance, and the detection gates that
   drive the Event-Not-Found problem (`min_score` / `min_initialized` / `threshold`).
 - **Common quality configs** — HQ snapshots, crop selection, verification gates.
+- **Optional retained-history import** — start a visible background classification job for bird
+  events Frigate still retains without delaying the rest of setup. Existing enrichment is
+  preserved and unavailable BirdNET-Go history is stated honestly.
 
 Each step is independently re-runnable; skipping the wizard leaves the current config untouched.
+
+The shipped hardening pass also closes the setup boundary end to end: enabling auth returns and
+stores the initial owner session atomically; completed auth-disabled installs cannot be claimed
+through the first-run endpoint; crop-detector artifacts are excluded and rejected as classifiers;
+readiness checks enabled-integration credentials without pretending to be live health; staged
+diagnostics test current form values and durable BirdNET ingestion; re-run sections return to the
+review map; refresh/save failures have recovery UI; and the portalled wizard traps/restores focus,
+supports scoped Escape, and bounds model-validation polling. Settings-backed steps now fail closed
+until saved configuration loads successfully, authenticated MQTT is supported in the guided flow,
+and the final review is localized from structured readiness codes.
 
 #### UI simplification & polish ✨
 **Priority:** P1 | **Effort:** L | **Status:** 🔄 In progress — Settings simplification complete;
