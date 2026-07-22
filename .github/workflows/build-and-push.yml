@@ -526,12 +526,22 @@ jobs:
         include:
           - flavor: full
             suffix: ""
+            # The combined CUDA + OpenVINO image has multi-gigabyte runtime
+            # layers. Exporting those layers to the GHA cache can outlive the
+            # image push and consume the entire bounded job, preventing its
+            # smoke test and the fail-closed promotion stage from running.
+            # It may still consume a previous cache; only the costly export is
+            # disabled for this compatibility flavor.
+            cache_export: ""
           - flavor: cpu
             suffix: "-cpu"
+            cache_export: type=gha,mode=max,scope=monolith-cpu
           - flavor: intel
             suffix: "-intel"
+            cache_export: type=gha,mode=max,scope=monolith-intel
           - flavor: cuda
             suffix: "-cuda"
+            cache_export: type=gha,mode=max,scope=monolith-cuda
 
     steps:
       - name: Checkout
@@ -583,7 +593,7 @@ jobs:
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}${{ matrix.suffix }}
           cache-from: type=gha,scope=monolith-${{ matrix.flavor }}
-          cache-to: type=gha,mode=max,scope=monolith-${{ matrix.flavor }}
+          cache-to: ${{ matrix.cache_export }}
 
       - name: Smoke-test ${{ matrix.flavor }} image without an accelerator
         run: |

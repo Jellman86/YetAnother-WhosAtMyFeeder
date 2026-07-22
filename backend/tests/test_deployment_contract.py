@@ -121,7 +121,10 @@ def test_runtime_flavor_builds_use_a_cache_capable_buildx_driver() -> None:
     build_offset = build_job.index("uses: docker/build-push-action@v7")
     assert setup_offset < build_offset
     assert "cache-from: type=gha,scope=monolith-${{ matrix.flavor }}" in build_job
-    assert "cache-to: type=gha,mode=max,scope=monolith-${{ matrix.flavor }}" in build_job
+    assert "cache-to: ${{ matrix.cache_export }}" in build_job
+    assert 'cache_export: ""' in build_job
+    for flavor in ("cpu", "intel", "cuda"):
+        assert f"cache_export: type=gha,mode=max,scope=monolith-{flavor}" in build_job
 
 
 def test_publication_is_blocked_until_full_and_cpu_share_persistent_state() -> None:
