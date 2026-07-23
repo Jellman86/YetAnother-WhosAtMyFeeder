@@ -67,7 +67,7 @@ docker compose -f docker-compose.monolith.yml up -d
 If you want to pin a release instead of following `latest`, use a current version tag such as:
 
 ```env
-YAWAMF_MONALITHIC_TAG=v2.14.0
+YAWAMF_MONALITHIC_TAG=v2.15.0
 ```
 
 ## Recommended Pi Settings

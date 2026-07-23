@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-07-23
+
 ### Added
 - **Background work now has one owner-facing status contract.** `GET /api/jobs` reports queued and
   running video analysis, best-quality snapshot, full-visit clip, and backfill work as distinct
@@ -58,6 +60,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   remain open.
 
 ### Fixed
+- **A normal deep-video abstention no longer disables later video analysis.** A valid clip with
+  weak, ambiguous, hidden, or representation-conflicting frame evidence remains visible as
+  `video_no_results`, but is recorded as an informational abstention rather than an inference
+  warning and cannot increment either the live or maintenance circuit breaker. Typed
+  worker failures, exceptions, and timeouts still count and retain the existing cooldown.
 - **Detection intake and background work now degrade safely under bursts and restarts.** BirdNET-Go
   messages use a source-scoped stable detection identity when one is published, making broker
   redelivery idempotent in both persisted history and the live correlation buffer; distinct audio

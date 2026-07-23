@@ -73,7 +73,7 @@ The available stable Repository tags are:
 
 Start with `latest`. Once the installation is healthy, edit only the tag portion
 of **Repository** if you want a smaller image; keep the same `/config` and `/data`
-paths. Pinned releases use the same suffix, such as `v2.14.0-intel`.
+paths. Pinned releases use the same suffix, such as `v2.15.0-intel`.
 
 Do not add `YAWAMF_IMAGE_FLAVOR` to the template. It is read-only identity baked
 into each image, and overriding it does not install a runtime. Also avoid adding
