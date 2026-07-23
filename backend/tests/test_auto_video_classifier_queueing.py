@@ -385,8 +385,11 @@ FRIGATE_SIDE_ERROR_CODES = [
 
 ML_INFERENCE_ERROR_CODES = [
     "video_timeout",
-    "video_no_results",
     "video_exception",
+]
+
+SAFE_VIDEO_OUTCOME_CODES = [
+    "video_no_results",
 ]
 
 
@@ -451,6 +454,29 @@ async def test_ml_inference_errors_do_increment_failure_count():
 
     status = service.get_status()
     assert status["failure_count"] == len(ML_INFERENCE_ERROR_CODES)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["live", "maintenance"])
+async def test_safe_video_outcomes_do_not_increment_or_open_circuit(monkeypatch, source):
+    """A healthy temporal abstention must not suppress later video work."""
+    monkeypatch.setattr(
+        settings.classification,
+        "video_classification_failure_threshold",
+        2,
+    )
+    service = AutoVideoClassifierService()
+
+    for index in range(4):
+        service._record_failure(
+            f"evt-abstention-{source}-{index}",
+            SAFE_VIDEO_OUTCOME_CODES[index % len(SAFE_VIDEO_OUTCOME_CODES)],
+            source=source,
+        )
+
+    circuit = service.get_circuit_status(source)
+    assert circuit["failure_count"] == 0
+    assert circuit["open"] is False
 
 
 @pytest.mark.asyncio

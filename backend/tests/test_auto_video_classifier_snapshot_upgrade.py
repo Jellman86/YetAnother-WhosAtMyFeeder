@@ -103,6 +103,48 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
 
 
 @pytest.mark.asyncio
+async def test_process_event_records_temporal_abstention_without_breaker_failure():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(return_value=[])
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._record_failure = MagicMock()  # type: ignore[method-assign]
+    error_diagnostics_history.clear()
+
+    try:
+        with (
+            patch.object(
+                auto_video_classifier_module.frigate_client,
+                "get_event_with_error",
+                new=AsyncMock(return_value=({"has_clip": True}, None)),
+            ),
+            patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+        ):
+            await service._process_event("evt-video-abstention", "cam1", skip_delay=True)
+
+        service._save_results.assert_not_awaited()
+        service._record_failure.assert_not_called()
+        service._update_status.assert_any_await(
+            "evt-video-abstention",
+            "failed",
+            error="video_no_results",
+            broadcast=True,
+        )
+        diagnostic = next(
+            item
+            for item in error_diagnostics_history.snapshot(limit=20)["events"]
+            if item["event_id"] == "evt-video-abstention"
+        )
+        assert diagnostic["reason_code"] == "video_no_results"
+        assert diagnostic["severity"] == "info"
+    finally:
+        error_diagnostics_history.clear()
+
+
+@pytest.mark.asyncio
 async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()
@@ -563,8 +605,8 @@ async def test_record_failure_records_backend_diagnostic_when_video_circuit_open
     error_diagnostics_history.clear()
 
     try:
-        service._record_failure("evt-video-circuit-a", "video_no_results")
-        service._record_failure("evt-video-circuit-b", "video_no_results")
+        service._record_failure("evt-video-circuit-a", "video_timeout")
+        service._record_failure("evt-video-circuit-b", "video_worker_unavailable")
 
         snapshot = error_diagnostics_history.snapshot(limit=20)
         event = next(item for item in snapshot["events"] if item["reason_code"] == "video_circuit_opened")

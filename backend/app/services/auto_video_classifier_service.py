@@ -63,9 +63,10 @@ _HQ_SNAPSHOT_TIMEOUT_SECONDS = 120.0  # generous ceiling for post-classification
 # Circuit-breaker failure classification
 # ---------------------------------------------------------------------------
 # The circuit breaker exists to protect against a broken ML *inference*
-# pipeline (timed-out workers, crashed workers, zero-result runs).  It must
-# NOT open because Frigate was temporarily unreachable or because a task was
-# cancelled during a normal service reset / shutdown.
+# pipeline (timed-out or crashed workers). It must NOT open because Frigate was
+# temporarily unreachable, because a task was cancelled during a normal
+# service reset / shutdown, or because a healthy temporal run abstained when
+# its frames lacked a confident consensus.
 #
 # Errors that originate on the Frigate side (connectivity, HTTP errors,
 # timing races) or from task lifecycle events are excluded from the failure
@@ -101,6 +102,15 @@ _FRIGATE_CONNECTIVITY_ERRORS: frozenset[str] = frozenset(
 _FRIGATE_CONNECTIVITY_ERROR_PREFIXES: tuple[str, ...] = (
     "event_http_",  # e.g. event_http_500, event_http_503
     "clip_http_",  # e.g. clip_http_400, clip_http_502
+)
+_NON_BREAKER_VIDEO_OUTCOMES: frozenset[str] = frozenset(
+    {
+        # classify_video() deliberately returns no candidates when valid frame
+        # evidence is weak, ambiguous, hidden/unknown, or disagrees across
+        # input representations. Worker/runtime failures are propagated as
+        # typed errors before this outcome reaches the service.
+        "video_no_results",
+    }
 )
 SNAPSHOT_FALLBACK_MAX_ATTEMPTS = 3
 SNAPSHOT_FALLBACK_BACKGROUND_IMAGE_ADMISSION_TIMEOUT_SECONDS = 3.0
@@ -656,9 +666,10 @@ class AutoVideoClassifierService:
 
     def _record_failure(self, event_id: str, error: Optional[str] = None, *, source: JobSource = "live"):
         # Frigate-connectivity and task-lifecycle errors do not count toward the
-        # circuit-breaker threshold.  Only genuine ML inference failures do.
+        # circuit-breaker threshold. Neither do healthy classifier abstentions.
+        # Only genuine ML inference failures count.
         if error is not None:
-            if error in _FRIGATE_CONNECTIVITY_ERRORS:
+            if error in _FRIGATE_CONNECTIVITY_ERRORS or error in _NON_BREAKER_VIDEO_OUTCOMES:
                 return
             if any(error.startswith(pfx) for pfx in _FRIGATE_CONNECTIVITY_ERROR_PREFIXES):
                 return
@@ -1651,15 +1662,17 @@ class AutoVideoClassifierService:
                         score=top["score"],
                     )
                 else:
-                    log.warning("Video classification returned no results", event_id=frigate_event)
+                    log.info(
+                        "Video classification abstained without a confident temporal result",
+                        event_id=frigate_event,
+                    )
                     self._record_diagnostic(
                         frigate_event,
                         reason_code="video_no_results",
-                        message="Video classification completed without any candidate results",
-                        severity="warning",
+                        message="Video classification completed without a confident temporal result",
+                        severity="info",
                     )
                     await self._update_status(frigate_event, "failed", error="video_no_results", broadcast=True)
-                    self._record_failure(frigate_event, "video_no_results", source=source)
                     await broadcaster.broadcast(
                         {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
                     )
