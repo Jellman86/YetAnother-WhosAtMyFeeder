@@ -59,6 +59,35 @@ async def test_ready_503_when_not_testing_and_db_pool_not_initialized(
 
 
 @pytest.mark.asyncio
+async def test_lifecycle_phase_publishes_progress_and_marks_fatal_failure(monkeypatch: pytest.MonkeyPatch):
+    calls: list[tuple[str, object]] = []
+
+    class FakeStartupStatus:
+        def publish(self, phase: str, progress: int) -> None:
+            calls.append(("publish", (phase, progress)))
+
+        def mark_failed(self, phase: str) -> None:
+            calls.append(("failed", phase))
+
+    async def fail() -> None:
+        raise ValueError("database unavailable")
+
+    monkeypatch.setattr(main_module, "startup_status", FakeStartupStatus())
+
+    with pytest.raises(RuntimeError, match="Lifecycle phase failed: db_init"):
+        await main_module._run_lifecycle_phase(
+            app,
+            "db_init",
+            fail,
+            fatal=True,
+            startup_phase="database",
+            startup_progress=70,
+        )
+
+    assert calls == [("publish", ("database", 70)), ("failed", "database")]
+
+
+@pytest.mark.asyncio
 async def test_health_degraded_when_notification_dispatcher_has_drops(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
 ):

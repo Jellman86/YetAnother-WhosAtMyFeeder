@@ -21,7 +21,10 @@ from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
 from app.services.i18n_service import i18n_service
-from app.services.classification_input_provenance import load_snapshot_classification_input
+from app.services.classification_input_provenance import (
+    build_snapshot_classification_input_context,
+    load_snapshot_classification_input,
+)
 from app.utils.language import get_user_language
 from app.utils.blocked_species import is_blocked_species
 from app.utils.audio_localization import localize_audio_detections, localize_audio_species_name
@@ -1673,11 +1676,11 @@ async def reclassify_event(
                 results = await classifier.classify_async(
                     image,
                     camera_name=detection.camera_name,
-                    input_context={
-                        "is_cropped": snapshot_provenance.is_cropped,
-                        "event_id": event_id,
-                        "input_source": snapshot_provenance.input_source,
-                    },
+                    input_context=build_snapshot_classification_input_context(
+                        event_id=event_id,
+                        event_data=event_data,
+                        provenance=snapshot_provenance,
+                    ),
                 )
                 for result in results:
                     if isinstance(result, dict):

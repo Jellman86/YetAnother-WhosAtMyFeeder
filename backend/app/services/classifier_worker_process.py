@@ -176,6 +176,7 @@ class ClassifierWorkerProcess:
                 label = kwargs.get("top_label", kwargs.get("label"))
                 frame_thumb = kwargs.get("frame_thumb")
                 frame_index = kwargs.get("frame_index")
+                frame_offset_seconds = kwargs.get("frame_offset_seconds")
                 clip_total = kwargs.get("clip_total")
                 model_name = kwargs.get("model_name")
 
@@ -195,6 +196,8 @@ class ClassifierWorkerProcess:
                     clip_total = args[6]
                 if model_name is None and len(args) > 7:
                     model_name = args[7]
+                if frame_offset_seconds is None and len(args) > 8:
+                    frame_offset_seconds = args[8]
 
                 if current is None or total is None or score is None or label is None:
                     return None
@@ -210,6 +213,7 @@ class ClassifierWorkerProcess:
                         label=label,
                         frame_thumb=frame_thumb,
                         frame_index=frame_index,
+                        frame_offset_seconds=frame_offset_seconds,
                         clip_total=clip_total,
                         model_name=model_name,
                     ),
@@ -324,6 +328,7 @@ class ClassifierWorkerProcess:
         label: str,
         frame_thumb: str | None = None,
         frame_index: int | None = None,
+        frame_offset_seconds: float | None = None,
         clip_total: int | None = None,
         model_name: str | None = None,
     ) -> None:
@@ -339,6 +344,7 @@ class ClassifierWorkerProcess:
                 top_label=label,
                 frame_thumb=frame_thumb,
                 frame_index=frame_index,
+                frame_offset_seconds=frame_offset_seconds,
                 clip_total=clip_total,
                 model_name=model_name,
             )

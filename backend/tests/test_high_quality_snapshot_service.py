@@ -134,6 +134,7 @@ def test_extract_crop_event_hints_keeps_only_valid_box_and_region():
             },
             "start_time": 100.0,
             "end_time": 101.0,
+            "snapshot": {"box": [0.11, 0.21, 0.31, 0.41], "frame_time": 100.8},
             "large_irrelevant_payload": "ignored",
         }
     )
@@ -141,6 +142,7 @@ def test_extract_crop_event_hints_keeps_only_valid_box_and_region():
     assert hints == {
         "start_time": 100.0,
         "end_time": 101.0,
+        "snapshot": {"box": [0.11, 0.21, 0.31, 0.41], "frame_time": 100.8},
         "data": {
             "box": [0.1, 0.2, 0.3, 0.4],
             "region": ["10", "20", "30", "40"],
@@ -157,7 +159,7 @@ def test_candidate_generation_attempts_model_crop_when_legacy_crop_flag_is_off(m
     monkeypatch.setattr(service, "_crop_from_event_hints", lambda image, event_data: None)
     monkeypatch.setattr(
         service,
-        "_crop_from_bird_model",
+        "_crop_candidate_from_bird_model",
         lambda image, event_id=None: {
             "crop_image": image.crop((8, 8, 96, 96)),
             "box": (8, 8, 96, 96),
@@ -172,6 +174,77 @@ def test_candidate_generation_attempts_model_crop_when_legacy_crop_flag_is_off(m
     )
 
     assert [source for source, _image, _result in candidates] == ["full_frame", "model_crop"]
+
+
+def test_candidate_generation_uses_distance_tolerant_evidence_crop_without_replacing_frame(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(service, "_bird_crop_model_available", lambda: True)
+    monkeypatch.setattr(service, "_crop_from_event_hints", lambda image, event_data: None)
+
+    class _CropService:
+        def generate_crop(self, _image, *, detector_tier=None):
+            raise AssertionError(f"normal replacement policy should not run: {detector_tier}")
+
+        def generate_classification_candidate_crop(self, image):
+            return {
+                "crop_image": image.crop((16, 16, 96, 112)),
+                "box": (16, 16, 96, 112),
+                "confidence": 0.03,
+                "reason": "selected",
+            }
+
+    monkeypatch.setattr(hq_module, "bird_crop_service", _CropService())
+
+    candidates = service._candidate_images_for_frame(
+        Image.new("RGB", (128, 128)),
+        event_data=None,
+        event_id="evt-distant",
+    )
+
+    assert [source for source, _image, _result in candidates] == ["full_frame", "model_crop"]
+    assert candidates[1][2]["confidence"] == 0.03
+
+
+def test_candidate_generation_guides_model_with_same_frame_frigate_crop(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(service, "_bird_crop_model_available", lambda: True)
+    image = Image.new("RGB", (1000, 800))
+    hint_result = {
+        "crop_image": image.crop((300, 200, 700, 600)),
+        "box": (300, 200, 700, 600),
+        "reason": "frigate_box",
+    }
+    monkeypatch.setattr(service, "_crop_from_event_hints", lambda _image, _event_data: hint_result)
+    seen = []
+
+    class _CropService:
+        def generate_guided_classification_candidate_crop(self, candidate_image, *, search_box):
+            seen.append((candidate_image.size, search_box))
+            return {
+                "crop_image": candidate_image.crop((400, 300, 560, 460)),
+                "box": (400, 300, 560, 460),
+                "confidence": 0.72,
+                "reason": "selected",
+                "strategy": "frigate_guided",
+            }
+
+    monkeypatch.setattr(hq_module, "bird_crop_service", _CropService())
+
+    candidates = service._candidate_images_for_frame(
+        image,
+        event_data={"data": {"box": [0.3, 0.25, 0.4, 0.5]}},
+        event_id="evt-guided",
+    )
+
+    assert seen == [((1000, 800), (300, 200, 700, 600))]
+    assert [source for source, _image, _result in candidates] == [
+        "full_frame",
+        "frigate_hint_crop",
+        "model_crop",
+    ]
+    assert candidates[2][2]["strategy"] == "frigate_guided"
 
 
 @pytest.mark.asyncio
@@ -528,10 +601,25 @@ def test_event_hint_box_tracks_the_nearest_path_point_and_rejects_stale_hints():
     recording = service._event_hints_for_frame(event_data, frame_offset_seconds=6.0, clip_variant="recording")
 
     assert first is not event_data
-    assert first["data"]["box"] == pytest.approx([0.10, 0.20, 0.20, 0.10])
-    assert last["data"]["box"] == pytest.approx([0.60, 0.70, 0.20, 0.10])
+    # Frigate path_data points are the tracked box's bottom-centre, not its centre.
+    assert first["data"]["box"] == pytest.approx([0.10, 0.15, 0.20, 0.10])
+    assert last["data"]["box"] == pytest.approx([0.60, 0.65, 0.20, 0.10])
     assert stale is None
     assert recording is None
+
+
+def test_path_sampling_compares_bottom_centre_points_with_the_final_box():
+    service = hq_module.HighQualitySnapshotService()
+
+    ordered = service._ordered_path_timestamps_for_crop(
+        {"box": [0.40, 0.40, 0.20, 0.20]},
+        [
+            (101.0, 0.50, 0.50),  # Final box centre, but not Frigate's path anchor.
+            (102.0, 0.50, 0.60),  # Final box bottom-centre.
+        ],
+    )
+
+    assert ordered[0] == 102.0
 
 
 def test_event_hint_path_without_a_valid_box_fails_closed():
@@ -653,6 +741,73 @@ async def test_candidate_scoring_preserves_model_input_contract(monkeypatch, sou
     assert result["classifier_label"] == "Columba palumbus"
     assert result["classifier_score"] == 0.84
     assert result["classifier_index"] == 123
+
+
+@pytest.mark.asyncio
+async def test_candidate_scoring_honours_conservative_crop_override(monkeypatch):
+    from app.services import classifier_service as classifier_module
+
+    service = hq_module.HighQualitySnapshotService()
+    classifier = SimpleNamespace()
+    seen_contexts: list[dict] = []
+
+    async def classify_async_background(_image, *, input_context, queue_timeout_seconds):
+        seen_contexts.append(input_context)
+        return [{"label": "Columba palumbus", "score": 0.84, "index": 123}]
+
+    classifier.classify_async_background = classify_async_background
+    monkeypatch.setattr(classifier_module, "_classifier_instance", classifier)
+
+    await service._score_snapshot_candidate(
+        {
+            "candidate_id": "regular-snapshot-fallback",
+            "frame_index": 0,
+            "source_mode": "full_frame",
+            "input_is_cropped": True,
+            "image_bytes": _jpeg_bytes("green"),
+        }
+    )
+
+    assert seen_contexts == [{"is_cropped": True}]
+
+
+@pytest.mark.asyncio
+async def test_candidate_scoring_does_not_reward_detector_confidence_or_crop_source(monkeypatch):
+    from app.services import classifier_service as classifier_module
+
+    service = hq_module.HighQualitySnapshotService()
+    classifier = SimpleNamespace()
+
+    async def classify_async_background(_image, *, input_context, queue_timeout_seconds):
+        return [{"label": "Columba palumbus", "score": 0.84, "index": 123}]
+
+    classifier.classify_async_background = classify_async_background
+    monkeypatch.setattr(classifier_module, "_classifier_instance", classifier)
+    common = {
+        "frame_index": 4,
+        "image_bytes": _jpeg_bytes("green"),
+    }
+
+    hint = await service._score_snapshot_candidate(
+        {
+            **common,
+            "candidate_id": "hint",
+            "source_mode": "frigate_hint_crop",
+            "crop_confidence": None,
+        }
+    )
+    model = await service._score_snapshot_candidate(
+        {
+            **common,
+            "candidate_id": "model",
+            "source_mode": "model_crop",
+            "crop_confidence": 0.99,
+        }
+    )
+
+    assert hint is not None
+    assert model is not None
+    assert model["ranking_score"] == pytest.approx(hint["ranking_score"])
 
 
 @pytest.mark.asyncio
@@ -846,6 +1001,198 @@ def test_select_canonical_snapshot_candidate_chooses_best_crop_regardless_of_leg
     assert selected["candidate_id"] == "hint-crop"
 
 
+def test_model_crop_must_materially_outscore_available_frigate_crop():
+    service = hq_module.HighQualitySnapshotService()
+    common = {
+        "image_width": 320,
+        "image_height": 280,
+        "classifier_label": "Columba palumbus",
+    }
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                **common,
+                "candidate_id": "hint",
+                "source_mode": "frigate_hint_crop",
+                "classifier_score": 0.89,
+                "ranking_score": 0.90,
+            },
+            {
+                **common,
+                "candidate_id": "model",
+                "source_mode": "model_crop",
+                "classifier_score": 0.90,
+                "ranking_score": 0.94,
+            },
+        ],
+        expected_labels={"Columba palumbus"},
+    )
+
+    assert selected is not None
+    assert selected["candidate_id"] == "hint"
+
+
+def test_model_crop_can_win_after_material_classifier_improvement():
+    service = hq_module.HighQualitySnapshotService()
+    common = {
+        "image_width": 320,
+        "image_height": 280,
+        "classifier_label": "Columba palumbus",
+    }
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                **common,
+                "candidate_id": "hint",
+                "source_mode": "frigate_hint_crop",
+                "classifier_score": 0.86,
+                "ranking_score": 0.87,
+            },
+            {
+                **common,
+                "candidate_id": "model",
+                "source_mode": "model_crop",
+                "classifier_score": 0.90,
+                "ranking_score": 0.91,
+            },
+        ],
+        expected_labels={"Columba palumbus"},
+    )
+
+    assert selected is not None
+    assert selected["candidate_id"] == "model"
+
+
+def test_final_frigate_snapshot_is_protected_from_marginal_clip_candidate():
+    service = hq_module.HighQualitySnapshotService()
+    common = {
+        "image_width": 420,
+        "image_height": 360,
+        "classifier_label": "Columba palumbus",
+        "source_mode": "frigate_hint_crop",
+    }
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                **common,
+                "candidate_id": "frigate-final",
+                "clip_variant": "frigate_snapshot",
+                "classifier_score": 0.88,
+                "ranking_score": 0.89,
+            },
+            {
+                **common,
+                "candidate_id": "clip-frame",
+                "clip_variant": "event",
+                "classifier_score": 0.89,
+                "ranking_score": 0.97,
+            },
+        ],
+        expected_labels={"Columba palumbus"},
+    )
+
+    assert selected is not None
+    assert selected["candidate_id"] == "frigate-final"
+
+
+def test_clip_candidate_can_replace_final_frigate_snapshot_after_material_improvement():
+    service = hq_module.HighQualitySnapshotService()
+    common = {
+        "image_width": 420,
+        "image_height": 360,
+        "classifier_label": "Columba palumbus",
+        "source_mode": "frigate_hint_crop",
+    }
+
+    selected = service._select_canonical_snapshot_candidate(
+        [
+            {
+                **common,
+                "candidate_id": "frigate-final",
+                "clip_variant": "frigate_snapshot",
+                "classifier_score": 0.86,
+                "ranking_score": 0.87,
+            },
+            {
+                **common,
+                "candidate_id": "clip-frame",
+                "clip_variant": "event",
+                "classifier_score": 0.90,
+                "ranking_score": 0.91,
+            },
+        ],
+        expected_labels={"Columba palumbus"},
+    )
+
+    assert selected is not None
+    assert selected["candidate_id"] == "clip-frame"
+
+
+@pytest.mark.asyncio
+async def test_final_snapshot_candidates_use_uncropped_frigate_image_and_final_box(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    snapshot_bytes = _jpeg_bytes("blue", size=(400, 300))
+    clean_snapshot_fetch = AsyncMock(return_value=(snapshot_bytes, None))
+    regular_snapshot_fetch = AsyncMock()
+    monkeypatch.setattr(hq_module.frigate_client, "get_clean_snapshot_with_error", clean_snapshot_fetch)
+    monkeypatch.setattr(hq_module.frigate_client, "get_snapshot_with_error", regular_snapshot_fetch)
+    monkeypatch.setattr(service, "_expand_hint_box", lambda box, _image_size: box)
+
+    candidates = await service._load_final_frigate_snapshot_candidates(
+        "evt-final",
+        {
+            "end_time": 102.0,
+            "data": {"box": [0.25, 0.20, 0.30, 0.40]},
+            "snapshot": {"box": [0.10, 0.10, 0.20, 0.20]},
+        },
+    )
+
+    assert [candidate["source_mode"] for candidate in candidates] == ["full_frame", "frigate_hint_crop"]
+    assert all(candidate["clip_variant"] == "frigate_snapshot" for candidate in candidates)
+    assert candidates[0]["image_width"] == 400
+    assert candidates[0]["image_height"] == 300
+    assert candidates[0]["image_bytes"].startswith(b"\xff\xd8")
+    assert candidates[1]["crop_box"] == (40, 30, 120, 90)
+    assert candidates[1]["image_width"] == 80
+    assert candidates[1]["image_height"] == 60
+    clean_snapshot_fetch.assert_awaited_once_with("evt-final", timeout=8.0)
+    regular_snapshot_fetch.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_final_snapshot_fallback_does_not_apply_box_to_possibly_precropped_regular_image(monkeypatch):
+    service = hq_module.HighQualitySnapshotService()
+    snapshot_bytes = _jpeg_bytes("blue", size=(180, 180))
+    monkeypatch.setattr(
+        hq_module.frigate_client,
+        "get_clean_snapshot_with_error",
+        AsyncMock(return_value=(None, "clean_snapshot_not_found")),
+    )
+    regular_snapshot_fetch = AsyncMock(return_value=(snapshot_bytes, None))
+    monkeypatch.setattr(hq_module.frigate_client, "get_snapshot_with_error", regular_snapshot_fetch)
+
+    candidates = await service._load_final_frigate_snapshot_candidates(
+        "evt-legacy-snapshot",
+        {
+            "end_time": 102.0,
+            "data": {"box": [0.25, 0.20, 0.30, 0.40]},
+        },
+    )
+
+    assert [candidate["source_mode"] for candidate in candidates] == ["full_frame"]
+    assert candidates[0]["snapshot_source"] == "hq_candidate_frigate_snapshot_fallback"
+    assert candidates[0]["input_is_cropped"] is True
+    regular_snapshot_fetch.assert_awaited_once_with(
+        "evt-legacy-snapshot",
+        crop=False,
+        quality=95,
+        timeout=8.0,
+    )
+
+
 def test_select_canonical_snapshot_candidate_keeps_better_ranked_full_frame(monkeypatch):
     service = hq_module.HighQualitySnapshotService()
     monkeypatch.setattr(settings.classification, "bird_crop_source_priority", "crop_model_only", raising=False)
@@ -934,6 +1281,39 @@ def test_persisted_candidates_reserve_selected_and_full_frame_fallback():
 
     assert len(persisted) == hq_module.HQ_MAX_PERSISTED_CANDIDATES
     assert "full-frame" in {candidate["candidate_id"] for candidate in persisted}
+
+
+def test_persisted_candidates_keep_final_frigate_baseline_when_clip_wins():
+    service = hq_module.HighQualitySnapshotService()
+    ranked = [
+        {
+            "candidate_id": f"clip-{index}",
+            "source_mode": "model_crop",
+            "clip_variant": "event",
+            "ranking_score": 1.0 - (index * 0.01),
+        }
+        for index in range(hq_module.HQ_MAX_PERSISTED_CANDIDATES + 2)
+    ]
+    final_full = {
+        "candidate_id": "frigate-final-full",
+        "source_mode": "full_frame",
+        "clip_variant": "frigate_snapshot",
+        "ranking_score": 0.12,
+    }
+    final_crop = {
+        "candidate_id": "frigate-final-crop",
+        "source_mode": "frigate_hint_crop",
+        "clip_variant": "frigate_snapshot",
+        "ranking_score": 0.15,
+    }
+    ranked.extend([final_crop, final_full])
+
+    persisted = service._select_persisted_candidates(ranked, selected_candidate=ranked[0])
+    persisted_ids = {candidate["candidate_id"] for candidate in persisted}
+
+    assert len(persisted) == hq_module.HQ_MAX_PERSISTED_CANDIDATES
+    assert "frigate-final-full" in persisted_ids
+    assert "frigate-final-crop" in persisted_ids
 
 
 def test_maybe_crop_snapshot_bytes_prefers_event_hint_over_model_crop(monkeypatch):
@@ -1140,6 +1520,31 @@ async def test_schedule_snapshot_replacement_accepts_recording_clip_only_mode(tm
     status = hq_module.high_quality_snapshot_service.get_status()
     assert status["enabled"] is True
     assert status["queue_size"] == 1
+
+
+@pytest.mark.asyncio
+async def test_final_replacement_is_deferred_instead_of_dropped_while_live_pass_is_active(monkeypatch):
+    service = hq_module.high_quality_snapshot_service
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+    monkeypatch.setattr(service, "_ensure_workers_started", lambda: None)
+    service._active_ids.add("evt-final-refresh")
+
+    queued = service.schedule_final_replacement(
+        "evt-final-refresh",
+        {
+            "start_time": 100.0,
+            "end_time": 105.0,
+            "data": {"box": [0.1, 0.2, 0.3, 0.4]},
+        },
+    )
+
+    assert queued is True
+    assert "evt-final-refresh" in service._deferred_ids
+    assert "evt-final-refresh" in service._final_refresh_ids
+    service._active_ids.discard("evt-final-refresh")
+    service._promote_deferred_events()
+    assert "evt-final-refresh" in service._queued_ids
+    assert service._crop_event_hints["evt-final-refresh"]["end_time"] == 105.0
 
 
 @pytest.mark.asyncio
@@ -1500,6 +1905,59 @@ async def test_process_event_falls_back_to_cached_recording_clip_when_event_clip
 
 
 @pytest.mark.asyncio
+async def test_process_event_uses_final_frigate_snapshot_when_all_clip_sources_are_missing(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    await cache_service.cache_snapshot("evt_final_only", b"initial-frigate-bytes")
+    monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
+
+    final_bytes = _jpeg_bytes("green", size=(96, 64))
+    final_candidate = {
+        "candidate_id": "evt_final_only__full_frame__final",
+        "image_bytes": final_bytes,
+        "source_mode": "full_frame",
+        "clip_variant": "frigate_snapshot",
+        "snapshot_source": "hq_candidate_full_frame",
+        "selected": True,
+    }
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_wait_for_clip",
+        AsyncMock(return_value=(None, "clip_not_found")),
+    )
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_load_recording_clip_bytes",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service,
+        "_load_event_data_for_crop",
+        AsyncMock(return_value={"end_time": 105.0, "data": {"box": [0.1, 0.2, 0.3, 0.4]}}),
+    )
+    load_final = AsyncMock(return_value=[final_candidate])
+    score_and_select = AsyncMock(
+        return_value={
+            "selected_candidate": final_candidate,
+            "candidates": [final_candidate],
+        }
+    )
+    persist = AsyncMock()
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_load_final_frigate_snapshot_candidates", load_final)
+    monkeypatch.setattr(
+        hq_module.high_quality_snapshot_service, "_score_and_select_snapshot_candidates", score_and_select
+    )
+    monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_persist_snapshot_candidates", persist)
+
+    result = await hq_module.high_quality_snapshot_service.process_event("evt_final_only")
+
+    assert result == "replaced"
+    load_final.assert_awaited_once()
+    score_and_select.assert_awaited_once_with("evt_final_only", [final_candidate])
+    persist.assert_awaited_once_with("evt_final_only", [final_candidate])
+    assert await cache_service.get_snapshot("evt_final_only") == final_bytes
+
+
+@pytest.mark.asyncio
 async def test_schedule_snapshot_replacement_ignores_duplicates(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_duplicate", b"frigate-bytes")
@@ -1554,6 +2012,30 @@ async def test_schedule_snapshot_replacement_defers_when_queue_full(tmp_path, mo
     assert status["deferred"] == 1
     assert status["queue_full_rejections"] == 0
     assert status["queue_full_deferrals"] == 1
+
+
+@pytest.mark.asyncio
+async def test_schedule_snapshot_replacement_rejects_when_bounded_overflow_is_full(tmp_path, monkeypatch):
+    cache_service = _make_cache_service(tmp_path, monkeypatch)
+    for event_id in ("evt-bound-1", "evt-bound-2", "evt-bound-3"):
+        await cache_service.cache_snapshot(event_id, b"frigate-bytes")
+    settings.media_cache.high_quality_event_snapshots = True
+
+    service = hq_module.high_quality_snapshot_service
+    monkeypatch.setattr(service, "MAX_PENDING_QUEUE", 1, raising=False)
+    monkeypatch.setattr(service, "MAX_DEFERRED_EVENTS", 1, raising=False)
+    await service.reset_state()
+    monkeypatch.setattr(service, "_ensure_workers_started", lambda: None)
+
+    assert service.schedule_replacement("evt-bound-1") is True
+    assert service.schedule_replacement("evt-bound-2") is True
+    assert service.schedule_replacement("evt-bound-3") is False
+
+    status = service.get_status()
+    assert status["queue_size"] == 1
+    assert status["deferred"] == 1
+    assert status["queue_full_rejections"] == 1
+    assert "evt-bound-3" not in service._crop_event_hints
 
 
 @pytest.mark.asyncio

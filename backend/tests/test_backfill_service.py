@@ -6,8 +6,9 @@ import pytest
 from PIL import Image
 
 from app.services import backfill_service as backfill_module
-from app.services.backfill_service import BackfillService
+from app.services.backfill_service import BackfillEventHistoryIncompleteError, BackfillService
 from app.services.classifier_service import BackgroundImageClassificationUnavailableError
+from app.services.frigate_client import FrigateEventsFetchError
 
 
 @pytest.mark.asyncio
@@ -117,7 +118,11 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
             "camera": "front",
             "start_time": 1700000000,
             "sub_label": "Columba palumbus",
-            "data": {"top_score": 0.91},
+            "data": {
+                "top_score": 0.91,
+                "box": [0.2, 0.3, 0.4, 0.5],
+                "region": [0.1, 0.2, 0.8, 0.9],
+            },
         }
     )
 
@@ -130,8 +135,64 @@ async def test_process_historical_event_passes_frigate_score_into_filtering(monk
         "is_cropped": False,
         "event_id": "evt-frigate-score",
         "input_source": "frigate_snapshot",
+        "frigate_box": [0.2, 0.3, 0.4, 0.5],
+        "frigate_region": [0.1, 0.2, 0.8, 0.9],
+        "restore_frigate_snapshot_crop": True,
     }
     save_mock.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_process_historical_event_applies_same_low_confidence_gate_as_live(monkeypatch):
+    classifier = MagicMock()
+    classifier.classify_async_background = AsyncMock(
+        return_value=[
+            {
+                "label": "Robin",
+                "score": 0.12,
+                "index": 4,
+                "inference_provider": "intel_cpu",
+                "inference_backend": "openvino",
+                "model_id": "convnext_large_inat21",
+                "input_source": "snapshot_frigate_hint_crop",
+                "input_is_cropped": True,
+            }
+        ]
+    )
+    service = BackfillService(classifier)
+
+    image = Image.new("RGB", (8, 8), color="white")
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+
+    async def _fake_snapshot(*_args, **_kwargs):
+        return buffer.getvalue()
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.get_snapshot", _fake_snapshot)
+    monkeypatch.setattr(backfill_module.settings.classification, "threshold", 0.45)
+    monkeypatch.setattr(backfill_module.settings.classification, "min_confidence", 0.4)
+    monkeypatch.setattr(backfill_module.settings.classification, "trust_frigate_sublabel", False)
+
+    save_mock = AsyncMock(return_value=(True, True))
+    service.detection_service.save_detection = save_mock
+
+    status, reason = await service.process_historical_event(
+        {
+            "id": "evt-backfill-low-confidence",
+            "camera": "birdcam",
+            "start_time": 1700000000,
+            "top_score": 0.91,
+            "sub_label": None,
+            "data": {"box": [0.2, 0.3, 0.4, 0.5]},
+        }
+    )
+
+    assert status == "skipped"
+    assert reason == "low_confidence"
+    save_mock.assert_not_awaited()
+    assert (
+        classifier.classify_async_background.await_args.kwargs["input_context"]["restore_frigate_snapshot_crop"] is True
+    )
 
 
 @pytest.mark.asyncio
@@ -158,7 +219,12 @@ async def test_process_historical_event_caches_snapshot_and_schedules_high_quali
     service.detection_service.save_detection = AsyncMock(return_value=(True, True))
     cache_snapshot = AsyncMock(return_value="/tmp/evt-backfill-hq.jpg")
     schedule_replacement = MagicMock(return_value=True)
-    monkeypatch.setattr(backfill_module, "media_cache", MagicMock(cache_snapshot=cache_snapshot), raising=False)
+    monkeypatch.setattr(
+        backfill_module,
+        "media_cache",
+        MagicMock(cache_snapshot=cache_snapshot, has_snapshot=MagicMock(return_value=False)),
+        raising=False,
+    )
     monkeypatch.setattr(
         backfill_module,
         "high_quality_snapshot_service",
@@ -195,6 +261,60 @@ async def test_process_historical_event_caches_snapshot_and_schedules_high_quali
             "data": {"box": [0.2, 0.3, 0.4, 0.5]},
         },
     )
+
+
+@pytest.mark.asyncio
+async def test_existing_detection_repairs_a_missing_cached_snapshot(monkeypatch):
+    classifier = MagicMock()
+    classifier.classify_async_background = AsyncMock(return_value=[{"label": "Wood Pigeon", "score": 0.82, "index": 3}])
+    service = BackfillService(classifier)
+
+    image = Image.new("RGB", (8, 8), color="white")
+    buffer = BytesIO()
+    image.save(buffer, format="JPEG")
+    snapshot_bytes = buffer.getvalue()
+
+    async def _fake_snapshot(*_args, **_kwargs):
+        return snapshot_bytes
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.get_snapshot", _fake_snapshot)
+    settings = backfill_module.settings
+    settings.media_cache.enabled = True
+    settings.media_cache.cache_snapshots = True
+    settings.media_cache.high_quality_event_snapshots = True
+
+    service.detection_service.save_detection = AsyncMock(return_value=(False, False))
+    cache_snapshot = AsyncMock(return_value="/tmp/evt-existing.jpg")
+    schedule_replacement = MagicMock(return_value=True)
+    monkeypatch.setattr(
+        backfill_module,
+        "media_cache",
+        MagicMock(cache_snapshot=cache_snapshot, has_snapshot=MagicMock(return_value=False)),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        backfill_module,
+        "high_quality_snapshot_service",
+        MagicMock(schedule_replacement=schedule_replacement),
+        raising=False,
+    )
+
+    event = {
+        "id": "evt-existing",
+        "camera": "front",
+        "start_time": 1700000000,
+        "top_score": 0.91,
+    }
+    status, reason = await service.process_historical_event(event)
+
+    assert status == "skipped"
+    assert reason == "already_exists"
+    cache_snapshot.assert_awaited_once_with(
+        "evt-existing",
+        snapshot_bytes,
+        source="frigate_snapshot",
+    )
+    schedule_replacement.assert_called_once_with("evt-existing", event_data=event)
 
 
 @pytest.mark.asyncio
@@ -334,3 +454,63 @@ async def test_fetch_frigate_events_paginates_until_exhausted(monkeypatch):
     assert events[-1]["id"] == "evt-234"
     assert seen_before_values[0] == pytest.approx(3000.0)
     assert seen_before_values[1] < seen_before_values[0]
+
+
+@pytest.mark.asyncio
+async def test_fetch_frigate_events_propagates_frigate_history_failure(monkeypatch):
+    service = BackfillService(MagicMock())
+
+    async def _failed_list_events(**_kwargs):
+        raise FrigateEventsFetchError("Frigate event history returned HTTP 503")
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.list_events", _failed_list_events)
+
+    with pytest.raises(FrigateEventsFetchError, match="HTTP 503"):
+        await service.fetch_frigate_events(after_ts=1000.0, before_ts=3000.0, cameras=["front"])
+
+
+@pytest.mark.asyncio
+async def test_fetch_frigate_events_reports_cumulative_progress_across_cameras(monkeypatch):
+    service = BackfillService(MagicMock())
+    calls = 0
+    progress: list[int] = []
+
+    async def _camera_page(**_kwargs):
+        nonlocal calls
+        calls += 1
+        return [{"id": f"evt-{calls}", "start_time": 2000 - calls}]
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.list_events", _camera_page)
+
+    events = await service.fetch_frigate_events(
+        after_ts=1000.0,
+        before_ts=3000.0,
+        cameras=["front", "back"],
+        progress_callback=progress.append,
+    )
+
+    assert len(events) == 2
+    assert progress == [1, 2]
+
+
+@pytest.mark.asyncio
+async def test_fetch_frigate_events_rejects_partial_results_at_page_budget(monkeypatch):
+    service = BackfillService(MagicMock())
+    calls = 0
+
+    async def _full_page(*, before=None, **_kwargs):
+        nonlocal calls
+        calls += 1
+        newest = float(before) - 1
+        return [
+            {"id": f"evt-{calls}-{index}", "start_time": newest - index}
+            for index in range(backfill_module.BACKFILL_EVENTS_PAGE_LIMIT)
+        ]
+
+    monkeypatch.setattr("app.services.backfill_service.frigate_client.list_events", _full_page)
+    monkeypatch.setattr(backfill_module, "BACKFILL_EVENTS_MAX_PAGES_PER_CAMERA", 2)
+
+    with pytest.raises(BackfillEventHistoryIncompleteError, match="safe pagination limit"):
+        await service.fetch_frigate_events(after_ts=1000.0, before_ts=3000.0, cameras=["front"])
+
+    assert calls == 2

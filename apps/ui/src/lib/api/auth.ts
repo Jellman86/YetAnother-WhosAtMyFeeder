@@ -5,6 +5,7 @@ import type { paths } from './generated/openapi';
 export type AuthStatusResponse = paths['/api/auth/status']['get']['response'];
 
 export type LoginResponse = paths['/api/auth/login']['post']['response'];
+export type InitialSetupResponse = paths['/api/auth/initial-setup']['post']['response'];
 
 export async function fetchAuthStatus(): Promise<AuthStatusResponse> {
     const response = await apiFetch(`${API_BASE}/auth/status`, { timeoutMs: 10_000 });
@@ -43,7 +44,7 @@ export async function setInitialPassword(options: {
     username: string;
     password: string | null;
     enableAuth: boolean;
-}): Promise<void> {
+}): Promise<InitialSetupResponse> {
     const response = await apiFetch(`${API_BASE}/auth/initial-setup`, {
         method: 'POST',
         headers: {
@@ -59,4 +60,10 @@ export async function setInitialPassword(options: {
     if (!response.ok) {
         throw new Error(await readApiErrorMessage(response, 'Initial setup failed'));
     }
+
+    const data: InitialSetupResponse = await response.json();
+    if (data.access_token) {
+        setAuthToken(data.access_token, data.expires_in_hours ?? undefined);
+    }
+    return data;
 }

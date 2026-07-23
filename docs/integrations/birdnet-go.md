@@ -25,6 +25,14 @@ For correlation to work, YA-WAMF needs to know which audio sensor belongs to whi
 3. Go to **Settings > Integrations > Sensor Mapping**.
 4. Type that ID next to the corresponding Frigate camera name.
 
+For cameras with microphones, BirdNET-Go supports multiple named RTSP audio sources. Enable audio
+in each camera (AAC is the most interoperable choice), add and test each RTSP stream in BirdNET-Go,
+and give it a stable name that matches the corresponding Frigate camera where practical. Map that
+configured source name in YA-WAMF; current BirdNET-Go releases publish a stable `sourceName` as well
+as the runtime `sourceId`. This is easier to maintain than copying a generated hash and lets every
+camera contribute independent audio context. See BirdNET-Go's
+[RTSP/multiple-source guide](https://github.com/tphakala/birdnet-go/wiki/BirdNET%E2%80%90Go-Guide#live-audio-streaming).
+
 ### 3. Dynamic Sensor IDs (Wildcard)
 If your audio source (like a re-streaming camera) generates a new Sensor ID every time it restarts, you can use a **wildcard** to match *any* audio detection to a specific camera.
 
@@ -32,6 +40,22 @@ If your audio source (like a re-streaming camera) generates a new Sensor ID ever
 - This tells YA-WAMF: "Any audio detection that happens at the same time as this camera's visual detection is a match, regardless of the sensor name."
 
 > ⚠️ **Important:** For correlation to work, your **Timezone (TZ)** must be synced across all containers. See the [Getting Started](../setup/getting-started.md#🌍-the-importance-of-timezone-tz) guide for more details.
+
+### 4. Test the complete path
+
+Use **Test BirdNET-Go path** in the setup wizard or **Test Audio detection** under
+**Settings > Integrations**. The staged diagnostic checks, in order:
+
+1. the BirdNET-Go URL currently shown in the form, when one is set;
+2. an isolated publish through the configured MQTT broker; and
+3. synchronous ingestion of a mock Blue Tit detection into the correlation buffer and database.
+
+The diagnostic stops at the first failed stage. A green result therefore means that every
+displayed stage actually completed; it does not merely mean a background task was queued.
+The MQTT probe uses a separate short-lived client, so it does not interrupt live event ingestion.
+If a saved password is left blank in Settings, the stored secret is reused without returning it
+to the browser. After proving insert and delete access, YA-WAMF removes the synthetic database row
+and buffer entry so a diagnostic can never appear in history or confirm a real visual detection.
 
 ## 🛠 Technical Details
 
@@ -69,3 +93,9 @@ YA-WAMF normalizes incoming BirdNET timestamps to UTC before storing them. This 
 history filters, retention, and leaderboard windows correct when BirdNET-Go publishes local-offset
 timestamps (including daylight-saving changes) while Frigate events are stored as UTC. Existing
 audio history is normalized automatically during the database upgrade.
+
+Modern BirdNET-Go payloads also include a stable detection ID. YA-WAMF combines that ID with the
+normalized source name before writing history, so an MQTT redelivery does not create a second row
+or a second live-correlation observation. Different detections are never coalesced: the audio lane
+processes them in broker order and remains independent of slower visual inference. Legacy payloads
+without a stable numeric ID are still accepted, but cannot receive this source-level deduplication.

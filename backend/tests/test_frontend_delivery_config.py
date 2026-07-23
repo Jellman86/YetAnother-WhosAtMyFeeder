@@ -39,3 +39,14 @@ def test_frontend_document_is_revalidated_without_weakening_api_cache_headers(
     assert "expires -1;" in document_block
     assert "add_header Cache-Control" not in root_and_static_blocks
     assert "location /api/" in config
+
+
+def test_monolith_serves_live_startup_status_without_caching() -> None:
+    config = (REPOSITORY_ROOT / "docker/monolith/nginx.conf").read_text(encoding="utf-8")
+    entrypoint = (REPOSITORY_ROOT / "docker/monolith/entrypoint.sh").read_text(encoding="utf-8")
+
+    assert "location = /startup-status.json" in config
+    assert "alias /tmp/yawamf-startup-status.json;" in config
+    assert 'add_header Cache-Control "no-store, max-age=0" always;' in config
+    assert "YA_WAMF_STARTUP_STATUS_PATH" in entrypoint
+    assert 'write_startup_status "starting" "launching" 5' in entrypoint

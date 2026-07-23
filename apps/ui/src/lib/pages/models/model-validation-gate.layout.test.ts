@@ -37,10 +37,18 @@ describe('Model Manager guided install + selection gate', () => {
         expect(modelManagerSource).toContain('await downloadModel(model.id)');
         expect(modelManagerSource).toContain('await validateModel(model.id)');
         expect(modelManagerSource).toContain('await activateModel(model.id)');
-        expect(modelManagerSource).toContain('result.provider_set');
+        expect(modelManagerSource).toContain('result.best_provider');
+        expect(modelManagerSource).toContain('it will be applied when this model is enabled');
     });
 
     it('cannot be dismissed mid-run', () => {
         expect(modelManagerSource).toContain('if (wizardBusy) return;');
+    });
+
+    it('separates live runtime state from hardware-neutral model guidance', () => {
+        expect(modelManagerSource).toContain("getRuntimeProviderOrder(classifierStatus, getProviderSupport(model))");
+        expect(modelManagerSource).toContain('model_manager_current_runtime');
+        expect(modelManagerSource).toContain('model_manager_runtime_order');
+        expect(modelManagerSource).toContain("case 'intel_npu':");
     });
 });

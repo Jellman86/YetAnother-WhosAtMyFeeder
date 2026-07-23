@@ -13,6 +13,7 @@ It is anchored by two honest assessments of *where we stand*:
 - [Gold-Standard Review (2026-07-07)](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md) — quality assessment and the incremental path.
 - [Telemetry Health Findings (2026-07-09)](docs/reviews/2026-07-09-telemetry-health-findings.md) — what actually fails across the fleet.
 - [Image Classification Pipeline Review (2026-07-20)](docs/reviews/2026-07-20-image-classification-pipeline-review.md) — evidence provenance, temporal consensus, HQ media, and runtime recovery.
+- [Detection Queue and Jobs Review (2026-07-22)](docs/reviews/2026-07-22-detection-queue-and-jobs-review.md) — bounded intake, restart recovery, lifecycle ordering, and owner-visible work.
 
 ---
 
@@ -103,22 +104,37 @@ The headline work that makes `3.0` a major version: a guided first run, a cleane
 surface, a codebase reviewed to the gold standard, and complete translations.
 
 #### First-run setup wizard 🧭
-**Priority:** P1 | **Effort:** L | **Status:** ✅ Shipped on `dev` — multi-part, hardware-validating, re-runnable from Settings ([design](docs/plans/2026-07-12-first-run-setup-wizard-design.md))
+**Priority:** P1 | **Effort:** L | **Status:** ✅ Shipped on `dev` — multi-part, hardware-validating, re-runnable from the Settings navigation ([design](docs/plans/2026-07-12-first-run-setup-wizard-design.md))
 
 A friendly, **skippable** guided setup that configures YA-WAMF end to end and — crucially —
-is **idempotent and re-runnable at any time** from Settings (running a step again is safe and
+is **idempotent and re-runnable at any time** from **Setup wizard** in the Settings navigation (running a step again is safe and
 never clobbers unrelated config). Steps:
 
 - **Model selection with on-hardware validation** — pick a classifier and confirm it actually
-  loads and runs on the detected accelerator (reuse the model-eval / device-sweep machinery:
-  compile + finite-output + latency check per NPU/GPU/CPU), so the user leaves the step on a
-  model proven to work on *their* box.
+  loads and runs on the providers available to the running image. The shared provider sweep now
+  intersects the image package, host probe, and selected model; tests ONNX CPU/CUDA and OpenVINO
+  CPU/GPU/NPU as applicable; compares real-image output with a CPU baseline; and persists the
+  fastest verified provider. The wizard validates only the selected installed model, while the
+  Diagnostics surface can optionally download and test the whole registry.
 - **Integrations** — Frigate, BirdNET-Go, media servers, notifications: guided connect + test.
 - **Frigate settings** — cameras, recording-retention guidance, and the detection gates that
   drive the Event-Not-Found problem (`min_score` / `min_initialized` / `threshold`).
 - **Common quality configs** — HQ snapshots, crop selection, verification gates.
+- **Optional retained-history import** — start a visible background classification job for bird
+  events Frigate still retains without delaying the rest of setup. Existing enrichment is
+  preserved and unavailable BirdNET-Go history is stated honestly.
 
 Each step is independently re-runnable; skipping the wizard leaves the current config untouched.
+
+The shipped hardening pass also closes the setup boundary end to end: enabling auth returns and
+stores the initial owner session atomically; completed auth-disabled installs cannot be claimed
+through the first-run endpoint; crop-detector artifacts are excluded and rejected as classifiers;
+readiness checks enabled-integration credentials without pretending to be live health; staged
+diagnostics test current form values and durable BirdNET ingestion; re-run sections return to the
+review map; refresh/save failures have recovery UI; and the portalled wizard traps/restores focus,
+supports scoped Escape, and bounds model-validation polling. Settings-backed steps now fail closed
+until saved configuration loads successfully, authenticated MQTT is supported in the guided flow,
+and the final review is localized from structured readiness codes.
 
 #### UI simplification & polish ✨
 **Priority:** P1 | **Effort:** L | **Status:** 🔄 In progress — Settings simplification complete;
@@ -161,6 +177,17 @@ ticks, and navigation cleanup. Camera health now comes from one lightweight Frig
 than image success, while its looping viewer fetches only the selected camera and pauses when closed
 or hidden.
 The remaining audit is focused on page-owned empty, error, refresh, and destructive states.
+
+✅ **Background-work and Jobs pass:** the Jobs workspace now uses a canonical owner-only server
+snapshot for automatic video analysis, HQ snapshots, full-visit clips, and backfills instead of
+depending only on browser-local progress. Queue depth, actual worker concurrency, waiting phases,
+and blockers remain distinct; queued work is not counted as running. The global banner includes
+only prominent owner-triggered work, while routine per-detection work remains available in Jobs.
+The surface uses one divided information region, accessible progress semantics, translated status
+copy, explicit retry feedback, and no control that merely hides server-owned active work. Historical
+bird imports now use the same acceptance gate as live detections. Completed snapshots are fetched in
+a deterministic full-frame representation and receive a locally restored, aligned Frigate crop before
+that shared gate, while already-cropped and temporally unaligned inputs reject stale coordinates.
 
 #### File-by-file code-quality review 🔬
 **Priority:** P1 | **Effort:** XL | **Status:** ✅ Completed
@@ -368,16 +395,63 @@ exit criteria; the broad initiatives do not block the release by default.
 images are delivered. The full compatibility image remains available, while additive CPU, Intel and
 CUDA images isolate large hardware stacks and remove build-only tooling/layers. Image promotion is
 gated by per-flavor startup checks and a shared-volume full → CPU → full integrity round trip.
-Remaining: DB query optimization (indexes, optional result caching, cursor pagination), further
-backend async hardening + a background task queue (ARQ/Celery), targeted virtual scrolling, and a
-benchmark suite for regression testing.
+Runtime hardware validation is now governed by the same per-flavor contract, including CUDA in the
+full image even when OpenVINO CPU is also present. Evidence is scoped per model to the exact image
+flavor, failed reruns invalidate stale passes, and activation uses only a recommendation that still
+matches the current eligibility record.
+The first queue-reliability tranche is also delivered: MQTT intake starts after its consumers and
+drains before they stop; distinct BirdNET observations are ordered and idempotent when BirdNET
+publishes a stable ID; final Frigate events recover missed initial state; automatic video jobs are
+reclaimed from durable detection status; and full-visit/HQ overflow uses bounded worker lanes with
+reconciliation. Remaining: DB query optimization (indexes, optional result caching, cursor
+pagination), a durable multi-process job broker only if deployment scale requires work beyond the
+current single-container contract, targeted virtual scrolling, and a benchmark suite for
+regression testing.
 
 #### Broader end-to-end coverage 🧪
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Targeted coverage exists
 
 Unit/integration tests, CI, coverage reporting, migration-safety checks, and startup smoke
-checks are all in place. The open work is expanding Playwright E2E coverage around
-restart/recovery, GPU/provider fallback paths, and RPi ARM64 startup.
+checks are all in place. ARM64 image startup plus real model inference now run under QEMU before
+mutable Raspberry Pi tags are promoted. The open work is expanding Playwright E2E coverage around
+restart/recovery and GPU/provider fallback paths, plus a physical-Pi smoke/soak pass.
+
+#### Crop-detector field benchmark 🐦
+**Priority:** P1 | **Effort:** M | **Status:** 🔄 Production guard validated on Quark; broader owner-labelled promotion and replacement comparison remain
+
+The evidence-only distant-subject threshold recovery is delivered, but a detector replacement is
+not selected from one event or generic COCO AP. The production challenger now mirrors Frigate's
+small-object advantage: it refines a same-frame tracked region with YOLOX, falls back from native
+inference to four bounded overlapping tiles only on a miss, preserves full-frame evidence, and lets
+the model crop replace Frigate only after a material downstream classifier gain. Frigate's final
+clean best frame and snapshot-specific tracked-box crop are now protected completed-event baselines; bottom-centre
+path geometry, end-event refresh, auditable fallback candidates, and non-duplicating temporal votes
+are delivered. Build the remaining
+manually labelled, visit-grouped Quark panel with near/distant birds and hard negatives; compare
+Frigate, the optimized current YOLOX-Tiny path,
+D-FINE-N, DEIMv2-N, RTMDet-Tiny, and PP-YOLOE+ S on downstream species correctness, crop recall/clipping,
+false positives, and per-provider resource cost. D-FINE-N and DEIMv2-N have now failed the initial
+varied-image localisation/negative screen: neither beat current YOLOX at a zero-field-false-positive
+operating point, and both crashed inside the current Intel NPU compiler despite static batch-one
+exports. They remain benchmark evidence, not runtime or release models. Promote only a reproducible
+permissively licensed artifact that beats Frigate without weakening full-frame/fail-soft behaviour. See the
+[candidate review and promotion gate](docs/reviews/2026-07-21-crop-detector-candidate-review.md).
+
+The shared hardware sweep now includes both exact crop-detector artifacts, a species-diverse
+round-robin image sample, deterministic hard negatives, isolated CPU/CUDA/OpenVINO compilation,
+and CPU box/confidence agreement. The comparison fails closed on missing/duplicated rows and ignores
+raw proposals below every production threshold. Validated crop providers activate at runtime with
+CPU fallback. A private same-frame builder and initial 30-event/10-negative Quark panel now exist,
+but most reference boxes and labels are still Frigate/automatic evidence rather than owner-labelled
+ground truth. The reusable external-candidate probe, first D-FINE-N/DEIMv2-N CPU/Intel GPU/NPU
+screens, schema-3 field manifest, and direct Frigate/model downstream win-tie-loss harness are
+complete. The first optimized-path run used 24 guided, two sliced, and four fast-fallback positive
+cases: the production guard promoted 7 same-identity crops with at least a two-point classifier gain
+and retained Frigate for 23. The three owner-labelled cases produced one guarded improvement, two
+ties, and no regression, while none of ten hard-negative regions produced a crop classification
+above the active `0.40` floor.
+That validates the fail-soft selection logic but is not enough owner truth to claim detector
+superiority. Collecting more owner labels and comparing RTMDet-Tiny/PP-YOLOE+ S remain open.
 
 #### High-availability setup 🏗️
 **Priority:** P3 | **Effort:** M | **Status:** ☐ Not started
@@ -448,21 +522,24 @@ data and runs DB migrations cleanly.
 
 ## 2. Raspberry Pi compatibility (best-effort)
 
-**Status:** CI-built ARM64 image available; not yet hardware-validated. Full assessment:
-[`agents/RASPBERRY_PI_ASSESSMENT.md`](agents/RASPBERRY_PI_ASSESSMENT.md).
+**Status:** CI-built and QEMU inference-smoked ARM64 image available; not yet hardware-validated. Full assessment:
+[`docs/reviews/2026-07-21-raspberry-pi-assessment.md`](docs/reviews/2026-07-21-raspberry-pi-assessment.md).
 
 Release builds publish a dedicated ARM64 monolith image
 (`ghcr.io/jellman86/yawamf-monalithic-rpi`); the web stack, MQTT, SQLite, and Nginx run on ARM64
 unmodified, and the inference layer degrades to CPU-only (no CUDA / Intel iGPU-NPU / VideoCore).
 
-**Shipped:** ARM-safe dependency selection (CPU `onnxruntime`, no x86 GPU setup), the multi-arch
-build job, and Pi setup docs + `.env.rpi.example`.
+**Shipped:** ARM-safe dependency selection (CPU `onnxruntime` plus standalone LiteRT, no x86 GPU
+setup), a revision-pinned/checksum-verified bundled MobileNet fallback, Pi-aware first-run model
+selection and download, functional Compose pressure controls, the multi-arch build job, and an
+ARM64 QEMU gate that proves startup, classifier load, labels, and one inference before mutable tags
+are promoted. Pi setup docs and `.env.rpi.example` match the deployed variables.
 
-**Remaining:** ARM64 startup/migration/inference smoke checks in CI, then a real-hardware exit pass
-(cold start, sustained inference, thermal stability, UI responsiveness) before claiming official
-support. Indicative RPi latency: MobileNetV2 TFLite ~150–200 ms/frame (usable); small ONNX CPU
-~500–800 ms/frame (marginal); ConvNeXt-large >1000 ms/frame (not viable). Recommend
-`CLASSIFICATION_IMAGE_MAX_CONCURRENT=1` and an SSD over microSD.
+**Remaining:** a real-hardware exit pass (cold start, migration against preserved `/config` and
+`/data`, sustained inference, thermal throttling, storage endurance, camera/event throughput, and
+UI responsiveness) before claiming official support. Start with
+`CLASSIFIER_IMAGE_MAX_CONCURRENT=1` and an SSD over microSD; measured device results must replace
+estimates before publishing performance claims.
 
 ---
 
@@ -487,10 +564,16 @@ empty predictions.
 
 **Acceleration:** Intel iGPU (OpenVINO), **Intel NPU** (`intel_npu` provider, capability probe,
 device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and
-clean fallback chains.
+clean fallback chains. Full registry audits can probe undeclared host providers without making them
+eligible, and reproducible release sidecars prevent older provider metadata from narrowing or
+widening the current application contract. Crop-detector audits now use unique identities across a
+round-robin clean species panel and hard negatives, fail on incomplete comparison coverage, and
+test only proposals production could admit. The accurate YOLOX-Tiny tier is validated on Quark's
+Intel CPU/GPU/NPU; the fast quantized SSD remains CPU-only.
 
 **Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots with conservative,
-temporally independent multi-frame crop refinement for distant subjects, recording-frame
+temporally independent multi-frame crop refinement for distant subjects, a protected Frigate final
+best-frame baseline with correctly reconstructed bottom-centre path coordinates, recording-frame
 classification fallback, media caching, and the video player with HTTP-Range seeking + expiring
 watermarked share links. Playable partial recordings are retained instead of refetched forever,
 corrupt media remains rejected, and HQ recovery has persistent bounded backoff across container
@@ -515,7 +598,8 @@ Docker template + setup guide.
 **Backend & quality:** Alembic-only migrations, the repository pattern, opt-in anonymous telemetry
 + Cloudflare dashboard, backfill service, health checks + Prometheus metrics, weather enrichment,
 password-based + optional API-key auth (timing-safe), connection pooling, global exception handling,
-background-task visibility, a typed OpenAPI contract with generated SPA types, and the CI enforcement
+bounded background-work lanes with owner-visible server status and restart recovery for automatic
+video jobs, a typed OpenAPI contract with generated SPA types, and the CI enforcement
 suite (lint/format/coverage/OpenAPI-drift/type-freshness/migration-safety).
 
 ---

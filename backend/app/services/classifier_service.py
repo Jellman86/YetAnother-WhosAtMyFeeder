@@ -22,6 +22,7 @@ from PIL import Image
 from typing import Optional, Any, Awaitable, Callable, Literal
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
+from app.services.startup_status import startup_status
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
 
@@ -30,9 +31,22 @@ try:
     import tflite_runtime.interpreter as tflite
 except ImportError:
     try:
-        import tensorflow.lite as tflite
+        import ai_edge_litert.interpreter as tflite
     except ImportError:
-        tflite = None
+        try:
+            import tensorflow.lite as tflite
+        except ImportError:
+            tflite = None
+
+
+def _tflite_runtime_name() -> str:
+    module_name = str(getattr(tflite, "__name__", "") or "")
+    if module_name.startswith("ai_edge_litert"):
+        return "litert"
+    if module_name.startswith("tflite_runtime"):
+        return "tflite-runtime"
+    return "tensorflow" if tflite is not None else "unavailable"
+
 
 # ONNX runtime (for high-accuracy models)
 try:
@@ -419,59 +433,37 @@ def _normalize_inference_provider(value: Optional[str]) -> str:
 
 
 def _host_validated_providers(model_id: str) -> list[str]:
-    """Inference providers this *host* validated for ``model_id`` via the device
-    sweep (``device_eligibility.json``, written by the model-eval harness).
+    """Providers validated for this model, host, and exact runtime image.
 
-    Device support is hardware-specific — a newer iGPU/NPU can run models the
-    shared registry excludes for older silicon. Merging these host-validated
-    providers into the registry list lets the resolver use them on this machine
-    without weakening the global defaults that protect other hardware. Fail-soft:
-    a missing/unreadable file yields no extra providers.
+    The model-validation service owns the persisted schema and legacy migration
+    rules. Keeping one reader prevents the live classifier and setup UI from
+    disagreeing after an image-flavor switch.
     """
     if not model_id:
         return []
     try:
-        base = os.environ.get("YAWAMF_EVAL_RUNS_DIR", "/config/yawamf-eval")
-        path = Path(base) / "device_eligibility.json"
-        if not path.is_file():
-            return []
-        data = json.loads(path.read_text())
-        providers = (data.get("models") or {}).get(model_id) or []
-        return [str(p).strip().lower() for p in providers if str(p).strip()]
+        from app.services.model_validation import host_eligible_providers
+
+        return host_eligible_providers(model_id)
     except Exception:
         return []
 
 
 def _apply_host_validated_provider_policy(spec: dict[str, Any], *, model_id: str) -> dict[str, Any]:
-    """Merge this host's proven accelerators and retire resolved registry warnings.
+    """Attach validation evidence without widening the model's provider contract.
 
-    The shared registry stays conservative for hardware generations that have not
-    been tested. A device sweep can safely widen that policy for one model on one
-    host. Once it does, an installed-sidecar warning for the same provider is no
-    longer actionable and must not be presented as an operational fault.
+    Eligibility files persist across upgrades and image switches. They prove a
+    provider ran at one point; they do not override current registry/sidecar
+    compatibility metadata. This fail-closed boundary prevents stale historical
+    sweeps from re-enabling a provider deliberately removed from a model config.
     """
     resolved = dict(spec)
     supported = [str(provider).strip().lower() for provider in spec.get("supported_inference_providers") or []]
-    host_validated = _host_validated_providers(model_id)
-    host_added = [provider for provider in host_validated if provider not in supported]
-    if host_added:
-        supported.extend(host_added)
     resolved["supported_inference_providers"] = supported
-    resolved["host_added_inference_providers"] = host_added
-
-    registry_unsupported = {
-        str(provider).strip().lower()
-        for provider in spec.get("model_config_registry_unsupported_providers") or []
-        if str(provider).strip()
-    }
-    host_validated_set = set(host_validated)
-    provider_warnings = {
-        str(warning).strip() for warning in spec.get("model_config_provider_warnings") or [] if str(warning).strip()
-    }
-    warnings = [str(warning).strip() for warning in spec.get("model_config_warnings") or [] if str(warning).strip()]
-    if registry_unsupported and registry_unsupported.issubset(host_validated_set):
-        warnings = [warning for warning in warnings if warning not in provider_warnings]
-    resolved["model_config_warnings"] = warnings
+    resolved["host_added_inference_providers"] = []
+    resolved["host_validated_inference_providers"] = [
+        provider for provider in _host_validated_providers(model_id) if provider in supported
+    ]
     return resolved
 
 
@@ -487,14 +479,17 @@ def _host_device_eligibility_summary() -> dict[str, Any]:
         data = json.loads(path.read_text())
         models = data.get("models") or {}
         union: set[str] = set()
-        for provs in models.values():
-            for p in provs or []:
-                union.add(str(p).strip().lower())
+        current_model_count = 0
+        for model_id in models:
+            providers = _host_validated_providers(str(model_id))
+            if providers:
+                current_model_count += 1
+                union.update(providers)
         return {
             "verified_providers": sorted(union),
             "generated_at": data.get("generated_at"),
             "run_id": data.get("run_id"),
-            "model_count": len(models),
+            "model_count": current_model_count,
         }
     except Exception:
         return {"verified_providers": [], "generated_at": None, "run_id": None, "model_count": 0}
@@ -1168,6 +1163,119 @@ def _cuda_unavailable_reason(caps: dict) -> str:
     if caps.get("cuda_provider_installed") and not caps.get("cuda_hardware_available"):
         return "CUDAExecutionProvider is installed but no NVIDIA GPU is accessible in this runtime"
     return "CUDAExecutionProvider is not available"
+
+
+def _runtime_fallback_targets_for(
+    *,
+    active_backend: str,
+    active_provider: str,
+    caps: dict[str, Any],
+) -> list[tuple[str, str]]:
+    """Return the concrete recovery order for the active inference runtime."""
+    targets: list[tuple[str, str]] = []
+
+    def _append(target_backend: str, target_provider: str) -> None:
+        target = (target_backend, target_provider)
+        if target not in targets and target != (active_backend, active_provider):
+            targets.append(target)
+
+    if active_backend == "openvino":
+        if active_provider in {"intel_gpu", "intel_npu"} and caps.get("intel_cpu_available"):
+            _append("openvino", "intel_cpu")
+        if caps.get("ort_available"):
+            _append("onnxruntime", "cpu")
+        _append("tflite", "tflite")
+        return targets
+
+    if active_backend == "onnxruntime":
+        if active_provider != "cpu" and caps.get("ort_available"):
+            _append("onnxruntime", "cpu")
+        if caps.get("openvino_available") and caps.get("intel_cpu_available"):
+            _append("openvino", "intel_cpu")
+        _append("tflite", "tflite")
+        return targets
+
+    if active_backend == "tflite":
+        return targets
+
+    if caps.get("ort_available"):
+        _append("onnxruntime", "cpu")
+    _append("tflite", "tflite")
+    return targets
+
+
+def _provider_capability_contract(
+    *,
+    caps: dict[str, Any],
+    packaged_providers: tuple[str, ...] | list[str],
+    supported_providers: list[str] | tuple[str, ...] | None,
+    active_backend: str,
+    active_provider: str,
+) -> dict[str, list[str]]:
+    """Build the provider list exposed to configuration clients.
+
+    A selectable provider must be packaged by the running image, usable on this
+    host, and supported by the active model when that model declares a provider
+    allow-list. The active runtime and its real recovery targets come first;
+    other valid manual alternatives follow without pretending they are automatic
+    fallbacks.
+    """
+    packaged = {
+        _normalize_inference_provider(provider)
+        for provider in packaged_providers
+        if _normalize_inference_provider(provider) != "auto"
+    }
+    supported = {
+        _normalize_inference_provider(provider)
+        for provider in (supported_providers or [])
+        if _normalize_inference_provider(provider) != "auto"
+    }
+    host_available = {
+        "cpu": bool(caps.get("ort_available")),
+        "cuda": bool(caps.get("cuda_available")),
+        "intel_cpu": bool(caps.get("openvino_available") and caps.get("intel_cpu_available")),
+        "intel_gpu": bool(caps.get("openvino_available") and caps.get("intel_gpu_available")),
+        "intel_npu": bool(caps.get("openvino_available") and caps.get("intel_npu_available")),
+    }
+
+    def _host_selectable(provider: str) -> bool:
+        return bool(host_available.get(provider) and (not packaged or provider in packaged))
+
+    def _selectable(provider: str) -> bool:
+        return bool(_host_selectable(provider) and (not supported or provider in supported))
+
+    fallback_candidates = [active_provider]
+    fallback_candidates.extend(
+        provider
+        for _backend, provider in _runtime_fallback_targets_for(
+            active_backend=active_backend,
+            active_provider=active_provider,
+            caps=caps,
+        )
+    )
+
+    provider_preference_order: list[str] = []
+    for provider in fallback_candidates:
+        if _selectable(provider) and provider not in provider_preference_order:
+            provider_preference_order.append(provider)
+
+    host_available_providers: list[str] = []
+    for provider in fallback_candidates:
+        if _host_selectable(provider) and provider not in host_available_providers:
+            host_available_providers.append(provider)
+
+    available_providers = list(provider_preference_order)
+    for provider in ("intel_npu", "intel_gpu", "cuda", "intel_cpu", "cpu"):
+        if _host_selectable(provider) and provider not in host_available_providers:
+            host_available_providers.append(provider)
+        if _selectable(provider) and provider not in available_providers:
+            available_providers.append(provider)
+
+    return {
+        "host_available_providers": host_available_providers,
+        "available_providers": available_providers,
+        "provider_preference_order": provider_preference_order,
+    }
 
 
 def _resolve_inference_selection(
@@ -2520,9 +2628,16 @@ class ClassifierService:
         self._bird_model_compatibility: dict[str, Any] = {}
         self._accel_caps_ttl_seconds = CLASSIFIER_ACCEL_PROBE_TTL_SECONDS
         self._accel_caps_last_refreshed_monotonic: float | None = None
+        startup_status.publish("detecting_hardware", 15)
         self._accel_caps = self._refresh_accel_caps(force=True)
         if self._worker_process_mode or self._image_execution_mode != "subprocess":
-            self._init_bird_model()
+            startup_status.publish("loading_model", 30)
+            try:
+                self._init_bird_model()
+            except Exception:
+                startup_status.mark_failed("loading_model")
+                raise
+            startup_status.publish("model_ready" if self.model_loaded else "model_unavailable", 60)
 
     def _get_model_paths(self, model_file: str, labels_file: str) -> tuple[str, str]:
         """Get full paths for model and labels files."""
@@ -2566,6 +2681,7 @@ class ClassifierService:
             crop_generator = CropGeneratorConfig().model_dump(exclude_none=True)
 
         return {
+            "model_id": model_id,
             "model_path": model_path,
             "labels_path": labels_path,
             "input_size": input_size,
@@ -2984,40 +3100,11 @@ class ClassifierService:
                     pass
 
     def _runtime_fallback_targets(self) -> list[tuple[str, str]]:
-        targets: list[tuple[str, str]] = []
-
-        def _append(target_backend: str, target_provider: str) -> None:
-            target = (target_backend, target_provider)
-            if target not in targets and not (
-                target_backend == self._inference_backend and target_provider == self._active_inference_provider
-            ):
-                targets.append(target)
-
-        if self._inference_backend == "openvino":
-            if self._active_inference_provider in ("intel_gpu", "intel_npu") and self._accel_caps.get(
-                "intel_cpu_available"
-            ):
-                _append("openvino", "intel_cpu")
-            if self._accel_caps.get("ort_available"):
-                _append("onnxruntime", "cpu")
-            _append("tflite", "tflite")
-            return targets
-
-        if self._inference_backend == "onnxruntime":
-            if self._active_inference_provider != "cpu" and self._accel_caps.get("ort_available"):
-                _append("onnxruntime", "cpu")
-            if self._accel_caps.get("openvino_available") and self._accel_caps.get("intel_cpu_available"):
-                _append("openvino", "intel_cpu")
-            _append("tflite", "tflite")
-            return targets
-
-        if self._inference_backend == "tflite":
-            return targets
-
-        if self._accel_caps.get("ort_available"):
-            _append("onnxruntime", "cpu")
-        _append("tflite", "tflite")
-        return targets
+        return _runtime_fallback_targets_for(
+            active_backend=self._inference_backend,
+            active_provider=self._active_inference_provider,
+            caps=self._accel_caps,
+        )
 
     def _load_runtime_fallback_bird_model(
         self,
@@ -4057,12 +4144,7 @@ class ClassifierService:
         ) or self._inference_health.most_recent_recovery()
 
         # Determine which TFLite runtime is actually in use
-        tflite_type = "none"
-        if tflite:
-            if "tflite_runtime" in str(tflite):
-                tflite_type = "tflite-runtime"
-            else:
-                tflite_type = "tensorflow-full"
+        tflite_type = _tflite_runtime_name() if tflite is not None else "none"
 
         runtime_recovery = {
             "invalid_output_failures": self._runtime_invalid_output_failures,
@@ -4180,6 +4262,7 @@ class ClassifierService:
             else (self._inference_backend, self._active_inference_provider)
         )
         active_model_id = None
+        effective_model_id = None
         try:
             from app.services.model_manager import model_manager
 
@@ -4200,16 +4283,30 @@ class ClassifierService:
         )
         image_flavor = get_image_flavor()
         packaged_providers = packaged_inference_providers(image_flavor)
+        try:
+            active_model_spec = self._resolve_active_bird_model_spec()
+            supported_providers = list(active_model_spec.get("supported_inference_providers") or [])
+            effective_model_id = str(active_model_spec.get("model_id") or active_model_id or "").strip() or None
+        except Exception:
+            supported_providers = []
+        provider_capabilities = _provider_capability_contract(
+            caps=self._accel_caps,
+            packaged_providers=packaged_providers,
+            supported_providers=supported_providers,
+            active_backend=str(effective_backend or ""),
+            active_provider=str(effective_provider or ""),
+        )
 
         status = {
             "image_execution_mode": self._image_execution_mode,
             "image_flavor": image_flavor,
             "packaged_inference_providers": list(packaged_providers),
             "image_flavor_warning": image_flavor_warning(image_flavor, selected_provider),
-            "runtime": "tflite-runtime" if "tflite_runtime" in str(tflite) else "tensorflow",
+            "runtime": _tflite_runtime_name(),
             "runtime_installed": tflite is not None,
             "onnx_available": ONNX_AVAILABLE,
             "active_model_id": active_model_id,
+            "effective_model_id": effective_model_id,
             "openvino_available": bool(self._accel_caps.get("openvino_available")),
             "openvino_version": self._accel_caps.get("openvino_version"),
             "openvino_import_path": self._accel_caps.get("openvino_import_path"),
@@ -4270,15 +4367,7 @@ class ClassifierService:
             "late_completions_ignored": admission_metrics["late_completions_ignored"],
             "admission_recent_outcomes": admission_metrics["recent_outcomes"],
             "background_throttled": admission_metrics["background_throttled"],
-            "available_providers": [
-                p
-                for p in ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"]
-                if p == "cpu"
-                or (p == "cuda" and self._accel_caps.get("cuda_available"))
-                or (p == "intel_cpu" and self._accel_caps.get("intel_cpu_available"))
-                or (p == "intel_gpu" and self._accel_caps.get("intel_gpu_available"))
-                or (p == "intel_npu" and self._accel_caps.get("intel_npu_available"))
-            ],
+            **provider_capabilities,
             # legacy compatibility (can be removed later)
             "cuda_enabled": _normalize_inference_provider(
                 getattr(settings.classification, "inference_provider", "auto")
@@ -4434,6 +4523,63 @@ class ClassifierService:
             }
         return None
 
+    @staticmethod
+    def _frigate_snapshot_crop_box(
+        box: tuple[int, int, int, int],
+        image_size: tuple[int, int],
+    ) -> tuple[int, int, int, int] | None:
+        """Recreate Frigate's saved-snapshot crop region defensively.
+
+        Frigate centres a square around the tracked box, uses a 1.1 multiplier,
+        rounds the side to a multiple of four, and keeps at least 300 pixels of
+        context. Capping the square to the actual image makes the equivalent
+        operation safe for unusually small or externally supplied snapshots.
+        """
+        left, top, right, bottom = box
+        image_width, image_height = image_size
+        box_width = right - left
+        box_height = bottom - top
+        if image_width <= 0 or image_height <= 0 or box_width <= 0 or box_height <= 0:
+            return None
+
+        longest_edge = max(box_width, box_height)
+        side = int((longest_edge * 1.1) // 4 * 4)
+        side = max(300, side)
+        side = min(side, image_width, image_height)
+        if side <= 0:
+            return None
+
+        centre_x = left + (box_width / 2.0)
+        centre_y = top + (box_height / 2.0)
+        crop_left = int(centre_x - (side / 2.0))
+        crop_top = int(centre_y - (side / 2.0))
+        crop_left = max(0, min(image_width - side, crop_left))
+        crop_top = max(0, min(image_height - side, crop_top))
+        return crop_left, crop_top, crop_left + side, crop_top + side
+
+    def _resolve_frigate_snapshot_crop(
+        self,
+        image: Image.Image,
+        *,
+        input_context: ClassificationInputContext,
+    ) -> dict[str, Any] | None:
+        """Restore the crop Frigate supplies for an active event snapshot."""
+        for hint_key, reason in (("frigate_box", "frigate_box"), ("frigate_region", "frigate_region")):
+            raw_hint = self._input_context_extra(input_context, hint_key)
+            box = self._restore_frigate_hint_box(raw_hint, image.size)
+            if box is None:
+                continue
+            crop_box = self._frigate_snapshot_crop_box(box, image.size)
+            if crop_box is None:
+                continue
+            return {
+                "crop_image": image.crop(crop_box),
+                "box": crop_box,
+                "confidence": None,
+                "reason": reason,
+            }
+        return None
+
     def _bird_crop_source_priority(self) -> str:
         configured = (
             str(getattr(settings.classification, "bird_crop_source_priority", "frigate_hints_first") or "")
@@ -4462,6 +4608,26 @@ class ClassifierService:
             return self._bird_crop_service.generate_crop(image)
         except Exception as exc:
             raise exc
+
+    def _resolve_model_candidate_crop(
+        self,
+        image: Image.Image,
+        *,
+        search_box: tuple[int, int, int, int] | None = None,
+    ) -> dict[str, Any] | None:
+        """Resolve a distance-tolerant crop only for multi-representation evidence."""
+        crop_service = self._bird_crop_service
+        if crop_service is None:
+            return None
+        guided_generator = getattr(crop_service, "generate_guided_classification_candidate_crop", None)
+        guided_declared = callable(getattr(type(crop_service), "generate_guided_classification_candidate_crop", None))
+        if search_box is not None and callable(guided_generator) and guided_declared:
+            return guided_generator(image, search_box=search_box)
+        candidate_generator = getattr(crop_service, "generate_classification_candidate_crop", None)
+        declared_on_type = callable(getattr(type(crop_service), "generate_classification_candidate_crop", None))
+        if callable(candidate_generator) and declared_on_type:
+            return candidate_generator(image)
+        return self._resolve_model_crop(image)
 
     def _bird_crop_detector_available(self) -> bool:
         crop_service = self._bird_crop_service
@@ -4494,15 +4660,17 @@ class ClassifierService:
 
         hint_result = self._resolve_frigate_hint_crop(image, input_context=input_context)
         hint_image = hint_result.get("crop_image") if isinstance(hint_result, dict) else None
+        hint_box: tuple[int, int, int, int] | None = None
         if isinstance(hint_image, Image.Image):
             candidates.append(("frigate_hint_crop", hint_image))
-            hint_box = hint_result.get("box")
-            if isinstance(hint_box, tuple) and len(hint_box) == 4:
-                seen_boxes.add(hint_box)
+            raw_hint_box = hint_result.get("box")
+            if isinstance(raw_hint_box, tuple) and len(raw_hint_box) == 4:
+                hint_box = raw_hint_box
+                seen_boxes.add(raw_hint_box)
 
         if self._bird_crop_detector_available():
             try:
-                model_result = self._resolve_model_crop(image)
+                model_result = self._resolve_model_candidate_crop(image, search_box=hint_box)
             except Exception as exc:
                 log.debug("Video frame crop detector failed; retaining other inputs", error=str(exc))
                 model_result = None
@@ -4639,13 +4807,50 @@ class ClassifierService:
             diagnostics["crop_reason"] = "explicit_input_representation"
             return image, diagnostics
 
-        try:
-            spec = dict(self._resolve_active_bird_model_spec() or {})
-        except Exception as exc:
-            diagnostics["crop_reason"] = "spec_resolution_failed"
+        if bool(normalized_input_context.is_cropped):
+            diagnostics["crop_reason"] = "input_already_cropped"
             log.debug(
                 "Bird crop resolution skipped",
                 crop_attempted=False,
+                crop_applied=False,
+                crop_reason=diagnostics["crop_reason"],
+            )
+            return image, diagnostics
+
+        restore_frigate_crop = (
+            self._input_context_extra(normalized_input_context, "restore_frigate_snapshot_crop") is True
+        )
+        if restore_frigate_crop:
+            diagnostics["crop_attempted"] = True
+            crop_result = self._resolve_frigate_snapshot_crop(
+                image,
+                input_context=normalized_input_context,
+            )
+            crop_image = crop_result.get("crop_image") if isinstance(crop_result, dict) else None
+            if isinstance(crop_image, Image.Image):
+                diagnostics["crop_applied"] = True
+                diagnostics["crop_reason"] = str(crop_result.get("reason") or "frigate_box")
+                diagnostics["source_reason"] = "frigate_snapshot_crop_restored"
+                log.debug(
+                    "Frigate snapshot crop restored",
+                    crop_attempted=True,
+                    crop_applied=True,
+                    crop_reason=diagnostics["crop_reason"],
+                    source_reason=diagnostics["source_reason"],
+                    crop_box=crop_result.get("box"),
+                )
+                return crop_image, diagnostics
+            diagnostics["crop_reason"] = "frigate_snapshot_crop_unavailable"
+            diagnostics["source_reason"] = "frigate_snapshot_crop_restore_failed"
+
+        try:
+            spec = dict(self._resolve_active_bird_model_spec() or {})
+        except Exception as exc:
+            if not restore_frigate_crop:
+                diagnostics["crop_reason"] = "spec_resolution_failed"
+            log.debug(
+                "Bird crop resolution skipped",
+                crop_attempted=diagnostics["crop_attempted"],
                 crop_applied=False,
                 crop_reason=diagnostics["crop_reason"],
                 error=_summarize_runtime_exception(exc),
@@ -4655,20 +4860,11 @@ class ClassifierService:
         crop_generator = dict(spec.get("crop_generator") or {})
         crop_enabled = bool(crop_generator.get("enabled"))
         if not crop_enabled:
-            diagnostics["crop_reason"] = "crop_disabled"
+            if not restore_frigate_crop:
+                diagnostics["crop_reason"] = "crop_disabled"
             log.debug(
                 "Bird crop resolution skipped",
-                crop_attempted=False,
-                crop_applied=False,
-                crop_reason=diagnostics["crop_reason"],
-            )
-            return image, diagnostics
-
-        if bool(normalized_input_context.is_cropped):
-            diagnostics["crop_reason"] = "input_already_cropped"
-            log.debug(
-                "Bird crop resolution skipped",
-                crop_attempted=False,
+                crop_attempted=diagnostics["crop_attempted"],
                 crop_applied=False,
                 crop_reason=diagnostics["crop_reason"],
             )

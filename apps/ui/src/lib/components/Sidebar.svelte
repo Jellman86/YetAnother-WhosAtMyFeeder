@@ -23,7 +23,14 @@
     // Direct reactive access to stores
     let collapsed = $derived(layoutStore.sidebarCollapsed);
 
-    const allNavItems = $derived.by(() => ([
+    type NavItem = {
+        path: string;
+        label: string;
+        icon: string;
+        requiresAuth?: boolean;
+    };
+
+    const allNavItems = $derived.by((): NavItem[] => ([
         { path: '/', label: $_('nav.dashboard'), icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
         { path: '/events', label: $_('nav.explorer'), icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
         { path: '/species', label: $_('nav.leaderboard'), icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
@@ -34,19 +41,20 @@
     // Filter nav items based on auth status
     const navItems = $derived(allNavItems.filter(item => !item.requiresAuth || authStore.showSettings));
 
-    function handleNavClick(path: string) {
+    function navigateAndClose(path: string): void {
         onNavigate(path);
-        // Close mobile sidebar after navigation
-        if (onMobileClose) {
-            onMobileClose();
-        }
+        onMobileClose?.();
     }
 
-    function isRouteActive(itemPath: string): boolean {
-        if (itemPath === '/') {
+    function handleNavClick(item: NavItem): void {
+        navigateAndClose(item.path);
+    }
+
+    function isRouteActive(item: NavItem): boolean {
+        if (item.path === '/') {
             return currentRoute === '/';
         }
-        return currentRoute.startsWith(itemPath);
+        return currentRoute.startsWith(item.path);
     }
 </script>
 
@@ -68,7 +76,7 @@
     <div class="relative flex flex-col items-center w-full p-4 border-b border-slate-200/80 dark:border-slate-700/50 text-center gap-3">
         <button
             class="flex flex-col items-center gap-3 focus-ring rounded-lg p-1 -m-1"
-            onclick={() => handleNavClick('/')}
+            onclick={() => navigateAndClose('/')}
         >
             <BrandMark
                 alt={$_('app.title')}
@@ -93,12 +101,13 @@
         {#each navItems as item}
             <button
                 class="nav-button w-full flex items-center gap-3 text-left"
-                class:nav-button-active={isRouteActive(item.path)}
-                class:nav-button-inactive={!isRouteActive(item.path)}
-                onclick={() => handleNavClick(item.path)}
+                class:nav-button-active={isRouteActive(item)}
+                class:nav-button-inactive={!isRouteActive(item)}
+                onclick={() => handleNavClick(item)}
                 title={collapsed ? item.label : ''}
+                aria-label={item.label}
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
                 </svg>
                 {#if !collapsed}

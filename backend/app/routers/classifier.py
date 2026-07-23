@@ -290,7 +290,7 @@ async def classify_image(
         return {"status": "error", "error": f"Failed to decode image: {e}"}
 
     status = classifier_service.get_status()
-    active_model_id = status.get("active_model_id")
+    active_model_id = status.get("effective_model_id") or status.get("active_model_id")
     inference_backend = status.get("inference_backend")
     active_provider = status.get("active_provider")
 

@@ -865,6 +865,121 @@ async def test_upsert_if_higher_score_returns_no_change_for_lower_score():
 
 
 @pytest.mark.asyncio
+async def test_upsert_if_higher_score_preserves_existing_enrichment_when_incoming_values_are_absent():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        enriched = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=1,
+            score=0.72,
+            display_name="Sparrowhawk",
+            category_name="Accipiter nisus",
+            frigate_event="evt_enriched_upsert",
+            camera_name="birdcam",
+            audio_confirmed=True,
+            audio_species="Eurasian Sparrowhawk",
+            audio_score=0.91,
+            temperature=12.4,
+            weather_condition="Partly cloudy",
+            weather_cloud_cover=42.0,
+            weather_wind_speed=8.5,
+            weather_wind_direction=225.0,
+            weather_precipitation=0.2,
+            weather_rain=0.2,
+            weather_snowfall=0.0,
+            scientific_name="Accipiter nisus",
+            common_name="Eurasian Sparrowhawk",
+            taxa_id=7003,
+        )
+        assert await repo.upsert_if_higher_score(enriched) == (True, False)
+
+        reclassified = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=2,
+            score=0.94,
+            display_name="Eurasian Sparrowhawk",
+            category_name="Accipiter nisus",
+            frigate_event="evt_enriched_upsert",
+            camera_name="birdcam",
+            audio_confirmed=False,
+            audio_species=None,
+            audio_score=None,
+            temperature=None,
+            weather_condition=None,
+            scientific_name=None,
+            common_name=None,
+            taxa_id=None,
+        )
+
+        assert await repo.upsert_if_higher_score(reclassified) == (False, True)
+        saved = await repo.get_by_frigate_event("evt_enriched_upsert")
+        assert saved is not None
+        assert saved.score == pytest.approx(0.94)
+        assert saved.audio_confirmed is True
+        assert saved.audio_species == "Eurasian Sparrowhawk"
+        assert saved.audio_score == pytest.approx(0.91)
+        assert saved.temperature == pytest.approx(12.4)
+        assert saved.weather_condition == "Partly cloudy"
+        assert saved.weather_cloud_cover == pytest.approx(42.0)
+        assert saved.weather_wind_speed == pytest.approx(8.5)
+        assert saved.weather_wind_direction == pytest.approx(225.0)
+        assert saved.weather_precipitation == pytest.approx(0.2)
+        assert saved.weather_rain == pytest.approx(0.2)
+        assert saved.weather_snowfall == pytest.approx(0.0)
+        assert saved.scientific_name == "Accipiter nisus"
+        assert saved.common_name == "Eurasian Sparrowhawk"
+        assert saved.taxa_id == 7003
+
+
+@pytest.mark.asyncio
+async def test_upsert_if_higher_score_clears_taxonomy_from_a_replaced_species():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+
+        original = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=1,
+            score=0.60,
+            display_name="Wood Pigeon",
+            category_name="Columba palumbus",
+            frigate_event="evt_taxonomy_replaced",
+            camera_name="front",
+            frigate_score=0.91,
+            scientific_name="Columba palumbus",
+            common_name="Wood Pigeon",
+            taxa_id=123,
+        )
+        assert await repo.upsert_if_higher_score(original) == (True, False)
+
+        replacement = Detection(
+            detection_time=datetime.utcnow(),
+            detection_index=2,
+            score=0.88,
+            display_name="Eurasian Magpie",
+            category_name="Pica pica",
+            frigate_event="evt_taxonomy_replaced",
+            camera_name="front",
+            frigate_score=0.80,
+            scientific_name="Pica pica",
+            common_name=None,
+            taxa_id=None,
+        )
+        assert await repo.upsert_if_higher_score(replacement) == (False, True)
+
+        saved = await repo.get_by_frigate_event("evt_taxonomy_replaced")
+        assert saved is not None
+        assert saved.scientific_name == "Pica pica"
+        assert saved.common_name is None
+        assert saved.taxa_id is None
+        assert saved.frigate_score == pytest.approx(0.91)
+
+
+@pytest.mark.asyncio
 async def test_upsert_if_higher_score_never_replaces_manual_species_identity():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)
@@ -1063,6 +1178,7 @@ async def _create_audio_detections_table(db: aiosqlite.Connection) -> None:
             species TEXT NOT NULL,
             confidence FLOAT NOT NULL,
             sensor_id TEXT,
+            source_event_id TEXT UNIQUE,
             raw_data TEXT,
             scientific_name TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

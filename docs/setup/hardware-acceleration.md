@@ -43,7 +43,7 @@ YAWAMF_MONALITHIC_TAG=latest-intel
 `MONALITHIC` is the established spelling in this public variable. Keep that
 spelling so an existing `.env` continues to control the Compose image tag.
 
-Pinned releases use the same suffix, for example `v2.14.0-intel`. Unsuffixed
+Pinned releases use the same suffix, for example `v2.15.0-intel`. Unsuffixed
 `latest`, `dev`, `main`, release and commit tags always mean `full`, so existing
 installs keep their current runtime. Switching flavor is non-destructive because
 every image uses the same `/config` and `/data` volume contract.
@@ -61,7 +61,7 @@ therefore stay outside the image. A flavor switch must change **only the image
 tag**; do not create new mount paths or copy data into the container filesystem.
 
 1. Keep the application version constant while testing. For example, switch
-   `dev` → `dev-intel`, or `v2.14.0` → `v2.14.0-intel`. Immutable commit tags are
+   `dev` → `dev-intel`, or `v2.15.0` → `v2.15.0-intel`. Immutable commit tags are
    even safer for comparisons: `<sha>`, `<sha>-cpu`, `<sha>-intel`, and
    `<sha>-cuda` are built from exactly the same source.
 2. Record the current tag. Export a configuration backup from **Settings → Data
@@ -104,6 +104,51 @@ also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable)
 | Intel NPU (OpenVINO) | `intel_npu` | `full` or `intel` | `/dev/accel/accel0` | Core Ultra "AI Boost" NPU. |
 
 `Auto` is recommended unless you have a reason to pin a device.
+
+The selector is capability-aware. It only offers providers that are included in
+the running image, pass the host runtime/device probe, and are declared compatible
+with the active model. Options begin with the active provider and its concrete
+recovery sequence; any remaining valid manual alternatives follow. The UI prints
+the recovery sequence separately so the order is not confused with a list of
+providers that `Auto` will necessarily try.
+
+The setup wizard applies the same contract to the model currently selected in the
+wizard, even before that model is activated. This prevents the previous active
+model from hiding a valid accelerator or exposing one the replacement cannot use.
+
+Changing to a narrower image or model does not silently rewrite an explicit saved
+choice. That choice remains visible but disabled, with guidance to select `Auto`
+or another available provider. This preserves a deliberate device pin across a
+temporary image-flavor switch while preventing an unavailable provider from being
+selected again.
+
+## Validate this host
+
+The **Setup wizard**, guided Model Manager flow, and **Settings → Detection → Device
+compatibility** use the same provider-validation engine. Candidates are the exact
+intersection of:
+
+1. providers packaged by the running image;
+2. providers whose runtime and device probe succeeds on this host; and
+3. providers declared compatible with the selected model.
+
+Each candidate is compiled and executed in an isolated child process so a native
+CUDA, GPU, or NPU failure cannot restart the application. The compatibility sweep
+uses up to 12 taxonomy-verified bird images, requires finite output, compares every
+accelerator's top prediction with the CPU baseline, and records median inference
+latency. The fastest passing candidate is reported without treating a merely
+installed runtime as working hardware.
+
+The resulting matrix is image-aware: `cpu`/`rpi` test CPU, `cuda` tests ONNX CPU and
+CUDA, `intel` tests ONNX CPU plus the detected OpenVINO targets, and `full` tests all
+applicable targets. In particular, OpenVINO CPU in the full image does not suppress
+CUDA validation. Switching flavors keeps the underlying history but filters it
+through an exact per-model image-flavor record, so even a provider name shared by
+two flavors must be revalidated after the switch. Stale Intel, CUDA, or CPU evidence
+cannot authorize a model in a different runtime image.
+
+Published images fail closed when their expected runtime is missing: a bundled live
+fallback cannot be mistaken for successful validation of the selected ONNX model.
 
 ## Smallest working path (Intel iGPU or NPU)
 
@@ -149,6 +194,11 @@ found. For example **Intel NPU: Auto-detected · verified ✓** means the NPU wa
 detected and has passed validation for the loaded model. A device that is present
 but not yet proven for the current model shows **unverified**.
 
+Open **Advanced model manager** to inspect the active model. **Current runtime**
+shows the provider that is running now, and **Automatic order** lists its verified
+fallbacks in the order YA-WAMF will try them. **Best fit** describes the model's
+accuracy and use case; it does not claim which device is active.
+
 If it fails, the pill shows **Not detected** — recheck the `devices:` and
 `group_add:` entries and that the host driver is installed.
 
@@ -158,13 +208,21 @@ The NPU is validated per model, not enabled blanket:
 
 - YA-WAMF only runs a model on the NPU when that model is marked NPU-validated
   (compiles, produces finite output, and its top-k agrees with the CPU baseline).
-  The `rope_vit_b14` model is validated on Arrow Lake (f16, top-5 matching CPU).
+  The `rope_vit_b14` classifier and accurate YOLOX-Tiny crop detector are validated on Arrow Lake;
+  classifiers compare top-k output while crop detectors compare admitted detection presence,
+  geometry, and confidence.
 - The NPU is stricter than the GPU on some operations, so not every model is
   NPU-viable. When a model cannot compile on the selected device, YA-WAMF keeps
   the model installed and runs inference on the OpenVINO CPU fallback, and the
   Model Manager states which fallback is in use.
 - The payoff is power and thermal efficiency (freeing the iGPU/CPU), not
   necessarily lower latency.
+
+The ordinary compatibility check probes only providers declared for the model. A maintainer's
+full-registry discovery sweep may probe an undeclared NPU/GPU in an isolated child process to find
+stale metadata. A successful discovery is visible in the downloadable matrix but is not selectable
+until the registry and release sidecar have been reviewed and updated; a failed or crashing probe
+cannot take down the main backend.
 
 The `full` and `intel` images ship OpenVINO and the NPU user-mode (Level-Zero)
 driver. If OpenVINO enumerates only `CPU` with `/dev/accel/accel0` passed in,

@@ -6,11 +6,15 @@ YA-WAMF now ships a dedicated Raspberry Pi monolith image:
 
 This image is intended for Raspberry Pi 4 and Raspberry Pi 5 systems running a
 64-bit ARM OS. It uses the same monolithic deployment layout as the x86 images,
-reports the `rpi` image flavor, and explicitly installs the CPU dependency set.
+reports the `rpi` image flavor, and explicitly installs the CPU dependency set. It uses Google's
+standalone LiteRT interpreter for TFLite models and includes a checksum-verified MobileNet V2
+fallback, so a fresh image can classify without first downloading a large model.
 It does not inherit CUDA, OpenVINO, or Intel GPU/NPU userspace packages.
 
 > [!WARNING]
-> Raspberry Pi support is currently a best-effort path. The image is built in CI, but it has not yet been hardware-validated by the maintainer on a physical Raspberry Pi.
+> Raspberry Pi support is currently a best-effort path. CI starts the ARM64 image under QEMU and
+> runs a real MobileNet inference before publishing a mutable tag, but it has not yet been
+> hardware-validated by the maintainer on a physical Raspberry Pi.
 
 ## Supported Scope
 
@@ -60,10 +64,10 @@ Then start the stack as normal:
 docker compose -f docker-compose.monolith.yml up -d
 ```
 
-If you want to pin a release instead of following `latest`, use a version tag such as:
+If you want to pin a release instead of following `latest`, use a current version tag such as:
 
 ```env
-YAWAMF_MONALITHIC_TAG=v2.9.13
+YAWAMF_MONALITHIC_TAG=v2.15.0
 ```
 
 ## Recommended Pi Settings
@@ -71,14 +75,15 @@ YAWAMF_MONALITHIC_TAG=v2.9.13
 These are conservative defaults for lower-powered ARM systems:
 
 ```env
-CLASSIFICATION_IMAGE_MAX_CONCURRENT=1
+CLASSIFIER_IMAGE_MAX_CONCURRENT=1
 CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS=1.0
 ```
 
 Recommended starting point:
 
-- Provider: `CPU`
-- First model to try: `MobileNet V2`
+- Provider: `Auto` (the Pi image resolves this to CPU)
+- First model to try: `MobileNet V2`; it is bundled and selected automatically when it is the
+  effective fallback
 - Next step on Raspberry Pi 5 only: `RoPE ViT-B14` if you want better wildlife-wide accuracy and can tolerate slower inference
 - Avoid initially: `ConvNeXt Large`, `EVA-02 Large`, and other heavier video-centric workflows
 - If Frigate already classifies well, enable `Trust Frigate Sublabels` to save Pi CPU time
@@ -92,12 +97,29 @@ FRIGATE__CLIPS_ENABLED=false
 
 That disables clip fetching and some video-heavy workflows.
 
+The monolith Compose file explicitly passes all three variables above into the container. A `.env`
+file only supplies Compose interpolation values; misspelled or unreferenced names do not become
+container settings.
+
+## First-run model check
+
+The setup wizard shows the model the classifier actually loaded, not merely a saved selection whose
+files are missing. MobileNet V2 is available offline. If you choose another model, the wizard can
+download it with visible progress and then run the same image/hardware validation used by Model
+Evaluation.
+
+You should see the selected model pass CPU validation before **Continue** becomes available. If the
+download or validation fails, keep MobileNet selected, retry from the same step, and review
+**Diagnostics → Model evaluation** for the detailed provider result.
+
 ## Known Limitations
 
 - No NVIDIA CUDA acceleration
 - No Intel OpenVINO acceleration
 - Slower ONNX inference than x86-64 systems
 - No maintainer hardware validation yet
+- Published performance figures are intentionally withheld until the physical-device pass is
+  complete
 
 If you hit a Pi-specific issue, include:
 

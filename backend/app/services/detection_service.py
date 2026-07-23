@@ -39,6 +39,28 @@ class DetectionService:
         self.classifier = classifier
         self.broadcaster = broadcaster
 
+    @staticmethod
+    def _build_unknown_catchall(classification: dict, *, source: str) -> dict:
+        """Preserve runtime provenance while hiding an untrusted species label."""
+        return {
+            "label": "Unknown Bird",
+            "score": float(classification["score"]),
+            "index": classification.get("index", -1),
+            "source": source,
+            **{
+                key: classification[key]
+                for key in (
+                    "inference_provider",
+                    "inference_backend",
+                    "model_id",
+                    "model_name",
+                    "input_source",
+                    "input_is_cropped",
+                )
+                if key in classification
+            },
+        }
+
     def filter_and_label(
         self,
         classification: dict,
@@ -158,24 +180,7 @@ class DetectionService:
                 sublabel_disagrees=sublabel_disagrees,
                 event_id=frigate_event,
             )
-            return {
-                "label": "Unknown Bird",
-                "score": score,
-                "index": top.get("index", -1),
-                "source": "low_confidence_catchall",
-                **{
-                    key: top[key]
-                    for key in (
-                        "inference_provider",
-                        "inference_backend",
-                        "model_id",
-                        "model_name",
-                        "input_source",
-                        "input_is_cropped",
-                    )
-                    if key in top
-                },
-            }, "unknown_catchall"
+            return self._build_unknown_catchall(top, source="low_confidence_catchall"), "unknown_catchall"
 
         # No fallback available or below absolute floor
         if below_min_confidence:

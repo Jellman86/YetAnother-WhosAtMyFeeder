@@ -11,7 +11,7 @@ from time import perf_counter
 from tempfile import NamedTemporaryFile
 from urllib.parse import quote_plus, urlsplit
 from datetime import date, datetime, timedelta, timezone
-from fastapi import APIRouter, HTTPException, Response, Path, Request, Depends, Security
+from fastapi import APIRouter, HTTPException, Response, Path, Query, Request, Depends, Security
 from fastapi.responses import FileResponse, StreamingResponse
 from starlette.background import BackgroundTask
 from pydantic import BaseModel, Field
@@ -46,6 +46,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.repositories.video_share_repository import VideoShareRepository
 from app.utils.api_datetime import serialize_api_datetime
 from app.utils.public_access import effective_public_media_days
+from app.utils.integration_url import validated_http_base_url
 
 router = APIRouter()
 
@@ -298,6 +299,9 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
                 crop_confidence=(
                     float(candidate["crop_confidence"]) if candidate.get("crop_confidence") is not None else None
                 ),
+                crop_strategy=(
+                    str(candidate.get("crop_strategy")) if candidate.get("crop_strategy") is not None else None
+                ),
                 classifier_label=(
                     str(candidate.get("classifier_label")) if candidate.get("classifier_label") is not None else None
                 ),
@@ -488,6 +492,7 @@ class SnapshotCandidateResponse(BaseModel):
     clip_variant: str
     crop_box: list[float] | None = None
     crop_confidence: float | None = None
+    crop_strategy: str | None = None
     classifier_label: str | None = None
     classifier_score: float | None = None
     ranking_score: float
@@ -1290,17 +1295,31 @@ async def revoke_video_share_link(
 
 
 @router.get("/frigate/test", response_model=FrigateTestResponse)
-async def test_frigate_connection(request: Request, auth: AuthContext = Depends(require_owner)):
+async def test_frigate_connection(
+    request: Request,
+    url: str | None = Query(default=None, max_length=2048),
+    auth: AuthContext = Depends(require_owner),
+):
     """Test connection to Frigate and return status with details."""
-    url = f"{settings.frigate.frigate_url}/api/version"
+    try:
+        base_url = validated_http_base_url(
+            url if url is not None else settings.frigate.frigate_url,
+            integration_name="Frigate",
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    version_url = f"{base_url}/api/version"
     client = get_http_client()
-    headers = frigate_client._get_headers()
+    saved_base_url = str(settings.frigate.frigate_url or "").strip().rstrip("/")
+    # Never forward a stored Frigate bearer token to a different on-screen host.
+    headers = frigate_client._get_headers() if base_url == saved_base_url else {}
     lang = get_user_language(request)
     try:
-        resp = await client.get(url, headers=headers, timeout=10.0)
+        resp = await client.get(version_url, headers=headers, timeout=10.0)
         resp.raise_for_status()
         version = resp.text.strip().strip('"')
-        return {"status": "ok", "frigate_url": settings.frigate.frigate_url, "version": version}
+        return {"status": "ok", "frigate_url": base_url, "version": version}
     except httpx.TimeoutException:
         raise HTTPException(status_code=504, detail=i18n_service.translate("errors.proxy.frigate_timeout", lang))
     except httpx.HTTPStatusError as e:
@@ -1315,7 +1334,7 @@ async def test_frigate_connection(request: Request, auth: AuthContext = Depends(
     except httpx.RequestError:
         raise HTTPException(
             status_code=502,
-            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=settings.frigate.frigate_url),
+            detail=i18n_service.translate("errors.proxy.connection_failed", lang, url=base_url),
         )
 
 

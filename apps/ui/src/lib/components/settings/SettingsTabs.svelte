@@ -1,6 +1,7 @@
 <script lang="ts">
     import { _ } from "svelte-i18n";
     import { toAppPath } from "../../app/url-base";
+    import { setupWizardStore } from "../../stores/setup_wizard.svelte";
 
     type SettingsTab = 'connection' | 'detection' | 'notifications' | 'health' | 'enrichment'
         | 'ai' | 'data' | 'appearance' | 'accessibility' | 'security' | 'debug' | 'integrations';
@@ -84,6 +85,10 @@
         event.preventDefault();
         if (tab !== activeTab) ontabchange(tab);
     }
+
+    function openSetupWizard(): void {
+        setupWizardStore.open('rerun');
+    }
 </script>
 
 <div class="rounded-2xl border border-slate-200/80 bg-gradient-to-r from-brand-50/70 via-accent-50/30 to-white p-3 dark:border-slate-700/80 dark:from-brand-950/30 dark:via-accent-950/10 dark:to-slate-900 md:hidden">
@@ -102,6 +107,18 @@
             </optgroup>
         {/each}
     </select>
+    <button
+        type="button"
+        data-setup-wizard-action
+        class="btn btn-secondary mt-2 w-full justify-start"
+        onclick={openSetupWizard}
+        aria-haspopup="dialog"
+    >
+        <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2m-4 0a2 2 0 0 0 2 2 2 2 0 0 0 2-2m-4 7 2 2 4-4" />
+        </svg>
+        <span>{$_('nav.setup_wizard')}</span>
+    </button>
 </div>
 
 <nav
@@ -141,6 +158,23 @@
                             <span class="min-w-0 flex-1">{tab.label}</span>
                         </a>
                     {/each}
+                    {#if group.id === 'operations'}
+                        <div class="mt-1 border-t border-slate-200/80 pt-1 dark:border-slate-700/80">
+                            <button
+                                type="button"
+                                data-setup-wizard-action
+                                class="group flex min-h-11 w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:text-slate-400 dark:hover:bg-slate-800/70 dark:hover:text-white dark:focus-visible:ring-offset-slate-950"
+                                onclick={openSetupWizard}
+                                aria-haspopup="dialog"
+                            >
+                                <span class="h-5 w-1 shrink-0 rounded-full bg-transparent" aria-hidden="true"></span>
+                                <svg class="h-4 w-4 shrink-0 opacity-80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2m-4 0a2 2 0 0 0 2 2 2 2 0 0 0 2-2m-4 7 2 2 4-4" />
+                                </svg>
+                                <span class="min-w-0 flex-1">{$_('nav.setup_wizard')}</span>
+                            </button>
+                        </div>
+                    {/if}
                 </div>
             </div>
         {/each}

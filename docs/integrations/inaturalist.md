@@ -24,6 +24,12 @@ In **Settings → Integrations → iNaturalist**:
 - (Optional) Set default latitude/longitude/place
 - Click **Connect iNaturalist** and complete OAuth
 
+The Connect action persists only the iNaturalist enable flag and credentials currently shown in
+that section before requesting the authorization URL. Other unsaved Settings edits are left alone.
+YA-WAMF opens the sign-in window synchronously from your click so browser popup protection does not
+mistake it for an unsolicited window; if popups are blocked, the UI tells you to allow them and
+retry. Saved credentials remain redacted and can be reused without re-entering them.
+
 ## Preview Mode (No OAuth)
 If you do not have App Owner approval yet, you can still preview the submission UI:
 

@@ -1,3 +1,4 @@
+import asyncio
 import json
 from unittest.mock import AsyncMock
 
@@ -419,6 +420,46 @@ async def test_backfill_async_rejects_when_taxonomy_sync_is_running(
     response = await client.post("/api/backfill/async", json={"date_range": "week"})
     assert response.status_code == 409, response.text
     assert "taxonomy" in response.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_database_reset_waits_for_cancelled_backfill_tasks(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    backfill_router._JOB_STORE.clear()
+    backfill_router._LATEST_JOB_BY_KIND.clear()
+    backfill_router._JOB_TASKS.clear()
+
+    started = asyncio.Event()
+    cleaned_up = asyncio.Event()
+
+    async def lingering_backfill() -> None:
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            await asyncio.sleep(0)
+            cleaned_up.set()
+
+    task = asyncio.create_task(lingering_backfill())
+    await started.wait()
+    backfill_router._JOB_TASKS["job-reset-race"] = task
+    monkeypatch.setattr(backfill_router.auto_video_classifier, "reset_state", AsyncMock())
+    monkeypatch.setattr(
+        backfill_router.media_cache,
+        "clear_all",
+        AsyncMock(return_value={"snapshots_deleted": 0, "clips_deleted": 0, "bytes_freed": 0}),
+    )
+
+    response = await client.delete("/api/backfill/reset")
+
+    assert response.status_code == 200, response.text
+    assert task.done()
+    assert cleaned_up.is_set()
+    assert backfill_router._JOB_TASKS == {}
 
 
 @pytest.mark.asyncio

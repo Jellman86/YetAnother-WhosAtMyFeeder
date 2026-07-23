@@ -86,3 +86,52 @@ concrete species must clear the active model's recommended threshold and a 0.60 
 least two distinct frames, with an 0.08 margin over any competing multi-frame consensus. Crop
 sources from the same frame count once. The result may upgrade Unknown Bird or strengthen the same
 known species, but cannot replace a manual tag or a conflicting known identification.
+
+### Distant-subject threshold validation — 21 July 2026
+
+The manually identified Eurasian Sparrowhawk event `1784555940.484185-eocv7l` established that an
+apparent accurate-detector miss was a policy miss. YOLOX-Tiny found the bird in two 2560×1920 frames
+at detector confidence `0.0264` and `0.0450`; both valid boxes were discarded by the normal `0.05`
+floor. When admitted as classifier candidates, both produced the correct species and the stronger
+frame scored `0.9800`, above the `0.8668` result from the saved Frigate crop.
+
+The application now has two deliberately separate thresholds. Thumbnail and direct single-image
+replacement retain `0.05`. Multi-representation video/HQ evidence can admit an accurate-detector
+box down to `0.02`, while retaining the full frame and requiring the existing identity, quality,
+temporal-consensus, and ambiguity gates. A `2×2` sliced-inference experiment increased detector
+confidence above `0.80` but reduced downstream classifier confidence and required four detector
+calls, so it was not enabled as a replacement for a valid native crop. It is now available only as
+a bounded fallback after an unguided native miss. When a same-frame Frigate box exists, YOLOX first
+refines a square HQ region around that track, which provides the pixels-on-bird advantage of
+region-based detection without making the upstream box authoritative. The Frigate crop and full
+frame remain peers; detector confidence no longer affects species ranking, and a model crop must
+improve the active classifier by at least two points before replacing an available Frigate crop.
+
+The replacement-model shortlist and visit-level promotion gate are recorded in the
+[crop-detector candidate review](../reviews/2026-07-21-crop-detector-candidate-review.md). No model
+is promoted from this two-frame regression case.
+
+The later 30-positive/10-negative Quark challenger validates the combined policy. Same-frame
+guidance or bounded slicing produced 26 positive model candidates. The ground-truth-independent
+production guard promoted 7 same-identity crops with at least a `0.02` classifier gain and retained
+Frigate for 23. The three owner-labelled visits had one guarded improvement, two ties, and no
+regression; no hard-negative crop classification reached the active `0.40` floor. This is evidence
+that the application selects
+defensively; the small owner-labelled subset is not evidence that the detector itself beats
+Frigate, so broader manual labelling remains required.
+
+### Final Frigate snapshot baseline — 21 July 2026
+
+The production selector now begins from Frigate's completed-track best image rather than treating
+any sampled recording frame as an upgrade. Frigate's clean-copy endpoint supplies the unannotated,
+uncropped, full-resolution still; YA-WAMF applies `snapshot.box` from that selected frame (with
+`data.box` as a compatibility fallback), retains both full and cropped
+representations, and allows an event/recording-frame candidate to replace them only after compatible
+identity evidence and a classifier gain of at least `0.02`. If the clean copy is unavailable, the
+regular snapshot remains a fallback baseline but is not cropped again because Frigate ignores API
+crop overrides after an event ends and the file may already reflect its configured crop/resize.
+
+The event-end MQTT message schedules this final refresh even when the initial live-event HQ pass is
+active. Frigate path points are now interpreted according to their upstream bottom-centre contract,
+eliminating the previous half-box vertical displacement. Final stills remain visible in snapshot
+repair diagnostics but are excluded from independent temporal consensus.

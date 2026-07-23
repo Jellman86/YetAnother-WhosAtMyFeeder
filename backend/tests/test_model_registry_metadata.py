@@ -1,7 +1,27 @@
+from urllib.parse import urlparse
+
 import pytest
 
 from app.config import settings
 from app.services.model_manager import REMOTE_REGISTRY, ModelManager
+
+
+def test_every_github_release_model_asset_has_a_pinned_checksum():
+    for registry_entry in REMOTE_REGISTRY:
+        variants = registry_entry.get("region_variants") or {}
+        model_metas = [{**registry_entry, **variant} for variant in variants.values()] if variants else [registry_entry]
+        for model_meta in model_metas:
+            for url_key, checksum_key in (
+                ("download_url", "sha256"),
+                ("weights_url", "weights_sha256"),
+                ("labels_url", "labels_sha256"),
+            ):
+                url = str(model_meta.get(url_key) or "")
+                if "/releases/download/models/" not in urlparse(url).path:
+                    continue
+                checksum = str(model_meta.get(checksum_key) or "")
+                assert len(checksum) == 64, f"{registry_entry['id']} {url_key} is not checksum-pinned"
+                assert all(character in "0123456789abcdef" for character in checksum)
 
 
 def test_every_classifier_registry_entry_has_an_explicit_crop_policy():
@@ -14,6 +34,16 @@ def test_every_classifier_registry_entry_has_an_explicit_crop_policy():
             assert all("crop_generator" in variant for variant in variants.values()), model["id"]
         else:
             assert "crop_generator" in model, model["id"]
+
+
+def test_bundled_mobilenet_registry_contract_is_pinned_and_checksum_verified():
+    model = next(entry for entry in REMOTE_REGISTRY if entry["id"] == "mobilenet_v2_birds")
+
+    assert "104342d2d3480b3e66203073dac24f4e2dbb4c41" in model["download_url"]
+    assert "104342d2d3480b3e66203073dac24f4e2dbb4c41" in model["labels_url"]
+    assert model["sha256"] == "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9"
+    assert model["labels_sha256"] == "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277"
+    assert model["preprocessing"]["padding_color"] == 128
 
 
 @pytest.mark.asyncio
@@ -144,6 +174,13 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["bird_crop_detector"].notes
     assert by_id["bird_crop_detector"].input_size == 300
     assert by_id["bird_crop_detector"].preprocessing["resize_mode"] == "direct_resize"
+    assert by_id["bird_crop_detector_accurate_yolox_tiny"].supported_inference_providers == [
+        "cpu",
+        "intel_cpu",
+        "cuda",
+        "intel_gpu",
+        "intel_npu",
+    ]
 
 
 @pytest.mark.asyncio

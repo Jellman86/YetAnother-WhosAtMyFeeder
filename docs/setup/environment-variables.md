@@ -78,6 +78,8 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CLASSIFICATION__USE_CUDA` | _(legacy)_ | Legacy boolean; mapped to `cuda`/`cpu` when the provider is unset. |
 | `CLASSIFICATION__IMAGE_EXECUTION_MODE` | `in_process` | `in_process` (shared RAM) or `subprocess` (isolated). |
 | `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED` | `false` | Opt in to a synthetic accelerated-versus-CPU comparison during startup. Routine model activation validation and runtime health checks do not require it. |
+| `CLASSIFIER_IMAGE_MAX_CONCURRENT` | `2` | Maximum concurrent image-classification jobs. Use `1` on a Raspberry Pi to protect UI and event-loop responsiveness. |
+| `CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS` | `0.5` | Maximum time background image work waits for classifier capacity before it fails conservatively. The Pi example uses `1.0`. |
 | `CLASSIFICATION__WRITE_FRIGATE_SUBLABEL` | `true` | Write the identified species back to Frigate as a sub-label. |
 | `CLASSIFICATION__PERSONALIZED_RERANK_ENABLED` | `false` | Learn per-camera/model ranking from manual tags. |
 | `CLASSIFICATION__STRICT_NON_FINITE_OUTPUT` | `true` | Reject all-non-finite classifier output (also `CLASSIFIER_STRICT_NON_FINITE_OUTPUT`). |

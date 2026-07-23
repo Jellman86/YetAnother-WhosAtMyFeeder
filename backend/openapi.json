@@ -1674,6 +1674,17 @@
             "title": "Kind",
             "type": "string"
           },
+          "last_progress_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Progress At"
+          },
           "message": {
             "default": "",
             "title": "Message",
@@ -5763,6 +5774,64 @@
         "title": "InitialPasswordRequest",
         "type": "object"
       },
+      "InitialSetupResponse": {
+        "description": "Initial setup result, including the owner session created atomically with a password.",
+        "properties": {
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token"
+          },
+          "expires_in_hours": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires In Hours"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "token_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token Type"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "title": "InitialSetupResponse",
+        "type": "object"
+      },
       "InstalledModel": {
         "properties": {
           "id": {
@@ -5819,6 +5888,250 @@
           "is_active"
         ],
         "title": "InstalledModel",
+        "type": "object"
+      },
+      "JobLaneSnapshot": {
+        "properties": {
+          "blocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocker"
+          },
+          "capacity": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capacity"
+          },
+          "completed": {
+            "default": 0,
+            "title": "Completed",
+            "type": "integer"
+          },
+          "failed": {
+            "default": 0,
+            "title": "Failed",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "max_concurrent_configured": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Concurrent Configured"
+          },
+          "max_concurrent_effective": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Concurrent Effective"
+          },
+          "queued": {
+            "default": 0,
+            "title": "Queued",
+            "type": "integer"
+          },
+          "running": {
+            "default": 0,
+            "title": "Running",
+            "type": "integer"
+          },
+          "state": {
+            "default": "idle",
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "JobLaneSnapshot",
+        "type": "object"
+      },
+      "JobSnapshotItem": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "current": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Current",
+            "type": "integer"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "phase": {
+            "title": "Phase",
+            "type": "string"
+          },
+          "route": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Route"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "completed",
+              "failed",
+              "stale",
+              "retrying"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "unit": {
+            "default": "items",
+            "title": "Unit",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "visibility": {
+            "default": "prominent",
+            "enum": [
+              "prominent",
+              "routine"
+            ],
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "source",
+          "status",
+          "phase"
+        ],
+        "title": "JobSnapshotItem",
+        "type": "object"
+      },
+      "JobsSnapshotResponse": {
+        "properties": {
+          "captured_at": {
+            "title": "Captured At",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/JobSnapshotItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "lanes": {
+            "items": {
+              "$ref": "#/components/schemas/JobLaneSnapshot"
+            },
+            "title": "Lanes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "captured_at",
+          "items",
+          "lanes"
+        ],
+        "title": "JobsSnapshotResponse",
         "type": "object"
       },
       "JsonValue": {},
@@ -6180,6 +6493,73 @@
           "expires_in_hours"
         ],
         "title": "LoginResponse",
+        "type": "object"
+      },
+      "MQTTTestRequest": {
+        "properties": {
+          "auth": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auth"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "server": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "MQTTTestRequest",
         "type": "object"
       },
       "MaintenanceStatsResponse": {
@@ -6612,9 +6992,68 @@
       },
       "ModelValidateDevice": {
         "properties": {
+          "backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backend"
+          },
+          "baseline": {
+            "default": false,
+            "title": "Baseline",
+            "type": "boolean"
+          },
+          "compiles": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compiles"
+          },
           "device": {
             "title": "Device",
             "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finite": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finite"
+          },
+          "images_compared": {
+            "default": 0,
+            "title": "Images Compared",
+            "type": "integer"
+          },
+          "images_evaluated": {
+            "default": 0,
+            "title": "Images Evaluated",
+            "type": "integer"
           },
           "latency_ms": {
             "anyOf": [
@@ -6626,6 +7065,17 @@
               }
             ],
             "title": "Latency Ms"
+          },
+          "matches_baseline": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Matches Baseline"
           },
           "ok": {
             "title": "Ok",
@@ -6658,12 +7108,22 @@
             "title": "Best Provider"
           },
           "devices": {
-            "default": [],
             "items": {
               "$ref": "#/components/schemas/ModelValidateDevice"
             },
             "title": "Devices",
             "type": "array"
+          },
+          "image_flavor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Flavor"
           },
           "latency_ms": {
             "anyOf": [
@@ -6692,6 +7152,13 @@
             "default": false,
             "title": "Provider Set",
             "type": "boolean"
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ModelValidateDevice"
+            },
+            "title": "Providers",
+            "type": "array"
           },
           "reason": {
             "title": "Reason",
@@ -10754,6 +11221,31 @@
             ],
             "title": "Detail"
           },
+          "detail_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail Code"
+          },
+          "detail_values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Detail Values",
+            "type": "object"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -11018,6 +11510,17 @@
               }
             ],
             "title": "Crop Confidence"
+          },
+          "crop_strategy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Crop Strategy"
           },
           "frame_index": {
             "title": "Frame Index",
@@ -11788,10 +12291,22 @@
             "title": "Compat Only",
             "type": "boolean"
           },
+          "discover_providers": {
+            "default": false,
+            "title": "Discover Providers",
+            "type": "boolean"
+          },
           "include_per_image": {
             "default": false,
             "title": "Include Per Image",
             "type": "boolean"
+          },
+          "model_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Model Ids",
+            "type": "array"
           },
           "region_override": {
             "anyOf": [
@@ -12873,7 +13388,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.14.0"
+    "version": "2.15.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -13647,7 +14162,7 @@
     },
     "/api/auth/initial-setup": {
       "post": {
-        "description": "Set initial password for first-run setup.\n\nCan only be called when auth is disabled OR no password is set.\nThis prevents unauthorized password changes.\n\nArgs:\n    request: Initial password setup request\n\nReturns:\n    Success message\n\nRaises:\n    HTTPException: If setup already completed or invalid request",
+        "description": "Set initial password for first-run setup.\n\nCan only be called before initial setup is complete and while no password is\nset. This prevents unauthorized password changes or auth-disabled takeover.\n\nArgs:\n    request: Initial password setup request\n\nReturns:\n    Success message\n\nRaises:\n    HTTPException: If setup already completed or invalid request",
         "operationId": "set_initial_password_api_auth_initial_setup_post",
         "requestBody": {
           "content": {
@@ -13664,7 +14179,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MessageResponse"
+                  "$ref": "#/components/schemas/InitialSetupResponse"
                 }
               }
             },
@@ -15148,7 +15663,9 @@
                 "$ref": "#/components/schemas/StartRunRequest",
                 "default": {
                   "compat_only": false,
+                  "discover_providers": false,
                   "include_per_image": false,
+                  "model_ids": [],
                   "sweep_all_models": false,
                   "sweep_devices": false
                 }
@@ -17540,6 +18057,25 @@
       "get": {
         "description": "Test connection to Frigate and return status with details.",
         "operationId": "test_frigate_connection_api_frigate_test_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "url",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2048,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Url"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -17550,6 +18086,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -18681,6 +19227,72 @@
         ]
       }
     },
+    "/api/jobs": {
+      "get": {
+        "operationId": "get_jobs_snapshot_api_jobs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_routine",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Include Routine",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 200,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobsSnapshotResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Jobs Snapshot",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
     "/api/leaderboard/analysis": {
       "get": {
         "operationId": "get_leaderboard_analysis_api_leaderboard_analysis_get",
@@ -19637,7 +20249,7 @@
     },
     "/api/models/{model_id}/validate": {
       "post": {
-        "description": "Validate an installed model on this host and pick its fastest inference device.\n\nSweeps this model's OpenVINO devices (CPU / Intel GPU / NPU), records which passed,\nand \u2014 when a faster accelerator wins \u2014 sets it as the inference provider so the\nmodel runs on the best hardware for this machine. On a CPU-only / CUDA host it runs\none frame on the resolved provider instead. Clears the selection gate on success and\nrestores the previously active model. Owner only.",
+        "description": "Validate an installed model and recommend its fastest passing provider.\n\nSweeps every provider in the current image/host/model contract, records which\npassed, and returns the fastest verified provider. The recommendation is applied\nonly if model activation subsequently succeeds, so validation cannot disturb the\nlive model/provider pair. Clears the selection gate on success and restores the\npreviously active model. Owner only.",
         "operationId": "validate_model_api_models__model_id__validate_post",
         "parameters": [
           {
@@ -19771,6 +20383,25 @@
       "get": {
         "description": "Verify the configured BirdNET-Go instance answers over HTTP. Owner only.\n\nBirdNET-Go detections arrive over MQTT, so the URL is optional (it powers\nspectrograms). When it is set, an HTTP response \u2014 any status \u2014 proves the\nBirdNET-Go server itself is up and reachable from the backend.",
         "operationId": "test_birdnet_reachability_api_settings_birdnet_reachability_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "url",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2048,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Url"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -19781,6 +20412,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [
@@ -19799,7 +20440,7 @@
     },
     "/api/settings/birdnet/test": {
       "post": {
-        "description": "Test BirdNET-Go integration by injecting a mock detection. Owner only.",
+        "description": "Test local BirdNET ingestion by synchronously persisting a mock detection.",
         "operationId": "test_birdnet_api_settings_birdnet_test_post",
         "responses": {
           "200": {
@@ -20009,8 +20650,18 @@
     },
     "/api/settings/mqtt/test-publish": {
       "post": {
-        "description": "Publish a test message to the MQTT broker to verify connectivity. Owner only.",
+        "description": "Connect independently and publish using saved or on-screen MQTT values. Owner only.",
         "operationId": "test_mqtt_publish_api_settings_mqtt_test_publish_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MQTTTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -20021,6 +20672,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           }
         },
         "security": [

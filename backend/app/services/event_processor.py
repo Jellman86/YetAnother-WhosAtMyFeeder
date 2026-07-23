@@ -14,6 +14,7 @@ from PIL import Image
 from app.config import settings
 from app.services.classification_admission import ClassificationLeaseExpiredError
 from app.services.classification_input_provenance import (
+    build_snapshot_classification_input_context,
     cached_snapshot_input_provenance,
     frigate_snapshot_input_provenance,
 )
@@ -62,7 +63,7 @@ EVENT_STAGE_TIMEOUT_SAVE_AND_NOTIFY_SECONDS = max(
 )
 EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(0.25, float(os.getenv("EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "2")))
 EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS = max(1.0, float(os.getenv("EVENT_PIPELINE_RECOVERY_WINDOW_SECONDS", "300")))
-LIVE_EVENT_STALE_SECONDS = max(1.0, float(os.getenv("LIVE_EVENT_STALE_SECONDS", "45")))
+LIVE_EVENT_STALE_SECONDS = max(1.0, float(settings.classification.live_event_stale_drop_seconds))
 LIVE_EVENT_QUEUE_TIMEOUT_CAP_SECONDS = max(
     CLASSIFIER_LIVE_IMAGE_ADMISSION_TIMEOUT_SECONDS,
     float(
@@ -115,6 +116,7 @@ class EventData:
         self.sub_label_score: Optional[float] = parsed_sub_label.score
         self.frigate_score: Optional[float] = after.get("top_score")
         self.data: Dict[str, Any] = after.get("data") if isinstance(after.get("data"), dict) else {}
+        self.snapshot: Dict[str, Any] = after.get("snapshot") if isinstance(after.get("snapshot"), dict) else {}
         self.is_false_positive: bool = after.get("false_positive", False)
 
         if self.frigate_score is None and "data" in after:
@@ -468,6 +470,7 @@ class EventProcessor:
             return
         self._started_events += 1
         started = time.monotonic()
+        recovering_terminal_event = False
 
         if event.is_false_positive:
             self._mark_false_positive_tombstone(event.frigate_event)
@@ -485,16 +488,32 @@ class EventProcessor:
 
         event_type = (event.type or "new").lower()
         if event_type == "end":
-            if self._auto_full_visit_enabled():
-                await self._trigger_auto_full_visit_generation(event)
-            duration_ms = (time.monotonic() - started) * 1000.0
-            self._record_completed(event.frigate_event, duration_ms)
-            self._record_recent_outcome(
-                event.frigate_event,
-                "end_event_handled",
-                auto_full_visit_enabled=self._auto_full_visit_enabled(),
+            try:
+                existing_detection = await self.detection_service.get_detection_by_frigate_event(event.frigate_event)
+            except Exception as exc:
+                log.warning(
+                    "Skipping terminal MQTT recovery because detection lookup failed",
+                    event_id=event.frigate_event,
+                    error=str(exc),
+                )
+                self._record_drop(event.frigate_event, "end_recovery_lookup_failed")
+                return
+            if existing_detection is not None:
+                await self._handle_terminal_event_enrichment(event)
+                duration_ms = (time.monotonic() - started) * 1000.0
+                self._record_completed(event.frigate_event, duration_ms)
+                self._record_recent_outcome(
+                    event.frigate_event,
+                    "end_event_handled",
+                    auto_full_visit_enabled=self._auto_full_visit_enabled(),
+                )
+                return
+            recovering_terminal_event = True
+            log.info(
+                "Retrying missing initial detection from final Frigate event state",
+                event_id=event.frigate_event,
+                camera=event.camera,
             )
-            return
 
         if event_type == "update":
             try:
@@ -518,7 +537,7 @@ class EventProcessor:
                 camera=event.camera,
             )
 
-        if self._is_stale_live_event(event):
+        if not recovering_terminal_event and self._is_stale_live_event(event):
             age_seconds = round(self._live_event_age_seconds(event), 1)
             log.info(
                 "Dropping stale live MQTT event before classification",
@@ -652,6 +671,9 @@ class EventProcessor:
             self._record_drop(event.frigate_event, "save_and_notify_failed")
             return
 
+        if recovering_terminal_event:
+            await self._handle_terminal_event_enrichment(event)
+
         duration_ms = (time.monotonic() - started) * 1000.0
         self._record_completed(event.frigate_event, duration_ms)
         log.debug(
@@ -659,6 +681,35 @@ class EventProcessor:
             event_id=event.frigate_event,
             duration_ms=round(duration_ms, 1),
         )
+
+    async def _handle_terminal_event_enrichment(self, event: EventData) -> None:
+        """Schedule final media work only after the detection is durable."""
+        try:
+            if media_cache.has_snapshot(event.frigate_event):
+                high_quality_snapshot_service.schedule_final_replacement(
+                    event.frigate_event,
+                    event_data={
+                        "start_time": event.start_time_ts,
+                        "end_time": getattr(event, "end_time_ts", None),
+                        "data": event.data,
+                        **({"snapshot": event.snapshot} if event.snapshot else {}),
+                    },
+                )
+        except Exception as exc:
+            log.warning(
+                "Detection saved but final snapshot scheduling failed",
+                event_id=event.frigate_event,
+                error=str(exc),
+            )
+        try:
+            if self._auto_full_visit_enabled():
+                await self._trigger_auto_full_visit_generation(event)
+        except Exception as exc:
+            log.warning(
+                "Detection saved but full-visit scheduling failed",
+                event_id=event.frigate_event,
+                error=str(exc),
+            )
 
     def _prune_false_positive_tombstones(self) -> None:
         now = time.monotonic()
@@ -940,18 +991,23 @@ class EventProcessor:
         try:
             retry_budget = self._snapshot_unavailable_retry_budget(event)
             snapshot_data: bytes | None = None
-            event_snapshot_state = (
-                {"end_time": getattr(event, "end_time_ts", None)}
-                if bool(getattr(event, "end_time_known", False))
-                else None
-            )
+            # This is the live MQTT path: an absent/unknown end marker is an
+            # active event, while a known non-null end marker is completed.
+            # Keeping that distinction aligned with the requested Frigate
+            # representation prevents both missed crops and double-cropping.
+            event_snapshot_state = {
+                "end_time": (
+                    getattr(event, "end_time_ts", None) if bool(getattr(event, "end_time_known", False)) else None
+                ),
+                "data": getattr(event, "data", {}),
+            }
             snapshot_provenance = frigate_snapshot_input_provenance(event_snapshot_state)
             snapshot_source = snapshot_provenance.input_source
             last_snapshot_error: str | None = None
             for retry_index in range(retry_budget + 1):
                 snapshot_data, last_snapshot_error = await frigate_client.get_snapshot_with_error(
                     event.frigate_event,
-                    crop=True,
+                    crop=snapshot_provenance.is_cropped,
                     quality=95,
                 )
                 if snapshot_data:
@@ -1002,11 +1058,11 @@ class EventProcessor:
             results = await self.classifier.classify_async_live(
                 image,
                 camera_name=event.camera,
-                input_context={
-                    "is_cropped": snapshot_provenance.is_cropped,
-                    "event_id": event.frigate_event,
-                    "input_source": snapshot_source,
-                },
+                input_context=build_snapshot_classification_input_context(
+                    event_id=event.frigate_event,
+                    event_data=event_snapshot_state,
+                    provenance=snapshot_provenance,
+                ),
                 queue_timeout_seconds=self._live_classification_queue_timeout_seconds(event),
             )
 
@@ -1322,29 +1378,72 @@ class EventProcessor:
             and classification.get("source") != "frigate_fallback"
             and (score >= settings.classification.threshold or classification["audio_confirmed"])
         ):
-            await frigate_client.set_sublabel(event.frigate_event, label, score=score)
+            try:
+                await frigate_client.set_sublabel(event.frigate_event, label, score=score)
+            except Exception as exc:
+                log.warning(
+                    "Detection saved but Frigate sublabel update failed",
+                    event_id=event.frigate_event,
+                    error=str(exc),
+                )
 
         # Send notifications based on policy
         if changed:
             # Cache snapshot if we updated the DB (ensures image matches score)
             if snapshot_data and settings.media_cache.enabled and settings.media_cache.cache_snapshots:
-                await media_cache.cache_snapshot(
-                    event.frigate_event,
-                    snapshot_data,
-                    source=str(snapshot_source or "frigate_snapshot"),
-                )
-                if settings.media_cache.high_quality_event_snapshots:
-                    event_payload = getattr(event, "data", {})
-                    high_quality_snapshot_service.schedule_replacement(
+                snapshot_cached = False
+                try:
+                    await media_cache.cache_snapshot(
                         event.frigate_event,
-                        event_data={"data": event_payload if isinstance(event_payload, dict) else {}},
+                        snapshot_data,
+                        source=str(snapshot_source or "frigate_snapshot"),
                     )
+                    snapshot_cached = True
+                except Exception as exc:
+                    log.warning(
+                        "Detection saved but snapshot cache update failed",
+                        event_id=event.frigate_event,
+                        error=str(exc),
+                    )
+                if snapshot_cached and settings.media_cache.high_quality_event_snapshots:
+                    event_payload = getattr(event, "data", {})
+                    try:
+                        high_quality_snapshot_service.schedule_replacement(
+                            event.frigate_event,
+                            event_data={
+                                "start_time": event.start_time_ts,
+                                "end_time": (
+                                    getattr(event, "end_time_ts", None)
+                                    if getattr(event, "end_time_known", False)
+                                    else None
+                                ),
+                                "data": event_payload if isinstance(event_payload, dict) else {},
+                                **(
+                                    {"snapshot": getattr(event, "snapshot")}
+                                    if isinstance(getattr(event, "snapshot", None), dict) and getattr(event, "snapshot")
+                                    else {}
+                                ),
+                            },
+                        )
+                    except Exception as exc:
+                        log.warning(
+                            "Detection saved but high-quality snapshot scheduling failed",
+                            event_id=event.frigate_event,
+                            error=str(exc),
+                        )
 
             # Trigger auto video classification
             if settings.classification.auto_video_classification:
                 from app.services.auto_video_classifier_service import auto_video_classifier
 
-                await auto_video_classifier.trigger_classification(event.frigate_event, event.camera)
+                try:
+                    await auto_video_classifier.trigger_classification(event.frigate_event, event.camera)
+                except Exception as exc:
+                    log.warning(
+                        "Detection saved but video classification scheduling failed",
+                        event_id=event.frigate_event,
+                        error=str(exc),
+                    )
         else:
             log.debug(
                 "Detection unchanged after upsert",
@@ -1371,6 +1470,14 @@ class EventProcessor:
             )
 
         job_name = f"notify:{event.frigate_event}:{event.type or 'new'}"
-        enqueued = await notification_dispatcher.enqueue(job_name=job_name, job_factory=_run_notification_flow)
+        try:
+            enqueued = await notification_dispatcher.enqueue(job_name=job_name, job_factory=_run_notification_flow)
+        except Exception as exc:
+            enqueued = False
+            log.warning(
+                "Detection saved but notification scheduling failed",
+                event_id=event.frigate_event,
+                error=str(exc),
+            )
         if not enqueued:
             log.warning("Notification queue saturated; dropping notification job", event_id=event.frigate_event)

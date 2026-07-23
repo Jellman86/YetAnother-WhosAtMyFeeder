@@ -2,6 +2,36 @@
 
 If you are experiencing issues with detections or integrations, use the built-in diagnostic tools.
 
+## Container startup takes time
+
+The monolithic container serves the YA-WAMF web shell before the backend is ready. During startup,
+the service screen shows the current phase and phase-based progress while YA-WAMF:
+
+1. checks which inference hardware is available
+2. loads the selected bird model and runs its bounded accelerator self-test when applicable
+3. prepares the detection database
+4. starts event, media, notification, and maintenance services
+
+This is not the full hardware-validation sweep. YA-WAMF runs that larger, multi-model comparison
+only when you start it from setup or diagnostics. The synthetic accelerated-versus-CPU startup
+benchmark is also off by default unless you set `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED=true`.
+
+To inspect the same non-sensitive status outside the browser:
+
+```bash
+curl -fsS http://localhost:9852/startup-status.json
+```
+
+The progress percentage represents completed startup phases, not an elapsed-time estimate. If the
+screen reports a startup issue or switches to **Not responding**, check the container health and
+startup logs; the UI keeps a failed startup distinct from normal model-loading work.
+
+`model_unavailable` is recoverable: the web/backend startup continues so an owner can open the
+setup wizard, keep the bundled MobileNet fallback, or download and validate another model. It does
+not mean a missing classifier was reported as ready. Published images are gated by a model-load and
+inference smoke test, so seeing this phase on a clean image should be treated as a model/storage
+problem and included in a diagnostic bundle.
+
 ## MQTT Pipeline
 If detections aren't appearing, verify the MQTT connection:
 1. Go to **Settings > Integrations**.
@@ -128,7 +158,12 @@ curl -fsS http://yawamf-backend:8000/api/classifier/status
 Key fields:
 
 - `image_flavor`, `packaged_inference_providers`, and `image_flavor_warning`
-- `available_providers` (packaged providers that also passed runtime/device probes)
+- `host_available_providers` (packaged providers that passed runtime/device probes,
+  before model compatibility is applied)
+- `available_providers` (packaged providers that passed runtime/device probes and
+  are supported by the active model)
+- `provider_preference_order` (the active provider followed by its concrete
+  runtime-recovery path)
 - `cuda_provider_installed` vs `cuda_available`
   - `true` / `false` means the CUDA-capable ONNX Runtime wheel is installed, but no usable NVIDIA GPU is available to the container
 - `openvino_available`
@@ -145,17 +180,16 @@ Key fields:
 
 `image_flavor_warning: selected_provider_not_packaged` means the saved provider
 does not belong to this image. YA-WAMF keeps that saved selection intact and
-uses CPU fallback. Switch to the full or matching provider image using the
+uses an actually available fallback. Switch to the full or matching provider image using the
 [safe flavor procedure](../setup/hardware-acceleration.md#switch-safely-between-flavors);
 do not try to install packages into the running container.
 
-The shared model registry is deliberately conservative across Intel hardware generations. A full
-device sweep can approve an extra provider for one model on this host; that host-specific result is
-reported under `host_device_eligibility` and may become the `active_provider`. YA-WAMF does not show
-an installed-provider warning when the same provider has passed the host sweep. A remaining
-`model_config_warnings` entry is therefore actionable: repair or download the model again in
-**Settings → Detection → Model Manager**, or include it in a diagnostics bundle when asking for
-help.
+Provider validation is model- and image-specific. The sweep only tests providers that the running
+image packages, the host probe exposes, and the model declares compatible. Passing results are
+reported under `host_device_eligibility`; results left on the persistent volume by another image
+flavor are rejected unless that exact flavor validated the model. A remaining `model_config_warnings`
+entry is therefore actionable: repair or download the model again in **Settings → Detection →
+Model Manager**, or include it in a diagnostics bundle when asking for help.
 
 ### Intel iGPU (OpenVINO) checklist
 

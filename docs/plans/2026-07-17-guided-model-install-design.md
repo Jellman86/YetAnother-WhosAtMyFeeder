@@ -18,13 +18,12 @@ Two things changed once the existing code was read closely:
    still blocks every API path — UI, settings picker, raw POST — while leaving internal validation
    free. `InstalledModel.ready` was likewise **not** overloaded for validation state (the sweep
    filters on `ready`); a distinct `validated` / `validation_reason` pair was added instead.
-2. **A host-agnostic validate probe was added** (`POST /api/models/{id}/validate`,
-   `model_validation.py`). The pre-existing `device_eligibility.json` is written only by the
-   OpenVINO sweep, so it is empty on CPU-only and CUDA hosts — gating on it alone would have
-   stranded them. The probe trial-loads the model, runs one frame through the live classifier,
-   checks for finite output, records the result, and restores the previously active model. Either
-   the sweep record **or** the probe record clears the gate; the active model and bundled models are
-   grandfathered.
+2. **Validation was unified across every image family** (`POST /api/models/{id}/validate`,
+   `model_validation.py`). The validator intersects image packaging, live host capability and model
+   support, then tests ONNX CPU/CUDA and OpenVINO CPU/GPU/NPU as applicable in isolated child
+   processes. The provider matrix and fastest-passing recommendation are written by both the
+   single-model route and model-evaluation sweep, scoped to the exact image flavor. The active model
+   and bundled models remain grandfathered.
 
 The three-stage download→validate→activate wizard was realised as a two-stage **Validate & enable**
 `DiagnosticDialog` launched from the gate (download keeps its existing progress UI). Crop
@@ -69,23 +68,26 @@ new ML capability.
   (background task), progress via `DownloadProgress` polled in `ModelManager.svelte` /
   `model_download_progress.ts`. Includes `_verify_checksum()` (SHA-256) and
   `_validate_download_payload()`, atomic staging + `_swap_model_dirs()`.
-- **On-hardware validation** — the model-eval **device sweep** in `compat_only` mode
+- **On-hardware validation** — the model-eval **provider sweep** in `compat_only` mode
   (`POST /api/diagnostics/model-eval/runs` with `sweep_devices=true, compat_only=true`,
-  `model_eval_service.py:357`): per device, it compiles the model, checks finite output, and takes a
-  latency reading — no accuracy scoring. This is exactly the "does it actually run correctly here"
+  `model_eval_service.py`): it intersects the running image, host probe and model contract, then
+  validates ONNX CPU/CUDA and OpenVINO CPU/GPU/NPU as applicable. Each provider compiles in an
+  isolated process, must produce finite output matching the real-image CPU baseline, and records
+  median inference latency — no accuracy scoring. This is exactly the "does it actually run correctly here"
   check, and it already backs the Detection Settings *Run compatibility check* button
   (`DetectionSettings.svelte:93`). It accepts a single model (single-model sweep) or all
-  (`sweep_all_models`).
-- **Persistent per-host eligibility record** — `/config/yawamf-eval/device_eligibility.json`, keyed
-  `model_id → [verified providers]`, surfaced to the UI via
+  (`sweep_all_models`); `model_ids` restricts the setup wizard to its selected installed model.
+- **Persistent per-host/image eligibility record** — `/config/yawamf-eval/device_eligibility.json`,
+  keyed `model_id → [verified providers]` with a per-model image-flavor map, surfaced to the UI via
   `classifier_service._host_device_eligibility_summary()` →
   `classifier_status.host_device_eligibility.verified_providers`. **This is the gate's source of
   truth.**
-- **Installed-model readiness carrier** — `InstalledModel.ready: bool` + `reason: str` already exist
-  (`ai_models.py:73`) and are already populated for incomplete installs. The gate reuses this field
-  rather than inventing a new one.
-- **Activation** — `ModelManager.activate_model()` → `POST /api/models/{id}/activate`. Currently
-  **not** gated on validation — this is the gap this design closes.
+- **Installed-model validation carrier** — `InstalledModel.ready` continues to mean file/runtime
+  readiness; the separate `validated` / `validation_reason` pair carries the hardware gate without
+  overloading install health.
+- **Activation** — `ModelManager.activate_model()` → `POST /api/models/{id}/activate`. The public
+  route now enforces the validation gate and applies the fastest current-image recommendation only
+  after the model switch succeeds.
 
 ---
 
@@ -102,13 +104,13 @@ standard §4.1 — prefer real sequential checks over one call mapped onto stage
    model. Stage reports, per candidate provider, one of *verified* / *unsupported (reason)* /
    *not present on this host*. Stage passes when **at least one provider** (CPU at minimum) is
    verified. If the user's currently-*selected* provider (`Auto`/CUDA/OpenVINO GPU/…) is **not** in
-   the verified set, the stage is a **warning, not a pass-through**: it surfaces "runs on CPU here,
-   but your selected Intel GPU produced invalid output" and offers to continue on the verified
-   provider. Writes/updates `device_eligibility.json`.
+   the verified set, it is removed from the post-validation choices. The fastest passing provider
+   becomes the visible default. Writes/updates both eligibility and recommendation records; a
+   failed rerun invalidates stale evidence for that model.
 3. **Activate** — call `activate_model`. Because stage 2 has recorded eligibility, the server-side
    gate (§4) now permits activation. Stage passes when the model loads and reports healthy via the
-   existing classifier status/health probe. On activation the active provider is pinned to a
-   verified one; the wizard shows selected vs active provider honestly (same pattern as
+   existing classifier status/health probe. Activation atomically pins the current, still-eligible
+   recommendation; the wizard shows selected vs active provider honestly (same pattern as
    [ai-models.md](../features/ai-models.md) fallback reporting).
 
 The wizard's `summary` strip shows `Model · target provider`. The whole flow is skippable, but
@@ -119,20 +121,19 @@ says exactly that.
 
 ## 4. The post-install selection gate
 
-The core new behaviour. **A model is selectable iff it has a passing per-host eligibility record for
-at least one provider.**
+The core new behaviour. **A model is selectable iff it has a passing current-image record for at
+least one provider, or it is the active/bundled grandfathered model.**
 
-- **Server-side enforcement (authoritative).** `activate_model()` consults
-  `device_eligibility.json` for the target model. If there is **no verified provider**, activation is
-  rejected with a typed, honest error (`ModelActionResponse` success=false + reason:
-  `unvalidated` / `no_compatible_device`), and the currently-active model is left untouched. This
-  holds no matter which path calls it — Model Manager, the settings dropdown, the first-run wizard,
-  or a raw API call. The gate is not a UI affordance that a direct `POST` can bypass.
+- **Server-side enforcement (authoritative).** `POST /api/models/{id}/activate` checks the target's
+  `InstalledModel.validated` state and returns HTTP `409` with a recovery instruction when the gate
+  is closed. The internal `ModelManager.activate_model()` remains ungated because the validator
+  must trial-activate a candidate. Every public activation path still crosses the router gate, and
+  a rejected request leaves the currently-active model untouched.
 - **UI reflects the gate, never fakes it.** In `ModelManager.svelte` and the model picker, an
   unvalidated installed model renders as **selectable-after-validation**, not silently disabled: a
   clear "Validate to enable" affordance that launches stage 2 of the wizard, with the reason shown
-  (recognition over recall; never colour-alone; §5). We reuse `InstalledModel.ready=false` +
-  `reason="unvalidated"` so the picker's existing not-ready rendering path carries it.
+  (recognition over recall; never colour-alone; §5). `ready` remains install/file health; the
+  distinct `validated` / `validation_reason` fields carry this gate.
 - **Provider downgrade instead of a dead end.** When the selected provider isn't verified but CPU
   (or another provider) is, selection is *allowed on the verified provider* with an explicit
   notice — never a hard block that leaves the user unable to pick any model. This is the §1
@@ -147,8 +148,8 @@ at least one provider.**
 - **CPU baseline.** Because every registry model is CPU-validated, a successful CPU compile+finite
   check is always sufficient to clear the gate. The gate constrains *acceleration*, not *existence*.
 
-No database schema change is required — eligibility lives in the existing `device_eligibility.json`
-on the config volume, and readiness rides the existing `InstalledModel` DTO. **No Alembic
+No database schema change is required — eligibility lives in JSON records on the config volume,
+and validation state rides the existing `InstalledModel` DTO. **No Alembic
 migration.** (If we later decide to persist eligibility in SQLite for queryability, that becomes a
 separate reversible migration per §3 — out of scope here.)
 
@@ -178,15 +179,15 @@ central registry policy — a separate design, not this one.
 
 ## 6. Safety, concurrency & failure modes
 
-- **One eval run at a time.** The device sweep shares the model-eval harness, which is single-run
+- **One eval run at a time.** The provider sweep shares the model-eval harness, which is single-run
   (409 on concurrent). Stage 2 must handle "a run is already in progress" honestly (queue message,
   not a fake success) and must restore the previously-active model on completion/failure — the
   harness already does the restore; the wizard must not assume it activated the new model until
   stage 3.
 - **Don't stall live detections silently.** A full sweep competes with real-time classification.
-  `compat_only` is lightweight (compile + one finite check + latency read per device, no image
-  panel), but the UI must still warn that validation briefly exercises the classifier, consistent
-  with the model-eval "runs flat-out" caveat.
+  `compat_only` skips accuracy scoring but still fetches the regional panel and uses up to 12 real
+  bird images for provider agreement, so the UI must warn that validation exercises the classifier,
+  consistent with the model-eval "runs flat-out" caveat.
 - **Partial failure is legible.** Download-OK / validate-FAIL leaves an installed, unvalidated,
   unselectable model — surfaced truthfully, retryable. Validate-OK-on-CPU / FAIL-on-GPU leaves a
   selectable model pinned to CPU with the reason shown. No stage is ever promoted to green on a

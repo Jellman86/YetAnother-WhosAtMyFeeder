@@ -28,15 +28,34 @@
     let pollHandle: number | null = null;
     let refreshInFlight = false;
 
-    function deviceCell(row: DeviceMatrix['models'][string] | undefined, dev: string): { label: string; cls: string } {
+    function matrixProviders(matrix: DeviceMatrix): string[] {
+        return matrix.providers?.length ? matrix.providers : matrix.devices;
+    }
+
+    type MatrixRow = DeviceMatrix['models'][string] | NonNullable<DeviceMatrix['crop_detectors']>[string];
+
+    function matrixRows(matrix: DeviceMatrix): Array<[string, MatrixRow]> {
+        return [...Object.entries(matrix.models), ...Object.entries(matrix.crop_detectors ?? {})];
+    }
+
+    function deviceCell(row: MatrixRow | undefined, dev: string): { label: string; cls: string } {
         if (!row || row.error) return { label: '—', cls: 'text-gray-400' };
-        const e = row.devices?.[dev];
+        const e = row.providers?.[dev] ?? row.devices?.[dev];
         if (!e) return { label: '—', cls: 'text-gray-400' };
         if (!e.compiles) return { label: '✗ fails', cls: 'text-red-600 dark:text-red-400' };
         if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
-        if (dev === 'CPU') return { label: `✓ baseline (${e.images_evaluated ?? 0})`, cls: 'text-gray-600 dark:text-gray-400' };
+        if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { label: `✓ baseline (${e.images_evaluated ?? 0})`, cls: 'text-gray-600 dark:text-gray-400' };
         const n = e.images_compared;
+        if (row.comparison_kind === 'crop_box' && e.matches_cpu && n) {
+            const iou = e.mean_box_iou;
+            return { label: `✓ ${n}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-accent-600 dark:text-accent-400' };
+        }
         if (e.matches_cpu && n) return { label: `✓ ${n}/${n} top-1`, cls: 'text-accent-600 dark:text-accent-400' };
+        if (typeof e.detection_match_rate === 'number' && n) {
+            const hits = Math.round(e.detection_match_rate * n);
+            const iou = e.mean_box_iou;
+            return { label: `⚠ ${hits}/${n} boxes${iou != null ? ` (${iou.toFixed(2)} IoU)` : ''}`, cls: 'text-amber-600 dark:text-amber-400' };
+        }
         if (typeof e.top1_match_rate === 'number' && n) {
             const hits = Math.round(e.top1_match_rate * n);
             const ov = e.mean_top5_overlap;
@@ -179,9 +198,9 @@
                 <input type="checkbox" bind:checked={includePerImage} class="rounded" />
                 Include per-image details (results.jsonl)
             </label>
-            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300" title="Downloads every registry model, then compiles each on CPU / iGPU / NPU and compares predictions to the CPU baseline. Slower.">
+            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300" title="Downloads every registry model, then validates each provider owned by this image against the CPU baseline. Slower.">
                 <input type="checkbox" bind:checked={sweepDevices} class="rounded" />
-                Sweep all devices (auto-downloads all models; per-model × CPU/GPU/NPU)
+                Sweep image providers (auto-downloads all models)
             </label>
             <button
                 type="button"
@@ -317,27 +336,31 @@
 
     {#if deviceMatrix}
         <section class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5">
-            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Device compatibility matrix</h3>
+            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Provider compatibility matrix</h3>
             <p class="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                Each model compiled on every available accelerator in an isolated subprocess; non-CPU
-                devices are compared to the CPU baseline on {deviceMatrix.image_count ?? 0} real bird
-                images — shown as top-1 match rate (and mean top-5 overlap /5).
+                Image {deviceMatrix.image_flavor ?? 'unknown'} tested each packaged, detected, and
+                model-compatible provider in an isolated subprocess. Accelerators are compared with
+                the CPU baseline on {deviceMatrix.image_count ?? 0} varied real bird images. Classifiers
+                compare ranking; crop detectors compare detection presence, box geometry and confidence,
+                with three additional hard-negative images.
             </p>
             <div class="mt-3 overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead class="text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                         <tr>
                             <th class="text-left py-2 pr-4">Model</th>
-                            {#each deviceMatrix.devices as dev}
+                            {#each matrixProviders(deviceMatrix) as dev}
                                 <th class="text-left px-2">{dev}</th>
                             {/each}
                         </tr>
                     </thead>
                     <tbody>
-                        {#each Object.entries(deviceMatrix.models) as [modelId, row]}
+                        {#each matrixRows(deviceMatrix) as [modelId, row]}
                             <tr class="border-b border-gray-100 dark:border-gray-800">
-                                <td class="py-2 pr-4 font-medium text-gray-800 dark:text-gray-200">{modelId}</td>
-                                {#each deviceMatrix.devices as dev}
+                                <td class="py-2 pr-4 font-medium text-gray-800 dark:text-gray-200">
+                                    {modelId}{#if row.comparison_kind === 'crop_box'} <span class="text-gray-400">· crop detector</span>{/if}
+                                </td>
+                                {#each matrixProviders(deviceMatrix) as dev}
                                     {@const c = deviceCell(row, dev)}
                                     <td class="px-2 text-xs {c.cls}">{c.label}</td>
                                 {/each}

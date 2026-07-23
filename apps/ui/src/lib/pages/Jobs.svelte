@@ -10,6 +10,7 @@
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { resetVideoCircuit } from '../api/maintenance';
     import { toAppPath } from '../app/url-base';
+    import { serverJobsStore } from '../stores/server_jobs.svelte';
     let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
 
     let nowTs = $state(Date.now());
@@ -18,9 +19,11 @@
             nowTs = Date.now();
         }, 1000);
         const releaseBackfill = backfillStatusStore.retain();
+        const releaseServerJobs = serverJobsStore.retain();
 
         return () => {
             releaseBackfill();
+            releaseServerJobs();
             clearInterval(tick);
         };
     });
@@ -29,12 +32,13 @@
         return pageRefreshAction.register(async () => {
             await Promise.all([
                 analysisQueueStatusStore.refresh(),
-                backfillStatusStore.refresh()
+                backfillStatusStore.refresh(),
+                serverJobsStore.refresh()
             ]);
         });
     });
 
-    let activeJobs = $derived(jobProgressStore.activeJobs);
+    let activeJobs = $derived(serverJobsStore.mergeActive(jobProgressStore.activeJobs));
     let presentedActiveJobs = $derived.by(() => {
         return [...activeJobs].sort((left, right) => {
             const startedDiff = (right.startedAt ?? 0) - (left.startedAt ?? 0);
@@ -43,7 +47,7 @@
         });
     });
     let staleJobs = $derived(activeJobs.filter((job) => job.status === 'stale'));
-    let historyJobs = $derived(jobProgressStore.historyJobs);
+    let historyJobs = $derived(serverJobsStore.mergeHistory(jobProgressStore.historyJobs));
     let recentJobs = $derived.by(() => {
         return [...historyJobs].sort((left, right) => {
             const recentDiff = jobRecentSortTimestamp(right) - jobRecentSortTimestamp(left);
@@ -51,7 +55,10 @@
             return right.id.localeCompare(left.id);
         });
     });
-    let queueByKind = $derived(analysisQueueStatusStore.queueByKind as QueueTelemetryByKind);
+    let queueByKind = $derived({
+        ...analysisQueueStatusStore.queueByKind,
+        ...serverJobsStore.queueByKind
+    } as QueueTelemetryByKind);
     let analysisStatus = $derived(analysisQueueStatusStore.analysisStatus);
     let pipeline = $derived(buildJobsPipelineModel(activeJobs, historyJobs, queueByKind));
     let pipelineByKind = $derived.by(() => new Map(pipeline.kinds.map((row) => [row.kind, row])));
@@ -69,15 +76,19 @@
     let circuitFailureCount = $derived(Math.max(0, Math.floor(Number(analysisStatus?.failure_count ?? 0))));
     let queuedReclassifyJobs = $derived(Math.max(0, Math.floor(Number(analysisStatus?.pending ?? queueByKind.reclassify?.queued ?? 0))));
     let resettingCircuit = $state(false);
+    let circuitResetError = $state<string | null>(null);
 
     async function handleResetCircuit() {
         if (resettingCircuit) return;
         resettingCircuit = true;
+        circuitResetError = null;
         try {
             await resetVideoCircuit();
             await analysisQueueStatusStore.refresh();
         } catch {
-            // Swallow — the circuit status will update on the next poll regardless.
+            circuitResetError = $_('jobs.circuit_reset_failed', {
+                default: 'The queue could not be resumed. Try again.'
+            });
         } finally {
             resettingCircuit = false;
         }
@@ -97,12 +108,24 @@
         return kind === 'backfill' || kind === 'weather_backfill';
     }
 
+    function statusLabel(status: JobProgressItem['status']): string {
+        if (status === 'queued') return $_('jobs.queued', { default: 'Queued' });
+        if (status === 'running') return $_('jobs.status_running', { default: 'Running' });
+        if (status === 'stale') return $_('jobs.status_stale', { default: 'Needs attention' });
+        if (status === 'failed') return $_('jobs.status_failed', { default: 'Failed' });
+        return $_('jobs.status_completed', { default: 'Completed' });
+    }
+
     function kindLabel(kind: string): string {
         if (kind === 'reclassify') return $_('jobs.kind_reclassify', { default: 'Reclassification' });
         if (kind === 'reclassify_batch') return $_('settings.data.batch_analysis_title', { default: 'Batch Analysis' });
         if (kind === 'backfill') return $_('jobs.kind_backfill', { default: 'Detection Backfill' });
         if (kind === 'weather_backfill') return $_('jobs.kind_weather_backfill', { default: 'Weather Backfill' });
         if (kind === 'taxonomy_sync') return $_('jobs.kind_taxonomy_sync', { default: 'Taxonomy Sync' });
+        if (kind === 'auto_video') return $_('jobs.kind_auto_video', { default: 'Automatic video analysis' });
+        if (kind === 'video_analysis') return $_('jobs.kind_video_analysis', { default: 'Video analysis' });
+        if (kind === 'high_quality_snapshot') return $_('jobs.kind_high_quality_snapshot', { default: 'Best-quality snapshots' });
+        if (kind === 'full_visit') return $_('jobs.kind_full_visit', { default: 'Full visit clips' });
         return kind.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase());
     }
 
@@ -114,38 +137,37 @@
 
 <div class="space-y-6">
     {#if !embedded}
-        <div class="flex flex-wrap items-start justify-between gap-3">
+        <div>
             <div>
                 <h2 class="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{$_('notifications.page_title', { default: 'Notifications & Jobs' })}</h2>
                 <p class="text-xs text-slate-500">{$_('notifications.page_subtitle', { default: 'Review notifications and background jobs.' })}</p>
             </div>
-            <div class="flex items-center gap-2">
-                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobProgressStore.clearHistory()}>
-                    {$_('jobs.clear_history', { default: 'Clear History' })}
-                </button>
-                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobProgressStore.clearAll()}>
-                    {$_('jobs.clear_all', { default: 'Clear All' })}
-                </button>
-            </div>
         </div>
     {/if}
 
-    <section class="card-base p-6">
-        <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-900/60 p-3">
-                <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('jobs.queued', { default: 'Queued' })}</p>
+    {#if serverJobsStore.error}
+        <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100" role="status">
+            {$_('jobs.server_status_unavailable', { default: 'Live job status is temporarily unavailable. Existing progress is shown and YA-WAMF will retry automatically.' })}
+        </div>
+    {/if}
+
+    <div class="card-base overflow-hidden divide-y divide-slate-200/80 dark:divide-slate-800/80">
+    <section class="px-4 py-5 sm:px-6">
+        <div class="grid grid-cols-2 md:grid-cols-4">
+            <div class="border-b border-r border-slate-200/80 px-4 py-3 dark:border-slate-800/80 md:border-b-0">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('jobs.queued', { default: 'Queued' })}</p>
                 <p class="mt-1 text-2xl font-black text-slate-900 dark:text-white">{pipeline.lanes.queuedKnown.toLocaleString()}</p>
             </div>
-            <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-900/60 p-3">
-                <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('jobs.running', { default: 'Running' })}</p>
+            <div class="border-b border-slate-200/80 px-4 py-3 dark:border-slate-800/80 md:border-b-0 md:border-r">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('jobs.running', { default: 'Running' })}</p>
                 <p class="mt-1 text-2xl font-black text-slate-900 dark:text-white">{pipeline.lanes.running.toLocaleString()}</p>
             </div>
-            <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-900/60 p-3">
-                <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('jobs.completed', { default: 'Done' })}</p>
+            <div class="border-r border-slate-200/80 px-4 py-3 dark:border-slate-800/80">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('jobs.completed', { default: 'Done' })}</p>
                 <p class="mt-1 text-2xl font-black text-slate-900 dark:text-white">{pipeline.lanes.completed.toLocaleString()}</p>
             </div>
-            <div class="rounded-2xl border border-slate-200/80 dark:border-slate-700/60 bg-slate-50/80 dark:bg-slate-900/60 p-3">
-                <p class="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('jobs.failed', { default: 'Failed' })}</p>
+            <div class="px-4 py-3">
+                <p class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('jobs.failed', { default: 'Failed' })}</p>
                 <p class="mt-1 text-2xl font-black text-slate-900 dark:text-white">{pipeline.lanes.failed.toLocaleString()}</p>
             </div>
         </div>
@@ -172,8 +194,8 @@
                         type="button"
                         onclick={handleResetCircuit}
                         disabled={resettingCircuit}
-                        aria-label={$_('jobs.circuit_reset_button', { default: 'Reset Circuit' })}
-                        class="px-3 py-1.5 text-xs font-bold rounded-xl bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                        aria-label={$_('jobs.circuit_reset_button', { default: 'Try again' })}
+                        class="btn btn-secondary min-h-11 px-4 text-sm"
                     >
                         {#if resettingCircuit}
                             <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
@@ -181,17 +203,20 @@
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
                         {/if}
-                        {$_('jobs.circuit_reset_button', { default: 'Reset Circuit' })}
+                        {$_('jobs.circuit_reset_button', { default: 'Try again' })}
                     </button>
                     <p class="mt-1 text-[10px] text-amber-600/80 dark:text-amber-300/70">
                         {$_('jobs.circuit_reset_confirm', { default: 'This will reopen the video classification queue immediately. Queued jobs will retry.' })}
                     </p>
+                    {#if circuitResetError}
+                        <p class="mt-2 text-xs font-semibold text-rose-700 dark:text-rose-300" role="alert">{circuitResetError}</p>
+                    {/if}
                 </div>
             </div>
         {/if}
     </section>
 
-    <section class="card-base p-6">
+    <section class="px-4 py-5 sm:px-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-xs font-black uppercase tracking-widest text-accent-600/80 dark:text-accent-300/80">{$_('jobs.work_lanes', { default: 'Work Lanes' })}</h3>
             <span class="text-[10px] font-semibold text-slate-400">{presentedWorkLanes.length}</span>
@@ -237,7 +262,7 @@
         {/if}
     </section>
 
-    <section class="card-base p-6">
+    <section class="px-4 py-5 sm:px-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-xs font-black uppercase tracking-widest text-accent-600/80 dark:text-accent-300/80">{$_('jobs.active', { default: 'Active Work' })}</h3>
             <span class="text-[10px] font-semibold text-slate-400">{activeJobs.length}</span>
@@ -245,11 +270,11 @@
         {#if activeJobs.length === 0}
             <p class="text-xs text-slate-500">{$_('jobs.active_empty', { default: 'No active jobs.' })}</p>
         {:else}
-            <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <div class="divide-y divide-slate-200/80 dark:divide-slate-800/80">
                 {#each presentedActiveJobs as job (job.id)}
                     {@const presentation = presentActiveJob(job, pipelineByKind.get(job.kind) ?? null, analysisStatus, nowTs, t)}
                     {@const jobKindIcon = presentJobKindIcon(job.kind)}
-                    <div class="rounded-2xl border border-accent-100/80 dark:border-accent-900/50 bg-white/80 dark:bg-slate-900/70 px-4 py-3 shadow-sm min-h-[10.5rem]">
+                    <div class="py-4 first:pt-0 last:pb-0">
                         <div class="flex items-start justify-between gap-2">
                             <div class="inline-flex items-center gap-2 min-w-0">
                                 <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-100/80 text-accent-700 dark:bg-accent-950/70 dark:text-accent-300">
@@ -287,9 +312,9 @@
                                     {/if}
                                 </p>
                             </div>
-                            <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider {job.status === 'stale' ? 'text-amber-600 dark:text-amber-300' : 'text-accent-600 dark:text-accent-300'}">
-                                <span class={`h-2 w-2 rounded-full ${job.status === 'stale' ? 'bg-amber-500 dark:bg-amber-300' : 'bg-accent-500 dark:bg-accent-300'}`}></span>
-                                {job.status}
+                            <span class="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider {job.status === 'stale' ? 'text-amber-600 dark:text-amber-300' : job.status === 'queued' ? 'text-slate-500 dark:text-slate-300' : 'text-accent-600 dark:text-accent-300'}">
+                                <span class={`h-2 w-2 rounded-full ${job.status === 'stale' ? 'bg-amber-500 dark:bg-amber-300' : job.status === 'queued' ? 'bg-slate-400 dark:bg-slate-500' : 'bg-accent-500 dark:bg-accent-300'}`}></span>
+                                {statusLabel(job.status)}
                             </span>
                         </div>
                         <div class="mt-3">
@@ -303,7 +328,14 @@
                                     <span>{presentation.percent}%</span>
                                 {/if}
                             </div>
-                            <div class="mt-2 h-2 rounded-full bg-accent-100 dark:bg-accent-950/60 overflow-hidden">
+                            <div
+                                class="mt-2 h-2 rounded-full bg-accent-100 dark:bg-accent-950/60 overflow-hidden"
+                                role="progressbar"
+                                aria-label={presentation.progressLabel}
+                                aria-valuemin={0}
+                                aria-valuemax={presentation.determinate ? 100 : undefined}
+                                aria-valuenow={presentation.determinate && presentation.percent !== null ? presentation.percent : undefined}
+                            >
                                 {#if presentation.determinate && presentation.percent !== null}
                                     <div class="h-full bg-gradient-to-r from-accent-500 via-brand-500 to-sky-500 transition-all duration-500" style={`width: ${presentation.percent}%`}></div>
                                 {:else}
@@ -321,7 +353,7 @@
                                 </p>
                             {/if}
                             {#if job.route}
-                                <button type="button" class="mt-2 inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-brand-600 dark:text-brand-300 hover:underline" onclick={() => openRoute(job)}>
+                                <button type="button" class="btn btn-ghost mt-2 min-h-11 px-3 text-xs" onclick={() => openRoute(job)}>
                                     <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
                                         <path d="M6 4H12V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
                                         <path d="M12 4L4 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"></path>
@@ -336,7 +368,7 @@
         {/if}
     </section>
 
-    <section class="card-base p-6">
+    <section class="px-4 py-5 sm:px-6">
         <div class="flex items-center justify-between mb-4">
             <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.recent', { default: 'Recent' })}</h3>
             <span class="text-[10px] font-semibold text-slate-400">{recentJobs.length}</span>
@@ -349,8 +381,9 @@
                     {@const jobKindIcon = presentJobKindIcon(job.kind)}
                     <button
                         type="button"
-                        class="w-full text-left py-3 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition px-2 rounded-xl"
+                        class="w-full min-h-11 text-left py-3 transition px-2 rounded-xl enabled:hover:bg-slate-50 dark:enabled:hover:bg-slate-800/40 disabled:cursor-default"
                         onclick={() => openRoute(job)}
+                        disabled={!job.route}
                     >
                         <div class="flex items-start justify-between gap-3">
                             <div class="min-w-0 flex-1">
@@ -390,13 +423,13 @@
                                         <p class="text-sm font-semibold text-slate-900 dark:text-white truncate">{job.title}</p>
                                         <p class="text-xs text-slate-500 dark:text-slate-400 truncate">{job.message || ''}</p>
                                         <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mt-1">
-                                            {job.status} · {formatDateTime(job.finishedAt ?? job.updatedAt)}
+                                            {statusLabel(job.status)} · {formatDateTime(job.finishedAt ?? job.updatedAt)}
                                         </p>
                                     </div>
                                 </div>
                             </div>
                             <span class="text-[10px] font-black uppercase tracking-wider {job.status === 'failed' ? 'text-rose-600 dark:text-rose-300' : 'text-accent-600 dark:text-accent-300'}">
-                                {job.status}
+                                {statusLabel(job.status)}
                             </span>
                         </div>
                     </button>
@@ -404,4 +437,5 @@
             </div>
         {/if}
     </section>
+    </div>
 </div>

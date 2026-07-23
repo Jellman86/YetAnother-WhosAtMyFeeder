@@ -6,7 +6,7 @@ without reintroducing a split application deployment.
 **Standards applied:** [CLAUDE.md](../../CLAUDE.md) §§1, 2, 6 and 9,
 [documentation standard](../documentation-standard.md), and the existing
 [hardware-acceleration guide](../setup/hardware-acceleration.md).
-**Status:** Implemented on `dev`; publication and on-hardware validation follow the rollout below.
+**Status:** Implemented on `dev`, including image-aware on-hardware provider validation.
 
 ## 1. Decision
 
@@ -132,6 +132,15 @@ packaged; `cuda_available=false` can still be correct when NVIDIA Container Tool
 missing. `auto` never raises a flavor warning because falling back to an actually available CPU path
 is its documented behaviour.
 
+The UI-triggered validation contract uses the intersection of the providers packaged by this
+flavor, providers whose runtime/device probe passes on the host, and providers supported by the
+selected model. Every candidate runs in an isolated process. ONNX CPU/CUDA and OpenVINO CPU/GPU/NPU
+are compared against a CPU baseline on real bird images when the model-evaluation panel is
+available. The full image evaluates both runtime families: merely having OpenVINO CPU installed no
+longer prevents CUDA from being tested. Persisted eligibility records the exact flavor per model;
+after a flavor switch the model must be revalidated even when the new image packages a provider
+with the same name.
+
 ## 5. CI and publication
 
 The image workflow uses a four-entry matrix. It first publishes immutable SHA tags for all x86
@@ -157,8 +166,9 @@ Validation is layered:
 7. A promotion job verifies all four immutable manifests exist before moving any mutable channel
    tags. The update/version marker is published only after promotion.
 8. The publish matrix proves every flavor can resolve dependencies and build.
-9. Quark remains the full-image Intel GPU/NPU validation target. Dedicated Intel and CUDA hardware
-   execution remain explicit follow-up validation rather than claims inferred from a build.
+9. Quark remains the full-image Intel GPU/NPU validation target. The application validation sweep
+   is covered for every flavor/provider intersection; dedicated CUDA execution on physical NVIDIA
+   hardware remains an explicit follow-up rather than a claim inferred from a build.
 
 The workflow uses per-flavor BuildKit caches and GHCR layer de-duplication. A failure in any flavor
 or the persistence round trip leaves existing mutable tags untouched and blocks the version

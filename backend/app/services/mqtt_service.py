@@ -18,9 +18,11 @@ INITIAL_BACKOFF = 1  # Start with 1 second
 MAX_BACKOFF = 60  # Cap at 60 seconds
 BACKOFF_MULTIPLIER = 2
 MQTT_HANDLER_CONCURRENCY = 4
+MQTT_AUDIO_HANDLER_CONCURRENCY = 1
 MQTT_MAX_IN_FLIGHT_MESSAGES = 200
-MQTT_FRIGATE_HANDLER_TIMEOUT_SECONDS = 45.0
+MQTT_FRIGATE_HANDLER_TIMEOUT_SECONDS = 90.0
 MQTT_AUDIO_HANDLER_TIMEOUT_SECONDS = 10.0
+MQTT_SHUTDOWN_DRAIN_SECONDS = 15.0
 MQTT_PRESSURE_ELEVATED_RATIO = 0.50
 MQTT_PRESSURE_HIGH_RATIO = 0.70
 MQTT_PRESSURE_CRITICAL_RATIO = 0.90
@@ -43,6 +45,10 @@ class MQTTService:
         self.paused = False
         self.reconnect_delay = INITIAL_BACKOFF
         self._handler_semaphore = asyncio.Semaphore(MQTT_HANDLER_CONCURRENCY)
+        # Audio events are distinct observations, not mutable event state. A
+        # dedicated serial lane preserves their broker order and prevents slow
+        # visual inference from consuming every audio processing slot.
+        self._audio_handler_semaphore = asyncio.Semaphore(MQTT_AUDIO_HANDLER_CONCURRENCY)
         self._in_flight_tasks: set[asyncio.Task] = set()
         self._event_task_tails: dict[str, asyncio.Task] = {}
         self._event_tail_depths: dict[str, int] = {}
@@ -55,7 +61,7 @@ class MQTTService:
         self._audio_active_task: asyncio.Task | None = None
         self._audio_pending_task: asyncio.Task | None = None
         self._audio_pending_payload: bytes | None = None
-        self._audio_messages_superseded = 0
+        self._audio_messages_superseded = 0  # retained in health output for compatibility; always zero
         self._audio_dispatch_count = 0
         self._frigate_dispatch_count = 0
         self._frigate_messages_superseded = 0
@@ -151,7 +157,8 @@ class MQTTService:
             "under_pressure": pressure_level in {"high", "critical"},
             "backlog_wait_active": backlog_wait_started is not None,
             "backlog_wait_seconds": backlog_wait_seconds,
-            "audio_pending_coalesced": self._audio_pending_payload is not None,
+            "audio_pending_coalesced": False,
+            "audio_pending": in_flight_by_topic["birdnet"],
             "audio_messages_superseded": self._audio_messages_superseded,
             "frigate_messages_superseded": self._frigate_messages_superseded,
             "frigate_event_tail_count": len(self._event_task_tails),
@@ -525,7 +532,7 @@ class MQTTService:
                 )
 
     async def _dispatch_audio_message(self, event_processor, payload: bytes):
-        async with self._handler_semaphore:
+        async with self._audio_handler_semaphore:
             try:
                 await asyncio.wait_for(
                     event_processor.process_audio_message(payload),
@@ -556,7 +563,10 @@ class MQTTService:
         if event_key and previous_task is not None and not previous_task.done():
             if event_key in self._event_pending_payloads:
                 self._frigate_messages_superseded += 1
-            self._event_pending_payloads[event_key] = payload
+            self._event_pending_payloads[event_key] = self._merge_pending_frigate_payload(
+                self._event_pending_payloads.get(event_key),
+                payload,
+            )
             existing_pending = self._event_pending_tasks.get(event_key)
             if existing_pending is not None and not existing_pending.done():
                 self._event_tail_depths[event_key] = 2
@@ -639,50 +649,6 @@ class MQTTService:
         return task
 
     def _schedule_audio_message(self, event_processor, payload: bytes) -> asyncio.Task:
-        active_task = self._audio_active_task
-        if active_task is not None and not active_task.done():
-            if self._audio_pending_payload is not None:
-                self._audio_messages_superseded += 1
-            self._audio_pending_payload = payload
-            if self._audio_pending_task is not None and not self._audio_pending_task.done():
-                return self._audio_pending_task
-
-            async def _run_pending() -> None:
-                try:
-                    while self.running:
-                        current_active = self._audio_active_task
-                        if current_active is not None and not current_active.done():
-                            try:
-                                await current_active
-                            except asyncio.CancelledError:
-                                return
-                            except Exception:
-                                pass
-
-                        next_payload = self._audio_pending_payload
-                        self._audio_pending_payload = None
-                        if next_payload is None or not self.running:
-                            return
-
-                        followup = create_background_task(
-                            self._dispatch_audio_message(event_processor, next_payload),
-                            name="mqtt_dispatch_birdnet",
-                        )
-                        self._audio_active_task = followup
-                        self._audio_dispatch_count += 1
-                        self._track_handler_task(followup, "birdnet")
-                        await followup
-                        if self._audio_pending_payload is None:
-                            return
-                finally:
-                    self._audio_pending_task = None
-
-            self._audio_pending_task = create_background_task(
-                _run_pending(),
-                name="mqtt_dispatch_birdnet_pending",
-            )
-            return self._audio_pending_task
-
         task = create_background_task(
             self._dispatch_audio_message(event_processor, payload),
             name="mqtt_dispatch_birdnet",
@@ -691,6 +657,24 @@ class MQTTService:
         self._audio_dispatch_count += 1
         self._track_handler_task(task, "birdnet")
         return task
+
+    @staticmethod
+    def _payload_is_false_positive(payload: bytes | None) -> bool:
+        if not payload:
+            return False
+        try:
+            data = json.loads(payload)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return False
+        after = data.get("after") if isinstance(data, dict) else None
+        return bool(isinstance(after, dict) and after.get("false_positive"))
+
+    @classmethod
+    def _merge_pending_frigate_payload(cls, existing: bytes | None, incoming: bytes) -> bytes:
+        """Merge mutable Frigate state without allowing a tombstone to be undone."""
+        if cls._payload_is_false_positive(existing):
+            return existing or incoming
+        return incoming
 
     def _sweep_stale_event_task_entries(self) -> None:
         """Remove entries from the in-flight event task dicts whose tasks have
@@ -746,9 +730,19 @@ class MQTTService:
                     await client.disconnect()
                 return
 
-    def _cancel_in_flight_tasks(self):
+    async def _drain_in_flight_tasks(self) -> None:
+        tasks = [task for task in self._in_flight_tasks if not task.done()]
+        if tasks:
+            done, pending = await asyncio.wait(tasks, timeout=MQTT_SHUTDOWN_DRAIN_SECONDS)
+            del done
+            for task in pending:
+                task.cancel()
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
+
         for task in list(self._in_flight_tasks):
-            task.cancel()
+            if not task.done():
+                task.cancel()
         self._in_flight_tasks.clear()
         self._task_kind_by_id.clear()
         self._event_task_tails.clear()
@@ -950,6 +944,52 @@ class MQTTService:
                 await asyncio.sleep(delay)
                 self._increase_backoff()
 
+    async def test_connection(
+        self,
+        *,
+        server: str,
+        port: int,
+        username: str | None = None,
+        password: str | None = None,
+    ) -> bool:
+        """Open an isolated MQTT session and prove it can publish.
+
+        Diagnostics must not depend on the daemon's existing connection: a user
+        may be testing edited host or credential values before a restart. The
+        short-lived client never replaces or interrupts the ingest client.
+        """
+        client_kwargs = {
+            "hostname": server,
+            "port": port,
+            "identifier": f"yawamf-test-{uuid.uuid4().hex[:8]}",
+            "timeout": 10.0,
+        }
+        if username:
+            client_kwargs["username"] = username
+            client_kwargs["password"] = password or ""
+
+        try:
+            async with asyncio.timeout(12.0):
+                async with Client(**client_kwargs) as client:
+                    await client.publish(
+                        "yawamf/test",
+                        json.dumps(
+                            {
+                                "message": "Hello from YA-WAMF Backend!",
+                                "timestamp": time.time(),
+                            }
+                        ),
+                    )
+            return True
+        except (MqttError, OSError, TimeoutError) as exc:
+            log.warning(
+                "MQTT diagnostic connection failed",
+                server=server,
+                port=port,
+                error_type=type(exc).__name__,
+            )
+            return False
+
     async def publish(self, topic: str, payload: dict | str) -> bool:
         """Publish a message to a specific topic."""
         if not self.client:
@@ -971,7 +1011,7 @@ class MQTTService:
 
     async def stop(self):
         self.running = False
-        self._cancel_in_flight_tasks()
+        await self._drain_in_flight_tasks()
         self.client = None
         self._connection_started_monotonic = None
         self._topic_last_message_monotonic = {}

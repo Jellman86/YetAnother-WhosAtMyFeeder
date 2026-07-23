@@ -17,11 +17,55 @@ import {
     getVisibleTieredModelLineup,
     groupTieredModelLineup,
     categorizeModel,
+    MODEL_CATEGORY_INFO,
+    selectSetupModelId,
     summarizeModelMetadata,
     type ClassifierStatus,
     type InstalledModel,
     type ModelMetadata
 } from './classifier';
+
+describe('selectSetupModelId', () => {
+    const available = [
+        { id: 'mobilenet_v2_birds', name: 'MobileNet' },
+        { id: 'rope_vit_b14_inat21', name: 'RoPE' },
+    ] as ModelMetadata[];
+
+    it('uses the effective loaded fallback instead of an unavailable configured model', () => {
+        const installed = [
+            { id: 'mobilenet_v2_birds', is_active: false, validated: true },
+        ] as InstalledModel[];
+        const status = {
+            loaded: true,
+            error: null,
+            labels_count: 965,
+            enabled: true,
+            active_model_id: 'rope_vit_b14_inat21',
+            effective_model_id: 'mobilenet_v2_birds',
+            image_flavor: 'rpi',
+        } satisfies ClassifierStatus;
+
+        expect(selectSetupModelId(status, available, installed)).toBe('mobilenet_v2_birds');
+    });
+
+    it('preserves an installed active model on non-Pi images', () => {
+        const installed = [
+            { id: 'rope_vit_b14_inat21', is_active: true, validated: true },
+            { id: 'mobilenet_v2_birds', is_active: false, validated: true },
+        ] as InstalledModel[];
+        const status = {
+            loaded: true,
+            error: null,
+            labels_count: 1000,
+            enabled: true,
+            active_model_id: 'rope_vit_b14_inat21',
+            effective_model_id: 'rope_vit_b14_inat21',
+            image_flavor: 'full',
+        } satisfies ClassifierStatus;
+
+        expect(selectSetupModelId(status, available, installed)).toBe('rope_vit_b14_inat21');
+    });
+});
 
 describe('fetchAvailableModels', () => {
     beforeEach(() => {
@@ -365,6 +409,12 @@ describe('categorizeModel', () => {
     it('returns cpu_high_accuracy for Elite / Very High accuracy without iGPU', () => {
         expect(categorizeModel(base({ accuracy_tier: 'Elite (91%+)', supported_inference_providers: ['cpu', 'intel_cpu'] }))).toBe('cpu_high_accuracy');
         expect(categorizeModel(base({ accuracy_tier: 'Very High (89%+)', supported_inference_providers: ['cpu'] }))).toBe('cpu_high_accuracy');
+    });
+
+    it('keeps model-fit labels independent from the currently active hardware', () => {
+        expect(MODEL_CATEGORY_INFO.cpu_high_accuracy.label).toBe('Highest accuracy');
+        expect(MODEL_CATEGORY_INFO.cpu_standard.label).toBe('Balanced');
+        expect(MODEL_CATEGORY_INFO.cpu_alternative.label).toBe('Architectural alternatives');
     });
 
     it('returns cpu_alternative for advanced_only experimental models', () => {

@@ -369,6 +369,7 @@ class DetectionRepository:
                     clip_variant,
                     crop_box_json,
                     crop_confidence,
+                    crop_strategy,
                     classifier_label,
                     classifier_score,
                     ranking_score,
@@ -376,7 +377,7 @@ class DetectionRepository:
                     thumbnail_ref,
                     image_ref,
                     snapshot_source
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     frigate_event,
@@ -387,6 +388,7 @@ class DetectionRepository:
                     str(candidate.get("clip_variant") or "event"),
                     crop_box_json,
                     candidate.get("crop_confidence"),
+                    candidate.get("crop_strategy"),
                     candidate.get("classifier_label"),
                     candidate.get("classifier_score"),
                     float(candidate.get("ranking_score") or 0.0),
@@ -411,6 +413,7 @@ class DetectionRepository:
                 clip_variant,
                 crop_box_json,
                 crop_confidence,
+                crop_strategy,
                 classifier_label,
                 classifier_score,
                 ranking_score,
@@ -443,13 +446,14 @@ class DetectionRepository:
                     "clip_variant": row[4],
                     "crop_box": crop_box,
                     "crop_confidence": row[6],
-                    "classifier_label": row[7],
-                    "classifier_score": row[8],
-                    "ranking_score": row[9],
-                    "selected": bool(row[10]),
-                    "thumbnail_ref": row[11],
-                    "image_ref": row[12],
-                    "snapshot_source": row[13],
+                    "crop_strategy": row[7],
+                    "classifier_label": row[8],
+                    "classifier_score": row[9],
+                    "ranking_score": row[10],
+                    "selected": bool(row[11]),
+                    "thumbnail_ref": row[12],
+                    "image_ref": row[13],
+                    "snapshot_source": row[14],
                 }
             )
         return result
@@ -968,8 +972,8 @@ class DetectionRepository:
         await self.db.commit()
         return changed
 
-    async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None) -> None:
-        """Update just the video classification status."""
+    async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None) -> bool:
+        """Update video classification status and report whether the detection exists."""
         now = utc_naive_now()
         await self.db.execute(
             """
@@ -981,7 +985,9 @@ class DetectionRepository:
         """,
             (status, error, now, frigate_event),
         )
+        changed = await self._last_statement_changes()
         await self.db.commit()
+        return changed > 0
 
     async def reset_stale_video_statuses(self, max_age_minutes: int) -> int:
         """Mark pending/processing video classifications as failed if they are too old."""
@@ -1001,6 +1007,27 @@ class DetectionRepository:
         changed = await self._last_statement_changes()
         await self.db.commit()
         return changed
+
+    async def get_video_classification_recovery_candidates(self, limit: int = 1000) -> list[dict[str, str]]:
+        """Return unfinished video jobs that must be reclaimed after a restart."""
+        safe_limit = max(1, min(int(limit), 5000))
+        async with self.db.execute(
+            """
+            SELECT frigate_event, camera_name, COALESCE(video_classification_status, 'pending')
+            FROM detections
+            WHERE video_classification_status IN ('pending', 'processing')
+              AND (is_hidden = 0 OR is_hidden IS NULL)
+            ORDER BY COALESCE(video_classification_timestamp, detection_time) ASC
+            LIMIT ?
+            """,
+            (safe_limit,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [
+            {"event_id": str(row[0]), "camera": str(row[1] or ""), "status": str(row[2])}
+            for row in rows
+            if row[0] and row[1]
+        ]
 
     async def mark_notified(self, frigate_event: str, timestamp: Optional[datetime] = None) -> None:
         """Mark a detection as notified."""
@@ -1250,7 +1277,8 @@ class DetectionRepository:
             SELECT frigate_event, detection_time, temperature, weather_condition, weather_cloud_cover,
                    weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall
             FROM detections
-            WHERE datetime(detection_time) BETWEEN datetime(?) AND datetime(?)
+            WHERE datetime(detection_time) >= datetime(?)
+              AND datetime(detection_time) < datetime(?)
         """
         params = [start, end]
         if only_missing:
@@ -1381,63 +1409,100 @@ class DetectionRepository:
         await self.db.execute(
             """
             UPDATE detections
-            SET detection_time = ?,
-                detection_index = ?,
-                score = ?,
-                display_name = ?,
-                category_name = ?,
-                frigate_score = ?,
-                sub_label = ?,
-                audio_confirmed = ?,
-                audio_species = ?,
-                audio_score = ?,
-                temperature = ?,
-                weather_condition = ?,
-                weather_cloud_cover = ?,
-                weather_wind_speed = ?,
-                weather_wind_direction = ?,
-                weather_precipitation = ?,
-                weather_rain = ?,
-                weather_snowfall = ?,
-                scientific_name = ?,
-                common_name = ?,
-                taxa_id = ?,
+            SET detection_time = :detection_time,
+                detection_index = :detection_index,
+                score = :score,
+                display_name = :display_name,
+                category_name = :category_name,
+                frigate_score = CASE
+                    WHEN :frigate_score IS NULL THEN frigate_score
+                    WHEN frigate_score IS NULL THEN :frigate_score
+                    ELSE MAX(:frigate_score, frigate_score)
+                END,
+                sub_label = COALESCE(:sub_label, sub_label),
+                audio_confirmed = CASE
+                    WHEN :audio_confirmed = 1 THEN 1
+                    ELSE COALESCE(audio_confirmed, 0)
+                END,
+                audio_species = CASE
+                    WHEN :audio_confirmed = 1
+                     AND COALESCE(:audio_score, -1) >= COALESCE(audio_score, -1)
+                    THEN COALESCE(:audio_species, audio_species)
+                    ELSE audio_species
+                END,
+                audio_score = CASE
+                    WHEN :audio_confirmed = 1
+                     AND :audio_score IS NOT NULL
+                     AND :audio_score >= COALESCE(audio_score, -1)
+                    THEN :audio_score
+                    ELSE audio_score
+                END,
+                temperature = COALESCE(:temperature, temperature),
+                weather_condition = COALESCE(:weather_condition, weather_condition),
+                weather_cloud_cover = COALESCE(:weather_cloud_cover, weather_cloud_cover),
+                weather_wind_speed = COALESCE(:weather_wind_speed, weather_wind_speed),
+                weather_wind_direction = COALESCE(:weather_wind_direction, weather_wind_direction),
+                weather_precipitation = COALESCE(:weather_precipitation, weather_precipitation),
+                weather_rain = COALESCE(:weather_rain, weather_rain),
+                weather_snowfall = COALESCE(:weather_snowfall, weather_snowfall),
+                scientific_name = CASE
+                    WHEN LOWER(TRIM(:category_name)) = LOWER(TRIM(category_name))
+                    THEN COALESCE(:scientific_name, scientific_name)
+                    ELSE :scientific_name
+                END,
+                common_name = CASE
+                    WHEN LOWER(TRIM(:category_name)) = LOWER(TRIM(category_name))
+                    THEN COALESCE(:common_name, common_name)
+                    ELSE :common_name
+                END,
+                taxa_id = CASE
+                    WHEN LOWER(TRIM(:category_name)) = LOWER(TRIM(category_name))
+                    THEN COALESCE(:taxa_id, taxa_id)
+                    ELSE :taxa_id
+                END,
                 manual_tagged = manual_tagged,
                 frigate_status = 'present',
                 frigate_missing_since = NULL,
-                frigate_last_checked_at = ?,
+                frigate_last_checked_at = :checked_at,
                 frigate_last_error = NULL
-            WHERE frigate_event = ?
+            WHERE frigate_event = :frigate_event
               AND COALESCE(manual_tagged, 0) = 0
-              AND (? > score OR (? = 1 AND COALESCE(audio_confirmed, 0) = 0))
+              AND (
+                    :score > score
+                    OR (
+                        :audio_confirmed = 1
+                        AND (
+                            COALESCE(audio_confirmed, 0) = 0
+                            OR COALESCE(:audio_score, -1) > COALESCE(audio_score, -1)
+                        )
+                    )
+              )
         """,
-            (
-                detection.detection_time,
-                detection.detection_index,
-                detection.score,
-                detection.display_name,
-                detection.category_name,
-                detection.frigate_score,
-                sub_label,
-                1 if detection.audio_confirmed else 0,
-                detection.audio_species,
-                detection.audio_score,
-                detection.temperature,
-                detection.weather_condition,
-                detection.weather_cloud_cover,
-                detection.weather_wind_speed,
-                detection.weather_wind_direction,
-                detection.weather_precipitation,
-                detection.weather_rain,
-                detection.weather_snowfall,
-                getattr(detection, "scientific_name", None),
-                getattr(detection, "common_name", None),
-                getattr(detection, "taxa_id", None),
-                checked_at,
-                detection.frigate_event,
-                detection.score,
-                1 if detection.audio_confirmed else 0,
-            ),
+            {
+                "detection_time": detection.detection_time,
+                "detection_index": detection.detection_index,
+                "score": detection.score,
+                "display_name": detection.display_name,
+                "category_name": detection.category_name,
+                "frigate_score": detection.frigate_score,
+                "sub_label": sub_label,
+                "audio_confirmed": 1 if detection.audio_confirmed else 0,
+                "audio_species": detection.audio_species,
+                "audio_score": detection.audio_score,
+                "temperature": detection.temperature,
+                "weather_condition": detection.weather_condition,
+                "weather_cloud_cover": detection.weather_cloud_cover,
+                "weather_wind_speed": detection.weather_wind_speed,
+                "weather_wind_direction": detection.weather_wind_direction,
+                "weather_precipitation": detection.weather_precipitation,
+                "weather_rain": detection.weather_rain,
+                "weather_snowfall": detection.weather_snowfall,
+                "scientific_name": getattr(detection, "scientific_name", None),
+                "common_name": getattr(detection, "common_name", None),
+                "taxa_id": getattr(detection, "taxa_id", None),
+                "checked_at": checked_at,
+                "frigate_event": detection.frigate_event,
+            },
         )
         updated = await self._last_statement_changes() > 0
         await self.db.commit()
@@ -3728,14 +3793,68 @@ class DetectionRepository:
         sensor_id: Optional[str],
         raw_data: Optional[dict],
         scientific_name: Optional[str] = None,
-    ) -> None:
-        payload = json.dumps(raw_data or {}, ensure_ascii=True)
-        await self.db.execute(
-            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
-               VALUES (?, ?, ?, ?, ?, ?)""",
-            (serialize_storage_datetime(timestamp), species, confidence, sensor_id, payload, scientific_name),
+        source_event_id: Optional[str] = None,
+    ) -> int:
+        row_id, _inserted = await self.insert_audio_detection_idempotent(
+            timestamp=timestamp,
+            species=species,
+            confidence=confidence,
+            sensor_id=sensor_id,
+            raw_data=raw_data,
+            scientific_name=scientific_name,
+            source_event_id=source_event_id,
         )
+        return row_id
+
+    async def insert_audio_detection_idempotent(
+        self,
+        timestamp: datetime,
+        species: str,
+        confidence: float,
+        sensor_id: Optional[str],
+        raw_data: Optional[dict],
+        scientific_name: Optional[str] = None,
+        source_event_id: Optional[str] = None,
+    ) -> tuple[int, bool]:
+        """Insert one BirdNET detection and report whether this call created it."""
+        payload = json.dumps(raw_data or {}, ensure_ascii=True)
+        cursor = await self.db.execute(
+            """INSERT INTO audio_detections (
+                   timestamp, species, confidence, sensor_id, raw_data, scientific_name, source_event_id
+               ) VALUES (?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(source_event_id) DO NOTHING""",
+            (
+                serialize_storage_datetime(timestamp),
+                species,
+                confidence,
+                sensor_id,
+                payload,
+                scientific_name,
+                source_event_id,
+            ),
+        )
+        inserted = cursor.rowcount > 0
+        row_id = cursor.lastrowid
+        await cursor.close()
+        if not inserted and source_event_id:
+            async with self.db.execute(
+                "SELECT id FROM audio_detections WHERE source_event_id = ?",
+                (source_event_id,),
+            ) as existing_cursor:
+                existing = await existing_cursor.fetchone()
+            row_id = existing[0] if existing else None
         await self.db.commit()
+        if row_id is None:
+            raise RuntimeError("Audio detection insert did not return a row id")
+        return int(row_id), inserted
+
+    async def delete_audio_detection(self, detection_id: int) -> bool:
+        """Delete one diagnostic audio row immediately after its write was proven."""
+        cursor = await self.db.execute("DELETE FROM audio_detections WHERE id = ?", (detection_id,))
+        deleted = cursor.rowcount > 0
+        await cursor.close()
+        await self.db.commit()
+        return deleted
 
     async def get_recent_audio_source_observations(self, limit: int = 200) -> list[dict]:
         """Return recent raw audio rows for source discovery/deduping."""

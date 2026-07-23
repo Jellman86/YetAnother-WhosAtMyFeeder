@@ -97,6 +97,48 @@ def test_evaluate_case_handles_no_candidates() -> None:
     assert result["useful_crop"] is False
 
 
+def test_negative_case_reports_false_positive_without_reducing_positive_recall() -> None:
+    negative = CropEvalCase(
+        case_id="empty_feeder_01",
+        bucket="hard_negative",
+        image_path=Path("/tmp/empty_feeder.jpg"),
+        boxes=[],
+        visit_id="empty-visit",
+        tags=("foliage", "empty"),
+    )
+
+    result = evaluate_case(
+        negative,
+        [DetectionCandidate(box=(10, 10, 80, 80), confidence=0.7)],
+    )
+    summary = summarize_results(
+        [
+            result,
+            {
+                "case_id": "bird-visit",
+                "visit_id": "bird-visit",
+                "bucket": "feeder_real",
+                "is_negative": False,
+                "any_detection": True,
+                "best_confidence": 0.8,
+                "best_iou": 0.7,
+                "recall_at_0_3": True,
+                "recall_at_0_5": True,
+                "useful_crop": True,
+                "tags": ["distant"],
+            },
+        ]
+    )
+
+    assert result["is_negative"] is True
+    assert result["false_positive"] is True
+    assert summary["overall"]["positive_cases"] == 1
+    assert summary["overall"]["negative_cases"] == 1
+    assert summary["overall"]["recall_at_0_5"] == 1.0
+    assert summary["overall"]["false_positive_rate"] == 1.0
+    assert summary["by_tag"]["foliage"]["false_positive_rate"] == 1.0
+
+
 def test_summarize_results_aggregates_global_and_per_bucket() -> None:
     summary = summarize_results(
         [

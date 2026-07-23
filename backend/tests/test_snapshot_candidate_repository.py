@@ -17,6 +17,7 @@ async def _create_snapshot_candidate_table(db: aiosqlite.Connection) -> None:
             clip_variant TEXT NOT NULL,
             crop_box_json TEXT,
             crop_confidence FLOAT,
+            crop_strategy TEXT,
             classifier_label TEXT,
             classifier_score FLOAT,
             ranking_score FLOAT NOT NULL,
@@ -67,6 +68,7 @@ async def test_snapshot_candidate_repository_replaces_and_selects_candidates():
                     "clip_variant": "recording",
                     "crop_box": [10, 12, 110, 112],
                     "crop_confidence": 0.92,
+                    "crop_strategy": "sliced_2x2",
                     "classifier_label": "Robin",
                     "classifier_score": 0.88,
                     "ranking_score": 0.95,
@@ -82,6 +84,7 @@ async def test_snapshot_candidate_repository_replaces_and_selects_candidates():
         assert [candidate["candidate_id"] for candidate in candidates] == ["cand-b", "cand-a"]
         assert candidates[0]["selected"] is True
         assert candidates[0]["crop_box"] == [10, 12, 110, 112]
+        assert candidates[0]["crop_strategy"] == "sliced_2x2"
 
         selected = await repo.get_selected_snapshot_candidate("evt-1")
         assert selected is not None

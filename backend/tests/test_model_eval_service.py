@@ -13,18 +13,22 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
 from app.services.model_eval_service import (
+    DEVICE_MATRIX_FILENAME,
     ModelEvalAlreadyRunning,
     ModelEvalRunner,
     SUMMARY_FILENAME,
     _build_summary_envelope,
+    _compatibility_model_summaries,
     _drift_ratio,
     _gpu_diagnostic,
     _inference_health_for,
     _is_correct_match,
+    _list_diverse_eval_images,
     _percentile,
     _provider_summary,
     _resolve_label_taxa,
@@ -261,6 +265,156 @@ def test_safe_run_id_accepts_only_canonical_run_ids():
     for invalid in ("abc_def", "../etc/passwd", "", "...", "/", "20260507-204512/../secret"):
         with pytest.raises(ValueError):
             _safe_run_id(invalid)
+
+
+def test_device_matrix_is_a_supported_persisted_artifact():
+    assert DEVICE_MATRIX_FILENAME == "device_matrix.json"
+
+
+def test_compatibility_matrix_projects_into_setup_wizard_summary():
+    summaries = _compatibility_model_summaries(
+        {
+            "models": {
+                "rope": {
+                    "best_provider": "cuda",
+                    "providers": {
+                        "cpu": {
+                            "provider": "cpu",
+                            "device": "CPUExecutionProvider",
+                            "ok": True,
+                            "images_evaluated": 12,
+                            "latency_ms": 100.0,
+                        },
+                        "cuda": {
+                            "provider": "cuda",
+                            "device": "CUDAExecutionProvider",
+                            "ok": True,
+                            "images_evaluated": 12,
+                            "latency_ms": 12.0,
+                        },
+                    },
+                }
+            }
+        }
+    )
+
+    assert summaries[0]["model_id"] == "rope"
+    assert summaries[0]["ready"] is True
+    assert summaries[0]["active_provider"] == "cuda"
+    assert summaries[0]["validated_providers"] == ["cpu", "cuda"]
+    assert summaries[0]["mean_latency_ms"] == 12.0
+    assert summaries[0]["warnings"] == []
+
+
+@pytest.mark.asyncio
+async def test_provider_sweep_contains_one_model_failure_and_continues(tmp_path, monkeypatch):
+    from app.services import model_validation
+    from app.services.model_manager import model_manager
+
+    runner = ModelEvalRunner()
+
+    async def activate_model(_model_id):
+        return True
+
+    async def sweep_model_devices(model_id, *, image_paths, discover_providers=False):
+        assert discover_providers is True
+        if model_id == "broken":
+            raise RuntimeError("driver crashed")
+        return {
+            "image_flavor": "cuda",
+            "baseline_provider": "cpu",
+            "eligible_providers": ["cpu", "cuda"],
+            "best": {"provider": "cuda", "latency_ms": 12.0},
+            "providers": [
+                {"provider": "cpu", "ok": True, "latency_ms": 100.0},
+                {"provider": "cuda", "ok": True, "latency_ms": 12.0},
+            ],
+        }
+
+    async def emit(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setattr(model_manager, "activate_model", activate_model)
+    monkeypatch.setattr(model_validation, "sweep_model_devices", sweep_model_devices)
+    monkeypatch.setattr(runner, "_emit", emit)
+
+    payload = await runner._device_sweep(
+        "run-1",
+        tmp_path,
+        [SimpleNamespace(id="broken"), SimpleNamespace(id="healthy")],
+        discover_providers=True,
+    )
+
+    assert payload["models"]["broken"]["error"].startswith("provider_sweep_failed")
+    assert payload["models"]["healthy"]["best_provider"] == "cuda"
+    assert payload["providers"] == ["cpu", "cuda"]
+
+    from app.services.model_validation import read_validation_record
+
+    assert read_validation_record("broken")["validated"] is False
+    assert read_validation_record("healthy")["provider"] == "cuda"
+
+
+@pytest.mark.asyncio
+async def test_device_sweep_persists_crop_detectors_separately(tmp_path, monkeypatch):
+    from app.services import model_validation
+
+    runner = ModelEvalRunner()
+
+    async def sweep_crop_model_devices(model_id, *, image_paths, discover_providers=False):
+        assert model_id == "bird_crop_detector"
+        assert discover_providers is True
+        return {
+            "image_flavor": "intel",
+            "baseline_provider": "cpu",
+            "eligible_providers": ["cpu", "intel_npu"],
+            "discovered_providers": [],
+            "best": {"provider": "intel_npu", "latency_ms": 4.0},
+            "providers": [
+                {"provider": "cpu", "ok": True, "compiles": True, "latency_ms": 20.0},
+                {
+                    "provider": "intel_npu",
+                    "ok": True,
+                    "compiles": True,
+                    "latency_ms": 4.0,
+                    "comparison_kind": "crop_box",
+                    "detection_match_rate": 1.0,
+                },
+            ],
+        }
+
+    async def emit(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setattr(model_validation, "sweep_crop_model_devices", sweep_crop_model_devices)
+    monkeypatch.setattr(runner, "_emit", emit)
+
+    payload = await runner._device_sweep(
+        "run-1",
+        tmp_path,
+        [],
+        [SimpleNamespace(id="bird_crop_detector")],
+        discover_providers=True,
+    )
+
+    assert payload["schema_version"] == 3
+    assert payload["models"] == {}
+    assert payload["crop_detectors"]["bird_crop_detector"]["best_provider"] == "intel_npu"
+    assert payload["providers"] == ["cpu", "intel_npu"]
+
+
+def test_diverse_eval_image_selection_round_robins_species(tmp_path):
+    for species in ("alpha", "beta", "gamma"):
+        folder = tmp_path / species
+        folder.mkdir()
+        for index in range(3):
+            (folder / f"{index}.jpg").write_bytes(b"image")
+
+    selected = _list_diverse_eval_images(tmp_path, {".jpg"}, 5)
+
+    assert [Path(path).parent.name for path in selected] == ["alpha", "beta", "gamma", "alpha", "beta"]
 
 
 def test_build_summary_envelope_counts_panels():

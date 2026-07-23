@@ -221,6 +221,7 @@ async def test_process_mqtt_message_skips_new_after_false_positive_update():
 @pytest.mark.asyncio
 async def test_process_mqtt_message_skips_end_event_classification():
     processor = EventProcessor(MagicMock())
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=object())
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
         return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img", "frigate_snapshot_cropped")
     )
@@ -239,6 +240,42 @@ async def test_process_mqtt_message_skips_end_event_classification():
 
     processor._classify_snapshot.assert_not_called()
     processor._trigger_auto_full_visit_generation.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_end_event_schedules_final_hq_snapshot_refresh_for_cached_detection():
+    processor = EventProcessor(MagicMock())
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=object())
+    processor._classify_snapshot = AsyncMock()  # type: ignore[method-assign]
+    processor._trigger_auto_full_visit_generation = AsyncMock()  # type: ignore[method-assign]
+    payload = (
+        b'{"type":"end","after":{"id":"evt-final-hq","label":"bird","camera":"cam1",'
+        b'"start_time":1700000000,"end_time":1700000005,"data":'
+        b'{"box":[0.1,0.2,0.3,0.4],"path_data":[[[0.25,0.6],1700000004]]},'
+        b'"snapshot":{"box":[0.15,0.25,0.2,0.3],"frame_time":1700000004.5}}}'
+    )
+
+    with (
+        patch("app.services.event_processor.media_cache") as mock_cache,
+        patch("app.services.event_processor.high_quality_snapshot_service") as mock_hq,
+    ):
+        mock_cache.has_snapshot.return_value = True
+        mock_hq.schedule_final_replacement = MagicMock(return_value=True)
+        await processor.process_mqtt_message(payload)
+
+    processor._classify_snapshot.assert_not_called()
+    mock_hq.schedule_final_replacement.assert_called_once_with(
+        "evt-final-hq",
+        event_data={
+            "start_time": 1700000000,
+            "end_time": 1700000005,
+            "data": {
+                "box": [0.1, 0.2, 0.3, 0.4],
+                "path_data": [[[0.25, 0.6], 1700000004]],
+            },
+            "snapshot": {"box": [0.15, 0.25, 0.2, 0.3], "frame_time": 1700000004.5},
+        },
+    )
 
 
 @pytest.mark.asyncio
@@ -277,6 +314,7 @@ async def test_process_mqtt_message_does_not_trigger_auto_full_visit_for_new_eve
 @pytest.mark.asyncio
 async def test_process_mqtt_message_end_event_skips_auto_full_visit_when_recording_clips_disabled():
     processor = EventProcessor(MagicMock())
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=object())
     processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
         return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img", "frigate_snapshot_cropped")
     )
@@ -290,6 +328,41 @@ async def test_process_mqtt_message_end_event_skips_auto_full_visit_when_recordi
 
     processor._classify_snapshot.assert_not_called()
     processor._trigger_auto_full_visit_generation.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_end_event_recovers_detection_when_initial_ingest_created_no_row():
+    processor = EventProcessor(MagicMock())
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=None)
+    processor._classify_snapshot = AsyncMock(
+        return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img", "frigate_snapshot_cropped")
+    )
+    processor._gather_context_data = AsyncMock(return_value={"audio_match": None, "weather_data": {}})
+    processor._correlate_audio = AsyncMock(
+        return_value={
+            "label": "Cardinal",
+            "score": 0.9,
+            "index": 1,
+            "audio_confirmed": False,
+            "audio_species": None,
+            "audio_score": None,
+        }
+    )
+    processor._handle_detection_save_and_notify = AsyncMock()
+    processor._handle_terminal_event_enrichment = AsyncMock()
+    processor.detection_service.filter_and_label = MagicMock(
+        return_value=({"label": "Cardinal", "score": 0.9, "index": 1}, None)
+    )
+
+    payload = (
+        b'{"type":"end","after":{"id":"evt-end-recovery","label":"bird","camera":"cam1",'
+        b'"start_time":1699999000,"end_time":1700000000}}'
+    )
+    await processor.process_mqtt_message(payload)
+
+    processor._classify_snapshot.assert_awaited_once()
+    processor._handle_detection_save_and_notify.assert_awaited_once()
+    processor._handle_terminal_event_enrichment.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -310,6 +383,34 @@ async def test_trigger_auto_full_visit_generation_schedules_background_service()
         source="mqtt_end",
         lang="en",
     )
+
+
+@pytest.mark.asyncio
+async def test_terminal_enrichment_isolates_media_queue_failures_after_durable_detection():
+    processor = EventProcessor(MagicMock())
+    event = SimpleNamespace(
+        frigate_event="evt-terminal-side-effects",
+        camera="cam1",
+        start_time_ts=1700000000,
+        end_time_ts=1700000005,
+        data={},
+        snapshot=None,
+    )
+    processor._auto_full_visit_enabled = MagicMock(return_value=True)  # type: ignore[method-assign]
+    processor._trigger_auto_full_visit_generation = AsyncMock(  # type: ignore[method-assign]
+        side_effect=RuntimeError("full")
+    )
+
+    with (
+        patch("app.services.event_processor.media_cache.has_snapshot", return_value=True),
+        patch(
+            "app.services.event_processor.high_quality_snapshot_service.schedule_final_replacement",
+            side_effect=RuntimeError("full"),
+        ),
+    ):
+        await processor._handle_terminal_event_enrichment(event)
+
+    processor._trigger_auto_full_visit_generation.assert_awaited_once_with(event)
 
 
 @pytest.mark.asyncio
@@ -356,6 +457,50 @@ async def test_handle_detection_save_and_notify_uses_dispatcher_queue():
 
     mock_dispatcher.enqueue.assert_awaited_once()
     processor.notification_orchestrator.handle_notifications.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_post_commit_side_effect_failure_does_not_turn_saved_detection_into_pipeline_failure():
+    processor = EventProcessor(MagicMock())
+    event = SimpleNamespace(
+        frigate_event="evt-post-commit",
+        camera="cam1",
+        start_time_ts=1700000000,
+        frigate_score=0.95,
+        sub_label=None,
+        type="new",
+        detection_dt=None,
+    )
+    classification = {
+        "label": "Cardinal",
+        "score": 0.95,
+        "audio_confirmed": False,
+        "audio_species": None,
+        "audio_score": None,
+    }
+    processor.detection_service.save_detection = AsyncMock(return_value=(True, True))
+
+    with (
+        patch(
+            "app.services.event_processor.frigate_client.set_sublabel",
+            new=AsyncMock(side_effect=RuntimeError("offline")),
+        ),
+        patch(
+            "app.services.event_processor.notification_dispatcher.enqueue",
+            new=AsyncMock(side_effect=RuntimeError("full")),
+        ),
+        patch("app.services.event_processor.settings.classification.write_frigate_sublabel", True, create=True),
+        patch("app.services.event_processor.settings.classification.auto_video_classification", False, create=True),
+        patch("app.services.event_processor.settings.media_cache.enabled", False, create=True),
+    ):
+        await processor._handle_detection_save_and_notify(
+            event=event,
+            classification=classification,
+            snapshot_data=None,
+            context={"weather_data": {}, "audio_match": None},
+        )
+
+    processor.detection_service.save_detection.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -414,7 +559,11 @@ async def test_handle_detection_save_and_notify_schedules_high_quality_snapshot_
         )
     mock_hq.schedule_replacement.assert_called_once_with(
         "evt-hq-1",
-        event_data={"data": {"box": [0.2, 0.3, 0.4, 0.5]}},
+        event_data={
+            "start_time": 1700000000,
+            "end_time": None,
+            "data": {"box": [0.2, 0.3, 0.4, 0.5]},
+        },
     )
 
 
@@ -601,7 +750,7 @@ async def test_process_mqtt_message_caps_live_queue_timeout_to_remaining_freshne
         mock_weather.get_current_weather = AsyncMock(return_value={})
         mock_notif.notify_detection = AsyncMock(return_value=False)
 
-        event_received_at = 1700000001.0 - 44.0
+        event_received_at = 1700000001.0 - 29.0
         payload = {
             "after": {"id": "evt-freshness-budget", "label": "bird", "camera": "cam1", "start_time": 1700000000},
             "__received_at_ts": event_received_at,
@@ -636,7 +785,7 @@ def test_live_queue_timeout_still_caps_to_remaining_freshness_under_pressure():
         "live_image_max_concurrent": 2,
     }
     processor = EventProcessor(classifier)
-    event = SimpleNamespace(received_at_ts=1700000001.0 - 44.0)
+    event = SimpleNamespace(received_at_ts=1700000001.0 - 29.0)
 
     with patch("app.services.event_processor.time.time", return_value=1700000001.0):
         timeout_seconds = processor._live_classification_queue_timeout_seconds(event)
@@ -1388,6 +1537,10 @@ async def test_classify_snapshot_does_not_claim_crop_for_ended_frigate_event():
         received_at_ts=1700000001.0,
         end_time_known=True,
         end_time_ts=1700000000.5,
+        data={
+            "box": [0.2, 0.3, 0.4, 0.5],
+            "region": [0.1, 0.2, 0.8, 0.9],
+        },
     )
 
     with (
@@ -1406,7 +1559,15 @@ async def test_classify_snapshot_does_not_claim_crop_for_ended_frigate_event():
         "is_cropped": False,
         "event_id": "evt-ended",
         "input_source": "frigate_snapshot",
+        "frigate_box": [0.2, 0.3, 0.4, 0.5],
+        "frigate_region": [0.1, 0.2, 0.8, 0.9],
+        "restore_frigate_snapshot_crop": True,
     }
+    mock_frigate.get_snapshot_with_error.assert_awaited_once_with(
+        "evt-ended",
+        crop=False,
+        quality=95,
+    )
 
 
 @pytest.mark.asyncio

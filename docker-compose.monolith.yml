@@ -21,6 +21,9 @@ name: YetAnother-WhosAtMyFeeder-Monolith
 #   MQTT_AUTH              - Enable MQTT authentication (default: false)
 #   MQTT_USERNAME          - MQTT username (if auth enabled)
 #   MQTT_PASSWORD          - MQTT password (if auth enabled)
+#   CLASSIFIER_IMAGE_MAX_CONCURRENT - Maximum concurrent image classifications (default: 2)
+#   CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS - Queue wait before rejecting background work (default: 0.5)
+#   FRIGATE__CLIPS_ENABLED - Enable Frigate clip workflows (default: true)
 #   TZ                     - Timezone (default: UTC)
 #   DOCKER_NETWORK         - External Docker network to join (required for MQTT/Frigate connectivity)
 #-----------------------------------------------
@@ -65,6 +68,9 @@ services:
       - FRIGATE__MQTT_AUTH=${MQTT_AUTH:-false}
       - FRIGATE__MQTT_USERNAME=${MQTT_USERNAME:-}
       - FRIGATE__MQTT_PASSWORD=${MQTT_PASSWORD:-}
+      - FRIGATE__CLIPS_ENABLED=${FRIGATE__CLIPS_ENABLED:-true}
+      - CLASSIFIER_IMAGE_MAX_CONCURRENT=${CLASSIFIER_IMAGE_MAX_CONCURRENT:-2}
+      - CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS=${CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS:-0.5}
       - SYSTEM__DEBUG_UI_ENABLED=${DEBUG_UI_ENABLED:-false}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]

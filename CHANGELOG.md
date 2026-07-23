@@ -6,6 +6,226 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-07-23
+
+### Added
+- **Background work now has one owner-facing status contract.** `GET /api/jobs` reports queued and
+  running video analysis, best-quality snapshot, full-visit clip, and backfill work as distinct
+  lanes with truthful queue depth, worker concurrency, phase, blocker, and event routes. The Jobs
+  workspace and global progress bar consume that server state, keep queued work separate from
+  running work, use accessible progress semantics, and retain local live updates only as a
+  fail-soft supplement.
+- **Crop quality now has a direct Frigate challenger benchmark.** Private field manifests preserve
+  same-frame Frigate coordinates, structured classifier baselines, and owner-label provenance. A
+  new end-to-end harness classifies the unchanged full frame, Frigate crop, and optimized model
+  crop through the active model, reports owner-labelled win/tie/loss outcomes separately from
+  automatic context, records crop strategy and latency, and counts hard-negative model crops. It
+  also mirrors the production same-identity/two-point guard so raw detector regressions cannot be
+  confused with the image the application would actually select. Quark's 30-positive/10-negative
+  run found 7 guarded model promotions and 23 Frigate retentions. Its three owner-labelled cases
+  produced one improvement, two safe ties, and no guarded loss, while no hard-negative crop reached
+  the active `0.40` classifier floor. The harness now applies the same extra context as the HQ path,
+  and its direct entry point resolves the backend package in production images.
+- **External crop candidates now have a strict, non-promoting benchmark path.** The maintainer probe
+  reproduces the official D-FINE/DEIMv2 batch-one ONNX contract, validates shapes and finite output,
+  separates positive localisation recall from negative-scene false positives, records compile and
+  median/p95 inference cost, and isolates CPU, Intel CPU/GPU/NPU, and CUDA provider trials. Candidate
+  artifacts and private camera panels remain outside the runtime registry and release assets.
+- **Hardware validation now exercises crop detectors as first-class inference models.** Full sweeps
+  download both crop tiers, run each exact artifact in an isolated CPU/CUDA/OpenVINO process, and
+  compare finite output plus detection presence, box geometry, and confidence against CPU across a
+  round-robin 24-image species panel and three deterministic hard negatives. Diagnostics keeps
+  detector rows separate from classifier scoring while showing both in the compatibility UI.
+- **Validated crop detectors can use the fastest proven provider.** Crop sessions now support CUDA
+  and OpenVINO CPU/GPU/NPU, activate only from current image-specific validation evidence, use
+  static accelerator batches and Intel GPU f32 precision where required, and demote to CPU after
+  either compile-time or inference-time failure without losing the original-image fallback.
+- **Crop validation now uses both broad and field-specific image variety.** Provider sweeps select
+  up to 24 taxonomy-verified species round-robin, add deterministic hard negatives, and can be
+  complemented by a private same-frame panel builder. The Quark field pass covered 30 independent
+  events across seven recorded labels plus 10 real feeder/foliage negatives rather than relying on
+  the Sparrowhawk regression alone.
+  Quark's corrected run matched the accurate YOLOX detector on all 27 clean/synthetic cases and all
+  43 private field/synthetic cases across Intel CPU, GPU, and NPU. The safe field policy admitted
+  6/30 distant/mid-distance event crops and 0/13 negatives, leaving replacement-model recall as
+  explicit roadmap work rather than overstating hardware equivalence as detector quality.
+- **The first two external crop candidates were screened on varied images and Quark hardware.**
+  Pinned official D-FINE-N and DEIMv2-N exports were evaluated on eight labelled clean/feeder
+  reference images plus 30 independent field events across seven recorded labels and 10 real
+  feeder/foliage negatives. At each candidate's most permissive tested zero-false-positive field
+  threshold, D-FINE-N produced one IoU≥0.3 crop and DEIMv2-N produced two, versus four from the
+  current YOLOX evidence path. Both matched CPU policy presence across all 40 cases on Intel CPU and
+  GPU, but the Intel NPU compiler process exited for both static batch-one graphs. Neither candidate
+  is promoted; RTMDet-Tiny, PP-YOLOE+ S, manual owner labelling, and downstream classifier comparison
+  remain open.
+
+### Fixed
+- **A normal deep-video abstention no longer disables later video analysis.** A valid clip with
+  weak, ambiguous, hidden, or representation-conflicting frame evidence remains visible as
+  `video_no_results`, but is recorded as an informational abstention rather than an inference
+  warning and cannot increment either the live or maintenance circuit breaker. Typed
+  worker failures, exceptions, and timeouts still count and retain the existing cooldown.
+- **Detection intake and background work now degrade safely under bursts and restarts.** BirdNET-Go
+  messages use a source-scoped stable detection identity when one is published, making broker
+  redelivery idempotent in both persisted history and the live correlation buffer; distinct audio
+  observations are processed in order instead of being coalesced away. Frigate false-positive
+  tombstones cannot be overwritten by a later pending update, a final event can recover a missed
+  initial detection, and post-commit media, notification, or sublabel failures can no longer make a
+  saved detection look lost. Automatic video jobs persist `pending` before entering memory and are
+  reclaimed after restart. Full-visit generation now uses two bounded workers, HQ overflow is
+  capped at 32 pending plus 128 deferred items, classifier progress retains exact frame offsets
+  across subprocesses, and shutdown drains MQTT intake before stopping downstream workers.
+- **First-run setup now remains secure, truthful, and recoverable across every step.** Enabling
+  authentication returns the initial owner token atomically so setup can continue through the
+  newly protected API, while serialized first-run claims and rollback on save failure close the
+  auth-disabled takeover and partial-write paths. Crop detectors can no longer appear or activate
+  as classifiers. Section readiness now checks the credentials required by enabled integrations
+  without claiming live health; re-run sections return to their review map; failed refreshes keep
+  the last trustworthy summary; save failures are visible; focus is trapped/restored with scoped
+  Escape; and model validation has a bounded 30-minute UI deadline. Frigate, MQTT, BirdNET-Go, and
+  BirdWeather diagnostics test current or saved-secret-preserving values without mutating config,
+  and BirdNET's final stage waits for a real database insert/delete before turning green, then
+  removes its synthetic evidence so it cannot affect history or audio confirmation. New setup and
+  recovery copy is present in all nine active locale catalogs.
+- **First-run configuration can no longer overwrite saved settings after a failed read.** Every
+  settings-backed step now has explicit loading, retry, and ready states and keeps Continue disabled
+  until the current configuration is known. The connection step supports authenticated MQTT
+  brokers without exposing a saved password, the camera step no longer presents the raw classifier
+  confidence threshold as a routine choice, and setup offers an opt-in retained-Frigate history
+  import that continues as a visible background job. The review summary uses localized structured
+  readiness details instead of displaying backend English prose.
+- **Historical backfill is now fail-closed and preserves enriched history.** Frigate HTTP, timeout,
+  invalid-payload, stalled-pagination, and page-budget failures can no longer look like a successful
+  empty import. A higher image-classification score preserves existing BirdNET audio, weather,
+  same-species taxonomy, the strongest Frigate score, and sublabel evidence; stale taxonomy is
+  cleared when the stronger result changes species. Completed snapshots are now fetched explicitly as
+  full frames and, when aligned Frigate box/region metadata exists, reconstruct Frigate's tracked-object
+  crop before classification—even when the selected model's own detector-crop policy is disabled.
+  Live and backfilled results use the same confidence, blocked-species, abstention, and Frigate-sublabel
+  gates; below-floor history remains skipped rather than gaining a backfill-only exception. Already-
+  cropped or temporally unaligned cached images are never cropped with stale final-event coordinates.
+  An existing row can still repair a missing cached snapshot and enter the HQ replacement path.
+  Custom ranges follow the browser timezone with an inclusive final calendar day, automatic weather
+  follow-up waits for the maintenance lane instead
+  of being dropped, reset cancels and awaits active work before deleting data, and the watchdog
+  reports idle jobs rather than penalizing a long job that is still progressing. The Settings result
+  surface now exposes reason counts—including an explicit below-confidence count—while vanished
+  backend jobs are marked stale rather than falsely completed.
+- **The Model Manager now reports the provider that is actually running.** Hardware-neutral
+  model recommendations no longer label high-accuracy models as CPU-only, and the active model
+  shows its live provider plus the backend's real automatic fallback order. Intel NPU is included,
+  unavailable providers stay hidden, and stale installed metadata cannot conceal the active path.
+- **HQ snapshots now improve on Frigate instead of accidentally replacing its best work.** Frigate's
+  completed-track clean best frame and its snapshot-specific tracked-box crop are scored as protected baselines; a
+  recording-derived frame can replace them only with a compatible species result and at least a
+  two-point classifier gain. The `end` event upgrades or requeues an in-flight live pass, clean-copy
+  failure falls back without cropping a possibly pre-cropped regular snapshot, and both Frigate
+  baselines remain available in snapshot repair. The final still is also usable when both the event
+  clip and cached recording clip are absent. Time-aligned crops now interpret Frigate
+  `path_data` as box bottom-centres rather than centres, removing a half-box vertical offset, while
+  final stills cannot double-count as independent video evidence.
+- **Monolithic builds no longer depend on a mutable release sidecar.** The bundled fallback
+  classifier's `model_config.json` is now checked in and contract-tested against the canonical
+  registry, while the pinned Coral model and labels remain checksum-verified. Regenerating the
+  public model sidecars can therefore no longer break an unrelated image build with a stale
+  Dockerfile checksum.
+- **AI crops can no longer win merely because the detector was confident.** HQ ranking no longer
+  adds model-source bonuses or detector confidence to species evidence. When a valid Frigate crop
+  exists, a model crop must predict the same species and improve the active classifier score by at
+  least two percentage points; otherwise the best Frigate/full-frame baseline remains selected.
+  The exact model strategy is retained with saved candidates for diagnosis.
+- **Reused download filenames no longer corrupt crop-provider comparisons.** Each validation image
+  now has a stable unique identity; missing, unexpected, or duplicate rows fail closed. The gate
+  compares detections admitted by the most permissive production policy instead of arbitrary
+  sub-threshold YOLO noise, removing both false accelerator disagreements and false hard-negative
+  detections. The accurate YOLOX-Tiny contract now includes Intel NPU after CPU-equivalent Quark
+  validation; the quantized fast SSD remains CPU-only because its OpenVINO graph does not compile.
+- **Small distant birds are no longer discarded solely by the normal crop-replacement floor.** The
+  accurate detector may admit a box down to `0.02` only in video/HQ multi-representation evidence
+  paths, where the full frame remains available and identity, image-quality, temporal-independence,
+  and ambiguity gates still decide the result. Thumbnail and direct single-image replacement keep
+  the normal `0.05` floor. A manually identified distant Sparrowhawk replay recovered two correct
+  crops, including one that outscored Frigate's saved crop; sliced inference and YOLOX-S remain
+  benchmark candidates because neither improved downstream classification in that replay.
+- **Installed model sidecars can no longer hide a provider validated by the current application.**
+  Provider compatibility is now reconciled to the current registry in both directions: obsolete
+  sidecar providers are removed and newly supported providers remain available for the hardware
+  sweep. The warning identifies both differences without repeating on every status poll. Every
+  GitHub-hosted model, label, and external-weight asset is now checksum-pinned in the registry.
+- **Raspberry Pi release smoke tests now run the ARM64 image on GitHub's x86 runner.** The smoke
+  harness accepts an explicit image platform and the Raspberry Pi job selects `linux/arm64`, allowing
+  the configured QEMU emulator to start the ARM-only canary instead of Docker rejecting it as an
+  unavailable `linux/amd64` manifest. Mutable Raspberry Pi tags remain blocked until real inference
+  passes inside that canary.
+
+### Changed
+- **The Jobs workspace is calmer and more operationally honest.** Repeated cards were replaced by
+  one divided activity surface, routine automatic work stays out of the global banner, queued and
+  running counts are no longer conflated, unavailable server status retries automatically, and
+  circuit-breaker recovery uses plain-language actions and translated feedback across all nine
+  locale catalogs.
+- **Distant-bird localization now uses Frigate-style focus before bounded slicing.** Multi-image HQ
+  and deep-video evidence gives YOLOX a square high-resolution search region around the same-frame
+  Frigate track when available. Without a trustworthy hint, native inference runs first and only a
+  miss on a sufficiently large frame activates four 20%-overlapping tiles. Tiny boxes retain at
+  least 160 source pixels of surrounding context, while the full frame and Frigate crop remain peer
+  candidates and the existing identity/temporal gates remain authoritative.
+- **Full hardware audits can discover stale provider metadata safely.** An owner-only all-model
+  sweep can opt into probing every provider packaged by the running image and exposed by the host,
+  even when the registry does not yet claim it. Each attempt remains subprocess-isolated and is
+  checked on real bird images for finite output and CPU top-1 agreement. Passing undeclared
+  providers are reported separately and cannot become runtime-eligible until the reviewed registry
+  is updated. Release sidecars are now generated from that registry, keeping provider,
+  preprocessing, checksum, and automatic crop-policy metadata reproducible.
+- **Raspberry Pi images now start classification-ready and are release-gated by real ARM inference.**
+  Every monolith image includes a revision-pinned, checksum-verified MobileNet V2 model and labels
+  as an offline CPU fallback. ARM64 now uses Google's current standalone LiteRT interpreter instead
+  of the much larger retired TensorFlow ARM package. The Raspberry Pi CI job publishes only an
+  immutable canary first, starts it under QEMU, verifies the classifier and label set, runs an
+  uploaded image through inference, and only then promotes `dev`, `main`, version, or `latest` tags.
+  Compose now passes the documented classifier concurrency, admission-timeout, and Frigate clip
+  controls into the container, including the corrected `CLASSIFIER_IMAGE_MAX_CONCURRENT` spelling.
+  Physical Pi thermal, sustained-load, and storage validation remains required before support stops
+  being labelled best-effort.
+- **First-run model setup can now complete without detouring into Settings.** The wizard selects the
+  model the runtime actually loaded (including the bundled MobileNet fallback), downloads a chosen
+  model with accessible live progress and bounded error recovery, then exposes hardware validation.
+  Startup reports a recoverable `model_unavailable` phase instead of claiming `model_ready` when a
+  model load fails, while leaving the backend available so the owner can repair the selection.
+- **Container startup now reports real progress instead of looking offline.** The monolithic web
+  shell stays available while the backend checks inference hardware, loads and self-tests the
+  selected bird model, prepares the database, and starts event/media services. The existing
+  service-status screen polls a no-cache, non-sensitive phase file and shows a phase-based progress
+  bar; it still presents a distinct actionable error when startup fails or the backend is genuinely
+  unavailable. The full hardware-validation sweep remains an explicit operator action, and the
+  slower accelerated-versus-CPU startup benchmark remains opt-in.
+- **Inference provider choices now reflect the runtime that can actually be used.** Settings and
+  first-run setup show only providers included in the running image, detected on the host, and
+  supported by the active model, ordered from the active runtime through its real fallback path.
+  `Auto` remains the recommended default. A saved provider made unavailable by an image, hardware,
+  or model change remains visible as a disabled warning until the owner chooses a valid replacement,
+  and irrelevant CUDA or Intel diagnostic pills are hidden in provider-specific images.
+- **The guided setup now lives with the settings it changes.** `Setup wizard` opens the existing
+  non-destructive section map from the Settings navigation's Operations group instead of occupying
+  a primary application-sidebar slot; mobile exposes the same action directly beneath the grouped
+  Settings selector. The duplicate card remains removed from Data maintenance. The wizard now
+  treats an empty camera list correctly as “watch all cameras,” keeps model setup focused on
+  compatible model/provider choices instead of exposing execution-process internals, and stops
+  writing the legacy crop toggle now that best-image and crop selection are automatic policies.
+- **Hardware validation now understands every runtime image.** The setup wizard, guided model
+  install, Detection compatibility check and Model Evaluation diagnostics now share one provider
+  sweep: `packaged by image ∩ detected on host ∩ supported by model`. It isolates and tests ONNX
+  CPU/CUDA plus OpenVINO CPU/GPU/NPU as applicable, compares up to 24 real bird images against a CPU
+  baseline, records median inference latency and the fastest verified provider, applies that
+  recommendation only after model activation succeeds, and never lets
+  OpenVINO CPU hide CUDA in the full image. The setup wizard validates only its selected model;
+  Diagnostics can still opt into downloading and testing all models. Compatibility matrices are
+  now downloadable through their API route and compatibility-only summaries are populated, fixing
+  empty wizard results and stuck fast-completion/error polling. Each model failure is contained so
+  the rest of a sweep completes, subprocess timeouts/crashes produce actionable results, failed
+  reruns invalidate stale passes, and validation evidence is scoped to the exact image flavor. The
+  wizard defaults to the fastest result and offers only providers that passed for its selected model.
+
 ## [2.14.0] - 2026-07-20
 
 ### Added
@@ -113,8 +333,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   explicit provider/image mismatch is visible in classifier diagnostics. Runtime images no longer
   retain their build wheelhouse or install pytest, Coverage, and Ruff, reducing distribution size
   without changing `/config`, `/data`, models, migrations, or application behaviour. The dedicated
-  Raspberry Pi image now explicitly uses the CPU dependency set, while non-Linux ARM development
-  environments no longer select its Linux-only TensorFlow package. Pinned Intel NPU driver assets
+  Raspberry Pi image now explicitly uses the CPU dependency set and standalone LiteRT interpreter,
+  while non-Linux ARM development environments retain their native TensorFlow package. Pinned Intel NPU driver assets
   are checksum-verified and required, preventing a full or Intel image from publishing with a
   silently incomplete runtime. Mutable flavor tags are now promoted only after every immutable
   image starts successfully and a full → CPU → full round trip preserves byte-identical application

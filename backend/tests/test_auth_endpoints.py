@@ -170,13 +170,25 @@ async def test_initial_setup_success(client: httpx.AsyncClient):
         "/api/auth/initial-setup", json={"username": "newadmin", "password": "newpass123", "enable_auth": True}
     )
     assert response.status_code == 200
-    assert response.json()["message"] == "Setup completed successfully"
+    payload = response.json()
+    assert payload["message"] == "Setup completed successfully"
+    assert payload["access_token"]
+    assert payload["token_type"] == "bearer"
+    assert payload["username"] == "newadmin"
+    assert payload["expires_in_hours"] == settings.auth.session_expiry_hours
     assert settings.auth.initial_setup_complete is True
+
+    setup_response = await client.get(
+        "/api/setup/state",
+        headers={"Authorization": f"Bearer {payload['access_token']}"},
+    )
+    assert setup_response.status_code == 200
 
 
 @pytest.mark.asyncio
 async def test_initial_setup_already_configured(client: httpx.AsyncClient):
     settings.auth.password_hash = hash_password("existing")
+    settings.auth.initial_setup_complete = False
 
     response = await client.post(
         "/api/auth/initial-setup", json={"username": "admin", "password": "newpass123", "enable_auth": True}
@@ -194,8 +206,66 @@ async def test_initial_setup_skip_auth(client: httpx.AsyncClient):
         "/api/auth/initial-setup", json={"username": "admin", "password": None, "enable_auth": False}
     )
     assert response.status_code == 200
+    assert response.json()["access_token"] is None
     assert settings.auth.enabled is False
     assert settings.auth.initial_setup_complete is True
+
+
+@pytest.mark.asyncio
+async def test_initial_setup_requires_password_when_enabling_auth(client: httpx.AsyncClient):
+    settings.auth.password_hash = None
+    settings.auth.initial_setup_complete = False
+
+    response = await client.post(
+        "/api/auth/initial-setup",
+        json={"username": "admin", "password": None, "enable_auth": True},
+    )
+
+    assert response.status_code == 422
+    assert settings.auth.initial_setup_complete is False
+    assert settings.auth.password_hash is None
+
+
+@pytest.mark.asyncio
+async def test_initial_setup_rolls_back_in_memory_state_when_config_save_fails(
+    client: httpx.AsyncClient,
+    monkeypatch,
+):
+    settings.auth.enabled = False
+    settings.auth.username = "admin"
+    settings.auth.password_hash = None
+    settings.auth.initial_setup_complete = False
+
+    async def fail_save(_self):
+        raise OSError("disk unavailable")
+
+    monkeypatch.setattr(type(settings), "save", fail_save)
+
+    with pytest.raises(OSError, match="disk unavailable"):
+        await client.post(
+            "/api/auth/initial-setup",
+            json={"username": "newadmin", "password": "newpass123", "enable_auth": True},
+        )
+
+    assert settings.auth.enabled is False
+    assert settings.auth.username == "admin"
+    assert settings.auth.password_hash is None
+    assert settings.auth.initial_setup_complete is False
+
+
+@pytest.mark.asyncio
+async def test_initial_setup_cannot_take_over_completed_auth_disabled_install(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.auth.password_hash = None
+    settings.auth.initial_setup_complete = True
+
+    response = await client.post(
+        "/api/auth/initial-setup", json={"username": "attacker", "password": "newpass123", "enable_auth": True}
+    )
+
+    assert response.status_code == 403
+    assert "already completed" in response.json()["detail"].lower()
+    assert settings.auth.password_hash is None
 
 
 @pytest.mark.asyncio

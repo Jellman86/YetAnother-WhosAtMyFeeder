@@ -6,7 +6,7 @@ vi.mock('../api/setup', () => ({
         sections: [
             { id: 'account', status: 'attention', detail: 'Not configured' },
             { id: 'connection', status: 'ok', detail: 'http://frigate:5000' },
-            { id: 'cameras', status: 'attention', detail: 'No cameras selected' },
+            { id: 'cameras', status: 'ok', detail: 'All cameras' },
             { id: 'model', status: 'ok', detail: 'rope_vit_b14_inat21' },
             { id: 'quality', status: 'ok', detail: null },
             { id: 'integrations', status: 'optional', detail: 'None enabled' }
@@ -59,9 +59,35 @@ describe('setupWizardStore', () => {
         expect(setupWizardStore.current.id).toBe('model');
     });
 
+    it('returns to review after completing, skipping, or backing out of a re-run section', () => {
+        setupWizardStore.open('rerun');
+
+        setupWizardStore.gotoStep('model');
+        setupWizardStore.completeStep();
+        expect(setupWizardStore.current.id).toBe('review');
+
+        setupWizardStore.gotoStep('quality');
+        setupWizardStore.skipStep();
+        expect(setupWizardStore.current.id).toBe('review');
+
+        setupWizardStore.gotoStep('integrations');
+        setupWizardStore.leaveStep();
+        expect(setupWizardStore.current.id).toBe('review');
+    });
+
+    it('keeps first-run completion, skip, and back navigation linear', () => {
+        setupWizardStore.open('first_run');
+        setupWizardStore.completeStep();
+        expect(setupWizardStore.current.id).toBe('account');
+        setupWizardStore.skipStep();
+        expect(setupWizardStore.current.id).toBe('connection');
+        setupWizardStore.leaveStep();
+        expect(setupWizardStore.current.id).toBe('account');
+    });
+
     it('exposes section readiness after refresh', async () => {
         await setupWizardStore.refresh();
-        expect(setupWizardStore.statusFor('cameras')).toBe('attention');
+        expect(setupWizardStore.statusFor('cameras')).toBe('ok');
         expect(setupWizardStore.statusFor('connection')).toBe('ok');
         expect(setupWizardStore.detailFor('connection')).toBe('http://frigate:5000');
         expect(setupWizardStore.statusFor(null)).toBeNull();

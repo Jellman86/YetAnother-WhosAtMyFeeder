@@ -14,12 +14,11 @@ Pillow>=12.3.0
 numpy<2.0.0
 opencv-python-headless<4.11
 
-# TensorFlow Lite compatibility. Python 3.12 does not currently have a usable
-# tflite-runtime wheel for the Linux ARM64 container, so that image uses the
-# architecture-specific wheel. Non-Linux development uses TensorFlow's native
-# package instead of accidentally selecting the Linux-only ARM64 distribution.
+# TensorFlow Lite compatibility. ARM64 uses Google's current standalone LiteRT
+# interpreter rather than the much larger, retired tensorflow-aarch64 wheel.
+# Non-Linux development keeps TensorFlow's native package for compatibility.
 tensorflow-cpu; python_version >= '3.12' and sys_platform == "linux" and platform_machine != "aarch64" and platform_machine != "arm64"
-tensorflow-aarch64==2.16.1; python_version >= '3.12' and sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "arm64")
+ai-edge-litert==2.1.6; python_version >= '3.12' and sys_platform == "linux" and (platform_machine == "aarch64" or platform_machine == "arm64")
 tensorflow; python_version >= '3.12' and sys_platform != "linux"
 
 aiomqtt==2.5.1

@@ -56,6 +56,25 @@ async def test_reachability_ok_when_birdnet_answers(client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_reachability_tests_unsaved_url_override_without_mutating_settings(client, monkeypatch):
+    settings.frigate.birdnet_url = "http://saved-birdnet:8080"
+
+    mock_client = AsyncMock()
+    mock_client.__aenter__.return_value = mock_client
+    mock_client.get.return_value = httpx.Response(200)
+    monkeypatch.setattr("app.routers.settings.httpx.AsyncClient", lambda *_args, **_kwargs: mock_client)
+
+    resp = await client.get(
+        "/api/settings/birdnet/reachability",
+        params={"url": "http://edited-birdnet:8080"},
+    )
+
+    assert resp.status_code == 200, resp.text
+    mock_client.get.assert_awaited_once_with("http://edited-birdnet:8080", timeout=10.0)
+    assert settings.frigate.birdnet_url == "http://saved-birdnet:8080"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "unsafe_url",
     [

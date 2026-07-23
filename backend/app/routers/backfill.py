@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Optional, List
 from fastapi import APIRouter, HTTPException, Request, Depends
 from pydantic import BaseModel, Field
@@ -21,6 +21,7 @@ from app.services.canonical_identity_repair_service import canonical_identity_re
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.utils.tasks import create_background_task
+from app.utils.timezone import get_user_timezone
 
 router = APIRouter()
 log = structlog.get_logger()
@@ -45,6 +46,7 @@ class BackfillJobStatus(BaseModel):
     error_reasons: dict[str, int] = Field(default_factory=dict)
     message: str = ""
     started_at: Optional[str] = None
+    last_progress_at: Optional[str] = None
     finished_at: Optional[str] = None
 
 
@@ -65,10 +67,13 @@ _JOB_STORE: dict[str, BackfillJobStatus] = {}
 _LATEST_JOB_BY_KIND: dict[str, str] = {}
 _JOB_TASKS: dict[str, asyncio.Task] = {}
 _JOB_LOCK = asyncio.Lock()
+_RESET_IN_PROGRESS = False
 BACKFILL_DEPRIORITIZED_AGE_SECONDS = 15.0
 BACKFILL_STALLED_AGE_SECONDS = 90.0
 BACKFILL_STALE_JOB_AGE_SECONDS = 600.0
 BACKFILL_WATCHDOG_INTERVAL_SECONDS = 60.0
+WEATHER_FOLLOWUP_RETRY_SECONDS = 2.0
+BACKFILL_JOB_HISTORY_LIMIT = 100
 _stale_job_ids_reported: set[str] = set()
 
 
@@ -77,11 +82,12 @@ def _check_stale_backfill_jobs() -> None:
     for job in _JOB_STORE.values():
         if job.status != "running":
             continue
-        if not job.started_at or job.id in _stale_job_ids_reported:
+        progress_at = job.last_progress_at or job.started_at
+        if not progress_at or job.id in _stale_job_ids_reported:
             continue
         try:
-            started_dt = datetime.fromisoformat(job.started_at)
-            age = (now - started_dt).total_seconds()
+            progress_dt = datetime.fromisoformat(progress_at)
+            age = (now - progress_dt).total_seconds()
         except (ValueError, TypeError):
             continue
         if age >= BACKFILL_STALE_JOB_AGE_SECONDS:
@@ -92,21 +98,21 @@ def _check_stale_backfill_jobs() -> None:
                 kind=job.kind,
                 processed=job.processed,
                 total=job.total,
-                age_seconds=round(age, 1),
+                idle_seconds=round(age, 1),
             )
             error_diagnostics_history.record(
                 source="backfill",
                 component=job.kind,
                 stage="watchdog",
                 reason_code="stale_job",
-                message=f"Backfill job has been running for {int(age)}s without completing",
+                message=f"Backfill job has made no progress for {int(age)}s",
                 severity="warning",
                 context={
                     "job_id": job.id,
                     "kind": job.kind,
                     "processed": job.processed,
                     "total": job.total,
-                    "age_seconds": round(age, 1),
+                    "idle_seconds": round(age, 1),
                 },
             )
 
@@ -132,13 +138,55 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _touch_job(job: BackfillJobStatus) -> None:
+    job.last_progress_at = _now_iso()
+    _stale_job_ids_reported.discard(job.id)
+
+
 def _track_job(job: BackfillJobStatus):
+    if not job.started_at:
+        job.started_at = _now_iso()
+    _touch_job(job)
     _JOB_STORE[job.id] = job
     _LATEST_JOB_BY_KIND[job.kind] = job.id
 
 
+def _prune_terminal_jobs() -> None:
+    """Bound in-process status history while retaining running and latest jobs."""
+    terminal_jobs = sorted(
+        (job for job in _JOB_STORE.values() if job.status != "running"),
+        key=lambda job: job.finished_at or job.started_at or "",
+        reverse=True,
+    )
+    retained_ids = {job.id for job in terminal_jobs[:BACKFILL_JOB_HISTORY_LIMIT]}
+    retained_ids.update(_LATEST_JOB_BY_KIND.values())
+    for job_id, job in list(_JOB_STORE.items()):
+        if job.status == "running" or job_id in retained_ids:
+            continue
+        _JOB_STORE.pop(job_id, None)
+        _stale_job_ids_reported.discard(job_id)
+
+
 def _job_payload(job: BackfillJobStatus) -> dict:
     return job.model_dump()
+
+
+async def _register_request_task(task_id: str) -> bool:
+    """Track synchronous request work so reset can cancel and await it safely."""
+    async with _JOB_LOCK:
+        if _RESET_IN_PROGRESS:
+            return False
+        task = asyncio.current_task()
+        if task is None:
+            return False
+        _JOB_TASKS[task_id] = task
+        return True
+
+
+def _unregister_request_task(task_id: str) -> None:
+    current = asyncio.current_task()
+    if _JOB_TASKS.get(task_id) is current:
+        _JOB_TASKS.pop(task_id, None)
 
 
 async def _get_running_job(kind: str) -> Optional[BackfillJobStatus]:
@@ -238,6 +286,7 @@ def _build_skipped_message(skipped: int, skipped_reasons: Optional[dict[str, int
 
     already_exists = reasons.pop("already_exists", 0)
     invalid_scores = reasons.pop("invalid_score", 0)
+    low_confidence = reasons.pop("low_confidence", 0)
     other_skips = sum(reasons.values())
 
     parts: list[str] = []
@@ -245,6 +294,8 @@ def _build_skipped_message(skipped: int, skipped_reasons: Optional[dict[str, int
         parts.append(f"{already_exists} already existed")
     if invalid_scores > 0:
         parts.append(f"{invalid_scores} had invalid classifier scores")
+    if low_confidence > 0:
+        parts.append(f"{low_confidence} were below the confidence threshold")
     if other_skips > 0:
         parts.append(f"{other_skips} skipped by filters/validation")
 
@@ -331,9 +382,14 @@ def _build_error_message(errors: int, error_reasons: Optional[dict[str, int]] = 
 
 
 def _resolve_date_range(
-    date_range: str, start_date: Optional[str], end_date: Optional[str], lang: str
+    date_range: str,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    lang: str,
+    *,
+    user_timezone: tzinfo = timezone.utc,
 ) -> tuple[datetime, datetime]:
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     if date_range == "day":
         return now - timedelta(days=1), now
     if date_range == "week":
@@ -346,10 +402,11 @@ def _resolve_date_range(
                 status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
             )
         try:
-            start = datetime.strptime(start_date, "%Y-%m-%d")
-            end = datetime.strptime(end_date, "%Y-%m-%d")
-            end = end.replace(hour=23, minute=59, second=59)
-            return start, end
+            start_day = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_day = datetime.strptime(end_date, "%Y-%m-%d").date()
+            start = datetime.combine(start_day, datetime.min.time(), tzinfo=user_timezone)
+            end = datetime.combine(end_day + timedelta(days=1), datetime.min.time(), tzinfo=user_timezone)
+            return start.astimezone(timezone.utc), end.astimezone(timezone.utc)
         except ValueError:
             raise HTTPException(
                 status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
@@ -362,14 +419,21 @@ async def reset_database(request: Request, _auth: AuthContext = Depends(require_
     """
     Reset the database: Delete ALL detections and clear media cache. Owner only.
     """
-    try:
-        mqtt_service.pause()
-        await auto_video_classifier.reset_state()
-        for job_id, task in list(_JOB_TASKS.items()):
+    global _RESET_IN_PROGRESS
+    async with _JOB_LOCK:
+        if _RESET_IN_PROGRESS:
+            raise HTTPException(status_code=409, detail="A database reset is already in progress.")
+        _RESET_IN_PROGRESS = True
+        current_task = asyncio.current_task()
+        tasks = [task for task in set(_JOB_TASKS.values()) if task is not current_task and not task.done()]
+        for task in tasks:
             task.cancel()
-            _JOB_TASKS.pop(job_id, None)
-        _JOB_STORE.clear()
-        _LATEST_JOB_BY_KIND.clear()
+
+    mqtt_service.pause()
+    try:
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        await auto_video_classifier.reset_state()
 
         # Clear detections
         async with get_db() as db:
@@ -381,8 +445,6 @@ async def reset_database(request: Request, _auth: AuthContext = Depends(require_
 
         log.warning("Database reset triggered by user", deleted_detections=deleted_count, cache_stats=cache_stats)
 
-        mqtt_service.resume()
-
         return {
             "status": "success",
             "message": f"Deleted {deleted_count} detections and cleared cache ({cache_stats['snapshots_deleted']} snapshots, {cache_stats['clips_deleted']} clips).",
@@ -390,9 +452,16 @@ async def reset_database(request: Request, _auth: AuthContext = Depends(require_
             "cache_stats": cache_stats,
         }
     except Exception as e:
-        mqtt_service.resume()
         log.error("Database reset failed", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        async with _JOB_LOCK:
+            _JOB_TASKS.clear()
+            _JOB_STORE.clear()
+            _LATEST_JOB_BY_KIND.clear()
+            _stale_job_ids_reported.clear()
+            _RESET_IN_PROGRESS = False
+        mqtt_service.resume()
 
 
 @router.post("/backfill", response_model=BackfillResponse)
@@ -413,17 +482,27 @@ async def backfill_detections(
     - 'custom': Use start_date and end_date parameters
     """
     lang = get_user_language(request)
+    user_timezone = get_user_timezone(request)
+    if _RESET_IN_PROGRESS:
+        raise HTTPException(status_code=409, detail="A database reset is in progress.")
     holder_id = _maintenance_holder_id("backfill_detections_sync", str(uuid4()))
     acquired = await maintenance_coordinator.try_acquire(holder_id, kind="backfill")
     if not acquired:
         raise HTTPException(status_code=409, detail=_maintenance_busy_message())
+    if not await _register_request_task(holder_id):
+        await maintenance_coordinator.release(holder_id)
+        raise HTTPException(status_code=409, detail="A database reset is in progress.")
     try:
         start, end = _resolve_date_range(
-            backfill_request.date_range, backfill_request.start_date, backfill_request.end_date, lang
+            backfill_request.date_range,
+            backfill_request.start_date,
+            backfill_request.end_date,
+            lang,
+            user_timezone=user_timezone,
         )
 
         # Validate date range
-        if start > end:
+        if start >= end:
             raise HTTPException(
                 status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
             )
@@ -462,6 +541,7 @@ async def backfill_detections(
             status_code=500, detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
         )
     finally:
+        _unregister_request_task(holder_id)
         await maintenance_coordinator.release(holder_id)
 
 
@@ -471,6 +551,7 @@ async def backfill_detections_async(
 ):
     """Run detection backfill in the background and return a job status."""
     lang = get_user_language(request)
+    user_timezone = get_user_timezone(request)
     taxonomy_status = canonical_identity_repair_service.get_status()
     if taxonomy_status.get("is_running"):
         raise HTTPException(
@@ -482,6 +563,8 @@ async def backfill_detections_async(
         raise HTTPException(status_code=409, detail=_maintenance_busy_message())
 
     async with _JOB_LOCK:
+        if _RESET_IN_PROGRESS:
+            raise HTTPException(status_code=409, detail="A database reset is in progress.")
         running = await _get_running_job("detections")
         if running:
             return running
@@ -496,20 +579,33 @@ async def backfill_detections_async(
     async def runner():
         try:
             start, end = _resolve_date_range(
-                backfill_request.date_range, backfill_request.start_date, backfill_request.end_date, lang
+                backfill_request.date_range,
+                backfill_request.start_date,
+                backfill_request.end_date,
+                lang,
+                user_timezone=user_timezone,
             )
-            if start > end:
+            if start >= end:
                 raise HTTPException(
                     status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
                 )
 
             job.message = "Querying Frigate API for historical events..."
             await broadcaster.broadcast({"type": "backfill_started", "data": _job_payload(job)})
+
+            def note_fetch_progress(found: int) -> None:
+                job.message = f"Querying Frigate API — {found} event(s) found"
+                _touch_job(job)
+
             events = await backfill_service.fetch_frigate_events(
-                start.timestamp(), end.timestamp(), backfill_request.cameras
+                start.timestamp(),
+                end.timestamp(),
+                backfill_request.cameras,
+                progress_callback=note_fetch_progress,
             )
             job.total = len(events)
             job.processed = 0
+            _touch_job(job)
             job.message = _build_running_message(job, backfill_service.classifier.get_admission_status())
             last_broadcast = 0
             broadcast_every = max(1, job.total // 20) if job.total else 1
@@ -518,6 +614,7 @@ async def backfill_detections_async(
             for event in events:
                 status, reason = await backfill_service.process_historical_event_with_timeout(event)
                 job.processed += 1
+                _touch_job(job)
                 if status == "new":
                     job.new_detections += 1
                 elif status == "skipped":
@@ -545,29 +642,13 @@ async def backfill_detections_async(
             job.finished_at = _now_iso()
             await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
 
-            # Auto-chain weather backfill for the same period so weather and
-            # detection history are filled together. Only-missing keeps it cheap
-            # for ranges where weather data already exists. Failures are logged
-            # but do not affect the detection job's success state.
-            try:
-                weather_request = WeatherBackfillRequest(
-                    date_range=backfill_request.date_range,
-                    start_date=backfill_request.start_date,
-                    end_date=backfill_request.end_date,
-                    only_missing=True,
-                )
-                chained = await _start_weather_backfill_async(weather_request, lang, raise_on_busy=False)
-                if chained is None:
-                    log.info(
-                        "Skipping chained weather backfill — maintenance lane busy or weather job already running",
-                        detection_job_id=job.id,
-                    )
-            except Exception as chain_err:
-                log.warning(
-                    "Failed to chain weather backfill after detection backfill",
-                    detection_job_id=job.id,
-                    error=str(chain_err),
-                )
+            weather_request = WeatherBackfillRequest(
+                date_range=backfill_request.date_range,
+                start_date=backfill_request.start_date,
+                end_date=backfill_request.end_date,
+                only_missing=True,
+            )
+            _schedule_weather_followup(weather_request, lang, user_timezone, detection_job_id=job.id)
         except asyncio.CancelledError:
             log.warning("Async backfill cancelled", job_id=job.id)
             if _JOB_STORE.get(job.id) is job:
@@ -592,6 +673,7 @@ async def backfill_detections_async(
             )
             await broadcaster.broadcast({"type": "backfill_failed", "data": _job_payload(job)})
         finally:
+            _prune_terminal_jobs()
             await maintenance_coordinator.release(holder_id)
 
     try:
@@ -610,16 +692,26 @@ async def backfill_weather(
 ):
     """Backfill missing weather fields for detections in a date range."""
     lang = get_user_language(request)
+    user_timezone = get_user_timezone(request)
+    if _RESET_IN_PROGRESS:
+        raise HTTPException(status_code=409, detail="A database reset is in progress.")
     holder_id = _maintenance_holder_id("backfill_weather_sync", str(uuid4()))
     acquired = await maintenance_coordinator.try_acquire(holder_id, kind="weather_backfill")
     if not acquired:
         raise HTTPException(status_code=409, detail=_maintenance_busy_message())
+    if not await _register_request_task(holder_id):
+        await maintenance_coordinator.release(holder_id)
+        raise HTTPException(status_code=409, detail="A database reset is in progress.")
     try:
         start, end = _resolve_date_range(
-            backfill_request.date_range, backfill_request.start_date, backfill_request.end_date, lang
+            backfill_request.date_range,
+            backfill_request.start_date,
+            backfill_request.end_date,
+            lang,
+            user_timezone=user_timezone,
         )
 
-        if start > end:
+        if start >= end:
             raise HTTPException(
                 status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
             )
@@ -715,6 +807,7 @@ async def backfill_weather(
             status_code=500, detail=i18n_service.translate("errors.backfill.processing_error", lang, error=str(e))
         )
     finally:
+        _unregister_request_task(holder_id)
         await maintenance_coordinator.release(holder_id)
 
 
@@ -723,12 +816,17 @@ async def _start_weather_backfill_async(
     lang: str,
     *,
     raise_on_busy: bool = True,
+    user_timezone: tzinfo = timezone.utc,
 ) -> Optional[BackfillJobStatus]:
     """Shared async-job entrypoint used by the public router and chained calls
     from the detection backfill. When ``raise_on_busy`` is False this returns
     ``None`` if a weather job is already running or the maintenance lane is
     saturated, so chained callers can skip silently."""
     async with _JOB_LOCK:
+        if _RESET_IN_PROGRESS:
+            if raise_on_busy:
+                raise HTTPException(status_code=409, detail="A database reset is in progress.")
+            return None
         running = await _get_running_job("weather")
         if running:
             return running if raise_on_busy else None
@@ -745,9 +843,13 @@ async def _start_weather_backfill_async(
     async def runner():
         try:
             start, end = _resolve_date_range(
-                backfill_request.date_range, backfill_request.start_date, backfill_request.end_date, lang
+                backfill_request.date_range,
+                backfill_request.start_date,
+                backfill_request.end_date,
+                lang,
+                user_timezone=user_timezone,
             )
-            if start > end:
+            if start >= end:
                 raise HTTPException(
                     status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
                 )
@@ -761,6 +863,7 @@ async def _start_weather_backfill_async(
                 )
 
                 job.total = len(detections)
+                _touch_job(job)
                 last_broadcast = 0
                 broadcast_every = max(1, job.total // 20) if job.total else 1
                 await broadcaster.broadcast({"type": "backfill_started", "data": _job_payload(job)})
@@ -817,6 +920,7 @@ async def _start_weather_backfill_async(
                         log.warning("Weather backfill failed", error=str(e), event_id=det.get("frigate_event"))
                     finally:
                         job.processed += 1
+                        _touch_job(job)
                         if job.processed - last_broadcast >= broadcast_every or job.processed == job.total:
                             last_broadcast = job.processed
                             await broadcaster.broadcast({"type": "backfill_progress", "data": _job_payload(job)})
@@ -854,6 +958,7 @@ async def _start_weather_backfill_async(
             )
             await broadcaster.broadcast({"type": "backfill_failed", "data": _job_payload(job)})
         finally:
+            _prune_terminal_jobs()
             await maintenance_coordinator.release(holder_id)
 
     try:
@@ -866,13 +971,69 @@ async def _start_weather_backfill_async(
     return job
 
 
+def _schedule_weather_followup(
+    backfill_request: WeatherBackfillRequest,
+    lang: str,
+    user_timezone: tzinfo,
+    *,
+    detection_job_id: str,
+) -> None:
+    """Run an only-missing weather pass once the weather lane is available.
+
+    A concurrent manual weather pass may have queried the database before the
+    detection import finished. Waiting and running again closes that race
+    without overwriting rows the first pass already enriched.
+    """
+
+    followup_id = f"weather_followup:{detection_job_id}"
+    existing = _JOB_TASKS.get(followup_id)
+    if existing and not existing.done():
+        return
+
+    async def runner() -> None:
+        while True:
+            if _RESET_IN_PROGRESS:
+                return
+            try:
+                started = await _start_weather_backfill_async(
+                    backfill_request,
+                    lang,
+                    raise_on_busy=False,
+                    user_timezone=user_timezone,
+                )
+                if started is not None:
+                    log.info(
+                        "Queued weather follow-up after detection backfill",
+                        detection_job_id=detection_job_id,
+                        weather_job_id=started.id,
+                    )
+                    return
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log.warning(
+                    "Weather follow-up could not start yet",
+                    detection_job_id=detection_job_id,
+                    error_type=type(exc).__name__,
+                )
+            await asyncio.sleep(WEATHER_FOLLOWUP_RETRY_SECONDS)
+
+    task = create_background_task(runner(), name=followup_id)
+    _JOB_TASKS[followup_id] = task
+    task.add_done_callback(lambda _: _JOB_TASKS.pop(followup_id, None))
+
+
 @router.post("/backfill/weather/async", response_model=BackfillJobStatus)
 async def backfill_weather_async(
     backfill_request: WeatherBackfillRequest, request: Request, auth: AuthContext = Depends(require_owner)
 ):
     """Run weather backfill in the background and return a job status."""
     lang = get_user_language(request)
-    job = await _start_weather_backfill_async(backfill_request, lang)
+    job = await _start_weather_backfill_async(
+        backfill_request,
+        lang,
+        user_timezone=get_user_timezone(request),
+    )
     if job is None:
         # raise_on_busy defaults to True so this should not happen, but guard
         # against future changes.

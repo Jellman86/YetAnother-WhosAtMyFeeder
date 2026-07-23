@@ -120,8 +120,10 @@ full frame even when a crop detector is available. The original snapshot classif
 available and the video job can still report completion without replacing the primary species.
 
 Snapshot fallback now also carries durable provenance. Known cache metadata is preserved; an
-ended Frigate event is never assumed to honour a live crop request; and legacy cache entries with
-unknown provenance are treated as uncropped. The detection detail UI labels snapshot fallbacks as
+ended Frigate event is fetched explicitly as a full frame; and legacy cache entries with unknown
+provenance are treated as uncropped. An aligned completed snapshot restores Frigate's tracked-object
+crop before model inference independently of the model's detector-crop policy, then uses the same
+acceptance gate as live ingest. The detection detail UI labels snapshot fallbacks as
 single-frame results rather than implying that temporal video evidence produced them. Media-cache
 metadata describes the bytes actually retained, while classification provenance follows any
 additional Frigate-hint or detector crop that reached model preprocessing. Historical backfill uses
@@ -134,8 +136,8 @@ also called the synchronous classifier directly, bypassing the background admiss
 and failing in subprocess mode.
 
 Candidate scoring now uses the supervised background classifier and the active model's normal input
-contract. Ranking combines classifier evidence with sharpness, usable exposure, resolution, crop
-confidence, and a small crop-source bonus. Crops must retain usable source detail and match the
+contract. Ranking combines classifier evidence with sharpness, usable exposure, and resolution;
+detector confidence and crop-source bonuses are not species evidence. Crops must retain usable source detail and match the
 known detection identity; before an identity exists, the same crop label must appear on two
 independent frames. The full frame competes in the same pool and is retained in the bounded saved
 candidate set even when many crops rank above it.
@@ -155,6 +157,24 @@ visits that cannot provide two separated moments now abstain instead of manufact
 recording-frame hint crops also abstain when their timeline cannot be aligned. Automatic
 classification refinement remains stricter than image selection and cannot replace a conflicting
 known species or manual tag.
+
+The later crop-detector field review tightened this further. A timestamp-aligned Frigate box now
+becomes a square HQ search region for YOLOX instead of sending the whole high-resolution frame
+through a 416-pixel bottleneck. Without a trustworthy hint, native inference runs first and only a
+miss activates four bounded overlapping tiles. Detector confidence and crop-source bonuses no
+longer influence species ranking; an AI crop must improve the active classifier by at least two
+points before it can replace an available same-species Frigate crop. Full-frame and temporal gates
+remain unchanged, and strategy provenance is saved for replay.
+
+A completed event now adds Frigate's own final best frame as the protected baseline. YA-WAMF uses
+the full-resolution clean copy, applies the snapshot-specific box (or final track box for legacy
+payloads), and retains both representations in
+the candidate audit. A recording frame must predict a compatible identity and improve classifier
+confidence by at least two points before replacing it. The Frigate `end` message upgrades queued
+metadata or defers one final pass behind active work, while final stills are excluded from temporal
+consensus so one visual moment cannot vote twice. Path-aligned crops now use Frigate's documented
+bottom-centre point geometry; the former centre interpretation displaced boxes downward by half
+their height.
 
 ### 7. Playable partial recording clips were deleted and fetched forever — high, fixed
 
@@ -247,6 +267,23 @@ the two available Frigate-hint crops contained foliage and scored below the full
 therefore retained the centre-weighted full frame, recorded `insufficient_evidence`, and left the
 un-tagged detection as Unknown Bird because no second independent frame supported the weak 0.305
 Wood Pigeon result. That is the intended best-available-media and safe-abstention outcome.
+
+### Distant falcon follow-up — 21 July 2026
+
+The later manually identified Eurasian Sparrowhawk event `1784555940.484185-eocv7l` exposed a more
+specific edge case. Raw YOLOX-Tiny inference did localise the small distant bird in two independent
+full frames, but confidence `0.0264` and `0.0450` fell below the accurate tier's `0.05` selection
+floor. The pathway therefore reported no usable model crop even though the boxes produced correct
+classifier results; the stronger crop reached `0.9800`, compared with `0.8668` for Frigate's saved
+crop on the same frame.
+
+The fix does not weaken ordinary crop replacement. Only multi-representation video/HQ evidence can
+admit accurate-detector candidates down to `0.02`; the full frame remains present and all existing
+identity, quality, independent-frame, and ambiguity checks remain authoritative. Tiled inference
+and YOLOX-S both raised detector confidence in an exploratory replay but did not improve downstream
+classification, reinforcing that detector confidence is not the product metric. The broader
+[candidate review and promotion benchmark](2026-07-21-crop-detector-candidate-review.md) now governs
+any future model change.
 
 ## Verification requirements
 

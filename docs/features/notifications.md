@@ -4,7 +4,19 @@ YA-WAMF includes a flexible multi-platform notification system that alerts you w
 
 ## Notification Center
 
-Use the bell icon in the header to open the Notification Center. It separates **ongoing actions** (like backfills and reclassifications) with pinned progress bars, and lists completed notifications below.
+Use the bell icon in the header to open the Notification Center. Its **Jobs** view separates queued,
+running, and recent work. Video analysis, best-quality snapshots, full-visit clips, and backfills
+remain distinct so a queued item is never presented as a running worker.
+
+The compact progress bar across the top of the application is reserved for prominent work you
+started, such as a backfill or manual analysis. Routine per-detection media work is visible in
+**Jobs** without keeping a permanent banner on screen. The Jobs view reads current server state and
+uses browser live updates as a fallback, so opening a second tab does not create a second job or
+invent a separate queue.
+
+If live job status cannot be read, the page keeps the last known/local progress, shows a calm
+warning, and retries automatically. **Try again** on a paused video-analysis lane reopens the
+circuit breaker; it does not discard queued detections.
 
 ## Supported Platforms
 

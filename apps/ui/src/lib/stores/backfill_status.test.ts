@@ -15,7 +15,7 @@ describe('BackfillStatusStore', () => {
         jobProgressStore.clearAll();
     });
 
-    it('settles stale synthetic backfill jobs when fresh status is empty', async () => {
+    it('keeps a missing backend job status stale instead of inventing a successful completion', async () => {
         jobProgressStore.upsertRunning({
             id: 'backfill:detections:old-job',
             kind: 'backfill',
@@ -34,11 +34,12 @@ describe('BackfillStatusStore', () => {
 
         await store.refresh();
 
-        expect(jobProgressStore.activeJobs.find((job) => job.id === 'backfill:detections:old-job')).toBeUndefined();
-        const completed = jobProgressStore.historyJobs.find((job) => job.id === 'backfill:detections:old-job');
-        expect(completed?.status).toBe('completed');
-        expect(completed?.current).toBe(23);
-        expect(completed?.total).toBe(23);
+        const stale = jobProgressStore.activeJobs.find((job) => job.id === 'backfill:detections:old-job');
+        expect(stale?.status).toBe('stale');
+        expect(stale?.current).toBe(0);
+        expect(stale?.total).toBe(23);
+        expect(stale?.message).toContain('Status unavailable');
+        expect(jobProgressStore.historyJobs.find((job) => job.id === 'backfill:detections:old-job')).toBeUndefined();
     });
 
     it('keeps scoped totals stable when a running backfill status temporarily reports total as zero', async () => {

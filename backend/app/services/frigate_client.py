@@ -14,6 +14,10 @@ from app.config import settings
 log = structlog.get_logger()
 
 
+class FrigateEventsFetchError(RuntimeError):
+    """Frigate did not return a confirmed, usable event-history response."""
+
+
 class FrigateClient:
     """HTTP client for Frigate API interactions.
 
@@ -125,6 +129,31 @@ class FrigateClient:
         except Exception as e:
             log.error("Error fetching snapshot", event_id=event_id, error=str(e))
             return None, "snapshot_unknown_error"
+
+    async def get_clean_snapshot_with_error(
+        self,
+        event_id: str,
+        timeout: float = 30.0,
+    ) -> tuple[Optional[bytes], Optional[str]]:
+        """Fetch Frigate's unannotated, uncropped, full-resolution best frame."""
+        try:
+            resp = await self.get(f"api/events/{event_id}/snapshot-clean.webp", timeout=timeout)
+            if resp.status_code == 200:
+                return resp.content, None
+            if resp.status_code == 404:
+                log.debug("Clean snapshot not found", event_id=event_id)
+                return None, "clean_snapshot_not_found"
+            log.warning("Failed to fetch clean snapshot", event_id=event_id, status=resp.status_code)
+            return None, f"clean_snapshot_http_{resp.status_code}"
+        except httpx.TimeoutException:
+            log.warning("Clean snapshot fetch timed out", event_id=event_id)
+            return None, "clean_snapshot_timeout"
+        except httpx.RequestError as e:
+            log.error("Error fetching clean snapshot", event_id=event_id, error=str(e))
+            return None, "clean_snapshot_request_error"
+        except Exception as e:
+            log.error("Error fetching clean snapshot", event_id=event_id, error=str(e))
+            return None, "clean_snapshot_unknown_error"
 
     async def get_clip_with_error(self, event_id: str, timeout: float = 20.0) -> tuple[Optional[bytes], Optional[str]]:
         """Fetch video clip for an event with explicit error reason."""
@@ -296,7 +325,11 @@ class FrigateClient:
             limit: Max events to return
 
         Returns:
-            List of event dictionaries
+            List of event dictionaries from a confirmed HTTP 200 response.
+
+        Raises:
+            FrigateEventsFetchError: Frigate is unreachable, rejects the query,
+                or returns a payload that cannot safely be treated as an event list.
         """
         params = {"limit": limit}
         if after is not None:
@@ -312,11 +345,29 @@ class FrigateClient:
 
         try:
             resp = await self.get("api/events", params=params)
-            if resp.status_code == 200:
-                return resp.json()
-        except Exception as e:
-            log.error("Error listing events", error=str(e))
-        return []
+        except httpx.TimeoutException as exc:
+            log.warning("Frigate event history request timed out", camera=camera)
+            raise FrigateEventsFetchError("Frigate event history request timed out") from exc
+        except httpx.RequestError as exc:
+            log.warning("Frigate event history request failed", camera=camera, error_type=type(exc).__name__)
+            raise FrigateEventsFetchError("Frigate event history is unreachable") from exc
+        except Exception as exc:
+            log.error("Unexpected Frigate event history failure", camera=camera, error_type=type(exc).__name__)
+            raise FrigateEventsFetchError("Frigate event history request failed") from exc
+
+        if resp.status_code != 200:
+            log.warning("Frigate event history returned an error", camera=camera, status=resp.status_code)
+            raise FrigateEventsFetchError(f"Frigate event history request failed (HTTP {resp.status_code})")
+
+        try:
+            payload = resp.json()
+        except ValueError as exc:
+            log.warning("Frigate event history returned invalid JSON", camera=camera)
+            raise FrigateEventsFetchError("Frigate returned an invalid event history payload") from exc
+        if not isinstance(payload, list) or any(not isinstance(event, dict) for event in payload):
+            log.warning("Frigate event history returned an unexpected payload", camera=camera)
+            raise FrigateEventsFetchError("Frigate returned an invalid event history payload")
+        return payload
 
     async def close(self):
         """Close the HTTP client and release resources."""

@@ -185,6 +185,15 @@ sidecars cannot override the current application policy, preventing an old downl
 superseded setting. The supporting measurements and decision rule are recorded in
 [`2026-07-16-model-crop-policy.md`](2026-07-16-model-crop-policy.md).
 
+## Sixth tranche — guided setup placement
+
+The re-runnable Setup wizard is an editor over Settings, not a peer application destination. Its
+launch action therefore lives in the Settings navigation's Operations group on desktop and directly
+beneath the grouped Settings selector on mobile. It remains a semantic button with dialog state,
+rather than masquerading as a route or an active Settings tab. Removing it from the application
+sidebar keeps the primary navigation focused on persistent destinations while retaining clear owner
+access beside the configuration the wizard changes.
+
 ## Follow-up tranches
 
 1. Add a concise section summary and “needs attention” state where runtime evidence supports it.

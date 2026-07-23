@@ -22,6 +22,46 @@ describe('setInitialPassword', () => {
         setAuthTokenMock.mockClear();
     });
 
+    it('stores the owner token returned by password-enabled first-run setup', async () => {
+        apiFetchMock.mockResolvedValue(
+            new Response(JSON.stringify({
+                message: 'Setup completed successfully',
+                access_token: 'owner-token',
+                token_type: 'bearer',
+                username: 'root',
+                expires_in_hours: 168
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        );
+
+        await setInitialPassword({
+            username: 'root',
+            password: 'password123',
+            enableAuth: true
+        });
+
+        expect(setAuthTokenMock).toHaveBeenCalledWith('owner-token', 168);
+    });
+
+    it('does not invent an owner token when authentication is skipped', async () => {
+        apiFetchMock.mockResolvedValue(
+            new Response(JSON.stringify({
+                message: 'Setup completed successfully',
+                access_token: null,
+                token_type: null,
+                username: null,
+                expires_in_hours: null
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+        );
+
+        await setInitialPassword({
+            username: 'root',
+            password: null,
+            enableAuth: false
+        });
+
+        expect(setAuthTokenMock).not.toHaveBeenCalled();
+    });
+
     it('surfaces readable validation errors from FastAPI detail arrays', async () => {
         apiFetchMock.mockResolvedValue(
             new Response(

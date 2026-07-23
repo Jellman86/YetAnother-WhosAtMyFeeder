@@ -20,7 +20,7 @@ DOC_FILES = [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]
 API_DOC = ROOT / "docs" / "api.md"
 
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
-ROUTE_RE = re.compile(r"@router\.(get|post|put|patch|delete)\(\s*[\"']([^\"']+)[\"']")
+ROUTE_RE = re.compile(r"@router\.(get|post|put|patch|delete)\(\s*[\"']([^\"']*)[\"']")
 APP_ROUTE_RE = re.compile(r"@app\.(get|post|put|patch|delete)\(\s*[\"']([^\"']+)[\"']")
 ROUTER_PREFIX_RE = re.compile(r"APIRouter\([^\)]*prefix\s*=\s*[\"']([^\"']+)[\"']")
 DOC_ENDPOINT_RE = re.compile(r"`(GET|POST|PUT|PATCH|DELETE)\s+(/[^`\s]+)`")

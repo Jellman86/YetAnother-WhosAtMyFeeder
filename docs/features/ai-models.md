@@ -20,21 +20,20 @@ by the connection tests — with three stages:
 
 1. **Download** — fetches the model with live progress shown in the dialog (skipped when the model
    is already downloaded).
-2. **Run on this hardware** — trial-loads the model and pushes a few frames through it on this host,
-   checking it produces finite output (not NaN/garbage on an unsupported accelerator) and reporting
-   the per-frame inference latency.
-3. **Find fastest device** — sweeps this host's inference devices (CPU / Intel GPU / NPU) with each
-   compile isolated in a subprocess, then sets your inference provider to the fastest one that
-   passed. Hosts with no accelerator simply stay on CPU/Auto; a busy or unavailable sweep is
-   non-fatal and leaves your current setting untouched.
-4. **Enable for selection** — makes it active, restoring your previous model if validation fails.
+2. **Validate and tune on this hardware** — intersects the running image, host probe, and model
+   contract; then tests ONNX CPU/CUDA and OpenVINO CPU/GPU/NPU as applicable. Each provider runs in
+   an isolated process, must produce finite output matching the CPU baseline, and reports median
+   per-frame inference latency. The fastest passing provider becomes the recommendation.
+3. **Enable for selection** — makes the model active, restoring the previous model if validation
+   fails. Only after activation succeeds is the still-eligible recommendation applied.
 
 A model that has never been validated on this host shows **Validate to enable** instead of **Use
 this model**, and the API rejects activating it (`409`). The model already running and bundled
 models are grandfathered, so upgrading never blocks a working install. Validation works on every
-host — CPU-only, NVIDIA CUDA, and Intel/OpenVINO — because it exercises the real classifier on
-whatever provider your machine resolves. On Intel/OpenVINO hosts the [device compatibility
-sweep](model-evaluation.md) also clears the gate.
+image flavor and tests only providers that image actually owns. Evidence is scoped to the exact
+image flavor, so switching images requires a new proof even for a shared provider such as CPU. The
+same [provider compatibility sweep](model-evaluation.md) backs the setup wizard, Model Manager, and
+Detection Diagnostics.
 
 ## Inference Providers (CPU / CUDA / Intel OpenVINO)
 
@@ -135,14 +134,46 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - Shown separately as **Cropped thumbnails**, not as a classifier model option. Crop generation and
   classifier crop-on/off policy are both automatic.
 - `Fast` is the default SSD-MobileNet crop detector. It is CPU-friendly and remains the safe fallback path.
-- `Accurate` is the experimental YOLOX-Tiny crop detector tier. It is optional, CPU-first, and
+- `Accurate` is the experimental YOLOX-Tiny crop detector tier. It is optional, provider-validated, and
   automatically retries with `Fast` when the artifact is unavailable or when accurate inference
   cannot produce a usable crop (including no candidate, low confidence, an undersized/invalid box,
   or inference failure).
 - Generated crops try `Accurate` first and `Fast` second. Crop-enabled classifier models use the same
   detector fallback while retaining their separately validated crop-on/off policy. The legacy tier
   setting remains API-compatible but no longer lowers the automatic quality path.
+- The normal accurate-detector floor remains `0.05` for thumbnails and direct image replacement.
+  Multi-representation video and HQ-snapshot analysis may retain an accurate-detector candidate down
+  to `0.02` for distant birds, but only as evidence beside the full frame. Existing identity,
+  temporal-consensus, quality, and ambiguity gates must still accept it before it can win.
+- When a timestamp-aligned Frigate hint exists, the accurate detector receives a square HQ search
+  region instead of shrinking the entire camera frame to 416 pixels. Without a hint it tries the
+  native frame first and only a miss on a large image activates four 20%-overlapping tiles. The
+  result keeps at least 160 source pixels of context around a tiny box. A model crop cannot replace
+  an available Frigate crop unless the active classifier agrees on species and improves its score by
+  at least two percentage points; detector confidence is diagnostic, not species evidence.
 - The accurate tier is intended to reduce missed or clipped bird crops in busy feeder scenes, but it should still be treated as experimental until more fixture and real-world benchmarks are published.
+- A hardware compatibility sweep validates crop detectors separately from classifiers. It uses up
+  to 24 images selected round-robin across species plus dark, foliage-like, and gradient hard
+  negatives. Every provider runs in an isolated child process and must produce finite output and
+  match the CPU baseline's runtime-significant detection presence, top box (IoU at least `0.90`),
+  and confidence (delta at most `0.03`) on every image. Proposals below the most permissive runtime
+  evidence floor are excluded so arbitrary near-zero detector noise cannot create a false mismatch.
+  Image identities remain unique even when download sources reuse filenames. Missing, unexpected,
+  or duplicated panel rows fail the comparison. Passing undeclared providers remain informational
+  until the model registry is updated from on-hardware evidence.
+- At runtime, a crop detector uses only a provider recommended by a current validation record for
+  the exact running image flavour. CUDA and OpenVINO CPU/GPU/NPU sessions are supported; Intel GPU
+  uses f32 inference precision and accelerators use a static batch where needed. Compile or inference
+  failure replaces that cached detector session with CPU while preserving the accurate-to-fast and
+  original-image fallbacks.
+
+On Quark's Arrow Lake-S/OpenVINO 2026.2.1 runtime, the accurate tier matched CPU across a private
+40-case field panel on Intel CPU and GPU, and all runtime-significant detections matched on Intel
+NPU. The panel contains 30 independent events across seven recorded labels, distant/mid-distance
+and edge-of-frame scenes, plus 10 real feeder/foliage hard negatives. The normal sweep adds up to 24
+taxonomy-verified species images. This evidence enables `intel_npu` in the model contract, but the
+current-image, per-host gate must still pass before any installation uses it. The quantized fast SSD
+artifact remains CPU-only because OpenVINO rejects its `QLinearConv` graph.
 
 #### Best-available event snapshots
 
@@ -163,6 +194,9 @@ Each candidate still goes through the active classifier's declared preprocessing
 resize mode, interpolation, colour space, normalisation, mean and standard deviation. A generated
 bird crop is marked as already cropped, which prevents a model's optional localisation policy from
 cropping it a second time; it does not bypass the model's normal resize and tensor preparation.
+Low detector confidence is never fused into visual species confidence. It controls candidate
+admission only; classifier evidence and the independent-frame rules decide whether that candidate
+is useful.
 
 YA-WAMF can also use the crop classifications to refine the detection. It requires the same species
 to clear both the active model's recommended confidence and a conservative 0.60 floor at two or more

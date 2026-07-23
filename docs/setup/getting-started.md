@@ -141,8 +141,23 @@ Open your browser to `http://<your-ip>:9852`. You should see the dashboard! Once
 A fresh installation opens the guided setup wizard automatically. In its
 **Admin account & access** step, set an owner password before exposing YA-WAMF
 outside your trusted network. You may explicitly choose to run without a
-password on a trusted network. The wizard can be reopened later from
-**Settings → Data**.
+password on a trusted network. When you create a password, the same response
+also signs the browser in, so the newly protected Settings API remains available
+for the rest of setup. Completing this account decision permanently closes the
+unauthenticated first-run endpoint; later authentication changes require owner
+access through **Settings → Security**.
+
+The remaining steps configure Frigate/MQTT, cameras, the classifier and its
+verified provider, best-available snapshots, optional integrations, an optional retained-history
+import, and telemetry. The history import classifies bird events that Frigate still has and then
+continues as a visible background job; you do not need to wait for it before finishing setup. It
+cannot recreate BirdNET-Go audio that was never stored by YA-WAMF.
+Connection diagnostics use the values currently visible in the form. The final
+review distinguishes **Configured**, **Needs attention**, and **Optional**; this
+is a credential/configuration summary, not a claim that an external service is
+currently online. The wizard can be reopened later from **Settings → Setup wizard**
+in the Settings navigation. In re-run mode, completing, skipping, or backing out
+of a section returns to that review map instead of advancing through unrelated steps.
 
 ### 5. (Optional) Enable Guest Mode
 If you want to share a read‑only public view:

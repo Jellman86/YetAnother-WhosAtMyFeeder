@@ -8,6 +8,56 @@ import pytest
 from app.services.full_visit_clip_service import FullVisitClipService
 
 
+def test_background_trigger_is_bounded_and_deduplicated(monkeypatch):
+    monkeypatch.setattr("app.services.full_visit_clip_service.FULL_VISIT_QUEUE_MAX", 1)
+    service = FullVisitClipService()
+    service._running = True
+
+    with (
+        patch("app.services.full_visit_clip_service.settings.frigate.clips_enabled", True, create=True),
+        patch("app.services.full_visit_clip_service.settings.frigate.recording_clip_enabled", True, create=True),
+        patch("app.services.full_visit_clip_service.settings.media_cache.enabled", True, create=True),
+    ):
+        assert service.trigger_background("evt-one", "cam1") is True
+        assert service.trigger_background("evt-one", "cam1") is False
+        assert service.trigger_background("evt-two", "cam1") is False
+
+    status = service.get_status()
+    assert status["queued"] == 1
+    assert status["queue_full_rejections"] == 1
+
+
+@pytest.mark.asyncio
+async def test_all_full_visit_entry_points_share_the_concurrency_ceiling(monkeypatch):
+    service = FullVisitClipService()
+    monkeypatch.setattr(service, "_auto_generation_enabled", lambda: True)
+    release = asyncio.Event()
+    two_started = asyncio.Event()
+    active = 0
+    peak = 0
+
+    async def controlled_fetch(*_args, **_kwargs):
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        if active == 2:
+            two_started.set()
+        await release.wait()
+        active -= 1
+        return True
+
+    monkeypatch.setattr(service, "_trigger_for_event", controlled_fetch)
+    tasks = [asyncio.create_task(service.trigger_for_event(f"evt-{index}")) for index in range(3)]
+
+    await asyncio.wait_for(two_started.wait(), timeout=1.0)
+    await asyncio.sleep(0)
+    assert peak == 2
+
+    release.set()
+    assert await asyncio.gather(*tasks) == [True, True, True]
+    assert peak == 2
+
+
 @pytest.mark.asyncio
 async def test_trigger_for_event_noops_when_recording_clips_disabled():
     service = FullVisitClipService()

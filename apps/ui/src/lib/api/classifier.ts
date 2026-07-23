@@ -7,6 +7,7 @@ export interface ClassifierStatus {
     labels_count: number;
     enabled: boolean;
     active_model_id?: string | null;
+    effective_model_id?: string | null;
     onnx_available?: boolean;
     openvino_available?: boolean;
     openvino_version?: string | null;
@@ -46,7 +47,9 @@ export interface ClassifierStatus {
     inference_backend?: string;
     fallback_reason?: string | null;
     model_config_warnings?: string[];
+    host_available_providers?: string[];
     available_providers?: string[];
+    provider_preference_order?: string[];
     cuda_enabled?: boolean;
     personalized_rerank_enabled?: boolean;
     personalization_min_feedback_tags?: number;
@@ -68,6 +71,31 @@ export interface ClassifierStatus {
 export async function fetchClassifierStatus(): Promise<ClassifierStatus> {
     const response = await apiFetch(`${API_BASE}/classifier/status`);
     return handleResponse<ClassifierStatus>(response);
+}
+
+export function selectSetupModelId(
+    status: ClassifierStatus,
+    available: ModelMetadata[],
+    installed: InstalledModel[]
+): string {
+    const installedIds = new Set(installed.map((model) => model.id));
+    const effectiveModelId = status.effective_model_id ?? '';
+    if (effectiveModelId && installedIds.has(effectiveModelId)) return effectiveModelId;
+
+    const activeInstalled = installed.find((model) => model.is_active && model.ready !== false);
+    if (activeInstalled) return activeInstalled.id;
+
+    if (status.image_flavor === 'rpi' && installedIds.has('mobilenet_v2_birds')) {
+        return 'mobilenet_v2_birds';
+    }
+
+    const firstInstalled = installed.find((model) => model.ready !== false);
+    if (firstInstalled) return firstInstalled.id;
+
+    const preferredAvailable = status.image_flavor === 'rpi'
+        ? available.find((model) => model.id === 'mobilenet_v2_birds')
+        : undefined;
+    return preferredAvailable?.id ?? status.active_model_id ?? available[0]?.id ?? '';
 }
 
 export type DownloadModelResult = paths['/api/classifier/download']['post']['response'];
@@ -190,18 +218,18 @@ export const MODEL_CATEGORY_INFO: Record<ModelCategory, ModelCategoryInfo> = {
         icon: '🚀',
     },
     cpu_high_accuracy: {
-        label: 'Highest accuracy (CPU)',
-        hint: 'Slower but most accurate. Best for owners who can trade latency for breadth.',
+        label: 'Highest accuracy',
+        hint: 'The broadest, most accurate option. Runtime speed depends on the provider validated on this hardware.',
         icon: '🎯',
     },
     cpu_standard: {
-        label: 'Balanced (CPU)',
-        hint: 'Moderate accuracy and latency on CPU.',
+        label: 'Balanced',
+        hint: 'A practical balance of accuracy, latency, and memory use.',
         icon: '⚖️',
     },
     cpu_alternative: {
-        label: 'Architectural alternatives (CPU)',
-        hint: 'Experimental options for accuracy comparison via the model-eval harness.',
+        label: 'Architectural alternatives',
+        hint: 'Experimental options for accuracy comparison via the model-evaluation harness.',
         icon: '🧪',
     },
     bundled: {
@@ -349,9 +377,10 @@ export async function activateModel(modelId: string): Promise<ModelActionResult>
 export type ModelValidateResult = components['schemas']['ModelValidateResponse'];
 
 /**
- * Validate an installed model on this host: the backend trial-loads it, runs one
- * frame through it, and records whether it produced finite output here. Clears the
- * post-install selection gate on success and restores the previously active model.
+ * Validate an installed model on this host. The backend trial-activates it and
+ * isolates every provider in the running image/host/model intersection, requiring
+ * finite CPU-baseline-consistent output before recording eligibility and restoring
+ * the previously active model.
  */
 export async function validateModel(modelId: string): Promise<ModelValidateResult> {
     const response = await apiFetch(`${API_BASE}/models/${encodeURIComponent(modelId)}/validate`, {

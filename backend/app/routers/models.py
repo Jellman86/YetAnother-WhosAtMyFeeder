@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel, Field, JsonValue
 from typing import List, Optional
 from app.config import settings
-from app.services.model_manager import model_manager
-from app.services.model_validation import run_validation_probe
+from app.services.model_manager import model_manager, registry_artifact_kind
+from app.services.model_validation import activation_provider_recommendation, run_validation_probe
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 from app.services.classifier_service import get_classifier
 from app.auth import require_owner, AuthContext
@@ -21,6 +21,14 @@ class ModelValidateDevice(BaseModel):
     provider: str
     ok: bool
     latency_ms: Optional[float] = None
+    backend: Optional[str] = None
+    compiles: Optional[bool] = None
+    finite: Optional[bool] = None
+    baseline: bool = False
+    images_evaluated: int = 0
+    images_compared: int = 0
+    matches_baseline: Optional[bool] = None
+    error: Optional[str] = None
 
 
 class ModelValidateResponse(BaseModel):
@@ -29,11 +37,26 @@ class ModelValidateResponse(BaseModel):
     provider: str
     reason: str
     latency_ms: Optional[float] = None
-    devices: List[ModelValidateDevice] = []
-    # When the host swept multiple devices, the fastest one that passed — set as the
-    # inference provider so the model runs on the best hardware for this machine.
+    devices: List[ModelValidateDevice] = Field(default_factory=list)
+    providers: List[ModelValidateDevice] = Field(default_factory=list)
+    image_flavor: Optional[str] = None
+    # Fastest passing provider. It is applied only if subsequent activation succeeds,
+    # so validating a candidate never mutates the currently live model session.
     best_provider: Optional[str] = None
     provider_set: bool = False
+
+
+def _require_classifier_artifact(target: InstalledModel) -> None:
+    metadata_kind = target.metadata.artifact_kind if target.metadata is not None else None
+    artifact_kind = str(metadata_kind or registry_artifact_kind(target.id)).strip().lower()
+    if artifact_kind != "classifier":
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "This artifact is a crop detector, not a classifier model. "
+                "Crop detectors are managed by the automatic best-image policy."
+            ),
+        )
 
 
 @router.get("/models/available", response_model=List[ModelMetadata])
@@ -78,18 +101,19 @@ async def get_download_status(model_id: str, auth: AuthContext = Depends(require
 
 @router.post("/models/{model_id}/validate", response_model=ModelValidateResponse)
 async def validate_model(model_id: str, auth: AuthContext = Depends(require_owner)):
-    """Validate an installed model on this host and pick its fastest inference device.
+    """Validate an installed model and recommend its fastest passing provider.
 
-    Sweeps this model's OpenVINO devices (CPU / Intel GPU / NPU), records which passed,
-    and — when a faster accelerator wins — sets it as the inference provider so the
-    model runs on the best hardware for this machine. On a CPU-only / CUDA host it runs
-    one frame on the resolved provider instead. Clears the selection gate on success and
-    restores the previously active model. Owner only.
+    Sweeps every provider in the current image/host/model contract, records which
+    passed, and returns the fastest verified provider. The recommendation is applied
+    only if model activation subsequently succeeds, so validation cannot disturb the
+    live model/provider pair. Clears the selection gate on success and restores the
+    previously active model. Owner only.
     """
     installed = await model_manager.list_installed_models()
     target = next((m for m in installed if m.id == model_id), None)
     if target is None:
         raise HTTPException(status_code=404, detail="Model not installed")
+    _require_classifier_artifact(target)
     if not target.ready:
         raise HTTPException(
             status_code=409,
@@ -100,16 +124,9 @@ async def validate_model(model_id: str, auth: AuthContext = Depends(require_owne
     # before returning, so no extra reconciliation is needed here.
     result = await run_validation_probe(model_id)
 
-    # Apply the fastest validated device as the inference provider, but never override
-    # a working setup with a worse one: only change it when the probe chose a provider
-    # and it differs from what is configured.
-    provider_set = False
-    best = result.get("best_provider")
-    if result.get("ok") and best and best != settings.classification.inference_provider:
-        settings.classification.inference_provider = best
-        await settings.save()
-        provider_set = True
-    result["provider_set"] = provider_set
+    # Validation is a trial: keep the live model and its provider unchanged. The
+    # recommended provider is applied atomically only after activation succeeds.
+    result["provider_set"] = False
     return result
 
 
@@ -125,6 +142,7 @@ async def activate_model(model_id: str, background_tasks: BackgroundTasks, auth:
     target = next((m for m in installed if m.id == model_id), None)
     if target is None:
         raise HTTPException(status_code=404, detail="Model not installed")
+    _require_classifier_artifact(target)
     if not target.validated:
         raise HTTPException(
             status_code=409,
@@ -137,6 +155,9 @@ async def activate_model(model_id: str, background_tasks: BackgroundTasks, auth:
 
     # Keep settings.classification.model in sync so config.json reflects the active model
     settings.classification.model = model_id
+    recommended_provider = activation_provider_recommendation(model_id)
+    if recommended_provider:
+        settings.classification.inference_provider = recommended_provider
     await settings.save()
 
     # Reload the classifier in the background to prevent blocking API timeouts

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import inspect
+import math
 from typing import Any
 
 import structlog
@@ -17,6 +18,7 @@ _CROPPED_SNAPSHOT_SOURCES = frozenset(
         "frigate_snapshot_cropped",
         "high_quality_bird_crop",
         "hq_candidate_frigate_hint_crop",
+        "hq_candidate_frigate_snapshot_fallback",
         "hq_candidate_model_crop",
     }
 )
@@ -30,12 +32,76 @@ _FULL_FRAME_SNAPSHOT_SOURCES = frozenset(
         "hq_candidate_full_frame",
     }
 )
+_FRIGATE_HINT_ALIGNED_SNAPSHOT_SOURCES = frozenset(
+    {
+        "frigate_snapshot",
+        "frigate_snapshot_uncropped",
+    }
+)
 
 
 @dataclass(frozen=True)
 class ClassificationInputProvenance:
     input_source: str
     is_cropped: bool
+
+
+def _validated_frigate_hint(value: Any) -> list[float | int] | None:
+    """Copy a usable Frigate ``[left, top, width, height]`` hint.
+
+    Frigate emits normalized coordinates today, while the classifier also accepts
+    pixel coordinates. Keep both contracts, but reject malformed/non-finite data
+    before it crosses process boundaries or influences crop selection.
+    """
+    if not isinstance(value, (list, tuple)) or len(value) != 4:
+        return None
+    if any(isinstance(coordinate, bool) or not isinstance(coordinate, (int, float)) for coordinate in value):
+        return None
+    if not all(math.isfinite(float(coordinate)) for coordinate in value):
+        return None
+
+    left, top, width, height = value
+    if float(left) < 0.0 or float(top) < 0.0 or float(width) <= 0.0 or float(height) <= 0.0:
+        return None
+    return list(value)
+
+
+def build_snapshot_classification_input_context(
+    *,
+    event_id: str,
+    event_data: dict[str, Any] | None,
+    provenance: ClassificationInputProvenance,
+) -> dict[str, object]:
+    """Build the canonical context for a snapshot classification request.
+
+    Completed Frigate snapshots are fetched explicitly as full frames so their
+    representation does not depend on the installed Frigate version or saved
+    snapshot format. When that frame is aligned with the event metadata, request
+    local reconstruction of Frigate's crop before classification. This is input
+    restoration, not the selected model's optional crop-detector policy. A
+    snapshot already known to be cropped must never receive those hints, which
+    prevents applying full-frame coordinates to a smaller image.
+    """
+    context: dict[str, object] = {
+        "is_cropped": bool(provenance.is_cropped),
+        "event_id": str(event_id),
+        "input_source": str(provenance.input_source),
+    }
+    if provenance.is_cropped or provenance.input_source not in _FRIGATE_HINT_ALIGNED_SNAPSHOT_SOURCES:
+        return context
+
+    event_payload = event_data if isinstance(event_data, dict) else {}
+    payload = event_payload.get("data")
+    payload = payload if isinstance(payload, dict) else {}
+    frigate_box = _validated_frigate_hint(payload.get("box") or event_payload.get("box"))
+    frigate_region = _validated_frigate_hint(payload.get("region") or event_payload.get("region"))
+    if frigate_box is not None:
+        context["frigate_box"] = frigate_box
+    if frigate_region is not None:
+        context["frigate_region"] = frigate_region
+    if frigate_box is not None or frigate_region is not None:
+        context["restore_frigate_snapshot_crop"] = True
+    return context
 
 
 def cached_snapshot_input_provenance(metadata: dict[str, Any] | None) -> ClassificationInputProvenance:
@@ -91,5 +157,6 @@ async def load_snapshot_classification_input(
             metadata = None
         return cached, cached_snapshot_input_provenance(metadata)
 
-    snapshot = await client.get_snapshot(event_id, crop=True, quality=95)
-    return snapshot, frigate_snapshot_input_provenance(event_data)
+    provenance = frigate_snapshot_input_provenance(event_data)
+    snapshot = await client.get_snapshot(event_id, crop=provenance.is_cropped, quality=95)
+    return snapshot, provenance

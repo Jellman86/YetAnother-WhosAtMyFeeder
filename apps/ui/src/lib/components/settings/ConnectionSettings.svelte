@@ -91,7 +91,7 @@
                     id: 'frigate',
                     label: $_('settings.frigate.stage_frigate', { default: 'Frigate API' }),
                     run: async () => {
-                        const r = await testFrigateConnection();
+                        const r = await testFrigateConnection(frigateUrl.trim());
                         return {
                             status: r.status,
                             message: r.status === 'ok'
@@ -103,7 +103,13 @@
                 {
                     id: 'mqtt',
                     label: $_('settings.frigate.stage_mqtt', { default: 'MQTT broker publish' }),
-                    run: testMQTTPublish
+                    run: () => testMQTTPublish({
+                        server: mqttServer.trim(),
+                        port: mqttPort,
+                        auth: mqttAuth,
+                        username: mqttUsername.trim(),
+                        password: mqttPassword
+                    })
                 }
             ],
             (stages) => (fcStages = stages)

@@ -71,7 +71,8 @@ When Frigate detects a bird at your feeder, YA-WAMF:
 1. Captures the snapshot and classifies it with local AI (or trusted Frigate sublabels).
 2. Optionally correlates with BirdNET-Go audio detections.
 3. Stores the detection, pushes notifications, and updates the live UI.
-4. Optionally upgrades the cached event image later using a frame from the recorded clip.
+4. Optionally upgrades the cached event image from Frigate's final clean best frame, promoting a
+   recorded-frame crop only when it provides stronger compatible classification evidence.
 5. Optionally performs deeper clip analysis (15+ frames) for better accuracy, preferring retained
    local recordings and event clips before asking Frigate for media again.
 6. Adds optional enrichments like weather, BirdWeather reporting, and AI naturalist insights.
@@ -320,7 +321,7 @@ All settings are managed through the web UI under **Settings**. Configuration is
 
 ### 🔐 Built-in Authentication
 - **Authentication:** Disabled by default for backward compatibility. Enable it in **Settings > Security** and set an admin password before exposing YA-WAMF outside your trusted network.
-- **Initial Setup Wizard:** A fresh installation opens the guided setup automatically. The account step lets you set an owner password or explicitly continue without authentication on a trusted network. You can reopen the wizard later from **Settings → Data**.
+- **Initial Setup Wizard:** A fresh installation opens the guided setup automatically. The account step lets you set an owner password (and signs that browser in immediately) or explicitly continue without authentication on a trusted network. Later steps validate the selected model on the running hardware and can optionally import bird events Frigate still retains. You can reopen the non-destructive section map later from **Settings → Setup wizard** in the Settings navigation.
 - **Guest Mode:** Optionally enable a "Public View" to share your bird detections with friends (read-only) while keeping settings and admin tools secure.
 - **Security:** Includes login rate limiting, session management, and security headers.
 

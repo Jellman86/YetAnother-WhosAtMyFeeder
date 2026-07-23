@@ -3,6 +3,7 @@ import numpy as np
 import sys
 import types
 import asyncio
+import json
 import threading
 import importlib
 from concurrent.futures import ThreadPoolExecutor
@@ -34,6 +35,7 @@ from app.services.classifier_service import (  # noqa: E402
     _normalize_inference_provider,
     _probe_openvino_gpu_plugin_error_safe,
     _probe_onnxruntime_cuda_provider_safe,
+    _provider_capability_contract,
     _reconcile_ort_active_provider,
     _resolve_inference_selection,
     _select_video_frame_indices,
@@ -594,6 +596,38 @@ async def test_classifier_service_skips_main_bird_model_init_in_subprocess_mode(
             await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
+async def test_classifier_startup_reports_unavailable_when_model_does_not_load():
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch.object(classifier_service_module.startup_status, "publish") as publish,
+    ):
+        service = ClassifierService()
+
+    publish.assert_any_call("model_unavailable", 60)
+    await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_status_distinguishes_configured_and_effective_model_ids():
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+
+    with patch.object(
+        service,
+        "_resolve_active_bird_model_spec",
+        return_value={
+            "model_id": "mobilenet_v2_birds",
+            "supported_inference_providers": ["cpu"],
+        },
+    ):
+        status = service.get_status()
+
+    assert status["effective_model_id"] == "mobilenet_v2_birds"
+    assert "active_model_id" in status
+    await service.shutdown()
 
 
 @pytest.mark.asyncio
@@ -1210,7 +1244,7 @@ async def test_init_bird_model_surfaces_model_config_provider_warning_in_status(
         await service.shutdown()
 
 
-def test_host_validated_provider_policy_suppresses_only_resolved_registry_warning(monkeypatch):
+def test_host_validated_provider_policy_never_widens_current_model_contract(monkeypatch):
     provider_warning = (
         "Installed model_config.json advertised providers no longer supported by the current "
         "registry and they were ignored: intel_gpu"
@@ -1233,9 +1267,25 @@ def test_host_validated_provider_policy_suppresses_only_resolved_registry_warnin
         model_id="eva02_large_inat21",
     )
 
-    assert resolved["supported_inference_providers"] == ["cpu", "intel_cpu", "intel_gpu"]
-    assert resolved["model_config_warnings"] == [unrelated_warning]
-    assert resolved["host_added_inference_providers"] == ["intel_gpu"]
+    assert resolved["supported_inference_providers"] == ["cpu", "intel_cpu"]
+    assert resolved["model_config_warnings"] == [provider_warning, unrelated_warning]
+    assert resolved["host_added_inference_providers"] == []
+    assert resolved["host_validated_inference_providers"] == ["intel_cpu"]
+
+
+def test_live_classifier_ignores_validation_from_another_image_flavor(tmp_path, monkeypatch):
+    eligibility = {
+        "schema_version": 2,
+        "generated_at": "2026-07-21T00:00:00Z",
+        "models": {"small_birds": ["cpu"]},
+        "model_image_flavors": {"small_birds": "intel"},
+    }
+    (tmp_path / "device_eligibility.json").write_text(json.dumps(eligibility), encoding="utf-8")
+    monkeypatch.setenv("YAWAMF_EVAL_RUNS_DIR", str(tmp_path))
+    monkeypatch.setenv("YAWAMF_IMAGE_FLAVOR", "cuda")
+
+    assert classifier_service_module._host_validated_providers("small_birds") == []
+    assert classifier_service_module._host_device_eligibility_summary()["model_count"] == 0
 
 
 @pytest.mark.asyncio
@@ -3677,10 +3727,19 @@ async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exist
             return np.array([0.84, 0.16], dtype=np.float32)
 
     class _CropService:
+        def __init__(self):
+            self.normal_calls = 0
+            self.candidate_calls = 0
+
         def get_status(self):
             return {"installed": True, "enabled_for_runtime": True}
 
         def generate_classification_crop(self, image):
+            self.normal_calls += 1
+            return {"crop_image": None, "reason": "below_threshold"}
+
+        def generate_classification_candidate_crop(self, image):
+            self.candidate_calls += 1
             return {
                 "crop_image": image.crop((20, 20, 80, 80)),
                 "box": (20, 20, 80, 80),
@@ -3691,7 +3750,8 @@ async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exist
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
         service = ClassifierService()
         service._models["bird"] = _FrameAwareBirdModel()
-        service._bird_crop_service = _CropService()
+        crop_service = _CropService()
+        service._bird_crop_service = crop_service
         monkeypatch.setattr(classifier_service_module.cv2, "VideoCapture", _ThreeFrameCapture)
         monkeypatch.setattr(classifier_service_module.cv2, "cvtColor", lambda frame, _code: frame)
         monkeypatch.setattr(settings.classification, "min_confidence", 0.45)
@@ -3704,6 +3764,50 @@ async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exist
 
         assert results[0]["input_source"] == "model_crop"
         assert results[0]["input_is_cropped"] is True
+        assert crop_service.candidate_calls == 3
+        assert crop_service.normal_calls == 0
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_video_model_crop_uses_frigate_hint_as_guided_search_region(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    class _CropService:
+        def __init__(self):
+            self.guided_calls = []
+
+        def get_status(self):
+            return {"installed": True, "enabled_for_runtime": True}
+
+        def generate_guided_classification_candidate_crop(self, image, *, search_box):
+            self.guided_calls.append((image.size, search_box))
+            return {
+                "crop_image": image.crop((20, 20, 80, 80)),
+                "box": (20, 20, 80, 80),
+                "confidence": 0.88,
+                "reason": "selected",
+                "strategy": "frigate_guided",
+            }
+
+        def generate_classification_candidate_crop(self, _image):
+            raise AssertionError("native candidate path should not run when a Frigate hint exists")
+
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        crop_service = _CropService()
+        service._bird_crop_service = crop_service
+        input_context = classifier_service_module._normalize_classification_input_context(
+            {"is_cropped": False, "frigate_box": [0.1, 0.1, 0.78, 0.78]}
+        )
+
+        candidates = service._video_frame_candidates(
+            Image.new("RGB", (100, 100), "white"),
+            input_context=input_context,
+        )
+
+        assert [source for source, _image in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
+        assert crop_service.guided_calls == [((100, 100), (1, 1, 97, 97))]
         await service.shutdown()
 
 
@@ -4268,6 +4372,86 @@ async def test_classifier_service_prefers_frigate_box_hint_before_detector(mock_
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_restores_completed_frigate_crop_when_model_crop_policy_is_disabled(
+    mock_tflite, mock_os_path_exists
+):
+    class _CropAwareBirdModel:
+        def __init__(self):
+            self.loaded = True
+            self.error = None
+            self.labels = ["Robin"]
+            self.seen_images = []
+
+        def classify(self, image, input_context=None):
+            self.seen_images.append(image)
+            return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        bird_model = _CropAwareBirdModel()
+        service._models["bird"] = bird_model
+        service._bird_crop_service = None
+        spec_resolver = MagicMock(return_value={"crop_generator": {"enabled": False}})
+        service._resolve_active_bird_model_spec = spec_resolver
+
+        image = Image.new("RGB", (800, 600), color="red")
+        results = service.classify(
+            image,
+            input_context={
+                "is_cropped": False,
+                "event_id": "evt-completed",
+                "input_source": "frigate_snapshot",
+                "frigate_box": [0.25, 0.25, 0.25, 0.25],
+                "restore_frigate_snapshot_crop": True,
+            },
+        )
+
+        assert results[0]["label"] == "Robin"
+        assert results[0]["input_source"] == "snapshot_frigate_hint_crop"
+        assert results[0]["input_is_cropped"] is True
+        assert bird_model.seen_images[0].size == (300, 300)
+        spec_resolver.assert_not_called()
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_service_never_restores_frigate_crop_over_known_crop(mock_tflite, mock_os_path_exists):
+    class _CropAwareBirdModel:
+        def __init__(self):
+            self.loaded = True
+            self.error = None
+            self.labels = ["Robin"]
+            self.seen_images = []
+
+        def classify(self, image, input_context=None):
+            self.seen_images.append(image)
+            return [{"label": "Robin", "score": 0.91, "index": 0}]
+
+    with patch.object(ClassifierService, "_init_bird_model", return_value=None):
+        service = ClassifierService()
+        bird_model = _CropAwareBirdModel()
+        service._models["bird"] = bird_model
+        service._resolve_active_bird_model_spec = MagicMock(return_value={"crop_generator": {"enabled": True}})
+
+        image = Image.new("RGB", (120, 120), color="red")
+        results = service.classify(
+            image,
+            input_context={
+                "is_cropped": True,
+                "input_source": "frigate_snapshot_cropped",
+                "frigate_box": [0.25, 0.25, 0.5, 0.5],
+                "restore_frigate_snapshot_crop": True,
+            },
+        )
+
+        assert bird_model.seen_images[0] is image
+        assert results[0]["input_source"] == "frigate_snapshot_cropped"
+        assert results[0]["input_is_cropped"] is True
+        service._resolve_active_bird_model_spec.assert_not_called()
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_can_prefer_crop_model_before_frigate_hint(mock_tflite, mock_os_path_exists):
     class _CropAwareBirdModel:
         def __init__(self):
@@ -4511,6 +4695,76 @@ def test_resolve_inference_selection_auto_prefers_intel_gpu_then_cuda():
     assert sel["backend"] == "openvino"
     assert sel["openvino_device"] == "GPU"
     assert sel["fallback_reason"] is None
+
+
+def test_provider_capability_contract_filters_image_and_orders_active_runtime_path():
+    contract = _provider_capability_contract(
+        caps={
+            "ort_available": True,
+            "cuda_available": True,
+            "openvino_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+            "intel_npu_available": True,
+        },
+        packaged_providers=("cpu", "intel_cpu", "intel_gpu", "intel_npu"),
+        supported_providers=["cpu", "intel_cpu", "intel_gpu", "intel_npu"],
+        active_backend="openvino",
+        active_provider="intel_npu",
+    )
+
+    assert contract == {
+        "host_available_providers": ["intel_npu", "intel_cpu", "cpu", "intel_gpu"],
+        "available_providers": ["intel_npu", "intel_cpu", "cpu", "intel_gpu"],
+        "provider_preference_order": ["intel_npu", "intel_cpu", "cpu"],
+    }
+    assert "cuda" not in contract["available_providers"]
+
+
+def test_provider_capability_contract_hides_hardware_the_active_model_cannot_run():
+    contract = _provider_capability_contract(
+        caps={
+            "ort_available": True,
+            "cuda_available": False,
+            "openvino_available": True,
+            "intel_cpu_available": True,
+            "intel_gpu_available": True,
+            "intel_npu_available": True,
+        },
+        packaged_providers=("cpu", "intel_cpu", "intel_gpu", "intel_npu"),
+        supported_providers=["cpu", "intel_cpu"],
+        active_backend="openvino",
+        active_provider="intel_cpu",
+    )
+
+    assert contract == {
+        "host_available_providers": ["intel_cpu", "cpu", "intel_npu", "intel_gpu"],
+        "available_providers": ["intel_cpu", "cpu"],
+        "provider_preference_order": ["intel_cpu", "cpu"],
+    }
+
+
+def test_provider_capability_contract_keeps_cuda_fallback_order_truthful():
+    contract = _provider_capability_contract(
+        caps={
+            "ort_available": True,
+            "cuda_available": True,
+            "openvino_available": False,
+            "intel_cpu_available": False,
+            "intel_gpu_available": False,
+            "intel_npu_available": False,
+        },
+        packaged_providers=("cpu", "cuda"),
+        supported_providers=["cpu", "cuda"],
+        active_backend="onnxruntime",
+        active_provider="cuda",
+    )
+
+    assert contract == {
+        "host_available_providers": ["cuda", "cpu"],
+        "available_providers": ["cuda", "cpu"],
+        "provider_preference_order": ["cuda", "cpu"],
+    }
 
 
 @pytest.mark.parametrize(

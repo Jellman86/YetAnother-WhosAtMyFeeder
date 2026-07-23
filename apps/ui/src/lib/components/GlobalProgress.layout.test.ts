@@ -19,9 +19,12 @@ describe('Global progress layout', () => {
         expect(mobileTopBarSource).toContain('h-[var(--app-chrome-height,4rem)]');
     });
 
-    it('caps expanded details height and limits hover expansion to hover-capable pointers', () => {
+    it('caps expanded details height and uses explicit, dismissible disclosure', () => {
         expect(bannerSource).toContain('max-h-[40vh] overflow-auto');
-        expect(bannerSource).toContain("(hover: hover) and (pointer: fine)");
+        expect(bannerSource).toContain('onclick={() => showDetails = !showDetails}');
+        expect(bannerSource).toContain("event.key === 'Escape'");
+        expect(bannerSource).toContain("window.addEventListener('pointerdown', closeOnOutsidePress)");
+        expect(bannerSource).not.toContain('onmouseenter');
     });
 
     it('surfaces queue-only work lanes in the global progress details', () => {
@@ -33,6 +36,12 @@ describe('Global progress layout', () => {
         expect(bannerSource).toContain('presentation.queuedLabel');
         expect(bannerSource).not.toContain('{#each detailJobs as item (item.job.id)}');
         expect(bannerSource).not.toContain('presentActiveJob');
+    });
+
+    it('polls backend backfill status only while a running backfill is visible', () => {
+        expect(bannerSource).toContain('hasRunningBackfill');
+        expect(bannerSource).toContain("item.status === 'running'");
+        expect(bannerSource).toContain('return backfillStatusStore.retain();');
     });
 
     it('removes desktop header route tabs and the appearance layout picker', () => {

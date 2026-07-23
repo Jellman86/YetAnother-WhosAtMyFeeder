@@ -2,7 +2,10 @@
     import { onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { fade } from 'svelte/transition';
+    import { trapFocus } from '../../utils/focus-trap';
+    import { portal } from '../../utils/portal';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
+    import BrandMark from '../BrandMark.svelte';
     import WelcomeStep from './WelcomeStep.svelte';
     import AccountStep from './AccountStep.svelte';
     import ConnectionStep from './ConnectionStep.svelte';
@@ -10,50 +13,66 @@
     import ModelStep from './ModelStep.svelte';
     import QualityStep from './QualityStep.svelte';
     import IntegrationsStep from './IntegrationsStep.svelte';
+    import HistoryStep from './HistoryStep.svelte';
     import TelemetryStep from './TelemetryStep.svelte';
     import ReviewStep from './ReviewStep.svelte';
-
-    const STEP_ICONS: Record<string, string> = {
-        welcome: '👋',
-        account: '🔐',
-        connection: '🔗',
-        cameras: '📷',
-        model: '🧠',
-        quality: '✨',
-        integrations: '🧩',
-        telemetry: '📊',
-        review: '✅'
-    };
+    import SetupStepIcon from './SetupStepIcon.svelte';
 
     let step = $derived(setupWizardStore.current);
     let index = $derived(setupWizardStore.index);
     let progressPct = $derived(Math.round(setupWizardStore.progress * 100));
     let canExit = $derived(setupWizardStore.mode === 'rerun');
     let steps = $derived(setupWizardStore.steps);
+    let modalElement = $state<HTMLElement | null>(null);
+    let previouslyFocused: HTMLElement | null = null;
 
     onMount(() => {
         const previousOverflow = document.body.style.overflow;
+        previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         document.body.style.overflow = 'hidden';
+        const releaseFocus = modalElement ? trapFocus(modalElement) : () => {};
         return () => {
+            releaseFocus();
             document.body.style.overflow = previousOverflow;
+            previouslyFocused?.focus();
         };
     });
+
+    function handleKeydown(event: KeyboardEvent): void {
+        if (
+            event.key === 'Escape'
+            && canExit
+            && modalElement?.contains(event.target as Node)
+        ) {
+            event.preventDefault();
+            setupWizardStore.close();
+        }
+    }
 </script>
 
-<div class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-900/60 to-brand-950/50 p-4 backdrop-blur-sm">
-    <div class="my-8 w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900">
+<svelte:window onkeydown={handleKeydown} />
+
+<div use:portal role="presentation" class="fixed inset-0 z-[70] flex items-center justify-center overflow-y-auto bg-gradient-to-br from-slate-900/60 to-brand-950/50 p-4 backdrop-blur-sm">
+    <div
+        bind:this={modalElement}
+        role="dialog"
+        aria-modal="true"
+        aria-label={$_('nav.setup_wizard', { default: 'Setup wizard' })}
+        tabindex="-1"
+        class="my-8 w-full max-w-2xl overflow-hidden rounded-3xl border border-white/10 bg-white shadow-2xl ring-1 ring-black/5 dark:bg-slate-900"
+    >
         <!-- Header -->
         <div class="space-y-3 bg-gradient-to-r from-brand-50 via-accent-50 to-white px-6 py-4 dark:from-brand-950/40 dark:via-accent-950/20 dark:to-slate-900">
             <div class="flex items-center justify-between">
                 <span class="flex items-center gap-1.5 text-sm font-black tracking-tight text-brand-700 dark:text-brand-300">
-                    <span aria-hidden="true">🐦</span> YA-WAMF
+                    <BrandMark alt="" class="h-6 w-6" width={24} height={24} sizes="24px" /> YA-WAMF
                 </span>
                 <div class="flex items-center gap-3">
                     <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">
                         {$_('setup.step_of', { values: { n: setupWizardStore.position, total: setupWizardStore.total }, default: `Step ${setupWizardStore.position} of ${setupWizardStore.total}` })}
                     </span>
                     {#if canExit}
-                        <button type="button" class="rounded-lg p-1 text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 dark:hover:bg-slate-700/60 dark:hover:text-slate-200" aria-label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()}>
+                        <button type="button" class="flex h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:hover:bg-slate-700/60 dark:hover:text-slate-200" aria-label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()}>
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     {/if}
@@ -61,7 +80,7 @@
             </div>
 
             <!-- Step dots -->
-            <div class="flex items-center gap-1.5">
+            <div class="flex items-center gap-1.5" aria-hidden="true">
                 {#each steps as s, i}
                     <div
                         class="h-1.5 flex-1 rounded-full transition-colors duration-300 {i < index ? 'bg-brand-500' : i === index ? 'bg-brand-400' : 'bg-slate-200 dark:bg-slate-700'}"
@@ -76,7 +95,7 @@
         <div class="max-h-[70vh] overflow-y-auto p-6" aria-live="polite">
             {#key step.id}
                 <div in:fade={{ duration: 180 }}>
-                    <div class="mb-4 flex items-center gap-2 text-3xl" aria-hidden="true">{STEP_ICONS[step.id]}</div>
+                    <div class="mb-4"><SetupStepIcon step={step.id} /></div>
                     {#if step.id === 'welcome'}
                         <WelcomeStep />
                     {:else if step.id === 'account'}
@@ -91,6 +110,8 @@
                         <QualityStep />
                     {:else if step.id === 'integrations'}
                         <IntegrationsStep />
+                    {:else if step.id === 'history'}
+                        <HistoryStep />
                     {:else if step.id === 'telemetry'}
                         <TelemetryStep />
                     {:else if step.id === 'review'}

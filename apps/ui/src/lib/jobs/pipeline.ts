@@ -110,7 +110,9 @@ export function buildJobsPipelineModel(
     for (const item of activeJobs) {
         if (shouldSuppressKind(item.kind)) continue;
         const counters = ensure(item.kind);
-        if (item.status === 'stale') {
+        if (item.status === 'queued') {
+            continue;
+        } else if (item.status === 'stale') {
             counters.stale += 1;
         } else {
             counters.running += 1;

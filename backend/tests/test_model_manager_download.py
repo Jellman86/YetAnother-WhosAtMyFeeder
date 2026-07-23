@@ -461,7 +461,10 @@ def test_get_active_model_spec_prefers_installed_model_config(tmp_path, monkeypa
     assert spec["preprocessing"]["resize_mode"] == "center_crop"
     assert spec["preprocessing"]["crop_pct"] == pytest.approx(0.9)
     assert spec["preprocessing"]["mean"] == [0.1, 0.2, 0.3]
-    assert spec["supported_inference_providers"] == ["cpu"]
+    # Provider safety is application-owned: an old installed sidecar may supply
+    # artifact preprocessing, but it cannot hide providers validated by the
+    # current registry.
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
     assert spec["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
 
 
@@ -570,7 +573,7 @@ def test_get_active_model_spec_ignores_invalid_installed_model_config_fields(tmp
     assert spec["label_grouping"] == {}
 
 
-def test_get_active_model_spec_filters_unsupported_installed_providers_and_records_warning(tmp_path, monkeypatch):
+def test_get_active_model_spec_uses_registry_provider_policy_when_installed_sidecar_is_stale(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 
     model_dir = tmp_path / "eva02_large_inat21"
@@ -581,9 +584,6 @@ def test_get_active_model_spec_filters_unsupported_installed_providers_and_recor
         json.dumps(
             {
                 "runtime": "onnx",
-                # Use a synthetic unsupported provider name so the test
-                # still exercises the filter behavior even though
-                # intel_gpu is now in the registry list.
                 "supported_inference_providers": ["legacy_unsupported", "intel_cpu", "cpu"],
             }
         ),
@@ -595,12 +595,14 @@ def test_get_active_model_spec_filters_unsupported_installed_providers_and_recor
 
     spec = manager.get_active_model_spec()
 
-    assert spec["supported_inference_providers"] == ["intel_cpu", "cpu"]
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
     assert spec["model_config_warnings"] == [
-        "Installed model_config.json advertised providers no longer supported by the current registry and they were ignored: legacy_unsupported"
+        "Installed model_config.json provider metadata is stale; current registry policy was applied "
+        "(removed: legacy_unsupported; added: cuda, intel_npu)."
     ]
     assert spec["model_config_provider_warnings"] == spec["model_config_warnings"]
     assert spec["model_config_registry_unsupported_providers"] == ["legacy_unsupported"]
+    assert spec["model_config_registry_missing_providers"] == ["cuda", "intel_npu"]
 
 
 def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_list_is_only_unsupported(
@@ -630,12 +632,38 @@ def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_li
 
     spec = manager.get_active_model_spec()
 
-    # EVA-02 stays excluded from Intel GPU globally (historical SIGABRT risk),
-    # while the Arrow Lake NPU path is validated.
     assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
     assert spec["model_config_warnings"] == [
-        "Installed model_config.json only advertised providers no longer supported by the current registry: legacy_unsupported. Falling back to registry-supported providers."
+        "Installed model_config.json provider metadata is stale; current registry policy was applied "
+        "(removed: legacy_unsupported; added: cpu, cuda, intel_cpu, intel_npu)."
     ]
+
+
+def test_get_active_model_spec_does_not_let_old_sidecar_hide_newly_validated_npu(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    model_dir = tmp_path / "convnext_large_inat21"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    (model_dir / "model.onnx").write_bytes(b"onnx")
+    (model_dir / "labels.txt").write_text("label\n", encoding="utf-8")
+    (model_dir / "model_config.json").write_text(
+        json.dumps(
+            {
+                "runtime": "onnx",
+                "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manager = ModelManager()
+    manager.active_model_id = "convnext_large_inat21"
+
+    spec = manager.get_active_model_spec()
+
+    assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
+    assert spec["model_config_registry_unsupported_providers"] == ["intel_gpu"]
+    assert spec["model_config_registry_missing_providers"] == ["intel_npu"]
 
 
 def test_get_active_model_spec_disables_invalid_crop_generator_in_installed_model_config(tmp_path, monkeypatch):
@@ -706,6 +734,29 @@ async def test_list_installed_models_includes_crop_detector_when_downloaded(monk
     assert by_id["bird_crop_detector"].metadata is not None
 
 
+def test_exact_crop_detector_spec_never_falls_back_to_fast(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+    fast_dir = tmp_path / "bird_crop_detector"
+    fast_dir.mkdir(parents=True)
+    (fast_dir / "model.onnx").write_bytes(b"fast")
+    (fast_dir / "model_config.json").write_text("{}", encoding="utf-8")
+
+    manager = ModelManager()
+    runtime_spec = manager.get_crop_detector_spec("accurate")
+    exact_spec = manager.get_crop_detector_spec_by_model_id("bird_crop_detector_accurate_yolox_tiny")
+
+    assert runtime_spec["model_id"] == "bird_crop_detector"
+    assert runtime_spec["reason"] == "fallback_fast"
+    assert exact_spec["model_id"] == "bird_crop_detector_accurate_yolox_tiny"
+    assert exact_spec["healthy"] is False
+    assert exact_spec["reason"] == "not_installed"
+
+
+def test_exact_crop_detector_spec_rejects_classifier():
+    with pytest.raises(ValueError, match="Unknown crop detector"):
+        ModelManager().get_crop_detector_spec_by_model_id("mobilenet_v2_birds")
+
+
 @pytest.mark.asyncio
 async def test_list_installed_models_reports_incomplete_classifier_install(monkeypatch, tmp_path):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
@@ -743,8 +794,32 @@ async def test_activate_model_rejects_incomplete_classifier_install(monkeypatch,
     assert manager.active_model_id != "convnext_large_inat21"
 
 
-def test_get_active_model_spec_falls_back_when_active_classifier_install_incomplete(monkeypatch, tmp_path):
+def test_get_active_model_spec_falls_back_to_bundled_model_with_registry_contract(monkeypatch, tmp_path):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    bundled_dir = tmp_path / "bundled"
+    bundled_dir.mkdir()
+    (bundled_dir / "model.tflite").write_bytes(b"tflite")
+    (bundled_dir / "labels.txt").write_text("bird\n", encoding="utf-8")
+    (bundled_dir / "model_config.json").write_text(
+        json.dumps(
+            {
+                "model_id": "mobilenet_v2_birds",
+                "runtime": "tflite",
+                "input_size": 224,
+                "supported_inference_providers": ["cpu"],
+                "preprocessing": {
+                    "color_space": "RGB",
+                    "resize_mode": "letterbox",
+                    "padding_color": 128,
+                    "normalization": "uint8",
+                },
+                "crop_generator": {"enabled": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("app.services.model_manager.BUNDLED_MODELS_DIR", str(bundled_dir))
 
     model_dir = tmp_path / "convnext_large_inat21"
     model_dir.mkdir(parents=True, exist_ok=True)
@@ -756,6 +831,10 @@ def test_get_active_model_spec_falls_back_when_active_classifier_install_incompl
     spec = manager.get_active_model_spec()
 
     assert spec["model_id"] == "mobilenet_v2_birds"
+    assert spec["model_path"] == str(bundled_dir / "model.tflite")
+    assert spec["labels_path"] == str(bundled_dir / "labels.txt")
+    assert spec["preprocessing"]["padding_color"] == 128
+    assert spec["supported_inference_providers"] == ["cpu"]
 
 
 @pytest.mark.asyncio

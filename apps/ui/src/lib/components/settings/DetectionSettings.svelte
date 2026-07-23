@@ -4,10 +4,15 @@
     import { formatDateTime } from '../../utils/datetime';
     import ModelManager from '../../pages/models/ModelManager.svelte';
     import { searchSpecies, type ClassifierStatus, type SearchResult } from '../../api';
-    import { startModelEvalRun, listModelEvalRuns, getModelEvalDeviceMatrix, type DeviceMatrix } from '../../api/model_eval';
+    import { startModelEvalRun, listModelEvalRuns, getModelEvalRun, getModelEvalDeviceMatrix, type DeviceMatrix } from '../../api/model_eval';
     import type { BlockedSpeciesEntry } from '../../api/settings';
     import { getManualTagSearchOptions } from '../../search/manual-tag-search';
     import { BIRD_MODEL_REGION_OVERRIDE_VALUES, type BirdModelRegionOverride } from '../../settings/bird-model-region-override';
+    import {
+        buildInferenceProviderChoices,
+        getProviderPreferenceOrder,
+        type InferenceProvider,
+    } from '../../settings/inference-providers';
     import {
         buildBlockedSpeciesEntry,
         formatBlockedSpeciesLabel,
@@ -74,6 +79,36 @@
     const recommendedFallbackProvider = $derived(
         (classifierStatus?.cuda_available ?? false) ? 'NVIDIA CUDA' : 'CPU'
     );
+    function providerLabel(provider: InferenceProvider): string {
+        const labels: Record<InferenceProvider, string> = {
+            auto: $_('settings.detection.provider_auto', { default: 'Auto (recommended)' }),
+            cpu: $_('settings.detection.provider_cpu', { default: 'CPU (ONNX Runtime)' }),
+            cuda: $_('settings.detection.provider_cuda', { default: 'NVIDIA CUDA' }),
+            intel_gpu: $_('settings.detection.provider_intel_gpu', { default: 'Intel GPU (OpenVINO)' }),
+            intel_cpu: $_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' }),
+            intel_npu: $_('settings.detection.provider_intel_npu', { default: 'Intel NPU (OpenVINO)' }),
+        };
+        return labels[provider];
+    }
+    const inferenceProviderChoices = $derived(buildInferenceProviderChoices(classifierStatus, inferenceProvider));
+    const inferenceProviderOptions = $derived(inferenceProviderChoices.map((choice) => ({
+        value: choice.value,
+        label: choice.unavailable
+            ? `${providerLabel(choice.value)} · ${$_('common.unavailable', { default: 'Unavailable' })}`
+            : providerLabel(choice.value),
+        disabled: choice.unavailable,
+    })));
+    const providerPreferenceOrder = $derived(getProviderPreferenceOrder(classifierStatus));
+    const providerPreferenceLabel = $derived(providerPreferenceOrder.map(providerLabel).join(' → '));
+    const configuredProviderUnavailable = $derived(
+        inferenceProvider !== 'auto'
+        && inferenceProviderChoices.some((choice) => choice.value === inferenceProvider && choice.unavailable)
+    );
+    const packagedProviders = $derived(classifierStatus?.packaged_inference_providers ?? []);
+    const showCudaDiagnostics = $derived(packagedProviders.length === 0 || packagedProviders.includes('cuda'));
+    const showIntelDiagnostics = $derived(
+        packagedProviders.length === 0 || packagedProviders.some((provider) => provider.startsWith('intel_'))
+    );
 
     // --- Per-host device compatibility check ---
     const verifiedProviders = $derived(classifierStatus?.host_device_eligibility?.verified_providers ?? []);
@@ -113,7 +148,20 @@
                         seenActive = true;
                         compatPhase = list.active.phase ?? null;
                         compatProgress = list.active.progress ?? null;
-                    } else if (seenActive) {
+                    } else {
+                        if (!seenActive) {
+                            const summary = await getModelEvalRun(run_id).catch(() => null);
+                            if (!summary?.finished_at && !summary?.error) return;
+                            if (summary?.error) {
+                                clearInterval(compatPoll ?? undefined);
+                                compatPoll = null;
+                                compatRunning = false;
+                                compatPhase = 'error';
+                                compatError = summary.error;
+                                cdRunId += 1;
+                                return;
+                            }
+                        }
                         clearInterval(compatPoll ?? undefined);
                         compatPoll = null;
                         compatRunning = false;
@@ -151,15 +199,41 @@
         }
     }
 
-    function compatDeviceCell(row: DeviceMatrix['models'][string] | undefined, dev: string): { label: string; cls: string } {
+    function compatProviders(matrix: DeviceMatrix): string[] {
+        return matrix.providers?.length ? matrix.providers : matrix.devices;
+    }
+
+    function compatProviderLabel(provider: string): string {
+        return ['auto', 'cpu', 'cuda', 'intel_cpu', 'intel_gpu', 'intel_npu'].includes(provider)
+            ? providerLabel(provider as InferenceProvider)
+            : provider;
+    }
+
+    type CompatRow = DeviceMatrix['models'][string] | NonNullable<DeviceMatrix['crop_detectors']>[string];
+
+    function compatRows(matrix: DeviceMatrix): Array<[string, CompatRow]> {
+        return [
+            ...Object.entries(matrix.models),
+            ...Object.entries(matrix.crop_detectors ?? {}),
+        ];
+    }
+
+    function compatEntry(row: CompatRow | undefined, provider: string) {
+        return row?.providers?.[provider] ?? row?.devices?.[provider];
+    }
+
+    function compatDeviceCell(row: CompatRow | undefined, dev: string): { label: string; cls: string } {
         if (!row || row.error) return { label: '—', cls: 'text-slate-400' };
-        const e = row.devices?.[dev];
+        const e = compatEntry(row, dev);
         if (!e) return { label: '—', cls: 'text-slate-400' };
         if (!e.compiles) return { label: '✗ fails', cls: 'text-red-600 dark:text-red-400' };
         if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
-        if (dev === 'CPU') return { label: '✓ baseline', cls: 'text-slate-500' };
+        if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { label: '✓ baseline', cls: 'text-slate-500' };
         const n = e.images_compared;
         if (e.matches_cpu && n) return { label: `✓ ${n}/${n}`, cls: 'text-accent-600 dark:text-accent-400' };
+        if (typeof e.detection_match_rate === 'number' && n) {
+            return { label: `⚠ ${Math.round(e.detection_match_rate * n)}/${n}`, cls: 'text-amber-600 dark:text-amber-400' };
+        }
         if (typeof e.top1_match_rate === 'number' && n) {
             return { label: `⚠ ${Math.round(e.top1_match_rate * n)}/${n}`, cls: 'text-amber-600 dark:text-amber-400' };
         }
@@ -172,17 +246,18 @@
     let cdOpen = $state(false);
     let cdRunId = $state(0);
 
-    type CompatRow = DeviceMatrix['models'][string];
-
     function compatCellOutcome(row: CompatRow | undefined, dev: string): { state: DiagnosticStageState; note: string } {
         if (!row || row.error) return { state: 'skipped', note: '—' };
-        const e = row.devices?.[dev];
+        const e = compatEntry(row, dev);
         if (!e) return { state: 'skipped', note: '—' };
         if (!e.compiles) return { state: 'failed', note: $_('settings.detection.compat_note_fails', { default: 'fails to compile' }) };
         if (e.finite === false) return { state: 'failed', note: $_('settings.detection.compat_note_nan', { default: 'non-finite output' }) };
-        if (dev === 'CPU') return { state: 'passed', note: $_('settings.detection.compat_note_baseline', { default: 'CPU baseline' }) };
+        if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { state: 'passed', note: $_('settings.detection.compat_note_baseline', { default: 'CPU baseline' }) };
         const n = e.images_compared;
         if (e.matches_cpu && n) return { state: 'passed', note: $_('settings.detection.compat_note_match', { default: '{n}/{n} match CPU', values: { n } }) };
+        if (typeof e.detection_match_rate === 'number' && n) {
+            return { state: 'warning', note: `${Math.round(e.detection_match_rate * n)}/${n} boxes match CPU` };
+        }
         if (typeof e.top1_match_rate === 'number' && n) {
             return { state: 'warning', note: $_('settings.detection.compat_note_partial', { default: '{m}/{n} match CPU', values: { m: Math.round(e.top1_match_rate * n), n } }) };
         }
@@ -194,12 +269,12 @@
     function compatDeviceStage(matrix: DeviceMatrix, dev: string): DiagnosticStage {
         let state: DiagnosticStageState = 'skipped';
         const parts: string[] = [];
-        for (const [mid, row] of Object.entries(matrix.models)) {
+        for (const [mid, row] of compatRows(matrix)) {
             const outcome = compatCellOutcome(row, dev);
             if (compatStateRank[outcome.state] > compatStateRank[state]) state = outcome.state;
             parts.push(`${mid}: ${outcome.note}`);
         }
-        return { id: dev, label: dev, state, message: parts.join(' · ') };
+        return { id: dev, label: compatProviderLabel(dev), state, message: parts.join(' · ') };
     }
 
     const compatDialogStages = $derived.by((): DiagnosticStage[] => {
@@ -214,7 +289,7 @@
                     : $_('settings.detection.compat_stage_run_hint', { default: 'Compiling and comparing each device against the CPU baseline…' })
             }];
         }
-        return matrix.devices.map((dev) => compatDeviceStage(matrix, dev));
+        return compatProviders(matrix).map((dev) => compatDeviceStage(matrix, dev));
     });
 
     const compatDialogResult = $derived.by((): DiagnosticResult | null => {
@@ -614,23 +689,34 @@
             <SettingsRow
                 labelId="setting-inference-provider"
                 label={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
-                description={$_('settings.detection.inference_provider_desc', { default: 'Select CPU, NVIDIA CUDA, or Intel OpenVINO acceleration for ONNX models. Auto prefers Intel GPU, then CUDA, then CPU.' })}
+                description={$_('settings.detection.inference_provider_desc', { default: 'Only providers included in this image, detected on this host, and supported by the active model are shown.' })}
                 layout="stacked"
             >
-                <SettingsSelect
-                    id="inference-provider"
-                    value={inferenceProvider}
-                    ariaLabel={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
-                    options={[
-                        { value: 'auto', label: $_('settings.detection.provider_auto', { default: 'Auto' }) },
-                        { value: 'cpu', label: $_('settings.detection.provider_cpu', { default: 'CPU (ONNX Runtime)' }) },
-                        { value: 'cuda', label: $_('settings.detection.provider_cuda', { default: 'NVIDIA CUDA' }) },
-                        { value: 'intel_gpu', label: $_('settings.detection.provider_intel_gpu', { default: 'Intel GPU (OpenVINO)' }) },
-                        { value: 'intel_cpu', label: $_('settings.detection.provider_intel_cpu', { default: 'Intel CPU (OpenVINO)' }) },
-                        { value: 'intel_npu', label: $_('settings.detection.provider_intel_npu', { default: 'Intel NPU (OpenVINO)' }) }
-                    ]}
-                    onchange={(v) => (inferenceProvider = v as 'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu')}
-                />
+                <div class="space-y-2">
+                    <SettingsSelect
+                        id="inference-provider"
+                        value={inferenceProvider}
+                        ariaLabel={$_('settings.detection.inference_provider', { default: 'Inference Provider' })}
+                        options={inferenceProviderOptions}
+                        onchange={(v) => (inferenceProvider = v as InferenceProvider)}
+                    />
+                    {#if providerPreferenceLabel}
+                        <p aria-live="polite" class="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                            {$_('settings.detection.provider_runtime_order', {
+                                values: { order: providerPreferenceLabel },
+                                default: `Current runtime order: ${providerPreferenceLabel}`
+                            })}
+                        </p>
+                    {/if}
+                    {#if configuredProviderUnavailable}
+                        <p role="status" class="border-l-2 border-amber-400 py-1 pl-3 text-xs font-semibold leading-relaxed text-amber-800 dark:border-amber-500 dark:text-amber-200">
+                            {$_('settings.detection.provider_saved_unavailable', {
+                                values: { provider: providerLabel(inferenceProvider as InferenceProvider) },
+                                default: `${providerLabel(inferenceProvider as InferenceProvider)} is saved but is not available in this image, on this host, or for the active model. Choose an available provider or Auto.`
+                            })}
+                        </p>
+                    {/if}
+                </div>
             </SettingsRow>
 
             <a
@@ -676,24 +762,28 @@
                         {$_('settings.detection.inference_diagnostics_title', { default: 'Runtime diagnostics' })}
                     </p>
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.cuda_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400')}">
-                            {#if classifierStatus.cuda_available}
-                                {$_('settings.detection.cuda_available')}
-                            {:else if (classifierStatus.cuda_provider_installed ?? false) && !(classifierStatus.cuda_hardware_available ?? false)}
-                                {$_('settings.detection.cuda_runtime_only', { default: 'CUDA runtime installed (no NVIDIA GPU detected)' })}
-                            {:else}
-                                {$_('settings.detection.cuda_unavailable')}
-                            {/if}
-                        </span>
-                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.openvino_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
-                            {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
-                        </span>
-                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.intel_gpu_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
-                            {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_gpu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
-                        </span>
-                        <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.intel_npu_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
-                            {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_npu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
-                        </span>
+                        {#if showCudaDiagnostics}
+                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.cuda_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : ((classifierStatus.cuda_provider_installed ?? false) ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400')}">
+                                {#if classifierStatus.cuda_available}
+                                    {$_('settings.detection.cuda_available')}
+                                {:else if (classifierStatus.cuda_provider_installed ?? false) && !(classifierStatus.cuda_hardware_available ?? false)}
+                                    {$_('settings.detection.cuda_runtime_only', { default: 'CUDA runtime installed (no NVIDIA GPU detected)' })}
+                                {:else}
+                                    {$_('settings.detection.cuda_unavailable')}
+                                {/if}
+                            </span>
+                        {/if}
+                        {#if showIntelDiagnostics}
+                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.openvino_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                                {$_('settings.detection.openvino_status', { default: 'OpenVINO' })}: {(classifierStatus.openvino_available ?? false) ? $_('common.available', { default: 'Available' }) : $_('common.unavailable', { default: 'Unavailable' })}
+                            </span>
+                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.intel_gpu_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                                {$_('settings.detection.intel_gpu_status', { default: 'Intel GPU' })}: {(classifierStatus.intel_gpu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_gpu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
+                            </span>
+                            <span class="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-black {(classifierStatus.intel_npu_available ?? false) ? 'bg-accent-500/10 text-accent-700 dark:text-accent-300' : 'bg-slate-500/10 text-slate-600 dark:text-slate-400'}">
+                                {$_('settings.detection.intel_npu_status', { default: 'Intel NPU' })}: {(classifierStatus.intel_npu_available ?? false) ? ($_('settings.detection.auto_detected', { default: 'Auto-detected' }) + (providerVerified('intel_npu') ? ' · verified ✓' : ' · unverified')) : $_('common.not_available', { default: 'Not detected' })}
+                            </span>
+                        {/if}
                     </div>
 
                     <div class="flex flex-wrap items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-400">
@@ -795,7 +885,7 @@
                     {/if}
                 </div>
             {/if}
-            {#if classifierStatus && ((classifierStatus.intel_gpu_available ?? false) || (classifierStatus.intel_npu_available ?? false))}
+            {#if classifierStatus && ((classifierStatus.host_available_providers?.length ?? classifierStatus.available_providers?.length ?? 0) > 0)}
                 <div class="border-t border-slate-200 pt-4 dark:border-slate-700">
                     <h4 class="text-sm font-black text-slate-900 dark:text-white">
                         {$_('settings.detection.compat_card_title', { default: 'Device compatibility' })}
@@ -806,7 +896,7 @@
                         {#if verifiedProviders.length}
                             {$_('settings.detection.compat_verified', { default: 'Verified on this host:' })} <span class="font-bold">{verifiedProviders.join(', ')}</span>{#if classifierStatus.host_device_eligibility?.generated_at} · {formatDateTime(classifierStatus.host_device_eligibility.generated_at)}{/if}
                         {:else}
-                            {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host — iGPU/NPU are only used for models verified here. Run the check to enable them.' })}
+                            {$_('settings.detection.compat_unverified', { default: 'Not yet run on this host — run the check to verify the providers available in this image.' })}
                         {/if}
                     </p>
                     <div class="flex items-center gap-2 shrink-0">
@@ -828,13 +918,15 @@
                     <div class="overflow-x-auto">
                         <table class="w-full text-xs">
                             <thead class="border-b border-slate-200 text-xs uppercase text-slate-600 dark:border-slate-700 dark:text-slate-400">
-                                <tr><th class="text-left py-1 pr-3">{$_('settings.detection.compat_model', { default: 'Model' })}</th>{#each compatMatrix.devices as dev}<th class="text-left px-2">{dev}</th>{/each}</tr>
+                                <tr><th class="text-left py-1 pr-3">{$_('settings.detection.compat_model', { default: 'Model' })}</th>{#each (compatMatrix.providers?.length ? compatMatrix.providers : compatMatrix.devices) as dev}<th class="text-left px-2">{compatProviderLabel(dev)}</th>{/each}</tr>
                             </thead>
                             <tbody>
-                                {#each Object.entries(compatMatrix.models) as [mid, row]}
+                                {#each compatRows(compatMatrix) as [mid, row]}
                                     <tr class="border-b border-slate-100 dark:border-slate-800">
-                                        <td class="py-1 pr-3 font-medium text-slate-700 dark:text-slate-300">{mid}</td>
-                                        {#each compatMatrix.devices as dev}
+                                        <td class="py-1 pr-3 font-medium text-slate-700 dark:text-slate-300">
+                                            {mid}{#if row.comparison_kind === 'crop_box'} <span class="text-slate-400">· crop</span>{/if}
+                                        </td>
+                                        {#each (compatMatrix.providers?.length ? compatMatrix.providers : compatMatrix.devices) as dev}
                                             {@const c = compatDeviceCell(row, dev)}
                                             <td class="px-2 {c.cls}">{c.label}</td>
                                         {/each}
@@ -956,7 +1048,7 @@
 {#if cdOpen}
     <DiagnosticDialog
         title={$_('settings.detection.compat_test_title', { default: 'Device compatibility check' })}
-        subtitle={$_('settings.detection.compat_test_subtitle', { default: 'Validates each detected device (Intel GPU/NPU, CUDA) against the CPU baseline for the installed model(s).' })}
+        subtitle={$_('settings.detection.compat_test_subtitle', { default: 'Validates every provider available to this image and model against the CPU baseline.' })}
         stages={compatDialogStages}
         busy={compatRunning}
         result={compatDialogResult}

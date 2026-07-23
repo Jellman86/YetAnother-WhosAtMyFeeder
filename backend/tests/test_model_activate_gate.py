@@ -7,6 +7,7 @@ matter the caller; a validated (or grandfathered) model activates normally.
 import httpx
 import pytest
 import pytest_asyncio
+from types import SimpleNamespace
 
 from app.config import settings
 from app.main import app
@@ -37,6 +38,17 @@ def _installed(model_id: str, *, validated: bool) -> InstalledModel:
         is_active=False,
         validated=validated,
         validation_reason="probe" if validated else "unvalidated",
+    )
+
+
+def _installed_crop_detector(model_id: str = "bird_crop_detector") -> SimpleNamespace:
+    return SimpleNamespace(
+        id=model_id,
+        ready=True,
+        reason="ready",
+        validated=True,
+        validation_reason="probe",
+        metadata=SimpleNamespace(artifact_kind="crop_detector"),
     )
 
 
@@ -90,6 +102,43 @@ async def test_activate_validated_model_succeeds(client, monkeypatch, stub_activ
 
 
 @pytest.mark.asyncio
+async def test_activate_rejects_crop_detector_artifact(client, monkeypatch, stub_activation):
+    async def fake_installed():
+        return [_installed_crop_detector()]
+
+    monkeypatch.setattr(models_router.model_manager, "list_installed_models", fake_installed)
+
+    resp = await client.post("/api/models/bird_crop_detector/activate")
+
+    assert resp.status_code == 409, resp.text
+    assert "classifier" in resp.json()["detail"].lower()
+    assert "id" not in stub_activation
+
+
+@pytest.mark.asyncio
+async def test_activation_applies_the_verified_provider_only_after_model_activation(
+    client, monkeypatch, stub_activation
+):
+    async def fake_installed():
+        return [_installed("small_birds", validated=True)]
+
+    monkeypatch.setattr(models_router.model_manager, "list_installed_models", fake_installed)
+    monkeypatch.setattr(
+        models_router,
+        "activation_provider_recommendation",
+        lambda _model_id: "cuda",
+    )
+    original_provider = settings.classification.inference_provider
+    try:
+        resp = await client.post("/api/models/small_birds/activate")
+        assert resp.status_code == 200, resp.text
+        assert stub_activation["id"] == "small_birds"
+        assert settings.classification.inference_provider == "cuda"
+    finally:
+        settings.classification.inference_provider = original_provider
+
+
+@pytest.mark.asyncio
 async def test_activate_missing_model_is_404(client, monkeypatch, stub_activation):
     async def fake_installed():
         return [_installed("small_birds", validated=True)]
@@ -116,6 +165,37 @@ async def test_validate_route_runs_probe_and_returns_result(client, monkeypatch)
     body = resp.json()
     assert body["ok"] is True
     assert body["model_id"] == "small_birds"
+    assert body["provider_set"] is False
+
+
+@pytest.mark.asyncio
+async def test_validate_route_rejects_crop_detector_artifact(client, monkeypatch):
+    async def fake_installed():
+        return [_installed_crop_detector()]
+
+    probe_called = False
+
+    async def fake_probe(_model_id):
+        nonlocal probe_called
+        probe_called = True
+        return {}
+
+    monkeypatch.setattr(models_router.model_manager, "list_installed_models", fake_installed)
+    monkeypatch.setattr(models_router, "run_validation_probe", fake_probe)
+
+    resp = await client.post("/api/models/bird_crop_detector/validate")
+
+    assert resp.status_code == 409, resp.text
+    assert "classifier" in resp.json()["detail"].lower()
+    assert probe_called is False
+
+
+def test_model_manager_refuses_to_persist_crop_detector_as_active_classifier(monkeypatch):
+    persisted: list[str] = []
+    monkeypatch.setattr(models_router.model_manager, "_save_active_model_id", persisted.append)
+
+    assert models_router.model_manager._activate_model_sync("bird_crop_detector") is False
+    assert persisted == []
 
 
 @pytest.mark.asyncio

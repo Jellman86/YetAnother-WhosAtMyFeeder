@@ -44,6 +44,15 @@ def _extract_birdnet_id(raw_data: dict | None) -> int | None:
     return None
 
 
+def _build_source_event_id(sensor_id: str | None, raw_data: dict | None) -> str | None:
+    """Build a source-scoped identity that remains stable across MQTT redelivery."""
+    detection_id = _extract_birdnet_id(raw_data)
+    if detection_id is None:
+        return None
+    source = (sensor_id or "unknown").strip().casefold() or "unknown"
+    return f"{source}:{detection_id}"
+
+
 class AudioService:
     def __init__(self):
         # Store recent audio detections in memory for correlation
@@ -140,8 +149,17 @@ class AudioService:
         detection_keys.update(cls._extract_birdnet_source_keys(detection.raw_data))
         return bool(expected_keys.intersection(detection_keys))
 
-    async def add_detection(self, data: dict):
-        """Ingest a detection from MQTT."""
+    async def add_detection(self, data: dict, *, diagnostic: bool = False) -> bool:
+        """Ingest and persist a detection from MQTT.
+
+        Returns ``True`` only after the detection has reached both the correlation
+        buffer and durable storage. MQTT callers may ignore the result, while
+        diagnostics use it to avoid reporting a queued or failed write as success.
+        A diagnostic proves insert/delete access, then removes its synthetic row and
+        buffer entry so it cannot confirm a real visual detection. Normal MQTT ingest
+        deliberately keeps a buffered detection during a database outage so short-lived
+        audio/visual correlation can still work.
+        """
         try:
             # Use UTC timezone-aware datetime by default
             timestamp = datetime.now(timezone.utc)
@@ -165,7 +183,7 @@ class AudioService:
                     confidence=confidence,
                     min_confidence=min_confidence,
                 )
-                return
+                return False
 
             # Canonical BirdNET source key for camera mapping (prefer stable source names)
             sensor_id = self._extract_birdnet_mapping_key(data)
@@ -214,59 +232,83 @@ class AudioService:
                 raw_data=data,
                 scientific_name=scientific_name,
             )
-
-            async with self._lock:
-                self._buffer.append(detection)
-                buffer_len = len(self._buffer)
-                log.info(
-                    "Audio detection added to buffer",
-                    species=species,
-                    scientific=scientific_name,
-                    confidence=confidence,
-                    sensor_id=sensor_id,
-                    ts=timestamp.isoformat(),
-                    buffer_len=buffer_len,
-                )
-                self._cleanup_buffer()
+            source_event_id = _build_source_event_id(sensor_id, data)
 
             try:
                 async with get_db() as db:
                     repo = DetectionRepository(db)
-                    await repo.insert_audio_detection(
+                    detection_id, inserted = await repo.insert_audio_detection_idempotent(
                         timestamp=timestamp,
                         species=species,
                         confidence=float(confidence),
                         sensor_id=sensor_id,
                         raw_data=data,
                         scientific_name=scientific_name,
+                        source_event_id=source_event_id,
                     )
+                    if diagnostic:
+                        if not inserted:
+                            raise RuntimeError("Diagnostic audio identity already existed")
+                        if not await repo.delete_audio_detection(detection_id):
+                            raise RuntimeError("Diagnostic audio row could not be removed")
             except Exception as e:
                 log.warning("Failed to persist audio detection", error=str(e))
+                if not diagnostic:
+                    async with self._lock:
+                        self._append_to_buffer_once(detection, source_event_id=source_event_id)
+                return False
+
+            if diagnostic:
+                return True
+
+            async with self._lock:
+                buffered = self._append_to_buffer_once(detection, source_event_id=source_event_id)
+                log.info(
+                    "Audio detection persisted and added to correlation buffer",
+                    species=species,
+                    scientific=scientific_name,
+                    confidence=confidence,
+                    sensor_id=sensor_id,
+                    ts=timestamp.isoformat(),
+                    buffer_len=len(self._buffer),
+                    inserted=inserted,
+                    buffered=buffered,
+                )
+
+            return True
 
         except Exception as e:
             log.error("Failed to process audio detection", error=str(e))
+            return False
+
+    def _append_to_buffer_once(self, detection: AudioDetection, *, source_event_id: str | None) -> bool:
+        """Add one correlation observation without duplicating a broker redelivery."""
+        self._cleanup_buffer()
+        if source_event_id and any(
+            _build_source_event_id(existing.sensor_id, existing.raw_data) == source_event_id
+            for existing in self._buffer
+        ):
+            return False
+        self._buffer.append(detection)
+        return True
 
     def _cleanup_buffer(self):
         """Remove old detections from buffer."""
         now = datetime.now(timezone.utc)
         removed_count = 0
-
-        while self._buffer:
-            ts = self._buffer[0].timestamp
-
+        retained: Deque[AudioDetection] = deque()
+        for detection in self._buffer:
+            ts = detection.timestamp
             # Ensure timezone-aware comparison
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
-
             age = (now - ts).total_seconds()
-
             if age > self._buffer_duration.total_seconds():
-                removed_species = self._buffer[0].species
-                self._buffer.popleft()
                 removed_count += 1
-                log.debug("Removed old audio detection", species=removed_species, age=age)
+                log.debug("Removed old audio detection", species=detection.species, age=age)
             else:
-                break
+                retained.append(detection)
+        self._buffer = retained
 
         if removed_count > 0:
             log.info("Cleaned up audio buffer", removed=removed_count, remaining=len(self._buffer))

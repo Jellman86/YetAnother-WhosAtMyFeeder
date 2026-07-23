@@ -121,7 +121,10 @@ def test_runtime_flavor_builds_use_a_cache_capable_buildx_driver() -> None:
     build_offset = build_job.index("uses: docker/build-push-action@v7")
     assert setup_offset < build_offset
     assert "cache-from: type=gha,scope=monolith-${{ matrix.flavor }}" in build_job
-    assert "cache-to: type=gha,mode=max,scope=monolith-${{ matrix.flavor }}" in build_job
+    assert "cache-to: ${{ matrix.cache_export }}" in build_job
+    assert 'cache_export: ""' in build_job
+    for flavor in ("cpu", "intel", "cuda"):
+        assert f"cache_export: type=gha,mode=max,scope=monolith-{flavor}" in build_job
 
 
 def test_publication_is_blocked_until_full_and_cpu_share_persistent_state() -> None:
@@ -187,16 +190,61 @@ def test_provider_requirement_files_are_isolated_by_runtime_family() -> None:
     assert "openvino" not in requirements["cuda"]
 
 
-def test_tensorflow_runtime_markers_distinguish_linux_arm64_from_local_development() -> None:
+def test_litert_runtime_markers_use_the_small_arm64_interpreter() -> None:
     base_requirements = (BACKEND_ROOT / "requirements-base.txt").read_text(encoding="utf-8")
     lines = [line.strip() for line in base_requirements.splitlines()]
     linux_cpu_line = next(line for line in lines if line.startswith("tensorflow-cpu"))
-    arm64_line = next(line for line in lines if line.startswith("tensorflow-aarch64"))
+    arm64_line = next(line for line in lines if line.startswith("ai-edge-litert"))
     non_linux_line = next(line for line in lines if line.startswith("tensorflow;"))
 
     assert 'sys_platform == "linux"' in linux_cpu_line
     assert 'sys_platform == "linux"' in arm64_line
+    assert "ai-edge-litert==2.1.6" in arm64_line
+    assert not any(line.startswith("tensorflow-aarch64") for line in lines)
     assert 'sys_platform != "linux"' in non_linux_line
+
+
+def test_monolith_compose_passes_classifier_pressure_controls_into_the_container() -> None:
+    compose = (REPO_ROOT / "docker-compose.monolith.yml").read_text(encoding="utf-8")
+    rpi_env = (REPO_ROOT / ".env.rpi.example").read_text(encoding="utf-8")
+
+    assert "CLASSIFIER_IMAGE_MAX_CONCURRENT=${CLASSIFIER_IMAGE_MAX_CONCURRENT:-2}" in compose
+    assert "CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS=${CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS:-0.5}" in compose
+    assert "FRIGATE__CLIPS_ENABLED=${FRIGATE__CLIPS_ENABLED:-true}" in compose
+    assert "CLASSIFIER_IMAGE_MAX_CONCURRENT=1" in rpi_env
+    assert "CLASSIFICATION_IMAGE_MAX_CONCURRENT" not in rpi_env
+
+
+def test_rpi_image_is_smoked_before_mutable_tags_are_promoted() -> None:
+    workflow = (REPO_ROOT / ".github/workflows/build-and-push.yml").read_text(encoding="utf-8")
+    rpi_job = workflow.split("  build-monolith-rpi:", 1)[1].split("  verify-monolith-flavor-switch:", 1)[0]
+    smoke = (REPO_ROOT / "tests/e2e/monolith_runtime_flavor_smoke.sh").read_text(encoding="utf-8")
+
+    immutable_tag = "yawamf-monalithic-rpi:${{ github.sha }}"
+    assert immutable_tag in rpi_job
+    assert "monolith_runtime_flavor_smoke.sh" in rpi_job
+    assert '"rpi"' in rpi_job
+    assert '"linux/arm64"' in rpi_job
+    assert 'platform="${3:-}"' in smoke
+    assert 'docker_args+=(--platform "$platform")' in smoke
+    assert "yawamf-monalithic-rpi:${{ env.IMAGE_TAG }}" not in rpi_job.split("Smoke-test Raspberry Pi image", 1)[0]
+    assert rpi_job.index("Smoke-test Raspberry Pi image") < rpi_job.index("Promote Raspberry Pi monolithic tag")
+
+
+def test_images_bundle_a_checksum_verified_cpu_fallback_classifier() -> None:
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    smoke = (REPO_ROOT / "tests/e2e/monolith_runtime_flavor_smoke.sh").read_text(encoding="utf-8")
+
+    assert "104342d2d3480b3e66203073dac24f4e2dbb4c41" in dockerfile
+    assert "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9" in dockerfile
+    assert "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277" in dockerfile
+    assert "sha256sum -c" in dockerfile
+    assert "releases/download/models/mobilenet_v2_birds_model_config.json" not in dockerfile
+    assert (BACKEND_ROOT / "app/assets/model_config.json").exists()
+    assert (BACKEND_ROOT / "app/assets/mobilenet-v2-inat-bird.LICENSE.txt").exists()
+    assert (BACKEND_ROOT / "app/assets/mobilenet-v2-inat-bird.NOTICE.md").exists()
+    assert 'status.get("loaded") is not True' in smoke
+    assert "/api/classifier/classify" in smoke
 
 
 def test_runtime_images_exclude_development_dependencies_and_permanent_wheelhouse() -> None:

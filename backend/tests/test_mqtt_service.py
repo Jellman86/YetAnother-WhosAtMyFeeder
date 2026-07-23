@@ -282,7 +282,7 @@ def test_get_status_reports_recent_handler_slot_wait_exhaustion(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_schedule_audio_message_coalesces_to_latest_pending_payload():
+async def test_schedule_audio_message_preserves_every_birdnet_detection_in_order():
     service = MQTTService("test+abc123")
     service.running = True
     processor = _RecordingAudioProcessor()
@@ -300,10 +300,10 @@ async def test_schedule_audio_message_coalesces_to_latest_pending_payload():
     processor.release.set()
     await asyncio.wait_for(asyncio.gather(task_a, task_b, task_c), timeout=0.5)
 
-    assert [payload["species"] for payload in processor.payloads] == ["one", "three"]
+    assert [payload["species"] for payload in processor.payloads] == ["one", "two", "three"]
     status = service.get_status()
     assert status["audio_pending_coalesced"] is False
-    assert status["audio_messages_superseded"] == 1
+    assert status["audio_messages_superseded"] == 0
 
 
 @pytest.mark.asyncio
@@ -332,13 +332,33 @@ async def test_schedule_frigate_message_coalesces_to_latest_pending_payload_for_
     assert status["max_frigate_event_tail_depth"] == 2
 
 
+@pytest.mark.asyncio
+async def test_schedule_frigate_message_never_overwrites_false_positive_tombstone():
+    service = MQTTService("test+abc123")
+    service.running = True
+    processor = _BlockingFrigateProcessor()
+
+    task_a = service._schedule_frigate_message(processor, _frigate_payload("evt-1", "new"))
+    await asyncio.wait_for(processor.started.wait(), timeout=0.2)
+    task_fp = service._schedule_frigate_message(
+        processor,
+        _frigate_payload("evt-1", "update", false_positive=True),
+    )
+    task_end = service._schedule_frigate_message(processor, _frigate_payload("evt-1", "end"))
+
+    processor.release.set()
+    await asyncio.wait_for(asyncio.gather(task_a, task_fp, task_end), timeout=0.5)
+
+    processed = [(payload["type"], payload["after"].get("false_positive", False)) for payload in processor.payloads]
+    assert processed == [("new", False), ("update", True)]
+
+
 def test_get_status_reports_in_flight_breakdown_and_audio_coalescing():
     service = MQTTService("test+abc123")
     task_a = object()
     task_b = object()
     service._in_flight_tasks = {task_a, task_b}
     service._task_kind_by_id = {id(task_a): "frigate", id(task_b): "birdnet"}
-    service._audio_pending_payload = b"{}"
     service._audio_messages_superseded = 3
     service._audio_dispatch_count = 7
     service._frigate_dispatch_count = 11
@@ -349,7 +369,7 @@ def test_get_status_reports_in_flight_breakdown_and_audio_coalescing():
 
     assert status["in_flight_by_topic"] == {"frigate": 1, "birdnet": 1}
     assert status["dispatch_counts"] == {"frigate": 11, "birdnet": 7}
-    assert status["audio_pending_coalesced"] is True
+    assert status["audio_pending_coalesced"] is False
     assert status["audio_messages_superseded"] == 3
     assert status["frigate_event_tail_count"] == 2
     assert status["max_frigate_event_tail_depth"] == 4

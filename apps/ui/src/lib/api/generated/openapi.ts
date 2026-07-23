@@ -254,6 +254,7 @@ export interface components {
     finished_at?: string | null;
     id: string;
     kind: string;
+    last_progress_at?: string | null;
     message?: string;
     new_detections?: number;
     processed?: number;
@@ -841,6 +842,13 @@ export interface components {
     password?: string | null;
     username: string;
 };
+    InitialSetupResponse: {
+    access_token?: string | null;
+    expires_in_hours?: number | null;
+    message: string;
+    token_type?: string | null;
+    username?: string | null;
+};
     InstalledModel: {
     id: string;
     is_active: boolean;
@@ -851,6 +859,40 @@ export interface components {
     reason?: string;
     validated?: boolean;
     validation_reason?: string;
+};
+    JobLaneSnapshot: {
+    blocker?: string | null;
+    capacity?: number | null;
+    completed?: number;
+    failed?: number;
+    kind: string;
+    max_concurrent_configured?: number | null;
+    max_concurrent_effective?: number | null;
+    queued?: number;
+    running?: number;
+    state?: string;
+};
+    JobSnapshotItem: {
+    created_at?: string | null;
+    current?: number;
+    error?: string | null;
+    event_id?: string | null;
+    finished_at?: string | null;
+    id: string;
+    kind: string;
+    phase: string;
+    route?: string | null;
+    source: string;
+    status: "queued" | "running" | "completed" | "failed" | "stale" | "retrying";
+    total?: number;
+    unit?: string;
+    updated_at?: string | null;
+    visibility?: "prominent" | "routine";
+};
+    JobsSnapshotResponse: {
+    captured_at: string;
+    items: Array<components['schemas']['JobSnapshotItem']>;
+    lanes: Array<components['schemas']['JobLaneSnapshot']>;
 };
     JsonValue: unknown;
     LeaderboardAnalysisRequest: {
@@ -908,6 +950,13 @@ export interface components {
     expires_in_hours: number;
     token_type?: string;
     username: string;
+};
+    MQTTTestRequest: {
+    auth?: boolean | null;
+    password?: string | null;
+    port?: number | null;
+    server?: string | null;
+    username?: string | null;
 };
     MaintenanceStatsResponse: {
     detections_to_cleanup: number;
@@ -973,19 +1022,29 @@ export interface components {
     weights_url?: string | null;
 };
     ModelValidateDevice: {
+    backend?: string | null;
+    baseline?: boolean;
+    compiles?: boolean | null;
     device: string;
+    error?: string | null;
+    finite?: boolean | null;
+    images_compared?: number;
+    images_evaluated?: number;
     latency_ms?: number | null;
+    matches_baseline?: boolean | null;
     ok: boolean;
     provider: string;
 };
     ModelValidateResponse: {
     best_provider?: string | null;
     devices?: Array<components['schemas']['ModelValidateDevice']>;
+    image_flavor?: string | null;
     latency_ms?: number | null;
     model_id: string;
     ok: boolean;
     provider: string;
     provider_set?: boolean;
+    providers?: Array<components['schemas']['ModelValidateDevice']>;
     reason: string;
 };
     NotificationTestRequest: {
@@ -1395,6 +1454,8 @@ export interface components {
 };
     SetupSectionState: {
     detail?: string | null;
+    detail_code?: string | null;
+    detail_values?: Record<string, string | number>;
     id: string;
     status: "ok" | "attention" | "optional";
 };
@@ -1433,6 +1494,7 @@ export interface components {
     clip_variant: string;
     crop_box?: Array<number> | null;
     crop_confidence?: number | null;
+    crop_strategy?: string | null;
     frame_index: number;
     frame_offset_seconds?: number | null;
     ranking_score: number;
@@ -1536,7 +1598,9 @@ export interface components {
 };
     StartRunRequest: {
     compat_only?: boolean;
+    discover_providers?: boolean;
     include_per_image?: boolean;
+    model_ids?: Array<string>;
     region_override?: string | null;
     sweep_all_models?: boolean;
     sweep_devices?: boolean;
@@ -1842,7 +1906,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: components['schemas']['InitialPasswordRequest'];
-      response: components['schemas']['MessageResponse'];
+      response: components['schemas']['InitialSetupResponse'];
     };
   };
   "/api/auth/login": {
@@ -2565,7 +2629,9 @@ export interface paths {
     get: {
       operationId: "test_frigate_connection_api_frigate_test_get";
       path: never;
-      query: never;
+      query: {
+    url?: string | null;
+};
       requestBody: unknown;
       response: components['schemas']['FrigateTestResponse'];
     };
@@ -2783,6 +2849,18 @@ export interface paths {
       query: never;
       requestBody: components['schemas']['InaturalistSubmitRequest'];
       response: components['schemas']['InaturalistSubmitResponse'];
+    };
+  };
+  "/api/jobs": {
+    get: {
+      operationId: "get_jobs_snapshot_api_jobs_get";
+      path: never;
+      query: {
+    include_routine?: boolean;
+    limit?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['JobsSnapshotResponse'];
     };
   };
   "/api/leaderboard/analysis": {
@@ -3045,7 +3123,9 @@ export interface paths {
     get: {
       operationId: "test_birdnet_reachability_api_settings_birdnet_reachability_get";
       path: never;
-      query: never;
+      query: {
+    url?: string | null;
+};
       requestBody: unknown;
       response: components['schemas']['ActionStatusResponse'];
     };
@@ -3100,7 +3180,7 @@ export interface paths {
       operationId: "test_mqtt_publish_api_settings_mqtt_test_publish_post";
       path: never;
       query: never;
-      requestBody: unknown;
+      requestBody: components['schemas']['MQTTTestRequest'];
       response: components['schemas']['ActionStatusResponse'];
     };
   };

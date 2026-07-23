@@ -29,6 +29,8 @@ class CropEvalCase:
     boxes: list[Box]
     source: str | None = None
     notes: str | None = None
+    visit_id: str | None = None
+    tags: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -57,6 +59,8 @@ def load_manifest(path: Path) -> list[CropEvalCase]:
                 boxes=[_coerce_box(box) for box in item.get("boxes", [])],
                 source=item.get("source"),
                 notes=item.get("notes"),
+                visit_id=item.get("visit_id"),
+                tags=tuple(str(tag) for tag in (item.get("tags") or []) if str(tag).strip()),
             )
         )
     return cases
@@ -82,6 +86,8 @@ def load_manifest_resolved(path: Path) -> list[CropEvalCase]:
                 boxes=[_coerce_box(box) for box in item.get("boxes", [])],
                 source=item.get("source"),
                 notes=item.get("notes"),
+                visit_id=item.get("visit_id"),
+                tags=tuple(str(tag) for tag in (item.get("tags") or []) if str(tag).strip()),
             )
         )
     return cases
@@ -138,20 +144,46 @@ def evaluate_case(
         "recall_at_0_3": best_iou >= iou_thresholds[0],
         "recall_at_0_5": best_iou >= iou_thresholds[1],
         "useful_crop": useful_crop,
+        "is_negative": not case.boxes,
+        "false_positive": bool(not case.boxes and candidates),
+        "correct_negative": bool(not case.boxes and not candidates),
+        "visit_id": case.visit_id or case.case_id,
+        "tags": list(case.tags),
     }
 
 
 def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
     def _summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
         total = len(rows)
-        confidences = [float(row["best_confidence"]) for row in rows if row.get("best_confidence") is not None]
-        ious = [float(row.get("best_iou") or 0.0) for row in rows]
+        positive_rows = [row for row in rows if not row.get("is_negative", False)]
+        negative_rows = [row for row in rows if row.get("is_negative", False)]
+        positive_total = len(positive_rows)
+        negative_total = len(negative_rows)
+        confidences = [float(row["best_confidence"]) for row in positive_rows if row.get("best_confidence") is not None]
+        ious = [float(row.get("best_iou") or 0.0) for row in positive_rows]
         return {
             "cases": total,
-            "any_detection_recall": (sum(1 for row in rows if row.get("any_detection")) / total) if total else 0.0,
-            "recall_at_0_3": (sum(1 for row in rows if row.get("recall_at_0_3")) / total) if total else 0.0,
-            "recall_at_0_5": (sum(1 for row in rows if row.get("recall_at_0_5")) / total) if total else 0.0,
-            "useful_crop_rate": (sum(1 for row in rows if row.get("useful_crop")) / total) if total else 0.0,
+            "positive_cases": positive_total,
+            "negative_cases": negative_total,
+            "visit_count": len({str(row.get("visit_id") or row.get("case_id") or "") for row in rows}),
+            "any_detection_recall": (sum(1 for row in positive_rows if row.get("any_detection")) / positive_total)
+            if positive_total
+            else 0.0,
+            "recall_at_0_3": (sum(1 for row in positive_rows if row.get("recall_at_0_3")) / positive_total)
+            if positive_total
+            else 0.0,
+            "recall_at_0_5": (sum(1 for row in positive_rows if row.get("recall_at_0_5")) / positive_total)
+            if positive_total
+            else 0.0,
+            "useful_crop_rate": (sum(1 for row in positive_rows if row.get("useful_crop")) / positive_total)
+            if positive_total
+            else 0.0,
+            "false_positive_rate": (sum(1 for row in negative_rows if row.get("false_positive")) / negative_total)
+            if negative_total
+            else 0.0,
+            "true_negative_rate": (sum(1 for row in negative_rows if row.get("correct_negative")) / negative_total)
+            if negative_total
+            else 0.0,
             "mean_best_confidence": (sum(confidences) / len(confidences)) if confidences else 0.0,
             "mean_best_iou": (sum(ious) / len(ious)) if ious else 0.0,
         }
@@ -161,9 +193,11 @@ def summarize_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         bucket: _summary([row for row in results if str(row.get("bucket") or "unknown") == bucket])
         for bucket in buckets
     }
+    tags = sorted({str(tag) for row in results for tag in (row.get("tags") or []) if str(tag).strip()})
     return {
         "overall": _summary(results),
         "by_bucket": by_bucket,
+        "by_tag": {tag: _summary([row for row in results if tag in (row.get("tags") or [])]) for tag in tags},
     }
 
 
@@ -268,11 +302,14 @@ def _print_summary(results_by_tier: dict[str, dict[str, Any]]) -> None:
         print(
             "raw:",
             f"cases={raw['cases']}",
+            f"positive={raw['positive_cases']}",
+            f"negative={raw['negative_cases']}",
             f"any={raw['any_detection_recall']:.3f}",
             f"iou@0.3={raw['recall_at_0_3']:.3f}",
             f"iou@0.5={raw['recall_at_0_5']:.3f}",
             f"useful={raw['useful_crop_rate']:.3f}",
             f"mean_iou={raw['mean_best_iou']:.3f}",
+            f"false_positive={raw['false_positive_rate']:.3f}",
         )
         print(
             "selected:",
@@ -282,6 +319,7 @@ def _print_summary(results_by_tier: dict[str, dict[str, Any]]) -> None:
             f"iou@0.5={selected['recall_at_0_5']:.3f}",
             f"useful={selected['useful_crop_rate']:.3f}",
             f"mean_iou={selected['mean_best_iou']:.3f}",
+            f"false_positive={selected['false_positive_rate']:.3f}",
         )
 
 

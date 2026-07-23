@@ -716,6 +716,26 @@ def test_low_confidence_catchall_preserves_runtime_and_input_provenance():
     assert result["model_id"] == "rope_vit_b14_inat21"
 
 
+def test_select_usable_classification_drops_results_below_absolute_floor():
+    service = DetectionService(MagicMock())
+
+    with patch("app.services.detection_service.settings") as mock_settings:
+        mock_settings.classification.unknown_bird_labels = ["Unknown Bird"]
+        mock_settings.classification.blocked_labels = []
+        mock_settings.classification.blocked_species = []
+        mock_settings.classification.threshold = 0.45
+        mock_settings.classification.min_confidence = 0.4
+        mock_settings.classification.trust_frigate_sublabel = False
+
+        result, reason = service.select_usable_classification(
+            [{"label": "Robin", "score": 0.12, "index": 4}],
+            "evt-live-low-confidence",
+        )
+
+    assert result is None
+    assert reason == "low_confidence"
+
+
 def test_trusted_frigate_fallback_never_uses_object_detection_score_as_species_confidence():
     service = DetectionService(MagicMock())
 

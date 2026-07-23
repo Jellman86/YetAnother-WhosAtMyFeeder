@@ -41,6 +41,59 @@ async def test_queue_classification_dedupes_pending_event_ids():
 
 
 @pytest.mark.asyncio
+async def test_restore_unfinished_jobs_rebuilds_memory_queue_from_durable_status(monkeypatch):
+    service = AutoVideoClassifierService()
+    repo = MagicMock()
+    repo.get_video_classification_recovery_candidates = AsyncMock(
+        return_value=[
+            {"event_id": "evt-recover-pending", "camera": "cam1", "status": "pending"},
+            {"event_id": "evt-recover-processing", "camera": "cam2", "status": "processing"},
+        ]
+    )
+    monkeypatch.setattr(auto_video_classifier_module, "get_db", lambda: _FakeDbContext())
+    monkeypatch.setattr(auto_video_classifier_module, "DetectionRepository", lambda _db: repo)
+
+    restored = await service._restore_unfinished_jobs()
+
+    assert restored == 2
+    assert service._pending_ids == {"evt-recover-pending", "evt-recover-processing"}
+    first = service._pending_queue.get_nowait()
+    second = service._pending_queue.get_nowait()
+    assert [first[0], second[0]] == ["evt-recover-pending", "evt-recover-processing"]
+
+
+@pytest.mark.asyncio
+async def test_graceful_shutdown_returns_cancelled_active_job_to_pending(monkeypatch):
+    service = AutoVideoClassifierService()
+    lookup_started = asyncio.Event()
+    never_complete = asyncio.Event()
+
+    async def slow_event_lookup(*_args, **_kwargs):
+        lookup_started.set()
+        await never_complete.wait()
+
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    monkeypatch.setattr(auto_video_classifier_module.frigate_client, "get_event_with_error", slow_event_lookup)
+    monkeypatch.setattr(auto_video_classifier_module.broadcaster, "broadcast", AsyncMock())
+    service._running = True
+    task = asyncio.create_task(service._process_event("evt-shutdown-recovery", "cam1", skip_delay=True))
+    await asyncio.wait_for(lookup_started.wait(), timeout=1.0)
+
+    service._running = False
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    service._update_status.assert_any_await(
+        "evt-shutdown-recovery",
+        "pending",
+        error=None,
+        broadcast=False,
+    )
+    assert not any(call.args[1] == "failed" for call in service._update_status.await_args_list)
+
+
+@pytest.mark.asyncio
 async def test_queue_classification_records_skip_delay_flag_per_job():
     service = AutoVideoClassifierService()
 
@@ -74,6 +127,7 @@ async def test_queue_classification_records_job_source_per_job():
 async def test_queue_classification_respects_bounded_capacity(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(auto_video_classifier_module, "MAX_PENDING_QUEUE", 2)
     service = AutoVideoClassifierService()
+    service._update_status = AsyncMock(return_value=True)  # type: ignore[method-assign]
 
     first = await service.queue_classification("evt-capacity-1", "cam1")
     second = await service.queue_classification("evt-capacity-2", "cam1")
@@ -81,9 +135,29 @@ async def test_queue_classification_respects_bounded_capacity(monkeypatch: pytes
 
     assert first == "queued"
     assert second == "queued"
-    assert third == "full"
+    assert third == "deferred"
     assert service.get_status()["pending"] == 2
     assert service.get_status()["pending_available"] == 0
+
+
+@pytest.mark.asyncio
+async def test_queue_classification_does_not_claim_durable_deferral_without_a_detection(monkeypatch):
+    monkeypatch.setattr(auto_video_classifier_module, "MAX_PENDING_QUEUE", 1)
+    service = AutoVideoClassifierService()
+    service._update_status = AsyncMock(return_value=False)  # type: ignore[method-assign]
+
+    assert await service.queue_classification("evt-memory-only", "cam1") == "queued"
+    assert await service.queue_classification("evt-not-durable", "cam1") == "full"
+
+
+@pytest.mark.asyncio
+async def test_queue_classification_reports_full_when_memory_and_durable_state_are_unavailable(monkeypatch):
+    monkeypatch.setattr(auto_video_classifier_module, "MAX_PENDING_QUEUE", 1)
+    service = AutoVideoClassifierService()
+    service._update_status = AsyncMock(side_effect=RuntimeError("database unavailable"))  # type: ignore[method-assign]
+
+    assert await service.queue_classification("evt-memory-only", "cam1") == "queued"
+    assert await service.queue_classification("evt-no-recovery", "cam1") == "full"
 
 
 @pytest.mark.asyncio
@@ -311,8 +385,11 @@ FRIGATE_SIDE_ERROR_CODES = [
 
 ML_INFERENCE_ERROR_CODES = [
     "video_timeout",
-    "video_no_results",
     "video_exception",
+]
+
+SAFE_VIDEO_OUTCOME_CODES = [
+    "video_no_results",
 ]
 
 
@@ -377,6 +454,29 @@ async def test_ml_inference_errors_do_increment_failure_count():
 
     status = service.get_status()
     assert status["failure_count"] == len(ML_INFERENCE_ERROR_CODES)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("source", ["live", "maintenance"])
+async def test_safe_video_outcomes_do_not_increment_or_open_circuit(monkeypatch, source):
+    """A healthy temporal abstention must not suppress later video work."""
+    monkeypatch.setattr(
+        settings.classification,
+        "video_classification_failure_threshold",
+        2,
+    )
+    service = AutoVideoClassifierService()
+
+    for index in range(4):
+        service._record_failure(
+            f"evt-abstention-{source}-{index}",
+            SAFE_VIDEO_OUTCOME_CODES[index % len(SAFE_VIDEO_OUTCOME_CODES)],
+            source=source,
+        )
+
+    circuit = service.get_circuit_status(source)
+    assert circuit["failure_count"] == 0
+    assert circuit["open"] is False
 
 
 @pytest.mark.asyncio

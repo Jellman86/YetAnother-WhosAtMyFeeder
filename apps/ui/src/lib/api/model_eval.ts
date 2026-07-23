@@ -36,6 +36,8 @@ export interface ModelEvalModelSummary {
     device?: string | null;
     ready: boolean;
     ready_reason?: string;
+    validated_providers?: string[];
+    failed_providers?: string[];
     images_evaluated: number;
     top1_accuracy: number;
     top3_accuracy: number;
@@ -93,6 +95,7 @@ export async function startModelEvalRun(opts: {
     sweep_devices?: boolean;
     compat_only?: boolean;
     sweep_all_models?: boolean;
+    model_ids?: string[];
 } = {}): Promise<{ run_id: string }> {
     const resp = await apiFetch(`${BASE}/runs`, {
         method: 'POST',
@@ -103,12 +106,17 @@ export async function startModelEvalRun(opts: {
             sweep_devices: !!opts.sweep_devices,
             compat_only: !!opts.compat_only,
             sweep_all_models: !!opts.sweep_all_models,
+            model_ids: opts.model_ids ?? [],
         }),
     });
     return handleResponse<{ run_id: string }>(resp);
 }
 
 export interface DeviceSweepEntry {
+    provider?: string;
+    backend?: string;
+    device?: string;
+    ok?: boolean;
     compiles: boolean;
     error?: string | null;
     finite?: boolean | null;
@@ -117,15 +125,42 @@ export interface DeviceSweepEntry {
     images_compared?: number;
     top1_match_rate?: number;   // vs CPU, over real images (0..1)
     mean_top5_overlap?: number; // vs CPU, over real images (0..5)
+    comparison_kind?: 'classifier_top1' | 'crop_box';
+    detection_match_rate?: number; // detector presence/box/confidence agreement vs CPU
+    mean_box_iou?: number;
+    mean_confidence_delta?: number;
+    real_images_evaluated?: number;
+    negative_images_evaluated?: number;
+    real_detections?: number;
     matches_cpu?: boolean;      // top-1 matched CPU on every compared image
+    matches_baseline?: boolean;
+    baseline?: boolean;
 }
 
 export interface DeviceMatrix {
+    schema_version?: number;
     run_id: string;
     generated_at: string;
+    image_flavor?: string;
+    providers?: string[];
     devices: string[];
     image_count?: number;
-    models: Record<string, { error?: string; devices?: Record<string, DeviceSweepEntry> }>;
+    models: Record<string, {
+        error?: string;
+        comparison_kind?: 'classifier_top1';
+        baseline_provider?: string;
+        best_provider?: string;
+        providers?: Record<string, DeviceSweepEntry>;
+        devices?: Record<string, DeviceSweepEntry>;
+    }>;
+    crop_detectors?: Record<string, {
+        error?: string;
+        comparison_kind?: 'crop_box';
+        baseline_provider?: string;
+        best_provider?: string;
+        providers?: Record<string, DeviceSweepEntry>;
+        devices?: Record<string, DeviceSweepEntry>;
+    }>;
 }
 
 export async function getModelEvalDeviceMatrix(runId: string): Promise<DeviceMatrix | null> {

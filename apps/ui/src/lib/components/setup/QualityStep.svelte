@@ -4,31 +4,37 @@
     import { fetchSettings, updateSettings } from '../../api/settings';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
     import WizardStepLayout from './WizardStepLayout.svelte';
+    import WizardLoadState, { type WizardLoadStatus } from './WizardLoadState.svelte';
 
     let hqSnapshots = $state(true);
-    let loaded = $state(false);
+    let loadState = $state<WizardLoadStatus>('loading');
     let busy = $state(false);
 
-    onMount(async () => {
+    async function load(): Promise<void> {
+        loadState = 'loading';
         try {
             const s = await fetchSettings();
             hqSnapshots = s.media_cache_high_quality_event_snapshots ?? true;
         } catch {
-            // Editable defaults remain.
-        } finally {
-            loaded = true;
+            loadState = 'error';
+            return;
         }
+        loadState = 'ready';
+    }
+
+    onMount(() => {
+        void load();
     });
 
     async function save() {
+        if (loadState !== 'ready') return;
         busy = true;
         try {
             await updateSettings({
-                media_cache_high_quality_event_snapshots: hqSnapshots,
-                media_cache_high_quality_event_snapshot_bird_crop: hqSnapshots
+                media_cache_high_quality_event_snapshots: hqSnapshots
             });
             await setupWizardStore.refresh();
-            setupWizardStore.next();
+            setupWizardStore.completeStep();
         } finally {
             busy = false;
         }
@@ -41,10 +47,11 @@
         default: 'YA-WAMF can automatically choose the clearest recorded frame and strongest reliable bird crop after each event.'
     })}
     showSkip
+    canContinue={loadState === 'ready'}
     {busy}
     onContinue={save}
 >
-    {#if loaded}
+    <WizardLoadState state={loadState} onRetry={load}>
         <label class="flex min-h-12 items-start gap-3 rounded-xl border border-slate-200/80 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:text-slate-300">
             <input type="checkbox" bind:checked={hqSnapshots} class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
             <span>
@@ -56,5 +63,5 @@
                 </span>
             </span>
         </label>
-    {/if}
+    </WizardLoadState>
 </WizardStepLayout>

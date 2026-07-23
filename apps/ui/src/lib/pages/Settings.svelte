@@ -2549,6 +2549,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     skipped: safeCount(detections.skipped),
                     errors: safeCount(detections.errors),
                     skipped_reasons: detections.skipped_reasons ?? {},
+                    error_reasons: detections.error_reasons ?? {},
                     message: detections.message || ''
                 };
                 const scoped = mergeBackfillTotal(backfillTotalJobId, backfillTotal, detections);
@@ -2580,6 +2581,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     updated: safeCount(weather.updated),
                     skipped: safeCount(weather.skipped),
                     errors: safeCount(weather.errors),
+                    error_reasons: weather.error_reasons ?? {},
                     message: weather.message || ''
                 };
                 const scoped = mergeBackfillTotal(weatherBackfillTotalJobId, weatherBackfillTotal, weather);
@@ -3220,6 +3222,23 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         }
     }
 
+    async function prepareInaturalistOAuth(): Promise<void> {
+        // OAuth must use the credentials currently visible in the form. Persist
+        // only this integration so unrelated unsaved settings remain untouched.
+        await updateSettings({
+            inaturalist_enabled: true,
+            inaturalist_client_id: inaturalistClientId,
+            inaturalist_client_secret: inaturalistClientSecret
+        });
+        const refreshed = await fetchSettings();
+        settingsStore.update(refreshed);
+        inaturalistEnabled = refreshed.inaturalist_enabled ?? true;
+        inaturalistClientIdSaved = refreshed.inaturalist_client_id === '***REDACTED***';
+        inaturalistClientSecretSaved = refreshed.inaturalist_client_secret === '***REDACTED***';
+        if (inaturalistClientIdSaved) inaturalistClientId = '';
+        if (inaturalistClientSecretSaved) inaturalistClientSecret = '';
+    }
+
     function toggleCamera(camera: string) {
         if (selectedCameras.includes(camera)) {
             selectedCameras = selectedCameras.filter(c => c !== camera);
@@ -3428,6 +3447,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:locationState
                     bind:locationCountry
                     bind:locationWeatherUnitSystem
+                    {prepareInaturalistOAuth}
                     initiateInaturalistOAuth={initiateInaturalistOAuth}
                     disconnectInaturalistOAuth={disconnectInaturalistOAuth}
                     refreshInaturalistStatus={async () => {

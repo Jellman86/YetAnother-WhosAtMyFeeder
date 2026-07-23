@@ -80,8 +80,21 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 
 - `POST /api/auth/login`
 - `GET /api/auth/status`
-- `POST /api/auth/initial-setup`
+- `POST /api/auth/initial-setup` — available only while
+  `auth.initial_setup_complete=false` and no password exists. Enabling auth requires a
+  password and returns `access_token`, `token_type`, `username`, and
+  `expires_in_hours` so the first-run UI can continue across the newly protected API
+  boundary. Skipping auth returns those session fields as `null`. Once either choice
+  succeeds, later calls are rejected and authentication changes use the owner-only
+  Settings API.
 - `POST /api/auth/logout`
+
+### Guided setup
+
+- `GET /api/setup/state` (owner; also reachable before auth is enabled) — returns
+  deterministic `ok`, `attention`, or `optional` states for account, connection,
+  cameras, classifier, snapshot quality, and integrations. This is saved
+  configuration/credential readiness, not a live external-service health check.
 
 ### Events
 
@@ -109,6 +122,10 @@ model-driven crop is reported as `snapshot_model_crop` or `snapshot_frigate_hint
 from image dimensions. A trusted upstream label that won because local image evidence did not
 clear policy is reported as `frigate_sublabel` rather than as snapshot or video inference.
 
+An HQ baseline built from Frigate's regular ended-event snapshot because the clean copy was absent
+uses `hq_candidate_frigate_snapshot_fallback`. It is treated conservatively as already cropped: the
+ended-event API ignores crop query overrides, so YA-WAMF must not run localisation a second time.
+
 `POST /api/events/{event_id}/reclassify` returns `status: "success"` and `updated: true` only after
 the selected result has been persisted. If all video and snapshot candidates are unusable, it
 returns HTTP 200 with `status: "no_result"`, `reason: "no_confident_result"`, and `updated: false`;
@@ -125,6 +142,9 @@ validation; a confident snapshot does not short-circuit an available cached vide
 - `GET /api/frigate/{event_id}/snapshot.jpg`
 - `GET /api/frigate/{event_id}/snapshot/status` (owner; reports the effective best-available policy)
 - `GET /api/frigate/{event_id}/snapshot/candidates` (owner)
+  - Candidate rows include optional `crop_strategy` provenance (`native`, `frigate_guided`,
+    `sliced_2x2`, or `fast_native`) for model-generated crops, and `frigate_final_box` for the
+    completed-track clean-snapshot baseline.
 - `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/apply` (owner)
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
@@ -137,7 +157,9 @@ validation; a confident snapshot does not short-circuit an available cached vide
 - `GET /api/frigate/{event_id}/clip-thumbnails.jpg`
 - `GET /api/frigate/cameras/status` (owner; normalized camera health from Frigate stats, never cached)
 - `GET /api/frigate/camera/{camera}/latest.jpg` (owner; current frame, never cached)
-- `GET /api/frigate/test`
+- `GET /api/frigate/test` (owner) — accepts an optional `url` query override for testing
+  the value currently being edited without saving it. Stored Frigate credentials are
+  forwarded only when the normalized override matches the saved Frigate base URL.
 - `GET /api/frigate/config`
 - `GET /api/frigate/recording-clip-capability`
 - `POST /api/video-share`
@@ -146,8 +168,8 @@ validation; a confident snapshot does not short-circuit an available cached vide
 - `PATCH /api/video-share/{event_id}/links/{link_id}`
 - `POST /api/video-share/{event_id}/links/{link_id}/revoke`
 
-The HQ snapshot worker also publishes `crop_policy`, selected-source counts, outcomes, and recovered
-job totals under `GET /health` → `high_quality_snapshots`. Its retry state is persisted independently
+The HQ snapshot worker also publishes `crop_policy`, queued final-refresh count, selected-source
+counts, outcomes, and recovered job totals under `GET /health` → `high_quality_snapshots`. Its retry state is persisted independently
 from species identity, with bounded 5/15/45-minute backoff and a terminal fourth failure; successful
 explicit or automatic generation clears the failure state.
 
@@ -198,8 +220,8 @@ Notes:
 - `GET /api/models/families/resolved` (owner)
 - `POST /api/models/{model_id}/download` (owner)
 - `GET /api/models/download-status/{model_id}` (owner)
-- `POST /api/models/{model_id}/validate` (owner) — trial-loads the model on this host, runs one frame through it, and records whether it produced finite output. Clears the post-install selection gate on success and restores the previously active model.
-- `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the model has not been validated on this host (unless it is a bundled model or the one already active).
+- `POST /api/models/{model_id}/validate` (owner) — trial-activates a classifier, validates every provider in the running image/host/model intersection in isolated processes, compares accelerator output with a CPU baseline, records provider eligibility and median inference latency, chooses the fastest passing provider, and restores the previously active model. Crop-detector artifacts are rejected with `409`.
+- `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the artifact is a crop detector or the classifier has not been validated in the current image on this host (unless it is bundled or already active); after activation succeeds, applies the fastest still-eligible provider recorded by the shared validation engine.
 
 `GET /api/classifier/status` separates packaging, hardware availability, and the
 active model session. Important deployment fields are:
@@ -209,15 +231,35 @@ active model session. Important deployment fields are:
 | `image_flavor` | Image-owned runtime family: `full`, `cpu`, `intel`, `cuda`, `rpi`, or `unknown` outside a published image. |
 | `packaged_inference_providers` | Providers the image is designed to contain. This does not claim a host device works. |
 | `image_flavor_warning` | `selected_provider_not_packaged` when the saved explicit provider is outside this image; otherwise `null`. |
-| `available_providers` | Packaged providers whose runtime/device probe passed on this host. |
+| `active_model_id` | Model saved in persistent configuration. Its files may be unavailable after an image or storage change. |
+| `effective_model_id` | Model whose files and preprocessing contract the current runtime actually resolved, including the bundled MobileNet fallback. |
+| `runtime` | Active TFLite implementation (`litert`, `tflite-runtime`, `tensorflow`, or `unavailable`); ONNX session details remain in `inference_backend`. |
+| `host_available_providers` | Providers packaged in this image whose runtime/device probe passed, before applying a model-specific compatibility filter. Used when choosing a different model. |
+| `available_providers` | Providers packaged in this image whose runtime/device probe passed and which the active model supports, ordered with the active recovery path first and other valid manual choices afterwards. |
+| `provider_preference_order` | The active provider followed by the concrete providers the current runtime will try if inference recovery is required. This is a subset of `available_providers`. |
 | `selected_provider` | Saved preference from configuration. An image mismatch does not rewrite it. |
 | `active_provider` / `inference_backend` | Provider and backend used by the loaded model session. |
 | `fallback_reason` | Why the active session differs from the selected provider, when known. |
 
 Use these fields together. For example, an Intel image can legitimately report
-`intel_gpu` as packaged but unavailable when `/dev/dri` was not passed through.
+`intel_gpu` as packaged but omit it from `available_providers` when `/dev/dri`
+was not passed through or the active model does not support that provider.
 See [Hardware Acceleration](setup/hardware-acceleration.md) for the complete
 image/provider contract.
+
+The owner-only model-evaluation API accepts `sweep_devices`, `compat_only`,
+`sweep_all_models`, `discover_providers`, and an optional `model_ids` list on
+`POST /api/diagnostics/model-eval/runs`. The setup wizard sends its selected installed
+model as the sole `model_ids` entry; Diagnostics defaults to installed models and can
+opt into downloading the full registry. Compatibility runs publish their normal
+summary plus `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with
+`artifact=device_matrix.json`. Its provider matrix records image flavor, baseline,
+compile/finite-output status, real-image agreement, eligibility, and inference latency.
+Compatibility summaries also expose `validated_providers` and `failed_providers` per model; the
+fastest passing declared provider becomes the current-image activation recommendation.
+`discover_providers=true` additionally probes packaged, host-visible providers omitted by current
+model metadata. Passing undeclared rows are reported as `declared: false` and under
+`discovered_providers`; they do not widen runtime eligibility until the registry is reviewed.
 
 ### AI
 
@@ -231,9 +273,17 @@ image/provider contract.
 
 - `GET /api/settings` (owner)
 - `POST /api/settings` (owner)
-- `POST /api/settings/birdnet/test` (owner)
-- `GET /api/settings/birdnet/reachability` (owner) — checks the configured BirdNET-Go URL answers over HTTP
-- `POST /api/settings/mqtt/test-publish` (owner)
+- `POST /api/settings/birdnet/test` (owner) — synchronously proves a mock detection can
+  enter the audio-correlation buffer and complete a database insert/delete; returns `502`
+  rather than a false success when persistence or cleanup fails. The synthetic row and buffer
+  entry are removed so the test cannot affect history or audio confirmation.
+- `GET /api/settings/birdnet/reachability` (owner) — checks that BirdNET-Go answers over
+  HTTP; accepts an optional credential-free HTTP(S) `url` query override so an edited
+  value can be tested without saving it.
+- `POST /api/settings/mqtt/test-publish` (owner) — JSON body accepts optional `server`,
+  `port`, `auth`, `username`, and `password` overrides. Send `{}` to test saved values.
+  Empty/redacted passwords retain the stored secret; the probe uses an isolated,
+  time-bounded MQTT client and never replaces the live ingest connection.
 - `POST /api/settings/notifications/test` (owner)
 - `POST /api/settings/birdweather/test` (owner)
 - `POST /api/settings/llm/test` (owner) — returns structured AI diagnostic metadata (`provider`,
@@ -254,13 +304,46 @@ image/provider contract.
 
 ### Backfill
 
-- `POST /api/backfill` (owner)
-- `POST /api/backfill/async` (owner)
-- `GET /api/backfill/status` (owner)
-- `GET /api/backfill/status/{job_id}` (owner)
-- `POST /api/backfill/weather` (owner)
-- `POST /api/backfill/weather/async` (owner)
-- `DELETE /api/backfill/reset` (owner)
+- `POST /api/backfill` (owner) — synchronously imports retained Frigate bird events.
+- `POST /api/backfill/async` (owner) — starts the same import as a background job.
+- `GET /api/backfill/status` (owner) — returns the latest detection or weather job; `kind` can be
+  `detections` or `weather`.
+- `GET /api/backfill/status/{job_id}` (owner) — returns one retained in-process job status.
+- `POST /api/backfill/weather` (owner) — synchronously fills historical weather fields.
+- `POST /api/backfill/weather/async` (owner) — starts weather enrichment as a background job.
+- `DELETE /api/backfill/reset` (owner) — irreversibly deletes all detections and cached media after
+  cancelling and awaiting in-process backfill work.
+
+Backfill accepts `day`, `week`, `month`, or `custom`. Custom `start_date` and `end_date` values are
+calendar dates in the browser timezone, and the final day is inclusive. Detection import is
+idempotent by Frigate event ID: a stronger image result can update classification fields, but it
+preserves existing audio confirmation, weather, same-species taxonomy, the strongest Frigate score,
+and sublabel evidence. Backfill applies the same confidence, abstention, blocked-species, and trusted-
+sublabel rules as live ingest. Completed snapshots are requested explicitly without a crop and valid,
+aligned Frigate box/region metadata restores Frigate's tracked-object crop locally before that shared
+gate, independent of the selected classifier's own detector-crop policy. Already-cropped and
+temporally unaligned cached images do not receive those coordinates. Taxonomy from a replaced species
+is cleared rather than attached to the new identity. Missing cached snapshots can still be repaired
+for an existing row. Frigate history fetch or pagination failures fail the job explicitly; partial
+history is never reported as a completed empty import. Job status includes `last_progress_at`,
+structured skip/error reason counts, and a terminal message. A completed detection import queues an
+only-missing weather pass when the maintenance lane becomes available.
+
+### Jobs
+
+- `GET /api/jobs` (owner) — returns the current server-owned background-work snapshot.
+
+The response keeps each workload in its own lane: `auto_video`, `video_analysis`,
+`high_quality_snapshot`, `full_visit`, `backfill`, and `weather_backfill`. Each item includes its
+event ID when applicable, status, current phase, progress counters and unit, timestamps, and an
+application route. Lane summaries report queued/running/terminal counts, queue capacity, configured
+and effective worker concurrency, and a machine-readable blocker such as
+`paused_after_failures`, `waiting_for_live_detections`, or `waiting_for_capacity`.
+
+`include_routine=false` omits automatic per-detection media work while retaining prominent
+owner-triggered work. `limit` controls returned item detail (`1`–`500`); lane totals are calculated
+before that item limit so capacity reporting remains accurate. This endpoint is a no-cache status
+snapshot, not a destructive queue-control API.
 
 ### Integrations
 

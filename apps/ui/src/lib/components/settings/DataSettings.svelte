@@ -9,7 +9,6 @@
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
-    import { setupWizardStore } from '../../stores/setup_wizard.svelte';
 
     let {
         maintenanceStats,
@@ -477,18 +476,9 @@
 
     <AdvancedSection
         id="data-tools"
-        title={$_('settings.data.tools_title', { default: 'Setup, backup & maintenance tools' })}
+        title={$_('settings.data.tools_title', { default: 'Backup & maintenance tools' })}
         openByDefault={backfilling || weatherBackfilling || analyzingUnknowns || syncingTaxonomy || previewingTimezoneRepair || applyingTimezoneRepair || exportingConfigBackup || importingConfigBackup}
     >
-    <SettingsCard
-        title={$_('settings.data.setup_wizard_title', { default: 'Setup wizard' })}
-        description={$_('settings.data.setup_wizard_desc', { default: 'Re-run the guided setup any time to reconfigure a section. Only the sections you change are touched.' })}
-    >
-        <button type="button" class="btn btn-secondary" onclick={() => setupWizardStore.open('rerun')}>
-            {$_('settings.data.setup_wizard_launch', { default: 'Open setup wizard' })}
-        </button>
-    </SettingsCard>
-
     <SettingsCard
         title={$_('settings.data.config_backup_title', { default: 'Configuration Backup' })}
         description={$_('settings.data.config_backup_desc', { default: 'Export or restore the complete YA-WAMF configuration as JSON, including secrets.' })}
@@ -715,7 +705,7 @@
                             bind:value={backfillStartDate}
                             max={backfillEndDate || todayDateOnly()}
                             aria-label={$_('settings.data.backfill_from', { default: 'From date' })}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                            class="input-base"
                         />
                     </div>
                     <div>
@@ -729,14 +719,14 @@
                             min={backfillStartDate || undefined}
                             max={todayDateOnly()}
                             aria-label={$_('settings.data.backfill_to', { default: 'To date' })}
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                            class="input-base"
                         />
                     </div>
                 </div>
                 <div class="grid grid-cols-3 gap-2">
-                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-brand-400" onclick={() => setCustomRangeDays(7)}>7D</button>
-                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-brand-400" onclick={() => setCustomRangeDays(30)}>30D</button>
-                    <button type="button" class="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 hover:border-brand-400" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
+                    <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={() => setCustomRangeDays(7)}>7D</button>
+                    <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={() => setCustomRangeDays(30)}>30D</button>
+                    <button type="button" class="btn btn-ghost min-h-11 px-3 py-2" onclick={clearCustomRange}>{$_('common.clear', { default: 'Clear' })}</button>
                 </div>
                 {#if backfillCustomError}
                     <p class="text-xs font-bold text-red-500">{backfillCustomError}</p>
@@ -745,12 +735,18 @@
         {/if}
 
         {#if backfillResult}
-            <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
-                <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
-                <div><p class="text-sm font-black text-accent-500">{safeCount(backfillResult.new_detections)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_new')}</p></div>
-                <div><p class="text-sm font-black text-slate-400">{safeCount(backfillResult.skipped)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
-                <div><p class="text-sm font-black text-red-500">{safeCount(backfillResult.errors)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
-            </div>
+            {#if backfillResult.message}
+                <p class="flex items-start gap-2 border-l-2 {backfilling ? 'border-brand-400 text-brand-800 dark:text-brand-200' : safeCount(backfillResult.errors) > 0 ? 'border-amber-400 text-amber-800 dark:text-amber-200' : 'border-accent-400 text-slate-700 dark:text-slate-300'} py-1 pl-3 text-sm" aria-live="polite">
+                    {#if backfilling}{@render spinner()}{/if}
+                    <span>{backfillResult.message}</span>
+                </p>
+            {/if}
+            <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-4 sm:divide-y-0">
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(backfillResult.processed)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_new')}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(backfillResult.new_detections)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(backfillResult.skipped)}</dd></div>
+                <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(backfillResult.errors) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(backfillResult.errors)}</dd></div>
+            </dl>
             {#if backfillResult.skipped_reasons && Object.keys(backfillResult.skipped_reasons).length > 0}
                 <div class="p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-700/30">
                     <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">{$_('settings.data.backfill_skipped_breakdown')}</p>
@@ -766,14 +762,27 @@
                     </div>
                 </div>
             {/if}
+            {#if backfillResult.error_reasons && Object.keys(backfillResult.error_reasons).length > 0}
+                <div class="border-l-2 border-rose-400 py-1 pl-3">
+                    <p class="mb-2 text-xs font-semibold text-rose-700 dark:text-rose-300">{$_('settings.data.backfill_error_breakdown', { default: 'Errors that need attention' })}</p>
+                    <div class="space-y-1.5">
+                        {#each Object.entries(backfillResult.error_reasons) as [reason, count]}
+                            <div class="flex items-center justify-between gap-3 text-xs">
+                                <span class="break-words text-slate-600 dark:text-slate-300">{$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}</span>
+                                <span class="font-bold tabular-nums text-rose-700 dark:text-rose-300">{count}</span>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/if}
         {/if}
 
         <button
             type="button"
             onclick={handleBackfill}
-            disabled={backfilling || !backfillCustomValid}
+            disabled={backfilling || weatherBackfilling || !backfillCustomValid}
             aria-label={$_('settings.data.backfill_scan_button')}
-            class="w-full {buttonPrimaryClass}"
+            class="btn btn-primary min-h-11 w-full px-5 py-2.5"
         >
             {#if backfilling}{@render spinner()}{/if}
             {backfilling ? $_('settings.data.backfill_scanning') : $_('settings.data.backfill_scan_button')}
@@ -784,19 +793,31 @@
             title={$_('settings.data.weather_backfill_title')}
         >
             {#if weatherBackfillResult}
-                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 grid grid-cols-4 gap-2 text-center">
-                    <div><p class="text-sm font-black text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_total')}</p></div>
-                    <div><p class="text-sm font-black text-accent-500">{safeCount(weatherBackfillResult.updated)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">Upd</p></div>
-                    <div><p class="text-sm font-black text-slate-400">{safeCount(weatherBackfillResult.skipped)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_skip')}</p></div>
-                    <div><p class="text-sm font-black text-red-500">{safeCount(weatherBackfillResult.errors)}</p><p class="text-xs font-black uppercase text-slate-500 tracking-tighter">{$_('settings.data.backfill_err')}</p></div>
-                </div>
+                {#if weatherBackfillResult.message}<p class="text-sm text-slate-600 dark:text-slate-300" aria-live="polite">{weatherBackfillResult.message}</p>{/if}
+                <dl class="grid grid-cols-2 divide-x divide-y divide-slate-200 border-y border-slate-200 text-center dark:divide-slate-700 dark:border-slate-700 sm:grid-cols-4 sm:divide-y-0">
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_total')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-900 dark:text-white">{safeCount(weatherBackfillResult.processed)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_updated', { default: 'Updated' })}</dt><dd class="order-1 text-base font-bold tabular-nums text-accent-600 dark:text-accent-400">{safeCount(weatherBackfillResult.updated)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_skip')}</dt><dd class="order-1 text-base font-bold tabular-nums text-slate-600 dark:text-slate-300">{safeCount(weatherBackfillResult.skipped)}</dd></div>
+                    <div class="flex flex-col px-2 py-3"><dt class="order-2 text-xs font-semibold text-slate-500">{$_('settings.data.backfill_err')}</dt><dd class="order-1 text-base font-bold tabular-nums {safeCount(weatherBackfillResult.errors) > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-slate-300'}">{safeCount(weatherBackfillResult.errors)}</dd></div>
+                </dl>
+                {#if weatherBackfillResult.error_reasons && Object.keys(weatherBackfillResult.error_reasons).length > 0}
+                    <div class="border-l-2 border-rose-400 py-1 pl-3">
+                        <p class="mb-2 text-xs font-semibold text-rose-700 dark:text-rose-300">{$_('settings.data.backfill_error_breakdown', { default: 'Errors that need attention' })}</p>
+                        {#each Object.entries(weatherBackfillResult.error_reasons) as [reason, count]}
+                            <div class="flex items-center justify-between gap-3 text-xs">
+                                <span class="break-words text-slate-600 dark:text-slate-300">{$_(`settings.data.backfill_reasons.${reason}`, { default: reason.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) })}</span>
+                                <span class="font-bold tabular-nums text-rose-700 dark:text-rose-300">{count}</span>
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
             {/if}
             <button
                 type="button"
                 onclick={handleWeatherBackfill}
-                disabled={weatherBackfilling || !backfillCustomValid}
+                disabled={weatherBackfilling || backfilling || !backfillCustomValid}
                 aria-label={$_('settings.data.weather_backfill_button')}
-                class="w-full {buttonNeutralClass}"
+                class="btn btn-secondary min-h-11 w-full px-5 py-2.5"
             >
                 {#if weatherBackfilling}{@render spinner()}{/if}
                 {weatherBackfilling ? $_('settings.data.weather_backfill_filling') : $_('settings.data.weather_backfill_button')}
