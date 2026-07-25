@@ -66,6 +66,8 @@ test("user metrics dashboard renders a bounded daily trend and distinct mode", a
   assert.match(body, />User Metrics<\/a>/);
   assert.match(body, /Active installs by day/);
   assert.match(body, /aria-label="Daily active installs trend"/);
+  assert.match(body, /aria-describedby="active-install-trend-data"/);
+  assert.match(body, /id="active-install-trend-data">Daily values for the selected 7-day window/);
   assert.match(body, /<svg[^>]+class="trend-chart"/);
   assert.doesNotMatch(body, /Most-Recent Recovery Reasons/);
 });
@@ -108,9 +110,10 @@ test("health data dashboard renders severity-led trends and concise issue detail
   assert.match(body, />Health Data<\/a>/);
   assert.match(body, /Reports by day/);
   assert.match(body, /aria-label="Daily health reports trend"/);
+  assert.match(body, /aria-describedby="health-report-trend-data"/);
   assert.match(body, /severity-pill severity-critical/);
   assert.match(body, /Top recurring issues/);
-  assert.match(body, /class="table-scroll"/);
+  assert.match(body, /class="table-scroll" tabindex="0" role="region" aria-label="Top recurring issues; scroll horizontally for all columns"/);
   assert.doesNotMatch(body, /Usage Geography/);
 });
 
@@ -141,6 +144,100 @@ test("heartbeat writes one bounded daily snapshot per installation", async () =>
   assert.equal(result.version, "2.15.1");
   assert.equal(result.installation_id_hash.length, 64);
   assert.notEqual(result.installation_id_hash, base.installation_id);
+});
+
+test("heartbeat bounds runtime health values and dashboard excludes hostile legacy categories", async (t) => {
+  const testVersion = "runtime-normalization-test";
+  t.after(async () => {
+    await usageDb.prepare("DELETE FROM heartbeats WHERE app_version = ?").bind(testVersion).run();
+    await usageDb.prepare("DELETE FROM heartbeat_daily WHERE version = ?").bind(testVersion).run();
+  });
+
+  const response = await mf.dispatchFetch("http://worker.test/heartbeat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      installation_id: "runtime-normalization-install",
+      timestamp: "2026-07-25T12:00:00Z",
+      version: testVersion,
+      runtime: {
+        inference_health_status: "attacker-controlled-status",
+        inference_health_unhealthy_runtimes: -5,
+        inference_health_degraded_runtimes: 50000,
+        inference_health_total_runtimes: "not-a-number",
+        last_recovery_reason: "<script>alert(1)</script>",
+        last_recovery_status: "attacker-controlled-status",
+      },
+    }),
+  });
+  assert.equal(response.status, 200, await response.text());
+
+  const stored = await usageDb.prepare(`
+    SELECT inference_health_status, inference_health_unhealthy_runtimes,
+           inference_health_degraded_runtimes, inference_health_total_runtimes,
+           last_recovery_reason, last_recovery_status
+    FROM heartbeats WHERE installation_id = 'runtime-normalization-install'
+  `).first();
+  assert.deepEqual(stored, {
+    inference_health_status: null,
+    inference_health_unhealthy_runtimes: 0,
+    inference_health_degraded_runtimes: 1000,
+    inference_health_total_runtimes: null,
+    last_recovery_reason: null,
+    last_recovery_status: null,
+  });
+
+  const validResponse = await mf.dispatchFetch("http://worker.test/heartbeat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      installation_id: "runtime-normalization-valid-install",
+      timestamp: "2026-07-25T12:00:00Z",
+      version: testVersion,
+      runtime: {
+        inference_health_status: "Degraded",
+        inference_health_unhealthy_runtimes: 1,
+        inference_health_degraded_runtimes: 2,
+        inference_health_total_runtimes: 3,
+        last_recovery_reason: "GPU_UNHEALTHY_FALLBACK",
+        last_recovery_status: "Recovered",
+      },
+    }),
+  });
+  assert.equal(validResponse.status, 200, await validResponse.text());
+  const validStored = await usageDb.prepare(`
+    SELECT inference_health_status, inference_health_unhealthy_runtimes,
+           inference_health_degraded_runtimes, inference_health_total_runtimes,
+           last_recovery_reason, last_recovery_status
+    FROM heartbeats WHERE installation_id = 'runtime-normalization-valid-install'
+  `).first();
+  assert.deepEqual(validStored, {
+    inference_health_status: "degraded",
+    inference_health_unhealthy_runtimes: 1,
+    inference_health_degraded_runtimes: 2,
+    inference_health_total_runtimes: 3,
+    last_recovery_reason: "gpu_unhealthy_fallback",
+    last_recovery_status: "recovered",
+  });
+
+  await usageDb.prepare(`
+    WITH RECURSIVE categories(n) AS (
+      SELECT 1 UNION ALL SELECT n + 1 FROM categories WHERE n < 20
+    )
+    INSERT INTO heartbeats (
+      installation_id, app_version, inference_health_status,
+      last_recovery_reason, last_recovery_status, last_seen
+    )
+    SELECT 'legacy-hostile-' || n, ?, 'hostile_status_' || n,
+           '<SCRIPT>' || n, 'recovered', datetime('now')
+    FROM categories
+  `).bind(testVersion).run();
+
+  const dashboard = await mf.dispatchFetch("http://worker.test/dashboard?view=health&days=30");
+  const body = await dashboard.text();
+  assert.equal(dashboard.status, 200);
+  assert.doesNotMatch(body, /hostile_status_|&lt;script&gt;|<script>/i);
+  assert.match(body, /gpu unhealthy fallback/);
 });
 
 test("ingestion rejects oversized bodies before D1 writes", async () => {

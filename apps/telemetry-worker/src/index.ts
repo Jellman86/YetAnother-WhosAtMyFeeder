@@ -219,6 +219,28 @@ function normalizeSeverity(value: unknown): string {
   return ['warning', 'error', 'critical'].includes(severity) ? severity : 'warning';
 }
 
+function normalizeInferenceHealthStatus(value: unknown): string | null {
+  const status = safeText(value, '', 20).toLowerCase();
+  return ['ok', 'degraded', 'unhealthy'].includes(status) ? status : null;
+}
+
+function normalizeRecoveryStatus(value: unknown): string | null {
+  const status = safeText(value, '', 20).toLowerCase();
+  return ['recovered', 'failed'].includes(status) ? status : null;
+}
+
+function normalizeRecoveryReason(value: unknown): string | null {
+  const reason = String(value ?? '').trim().toLowerCase();
+  return /^[a-z0-9_]{1,64}$/.test(reason) ? reason : null;
+}
+
+function safeRuntimeCount(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const count = Number(value);
+  if (!Number.isFinite(count)) return null;
+  return Math.min(1_000, Math.max(0, Math.floor(count)));
+}
+
 function safeCount(value: unknown): number {
   const count = Number(value ?? 0);
   if (!Number.isFinite(count)) return 0;
@@ -346,6 +368,7 @@ function renderTrendChart({
   rows,
   days,
   valueKey,
+  chartId,
   title,
   ariaLabel,
   caption
@@ -353,6 +376,7 @@ function renderTrendChart({
   rows: any[];
   days: number;
   valueKey: string;
+  chartId: string;
   title: string;
   ariaLabel: string;
   caption: string;
@@ -382,6 +406,9 @@ function renderTrendChart({
   const middle = points[Math.floor((points.length - 1) / 2)];
   const latest = points.at(-1)?.value;
   const latestObserved = observed.at(-1);
+  const accessibleValues = points
+    .map((point) => `${point.day}: ${point.value === null ? 'not available' : fmt(point.value)}`)
+    .join('; ');
 
   return `
     <figure class="panel trend-panel">
@@ -389,7 +416,7 @@ function renderTrendChart({
         <div><span class="eyebrow">Daily rollup</span><h2>${html(title)}</h2></div>
         <div class="chart-latest"><strong>${latest === null || latest === undefined ? '—' : fmt(latest)}</strong><span>latest day</span></div>
       </div>
-      <svg class="trend-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${html(ariaLabel)}" preserveAspectRatio="none">
+      <svg class="trend-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${html(ariaLabel)}" aria-describedby="${html(chartId)}-data" preserveAspectRatio="none">
         <line class="chart-grid" x1="${left}" y1="${top}" x2="${width - right}" y2="${top}"></line>
         <line class="chart-grid" x1="${left}" y1="${top + plotHeight / 2}" x2="${width - right}" y2="${top + plotHeight / 2}"></line>
         <line class="chart-axis" x1="${left}" y1="${baseline}" x2="${width - right}" y2="${baseline}"></line>
@@ -399,6 +426,7 @@ function renderTrendChart({
       </svg>
       <div class="chart-labels"><span>${shortDate(points[0].day)}</span><span>${shortDate(middle.day)}</span><span>${shortDate(points.at(-1)!.day)}</span></div>
       <figcaption>${html(caption)} · peak ${fmt(actualPeak)}</figcaption>
+      <p class="sr-only" id="${html(chartId)}-data">Daily values for the selected ${days}-day window. ${html(accessibleValues)}. Peak: ${fmt(actualPeak)}.</p>
     </figure>
   `;
 }
@@ -441,8 +469,8 @@ function dashboardShell({
   <title>${html(title)}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap');
-    :root { color-scheme: light dark; --bg:#f8fafc; --panel:#ffffff; --panel-2:#f1f5f9; --text:#334155; --heading:#0f172a; --muted:#64748b; --line:#e2e8f0; --brand:#14b8a6; --brand-strong:#0d9488; --brand-soft:#ccfbf1; --danger:#dc2626; --warn:#d97706; --shadow:0 8px 24px -14px rgba(15,23,42,.22); --font:'Instrument Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; --font-display:'Bricolage Grotesque', 'Instrument Sans', sans-serif; }
-    body.view-health { --brand:#f97316; --brand-strong:#dc2626; --brand-soft:#ffedd5; }
+    :root { color-scheme: light dark; --bg:#f8fafc; --panel:#ffffff; --panel-2:#f1f5f9; --text:#334155; --heading:#0f172a; --muted:#64748b; --line:#e2e8f0; --brand:#0f766e; --brand-strong:#115e59; --brand-soft:#ccfbf1; --active:#0f766e; --active-strong:#115e59; --danger:#dc2626; --warn:#d97706; --shadow:0 8px 24px -14px rgba(15,23,42,.22); --font:'Instrument Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; --font-display:'Bricolage Grotesque', 'Instrument Sans', sans-serif; }
+    body.view-health { --brand:#c2410c; --brand-strong:#b91c1c; --brand-soft:#ffedd5; --active:#c2410c; --active-strong:#b91c1c; }
     @media (prefers-color-scheme: dark) { :root { --bg:#030712; --panel:#1e293b; --panel-2:#0f172a; --text:#e2e8f0; --heading:#f1f5f9; --muted:#94a3b8; --line:#334155; --brand:#2dd4bf; --brand-strong:#5eead4; --brand-soft:#134e4a; --danger:#f87171; --warn:#fbbf24; --shadow:0 14px 34px -16px rgba(0,0,0,.7); } body.view-health { --brand:#fb923c; --brand-strong:#f87171; --brand-soft:#7c2d12; } }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
@@ -459,7 +487,7 @@ function dashboardShell({
     .tabs, .windows { display:flex; gap:6px; flex-wrap:wrap; }
     .tab, .window-link { color:var(--muted); text-decoration:none; border:1px solid var(--line); border-radius:11px; padding:7px 13px; background:var(--panel); font-weight:600; font-size:13px; transition:border-color .12s, color .12s; }
     .tab:hover, .window-link:hover { border-color:var(--brand); color:var(--brand); }
-    .tab.active, .window-link.active { color:#fff; border-color:transparent; background:linear-gradient(135deg, var(--brand), var(--brand-strong)); box-shadow:var(--shadow); }
+    .tab.active, .window-link.active { color:#fff; border-color:transparent; background:linear-gradient(135deg, var(--active), var(--active-strong)); box-shadow:var(--shadow); }
     .toolbar { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
     .grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; margin-bottom:14px; }
     .grid.two { grid-template-columns:repeat(2, minmax(0, 1fr)); }
@@ -507,6 +535,7 @@ function dashboardShell({
     .severity-pill.severity-warning { background:color-mix(in srgb, var(--warn) 16%, transparent); color:var(--warn); }
     .severity-pill.severity-unknown { background:var(--panel-2); color:var(--muted); }
     .table-scroll { overflow-x:auto; margin:0 -4px; padding:0 4px; }
+    .table-scroll:focus-visible { outline:3px solid var(--brand); outline-offset:3px; border-radius:8px; }
     .feature-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); column-gap:20px; }
     .scroll-hint { display:none; color:var(--muted); font-size:10.5px; margin:0 0 8px; }
     .issue-reason { color:var(--heading); font-weight:650; text-transform:capitalize; }
@@ -514,6 +543,7 @@ function dashboardShell({
     .section-intro h2 { font-size:16px; margin:0; }
     .section-intro p { color:var(--muted); font-size:11.5px; margin:0; max-width:58ch; }
     .empty { color:var(--muted); text-align:center; padding:22px; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0, 0, 0, 0); white-space:nowrap; border:0; }
     .panel-empty { border:1px dashed var(--line); border-radius:16px; box-shadow:none; }
     code { background:var(--panel-2); border:1px solid var(--line); border-radius:6px; padding:2px 6px; font-size:12px; }
     footer.dash { margin-top:28px; color:var(--muted); font-size:12px; text-align:center; border-top:1px solid var(--line); padding-top:16px; }
@@ -680,9 +710,10 @@ app.get('/dashboard', async (c) => {
       SELECT inference_health_status as status, count(*) as count
       FROM heartbeats
       WHERE last_seen > ${activeThreshold}
-        AND inference_health_status IS NOT NULL
+        AND inference_health_status IN ('ok', 'degraded', 'unhealthy')
       GROUP BY inference_health_status
       ORDER BY count DESC
+      LIMIT 3
     `).all();
 
     const inferenceHealthAggregate = await c.env.DB.prepare(`
@@ -700,7 +731,9 @@ app.get('/dashboard', async (c) => {
       SELECT last_recovery_reason as reason, last_recovery_status as status, count(*) as count
       FROM heartbeats
       WHERE last_seen > ${activeThreshold}
-        AND last_recovery_reason IS NOT NULL
+        AND last_recovery_status IN ('recovered', 'failed')
+        AND length(last_recovery_reason) BETWEEN 1 AND 64
+        AND last_recovery_reason NOT GLOB '*[^a-z0-9_]*'
       GROUP BY last_recovery_reason, last_recovery_status
       ORDER BY count DESC
       LIMIT 10
@@ -735,6 +768,7 @@ app.get('/dashboard', async (c) => {
         rows: dailyReports.results,
         days,
         valueKey: 'reports',
+        chartId: 'health-report-trend',
         title: 'Reports by day',
         ariaLabel: 'Daily health reports trend',
         caption: 'One accepted health snapshot per report ID; repeated deliveries are ignored'
@@ -790,8 +824,8 @@ app.get('/dashboard', async (c) => {
       </section>
       <section class="panel">
         <div class="section-intro" style="margin-top:0"><div><span class="eyebrow">Deduplicated detail</span><h2>Top recurring issues</h2></div><p>Highest-impact issue groups, capped at 12. Full aggregate data remains available from the JSON stats endpoint.</p></div>
-        <p class="scroll-hint">Swipe table for full details →</p>
-        <div class="table-scroll"><table>
+        <p class="scroll-hint">Scroll horizontally for full details →</p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Top recurring issues; scroll horizontally for all columns"><table>
           <thead><tr><th>Component</th><th>Reason</th><th>Severity</th><th>Version</th><th>Installs</th><th>Occurrences</th><th>Last seen</th></tr></thead>
           <tbody>${issueRows}</tbody>
         </table></div>
@@ -970,6 +1004,7 @@ app.get('/dashboard', async (c) => {
       rows: dailyInstalls.results,
       days,
       valueKey: 'installs',
+      chartId: 'active-install-trend',
       title: 'Active installs by day',
       ariaLabel: 'Daily active installs trend',
       caption: 'One privacy-preserving daily snapshot per active installation'
@@ -1224,12 +1259,12 @@ app.post('/heartbeat', async (c) => {
       payload.deployment?.image_arch || null,
       payload.deployment?.app_branch || null,
       payload.deployment?.git_hash || null,
-      payload.runtime?.inference_health_status || null,
-      typeof payload.runtime?.inference_health_unhealthy_runtimes === 'number' ? payload.runtime!.inference_health_unhealthy_runtimes : null,
-      typeof payload.runtime?.inference_health_degraded_runtimes === 'number' ? payload.runtime!.inference_health_degraded_runtimes : null,
-      typeof payload.runtime?.inference_health_total_runtimes === 'number' ? payload.runtime!.inference_health_total_runtimes : null,
-      payload.runtime?.last_recovery_reason || null,
-      payload.runtime?.last_recovery_status || null,
+      normalizeInferenceHealthStatus(payload.runtime?.inference_health_status),
+      safeRuntimeCount(payload.runtime?.inference_health_unhealthy_runtimes),
+      safeRuntimeCount(payload.runtime?.inference_health_degraded_runtimes),
+      safeRuntimeCount(payload.runtime?.inference_health_total_runtimes),
+      normalizeRecoveryReason(payload.runtime?.last_recovery_reason),
+      normalizeRecoveryStatus(payload.runtime?.last_recovery_status),
       country
     );
 
