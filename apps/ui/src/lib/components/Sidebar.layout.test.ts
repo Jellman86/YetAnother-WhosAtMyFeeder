@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import appSource from '../../App.svelte?raw';
 import connectionStatusSource from './ConnectionStatus.svelte?raw';
 import sidebarSource from './Sidebar.svelte?raw';
+import telemetryGraphSource from './SystemTelemetryGraph.svelte?raw';
 
 describe('Sidebar hybrid refresh', () => {
     it('keeps the large brand mark centred above the navigation', () => {
@@ -43,5 +44,19 @@ describe('Sidebar hybrid refresh', () => {
     it('keeps navigation and bottom controls reachable on short viewports', () => {
         expect(sidebarSource).toContain('[@media(max-height:42rem)]:hidden');
         expect(sidebarSource).toContain('[@media(max-height:42rem)]:py-3');
+    });
+
+    it('layers a lightweight live telemetry graph behind the status content', () => {
+        expect(sidebarSource).toContain("import SystemTelemetryGraph from './SystemTelemetryGraph.svelte'");
+        expect(sidebarSource).toContain('<SystemTelemetryGraph />');
+        expect(sidebarSource).toContain('relative overflow-hidden');
+        expect(sidebarSource).toContain('relative z-10');
+    });
+
+    it('samples telemetry only while the status card is actually visible', () => {
+        expect(telemetryGraphSource).toContain('IntersectionObserver');
+        expect(telemetryGraphSource).toContain('!inViewport');
+        expect(telemetryGraphSource).toContain('document.hidden');
+        expect(telemetryGraphSource).toContain('history = []');
     });
 });

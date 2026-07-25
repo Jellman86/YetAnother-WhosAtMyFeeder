@@ -122,6 +122,17 @@ export async function checkHealth(): Promise<HealthStatus> {
     return handleResponse<HealthStatus>(response);
 }
 
+export type SystemTelemetry = paths['/api/system-telemetry']['get']['response'];
+export type SystemAcceleratorTelemetry = NonNullable<SystemTelemetry['accelerator']>;
+
+export async function fetchSystemTelemetry(): Promise<SystemTelemetry> {
+    const response = await apiFetch(`${API_BASE}/system-telemetry`, {
+        cache: 'no-store',
+        timeoutMs: 2_500
+    });
+    return handleResponse<SystemTelemetry>(response);
+}
+
 export interface UpdateStatus {
     current_version: string;
     channel: 'dev' | 'stable' | 'main' | string;

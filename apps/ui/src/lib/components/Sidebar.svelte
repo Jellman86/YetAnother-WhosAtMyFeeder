@@ -7,6 +7,7 @@
     import { _ } from 'svelte-i18n';
     import BrandMark from './BrandMark.svelte';
     import LanguageSelector from './LanguageSelector.svelte';
+    import SystemTelemetryGraph from './SystemTelemetryGraph.svelte';
 
     onMount(() => {
         updateStatusStore.load();
@@ -146,13 +147,16 @@
 
     {#if !collapsed}
         <div data-sidebar-status class="shrink-0 border-t border-slate-200/80 p-3 dark:border-slate-700/60 [@media(max-height:42rem)]:hidden">
-            <div class="rounded-xl border border-slate-200/80 bg-slate-50/90 p-3 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/55">
-                <div class="mb-2 flex items-center justify-between gap-2">
-                    <span class="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                        {$_('status.title')}
-                    </span>
+            <div class="relative overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50/90 p-3 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/55">
+                <SystemTelemetryGraph />
+                <div class="relative z-10">
+                    <div class="mb-2 flex items-center justify-between gap-2">
+                        <span class="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                            {$_('status.title')}
+                        </span>
+                    </div>
+                    {@render status?.()}
                 </div>
-                {@render status?.()}
             </div>
         </div>
     {/if}
