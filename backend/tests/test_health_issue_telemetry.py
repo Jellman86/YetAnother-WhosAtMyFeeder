@@ -1,4 +1,171 @@
-from app.services.telemetry_service import build_health_issue_report, build_runtime_telemetry_payload
+import asyncio
+
+import pytest
+
+from app.config import settings
+from app.services import telemetry_service as telemetry_module
+from app.services.error_diagnostics import error_diagnostics_history
+from app.services.telemetry_service import TelemetryService, build_health_issue_report, build_runtime_telemetry_payload
+
+
+def _diagnostic_event(
+    event_id: str,
+    *,
+    timestamp: str = "2026-07-25T12:00:00+00:00",
+    reason_code: str = "video_timeout",
+) -> dict:
+    return {
+        "id": event_id,
+        "timestamp": timestamp,
+        "source": "backend",
+        "component": "video_classifier",
+        "stage": "classify",
+        "reason_code": reason_code,
+        "message": "Timed out",
+        "severity": "error",
+        "context": {"timeout_seconds": 180},
+    }
+
+
+def _diagnostic_snapshot(*events: dict) -> dict:
+    return {
+        "captured_at": "2026-07-25T12:05:00+00:00",
+        "total_events": len(events),
+        "returned_events": len(events),
+        "severity_counts": {"error": len(events)},
+        "component_counts": {"video_classifier": len(events)},
+        "events": list(events),
+    }
+
+
+class _RecordingAsyncClient:
+    payloads: list[dict] = []
+    statuses: list[int] = []
+    delay_seconds = 0.0
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return None
+
+    async def post(self, _url: str, *, json: dict):
+        self.payloads.append(json)
+        await asyncio.sleep(self.delay_seconds)
+        status_code = self.statuses.pop(0) if self.statuses else 200
+        return type("Response", (), {"status_code": status_code})()
+
+
+@pytest.fixture
+def health_sender(monkeypatch):
+    _RecordingAsyncClient.payloads = []
+    _RecordingAsyncClient.statuses = []
+    _RecordingAsyncClient.delay_seconds = 0.0
+    monkeypatch.setattr(telemetry_module.httpx, "AsyncClient", _RecordingAsyncClient)
+    monkeypatch.setattr(settings.telemetry, "installation_id", "00000000-0000-0000-0000-000000000000")
+    monkeypatch.setattr(settings.telemetry, "health_url", "https://telemetry.example/health-issues")
+    return TelemetryService()
+
+
+@pytest.mark.asyncio
+async def test_health_report_does_not_repeat_successfully_sent_event(monkeypatch, health_sender):
+    snapshot = _diagnostic_snapshot(_diagnostic_event("diag:1"))
+    monkeypatch.setattr(error_diagnostics_history, "snapshot", lambda **_kwargs: snapshot)
+
+    await health_sender._send_health_report()
+    await health_sender._send_health_report()
+
+    assert len(_RecordingAsyncClient.payloads) == 1
+
+
+@pytest.mark.asyncio
+async def test_health_report_retry_uses_stable_report_id(monkeypatch, health_sender):
+    snapshot = _diagnostic_snapshot(_diagnostic_event("diag:retry"))
+    monkeypatch.setattr(error_diagnostics_history, "snapshot", lambda **_kwargs: snapshot)
+    _RecordingAsyncClient.statuses = [500, 200]
+
+    await health_sender._send_health_report()
+    await health_sender._send_health_report()
+
+    assert len(_RecordingAsyncClient.payloads) == 2
+    first_id = _RecordingAsyncClient.payloads[0]["report_id"]
+    assert first_id == _RecordingAsyncClient.payloads[1]["report_id"]
+    assert len(first_id) == 64
+    assert _RecordingAsyncClient.payloads[0]["schema_version"] == "2026-07-25.health-issues.v3"
+    assert len(_RecordingAsyncClient.payloads[0]["issues"][0]["event_ids"]) == 1
+    assert len(_RecordingAsyncClient.payloads[0]["issues"][0]["event_ids"][0]) == 64
+
+
+@pytest.mark.asyncio
+async def test_health_report_retries_exact_inflight_batch_before_new_events(monkeypatch, health_sender):
+    current = {"snapshot": _diagnostic_snapshot(_diagnostic_event("diag:inflight"))}
+    monkeypatch.setattr(error_diagnostics_history, "snapshot", lambda **_kwargs: current["snapshot"])
+    _RecordingAsyncClient.statuses = [500, 200, 200]
+
+    await health_sender._send_health_report()
+    current["snapshot"] = _diagnostic_snapshot(
+        _diagnostic_event("diag:inflight"),
+        _diagnostic_event("diag:new", timestamp="2026-07-25T12:10:00+00:00"),
+    )
+    await health_sender._send_health_report()
+    await health_sender._send_health_report()
+
+    assert len(_RecordingAsyncClient.payloads) == 3
+    assert _RecordingAsyncClient.payloads[1] == _RecordingAsyncClient.payloads[0]
+    assert _RecordingAsyncClient.payloads[2]["report_id"] != _RecordingAsyncClient.payloads[0]["report_id"]
+    assert _RecordingAsyncClient.payloads[0]["issues"][0]["count"] == 1
+    assert _RecordingAsyncClient.payloads[2]["issues"][0]["count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_health_report_leaves_truncated_issue_groups_for_next_batch(monkeypatch, health_sender):
+    events = [_diagnostic_event(f"diag:{index}", reason_code=f"reason_{index:02d}") for index in range(26)]
+    snapshot = _diagnostic_snapshot(*events)
+    monkeypatch.setattr(error_diagnostics_history, "snapshot", lambda **_kwargs: snapshot)
+
+    await health_sender._send_health_report()
+    await health_sender._send_health_report()
+
+    assert len(_RecordingAsyncClient.payloads) == 2
+    assert len(_RecordingAsyncClient.payloads[0]["issues"]) == 25
+    assert len(_RecordingAsyncClient.payloads[1]["issues"]) == 1
+    fingerprints = {issue["fingerprint"] for payload in _RecordingAsyncClient.payloads for issue in payload["issues"]}
+    assert len(fingerprints) == 26
+
+
+@pytest.mark.asyncio
+async def test_health_report_sends_only_new_events_from_persistent_history(monkeypatch, health_sender):
+    current = {"snapshot": _diagnostic_snapshot(_diagnostic_event("diag:old"))}
+    monkeypatch.setattr(error_diagnostics_history, "snapshot", lambda **_kwargs: current["snapshot"])
+
+    await health_sender._send_health_report()
+    current["snapshot"] = _diagnostic_snapshot(
+        _diagnostic_event("diag:new", timestamp="2026-07-25T12:10:00+00:00"),
+        _diagnostic_event("diag:old"),
+    )
+    await health_sender._send_health_report()
+
+    assert len(_RecordingAsyncClient.payloads) == 2
+    assert _RecordingAsyncClient.payloads[0]["issues"][0]["count"] == 1
+    assert _RecordingAsyncClient.payloads[1]["issues"][0]["count"] == 1
+    assert _RecordingAsyncClient.payloads[0]["report_id"] != _RecordingAsyncClient.payloads[1]["report_id"]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_health_reports_do_not_upload_same_event_twice(monkeypatch, health_sender):
+    snapshot = _diagnostic_snapshot(_diagnostic_event("diag:concurrent"))
+    monkeypatch.setattr(error_diagnostics_history, "snapshot", lambda **_kwargs: snapshot)
+    _RecordingAsyncClient.delay_seconds = 0.01
+
+    await asyncio.gather(
+        health_sender._send_health_report(),
+        health_sender._send_health_report(),
+    )
+
+    assert len(_RecordingAsyncClient.payloads) == 1
 
 
 def test_health_issue_report_groups_and_sanitizes_diagnostics():
@@ -62,7 +229,7 @@ def test_health_issue_report_groups_and_sanitizes_diagnostics():
     )
 
     assert report is not None
-    assert report["schema_version"] == "2026-05-03.health-issues.v1"
+    assert report["schema_version"] == "2026-07-25.health-issues.v3"
     assert len(report["issues"]) == 1
 
     issue = report["issues"][0]
@@ -70,6 +237,8 @@ def test_health_issue_report_groups_and_sanitizes_diagnostics():
     assert issue["reason_code"] == "video_timeout"
     assert issue["severity"] == "error"
     assert issue["count"] == 2
+    assert len(issue["event_ids"]) == 2
+    assert all(len(event_id) == 64 for event_id in issue["event_ids"])
     assert issue["fingerprint"]
     assert issue["sample_context"] == {
         "configured_provider": "intel_gpu",

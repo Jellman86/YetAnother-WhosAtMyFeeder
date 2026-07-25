@@ -4,6 +4,9 @@ import { cors } from 'hono/cors';
 type Bindings = {
   DB: D1Database;
   HEALTH_DB: D1Database;
+  HEARTBEAT_RATE_LIMITER: RateLimit;
+  HEALTH_RATE_LIMITER: RateLimit;
+  ALLOW_UNLIMITED_INGESTION_FOR_TESTS?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -95,6 +98,7 @@ interface HealthIssue {
   stage?: string | null;
   severity?: string | null;
   count?: number;
+  event_ids?: string[];
   first_seen_at?: string | null;
   last_seen_at?: string | null;
   sample_context?: Record<string, unknown> | null;
@@ -102,6 +106,7 @@ interface HealthIssue {
 
 interface HealthIssuePayload {
   schema_version?: string;
+  report_id?: string;
   installation_id: string;
   timestamp: string;
   version: string;
@@ -117,7 +122,86 @@ interface HealthIssuePayload {
 }
 
 const MAX_HEALTH_ISSUES_PER_REPORT = 25;
+const MAX_HEALTH_EVENTS_PER_REPORT = 250;
+const MAX_INGESTION_BODY_BYTES = 128 * 1024;
 const MAX_JSON_CHARS = 8192;
+// Conservative D1 rows-written estimates include base rows plus primary/secondary
+// index maintenance. The 40k operational cap leaves 60k rows/day of Free-plan
+// headroom; update these weights whenever an ingestion-table index changes.
+const GLOBAL_D1_DAILY_WRITE_BUDGET = 40_000;
+const HEARTBEAT_BASE_WRITE_UNITS = 16;
+const HEALTH_BASE_WRITE_UNITS = 16;
+const HEALTH_ISSUE_WRITE_UNITS = 8;
+
+type BoundedJsonResult =
+  | { ok: true; value: unknown }
+  | { ok: false; status: 400 | 413; error: string };
+
+async function readBoundedJson(request: Request): Promise<BoundedJsonResult> {
+  const contentLength = Number(request.headers.get('content-length') ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_INGESTION_BODY_BYTES) {
+    return { ok: false, status: 413, error: 'Payload too large' };
+  }
+  if (!request.body) return { ok: false, status: 400, error: 'Missing JSON body' };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_INGESTION_BODY_BYTES) {
+      await reader.cancel();
+      return { ok: false, status: 413, error: 'Payload too large' };
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return { ok: true, value: JSON.parse(new TextDecoder().decode(body)) };
+  } catch {
+    return { ok: false, status: 400, error: 'Invalid JSON body' };
+  }
+}
+
+async function withinIngestionRateLimit(
+  limiter: RateLimit | undefined,
+  request: Request,
+  installationId: unknown,
+  allowMissingForTests = false,
+): Promise<boolean> {
+  if (!limiter) {
+    if (allowMissingForTests) return true;
+    throw new Error('Required ingestion rate limiter is unavailable');
+  }
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const installation = safeText(installationId, 'unknown', 160);
+  for (const key of [`ip:${ip}`, `installation:${installation}`]) {
+    const { success } = await limiter.limit({ key });
+    if (!success) return false;
+  }
+  return true;
+}
+
+async function acquireDailyWriteBudget(db: D1Database, writeUnits: number): Promise<boolean> {
+  const result = await db.prepare(`
+    INSERT INTO ingestion_daily_budget (budget_date, write_units, updated_at)
+    VALUES (date('now'), ?, datetime('now'))
+    ON CONFLICT(budget_date) DO UPDATE SET
+      write_units = ingestion_daily_budget.write_units + excluded.write_units,
+      updated_at = datetime('now')
+    WHERE ingestion_daily_budget.write_units + excluded.write_units <= ?
+    RETURNING write_units
+  `).bind(writeUnits, GLOBAL_D1_DAILY_WRITE_BUDGET).first();
+  return result !== null;
+}
 
 function safeText(value: unknown, fallback = '', limit = 160): string {
   const text = String(value ?? '').trim();
@@ -127,7 +211,7 @@ function safeText(value: unknown, fallback = '', limit = 160): string {
 
 function boundedJson(value: unknown, limit = MAX_JSON_CHARS): string {
   const text = JSON.stringify(value ?? {});
-  return text.length > limit ? text.slice(0, limit - 3) + '...' : text;
+  return text.length > limit ? JSON.stringify({ truncated: true }) : text;
 }
 
 function normalizeSeverity(value: unknown): string {
@@ -138,7 +222,42 @@ function normalizeSeverity(value: unknown): string {
 function safeCount(value: unknown): number {
   const count = Number(value ?? 0);
   if (!Number.isFinite(count)) return 0;
-  return Math.max(0, Math.floor(count));
+  return Math.min(MAX_HEALTH_EVENTS_PER_REPORT, Math.max(0, Math.floor(count)));
+}
+
+const ALLOWED_HEALTH_CONTEXT_KEYS = new Set([
+  'active_provider', 'attempt', 'backend', 'batch_limit', 'cache_enabled',
+  'circuit_failures', 'circuit_open', 'compile_device', 'compile_ok',
+  'configured_provider', 'cuda_available', 'device', 'error_type',
+  'failure_count', 'fallback_active', 'inference_backend', 'intel_gpu_available',
+  'intel_npu_available', 'kind', 'lease_age_seconds', 'max_concurrent',
+  'model_id', 'openvino_available', 'pending', 'pressure_level', 'provider',
+  'queue_depth', 'reason', 'reason_code', 'runtime', 'runtime_backend', 'source',
+  'stage', 'status', 'timeout_seconds', 'worker_pool',
+]);
+
+function sanitizeHealthContext(value: unknown, depth = 0): unknown {
+  if (depth > 2 || value === null || value === undefined) return null;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') return safeText(value, '', 160);
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, 10)
+      .map((item) => sanitizeHealthContext(item, depth + 1))
+      .filter((item) => item !== null);
+  }
+  if (typeof value === 'object') {
+    const sanitized: Record<string, unknown> = {};
+    for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>).slice(0, 20)) {
+      const key = safeText(rawKey, '', 80).toLowerCase();
+      if (!ALLOWED_HEALTH_CONTEXT_KEYS.has(key)) continue;
+      const sanitizedValue = sanitizeHealthContext(rawValue, depth + 1);
+      if (sanitizedValue !== null) sanitized[key] = sanitizedValue;
+    }
+    return sanitized;
+  }
+  return safeText(value, '', 160);
 }
 
 async function sha256Hex(value: string): Promise<string> {
@@ -762,12 +881,37 @@ app.get('/dashboard', async (c) => {
 
 app.post('/heartbeat', async (c) => {
   try {
-    const payload = await c.req.json<TelemetryPayload>();
+    const parsed = await readBoundedJson(c.req.raw);
+    if (!parsed.ok) return c.json({ error: parsed.error }, parsed.status);
+    if (!parsed.value || typeof parsed.value !== 'object' || Array.isArray(parsed.value)) {
+      return c.json({ error: 'JSON body must be an object' }, 400);
+    }
+    const payload = parsed.value as TelemetryPayload;
     const country = c.req.raw.cf?.country || 'XX';
 
     if (!payload.installation_id) {
       return c.json({ error: 'Missing installation_id' }, 400);
     }
+    if (!await withinIngestionRateLimit(
+      c.env.HEARTBEAT_RATE_LIMITER,
+      c.req.raw,
+      payload.installation_id,
+      c.env.ALLOW_UNLIMITED_INGESTION_FOR_TESTS === 'true',
+    )) {
+      return c.json({ error: 'Rate limit exceeded' }, 429, { 'Retry-After': '60' });
+    }
+    const expiredDaily = await c.env.DB.prepare(`
+      SELECT COUNT(*) AS count FROM (
+        SELECT 1 FROM heartbeat_daily
+        WHERE report_date < date('now', '-400 days')
+        LIMIT 1
+      )
+    `).first<number>('count') ?? 0;
+    const heartbeatWriteUnits = HEARTBEAT_BASE_WRITE_UNITS + (expiredDaily > 0 ? 4 : 0);
+    if (!await acquireDailyWriteBudget(c.env.DB, heartbeatWriteUnits)) {
+      return c.json({ error: 'Daily ingestion budget exhausted' }, 503, { 'Retry-After': '86400' });
+    }
+    const installationHash = await sha256Hex(payload.installation_id);
 
     const stmt = c.env.DB.prepare(`
       INSERT INTO heartbeats (
@@ -876,7 +1020,7 @@ app.post('/heartbeat', async (c) => {
     const b2i = (val?: boolean) => val ? 1 : 0;
     const b2iNullable = (val?: boolean | null) => typeof val === 'boolean' ? (val ? 1 : 0) : null;
 
-    await stmt.bind(
+    const heartbeatStmt = stmt.bind(
       payload.installation_id,
       payload.version,
       payload.platform?.system || null,
@@ -926,7 +1070,73 @@ app.post('/heartbeat', async (c) => {
       payload.runtime?.last_recovery_reason || null,
       payload.runtime?.last_recovery_status || null,
       country
-    ).run();
+    );
+
+    const dailyStmt = c.env.DB.prepare(`
+      INSERT INTO heartbeat_daily (
+        report_date,
+        installation_id_hash,
+        last_reported_at,
+        version,
+        channel,
+        platform,
+        machine,
+        inference_provider,
+        configured_inference_provider,
+        model,
+        country,
+        deployment_image,
+        runtime_flavor,
+        environment,
+        feature_flags
+      ) VALUES (date('now'), ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(report_date, installation_id_hash) DO UPDATE SET
+        last_reported_at = excluded.last_reported_at,
+        version = excluded.version,
+        channel = excluded.channel,
+        platform = excluded.platform,
+        machine = excluded.machine,
+        inference_provider = excluded.inference_provider,
+        configured_inference_provider = excluded.configured_inference_provider,
+        model = excluded.model,
+        country = excluded.country,
+        deployment_image = excluded.deployment_image,
+        runtime_flavor = excluded.runtime_flavor,
+        environment = excluded.environment,
+        feature_flags = excluded.feature_flags
+    `).bind(
+      installationHash,
+      payload.version,
+      payload.deployment?.app_branch || null,
+      payload.platform?.system || null,
+      payload.platform?.machine || null,
+      payload.runtime?.inference_provider_active || null,
+      payload.runtime?.inference_provider_configured || null,
+      payload.configuration?.model_type || null,
+      country,
+      payload.deployment?.image_flavor || null,
+      payload.runtime?.model_runtime || null,
+      payload.deployment?.mode || null,
+      boundedJson({
+        birdnet: payload.integrations?.birdnet_enabled ?? payload.configuration?.birdnet_enabled ?? false,
+        birdweather: payload.integrations?.birdweather_enabled ?? payload.configuration?.birdweather_enabled ?? false,
+        llm: payload.configuration?.llm_enabled ?? false,
+        auto_video: payload.configuration?.auto_video_classification ?? false,
+        ebird: payload.integrations?.ebird_enabled ?? false,
+        inaturalist: payload.integrations?.inaturalist_enabled ?? false,
+      }, 1024),
+    );
+
+    const retentionCleanup = c.env.DB.prepare(`
+      DELETE FROM heartbeat_daily
+      WHERE (report_date, installation_id_hash) IN (
+        SELECT report_date, installation_id_hash FROM heartbeat_daily
+        WHERE report_date < date('now', '-400 days')
+        ORDER BY report_date
+        LIMIT 1
+      )
+    `);
+    await c.env.DB.batch([heartbeatStmt, dailyStmt, retentionCleanup]);
 
     return c.json({ status: 'ok' });
   } catch (e: any) {
@@ -937,7 +1147,12 @@ app.post('/heartbeat', async (c) => {
 
 app.post('/health-issues', async (c) => {
   try {
-    const payload = await c.req.json<HealthIssuePayload>();
+    const parsed = await readBoundedJson(c.req.raw);
+    if (!parsed.ok) return c.json({ error: parsed.error }, parsed.status);
+    if (!parsed.value || typeof parsed.value !== 'object' || Array.isArray(parsed.value)) {
+      return c.json({ error: 'JSON body must be an object' }, 400);
+    }
+    const payload = parsed.value as HealthIssuePayload;
     const country = c.req.raw.cf?.country || 'XX';
 
     if (!payload.installation_id) {
@@ -946,18 +1161,73 @@ app.post('/health-issues', async (c) => {
     if (!Array.isArray(payload.issues)) {
       return c.json({ error: 'Missing issues' }, 400);
     }
+    if (!await withinIngestionRateLimit(
+      c.env.HEALTH_RATE_LIMITER,
+      c.req.raw,
+      payload.installation_id,
+      c.env.ALLOW_UNLIMITED_INGESTION_FOR_TESTS === 'true',
+    )) {
+      return c.json({ error: 'Rate limit exceeded' }, 429, { 'Retry-After': '60' });
+    }
 
     const installationHash = await sha256Hex(payload.installation_id);
     const issues = payload.issues.slice(0, MAX_HEALTH_ISSUES_PER_REPORT);
+    const suppliedReportId = safeText(payload.report_id, '', 64).toLowerCase();
+    const isDeltaReport = /^[a-f0-9]{64}$/.test(suppliedReportId);
+    const legacyIdentity = issues
+      .map((issue) => [
+        safeText(issue.fingerprint, '', 80),
+        safeCount(issue.count),
+        safeText(issue.first_seen_at, '', 80),
+        safeText(issue.last_seen_at, '', 80),
+        normalizeSeverity(issue.severity),
+      ])
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    const clientReportId = isDeltaReport
+      ? suppliedReportId
+      : await sha256Hex(JSON.stringify(legacyIdentity));
+    const reportId = await sha256Hex(`${installationHash}:${clientReportId}`);
+    const runtime = payload.runtime ?? {};
+    const integrations = payload.integrations ?? {};
+    const diagnosticsWindow = payload.diagnostics_window ?? {};
+    const windowSeverityCounts = typeof diagnosticsWindow.severity_counts === 'object' && diagnosticsWindow.severity_counts
+      ? diagnosticsWindow.severity_counts as Record<string, unknown>
+      : {};
     const payloadBase = {
       schema_version: safeText(payload.schema_version, 'unknown', 80),
       timestamp: safeText(payload.timestamp, '', 80),
-      runtime: payload.runtime ?? {},
-      integrations: payload.integrations ?? {},
-      diagnostics_window: payload.diagnostics_window ?? {}
+      runtime: {
+        model_type: safeText(runtime.model_type, '', 120) || null,
+        inference_provider: safeText(runtime.inference_provider, '', 80) || null,
+        image_execution_mode: safeText(runtime.image_execution_mode, '', 80) || null,
+        bird_crop_detector_tier: safeText(runtime.bird_crop_detector_tier, '', 80) || null,
+        auto_video_classification: runtime.auto_video_classification === true,
+      },
+      integrations: {
+        birdnet_enabled: integrations.birdnet_enabled === true,
+        birdweather_enabled: integrations.birdweather_enabled === true,
+        ebird_enabled: integrations.ebird_enabled === true,
+        inaturalist_enabled: integrations.inaturalist_enabled === true,
+        llm_enabled: integrations.llm_enabled === true,
+      },
+      diagnostics_window: {
+        captured_at: safeText(diagnosticsWindow.captured_at, '', 80) || null,
+        total_events: safeCount(diagnosticsWindow.total_events),
+        returned_events: safeCount(diagnosticsWindow.returned_events),
+        severity_counts: {
+          critical: safeCount(windowSeverityCounts.critical),
+          error: safeCount(windowSeverityCounts.error),
+          warning: safeCount(windowSeverityCounts.warning),
+        },
+      },
     };
 
-    const stmt = c.env.HEALTH_DB.prepare(`
+    const schemaVersion = safeText(payload.schema_version, 'unknown', 80);
+    const isEventReport = isDeltaReport && schemaVersion === '2026-07-25.health-issues.v3';
+    const occurrenceUpdate = isDeltaReport
+      ? 'health_issue_reports.occurrence_count + excluded.occurrence_count'
+      : 'MAX(health_issue_reports.occurrence_count, excluded.occurrence_count)';
+    const legacyIssueStmt = c.env.HEALTH_DB.prepare(`
       INSERT INTO health_issue_reports (
         report_key,
         installation_id_hash,
@@ -980,7 +1250,71 @@ app.post('/health-issues', async (c) => {
         ip_country,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, datetime('now'), datetime('now')
+      WHERE NOT EXISTS (
+        SELECT 1 FROM health_report_batches WHERE report_id = ?
+      )
+      ON CONFLICT(report_key) DO UPDATE SET
+        app_version = excluded.app_version,
+        platform_system = excluded.platform_system,
+        platform_release = excluded.platform_release,
+        platform_machine = excluded.platform_machine,
+        issue_source = excluded.issue_source,
+        issue_component = excluded.issue_component,
+        issue_reason_code = excluded.issue_reason_code,
+        issue_stage = excluded.issue_stage,
+        severity = excluded.severity,
+        first_seen_at = COALESCE(MIN(health_issue_reports.first_seen_at, excluded.first_seen_at), excluded.first_seen_at, health_issue_reports.first_seen_at),
+        last_seen_at = COALESCE(MAX(health_issue_reports.last_seen_at, excluded.last_seen_at), excluded.last_seen_at, health_issue_reports.last_seen_at),
+        report_count = health_issue_reports.report_count + 1,
+        occurrence_count = ${occurrenceUpdate},
+        sample_context_json = excluded.sample_context_json,
+        last_payload_json = excluded.last_payload_json,
+        ip_country = excluded.ip_country,
+        updated_at = datetime('now')
+    `);
+    const eventIssueStmt = c.env.HEALTH_DB.prepare(`
+      WITH new_events(event_id) AS (
+        SELECT DISTINCT CAST(value AS TEXT) FROM json_each(?)
+        EXCEPT
+        SELECT DISTINCT CAST(seen.value AS TEXT)
+        FROM health_report_batches AS prior,
+             json_each(COALESCE(prior.event_groups_json, '[]')) AS prior_group,
+             json_each(COALESCE(json_extract(prior_group.value, '$.event_ids'), '[]')) AS seen
+        WHERE prior.installation_id_hash = ?
+          AND prior.report_date >= date('now', '-400 days')
+          AND json_extract(prior_group.value, '$.fingerprint') = ?
+      )
+      INSERT INTO health_issue_reports (
+        report_key,
+        installation_id_hash,
+        issue_fingerprint,
+        app_version,
+        platform_system,
+        platform_release,
+        platform_machine,
+        issue_source,
+        issue_component,
+        issue_reason_code,
+        issue_stage,
+        severity,
+        first_seen_at,
+        last_seen_at,
+        report_count,
+        occurrence_count,
+        sample_context_json,
+        last_payload_json,
+        ip_country,
+        created_at,
+        updated_at
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1,
+             (SELECT COUNT(*) FROM new_events), ?, ?, ?, datetime('now'), datetime('now')
+      WHERE NOT EXISTS (
+        SELECT 1 FROM health_report_batches WHERE report_id = ?
+      )
+        AND EXISTS (SELECT 1 FROM new_events)
       ON CONFLICT(report_key) DO UPDATE SET
         app_version = excluded.app_version,
         platform_system = excluded.platform_system,
@@ -1001,13 +1335,48 @@ app.post('/health-issues', async (c) => {
         updated_at = datetime('now')
     `);
 
+    const statements: D1PreparedStatement[] = [];
+    const eventGroups: Array<{ fingerprint: string; severity: string; event_ids: string[] }> = [];
+    let remainingEventIds = MAX_HEALTH_EVENTS_PER_REPORT;
     let accepted = 0;
+    let eventCount = 0;
+    const severityCounts = { critical: 0, error: 0, warning: 0 };
     for (const issue of issues) {
       const fingerprint = safeText(issue.fingerprint, '', 80);
       if (!fingerprint) continue;
+      const eventIds = isEventReport
+        ? Array.from(new Set(
+            (Array.isArray(issue.event_ids) ? issue.event_ids : [])
+              .map((value) => safeText(value, '', 64).toLowerCase())
+              .filter((value) => /^[a-f0-9]{64}$/.test(value)),
+          )).slice(0, remainingEventIds)
+        : [];
+      if (isEventReport && eventIds.length === 0) continue;
+      remainingEventIds -= eventIds.length;
+
       const reportKey = await sha256Hex(`${installationHash}:${fingerprint}`);
-      const count = safeCount(issue.count);
-      await stmt.bind(
+      const count = isEventReport ? eventIds.length : safeCount(issue.count);
+      const severity = normalizeSeverity(issue.severity) as keyof typeof severityCounts;
+      const source = safeText(issue.source, 'unknown', 80);
+      const component = safeText(issue.component, 'unknown', 80);
+      const reasonCode = safeText(issue.reason_code, 'unknown_reason', 120);
+      const stage = safeText(issue.stage, '', 80) || null;
+      const firstSeenAt = safeText(issue.first_seen_at, '', 80) || null;
+      const lastSeenAt = safeText(issue.last_seen_at, '', 80) || null;
+      const sampleContext = sanitizeHealthContext(issue.sample_context ?? {}) ?? {};
+      const sanitizedIssue = {
+        fingerprint,
+        source,
+        component,
+        reason_code: reasonCode,
+        stage,
+        severity,
+        count,
+        first_seen_at: firstSeenAt,
+        last_seen_at: lastSeenAt,
+        sample_context: sampleContext,
+      };
+      const commonBindings = [
         reportKey,
         installationHash,
         fingerprint,
@@ -1015,22 +1384,187 @@ app.post('/health-issues', async (c) => {
         safeText(payload.platform?.system, '', 80) || null,
         safeText(payload.platform?.release, '', 120) || null,
         safeText(payload.platform?.machine, '', 80) || null,
-        safeText(issue.source, 'unknown', 80),
-        safeText(issue.component, 'unknown', 80),
-        safeText(issue.reason_code, 'unknown_reason', 120),
-        safeText(issue.stage, '', 80) || null,
-        normalizeSeverity(issue.severity),
-        safeText(issue.first_seen_at, '', 80) || null,
-        safeText(issue.last_seen_at, '', 80) || null,
-        count,
-        boundedJson(issue.sample_context ?? {}, 2048),
-        boundedJson({ ...payloadBase, issue }, MAX_JSON_CHARS),
-        country
-      ).run();
+        source,
+        component,
+        reasonCode,
+        stage,
+        severity,
+        firstSeenAt,
+        lastSeenAt,
+      ];
+      const trailingBindings = [
+        boundedJson(sampleContext, 2048),
+        boundedJson({ ...payloadBase, issue: sanitizedIssue }, MAX_JSON_CHARS),
+        country,
+        reportId,
+      ];
+      if (isEventReport) {
+        eventGroups.push({ fingerprint, severity, event_ids: eventIds });
+        statements.push(eventIssueStmt.bind(
+          JSON.stringify(eventIds),
+          installationHash,
+          fingerprint,
+          ...commonBindings,
+          ...trailingBindings,
+        ));
+      } else {
+        statements.push(legacyIssueStmt.bind(
+          ...commonBindings,
+          count,
+          ...trailingBindings,
+        ));
+      }
       accepted++;
+      eventCount += count;
+      severityCounts[severity]++;
     }
 
-    return c.json({ status: 'ok', accepted });
+    if (accepted === 0) {
+      return c.json({ status: 'ok', accepted: 0, duplicate: false });
+    }
+
+    const expiredRows = await c.env.HEALTH_DB.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM (
+          SELECT report_key FROM health_issue_reports
+          WHERE updated_at < datetime('now', '-400 days')
+          LIMIT 25
+        )) AS issue_count,
+        (SELECT COUNT(*) FROM (
+          SELECT report_id FROM health_report_batches
+          WHERE report_date < date('now', '-400 days')
+          LIMIT 1
+        )) AS batch_count
+    `).first<{ issue_count: number; batch_count: number }>();
+    const expiredIssueCount = Number(expiredRows?.issue_count ?? 0);
+    const expiredBatchCount = Number(expiredRows?.batch_count ?? 0);
+    const healthWriteUnits = HEALTH_BASE_WRITE_UNITS
+      + accepted * HEALTH_ISSUE_WRITE_UNITS
+      + expiredIssueCount * HEALTH_ISSUE_WRITE_UNITS
+      + expiredBatchCount * 4;
+    if (!await acquireDailyWriteBudget(c.env.DB, healthWriteUnits)) {
+      return c.json({ error: 'Daily ingestion budget exhausted' }, 503, { 'Retry-After': '86400' });
+    }
+
+    const eventGroupsJson = JSON.stringify(eventGroups);
+    const legacyBatchMarker = c.env.HEALTH_DB.prepare(`
+      INSERT INTO health_report_batches (
+        report_id,
+        installation_id_hash,
+        report_date,
+        reported_at,
+        app_version,
+        schema_version,
+        country,
+        issue_group_count,
+        event_count,
+        critical_count,
+        error_count,
+        warning_count,
+        event_groups_json
+      ) VALUES (?, ?, date('now'), datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+      ON CONFLICT(report_id) DO NOTHING
+    `).bind(
+      reportId,
+      installationHash,
+      safeText(payload.version, 'unknown', 80),
+      schemaVersion,
+      country,
+      accepted,
+      eventCount,
+      severityCounts.critical,
+      severityCounts.error,
+      severityCounts.warning,
+    );
+    const eventBatchMarker = c.env.HEALTH_DB.prepare(`
+      WITH incoming AS (
+        SELECT DISTINCT
+          CAST(json_extract(issue_group.value, '$.fingerprint') AS TEXT) AS fingerprint,
+          CAST(json_extract(issue_group.value, '$.severity') AS TEXT) AS severity,
+          CAST(event_id.value AS TEXT) AS event_id
+        FROM json_each(?) AS issue_group,
+             json_each(COALESCE(json_extract(issue_group.value, '$.event_ids'), '[]')) AS event_id
+      ),
+      previous AS (
+        SELECT DISTINCT
+          CAST(json_extract(issue_group.value, '$.fingerprint') AS TEXT) AS fingerprint,
+          CAST(event_id.value AS TEXT) AS event_id
+        FROM health_report_batches AS prior,
+             json_each(COALESCE(prior.event_groups_json, '[]')) AS issue_group,
+             json_each(COALESCE(json_extract(issue_group.value, '$.event_ids'), '[]')) AS event_id
+        WHERE prior.installation_id_hash = ?
+          AND prior.report_date >= date('now', '-400 days')
+      ),
+      new_keys AS (
+        SELECT fingerprint, event_id FROM incoming
+        EXCEPT
+        SELECT fingerprint, event_id FROM previous
+      ),
+      new_events AS (
+        SELECT incoming.fingerprint, incoming.severity, incoming.event_id
+        FROM incoming
+        INNER JOIN new_keys USING (fingerprint, event_id)
+      )
+      INSERT INTO health_report_batches (
+        report_id,
+        installation_id_hash,
+        report_date,
+        reported_at,
+        app_version,
+        schema_version,
+        country,
+        issue_group_count,
+        event_count,
+        critical_count,
+        error_count,
+        warning_count,
+        event_groups_json
+      )
+      SELECT ?, ?, date('now'), datetime('now'), ?, ?, ?,
+             COUNT(DISTINCT fingerprint),
+             COUNT(*),
+             COUNT(DISTINCT CASE WHEN severity = 'critical' THEN fingerprint END),
+             COUNT(DISTINCT CASE WHEN severity = 'error' THEN fingerprint END),
+             COUNT(DISTINCT CASE WHEN severity = 'warning' THEN fingerprint END),
+             ?
+      FROM new_events
+      HAVING COUNT(*) > 0
+      ON CONFLICT(report_id) DO NOTHING
+    `).bind(
+      eventGroupsJson,
+      installationHash,
+      reportId,
+      installationHash,
+      safeText(payload.version, 'unknown', 80),
+      schemaVersion,
+      country,
+      eventGroupsJson,
+    );
+    const issueRetentionCleanup = c.env.HEALTH_DB.prepare(`
+      DELETE FROM health_issue_reports
+      WHERE report_key IN (
+        SELECT report_key FROM health_issue_reports
+        WHERE updated_at < datetime('now', '-400 days')
+        ORDER BY updated_at
+        LIMIT 25
+      )
+    `);
+    const batchRetentionCleanup = c.env.HEALTH_DB.prepare(`
+      DELETE FROM health_report_batches
+      WHERE report_id IN (
+        SELECT report_id FROM health_report_batches
+        WHERE report_date < date('now', '-400 days')
+        ORDER BY report_date
+        LIMIT 1
+      )
+    `);
+    statements.unshift(issueRetentionCleanup, batchRetentionCleanup);
+    statements.push(isEventReport ? eventBatchMarker : legacyBatchMarker);
+
+    const results = await c.env.HEALTH_DB.batch(statements);
+    const markerResult = results[results.length - 1];
+    const duplicate = Number(markerResult?.meta?.changes ?? 0) === 0;
+    return c.json({ status: 'ok', accepted: duplicate ? 0 : accepted, duplicate });
   } catch (e: any) {
     console.error('Health issue telemetry error:', e);
     return c.json({ error: e.message }, 500);

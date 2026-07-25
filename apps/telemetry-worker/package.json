@@ -7,14 +7,18 @@
     "check": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
+    "test": "npm run check && node --test test/*.test.mjs",
     "db:init": "wrangler d1 execute yawamf-telemetry --file=./schema.sql",
-    "db:health:init": "wrangler d1 execute yawamf-health-issues --file=./health_schema.sql"
+    "db:health:init": "wrangler d1 execute yawamf-health-issues --file=./health_schema.sql",
+    "db:migrate:telemetry": "wrangler d1 execute yawamf-telemetry --remote --yes --file=./migrations/telemetry/0001_daily_heartbeats.sql",
+    "db:migrate:health": "wrangler d1 execute yawamf-health-issues --remote --yes --file=./migrations/health/0001_report_batches.sql"
   },
   "dependencies": {
-    "hono": "^4.12.31"
+    "hono": "4.12.31"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260719.1",
-    "wrangler": "^4.112.0"
+    "@cloudflare/workers-types": "5.20260724.1",
+    "miniflare": "4.20260722.0",
+    "wrangler": "4.114.0"
   }
 }
