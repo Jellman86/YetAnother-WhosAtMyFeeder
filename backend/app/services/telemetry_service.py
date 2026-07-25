@@ -641,9 +641,7 @@ class TelemetryService:
                     log.debug("No health issues to report")
                     return
                 self._pending_health_payload = payload
-                self._pending_health_event_ids = {
-                    _health_event_identity(event) for event in selected_events
-                }
+                self._pending_health_event_ids = {_health_event_identity(event) for event in selected_events}
 
             payload = self._pending_health_payload
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:

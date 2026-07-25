@@ -132,9 +132,7 @@ async def test_health_report_leaves_truncated_issue_groups_for_next_batch(monkey
     assert len(_RecordingAsyncClient.payloads) == 2
     assert len(_RecordingAsyncClient.payloads[0]["issues"]) == 25
     assert len(_RecordingAsyncClient.payloads[1]["issues"]) == 1
-    fingerprints = {
-        issue["fingerprint"] for payload in _RecordingAsyncClient.payloads for issue in payload["issues"]
-    }
+    fingerprints = {issue["fingerprint"] for payload in _RecordingAsyncClient.payloads for issue in payload["issues"]}
     assert len(fingerprints) == 26
 
 
