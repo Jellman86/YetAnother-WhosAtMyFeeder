@@ -36,6 +36,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   sizes and runtime categories are bounded, missing rate-limit bindings fail closed, an atomic
   daily write budget protects both ingestion routes, and 400-day retention cleanup is incremental
   rather than an unbounded maintenance operation.
+- **Monolith UI builds no longer trust a partial optional-dependency install.** The image build uses
+  the committed lockfile, explicitly includes native build dependencies, verifies Lightning CSS
+  before compiling the UI, and retries the clean install once if npm silently skips its platform
+  binary.
 
 ## [2.15.0] - 2026-07-23
 

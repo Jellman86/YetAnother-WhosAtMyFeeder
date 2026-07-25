@@ -13,7 +13,12 @@ ENV APP_VERSION_BASE=${APP_VERSION_BASE}
 ENV APP_BRANCH=${APP_BRANCH}
 
 COPY apps/ui/package.json apps/ui/package-lock.json ./
-RUN npm install --legacy-peer-deps
+RUN set -eux; \
+    npm ci --include=dev --include=optional --legacy-peer-deps; \
+    if ! node -e "require('lightningcss')"; then \
+        npm ci --include=dev --include=optional --legacy-peer-deps; \
+    fi; \
+    node -e "require('lightningcss')"
 
 COPY apps/ui/ .
 RUN npm run build
