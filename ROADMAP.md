@@ -592,15 +592,17 @@ panel** (ingress-authenticated dashboard).
 leaderboard analytics, species detail modals, PWA baseline, complete i18n (9+ languages), the
 settings architecture refactor + per-tab routing, a dedicated Jobs workspace, favourites, the
 Explorer audio-matches filter, route-level and locale-level lazy delivery with resilient retry,
-compressed immutable frontend assets, the in-app channel-aware update prompt, and the Unraid
-Docker template + setup guide.
+compressed immutable frontend assets, the in-app channel-aware update prompt, a grouped
+status-aware desktop sidebar with a one-minute CPU/accelerator activity trace, and the Unraid Docker
+template + setup guide.
 
 **Backend & quality:** Alembic-only migrations, the repository pattern, opt-in anonymous telemetry
-+ Cloudflare dashboard, backfill service, health checks + Prometheus metrics, weather enrichment,
-password-based + optional API-key auth (timing-safe), connection pooling, global exception handling,
-bounded background-work lanes with owner-visible server status and restart recovery for automatic
-video jobs, a typed OpenAPI contract with generated SPA types, and the CI enforcement
-suite (lint/format/coverage/OpenAPI-drift/type-freshness/migration-safety).
++ privacy-preserving daily rollups + replay-safe health identities + distinct aggregate User
+Metrics/Health Data dashboards, backfill service, health checks + Prometheus metrics, weather
+enrichment, password-based + optional API-key auth (timing-safe), connection pooling, global
+exception handling, bounded background-work lanes with owner-visible server status and restart
+recovery for automatic video jobs, a typed OpenAPI contract with generated SPA types, and the CI
+enforcement suite (lint/format/coverage/OpenAPI-drift/type-freshness/migration-safety).
 
 ---
 
