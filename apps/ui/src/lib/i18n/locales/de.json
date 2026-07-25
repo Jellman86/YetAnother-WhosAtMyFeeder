@@ -9,6 +9,8 @@
     "dashboard": "Dashboard",
     "explorer": "Explorer",
     "leaderboard": "Bestenliste",
+    "observe": "Beobachten",
+    "manage": "Verwalten",
     "audio_history": "Audioverlauf",
     "settings": "Einstellungen",
     "setup_wizard": "Einrichtungsassistent",
@@ -1255,6 +1257,12 @@
     "status_check_again": "Erneut prüfen"
   },
   "status": {
+    "title": "Systemstatus",
+    "live_updates": "Live-Aktualisierungen",
+    "online": "Verbunden",
+    "offline": "Getrennt",
+    "audio_analysis": "Audioanalyse",
+    "notifications": "Benachrichtigungen",
     "audio_active": "Audio-Analyse aktiv",
     "notifications_enabled": "Benachrichtigungen aktiviert",
     "system_online": "System online",

@@ -9,6 +9,8 @@
     "dashboard": "仪表盘",
     "explorer": "探索",
     "leaderboard": "排行榜",
+    "observe": "观察",
+    "manage": "管理",
     "audio_history": "音频历史",
     "settings": "设置",
     "setup_wizard": "设置向导",
@@ -1255,6 +1257,12 @@
     "status_check_again": "重新检查"
   },
   "status": {
+    "title": "系统状态",
+    "live_updates": "实时更新",
+    "online": "在线",
+    "offline": "离线",
+    "audio_analysis": "音频分析",
+    "notifications": "通知",
     "audio_active": "音频分析活跃",
     "notifications_enabled": "通知已启用",
     "system_online": "系统在线",

@@ -9,6 +9,8 @@
     "dashboard": "Дашборд",
     "explorer": "Просмотр",
     "leaderboard": "Рейтинг",
+    "observe": "Наблюдение",
+    "manage": "Управление",
     "audio_history": "История аудио",
     "settings": "Настройки",
     "setup_wizard": "Мастер настройки",
@@ -1264,6 +1266,12 @@
     "status_check_again": "Проверить снова"
   },
   "status": {
+    "title": "Состояние системы",
+    "live_updates": "Обновления в реальном времени",
+    "online": "Онлайн",
+    "offline": "Офлайн",
+    "audio_analysis": "Аудиоанализ",
+    "notifications": "Уведомления",
     "audio_active": "Аудиоанализ активен",
     "notifications_enabled": "Уведомления включены",
     "system_online": "Система онлайн",
