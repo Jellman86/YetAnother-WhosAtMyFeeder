@@ -44,6 +44,11 @@ after(async () => {
 
 test("user metrics dashboard renders a bounded daily trend and distinct mode", async (t) => {
   await usageDb.prepare(`
+    INSERT INTO heartbeats (
+      installation_id, app_version, model_type, ip_country, last_seen
+    ) VALUES ('dashboard-design-install', '2.15.0', 'model-a', 'GB', datetime('now'))
+  `).run();
+  await usageDb.prepare(`
     INSERT INTO heartbeat_daily (
       report_date, installation_id_hash, version, model, country, last_reported_at
     ) VALUES
@@ -52,6 +57,9 @@ test("user metrics dashboard renders a bounded daily trend and distinct mode", a
       (date('now'), 'install-b', '2.15.0', 'model-b', 'US', datetime('now'))
   `).run();
   t.after(async () => {
+    await usageDb.prepare(
+      "DELETE FROM heartbeats WHERE installation_id = 'dashboard-design-install'",
+    ).run();
     await usageDb.prepare(
       "DELETE FROM heartbeat_daily WHERE installation_id_hash IN ('install-a', 'install-b')",
     ).run();
@@ -69,6 +77,12 @@ test("user metrics dashboard renders a bounded daily trend and distinct mode", a
   assert.match(body, /aria-describedby="active-install-trend-data"/);
   assert.match(body, /id="active-install-trend-data">Daily values for the selected 7-day window/);
   assert.match(body, /<svg[^>]+class="trend-chart"/);
+  assert.match(body, /class="usage-overview"/);
+  assert.match(body, /Audience footprint/);
+  assert.match(body, /class="country-flag" role="img" aria-label="Flag of United Kingdom">🇬🇧</);
+  assert.doesNotMatch(body, /flagcdn|cdn\.jsdelivr/);
+  assert.match(body, /class="usage-adoption"/);
+  assert.doesNotMatch(body, /class="health-command"/);
   assert.doesNotMatch(body, /Most-Recent Recovery Reasons/);
 });
 
@@ -112,6 +126,12 @@ test("health data dashboard renders severity-led trends and concise issue detail
   assert.match(body, /aria-label="Daily health reports trend"/);
   assert.match(body, /aria-describedby="health-report-trend-data"/);
   assert.match(body, /severity-pill severity-critical/);
+  assert.match(body, /class="health-command"/);
+  assert.match(body, /Operational signal board/);
+  assert.match(body, /class="[^"]*health-runtime-board/);
+  assert.match(body, /class="country-flag" role="img" aria-label="Flag of United Kingdom">🇬🇧</);
+  assert.doesNotMatch(body, /flagcdn|cdn\.jsdelivr/);
+  assert.doesNotMatch(body, /class="usage-overview"/);
   assert.match(body, /Top recurring issues/);
   assert.match(body, /class="table-scroll" tabindex="0" role="region" aria-label="Top recurring issues; scroll horizontally for all columns"/);
   assert.doesNotMatch(body, /Usage Geography/);

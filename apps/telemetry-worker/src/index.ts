@@ -441,6 +441,72 @@ function humanizeCode(value: unknown): string {
   return safeText(value, 'Unknown', 120).replaceAll('_', ' ');
 }
 
+function countryCode(value: unknown): string {
+  const code = safeText(value, 'XX', 2).toUpperCase();
+  return /^[A-Z]{2}$/.test(code) ? code : 'XX';
+}
+
+function countryFlag(value: unknown): string {
+  const code = countryCode(value);
+  if (code === 'XX') return '🌐';
+  return String.fromCodePoint(...[...code].map((letter) => 0x1F1E6 + letter.charCodeAt(0) - 65));
+}
+
+function countryName(value: unknown): string {
+  const code = countryCode(value);
+  if (code === 'XX') return 'Unknown country';
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
+function renderCountryList(
+  rows: any[],
+  valueKey: string,
+  detail: (row: any) => string,
+): string {
+  if (!rows.length) return '<div class="empty panel-empty">No geography data in this window</div>';
+  const peak = Math.max(1, ...rows.map((row) => Number(row[valueKey] ?? 0)));
+  return rows.map((row) => {
+    const code = countryCode(row.ip_country);
+    const flag = countryFlag(code);
+    const value = Number(row[valueKey] ?? 0);
+    return `
+      <div class="country-row">
+        <span class="country-flag" role="img" aria-label="Flag of ${html(countryName(code))}">${flag}</span>
+        <div class="country-data">
+          <div class="country-line"><strong>${html(code)}</strong><span>${fmt(value)} ${html(detail(row))}</span></div>
+          <div class="country-track"><span style="width:${pct(value, peak)}"></span></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderRankedDistribution(
+  rows: any[],
+  labelKey: string,
+  valueKey: string,
+  emptyMessage: string,
+): string {
+  if (!rows.length) return `<div class="empty panel-empty">${html(emptyMessage)}</div>`;
+  const peak = Math.max(1, ...rows.map((row) => Number(row[valueKey] ?? 0)));
+  return `<div class="rank-list">${rows.map((row, index) => {
+    const value = Number(row[valueKey] ?? 0);
+    return `
+      <div class="rank-row">
+        <span class="rank-index">${index + 1}</span>
+        <div class="rank-data">
+          <div class="rank-line"><span>${html(row[labelKey] || 'Unknown')}</span><strong>${fmt(value)}</strong></div>
+          <div class="rank-track"><span style="width:${pct(value, peak)}"></span></div>
+        </div>
+      </div>
+    `;
+  }).join('')}</div>`;
+}
+
 function dashboardShell({
   title,
   view,
@@ -542,14 +608,143 @@ function dashboardShell({
     .section-intro { display:flex; justify-content:space-between; gap:20px; align-items:flex-end; margin:24px 2px 10px; }
     .section-intro h2 { font-size:16px; margin:0; }
     .section-intro p { color:var(--muted); font-size:11.5px; margin:0; max-width:58ch; }
+
+    /* User Metrics: audience-report composition */
+    .usage-overview { display:grid; grid-template-columns:minmax(0, 1.75fr) minmax(245px, .65fr); gap:14px; margin-bottom:14px; }
+    .usage-overview .trend-panel { margin:0; min-height:312px; }
+    .usage-kpis { padding:0; overflow:hidden; display:flex; flex-direction:column; background:linear-gradient(155deg, color-mix(in srgb, var(--brand-soft) 72%, var(--panel)), var(--panel) 56%); }
+    .usage-kpi-primary { padding:24px 22px 19px; border-bottom:1px solid var(--line); }
+    .usage-kpi-primary .metric { font-size:48px; }
+    .usage-kpi-primary p { margin:8px 0 0; color:var(--muted); font-size:12px; }
+    .usage-kpi-list { display:grid; flex:1; }
+    .usage-kpi-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:13px 22px; border-bottom:1px solid var(--line); }
+    .usage-kpi-row:last-child { border-bottom:0; }
+    .usage-kpi-row span { color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+    .usage-kpi-row strong { color:var(--heading); font-family:var(--font-display); font-size:21px; }
+    .usage-adoption { display:grid; grid-template-columns:minmax(285px, .72fr) minmax(0, 1.28fr); gap:14px; margin-bottom:14px; }
+    .panel-heading { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; margin-bottom:16px; }
+    .panel-heading h2 { font-size:17px; margin:2px 0 0; }
+    .panel-heading p { color:var(--muted); font-size:11px; margin:3px 0 0; max-width:42ch; }
+    .country-list { display:grid; gap:4px; }
+    .country-row { display:flex; align-items:center; gap:11px; padding:8px 0; }
+    .country-flag { width:35px; height:26px; flex:0 0 35px; display:grid; place-items:center; object-fit:contain; font-size:25px; line-height:1; filter:saturate(.92); }
+    .country-data, .rank-data { min-width:0; flex:1; }
+    .country-line, .rank-line { display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
+    .country-line strong { color:var(--heading); font-size:12px; }
+    .country-line span { color:var(--muted); font-size:10.5px; }
+    .country-track, .rank-track { height:4px; margin-top:5px; border-radius:999px; overflow:hidden; background:var(--line); }
+    .country-track span, .rank-track span { display:block; height:100%; border-radius:inherit; background:var(--brand); }
+    .feature-matrix { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0 22px; }
+    .usage-technology { display:grid; grid-template-columns:1.06fr 1.06fr .88fr; gap:14px; margin-bottom:14px; align-items:start; }
+    .rank-list { display:grid; gap:9px; }
+    .rank-row { display:grid; grid-template-columns:22px minmax(0,1fr); gap:9px; align-items:start; }
+    .rank-index { width:22px; height:22px; display:grid; place-items:center; border-radius:7px; color:var(--muted); background:var(--panel-2); font-size:10px; font-weight:800; }
+    .rank-line { font-size:11.5px; }
+    .rank-line span { color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rank-line strong { color:var(--heading); }
+    .provider-columns { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .provider-columns h3 { margin:0 0 9px; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.06em; }
+    .provider-chip { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:11.5px; }
+    .provider-chip:last-child { border-bottom:0; }
+    .usage-capabilities { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr); gap:14px; margin-bottom:14px; }
+    .capability-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+    .capability { padding:12px; border-radius:12px; background:var(--panel-2); border:1px solid var(--line); }
+    .capability strong { display:block; color:var(--heading); font-family:var(--font-display); font-size:19px; }
+    .capability span { display:block; margin-top:2px; color:var(--muted); font-size:10px; line-height:1.3; }
+    .platform-stack { display:grid; gap:9px; }
+    .platform-row { display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border-radius:10px; background:var(--panel-2); }
+    .platform-row strong { color:var(--heading); }
+
+    /* Health Data: operational-console composition */
+    .health-command { display:grid; grid-template-columns:minmax(260px,.72fr) minmax(0,1.28fr); gap:14px; margin-bottom:14px; }
+    .health-signal { position:relative; overflow:hidden; background:linear-gradient(150deg, color-mix(in srgb, var(--brand-soft) 58%, var(--panel)), var(--panel)); }
+    .signal-state { display:flex; gap:9px; align-items:center; color:var(--brand); font-weight:800; font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+    .signal-dot { width:9px; height:9px; border-radius:50%; background:var(--brand); box-shadow:0 0 0 5px color-mix(in srgb,var(--brand) 15%,transparent); }
+    .health-signal .signal-metric { margin-top:24px; color:var(--heading); font-family:var(--font-display); font-size:56px; font-weight:800; line-height:.9; }
+    .health-signal h2 { margin:9px 0 4px; font-size:18px; }
+    .health-signal p { color:var(--muted); margin:0; font-size:11.5px; }
+    .signal-facts { display:grid; grid-template-columns:repeat(3,1fr); margin-top:21px; border-top:1px solid var(--line); }
+    .signal-fact { padding:13px 9px 0 0; }
+    .signal-fact strong { display:block; color:var(--heading); font-size:18px; }
+    .signal-fact span { display:block; color:var(--muted); font-size:9.5px; text-transform:uppercase; }
+    .health-severity-board .panel-heading { margin-bottom:12px; }
+    .health-severity-lane { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .health-severity-lane .severity-card { min-height:132px; display:flex; flex-direction:column; justify-content:space-between; }
+    .health-severity-lane .severity-card strong { font-size:34px; }
+    .health-timeline { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(260px,.65fr); gap:14px; margin-bottom:14px; align-items:stretch; }
+    .health-timeline .trend-panel { margin:0; }
+    .component-panel .bar-row { margin:13px 0; }
+    .health-runtime-board { margin-bottom:14px; }
+    .runtime-board-grid { display:grid; grid-template-columns:1.15fr .85fr; gap:26px; }
+    .runtime-status-list { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+    .runtime-status { padding:13px; border:1px solid var(--line); background:var(--panel-2); border-radius:12px; }
+    .runtime-status-head { display:flex; gap:8px; align-items:center; color:var(--muted); font-size:10px; text-transform:uppercase; font-weight:800; }
+    .runtime-status-dot { width:8px; height:8px; border-radius:50%; background:#64748b; }
+    .runtime-status.status-ok .runtime-status-dot { background:#16a34a; }
+    .runtime-status.status-degraded .runtime-status-dot { background:#d97706; }
+    .runtime-status.status-unhealthy .runtime-status-dot { background:#dc2626; }
+    .runtime-status strong { display:block; margin-top:10px; color:var(--heading); font-family:var(--font-display); font-size:25px; }
+    .runtime-totals { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+    .runtime-total { padding:9px; border-radius:9px; background:color-mix(in srgb,var(--brand-soft) 42%,var(--panel)); }
+    .runtime-total strong { display:block; color:var(--heading); }
+    .runtime-total span { color:var(--muted); font-size:9.5px; }
+    .recovery-list { display:grid; gap:7px; }
+    .recovery-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:10px; align-items:center; padding:9px 0; border-bottom:1px solid var(--line); font-size:11px; }
+    .recovery-row:last-child { border-bottom:0; }
+    .recovery-status { border-radius:999px; padding:3px 7px; background:var(--panel-2); color:var(--muted); font-size:9px; text-transform:uppercase; font-weight:800; }
+    .health-geography { margin-bottom:14px; }
+    .health-geography .country-list { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px 18px; }
+
     .empty { color:var(--muted); text-align:center; padding:22px; }
     .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0, 0, 0, 0); white-space:nowrap; border:0; }
     .panel-empty { border:1px dashed var(--line); border-radius:16px; box-shadow:none; }
     code { background:var(--panel-2); border:1px solid var(--line); border-radius:6px; padding:2px 6px; font-size:12px; }
     footer.dash { margin-top:28px; color:var(--muted); font-size:12px; text-align:center; border-top:1px solid var(--line); padding-top:16px; }
     footer.dash a { color:var(--brand); text-decoration:none; font-weight:600; }
-    @media (max-width: 860px) { header.dash { flex-direction:column; } .toolbar { align-items:flex-start; } .grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } .grid.two { grid-template-columns:1fr; } .section-intro { align-items:flex-start; flex-direction:column; gap:4px; } }
-    @media (max-width: 560px) { main { width:min(100% - 20px, 1160px); padding-top:18px; } .tabs { width:100%; } .tab { flex:1; text-align:center; } .panel { padding:15px; border-radius:14px; } .metric { font-size:26px; } .metric-label { font-size:9.5px; } .severity-card { padding:10px 8px; } .severity-card small { line-height:1.35; } .trend-panel { padding:16px 14px 14px; } .trend-chart { height:155px; } .chart-latest span { display:none; } .feature-grid { column-gap:12px; } .scroll-hint { display:block; } }
+    @media (max-width: 960px) {
+      header.dash { flex-direction:column; }
+      .toolbar { align-items:flex-start; }
+      .usage-overview, .usage-adoption, .health-command, .health-timeline { grid-template-columns:1fr; }
+      .usage-technology { grid-template-columns:1fr 1fr; }
+      .usage-technology > :last-child { grid-column:1 / -1; }
+      .usage-capabilities, .runtime-board-grid { grid-template-columns:1fr; }
+      .grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .grid.two { grid-template-columns:1fr; }
+      .section-intro { align-items:flex-start; flex-direction:column; gap:4px; }
+      .health-geography .country-list { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @media (max-width: 560px) {
+      main { width:min(100% - 20px, 1160px); padding-top:18px; }
+      .tabs { width:100%; }
+      .tab { flex:1; min-height:44px; display:grid; place-items:center; text-align:center; }
+      .windows { width:100%; }
+      .window-link { flex:1; min-height:40px; display:grid; place-items:center; text-align:center; }
+      .panel { padding:15px; border-radius:14px; }
+      .usage-kpis { padding:0; }
+      .usage-kpi-primary { padding:20px 18px 16px; }
+      .usage-kpi-primary .metric { font-size:42px; }
+      .usage-kpi-row { padding:12px 18px; }
+      .usage-technology, .usage-capabilities { grid-template-columns:1fr; }
+      .usage-technology > :last-child { grid-column:auto; }
+      .feature-matrix, .capability-grid { grid-template-columns:1fr 1fr; gap:0 12px; }
+      .provider-columns { gap:10px; }
+      .health-command { grid-template-columns:1fr; }
+      .health-signal .signal-metric { font-size:48px; }
+      .health-severity-lane { grid-template-columns:1fr; }
+      .health-severity-lane .severity-card { min-height:96px; }
+      .runtime-status-list, .runtime-totals { grid-template-columns:1fr 1fr 1fr; }
+      .runtime-status { padding:10px 8px; }
+      .runtime-status strong { font-size:21px; }
+      .health-geography .country-list { grid-template-columns:1fr; }
+      .country-row { padding:6px 0; }
+      .metric { font-size:26px; }
+      .metric-label { font-size:9.5px; }
+      .trend-panel { padding:16px 14px 14px; min-height:0; }
+      .usage-overview .trend-panel { min-height:0; }
+      .trend-chart { height:155px; }
+      .chart-latest span { display:none; }
+      .scroll-hint { display:block; }
+    }
   </style>
 </head>
 <body class="view-${view}">
@@ -756,72 +951,82 @@ app.get('/dashboard', async (c) => {
           <td>${html(row.last_seen || 'Unknown')}</td>
         </tr>`).join('')
       : '<tr><td colspan="7" class="empty">No health issues in this window</td></tr>';
+    const criticalIssues = Number((severityByName.get('critical') as any)?.issue_count ?? 0);
+    const errorIssues = Number((severityByName.get('error') as any)?.issue_count ?? 0);
+    const signalTitle = criticalIssues > 0
+      ? 'Critical attention required'
+      : errorIssues > 0
+        ? 'Errors require review'
+        : totalIssues > 0
+          ? 'Signals are being tracked'
+          : 'No active issue signals';
+    const statusByName = new Map(inferenceHealthStatuses.results.map((row: any) => [String(row.status), row]));
+    const runtimeStatusCards = ['ok', 'degraded', 'unhealthy'].map((status) => {
+      const row: any = statusByName.get(status) ?? {};
+      return `<div class="runtime-status status-${status}"><div class="runtime-status-head"><span class="runtime-status-dot"></span>${status}</div><strong>${fmt(row.count ?? 0)}</strong><span class="metric-label">installs</span></div>`;
+    }).join('');
+    const recoveryRows = recoveryReasons.results.length
+      ? recoveryReasons.results.map((row: any) => `<div class="recovery-row"><span>${html(humanizeCode(row.reason))}</span><span class="recovery-status">${html(row.status || 'Unknown')}</span><strong>${fmt(row.count)}</strong></div>`).join('')
+      : '<div class="empty panel-empty">No recovery reports yet</div>';
 
     const body = `
-      <section class="grid">
-        <div class="panel"><div class="metric">${fmt(totals?.affected_installs)}</div><div class="metric-label">Affected installs</div></div>
-        <div class="panel"><div class="metric">${fmt(totals?.total_issues)}</div><div class="metric-label">Issue groups</div></div>
-        <div class="panel"><div class="metric">${fmt(inferenceHealthAggregate?.installs_with_unhealthy ?? 0)}</div><div class="metric-label">Unhealthy runtimes</div></div>
-        <div class="panel"><div class="metric">${fmt(inferenceHealthAggregate?.installs_with_degraded ?? 0)}</div><div class="metric-label">Degraded runtimes</div></div>
+      <section class="health-command">
+        <article class="panel health-signal">
+          <div class="signal-state"><span class="signal-dot"></span>Operational signal board</div>
+          <div class="signal-metric">${fmt(totals?.affected_installs)}</div>
+          <h2>${html(signalTitle)}</h2>
+          <p>Affected installations with deduplicated issue groups in the selected window.</p>
+          <div class="signal-facts">
+            <div class="signal-fact"><strong>${fmt(totals?.total_issues)}</strong><span>issue groups</span></div>
+            <div class="signal-fact"><strong>${fmt(totals?.reports)}</strong><span>reports</span></div>
+            <div class="signal-fact"><strong>${fmt(totals?.occurrences)}</strong><span>occurrences</span></div>
+          </div>
+        </article>
+        <article class="panel health-severity-board">
+          <div class="panel-heading"><div><span class="eyebrow">Triage lane</span><h2>Severity distribution</h2><p>Distinct issue groups, reports, and observed occurrences.</p></div></div>
+          <div class="health-severity-lane">${severityCards}</div>
+        </article>
       </section>
-      ${renderTrendChart({
-        rows: dailyReports.results,
-        days,
-        valueKey: 'reports',
-        chartId: 'health-report-trend',
-        title: 'Reports by day',
-        ariaLabel: 'Daily health reports trend',
-        caption: 'One accepted health snapshot per report ID; repeated deliveries are ignored'
-      })}
-      <section class="grid two">
-        <div class="panel">
-          <h2>Severity at a glance</h2>
-          <div class="severity-grid">${severityCards}</div>
-        </div>
-        <div class="panel">
-          <h2>Affected components</h2>
+
+      <section class="health-timeline">
+        ${renderTrendChart({
+          rows: dailyReports.results,
+          days,
+          valueKey: 'reports',
+          chartId: 'health-report-trend',
+          title: 'Reports by day',
+          ariaLabel: 'Daily health reports trend',
+          caption: 'One accepted health snapshot per report ID; repeated deliveries are ignored'
+        })}
+        <article class="panel component-panel">
+          <div class="panel-heading"><div><span class="eyebrow">Concentration</span><h2>Affected components</h2></div></div>
           ${renderBars(components.results, 'issue_component', 'issue_count', totalIssues)}
+        </article>
+      </section>
+
+      <section class="panel health-runtime-board">
+        <div class="panel-heading"><div><span class="eyebrow">Live runtime posture</span><h2>Inference health & recovery</h2><p>Latest aggregate state from active installations, separate from issue history.</p></div></div>
+        <div class="runtime-board-grid">
+          <div>
+            <div class="runtime-status-list">${runtimeStatusCards}</div>
+            <div class="runtime-totals">
+              <div class="runtime-total"><strong>${fmt(inferenceHealthAggregate?.unhealthy_runtimes ?? 0)}</strong><span>unhealthy runtimes</span></div>
+              <div class="runtime-total"><strong>${fmt(inferenceHealthAggregate?.degraded_runtimes ?? 0)}</strong><span>degraded runtimes</span></div>
+              <div class="runtime-total"><strong>${fmt(inferenceHealthAggregate?.total_runtimes ?? 0)}</strong><span>tracked runtimes</span></div>
+            </div>
+          </div>
+          <div>
+            <h2>Most-recent recovery reasons</h2>
+            <div class="recovery-list">${recoveryRows}</div>
+          </div>
         </div>
       </section>
-      <div class="section-intro"><h2>Runtime recovery</h2><p>Latest aggregate state reported by active installations, separate from deduplicated issue details.</p></div>
-      <section class="grid two">
-        <div class="panel">
-          <h2>Inference health status</h2>
-          <div class="table-scroll"><table><thead><tr><th>Status</th><th>Installs</th></tr></thead><tbody>${
-            inferenceHealthStatuses.results.length
-              ? renderRows(inferenceHealthStatuses.results, [
-                  ['Status', (row) => row.status || 'Unknown'],
-                  ['Installs', (row) => fmt(row.count)]
-                ])
-              : '<tr><td colspan="2" class="empty">No runtime reports yet</td></tr>'
-          }</tbody></table></div>
-          <div class="table-scroll"><table style="margin-top:12px"><thead><tr><th>Aggregate</th><th>Value</th></tr></thead><tbody>
-            <tr><td>Unhealthy runtime sum</td><td>${fmt(inferenceHealthAggregate?.unhealthy_runtimes ?? 0)}</td></tr>
-            <tr><td>Degraded runtime sum</td><td>${fmt(inferenceHealthAggregate?.degraded_runtimes ?? 0)}</td></tr>
-            <tr><td>Tracked runtime sum</td><td>${fmt(inferenceHealthAggregate?.total_runtimes ?? 0)}</td></tr>
-          </tbody></table></div>
-        </div>
-        <div class="panel">
-          <h2>Most-recent recovery reasons</h2>
-          <div class="table-scroll"><table><thead><tr><th>Reason</th><th>Status</th><th>Installs</th></tr></thead><tbody>${
-            recoveryReasons.results.length
-              ? renderRows(recoveryReasons.results, [
-                  ['Reason', (row) => humanizeCode(row.reason)],
-                  ['Status', (row) => row.status || 'Unknown'],
-                  ['Installs', (row) => fmt(row.count)]
-                ])
-              : '<tr><td colspan="3" class="empty">No recovery reports yet</td></tr>'
-          }</tbody></table></div>
-        </div>
+
+      <section class="panel health-geography">
+        <div class="panel-heading"><div><span class="eyebrow">Anonymous footprint</span><h2>Affected-install geography</h2><p>Countries represented by installations reporting issue groups.</p></div></div>
+        <div class="country-list">${renderCountryList(countries.results, 'installs', (row) => `installs · ${fmt(row.issue_count)} issues`)}</div>
       </section>
-      <section class="panel" style="margin-bottom:14px">
-        <h2>Affected-install geography</h2>
-        <div class="map-grid">
-          ${countries.results.length ? countries.results.map((row: any) => `
-            <div class="country"><strong>${fmt(row.installs)}</strong><span>${html(row.ip_country || 'XX')} · ${fmt(row.issue_count)} issues</span></div>
-          `).join('') : '<div class="empty panel-empty">No health reports in this window</div>'}
-        </div>
-      </section>
+
       <section class="panel">
         <div class="section-intro" style="margin-top:0"><div><span class="eyebrow">Deduplicated detail</span><h2>Top recurring issues</h2></div><p>Highest-impact issue groups, capped at 12. Full aggregate data remains available from the JSON stats endpoint.</p></div>
         <p class="scroll-hint">Scroll horizontally for full details →</p>
@@ -994,74 +1199,80 @@ app.get('/dashboard', async (c) => {
   ].map(([name, count]) => ({ name, count }));
 
   const body = `
-    <section class="grid">
-      <div class="panel"><div class="metric">${fmt(totals?.total_installs)}</div><div class="metric-label">Total installs</div></div>
-      <div class="panel"><div class="metric">${fmt(totals?.active_installs)}</div><div class="metric-label">Active installs</div></div>
-      <div class="panel"><div class="metric">${fmt(countries.results.length)}</div><div class="metric-label">Countries</div></div>
-      <div class="panel"><div class="metric">${fmt(versions.results.length)}</div><div class="metric-label">Active versions</div></div>
-    </section>
-    ${renderTrendChart({
-      rows: dailyInstalls.results,
-      days,
-      valueKey: 'installs',
-      chartId: 'active-install-trend',
-      title: 'Active installs by day',
-      ariaLabel: 'Daily active installs trend',
-      caption: 'One privacy-preserving daily snapshot per active installation'
-    })}
-    <div class="section-intro"><h2>Adoption</h2><p>Where active installations run and which optional capabilities they choose to enable.</p></div>
-    <section class="grid two">
-      <div class="panel">
-        <h2>Active-install geography</h2>
-        <div class="map-grid">
-          ${countries.results.length ? countries.results.map((row: any) => `
-            <div class="country"><strong>${fmt(row.count)}</strong><span>${html(row.ip_country || 'XX')}</span></div>
-          `).join('') : '<div class="empty panel-empty">No active installs in this window</div>'}
+    <section class="usage-overview">
+      ${renderTrendChart({
+        rows: dailyInstalls.results,
+        days,
+        valueKey: 'installs',
+        chartId: 'active-install-trend',
+        title: 'Active installs by day',
+        ariaLabel: 'Daily active installs trend',
+        caption: 'One privacy-preserving daily snapshot per active installation'
+      })}
+      <aside class="panel usage-kpis" aria-label="Audience summary">
+        <div class="usage-kpi-primary">
+          <span class="eyebrow">Current audience</span>
+          <div class="metric">${fmt(totals?.active_installs)}</div>
+          <div class="metric-label">Active installs</div>
+          <p>${pct(totals?.active_installs, totals?.total_installs)} of all installs reported during this window.</p>
         </div>
-      </div>
-      <div class="panel">
-        <h2>Feature Adoption</h2>
-        <div class="feature-grid">${renderBars(featureRows, 'name', 'count', activeInstalls)}</div>
-      </div>
+        <div class="usage-kpi-list">
+          <div class="usage-kpi-row"><span>Total installs</span><strong>${fmt(totals?.total_installs)}</strong></div>
+          <div class="usage-kpi-row"><span>Countries</span><strong>${fmt(countries.results.length)}</strong></div>
+          <div class="usage-kpi-row"><span>Active versions</span><strong>${fmt(versions.results.length)}</strong></div>
+        </div>
+      </aside>
     </section>
-    <section class="grid two">
-      <div class="panel">
-        <h2>Versions</h2>
-        <table><thead><tr><th>Version</th><th>Installs</th></tr></thead><tbody>${renderRows(versions.results, [['Version', 'app_version'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-      </div>
-      <div class="panel">
-        <h2>Models</h2>
-        <table><thead><tr><th>Model</th><th>Installs</th></tr></thead><tbody>${renderRows(models.results, [['Model', 'model_type'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-      </div>
+
+    <div class="section-intro"><div><span class="eyebrow">Audience & adoption</span><h2>How the community uses YA-WAMF</h2></div><p>Anonymous geography and optional-capability adoption across active installations.</p></div>
+    <section class="usage-adoption">
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Audience footprint</h2><p>Ranked by active installations across reporting countries.</p></div></div>
+        <div class="country-list">${renderCountryList(countries.results, 'count', () => 'installs')}</div>
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Feature adoption</h2><p>Share of active installations enabling each optional capability.</p></div></div>
+        <div class="feature-matrix">${renderBars(featureRows, 'name', 'count', activeInstalls)}</div>
+      </article>
     </section>
-    <section class="grid two">
-      <div class="panel">
-        <h2>Runtime Providers</h2>
-        <table><thead><tr><th>Configured</th><th>Installs</th></tr></thead><tbody>${renderRows(configuredProviders.results, [['Configured', (row) => row.provider || 'Unknown'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-        <table style="margin-top:12px"><thead><tr><th>Active</th><th>Installs</th></tr></thead><tbody>${renderRows(activeProviders.results, [['Active', (row) => row.provider || 'Unknown'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-      </div>
-      <div class="panel">
-        <h2>Hardware Capabilities</h2>
-        ${renderBars(hardwareRows, 'name', 'count', activeInstalls)}
-      </div>
+
+    <div class="section-intro"><div><span class="eyebrow">Technology distribution</span><h2>What people run</h2></div><p>Versions, recognition models, and configured versus active inference providers.</p></div>
+    <section class="usage-technology">
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Versions</h2></div></div>
+        ${renderRankedDistribution(versions.results, 'app_version', 'count', 'No version data in this window')}
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Recognition models</h2></div></div>
+        ${renderRankedDistribution(models.results, 'model_type', 'count', 'No model data in this window')}
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Inference providers</h2></div></div>
+        <div class="provider-columns">
+          <div><h3>Configured</h3>${configuredProviders.results.length ? configuredProviders.results.map((row: any) => `<div class="provider-chip"><span>${html(row.provider || 'Unknown')}</span><strong>${fmt(row.count)}</strong></div>`).join('') : '<div class="empty">No data</div>'}</div>
+          <div><h3>Active</h3>${activeProviders.results.length ? activeProviders.results.map((row: any) => `<div class="provider-chip"><span>${html(row.provider || 'Unknown')}</span><strong>${fmt(row.count)}</strong></div>`).join('') : '<div class="empty">No data</div>'}</div>
+        </div>
+      </article>
     </section>
-    <section class="grid two">
-      <div class="panel">
-        <h2>Inference Backends</h2>
-        <table><thead><tr><th>Backend</th><th>Installs</th></tr></thead><tbody>${renderRows(backends.results, [['Backend', (row) => row.backend || 'Unknown'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-      </div>
-      <div class="panel">
-        <h2>Model Runtimes</h2>
-        <table><thead><tr><th>Runtime</th><th>Installs</th></tr></thead><tbody>${renderRows(runtimes.results, [['Runtime', (row) => row.model_runtime || 'Unknown'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-      </div>
+
+    <section class="usage-capabilities">
+      <article class="panel">
+        <div class="panel-heading"><div><span class="eyebrow">Compute readiness</span><h2>Hardware capabilities</h2><p>Detected accelerator and runtime capabilities across active installations.</p></div></div>
+        <div class="capability-grid">${hardwareRows.map((row: any) => `<div class="capability"><strong>${fmt(row.count)}</strong><span>${html(row.name)} · ${pct(row.count, activeInstalls)}</span></div>`).join('')}</div>
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><div><span class="eyebrow">Runtime shape</span><h2>Platforms & engines</h2></div></div>
+        <div class="platform-stack">
+          ${platforms.results.map((row: any) => `<div class="platform-row"><span>${html(row.platform_machine || 'Unknown')}</span><strong>${fmt(row.count)}</strong></div>`).join('')}
+          ${backends.results.map((row: any) => `<div class="platform-row"><span>${html(row.backend || 'Unknown')} backend</span><strong>${fmt(row.count)}</strong></div>`).join('')}
+          ${runtimes.results.map((row: any) => `<div class="platform-row"><span>${html(row.model_runtime || 'Unknown')} runtime</span><strong>${fmt(row.count)}</strong></div>`).join('')}
+        </div>
+      </article>
     </section>
+
     <section class="panel">
-      <h2>Platforms</h2>
-      <table><thead><tr><th>Machine</th><th>Installs</th></tr></thead><tbody>${renderRows(platforms.results, [['Machine', 'platform_machine'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-    </section>
-    <section class="panel">
-      <h2>Deployment images</h2>
-      <div class="table-scroll"><table><thead><tr><th>Flavor</th><th>Architecture</th><th>Mode</th><th>Installs</th></tr></thead><tbody>${renderRows(deployment.results, [
+      <div class="panel-heading"><div><span class="eyebrow">Deployment profile</span><h2>Deployment images</h2><p>Image flavor, machine architecture, and reported deployment mode.</p></div></div>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Deployment image details; scroll horizontally for all columns"><table><thead><tr><th>Flavor</th><th>Architecture</th><th>Mode</th><th>Installs</th></tr></thead><tbody>${renderRows(deployment.results, [
         ['Flavor', (row) => row.image_flavor || 'Unknown'],
         ['Architecture', (row) => row.image_arch || 'Unknown'],
         ['Mode', (row) => row.deployment_mode || 'Unknown'],
