@@ -42,6 +42,78 @@ after(async () => {
   await mf?.dispose();
 });
 
+test("user metrics dashboard renders a bounded daily trend and distinct mode", async (t) => {
+  await usageDb.prepare(`
+    INSERT INTO heartbeat_daily (
+      report_date, installation_id_hash, version, model, country, last_reported_at
+    ) VALUES
+      (date('now', '-1 day'), 'install-a', '2.15.0', 'model-a', 'GB', datetime('now', '-1 day')),
+      (date('now'), 'install-a', '2.15.0', 'model-a', 'GB', datetime('now')),
+      (date('now'), 'install-b', '2.15.0', 'model-b', 'US', datetime('now'))
+  `).run();
+  t.after(async () => {
+    await usageDb.prepare(
+      "DELETE FROM heartbeat_daily WHERE installation_id_hash IN ('install-a', 'install-b')",
+    ).run();
+  });
+
+  const response = await mf.dispatchFetch("http://worker.test/dashboard?view=usage&days=7");
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(body, /<title>YA-WAMF User Metrics<\/title>/);
+  assert.match(body, /<body class="view-usage">/);
+  assert.match(body, />User Metrics<\/a>/);
+  assert.match(body, /Active installs by day/);
+  assert.match(body, /aria-label="Daily active installs trend"/);
+  assert.match(body, /<svg[^>]+class="trend-chart"/);
+  assert.doesNotMatch(body, /Most-Recent Recovery Reasons/);
+});
+
+test("health data dashboard renders severity-led trends and concise issue details", async (t) => {
+  await healthDb.prepare(`
+    INSERT INTO health_issue_reports (
+      report_key, installation_id_hash, issue_fingerprint, issue_component,
+      issue_reason_code, severity, app_version, ip_country,
+      occurrence_count, report_count, first_seen_at, last_seen_at, updated_at
+    ) VALUES (
+      'report-health', 'install-health', 'fingerprint-health', 'event_processor',
+      'stage_failure', 'critical', '2.15.0', 'GB',
+      4, 1, datetime('now'), datetime('now'), datetime('now')
+    )
+  `).run();
+  await healthDb.prepare(`
+    INSERT INTO health_report_batches (
+      report_id, installation_id_hash, report_date, reported_at, event_groups_json
+    ) VALUES (
+      'batch-health', 'install-health', date('now'), datetime('now'),
+      '[{"fingerprint":"fingerprint-health","event_ids":["event-a","event-b"]}]'
+    )
+  `).run();
+  t.after(async () => {
+    await healthDb.prepare(
+      "DELETE FROM health_issue_reports WHERE installation_id_hash = 'install-health'",
+    ).run();
+    await healthDb.prepare(
+      "DELETE FROM health_report_batches WHERE installation_id_hash = 'install-health'",
+    ).run();
+  });
+
+  const response = await mf.dispatchFetch("http://worker.test/dashboard?view=health&days=7");
+  const body = await response.text();
+
+  assert.equal(response.status, 200);
+  assert.match(body, /<title>YA-WAMF Health Data<\/title>/);
+  assert.match(body, /<body class="view-health">/);
+  assert.match(body, />Health Data<\/a>/);
+  assert.match(body, /Reports by day/);
+  assert.match(body, /aria-label="Daily health reports trend"/);
+  assert.match(body, /severity-pill severity-critical/);
+  assert.match(body, /Top recurring issues/);
+  assert.match(body, /class="table-scroll"/);
+  assert.doesNotMatch(body, /Usage Geography/);
+});
+
 test("heartbeat writes one bounded daily snapshot per installation", async () => {
   await usageDb.prepare(
     "INSERT INTO heartbeat_daily (report_date, installation_id_hash, last_reported_at) VALUES ('2020-01-01', 'expired', '2020-01-01T00:00:00Z')",
