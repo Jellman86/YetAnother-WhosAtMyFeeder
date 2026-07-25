@@ -12346,6 +12346,39 @@
         "title": "StartRunResponse",
         "type": "object"
       },
+      "SystemAcceleratorTelemetry": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "npu",
+              "gpu"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "utilization_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Utilization Percent"
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "SystemAcceleratorTelemetry",
+        "type": "object"
+      },
       "SystemDebugResponse": {
         "properties": {
           "disk_usage": {
@@ -12380,6 +12413,40 @@
           "disk_usage"
         ],
         "title": "SystemDebugResponse",
+        "type": "object"
+      },
+      "SystemTelemetryResponse": {
+        "properties": {
+          "accelerator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SystemAcceleratorTelemetry"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cpu_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Percent"
+          },
+          "sampled_at": {
+            "title": "Sampled At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sampled_at"
+        ],
+        "title": "SystemTelemetryResponse",
         "type": "object"
       },
       "TaxonomySyncStartResponse": {
@@ -21489,6 +21556,39 @@
           }
         ],
         "summary": "Get Detection Timeline Span",
+        "tags": [
+          "stats"
+        ]
+      }
+    },
+    "/api/system-telemetry": {
+      "get": {
+        "description": "Return one live host-utilization sample for the sidebar's rolling graph.",
+        "operationId": "get_system_telemetry_api_system_telemetry_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemTelemetryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get System Telemetry",
         "tags": [
           "stats"
         ]

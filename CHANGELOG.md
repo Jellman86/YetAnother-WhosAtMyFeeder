@@ -7,6 +7,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 ## [Unreleased]
 
 ### Changed
+- **System status now carries a subtle live host-activity trace.** A lightweight one-minute SVG
+  history shows real CPU load and, when the host exposes a supported counter, active accelerator
+  utilization. Unsupported or unavailable accelerator data is omitted rather than estimated.
 - **The desktop sidebar now matches the rest of the application more closely.** The large centred
   bird mark remains, while navigation is grouped into observation and management areas, the active
   route has a clearer Blue Tit treatment, live system state is shown as compact honest rows, and

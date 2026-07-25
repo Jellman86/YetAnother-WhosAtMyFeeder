@@ -1608,10 +1608,20 @@ export interface components {
     StartRunResponse: {
     run_id: string;
 };
+    SystemAcceleratorTelemetry: {
+    kind: "npu" | "gpu";
+    label: string;
+    utilization_percent?: number | null;
+};
     SystemDebugResponse: {
     disk_usage: Array<unknown>;
     platform: string;
     python: string;
+};
+    SystemTelemetryResponse: {
+    accelerator?: components['schemas']['SystemAcceleratorTelemetry'] | null;
+    cpu_percent?: number | null;
+    sampled_at: string;
 };
     TaxonomySyncStartResponse: {
     status: string;
@@ -3343,6 +3353,15 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['DetectionsTimelineSpanResponse'];
+    };
+  };
+  "/api/system-telemetry": {
+    get: {
+      operationId: "get_system_telemetry_api_system_telemetry_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['SystemTelemetryResponse'];
     };
   };
   "/api/update-status": {

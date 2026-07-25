@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends, Query
+from fastapi import APIRouter, Request, Response, Depends, Query
 import os
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Literal
@@ -7,6 +7,7 @@ from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.models import APIModel, DetectionResponse
 from app.config import settings
+from app.services.system_telemetry import system_telemetry_sampler
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.weather_service import weather_service
 from app.auth import AuthContext
@@ -19,6 +20,38 @@ from app.utils.api_datetime import utc_naive_now
 from app.utils.timezone import get_user_timezone
 
 router = APIRouter()
+
+
+class SystemAcceleratorTelemetry(APIModel):
+    kind: Literal["npu", "gpu"]
+    label: str
+    utilization_percent: float | None = None
+
+
+class SystemTelemetryResponse(APIModel):
+    sampled_at: str
+    cpu_percent: float | None = None
+    accelerator: SystemAcceleratorTelemetry | None = None
+
+
+@router.get("/system-telemetry", response_model=SystemTelemetryResponse)
+@guest_rate_limit()
+async def get_system_telemetry(request: Request, response: Response) -> SystemTelemetryResponse:
+    """Return one live host-utilization sample for the sidebar's rolling graph."""
+    sample = system_telemetry_sampler.sample()
+    response.headers["Cache-Control"] = "no-store"
+    accelerator = None
+    if sample.accelerator_kind and sample.accelerator_label:
+        accelerator = SystemAcceleratorTelemetry(
+            kind=sample.accelerator_kind,
+            label=sample.accelerator_label,
+            utilization_percent=sample.accelerator_percent,
+        )
+    return SystemTelemetryResponse(
+        sampled_at=datetime.now(timezone.utc).isoformat(),
+        cpu_percent=sample.cpu_percent,
+        accelerator=accelerator,
+    )
 
 
 class UpdateStatusResponse(APIModel):
