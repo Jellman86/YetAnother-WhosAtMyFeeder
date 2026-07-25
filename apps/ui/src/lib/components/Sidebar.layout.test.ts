@@ -39,4 +39,9 @@ describe('Sidebar hybrid refresh', () => {
         expect(sidebarSource).toContain("$_('auth.logout')");
         expect(sidebarSource).toContain("$_('auth.login')");
     });
+
+    it('keeps navigation and bottom controls reachable on short viewports', () => {
+        expect(sidebarSource).toContain('[@media(max-height:42rem)]:hidden');
+        expect(sidebarSource).toContain('[@media(max-height:42rem)]:py-3');
+    });
 });

@@ -88,7 +88,7 @@
 >
     <div
         data-sidebar-brand
-        class="relative flex w-full flex-col items-center text-center gap-3 border-b border-slate-200/80 px-4 py-5 dark:border-slate-700/60"
+        class="relative flex w-full flex-col items-center text-center gap-3 border-b border-slate-200/80 px-4 py-5 dark:border-slate-700/60 [@media(max-height:42rem)]:py-3"
     >
         <button
             class="focus-ring -m-1 flex flex-col items-center gap-3 rounded-xl p-1"
@@ -145,7 +145,7 @@
     </nav>
 
     {#if !collapsed}
-        <div data-sidebar-status class="shrink-0 border-t border-slate-200/80 p-3 dark:border-slate-700/60">
+        <div data-sidebar-status class="shrink-0 border-t border-slate-200/80 p-3 dark:border-slate-700/60 [@media(max-height:42rem)]:hidden">
             <div class="rounded-xl border border-slate-200/80 bg-slate-50/90 p-3 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/55">
                 <div class="mb-2 flex items-center justify-between gap-2">
                     <span class="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
