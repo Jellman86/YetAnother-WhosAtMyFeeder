@@ -9,6 +9,8 @@
     "dashboard": "Dashboard",
     "explorer": "Explorer",
     "leaderboard": "Leaderboard",
+    "observe": "Observe",
+    "manage": "Manage",
     "audio_history": "Audio History",
     "jobs": "Jobs",
     "settings": "Settings",
@@ -1301,6 +1303,12 @@
     "status_check_again": "Check again"
   },
   "status": {
+    "title": "System status",
+    "live_updates": "Live updates",
+    "online": "Online",
+    "offline": "Offline",
+    "audio_analysis": "Audio analysis",
+    "notifications": "Notifications",
     "audio_active": "Audio Analysis Active",
     "notifications_enabled": "Notifications Enabled",
     "system_online": "System Online",

@@ -6,6 +6,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+- **The desktop sidebar now matches the rest of the application more closely.** The large centred
+  bird mark remains, while navigation is grouped into observation and management areas, the active
+  route has a clearer Blue Tit treatment, live system state is shown as compact honest rows, and
+  authenticated or public access is presented in a quieter account card.
+
 ## [2.15.0] - 2026-07-23
 
 ### Added

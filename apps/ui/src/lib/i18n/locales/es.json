@@ -9,6 +9,8 @@
     "dashboard": "Tablero",
     "explorer": "Explorador",
     "leaderboard": "Clasificación",
+    "observe": "Observar",
+    "manage": "Gestionar",
     "audio_history": "Historial de audio",
     "settings": "Ajustes",
     "setup_wizard": "Asistente de configuración",
@@ -1255,6 +1257,12 @@
     "status_check_again": "Comprobar de nuevo"
   },
   "status": {
+    "title": "Estado del sistema",
+    "live_updates": "Actualizaciones en directo",
+    "online": "En línea",
+    "offline": "Desconectado",
+    "audio_analysis": "Análisis de audio",
+    "notifications": "Notificaciones",
     "audio_active": "Análisis de audio activo",
     "notifications_enabled": "Notificaciones habilitadas",
     "system_online": "Sistema en línea",

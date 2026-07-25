@@ -681,13 +681,13 @@
 
       <Sidebar {currentRoute} onNavigate={navigate} {mobileSidebarOpen} onMobileClose={() => mobileSidebarOpen = false}>
           {#snippet status()}
-              <div class="flex items-center gap-3 px-2">
-                  <ConnectionStatus
-                      birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
-                      {notificationsActive}
-                      connected={detectionsStore.connected}
-                      className="gap-3"
-                  />
+              <ConnectionStatus
+                  birdnetEnabled={Boolean(settingsStore.birdnetEnabled)}
+                  {notificationsActive}
+                  connected={detectionsStore.connected}
+                  variant="sidebar"
+              />
+              <div class="mt-1 flex justify-end">
                   <UpdateIndicator />
               </div>
           {/snippet}
