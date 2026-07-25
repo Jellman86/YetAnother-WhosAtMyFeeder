@@ -215,6 +215,23 @@ html[data-theme='dark'] {
     @apply text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white;
   }
 
+  /* Sidebar navigation — denser monitor-style hierarchy with a clear selected route. */
+  .sidebar-nav {
+    @apply flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold transition-all duration-200 focus-ring;
+  }
+
+  .sidebar-nav-active {
+    @apply bg-brand-100/90 text-slate-900 shadow-sm ring-1 ring-brand-200/70 ring-inset dark:bg-brand-900/40 dark:text-slate-100 dark:ring-brand-700/40;
+  }
+
+  .sidebar-nav-active svg {
+    @apply text-brand-600 dark:text-brand-400;
+  }
+
+  .sidebar-nav-inactive {
+    @apply text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white;
+  }
+
   /* Badges */
   .badge {
     @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border;

@@ -7,6 +7,7 @@
     import { _ } from 'svelte-i18n';
     import BrandMark from './BrandMark.svelte';
     import LanguageSelector from './LanguageSelector.svelte';
+    import SystemTelemetryGraph from './SystemTelemetryGraph.svelte';
 
     onMount(() => {
         updateStatusStore.load();
@@ -20,26 +21,40 @@
         status?: import('svelte').Snippet;
     }>();
 
-    // Direct reactive access to stores
     let collapsed = $derived(layoutStore.sidebarCollapsed);
+    let accountInitial = $derived((authStore.username?.trim().slice(0, 1) || 'Y').toUpperCase());
+
+    type NavSection = 'observe' | 'manage';
 
     type NavItem = {
         path: string;
         label: string;
         icon: string;
+        section: NavSection;
         requiresAuth?: boolean;
     };
 
+    type NavGroup = {
+        id: NavSection;
+        label: string;
+        items: NavItem[];
+    };
+
     const allNavItems = $derived.by((): NavItem[] => ([
-        { path: '/', label: $_('nav.dashboard'), icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-        { path: '/events', label: $_('nav.explorer'), icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' },
-        { path: '/species', label: $_('nav.leaderboard'), icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-        { path: '/settings', label: $_('nav.settings'), icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z', requiresAuth: true },
-        { path: '/about', label: $_('nav.about'), icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+        { path: '/', label: $_('nav.dashboard'), icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', section: 'observe' },
+        { path: '/events', label: $_('nav.explorer'), icon: 'M4 6h16M4 10h16M4 14h16M4 18h16', section: 'observe' },
+        { path: '/species', label: $_('nav.leaderboard'), icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z', section: 'observe' },
+        { path: '/settings', label: $_('nav.settings'), icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z', section: 'manage', requiresAuth: true },
+        { path: '/about', label: $_('nav.about'), icon: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z', section: 'manage' },
     ]));
 
-    // Filter nav items based on auth status
-    const navItems = $derived(allNavItems.filter(item => !item.requiresAuth || authStore.showSettings));
+    const navSections = $derived.by((): NavGroup[] => {
+        const visibleItems = allNavItems.filter(item => !item.requiresAuth || authStore.showSettings);
+        return [
+            { id: 'observe', label: $_('nav.observe'), items: visibleItems.filter(item => item.section === 'observe') },
+            { id: 'manage', label: $_('nav.manage'), items: visibleItems.filter(item => item.section === 'manage') },
+        ];
+    });
 
     function navigateAndClose(path: string): void {
         onNavigate(path);
@@ -58,24 +73,26 @@
     }
 </script>
 
-<!-- Mobile backdrop overlay -->
 {#if mobileSidebarOpen}
     <div
         role="button"
         tabindex="0"
-        class="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity duration-300"
+        class="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden"
         onclick={onMobileClose}
-        onkeydown={(e) => e.key === 'Enter' || e.key === 'Escape' ? onMobileClose?.() : null}
+        onkeydown={(event) => event.key === 'Enter' || event.key === 'Escape' ? onMobileClose?.() : null}
         aria-label={$_('nav.close_menu', { default: 'Close menu' })}
     ></div>
 {/if}
 
-<aside class="fixed left-0 top-0 h-full bg-white/90 dark:bg-slate-900/90 shadow-lg border-r border-slate-200/80 dark:border-slate-700/50 backdrop-blur-xl transition-all duration-300 flex flex-col {collapsed ? 'w-20' : 'w-64'}
-    {mobileSidebarOpen ? 'translate-x-0 z-50' : '-translate-x-full md:translate-x-0 z-50'}">
-    <!-- Logo and Collapse Button -->
-    <div class="relative flex flex-col items-center w-full p-4 border-b border-slate-200/80 dark:border-slate-700/50 text-center gap-3">
+<aside
+    class="fixed left-0 top-0 z-50 flex h-full flex-col border-r border-slate-200/80 bg-white/95 shadow-xl backdrop-blur-xl transition-all duration-300 dark:border-slate-700/60 dark:bg-slate-900/95 {collapsed ? 'w-20' : 'w-64'} {mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}"
+>
+    <div
+        data-sidebar-brand
+        class="relative flex w-full flex-col items-center text-center gap-3 border-b border-slate-200/80 px-4 py-5 dark:border-slate-700/60 [@media(max-height:42rem)]:py-3"
+    >
         <button
-            class="flex flex-col items-center gap-3 focus-ring rounded-lg p-1 -m-1"
+            class="focus-ring -m-1 flex flex-col items-center gap-3 rounded-xl p-1"
             onclick={() => navigateAndClose('/')}
         >
             <BrandMark
@@ -84,11 +101,11 @@
                 class="flex-shrink-0 transition-all duration-300 {collapsed ? 'h-10 w-10' : 'h-16 w-16'}"
             />
             {#if !collapsed}
-                <div class="flex flex-col overflow-hidden items-center">
-                    <h1 class="text-sm font-bold text-gradient leading-tight truncate">
+                <div class="flex flex-col items-center overflow-hidden">
+                    <h1 class="text-gradient truncate text-sm font-bold leading-tight">
                         {$_('app.logo_title')}
                     </h1>
-                    <span class="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate">
+                    <span class="truncate text-xs font-semibold text-slate-600 dark:text-slate-300">
                         {$_('app.logo_subtitle')}
                     </span>
                 </div>
@@ -96,95 +113,152 @@
         </button>
     </div>
 
-    <!-- Navigation -->
-    <nav class="flex-1 overflow-y-auto p-3 space-y-1">
-        {#each navItems as item}
-            <button
-                class="nav-button w-full flex items-center gap-3 text-left"
-                class:nav-button-active={isRouteActive(item)}
-                class:nav-button-inactive={!isRouteActive(item)}
-                onclick={() => handleNavClick(item)}
-                title={collapsed ? item.label : ''}
-                aria-label={item.label}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
-                </svg>
+    <nav class="min-h-0 flex-1 overflow-y-auto px-3 py-4" aria-label={$_('nav.navigation', { default: 'Primary navigation' })}>
+        {#each navSections as section, sectionIndex}
+            <div data-sidebar-section={section.id} class={sectionIndex === 0 ? '' : 'mt-5'}>
                 {#if !collapsed}
-                    <span class="text-sm">{item.label}</span>
+                    <div class="px-3 pb-2 text-[0.625rem] font-bold uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500">
+                        {section.label}
+                    </div>
                 {/if}
-            </button>
+                <div class="space-y-1">
+                    {#each section.items as item}
+                        <button
+                            class="sidebar-nav {collapsed ? 'justify-center px-0' : ''}"
+                            class:sidebar-nav-active={isRouteActive(item)}
+                            class:sidebar-nav-inactive={!isRouteActive(item)}
+                            onclick={() => handleNavClick(item)}
+                            title={collapsed ? item.label : ''}
+                            aria-label={item.label}
+                            aria-current={isRouteActive(item) ? 'page' : undefined}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d={item.icon} />
+                            </svg>
+                            {#if !collapsed}
+                                <span class="truncate text-sm">{item.label}</span>
+                            {/if}
+                        </button>
+                    {/each}
+                </div>
+            </div>
         {/each}
     </nav>
 
-
-    <!-- Status Section -->
     {#if !collapsed}
-        <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
-            <div class="bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 space-y-2">
-                {@render status?.()}
+        <div data-sidebar-status class="shrink-0 border-t border-slate-200/80 p-3 dark:border-slate-700/60 [@media(max-height:42rem)]:hidden">
+            <div class="relative overflow-hidden rounded-xl border border-slate-200/80 bg-slate-50/90 p-3 shadow-sm dark:border-slate-700/70 dark:bg-slate-800/55">
+                <SystemTelemetryGraph />
+                <div class="relative z-10">
+                    <div class="mb-2 flex items-center justify-between gap-2">
+                        <span class="text-[0.625rem] font-bold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                            {$_('status.title')}
+                        </span>
+                    </div>
+                    {@render status?.()}
+                </div>
             </div>
         </div>
     {/if}
 
-    <!-- Auth Actions (Login/Logout) -->
-    <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50 space-y-2">
-        {#if authStore.isAuthenticated}
-            <button
-                class="nav-button w-full flex items-center gap-3 text-left nav-button-inactive hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-900/30 group"
-                onclick={() => authStore.logout()}
-                title={collapsed ? $_('auth.logout') : ''}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                </svg>
-                {#if !collapsed}
-                    <span class="text-sm font-medium">{$_('auth.logout')}</span>
-                {/if}
-            </button>
-        {:else if authStore.isGuest}
-            <button
-                class="nav-button w-full flex items-center gap-3 text-left nav-button-inactive hover:text-accent-600 dark:hover:text-accent-400 hover:bg-accent-50/80 dark:hover:bg-accent-900/30 group"
-                onclick={() => authStore.requestLogin()} 
-                title={collapsed ? $_('auth.login') : ''}
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                </svg>
-                {#if !collapsed}
-                    <span class="text-sm font-medium">{$_('auth.login')}</span>
-                {/if}
-            </button>
+    <div class="shrink-0 border-t border-slate-200/80 p-3 dark:border-slate-700/60">
+        {#if !collapsed}
+            {#if authStore.isAuthenticated}
+                <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/90 p-2 dark:border-slate-700/70 dark:bg-slate-800/55">
+                    <div class="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-brand-100 text-xs font-bold text-brand-700 dark:bg-brand-900/50 dark:text-brand-300">
+                        {accountInitial}
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <div class="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{authStore.username}</div>
+                        <div class="truncate text-[0.625rem] text-slate-500 dark:text-slate-400">{$_('app.title')}</div>
+                    </div>
+                    <button
+                        class="focus-ring rounded-lg p-2 text-slate-400 transition hover:bg-red-50 hover:text-red-600 dark:text-slate-500 dark:hover:bg-red-900/30 dark:hover:text-red-400"
+                        onclick={() => authStore.logout()}
+                        title={$_('auth.logout')}
+                        aria-label={$_('auth.logout')}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                    </button>
+                </div>
+            {:else if authStore.isGuest}
+                <div data-sidebar-account class="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200/80 bg-slate-50/90 p-2 dark:border-slate-700/70 dark:bg-slate-800/55">
+                    <div class="grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </div>
+                    <div class="min-w-0 flex-1 truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        {$_('auth.public_view')}
+                    </div>
+                    <button
+                        class="focus-ring rounded-lg p-2 text-slate-400 transition hover:bg-accent-50 hover:text-accent-700 dark:text-slate-500 dark:hover:bg-accent-900/30 dark:hover:text-accent-300"
+                        onclick={() => authStore.requestLogin()}
+                        title={$_('auth.login')}
+                        aria-label={$_('auth.login')}
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                        </svg>
+                    </button>
+                </div>
+            {/if}
+        {:else}
+            {#if authStore.isAuthenticated}
+                <button
+                    class="sidebar-nav sidebar-nav-inactive justify-center px-0 hover:text-red-600 dark:hover:text-red-400"
+                    onclick={() => authStore.logout()}
+                    title={$_('auth.logout')}
+                    aria-label={$_('auth.logout')}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                </button>
+            {:else if authStore.isGuest}
+                <button
+                    class="sidebar-nav sidebar-nav-inactive justify-center px-0"
+                    onclick={() => authStore.requestLogin()}
+                    title={$_('auth.login')}
+                    aria-label={$_('auth.login')}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                    </svg>
+                </button>
+            {/if}
         {/if}
     </div>
 
-    <!-- Language, Theme, Collapse — inline utility row -->
-    <div class="p-3 border-t border-slate-200/80 dark:border-slate-700/50">
+    <div class="shrink-0 border-t border-slate-200/80 p-3 dark:border-slate-700/60">
         <div class="flex items-center {collapsed ? 'flex-col gap-1' : 'justify-around gap-1'}">
             <LanguageSelector dropUp compact />
             <button
-                class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+                class="focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                 onclick={() => themeStore.toggle()}
                 title={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
                 aria-label={themeStore.isDark ? $_('theme.switch_light') : $_('theme.switch_dark')}
             >
                 {#if themeStore.isDark}
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
                     </svg>
                 {:else}
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                     </svg>
                 {/if}
             </button>
             <button
-                class="p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-all duration-200 focus-ring"
+                class="focus-ring rounded-xl p-2.5 text-slate-500 transition-all duration-200 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                 onclick={() => layoutStore.toggleSidebar()}
                 title={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
                 aria-label={collapsed ? $_('nav.expand_sidebar') : $_('nav.collapse_sidebar')}
             >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
                     {#if collapsed}
                         <path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
                     {:else}
@@ -194,5 +268,4 @@
             </button>
         </div>
     </div>
-
 </aside>

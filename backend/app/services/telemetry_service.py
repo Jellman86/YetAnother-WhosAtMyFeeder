@@ -13,7 +13,7 @@ from app.utils.tasks import create_background_task
 
 log = structlog.get_logger()
 
-HEALTH_REPORT_SCHEMA_VERSION = "2026-05-03.health-issues.v1"
+HEALTH_REPORT_SCHEMA_VERSION = "2026-07-25.health-issues.v3"
 HEALTH_REPORT_MAX_ISSUES = 25
 HEALTH_CONTEXT_MAX_KEYS = 20
 HEALTH_CONTEXT_MAX_STRING = 160
@@ -114,6 +114,36 @@ def _fingerprint_issue(event: dict[str, Any]) -> str:
     ]
     raw = "|".join(parts)
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+
+def _health_event_identity(event: dict[str, Any]) -> str:
+    event_id = _safe_text(event.get("id"), limit=160)
+    if event_id:
+        return event_id
+    raw = "|".join(
+        [
+            _fingerprint_issue(event),
+            _safe_text(event.get("timestamp"), limit=80),
+            _safe_text(event.get("message"), limit=HEALTH_CONTEXT_MAX_STRING),
+        ]
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _health_event_hash(installation_id: str | None, event: dict[str, Any]) -> str:
+    raw = "|".join(
+        [
+            _safe_text(installation_id, limit=160),
+            _health_event_identity(event),
+        ]
+    )
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def _health_report_id(installation_id: str | None, events: list[dict[str, Any]]) -> str:
+    event_ids = sorted(_health_event_identity(event) for event in events)
+    raw = "|".join([_safe_text(installation_id, limit=160), *event_ids])
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 def build_runtime_telemetry_payload(
@@ -320,12 +350,14 @@ def build_health_issue_report(
                 "stage": _safe_text(raw_event.get("stage"), limit=80) or None,
                 "severity": severity,
                 "count": 0,
+                "event_ids": [],
                 "first_seen_at": timestamp or None,
                 "last_seen_at": timestamp or None,
                 "sample_context": _sanitize_health_context(raw_event.get("context") or {}),
             },
         )
-        issue["count"] += 1
+        issue["event_ids"].append(_health_event_hash(installation_id, raw_event))
+        issue["count"] = len(issue["event_ids"])
         if timestamp:
             first_seen = issue.get("first_seen_at")
             last_seen = issue.get("last_seen_at")
@@ -347,6 +379,10 @@ def build_health_issue_report(
 
     return {
         "schema_version": HEALTH_REPORT_SCHEMA_VERSION,
+        "report_id": _health_report_id(
+            installation_id,
+            [event for event in raw_events if isinstance(event, dict)],
+        ),
         "installation_id": installation_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "version": app_version,
@@ -384,6 +420,10 @@ class TelemetryService:
     def __init__(self):
         self._running = False
         self._task = None
+        self._reported_health_event_ids: set[str] = set()
+        self._pending_health_payload: dict[str, Any] | None = None
+        self._pending_health_event_ids: set[str] = set()
+        self._health_report_lock = asyncio.Lock()
         # Note: Do NOT call _ensure_installation_id here - it's async and called in start()
 
     async def _ensure_installation_id(self, max_retries: int = 3) -> bool:
@@ -547,7 +587,12 @@ class TelemetryService:
             log.warning("Failed to send telemetry heartbeat", error=str(e), url=settings.telemetry.url)
 
     async def _send_health_report(self):
-        """Gather sanitized health issue groups and send them to the health endpoint."""
+        """Gather and send at most one copy of each sanitized health issue event."""
+        async with self._health_report_lock:
+            await self._send_health_report_once()
+
+    async def _send_health_report_once(self):
+        """Send one exact in-flight health batch and advance only represented events."""
         try:
             if not settings.telemetry.installation_id:
                 await self._ensure_installation_id()
@@ -555,18 +600,58 @@ class TelemetryService:
             from app.services.error_diagnostics import error_diagnostics_history
 
             diagnostics_snapshot = error_diagnostics_history.snapshot(limit=250)
-            payload = build_health_issue_report(
-                installation_id=settings.telemetry.installation_id,
-                app_version=os.environ.get("APP_VERSION", "unknown"),
-                diagnostics_snapshot=diagnostics_snapshot,
-            )
-            if not payload:
-                log.debug("No health issues to report")
-                return
+            snapshot_events = diagnostics_snapshot.get("events")
+            if not isinstance(snapshot_events, list):
+                snapshot_events = []
+            visible_events = [event for event in snapshot_events if isinstance(event, dict)]
+            visible_event_ids = {_health_event_identity(event) for event in visible_events}
+            self._reported_health_event_ids.intersection_update(visible_event_ids)
 
+            if self._pending_health_payload is None:
+                unsent_events = [
+                    event
+                    for event in visible_events
+                    if _health_event_identity(event) not in self._reported_health_event_ids
+                ]
+                candidate_snapshot = {**diagnostics_snapshot, "events": unsent_events}
+                candidate_payload = build_health_issue_report(
+                    installation_id=settings.telemetry.installation_id,
+                    app_version=os.environ.get("APP_VERSION", "unknown"),
+                    diagnostics_snapshot=candidate_snapshot,
+                )
+                if not candidate_payload:
+                    log.debug("No health issues to report")
+                    return
+
+                selected_fingerprints = {
+                    str(issue.get("fingerprint"))
+                    for issue in candidate_payload.get("issues") or []
+                    if isinstance(issue, dict) and issue.get("fingerprint")
+                }
+                selected_events = [
+                    event for event in unsent_events if _fingerprint_issue(event) in selected_fingerprints
+                ]
+                selected_snapshot = {**diagnostics_snapshot, "events": selected_events}
+                payload = build_health_issue_report(
+                    installation_id=settings.telemetry.installation_id,
+                    app_version=os.environ.get("APP_VERSION", "unknown"),
+                    diagnostics_snapshot=selected_snapshot,
+                )
+                if not payload:
+                    log.debug("No health issues to report")
+                    return
+                self._pending_health_payload = payload
+                self._pending_health_event_ids = {_health_event_identity(event) for event in selected_events}
+
+            payload = self._pending_health_payload
             async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 resp = await client.post(settings.telemetry.health_url, json=payload)
                 if resp.status_code == 200:
+                    self._reported_health_event_ids.update(
+                        self._pending_health_event_ids.intersection(visible_event_ids)
+                    )
+                    self._pending_health_payload = None
+                    self._pending_health_event_ids.clear()
                     log.info(
                         "Health issue telemetry sent successfully",
                         url=settings.telemetry.health_url,

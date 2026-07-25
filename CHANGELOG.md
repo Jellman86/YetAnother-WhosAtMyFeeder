@@ -6,6 +6,37 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-07-25
+
+### Added
+
+- **System status now carries a subtle live host-activity trace.** A lightweight one-minute SVG
+  history shows real CPU load and, when the host exposes a supported counter, active accelerator
+  utilization. Unsupported or unavailable accelerator data is omitted rather than estimated.
+- **Anonymous fleet telemetry now has bounded daily rollups.** Opted-in installations contribute
+  one privacy-preserving daily heartbeat snapshot, while accepted health reports retain opaque
+  event identities so retries and restart-overlap cannot silently double-count the same evidence.
+
+### Changed
+
+- **The desktop sidebar now matches the rest of the application more closely.** The large centred
+  bird mark remains, while navigation is grouped into observation and management areas, the active
+  route has a clearer Blue Tit treatment, live system state is shown as compact honest rows, and
+  authenticated or public access is presented in a quieter account card.
+- **The aggregate telemetry dashboard now separates user metrics from health data.** Each mode has
+  its own task-focused hierarchy, 7/30/90-day accessible trend views, bounded runtime categories,
+  responsive layouts, and honest empty states instead of presenting both datasets through one
+  generic dashboard composition.
+
+### Fixed
+
+- **Sidebar utilities remain reachable on short desktop viewports.** Navigation scrolls within its
+  own region while account, theme, language, notification, and collapse controls stay available.
+- **Telemetry ingestion is safer under retries, malformed traffic, and free-tier limits.** Request
+  sizes and runtime categories are bounded, missing rate-limit bindings fail closed, an atomic
+  daily write budget protects both ingestion routes, and 400-day retention cleanup is incremental
+  rather than an unbounded maintenance operation.
+
 ## [2.15.0] - 2026-07-23
 
 ### Added

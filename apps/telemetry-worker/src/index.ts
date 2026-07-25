@@ -4,6 +4,9 @@ import { cors } from 'hono/cors';
 type Bindings = {
   DB: D1Database;
   HEALTH_DB: D1Database;
+  HEARTBEAT_RATE_LIMITER: RateLimit;
+  HEALTH_RATE_LIMITER: RateLimit;
+  ALLOW_UNLIMITED_INGESTION_FOR_TESTS?: string;
 };
 
 const app = new Hono<{ Bindings: Bindings }>();
@@ -95,6 +98,7 @@ interface HealthIssue {
   stage?: string | null;
   severity?: string | null;
   count?: number;
+  event_ids?: string[];
   first_seen_at?: string | null;
   last_seen_at?: string | null;
   sample_context?: Record<string, unknown> | null;
@@ -102,6 +106,7 @@ interface HealthIssue {
 
 interface HealthIssuePayload {
   schema_version?: string;
+  report_id?: string;
   installation_id: string;
   timestamp: string;
   version: string;
@@ -117,7 +122,86 @@ interface HealthIssuePayload {
 }
 
 const MAX_HEALTH_ISSUES_PER_REPORT = 25;
+const MAX_HEALTH_EVENTS_PER_REPORT = 250;
+const MAX_INGESTION_BODY_BYTES = 128 * 1024;
 const MAX_JSON_CHARS = 8192;
+// Conservative D1 rows-written estimates include base rows plus primary/secondary
+// index maintenance. The 40k operational cap leaves 60k rows/day of Free-plan
+// headroom; update these weights whenever an ingestion-table index changes.
+const GLOBAL_D1_DAILY_WRITE_BUDGET = 40_000;
+const HEARTBEAT_BASE_WRITE_UNITS = 16;
+const HEALTH_BASE_WRITE_UNITS = 16;
+const HEALTH_ISSUE_WRITE_UNITS = 8;
+
+type BoundedJsonResult =
+  | { ok: true; value: unknown }
+  | { ok: false; status: 400 | 413; error: string };
+
+async function readBoundedJson(request: Request): Promise<BoundedJsonResult> {
+  const contentLength = Number(request.headers.get('content-length') ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_INGESTION_BODY_BYTES) {
+    return { ok: false, status: 413, error: 'Payload too large' };
+  }
+  if (!request.body) return { ok: false, status: 400, error: 'Missing JSON body' };
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_INGESTION_BODY_BYTES) {
+      await reader.cancel();
+      return { ok: false, status: 413, error: 'Payload too large' };
+    }
+    chunks.push(value);
+  }
+
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return { ok: true, value: JSON.parse(new TextDecoder().decode(body)) };
+  } catch {
+    return { ok: false, status: 400, error: 'Invalid JSON body' };
+  }
+}
+
+async function withinIngestionRateLimit(
+  limiter: RateLimit | undefined,
+  request: Request,
+  installationId: unknown,
+  allowMissingForTests = false,
+): Promise<boolean> {
+  if (!limiter) {
+    if (allowMissingForTests) return true;
+    throw new Error('Required ingestion rate limiter is unavailable');
+  }
+  const ip = request.headers.get('cf-connecting-ip') || 'unknown';
+  const installation = safeText(installationId, 'unknown', 160);
+  for (const key of [`ip:${ip}`, `installation:${installation}`]) {
+    const { success } = await limiter.limit({ key });
+    if (!success) return false;
+  }
+  return true;
+}
+
+async function acquireDailyWriteBudget(db: D1Database, writeUnits: number): Promise<boolean> {
+  const result = await db.prepare(`
+    INSERT INTO ingestion_daily_budget (budget_date, write_units, updated_at)
+    VALUES (date('now'), ?, datetime('now'))
+    ON CONFLICT(budget_date) DO UPDATE SET
+      write_units = ingestion_daily_budget.write_units + excluded.write_units,
+      updated_at = datetime('now')
+    WHERE ingestion_daily_budget.write_units + excluded.write_units <= ?
+    RETURNING write_units
+  `).bind(writeUnits, GLOBAL_D1_DAILY_WRITE_BUDGET).first();
+  return result !== null;
+}
 
 function safeText(value: unknown, fallback = '', limit = 160): string {
   const text = String(value ?? '').trim();
@@ -127,7 +211,7 @@ function safeText(value: unknown, fallback = '', limit = 160): string {
 
 function boundedJson(value: unknown, limit = MAX_JSON_CHARS): string {
   const text = JSON.stringify(value ?? {});
-  return text.length > limit ? text.slice(0, limit - 3) + '...' : text;
+  return text.length > limit ? JSON.stringify({ truncated: true }) : text;
 }
 
 function normalizeSeverity(value: unknown): string {
@@ -135,10 +219,67 @@ function normalizeSeverity(value: unknown): string {
   return ['warning', 'error', 'critical'].includes(severity) ? severity : 'warning';
 }
 
+function normalizeInferenceHealthStatus(value: unknown): string | null {
+  const status = safeText(value, '', 20).toLowerCase();
+  return ['ok', 'degraded', 'unhealthy'].includes(status) ? status : null;
+}
+
+function normalizeRecoveryStatus(value: unknown): string | null {
+  const status = safeText(value, '', 20).toLowerCase();
+  return ['recovered', 'failed'].includes(status) ? status : null;
+}
+
+function normalizeRecoveryReason(value: unknown): string | null {
+  const reason = String(value ?? '').trim().toLowerCase();
+  return /^[a-z0-9_]{1,64}$/.test(reason) ? reason : null;
+}
+
+function safeRuntimeCount(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const count = Number(value);
+  if (!Number.isFinite(count)) return null;
+  return Math.min(1_000, Math.max(0, Math.floor(count)));
+}
+
 function safeCount(value: unknown): number {
   const count = Number(value ?? 0);
   if (!Number.isFinite(count)) return 0;
-  return Math.max(0, Math.floor(count));
+  return Math.min(MAX_HEALTH_EVENTS_PER_REPORT, Math.max(0, Math.floor(count)));
+}
+
+const ALLOWED_HEALTH_CONTEXT_KEYS = new Set([
+  'active_provider', 'attempt', 'backend', 'batch_limit', 'cache_enabled',
+  'circuit_failures', 'circuit_open', 'compile_device', 'compile_ok',
+  'configured_provider', 'cuda_available', 'device', 'error_type',
+  'failure_count', 'fallback_active', 'inference_backend', 'intel_gpu_available',
+  'intel_npu_available', 'kind', 'lease_age_seconds', 'max_concurrent',
+  'model_id', 'openvino_available', 'pending', 'pressure_level', 'provider',
+  'queue_depth', 'reason', 'reason_code', 'runtime', 'runtime_backend', 'source',
+  'stage', 'status', 'timeout_seconds', 'worker_pool',
+]);
+
+function sanitizeHealthContext(value: unknown, depth = 0): unknown {
+  if (depth > 2 || value === null || value === undefined) return null;
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'string') return safeText(value, '', 160);
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, 10)
+      .map((item) => sanitizeHealthContext(item, depth + 1))
+      .filter((item) => item !== null);
+  }
+  if (typeof value === 'object') {
+    const sanitized: Record<string, unknown> = {};
+    for (const [rawKey, rawValue] of Object.entries(value as Record<string, unknown>).slice(0, 20)) {
+      const key = safeText(rawKey, '', 80).toLowerCase();
+      if (!ALLOWED_HEALTH_CONTEXT_KEYS.has(key)) continue;
+      const sanitizedValue = sanitizeHealthContext(rawValue, depth + 1);
+      if (sanitizedValue !== null) sanitized[key] = sanitizedValue;
+    }
+    return sanitized;
+  }
+  return safeText(value, '', 160);
 }
 
 async function sha256Hex(value: string): Promise<string> {
@@ -204,6 +345,168 @@ function renderBars(rows: any[], labelKey: string, valueKey: string, total: unkn
   }).join('');
 }
 
+type TrendPoint = { day: string; value: number | null };
+
+function dailyTrend(rows: any[], days: number, valueKey: string): TrendPoint[] {
+  const values = new Map(rows.map((row) => [String(row.day), Number(row[valueKey] ?? 0)]));
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return Array.from({ length: days }, (_, index) => {
+    const date = new Date(today);
+    date.setUTCDate(today.getUTCDate() - (days - index - 1));
+    const day = date.toISOString().slice(0, 10);
+    return { day, value: values.has(day) ? values.get(day)! : null };
+  });
+}
+
+function shortDate(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+function renderTrendChart({
+  rows,
+  days,
+  valueKey,
+  chartId,
+  title,
+  ariaLabel,
+  caption
+}: {
+  rows: any[];
+  days: number;
+  valueKey: string;
+  chartId: string;
+  title: string;
+  ariaLabel: string;
+  caption: string;
+}): string {
+  const points = dailyTrend(rows, days, valueKey);
+  const width = 760;
+  const height = 190;
+  const left = 24;
+  const right = 12;
+  const top = 18;
+  const bottom = 30;
+  const plotWidth = width - left - right;
+  const baseline = height - bottom;
+  const plotHeight = baseline - top;
+  const actualPeak = Math.max(0, ...points.map((point) => point.value ?? 0));
+  const scalePeak = Math.max(1, actualPeak);
+  const coordinates = points.map((point, index) => {
+    const x = left + (points.length === 1 ? plotWidth / 2 : (index / (points.length - 1)) * plotWidth);
+    const y = point.value === null ? baseline : baseline - (point.value / scalePeak) * plotHeight;
+    return { ...point, x, y };
+  });
+  const observed = coordinates.filter((point) => point.value !== null);
+  const line = observed.map((point) => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(' ');
+  const area = observed.length
+    ? `M ${observed[0].x.toFixed(1)} ${baseline} L ${observed.map((point) => `${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' L ')} L ${observed.at(-1)!.x.toFixed(1)} ${baseline} Z`
+    : '';
+  const middle = points[Math.floor((points.length - 1) / 2)];
+  const latest = points.at(-1)?.value;
+  const latestObserved = observed.at(-1);
+  const accessibleValues = points
+    .map((point) => `${point.day}: ${point.value === null ? 'not available' : fmt(point.value)}`)
+    .join('; ');
+
+  return `
+    <figure class="panel trend-panel">
+      <div class="chart-heading">
+        <div><span class="eyebrow">Daily rollup</span><h2>${html(title)}</h2></div>
+        <div class="chart-latest"><strong>${latest === null || latest === undefined ? '—' : fmt(latest)}</strong><span>latest day</span></div>
+      </div>
+      <svg class="trend-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${html(ariaLabel)}" aria-describedby="${html(chartId)}-data" preserveAspectRatio="none">
+        <line class="chart-grid" x1="${left}" y1="${top}" x2="${width - right}" y2="${top}"></line>
+        <line class="chart-grid" x1="${left}" y1="${top + plotHeight / 2}" x2="${width - right}" y2="${top + plotHeight / 2}"></line>
+        <line class="chart-axis" x1="${left}" y1="${baseline}" x2="${width - right}" y2="${baseline}"></line>
+        <path class="trend-area" d="${area}"></path>
+        <polyline class="trend-line" points="${line}"></polyline>
+        ${latestObserved ? `<circle class="trend-dot" cx="${latestObserved.x.toFixed(1)}" cy="${latestObserved.y.toFixed(1)}" r="4"></circle>` : ''}
+      </svg>
+      <div class="chart-labels"><span>${shortDate(points[0].day)}</span><span>${shortDate(middle.day)}</span><span>${shortDate(points.at(-1)!.day)}</span></div>
+      <figcaption>${html(caption)} · peak ${fmt(actualPeak)}</figcaption>
+      <p class="sr-only" id="${html(chartId)}-data">Daily values for the selected ${days}-day window. ${html(accessibleValues)}. Peak: ${fmt(actualPeak)}.</p>
+    </figure>
+  `;
+}
+
+function severityPill(value: unknown): string {
+  const severity = safeText(value, 'unknown', 20).toLowerCase();
+  const className = ['critical', 'error', 'warning'].includes(severity) ? severity : 'unknown';
+  return `<span class="severity-pill severity-${className}">${html(severity)}</span>`;
+}
+
+function humanizeCode(value: unknown): string {
+  return safeText(value, 'Unknown', 120).replaceAll('_', ' ');
+}
+
+function countryCode(value: unknown): string {
+  const code = safeText(value, 'XX', 2).toUpperCase();
+  return /^[A-Z]{2}$/.test(code) ? code : 'XX';
+}
+
+function countryFlag(value: unknown): string {
+  const code = countryCode(value);
+  if (code === 'XX') return '🌐';
+  return String.fromCodePoint(...[...code].map((letter) => 0x1F1E6 + letter.charCodeAt(0) - 65));
+}
+
+function countryName(value: unknown): string {
+  const code = countryCode(value);
+  if (code === 'XX') return 'Unknown country';
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
+function renderCountryList(
+  rows: any[],
+  valueKey: string,
+  detail: (row: any) => string,
+): string {
+  if (!rows.length) return '<div class="empty panel-empty">No geography data in this window</div>';
+  const peak = Math.max(1, ...rows.map((row) => Number(row[valueKey] ?? 0)));
+  return rows.map((row) => {
+    const code = countryCode(row.ip_country);
+    const flag = countryFlag(code);
+    const value = Number(row[valueKey] ?? 0);
+    return `
+      <div class="country-row">
+        <span class="country-flag" role="img" aria-label="Flag of ${html(countryName(code))}">${flag}</span>
+        <div class="country-data">
+          <div class="country-line"><strong>${html(code)}</strong><span>${fmt(value)} ${html(detail(row))}</span></div>
+          <div class="country-track"><span style="width:${pct(value, peak)}"></span></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderRankedDistribution(
+  rows: any[],
+  labelKey: string,
+  valueKey: string,
+  emptyMessage: string,
+): string {
+  if (!rows.length) return `<div class="empty panel-empty">${html(emptyMessage)}</div>`;
+  const peak = Math.max(1, ...rows.map((row) => Number(row[valueKey] ?? 0)));
+  return `<div class="rank-list">${rows.map((row, index) => {
+    const value = Number(row[valueKey] ?? 0);
+    return `
+      <div class="rank-row">
+        <span class="rank-index">${index + 1}</span>
+        <div class="rank-data">
+          <div class="rank-line"><span>${html(row[labelKey] || 'Unknown')}</span><strong>${fmt(value)}</strong></div>
+          <div class="rank-track"><span style="width:${pct(value, peak)}"></span></div>
+        </div>
+      </div>
+    `;
+  }).join('')}</div>`;
+}
+
 function dashboardShell({
   title,
   view,
@@ -219,6 +522,10 @@ function dashboardShell({
     `<a class="tab ${view === key ? 'active' : ''}" href="/dashboard?view=${key}&days=${days}">${label}</a>`;
   const windowLink = (value: number) =>
     `<a class="window-link ${days === value ? 'active' : ''}" href="/dashboard?view=${view}&days=${value}">${value}d</a>`;
+  const modeLabel = view === 'health' ? 'Health Data' : 'User Metrics';
+  const modeDescription = view === 'health'
+    ? 'Operational issue signals, affected installs, and runtime recovery health'
+    : 'Anonymous adoption, platform, model, and runtime trends from active installs';
 
   return `<!doctype html>
 <html lang="en">
@@ -228,15 +535,17 @@ function dashboardShell({
   <title>${html(title)}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700;800&family=Instrument+Sans:wght@400;500;600;700&display=swap');
-    :root { color-scheme: light dark; --bg:#f8fafc; --panel:#ffffff; --panel-2:#f1f5f9; --text:#334155; --heading:#0f172a; --muted:#64748b; --line:#e2e8f0; --brand:#14b8a6; --brand-strong:#0d9488; --brand-soft:#ccfbf1; --danger:#dc2626; --warn:#d97706; --shadow:0 8px 24px -14px rgba(15,23,42,.22); --font:'Instrument Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; --font-display:'Bricolage Grotesque', 'Instrument Sans', sans-serif; }
-    @media (prefers-color-scheme: dark) { :root { --bg:#030712; --panel:#1e293b; --panel-2:#0f172a; --text:#e2e8f0; --heading:#f1f5f9; --muted:#94a3b8; --line:#334155; --brand:#2dd4bf; --brand-strong:#5eead4; --brand-soft:#134e4a; --danger:#f87171; --warn:#fbbf24; --shadow:0 14px 34px -16px rgba(0,0,0,.7); } }
+    :root { color-scheme: light dark; --bg:#f8fafc; --panel:#ffffff; --panel-2:#f1f5f9; --text:#334155; --heading:#0f172a; --muted:#64748b; --line:#e2e8f0; --brand:#0f766e; --brand-strong:#115e59; --brand-soft:#ccfbf1; --active:#0f766e; --active-strong:#115e59; --danger:#dc2626; --warn:#d97706; --shadow:0 8px 24px -14px rgba(15,23,42,.22); --font:'Instrument Sans', ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; --font-display:'Bricolage Grotesque', 'Instrument Sans', sans-serif; }
+    body.view-health { --brand:#c2410c; --brand-strong:#b91c1c; --brand-soft:#ffedd5; --active:#c2410c; --active-strong:#b91c1c; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#030712; --panel:#1e293b; --panel-2:#0f172a; --text:#e2e8f0; --heading:#f1f5f9; --muted:#94a3b8; --line:#334155; --brand:#2dd4bf; --brand-strong:#5eead4; --brand-soft:#134e4a; --danger:#f87171; --warn:#fbbf24; --shadow:0 14px 34px -16px rgba(0,0,0,.7); } body.view-health { --brand:#fb923c; --brand-strong:#f87171; --brand-soft:#7c2d12; } }
     * { box-sizing:border-box; }
     body { margin:0; background:var(--bg); color:var(--text); font-family:var(--font); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
     main { width:min(1160px, calc(100vw - 32px)); margin:0 auto; padding:28px 0 56px; }
     a { color:inherit; }
     header.dash { display:flex; justify-content:space-between; gap:24px; align-items:flex-start; margin-bottom:22px; }
     .brand { display:flex; align-items:center; gap:12px; }
-    .brand .mark { width:40px; height:40px; border-radius:13px; background:linear-gradient(135deg, var(--brand), var(--brand-strong)); display:grid; place-items:center; font-size:21px; box-shadow:var(--shadow); }
+    .brand .mark { width:40px; height:40px; border-radius:13px; background:linear-gradient(135deg, var(--brand), var(--brand-strong)); color:#fff; display:grid; place-items:center; box-shadow:var(--shadow); }
+    .brand .mark svg { width:23px; height:23px; stroke:currentColor; }
     h1 { margin:0; font-family:var(--font-display); font-size:23px; font-weight:800; letter-spacing:-.01em; color:var(--heading); }
     h1 .accent { background:linear-gradient(90deg, var(--brand), var(--brand-strong)); -webkit-background-clip:text; background-clip:text; color:transparent; }
     .subtitle { color:var(--muted); margin:3px 0 0; font-size:12.5px; max-width:58ch; }
@@ -244,7 +553,7 @@ function dashboardShell({
     .tabs, .windows { display:flex; gap:6px; flex-wrap:wrap; }
     .tab, .window-link { color:var(--muted); text-decoration:none; border:1px solid var(--line); border-radius:11px; padding:7px 13px; background:var(--panel); font-weight:600; font-size:13px; transition:border-color .12s, color .12s; }
     .tab:hover, .window-link:hover { border-color:var(--brand); color:var(--brand); }
-    .tab.active, .window-link.active { color:#fff; border-color:transparent; background:linear-gradient(135deg, var(--brand), var(--brand-strong)); box-shadow:var(--shadow); }
+    .tab.active, .window-link.active { color:#fff; border-color:transparent; background:linear-gradient(135deg, var(--active), var(--active-strong)); box-shadow:var(--shadow); }
     .toolbar { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
     .grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; margin-bottom:14px; }
     .grid.two { grid-template-columns:repeat(2, minmax(0, 1fr)); }
@@ -261,33 +570,196 @@ function dashboardShell({
     .bar-track { height:9px; background:var(--line); border-radius:999px; overflow:hidden; margin-top:5px; }
     .bar-fill { height:100%; background:linear-gradient(90deg, var(--brand), var(--brand-strong)); border-radius:999px; min-width:2px; }
     .map-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:10px; }
+    .map-grid > .panel-empty { grid-column:1 / -1; min-height:78px; display:grid; place-items:center; }
     .country { border:1px solid var(--line); border-radius:13px; padding:12px; background:color-mix(in srgb, var(--brand-soft) 40%, var(--panel)); }
     .country strong { display:block; font-family:var(--font-display); font-size:20px; font-weight:800; color:var(--heading); }
     .country span { color:var(--muted); font-size:10.5px; font-weight:700; text-transform:uppercase; letter-spacing:.03em; }
     .severity-critical { color:var(--danger); font-weight:800; }
     .severity-error { color:var(--danger); font-weight:700; }
     .severity-warning { color:var(--warn); font-weight:700; }
+    .trend-panel { margin:0 0 14px; padding:20px 22px 16px; }
+    .chart-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
+    .chart-heading h2 { margin:2px 0 0; font-size:17px; }
+    .eyebrow { color:var(--brand); font-size:10px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; }
+    .chart-latest { display:flex; align-items:baseline; gap:7px; color:var(--muted); }
+    .chart-latest strong { color:var(--heading); font-family:var(--font-display); font-size:24px; }
+    .chart-latest span, figcaption { font-size:11px; }
+    .trend-chart { display:block; width:100%; height:190px; margin-top:8px; overflow:visible; }
+    .chart-grid, .chart-axis { stroke:var(--line); stroke-width:1; vector-effect:non-scaling-stroke; }
+    .trend-area { fill:var(--brand-soft); opacity:.48; }
+    .trend-line { fill:none; stroke:var(--brand); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+    .trend-dot { fill:var(--panel); stroke:var(--brand); stroke-width:3; vector-effect:non-scaling-stroke; }
+    .chart-labels { display:flex; justify-content:space-between; color:var(--muted); font-size:10.5px; margin-top:-22px; padding:0 4px; }
+    figcaption { color:var(--muted); margin-top:8px; }
+    .severity-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
+    .severity-card { border:1px solid var(--line); border-radius:13px; padding:13px; background:var(--panel-2); }
+    .severity-card strong { display:block; color:var(--heading); font-family:var(--font-display); font-size:22px; margin-top:8px; }
+    .severity-card small { display:block; color:var(--muted); font-size:10.5px; margin-top:2px; }
+    .severity-pill { display:inline-flex; align-items:center; width:max-content; border-radius:999px; padding:3px 8px; font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+    .severity-pill.severity-critical { background:color-mix(in srgb, var(--danger) 18%, transparent); color:var(--danger); }
+    .severity-pill.severity-error { background:color-mix(in srgb, var(--danger) 12%, transparent); color:var(--danger); }
+    .severity-pill.severity-warning { background:color-mix(in srgb, var(--warn) 16%, transparent); color:var(--warn); }
+    .severity-pill.severity-unknown { background:var(--panel-2); color:var(--muted); }
+    .table-scroll { overflow-x:auto; margin:0 -4px; padding:0 4px; }
+    .table-scroll:focus-visible { outline:3px solid var(--brand); outline-offset:3px; border-radius:8px; }
+    .feature-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); column-gap:20px; }
+    .scroll-hint { display:none; color:var(--muted); font-size:10.5px; margin:0 0 8px; }
+    .issue-reason { color:var(--heading); font-weight:650; text-transform:capitalize; }
+    .section-intro { display:flex; justify-content:space-between; gap:20px; align-items:flex-end; margin:24px 2px 10px; }
+    .section-intro h2 { font-size:16px; margin:0; }
+    .section-intro p { color:var(--muted); font-size:11.5px; margin:0; max-width:58ch; }
+
+    /* User Metrics: audience-report composition */
+    .usage-overview { display:grid; grid-template-columns:minmax(0, 1.75fr) minmax(245px, .65fr); gap:14px; margin-bottom:14px; }
+    .usage-overview .trend-panel { margin:0; min-height:312px; }
+    .usage-kpis { padding:0; overflow:hidden; display:flex; flex-direction:column; background:linear-gradient(155deg, color-mix(in srgb, var(--brand-soft) 72%, var(--panel)), var(--panel) 56%); }
+    .usage-kpi-primary { padding:24px 22px 19px; border-bottom:1px solid var(--line); }
+    .usage-kpi-primary .metric { font-size:48px; }
+    .usage-kpi-primary p { margin:8px 0 0; color:var(--muted); font-size:12px; }
+    .usage-kpi-list { display:grid; flex:1; }
+    .usage-kpi-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:13px 22px; border-bottom:1px solid var(--line); }
+    .usage-kpi-row:last-child { border-bottom:0; }
+    .usage-kpi-row span { color:var(--muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; }
+    .usage-kpi-row strong { color:var(--heading); font-family:var(--font-display); font-size:21px; }
+    .usage-adoption { display:grid; grid-template-columns:minmax(285px, .72fr) minmax(0, 1.28fr); gap:14px; margin-bottom:14px; }
+    .panel-heading { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; margin-bottom:16px; }
+    .panel-heading h2 { font-size:17px; margin:2px 0 0; }
+    .panel-heading p { color:var(--muted); font-size:11px; margin:3px 0 0; max-width:42ch; }
+    .country-list { display:grid; gap:4px; }
+    .country-row { display:flex; align-items:center; gap:11px; padding:8px 0; }
+    .country-flag { width:35px; height:26px; flex:0 0 35px; display:grid; place-items:center; object-fit:contain; font-size:25px; line-height:1; filter:saturate(.92); }
+    .country-data, .rank-data { min-width:0; flex:1; }
+    .country-line, .rank-line { display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
+    .country-line strong { color:var(--heading); font-size:12px; }
+    .country-line span { color:var(--muted); font-size:10.5px; }
+    .country-track, .rank-track { height:4px; margin-top:5px; border-radius:999px; overflow:hidden; background:var(--line); }
+    .country-track span, .rank-track span { display:block; height:100%; border-radius:inherit; background:var(--brand); }
+    .feature-matrix { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:0 22px; }
+    .usage-technology { display:grid; grid-template-columns:1.06fr 1.06fr .88fr; gap:14px; margin-bottom:14px; align-items:start; }
+    .rank-list { display:grid; gap:9px; }
+    .rank-row { display:grid; grid-template-columns:22px minmax(0,1fr); gap:9px; align-items:start; }
+    .rank-index { width:22px; height:22px; display:grid; place-items:center; border-radius:7px; color:var(--muted); background:var(--panel-2); font-size:10px; font-weight:800; }
+    .rank-line { font-size:11.5px; }
+    .rank-line span { color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rank-line strong { color:var(--heading); }
+    .provider-columns { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+    .provider-columns h3 { margin:0 0 9px; color:var(--muted); font-size:10px; text-transform:uppercase; letter-spacing:.06em; }
+    .provider-chip { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); font-size:11.5px; }
+    .provider-chip:last-child { border-bottom:0; }
+    .usage-capabilities { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr); gap:14px; margin-bottom:14px; }
+    .capability-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; }
+    .capability { padding:12px; border-radius:12px; background:var(--panel-2); border:1px solid var(--line); }
+    .capability strong { display:block; color:var(--heading); font-family:var(--font-display); font-size:19px; }
+    .capability span { display:block; margin-top:2px; color:var(--muted); font-size:10px; line-height:1.3; }
+    .platform-stack { display:grid; gap:9px; }
+    .platform-row { display:flex; justify-content:space-between; gap:12px; padding:10px 12px; border-radius:10px; background:var(--panel-2); }
+    .platform-row strong { color:var(--heading); }
+
+    /* Health Data: operational-console composition */
+    .health-command { display:grid; grid-template-columns:minmax(260px,.72fr) minmax(0,1.28fr); gap:14px; margin-bottom:14px; }
+    .health-signal { position:relative; overflow:hidden; background:linear-gradient(150deg, color-mix(in srgb, var(--brand-soft) 58%, var(--panel)), var(--panel)); }
+    .signal-state { display:flex; gap:9px; align-items:center; color:var(--brand); font-weight:800; font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+    .signal-dot { width:9px; height:9px; border-radius:50%; background:var(--brand); box-shadow:0 0 0 5px color-mix(in srgb,var(--brand) 15%,transparent); }
+    .health-signal .signal-metric { margin-top:24px; color:var(--heading); font-family:var(--font-display); font-size:56px; font-weight:800; line-height:.9; }
+    .health-signal h2 { margin:9px 0 4px; font-size:18px; }
+    .health-signal p { color:var(--muted); margin:0; font-size:11.5px; }
+    .signal-facts { display:grid; grid-template-columns:repeat(3,1fr); margin-top:21px; border-top:1px solid var(--line); }
+    .signal-fact { padding:13px 9px 0 0; }
+    .signal-fact strong { display:block; color:var(--heading); font-size:18px; }
+    .signal-fact span { display:block; color:var(--muted); font-size:9.5px; text-transform:uppercase; }
+    .health-severity-board .panel-heading { margin-bottom:12px; }
+    .health-severity-lane { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+    .health-severity-lane .severity-card { min-height:132px; display:flex; flex-direction:column; justify-content:space-between; }
+    .health-severity-lane .severity-card strong { font-size:34px; }
+    .health-timeline { display:grid; grid-template-columns:minmax(0,1.55fr) minmax(260px,.65fr); gap:14px; margin-bottom:14px; align-items:stretch; }
+    .health-timeline .trend-panel { margin:0; }
+    .component-panel .bar-row { margin:13px 0; }
+    .health-runtime-board { margin-bottom:14px; }
+    .runtime-board-grid { display:grid; grid-template-columns:1.15fr .85fr; gap:26px; }
+    .runtime-status-list { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; }
+    .runtime-status { padding:13px; border:1px solid var(--line); background:var(--panel-2); border-radius:12px; }
+    .runtime-status-head { display:flex; gap:8px; align-items:center; color:var(--muted); font-size:10px; text-transform:uppercase; font-weight:800; }
+    .runtime-status-dot { width:8px; height:8px; border-radius:50%; background:#64748b; }
+    .runtime-status.status-ok .runtime-status-dot { background:#16a34a; }
+    .runtime-status.status-degraded .runtime-status-dot { background:#d97706; }
+    .runtime-status.status-unhealthy .runtime-status-dot { background:#dc2626; }
+    .runtime-status strong { display:block; margin-top:10px; color:var(--heading); font-family:var(--font-display); font-size:25px; }
+    .runtime-totals { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px; }
+    .runtime-total { padding:9px; border-radius:9px; background:color-mix(in srgb,var(--brand-soft) 42%,var(--panel)); }
+    .runtime-total strong { display:block; color:var(--heading); }
+    .runtime-total span { color:var(--muted); font-size:9.5px; }
+    .recovery-list { display:grid; gap:7px; }
+    .recovery-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:10px; align-items:center; padding:9px 0; border-bottom:1px solid var(--line); font-size:11px; }
+    .recovery-row:last-child { border-bottom:0; }
+    .recovery-status { border-radius:999px; padding:3px 7px; background:var(--panel-2); color:var(--muted); font-size:9px; text-transform:uppercase; font-weight:800; }
+    .health-geography { margin-bottom:14px; }
+    .health-geography .country-list { grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px 18px; }
+
     .empty { color:var(--muted); text-align:center; padding:22px; }
+    .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0, 0, 0, 0); white-space:nowrap; border:0; }
     .panel-empty { border:1px dashed var(--line); border-radius:16px; box-shadow:none; }
     code { background:var(--panel-2); border:1px solid var(--line); border-radius:6px; padding:2px 6px; font-size:12px; }
     footer.dash { margin-top:28px; color:var(--muted); font-size:12px; text-align:center; border-top:1px solid var(--line); padding-top:16px; }
     footer.dash a { color:var(--brand); text-decoration:none; font-weight:600; }
-    @media (max-width: 860px) { header.dash { flex-direction:column; } .toolbar { align-items:flex-start; } .grid, .grid.two { grid-template-columns:1fr; } }
+    @media (max-width: 960px) {
+      header.dash { flex-direction:column; }
+      .toolbar { align-items:flex-start; }
+      .usage-overview, .usage-adoption, .health-command, .health-timeline { grid-template-columns:1fr; }
+      .usage-technology { grid-template-columns:1fr 1fr; }
+      .usage-technology > :last-child { grid-column:1 / -1; }
+      .usage-capabilities, .runtime-board-grid { grid-template-columns:1fr; }
+      .grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .grid.two { grid-template-columns:1fr; }
+      .section-intro { align-items:flex-start; flex-direction:column; gap:4px; }
+      .health-geography .country-list { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @media (max-width: 560px) {
+      main { width:min(100% - 20px, 1160px); padding-top:18px; }
+      .tabs { width:100%; }
+      .tab { flex:1; min-height:44px; display:grid; place-items:center; text-align:center; }
+      .windows { width:100%; }
+      .window-link { flex:1; min-height:40px; display:grid; place-items:center; text-align:center; }
+      .panel { padding:15px; border-radius:14px; }
+      .usage-kpis { padding:0; }
+      .usage-kpi-primary { padding:20px 18px 16px; }
+      .usage-kpi-primary .metric { font-size:42px; }
+      .usage-kpi-row { padding:12px 18px; }
+      .usage-technology, .usage-capabilities { grid-template-columns:1fr; }
+      .usage-technology > :last-child { grid-column:auto; }
+      .feature-matrix, .capability-grid { grid-template-columns:1fr 1fr; gap:0 12px; }
+      .provider-columns { gap:10px; }
+      .health-command { grid-template-columns:1fr; }
+      .health-signal .signal-metric { font-size:48px; }
+      .health-severity-lane { grid-template-columns:1fr; }
+      .health-severity-lane .severity-card { min-height:96px; }
+      .runtime-status-list, .runtime-totals { grid-template-columns:1fr 1fr 1fr; }
+      .runtime-status { padding:10px 8px; }
+      .runtime-status strong { font-size:21px; }
+      .health-geography .country-list { grid-template-columns:1fr; }
+      .country-row { padding:6px 0; }
+      .metric { font-size:26px; }
+      .metric-label { font-size:9.5px; }
+      .trend-panel { padding:16px 14px 14px; min-height:0; }
+      .usage-overview .trend-panel { min-height:0; }
+      .trend-chart { height:155px; }
+      .chart-latest span { display:none; }
+      .scroll-hint { display:block; }
+    }
   </style>
 </head>
-<body>
+<body class="view-${view}">
   <main>
     <header class="dash">
       <div class="brand">
-        <div class="mark">🐦</div>
+        <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7h.01"></path><path d="M3.4 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.28-2.3L2 20"></path><path d="m20 7 2 .5-2 .5"></path><path d="M10 18v3"></path><path d="M14 17.75V21"></path><path d="M7 18a6 6 0 0 0 3.84-10.61"></path></svg></div>
         <div>
-          <h1>YA-WAMF <span class="accent">Telemetry</span></h1>
-          <p class="subtitle">Anonymous, opt-in, aggregate stats from self-hosted installs · last ${days} days</p>
+          <h1>YA-WAMF <span class="accent">${modeLabel}</span></h1>
+          <p class="subtitle">${modeDescription} · last ${days} days</p>
         </div>
       </div>
       <div class="toolbar">
-        <nav class="tabs">${tab('usage', 'Usage')}${tab('health', 'Health')}</nav>
-        <nav class="windows">${windowLink(7)}${windowLink(30)}${windowLink(90)}</nav>
+        <nav class="tabs" aria-label="Telemetry view">${tab('usage', 'User Metrics')}${tab('health', 'Health Data')}</nav>
+        <nav class="windows" aria-label="Reporting window">${windowLink(7)}${windowLink(30)}${windowLink(90)}</nav>
       </div>
     </header>
     ${body}
@@ -400,7 +872,7 @@ app.get('/dashboard', async (c) => {
       WHERE updated_at > ${activeThreshold}
       GROUP BY issue_component
       ORDER BY issue_count DESC
-      LIMIT 12
+      LIMIT 10
     `).all();
 
     const topIssues = await c.env.HEALTH_DB.prepare(`
@@ -409,7 +881,7 @@ app.get('/dashboard', async (c) => {
       WHERE updated_at > ${activeThreshold}
       GROUP BY issue_component, issue_reason_code, severity, app_version
       ORDER BY install_count DESC, occurrence_count DESC
-      LIMIT 30
+      LIMIT 12
     `).all();
 
     const countries = await c.env.HEALTH_DB.prepare(`
@@ -418,61 +890,153 @@ app.get('/dashboard', async (c) => {
       WHERE updated_at > ${activeThreshold}
       GROUP BY ip_country
       ORDER BY installs DESC, issue_count DESC
-      LIMIT 24
+      LIMIT 18
     `).all();
 
+    const dailyReports = await c.env.HEALTH_DB.prepare(`
+      SELECT report_date as day, count(*) as reports
+      FROM health_report_batches
+      WHERE report_date >= date('now', '-${days - 1} days')
+      GROUP BY report_date
+      ORDER BY report_date
+    `).all();
+
+    const inferenceHealthStatuses = await c.env.DB.prepare(`
+      SELECT inference_health_status as status, count(*) as count
+      FROM heartbeats
+      WHERE last_seen > ${activeThreshold}
+        AND inference_health_status IN ('ok', 'degraded', 'unhealthy')
+      GROUP BY inference_health_status
+      ORDER BY count DESC
+      LIMIT 3
+    `).all();
+
+    const inferenceHealthAggregate = await c.env.DB.prepare(`
+      SELECT
+        sum(inference_health_unhealthy_runtimes) as unhealthy_runtimes,
+        sum(inference_health_degraded_runtimes) as degraded_runtimes,
+        sum(inference_health_total_runtimes) as total_runtimes,
+        sum(CASE WHEN inference_health_unhealthy_runtimes > 0 THEN 1 ELSE 0 END) as installs_with_unhealthy,
+        sum(CASE WHEN inference_health_degraded_runtimes > 0 THEN 1 ELSE 0 END) as installs_with_degraded
+      FROM heartbeats
+      WHERE last_seen > ${activeThreshold}
+    `).first();
+
+    const recoveryReasons = await c.env.DB.prepare(`
+      SELECT last_recovery_reason as reason, last_recovery_status as status, count(*) as count
+      FROM heartbeats
+      WHERE last_seen > ${activeThreshold}
+        AND last_recovery_status IN ('recovered', 'failed')
+        AND length(last_recovery_reason) BETWEEN 1 AND 64
+        AND last_recovery_reason NOT GLOB '*[^a-z0-9_]*'
+      GROUP BY last_recovery_reason, last_recovery_status
+      ORDER BY count DESC
+      LIMIT 10
+    `).all();
+
+    const severityByName = new Map(severity.results.map((row: any) => [String(row.severity || 'unknown').toLowerCase(), row]));
+    const severityCards = ['critical', 'error', 'warning'].map((name) => {
+      const row: any = severityByName.get(name) ?? {};
+      return `<div class="severity-card">${severityPill(name)}<strong>${fmt(row.issue_count ?? 0)}</strong><small>${fmt(row.report_count ?? 0)} reports · ${fmt(row.occurrence_count ?? 0)} occurrences</small></div>`;
+    }).join('');
     const totalIssues = Number(totals?.total_issues ?? 0);
+    const issueRows = topIssues.results.length
+      ? topIssues.results.map((row: any) => `<tr>
+          <td>${html(row.issue_component || 'Unknown')}</td>
+          <td class="issue-reason">${html(humanizeCode(row.issue_reason_code))}</td>
+          <td>${severityPill(row.severity)}</td>
+          <td>${html(row.app_version || 'Unknown')}</td>
+          <td>${fmt(row.install_count)}</td>
+          <td>${fmt(row.occurrence_count)}</td>
+          <td>${html(row.last_seen || 'Unknown')}</td>
+        </tr>`).join('')
+      : '<tr><td colspan="7" class="empty">No health issues in this window</td></tr>';
+    const criticalIssues = Number((severityByName.get('critical') as any)?.issue_count ?? 0);
+    const errorIssues = Number((severityByName.get('error') as any)?.issue_count ?? 0);
+    const signalTitle = criticalIssues > 0
+      ? 'Critical attention required'
+      : errorIssues > 0
+        ? 'Errors require review'
+        : totalIssues > 0
+          ? 'Signals are being tracked'
+          : 'No active issue signals';
+    const statusByName = new Map(inferenceHealthStatuses.results.map((row: any) => [String(row.status), row]));
+    const runtimeStatusCards = ['ok', 'degraded', 'unhealthy'].map((status) => {
+      const row: any = statusByName.get(status) ?? {};
+      return `<div class="runtime-status status-${status}"><div class="runtime-status-head"><span class="runtime-status-dot"></span>${status}</div><strong>${fmt(row.count ?? 0)}</strong><span class="metric-label">installs</span></div>`;
+    }).join('');
+    const recoveryRows = recoveryReasons.results.length
+      ? recoveryReasons.results.map((row: any) => `<div class="recovery-row"><span>${html(humanizeCode(row.reason))}</span><span class="recovery-status">${html(row.status || 'Unknown')}</span><strong>${fmt(row.count)}</strong></div>`).join('')
+      : '<div class="empty panel-empty">No recovery reports yet</div>';
+
     const body = `
-      <section class="grid">
-        <div class="panel"><div class="metric">${fmt(totals?.total_issues)}</div><div class="metric-label">Issue groups</div></div>
-        <div class="panel"><div class="metric">${fmt(totals?.affected_installs)}</div><div class="metric-label">Affected installs</div></div>
-        <div class="panel"><div class="metric">${fmt(totals?.reports)}</div><div class="metric-label">Reports</div></div>
-        <div class="panel"><div class="metric">${fmt(totals?.occurrences)}</div><div class="metric-label">Occurrences</div></div>
+      <section class="health-command">
+        <article class="panel health-signal">
+          <div class="signal-state"><span class="signal-dot"></span>Operational signal board</div>
+          <div class="signal-metric">${fmt(totals?.affected_installs)}</div>
+          <h2>${html(signalTitle)}</h2>
+          <p>Affected installations with deduplicated issue groups in the selected window.</p>
+          <div class="signal-facts">
+            <div class="signal-fact"><strong>${fmt(totals?.total_issues)}</strong><span>issue groups</span></div>
+            <div class="signal-fact"><strong>${fmt(totals?.reports)}</strong><span>reports</span></div>
+            <div class="signal-fact"><strong>${fmt(totals?.occurrences)}</strong><span>occurrences</span></div>
+          </div>
+        </article>
+        <article class="panel health-severity-board">
+          <div class="panel-heading"><div><span class="eyebrow">Triage lane</span><h2>Severity distribution</h2><p>Distinct issue groups, reports, and observed occurrences.</p></div></div>
+          <div class="health-severity-lane">${severityCards}</div>
+        </article>
       </section>
-      <section class="grid two">
-        <div class="panel">
-          <h2>Severity</h2>
-          <table>
-            <thead><tr><th>Severity</th><th>Issues</th><th>Reports</th><th>Occurrences</th></tr></thead>
-            <tbody>${renderRows(severity.results, [
-              ['Severity', 'severity'],
-              ['Issues', (row) => fmt(row.issue_count)],
-              ['Reports', (row) => fmt(row.report_count)],
-              ['Occurrences', (row) => fmt(row.occurrence_count)]
-            ])}</tbody>
-          </table>
-        </div>
-        <div class="panel">
-          <h2>Components</h2>
+
+      <section class="health-timeline">
+        ${renderTrendChart({
+          rows: dailyReports.results,
+          days,
+          valueKey: 'reports',
+          chartId: 'health-report-trend',
+          title: 'Reports by day',
+          ariaLabel: 'Daily health reports trend',
+          caption: 'One accepted health snapshot per report ID; repeated deliveries are ignored'
+        })}
+        <article class="panel component-panel">
+          <div class="panel-heading"><div><span class="eyebrow">Concentration</span><h2>Affected components</h2></div></div>
           ${renderBars(components.results, 'issue_component', 'issue_count', totalIssues)}
+        </article>
+      </section>
+
+      <section class="panel health-runtime-board">
+        <div class="panel-heading"><div><span class="eyebrow">Live runtime posture</span><h2>Inference health & recovery</h2><p>Latest aggregate state from active installations, separate from issue history.</p></div></div>
+        <div class="runtime-board-grid">
+          <div>
+            <div class="runtime-status-list">${runtimeStatusCards}</div>
+            <div class="runtime-totals">
+              <div class="runtime-total"><strong>${fmt(inferenceHealthAggregate?.unhealthy_runtimes ?? 0)}</strong><span>unhealthy runtimes</span></div>
+              <div class="runtime-total"><strong>${fmt(inferenceHealthAggregate?.degraded_runtimes ?? 0)}</strong><span>degraded runtimes</span></div>
+              <div class="runtime-total"><strong>${fmt(inferenceHealthAggregate?.total_runtimes ?? 0)}</strong><span>tracked runtimes</span></div>
+            </div>
+          </div>
+          <div>
+            <h2>Most-recent recovery reasons</h2>
+            <div class="recovery-list">${recoveryRows}</div>
+          </div>
         </div>
       </section>
-      <section class="panel" style="margin-bottom:14px">
-        <h2>Health Geography</h2>
-        <div class="map-grid">
-          ${countries.results.length ? countries.results.map((row: any) => `
-            <div class="country"><strong>${fmt(row.installs)}</strong><span>${html(row.ip_country || 'XX')} installs / ${fmt(row.issue_count)} issues</span></div>
-          `).join('') : '<div class="empty panel-empty">No health reports in this window</div>'}
-        </div>
+
+      <section class="panel health-geography">
+        <div class="panel-heading"><div><span class="eyebrow">Anonymous footprint</span><h2>Affected-install geography</h2><p>Countries represented by installations reporting issue groups.</p></div></div>
+        <div class="country-list">${renderCountryList(countries.results, 'installs', (row) => `installs · ${fmt(row.issue_count)} issues`)}</div>
       </section>
+
       <section class="panel">
-        <h2>Top Recurring Health Issues</h2>
-        <table>
+        <div class="section-intro" style="margin-top:0"><div><span class="eyebrow">Deduplicated detail</span><h2>Top recurring issues</h2></div><p>Highest-impact issue groups, capped at 12. Full aggregate data remains available from the JSON stats endpoint.</p></div>
+        <p class="scroll-hint">Scroll horizontally for full details →</p>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Top recurring issues; scroll horizontally for all columns"><table>
           <thead><tr><th>Component</th><th>Reason</th><th>Severity</th><th>Version</th><th>Installs</th><th>Occurrences</th><th>Last seen</th></tr></thead>
-          <tbody>${renderRows(topIssues.results, [
-            ['Component', 'issue_component'],
-            ['Reason', 'issue_reason_code'],
-            ['Severity', 'severity'],
-            ['Version', 'app_version'],
-            ['Installs', (row) => fmt(row.install_count)],
-            ['Occurrences', (row) => fmt(row.occurrence_count)],
-            ['Last seen', 'last_seen']
-          ])}</tbody>
-        </table>
-        <p>Ingestion endpoint: <code>POST /health-issues</code>. Reports are deduped per install and issue fingerprint.</p>
+          <tbody>${issueRows}</tbody>
+        </table></div>
       </section>
     `;
-    const healthHtml = dashboardShell({ title: 'YA-WAMF Health Diagnostics', view, days, body });
+    const healthHtml = dashboardShell({ title: 'YA-WAMF Health Data', view, days, body });
     DASHBOARD_CACHE.set(cacheKey, { html: healthHtml, expires: Date.now() + DASHBOARD_CACHE_TTL_MS });
     return c.html(healthHtml, 200, { 'Cache-Control': 'public, max-age=300' });
   }
@@ -598,34 +1162,12 @@ app.get('/dashboard', async (c) => {
     LIMIT 16
   `).all();
 
-  const inferenceHealthStatuses = await c.env.DB.prepare(`
-    SELECT inference_health_status as status, count(*) as count
-    FROM heartbeats
-    WHERE last_seen > ${activeThreshold}
-      AND inference_health_status IS NOT NULL
-    GROUP BY inference_health_status
-    ORDER BY count DESC
-  `).all();
-
-  const inferenceHealthAggregate = await c.env.DB.prepare(`
-    SELECT
-      sum(inference_health_unhealthy_runtimes) as unhealthy_runtimes,
-      sum(inference_health_degraded_runtimes) as degraded_runtimes,
-      sum(inference_health_total_runtimes) as total_runtimes,
-      sum(CASE WHEN inference_health_unhealthy_runtimes > 0 THEN 1 ELSE 0 END) as installs_with_unhealthy,
-      sum(CASE WHEN inference_health_degraded_runtimes > 0 THEN 1 ELSE 0 END) as installs_with_degraded
-    FROM heartbeats
-    WHERE last_seen > ${activeThreshold}
-  `).first();
-
-  const recoveryReasons = await c.env.DB.prepare(`
-    SELECT last_recovery_reason as reason, last_recovery_status as status, count(*) as count
-    FROM heartbeats
-    WHERE last_seen > ${activeThreshold}
-      AND last_recovery_reason IS NOT NULL
-    GROUP BY last_recovery_reason, last_recovery_status
-    ORDER BY count DESC
-    LIMIT 16
+  const dailyInstalls = await c.env.DB.prepare(`
+    SELECT report_date as day, count(*) as installs
+    FROM heartbeat_daily
+    WHERE report_date >= date('now', '-${days - 1} days')
+    GROUP BY report_date
+    ORDER BY report_date
   `).all();
 
   const activeInstalls = Number(totals?.active_installs ?? 0);
@@ -657,117 +1199,126 @@ app.get('/dashboard', async (c) => {
   ].map(([name, count]) => ({ name, count }));
 
   const body = `
-    <section class="grid">
-      <div class="panel"><div class="metric">${fmt(totals?.total_installs)}</div><div class="metric-label">Total installs</div></div>
-      <div class="panel"><div class="metric">${fmt(totals?.active_installs)}</div><div class="metric-label">Active installs</div></div>
-      <div class="panel"><div class="metric">${fmt(countries.results.length)}</div><div class="metric-label">Countries</div></div>
-      <div class="panel"><div class="metric">${fmt(versions.results.length)}</div><div class="metric-label">Active versions</div></div>
-    </section>
-    <section class="grid two">
-      <div class="panel">
-        <h2>Usage Geography</h2>
-        <div class="map-grid">
-          ${countries.results.length ? countries.results.map((row: any) => `
-            <div class="country"><strong>${fmt(row.count)}</strong><span>${html(row.ip_country || 'XX')}</span></div>
-          `).join('') : '<div class="empty panel-empty">No active installs in this window</div>'}
+    <section class="usage-overview">
+      ${renderTrendChart({
+        rows: dailyInstalls.results,
+        days,
+        valueKey: 'installs',
+        chartId: 'active-install-trend',
+        title: 'Active installs by day',
+        ariaLabel: 'Daily active installs trend',
+        caption: 'One privacy-preserving daily snapshot per active installation'
+      })}
+      <aside class="panel usage-kpis" aria-label="Audience summary">
+        <div class="usage-kpi-primary">
+          <span class="eyebrow">Current audience</span>
+          <div class="metric">${fmt(totals?.active_installs)}</div>
+          <div class="metric-label">Active installs</div>
+          <p>${pct(totals?.active_installs, totals?.total_installs)} of all installs reported during this window.</p>
         </div>
-      </div>
-      <div class="panel">
-        <h2>Feature Adoption</h2>
-        ${renderBars(featureRows, 'name', 'count', activeInstalls)}
-      </div>
+        <div class="usage-kpi-list">
+          <div class="usage-kpi-row"><span>Total installs</span><strong>${fmt(totals?.total_installs)}</strong></div>
+          <div class="usage-kpi-row"><span>Countries</span><strong>${fmt(countries.results.length)}</strong></div>
+          <div class="usage-kpi-row"><span>Active versions</span><strong>${fmt(versions.results.length)}</strong></div>
+        </div>
+      </aside>
     </section>
-    <section class="grid two">
-      <div class="panel">
-        <h2>Versions</h2>
-        <table><thead><tr><th>Version</th><th>Installs</th></tr></thead><tbody>${renderRows(versions.results, [['Version', 'app_version'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-      </div>
-      <div class="panel">
-        <h2>Models</h2>
-        <table><thead><tr><th>Model</th><th>Installs</th></tr></thead><tbody>${renderRows(models.results, [['Model', 'model_type'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-      </div>
+
+    <div class="section-intro"><div><span class="eyebrow">Audience & adoption</span><h2>How the community uses YA-WAMF</h2></div><p>Anonymous geography and optional-capability adoption across active installations.</p></div>
+    <section class="usage-adoption">
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Audience footprint</h2><p>Ranked by active installations across reporting countries.</p></div></div>
+        <div class="country-list">${renderCountryList(countries.results, 'count', () => 'installs')}</div>
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Feature adoption</h2><p>Share of active installations enabling each optional capability.</p></div></div>
+        <div class="feature-matrix">${renderBars(featureRows, 'name', 'count', activeInstalls)}</div>
+      </article>
     </section>
-    <section class="grid two">
-      <div class="panel">
-        <h2>Runtime Providers</h2>
-        <table><thead><tr><th>Configured</th><th>Installs</th></tr></thead><tbody>${renderRows(configuredProviders.results, [['Configured', (row) => row.provider || 'Unknown'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-        <table style="margin-top:12px"><thead><tr><th>Active</th><th>Installs</th></tr></thead><tbody>${renderRows(activeProviders.results, [['Active', (row) => row.provider || 'Unknown'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-      </div>
-      <div class="panel">
-        <h2>Hardware Capabilities</h2>
-        ${renderBars(hardwareRows, 'name', 'count', activeInstalls)}
-      </div>
+
+    <div class="section-intro"><div><span class="eyebrow">Technology distribution</span><h2>What people run</h2></div><p>Versions, recognition models, and configured versus active inference providers.</p></div>
+    <section class="usage-technology">
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Versions</h2></div></div>
+        ${renderRankedDistribution(versions.results, 'app_version', 'count', 'No version data in this window')}
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Recognition models</h2></div></div>
+        ${renderRankedDistribution(models.results, 'model_type', 'count', 'No model data in this window')}
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><div><h2>Inference providers</h2></div></div>
+        <div class="provider-columns">
+          <div><h3>Configured</h3>${configuredProviders.results.length ? configuredProviders.results.map((row: any) => `<div class="provider-chip"><span>${html(row.provider || 'Unknown')}</span><strong>${fmt(row.count)}</strong></div>`).join('') : '<div class="empty">No data</div>'}</div>
+          <div><h3>Active</h3>${activeProviders.results.length ? activeProviders.results.map((row: any) => `<div class="provider-chip"><span>${html(row.provider || 'Unknown')}</span><strong>${fmt(row.count)}</strong></div>`).join('') : '<div class="empty">No data</div>'}</div>
+        </div>
+      </article>
     </section>
-    <section class="grid two">
-      <div class="panel">
-        <h2>Inference Backends</h2>
-        <table><thead><tr><th>Backend</th><th>Installs</th></tr></thead><tbody>${renderRows(backends.results, [['Backend', (row) => row.backend || 'Unknown'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-      </div>
-      <div class="panel">
-        <h2>Model Runtimes</h2>
-        <table><thead><tr><th>Runtime</th><th>Installs</th></tr></thead><tbody>${renderRows(runtimes.results, [['Runtime', (row) => row.model_runtime || 'Unknown'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-      </div>
+
+    <section class="usage-capabilities">
+      <article class="panel">
+        <div class="panel-heading"><div><span class="eyebrow">Compute readiness</span><h2>Hardware capabilities</h2><p>Detected accelerator and runtime capabilities across active installations.</p></div></div>
+        <div class="capability-grid">${hardwareRows.map((row: any) => `<div class="capability"><strong>${fmt(row.count)}</strong><span>${html(row.name)} · ${pct(row.count, activeInstalls)}</span></div>`).join('')}</div>
+      </article>
+      <article class="panel">
+        <div class="panel-heading"><div><span class="eyebrow">Runtime shape</span><h2>Platforms & engines</h2></div></div>
+        <div class="platform-stack">
+          ${platforms.results.map((row: any) => `<div class="platform-row"><span>${html(row.platform_machine || 'Unknown')}</span><strong>${fmt(row.count)}</strong></div>`).join('')}
+          ${backends.results.map((row: any) => `<div class="platform-row"><span>${html(row.backend || 'Unknown')} backend</span><strong>${fmt(row.count)}</strong></div>`).join('')}
+          ${runtimes.results.map((row: any) => `<div class="platform-row"><span>${html(row.model_runtime || 'Unknown')} runtime</span><strong>${fmt(row.count)}</strong></div>`).join('')}
+        </div>
+      </article>
     </section>
+
     <section class="panel">
-      <h2>Platforms</h2>
-      <table><thead><tr><th>Machine</th><th>Installs</th></tr></thead><tbody>${renderRows(platforms.results, [['Machine', 'platform_machine'], ['Installs', (row) => fmt(row.count)]])}</tbody></table>
-    </section>
-    <section class="panel">
-      <h2>Deployment Images</h2>
-      <table><thead><tr><th>Flavor</th><th>Architecture</th><th>Mode</th><th>Installs</th></tr></thead><tbody>${renderRows(deployment.results, [
+      <div class="panel-heading"><div><span class="eyebrow">Deployment profile</span><h2>Deployment images</h2><p>Image flavor, machine architecture, and reported deployment mode.</p></div></div>
+      <div class="table-scroll" tabindex="0" role="region" aria-label="Deployment image details; scroll horizontally for all columns"><table><thead><tr><th>Flavor</th><th>Architecture</th><th>Mode</th><th>Installs</th></tr></thead><tbody>${renderRows(deployment.results, [
         ['Flavor', (row) => row.image_flavor || 'Unknown'],
         ['Architecture', (row) => row.image_arch || 'Unknown'],
         ['Mode', (row) => row.deployment_mode || 'Unknown'],
         ['Installs', (row) => fmt(row.count)]
-      ])}</tbody></table>
-    </section>
-    <section class="grid two">
-      <div class="panel">
-        <h2>Inference Health Status</h2>
-        <table><thead><tr><th>Status</th><th>Installs</th></tr></thead><tbody>${
-          inferenceHealthStatuses.results.length
-            ? renderRows(inferenceHealthStatuses.results, [
-                ['Status', (row) => row.status || 'Unknown'],
-                ['Installs', (row) => fmt(row.count)]
-              ])
-            : '<tr><td colspan="2" class="empty">No reports yet</td></tr>'
-        }</tbody></table>
-        <table style="margin-top:12px"><thead><tr><th>Aggregate</th><th>Value</th></tr></thead><tbody>
-          <tr><td>Installs reporting unhealthy runtimes</td><td>${fmt(inferenceHealthAggregate?.installs_with_unhealthy ?? 0)}</td></tr>
-          <tr><td>Installs reporting degraded runtimes</td><td>${fmt(inferenceHealthAggregate?.installs_with_degraded ?? 0)}</td></tr>
-          <tr><td>Unhealthy runtime sum</td><td>${fmt(inferenceHealthAggregate?.unhealthy_runtimes ?? 0)}</td></tr>
-          <tr><td>Degraded runtime sum</td><td>${fmt(inferenceHealthAggregate?.degraded_runtimes ?? 0)}</td></tr>
-          <tr><td>Tracked runtime sum</td><td>${fmt(inferenceHealthAggregate?.total_runtimes ?? 0)}</td></tr>
-        </tbody></table>
-      </div>
-      <div class="panel">
-        <h2>Most-Recent Recovery Reasons</h2>
-        <table><thead><tr><th>Reason</th><th>Status</th><th>Installs</th></tr></thead><tbody>${
-          recoveryReasons.results.length
-            ? renderRows(recoveryReasons.results, [
-                ['Reason', (row) => row.reason || 'Unknown'],
-                ['Status', (row) => row.status || 'Unknown'],
-                ['Installs', (row) => fmt(row.count)]
-              ])
-            : '<tr><td colspan="3" class="empty">No reports yet</td></tr>'
-        }</tbody></table>
-      </div>
+      ])}</tbody></table></div>
     </section>
   `;
 
-  const usageHtml = dashboardShell({ title: 'YA-WAMF Usage Telemetry', view, days, body });
+  const usageHtml = dashboardShell({ title: 'YA-WAMF User Metrics', view, days, body });
   DASHBOARD_CACHE.set(cacheKey, { html: usageHtml, expires: Date.now() + DASHBOARD_CACHE_TTL_MS });
   return c.html(usageHtml, 200, { 'Cache-Control': 'public, max-age=300' });
 });
 
 app.post('/heartbeat', async (c) => {
   try {
-    const payload = await c.req.json<TelemetryPayload>();
+    const parsed = await readBoundedJson(c.req.raw);
+    if (!parsed.ok) return c.json({ error: parsed.error }, parsed.status);
+    if (!parsed.value || typeof parsed.value !== 'object' || Array.isArray(parsed.value)) {
+      return c.json({ error: 'JSON body must be an object' }, 400);
+    }
+    const payload = parsed.value as TelemetryPayload;
     const country = c.req.raw.cf?.country || 'XX';
 
     if (!payload.installation_id) {
       return c.json({ error: 'Missing installation_id' }, 400);
     }
+    if (!await withinIngestionRateLimit(
+      c.env.HEARTBEAT_RATE_LIMITER,
+      c.req.raw,
+      payload.installation_id,
+      c.env.ALLOW_UNLIMITED_INGESTION_FOR_TESTS === 'true',
+    )) {
+      return c.json({ error: 'Rate limit exceeded' }, 429, { 'Retry-After': '60' });
+    }
+    const expiredDaily = await c.env.DB.prepare(`
+      SELECT COUNT(*) AS count FROM (
+        SELECT 1 FROM heartbeat_daily
+        WHERE report_date < date('now', '-400 days')
+        LIMIT 1
+      )
+    `).first<number>('count') ?? 0;
+    const heartbeatWriteUnits = HEARTBEAT_BASE_WRITE_UNITS + (expiredDaily > 0 ? 4 : 0);
+    if (!await acquireDailyWriteBudget(c.env.DB, heartbeatWriteUnits)) {
+      return c.json({ error: 'Daily ingestion budget exhausted' }, 503, { 'Retry-After': '86400' });
+    }
+    const installationHash = await sha256Hex(payload.installation_id);
 
     const stmt = c.env.DB.prepare(`
       INSERT INTO heartbeats (
@@ -876,7 +1427,7 @@ app.post('/heartbeat', async (c) => {
     const b2i = (val?: boolean) => val ? 1 : 0;
     const b2iNullable = (val?: boolean | null) => typeof val === 'boolean' ? (val ? 1 : 0) : null;
 
-    await stmt.bind(
+    const heartbeatStmt = stmt.bind(
       payload.installation_id,
       payload.version,
       payload.platform?.system || null,
@@ -919,14 +1470,80 @@ app.post('/heartbeat', async (c) => {
       payload.deployment?.image_arch || null,
       payload.deployment?.app_branch || null,
       payload.deployment?.git_hash || null,
-      payload.runtime?.inference_health_status || null,
-      typeof payload.runtime?.inference_health_unhealthy_runtimes === 'number' ? payload.runtime!.inference_health_unhealthy_runtimes : null,
-      typeof payload.runtime?.inference_health_degraded_runtimes === 'number' ? payload.runtime!.inference_health_degraded_runtimes : null,
-      typeof payload.runtime?.inference_health_total_runtimes === 'number' ? payload.runtime!.inference_health_total_runtimes : null,
-      payload.runtime?.last_recovery_reason || null,
-      payload.runtime?.last_recovery_status || null,
+      normalizeInferenceHealthStatus(payload.runtime?.inference_health_status),
+      safeRuntimeCount(payload.runtime?.inference_health_unhealthy_runtimes),
+      safeRuntimeCount(payload.runtime?.inference_health_degraded_runtimes),
+      safeRuntimeCount(payload.runtime?.inference_health_total_runtimes),
+      normalizeRecoveryReason(payload.runtime?.last_recovery_reason),
+      normalizeRecoveryStatus(payload.runtime?.last_recovery_status),
       country
-    ).run();
+    );
+
+    const dailyStmt = c.env.DB.prepare(`
+      INSERT INTO heartbeat_daily (
+        report_date,
+        installation_id_hash,
+        last_reported_at,
+        version,
+        channel,
+        platform,
+        machine,
+        inference_provider,
+        configured_inference_provider,
+        model,
+        country,
+        deployment_image,
+        runtime_flavor,
+        environment,
+        feature_flags
+      ) VALUES (date('now'), ?, datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(report_date, installation_id_hash) DO UPDATE SET
+        last_reported_at = excluded.last_reported_at,
+        version = excluded.version,
+        channel = excluded.channel,
+        platform = excluded.platform,
+        machine = excluded.machine,
+        inference_provider = excluded.inference_provider,
+        configured_inference_provider = excluded.configured_inference_provider,
+        model = excluded.model,
+        country = excluded.country,
+        deployment_image = excluded.deployment_image,
+        runtime_flavor = excluded.runtime_flavor,
+        environment = excluded.environment,
+        feature_flags = excluded.feature_flags
+    `).bind(
+      installationHash,
+      payload.version,
+      payload.deployment?.app_branch || null,
+      payload.platform?.system || null,
+      payload.platform?.machine || null,
+      payload.runtime?.inference_provider_active || null,
+      payload.runtime?.inference_provider_configured || null,
+      payload.configuration?.model_type || null,
+      country,
+      payload.deployment?.image_flavor || null,
+      payload.runtime?.model_runtime || null,
+      payload.deployment?.mode || null,
+      boundedJson({
+        birdnet: payload.integrations?.birdnet_enabled ?? payload.configuration?.birdnet_enabled ?? false,
+        birdweather: payload.integrations?.birdweather_enabled ?? payload.configuration?.birdweather_enabled ?? false,
+        llm: payload.configuration?.llm_enabled ?? false,
+        auto_video: payload.configuration?.auto_video_classification ?? false,
+        ebird: payload.integrations?.ebird_enabled ?? false,
+        inaturalist: payload.integrations?.inaturalist_enabled ?? false,
+      }, 1024),
+    );
+
+    const retentionCleanup = c.env.DB.prepare(`
+      DELETE FROM heartbeat_daily
+      WHERE (report_date, installation_id_hash) IN (
+        SELECT report_date, installation_id_hash FROM heartbeat_daily
+        WHERE report_date < date('now', '-400 days')
+        ORDER BY report_date
+        LIMIT 1
+      )
+    `);
+    await c.env.DB.batch([heartbeatStmt, dailyStmt, retentionCleanup]);
 
     return c.json({ status: 'ok' });
   } catch (e: any) {
@@ -937,7 +1554,12 @@ app.post('/heartbeat', async (c) => {
 
 app.post('/health-issues', async (c) => {
   try {
-    const payload = await c.req.json<HealthIssuePayload>();
+    const parsed = await readBoundedJson(c.req.raw);
+    if (!parsed.ok) return c.json({ error: parsed.error }, parsed.status);
+    if (!parsed.value || typeof parsed.value !== 'object' || Array.isArray(parsed.value)) {
+      return c.json({ error: 'JSON body must be an object' }, 400);
+    }
+    const payload = parsed.value as HealthIssuePayload;
     const country = c.req.raw.cf?.country || 'XX';
 
     if (!payload.installation_id) {
@@ -946,18 +1568,73 @@ app.post('/health-issues', async (c) => {
     if (!Array.isArray(payload.issues)) {
       return c.json({ error: 'Missing issues' }, 400);
     }
+    if (!await withinIngestionRateLimit(
+      c.env.HEALTH_RATE_LIMITER,
+      c.req.raw,
+      payload.installation_id,
+      c.env.ALLOW_UNLIMITED_INGESTION_FOR_TESTS === 'true',
+    )) {
+      return c.json({ error: 'Rate limit exceeded' }, 429, { 'Retry-After': '60' });
+    }
 
     const installationHash = await sha256Hex(payload.installation_id);
     const issues = payload.issues.slice(0, MAX_HEALTH_ISSUES_PER_REPORT);
+    const suppliedReportId = safeText(payload.report_id, '', 64).toLowerCase();
+    const isDeltaReport = /^[a-f0-9]{64}$/.test(suppliedReportId);
+    const legacyIdentity = issues
+      .map((issue) => [
+        safeText(issue.fingerprint, '', 80),
+        safeCount(issue.count),
+        safeText(issue.first_seen_at, '', 80),
+        safeText(issue.last_seen_at, '', 80),
+        normalizeSeverity(issue.severity),
+      ])
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    const clientReportId = isDeltaReport
+      ? suppliedReportId
+      : await sha256Hex(JSON.stringify(legacyIdentity));
+    const reportId = await sha256Hex(`${installationHash}:${clientReportId}`);
+    const runtime = payload.runtime ?? {};
+    const integrations = payload.integrations ?? {};
+    const diagnosticsWindow = payload.diagnostics_window ?? {};
+    const windowSeverityCounts = typeof diagnosticsWindow.severity_counts === 'object' && diagnosticsWindow.severity_counts
+      ? diagnosticsWindow.severity_counts as Record<string, unknown>
+      : {};
     const payloadBase = {
       schema_version: safeText(payload.schema_version, 'unknown', 80),
       timestamp: safeText(payload.timestamp, '', 80),
-      runtime: payload.runtime ?? {},
-      integrations: payload.integrations ?? {},
-      diagnostics_window: payload.diagnostics_window ?? {}
+      runtime: {
+        model_type: safeText(runtime.model_type, '', 120) || null,
+        inference_provider: safeText(runtime.inference_provider, '', 80) || null,
+        image_execution_mode: safeText(runtime.image_execution_mode, '', 80) || null,
+        bird_crop_detector_tier: safeText(runtime.bird_crop_detector_tier, '', 80) || null,
+        auto_video_classification: runtime.auto_video_classification === true,
+      },
+      integrations: {
+        birdnet_enabled: integrations.birdnet_enabled === true,
+        birdweather_enabled: integrations.birdweather_enabled === true,
+        ebird_enabled: integrations.ebird_enabled === true,
+        inaturalist_enabled: integrations.inaturalist_enabled === true,
+        llm_enabled: integrations.llm_enabled === true,
+      },
+      diagnostics_window: {
+        captured_at: safeText(diagnosticsWindow.captured_at, '', 80) || null,
+        total_events: safeCount(diagnosticsWindow.total_events),
+        returned_events: safeCount(diagnosticsWindow.returned_events),
+        severity_counts: {
+          critical: safeCount(windowSeverityCounts.critical),
+          error: safeCount(windowSeverityCounts.error),
+          warning: safeCount(windowSeverityCounts.warning),
+        },
+      },
     };
 
-    const stmt = c.env.HEALTH_DB.prepare(`
+    const schemaVersion = safeText(payload.schema_version, 'unknown', 80);
+    const isEventReport = isDeltaReport && schemaVersion === '2026-07-25.health-issues.v3';
+    const occurrenceUpdate = isDeltaReport
+      ? 'health_issue_reports.occurrence_count + excluded.occurrence_count'
+      : 'MAX(health_issue_reports.occurrence_count, excluded.occurrence_count)';
+    const legacyIssueStmt = c.env.HEALTH_DB.prepare(`
       INSERT INTO health_issue_reports (
         report_key,
         installation_id_hash,
@@ -980,7 +1657,71 @@ app.post('/health-issues', async (c) => {
         ip_country,
         created_at,
         updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, datetime('now'), datetime('now'))
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, datetime('now'), datetime('now')
+      WHERE NOT EXISTS (
+        SELECT 1 FROM health_report_batches WHERE report_id = ?
+      )
+      ON CONFLICT(report_key) DO UPDATE SET
+        app_version = excluded.app_version,
+        platform_system = excluded.platform_system,
+        platform_release = excluded.platform_release,
+        platform_machine = excluded.platform_machine,
+        issue_source = excluded.issue_source,
+        issue_component = excluded.issue_component,
+        issue_reason_code = excluded.issue_reason_code,
+        issue_stage = excluded.issue_stage,
+        severity = excluded.severity,
+        first_seen_at = COALESCE(MIN(health_issue_reports.first_seen_at, excluded.first_seen_at), excluded.first_seen_at, health_issue_reports.first_seen_at),
+        last_seen_at = COALESCE(MAX(health_issue_reports.last_seen_at, excluded.last_seen_at), excluded.last_seen_at, health_issue_reports.last_seen_at),
+        report_count = health_issue_reports.report_count + 1,
+        occurrence_count = ${occurrenceUpdate},
+        sample_context_json = excluded.sample_context_json,
+        last_payload_json = excluded.last_payload_json,
+        ip_country = excluded.ip_country,
+        updated_at = datetime('now')
+    `);
+    const eventIssueStmt = c.env.HEALTH_DB.prepare(`
+      WITH new_events(event_id) AS (
+        SELECT DISTINCT CAST(value AS TEXT) FROM json_each(?)
+        EXCEPT
+        SELECT DISTINCT CAST(seen.value AS TEXT)
+        FROM health_report_batches AS prior,
+             json_each(COALESCE(prior.event_groups_json, '[]')) AS prior_group,
+             json_each(COALESCE(json_extract(prior_group.value, '$.event_ids'), '[]')) AS seen
+        WHERE prior.installation_id_hash = ?
+          AND prior.report_date >= date('now', '-400 days')
+          AND json_extract(prior_group.value, '$.fingerprint') = ?
+      )
+      INSERT INTO health_issue_reports (
+        report_key,
+        installation_id_hash,
+        issue_fingerprint,
+        app_version,
+        platform_system,
+        platform_release,
+        platform_machine,
+        issue_source,
+        issue_component,
+        issue_reason_code,
+        issue_stage,
+        severity,
+        first_seen_at,
+        last_seen_at,
+        report_count,
+        occurrence_count,
+        sample_context_json,
+        last_payload_json,
+        ip_country,
+        created_at,
+        updated_at
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1,
+             (SELECT COUNT(*) FROM new_events), ?, ?, ?, datetime('now'), datetime('now')
+      WHERE NOT EXISTS (
+        SELECT 1 FROM health_report_batches WHERE report_id = ?
+      )
+        AND EXISTS (SELECT 1 FROM new_events)
       ON CONFLICT(report_key) DO UPDATE SET
         app_version = excluded.app_version,
         platform_system = excluded.platform_system,
@@ -1001,13 +1742,48 @@ app.post('/health-issues', async (c) => {
         updated_at = datetime('now')
     `);
 
+    const statements: D1PreparedStatement[] = [];
+    const eventGroups: Array<{ fingerprint: string; severity: string; event_ids: string[] }> = [];
+    let remainingEventIds = MAX_HEALTH_EVENTS_PER_REPORT;
     let accepted = 0;
+    let eventCount = 0;
+    const severityCounts = { critical: 0, error: 0, warning: 0 };
     for (const issue of issues) {
       const fingerprint = safeText(issue.fingerprint, '', 80);
       if (!fingerprint) continue;
+      const eventIds = isEventReport
+        ? Array.from(new Set(
+            (Array.isArray(issue.event_ids) ? issue.event_ids : [])
+              .map((value) => safeText(value, '', 64).toLowerCase())
+              .filter((value) => /^[a-f0-9]{64}$/.test(value)),
+          )).slice(0, remainingEventIds)
+        : [];
+      if (isEventReport && eventIds.length === 0) continue;
+      remainingEventIds -= eventIds.length;
+
       const reportKey = await sha256Hex(`${installationHash}:${fingerprint}`);
-      const count = safeCount(issue.count);
-      await stmt.bind(
+      const count = isEventReport ? eventIds.length : safeCount(issue.count);
+      const severity = normalizeSeverity(issue.severity) as keyof typeof severityCounts;
+      const source = safeText(issue.source, 'unknown', 80);
+      const component = safeText(issue.component, 'unknown', 80);
+      const reasonCode = safeText(issue.reason_code, 'unknown_reason', 120);
+      const stage = safeText(issue.stage, '', 80) || null;
+      const firstSeenAt = safeText(issue.first_seen_at, '', 80) || null;
+      const lastSeenAt = safeText(issue.last_seen_at, '', 80) || null;
+      const sampleContext = sanitizeHealthContext(issue.sample_context ?? {}) ?? {};
+      const sanitizedIssue = {
+        fingerprint,
+        source,
+        component,
+        reason_code: reasonCode,
+        stage,
+        severity,
+        count,
+        first_seen_at: firstSeenAt,
+        last_seen_at: lastSeenAt,
+        sample_context: sampleContext,
+      };
+      const commonBindings = [
         reportKey,
         installationHash,
         fingerprint,
@@ -1015,22 +1791,187 @@ app.post('/health-issues', async (c) => {
         safeText(payload.platform?.system, '', 80) || null,
         safeText(payload.platform?.release, '', 120) || null,
         safeText(payload.platform?.machine, '', 80) || null,
-        safeText(issue.source, 'unknown', 80),
-        safeText(issue.component, 'unknown', 80),
-        safeText(issue.reason_code, 'unknown_reason', 120),
-        safeText(issue.stage, '', 80) || null,
-        normalizeSeverity(issue.severity),
-        safeText(issue.first_seen_at, '', 80) || null,
-        safeText(issue.last_seen_at, '', 80) || null,
-        count,
-        boundedJson(issue.sample_context ?? {}, 2048),
-        boundedJson({ ...payloadBase, issue }, MAX_JSON_CHARS),
-        country
-      ).run();
+        source,
+        component,
+        reasonCode,
+        stage,
+        severity,
+        firstSeenAt,
+        lastSeenAt,
+      ];
+      const trailingBindings = [
+        boundedJson(sampleContext, 2048),
+        boundedJson({ ...payloadBase, issue: sanitizedIssue }, MAX_JSON_CHARS),
+        country,
+        reportId,
+      ];
+      if (isEventReport) {
+        eventGroups.push({ fingerprint, severity, event_ids: eventIds });
+        statements.push(eventIssueStmt.bind(
+          JSON.stringify(eventIds),
+          installationHash,
+          fingerprint,
+          ...commonBindings,
+          ...trailingBindings,
+        ));
+      } else {
+        statements.push(legacyIssueStmt.bind(
+          ...commonBindings,
+          count,
+          ...trailingBindings,
+        ));
+      }
       accepted++;
+      eventCount += count;
+      severityCounts[severity]++;
     }
 
-    return c.json({ status: 'ok', accepted });
+    if (accepted === 0) {
+      return c.json({ status: 'ok', accepted: 0, duplicate: false });
+    }
+
+    const expiredRows = await c.env.HEALTH_DB.prepare(`
+      SELECT
+        (SELECT COUNT(*) FROM (
+          SELECT report_key FROM health_issue_reports
+          WHERE updated_at < datetime('now', '-400 days')
+          LIMIT 25
+        )) AS issue_count,
+        (SELECT COUNT(*) FROM (
+          SELECT report_id FROM health_report_batches
+          WHERE report_date < date('now', '-400 days')
+          LIMIT 1
+        )) AS batch_count
+    `).first<{ issue_count: number; batch_count: number }>();
+    const expiredIssueCount = Number(expiredRows?.issue_count ?? 0);
+    const expiredBatchCount = Number(expiredRows?.batch_count ?? 0);
+    const healthWriteUnits = HEALTH_BASE_WRITE_UNITS
+      + accepted * HEALTH_ISSUE_WRITE_UNITS
+      + expiredIssueCount * HEALTH_ISSUE_WRITE_UNITS
+      + expiredBatchCount * 4;
+    if (!await acquireDailyWriteBudget(c.env.DB, healthWriteUnits)) {
+      return c.json({ error: 'Daily ingestion budget exhausted' }, 503, { 'Retry-After': '86400' });
+    }
+
+    const eventGroupsJson = JSON.stringify(eventGroups);
+    const legacyBatchMarker = c.env.HEALTH_DB.prepare(`
+      INSERT INTO health_report_batches (
+        report_id,
+        installation_id_hash,
+        report_date,
+        reported_at,
+        app_version,
+        schema_version,
+        country,
+        issue_group_count,
+        event_count,
+        critical_count,
+        error_count,
+        warning_count,
+        event_groups_json
+      ) VALUES (?, ?, date('now'), datetime('now'), ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+      ON CONFLICT(report_id) DO NOTHING
+    `).bind(
+      reportId,
+      installationHash,
+      safeText(payload.version, 'unknown', 80),
+      schemaVersion,
+      country,
+      accepted,
+      eventCount,
+      severityCounts.critical,
+      severityCounts.error,
+      severityCounts.warning,
+    );
+    const eventBatchMarker = c.env.HEALTH_DB.prepare(`
+      WITH incoming AS (
+        SELECT DISTINCT
+          CAST(json_extract(issue_group.value, '$.fingerprint') AS TEXT) AS fingerprint,
+          CAST(json_extract(issue_group.value, '$.severity') AS TEXT) AS severity,
+          CAST(event_id.value AS TEXT) AS event_id
+        FROM json_each(?) AS issue_group,
+             json_each(COALESCE(json_extract(issue_group.value, '$.event_ids'), '[]')) AS event_id
+      ),
+      previous AS (
+        SELECT DISTINCT
+          CAST(json_extract(issue_group.value, '$.fingerprint') AS TEXT) AS fingerprint,
+          CAST(event_id.value AS TEXT) AS event_id
+        FROM health_report_batches AS prior,
+             json_each(COALESCE(prior.event_groups_json, '[]')) AS issue_group,
+             json_each(COALESCE(json_extract(issue_group.value, '$.event_ids'), '[]')) AS event_id
+        WHERE prior.installation_id_hash = ?
+          AND prior.report_date >= date('now', '-400 days')
+      ),
+      new_keys AS (
+        SELECT fingerprint, event_id FROM incoming
+        EXCEPT
+        SELECT fingerprint, event_id FROM previous
+      ),
+      new_events AS (
+        SELECT incoming.fingerprint, incoming.severity, incoming.event_id
+        FROM incoming
+        INNER JOIN new_keys USING (fingerprint, event_id)
+      )
+      INSERT INTO health_report_batches (
+        report_id,
+        installation_id_hash,
+        report_date,
+        reported_at,
+        app_version,
+        schema_version,
+        country,
+        issue_group_count,
+        event_count,
+        critical_count,
+        error_count,
+        warning_count,
+        event_groups_json
+      )
+      SELECT ?, ?, date('now'), datetime('now'), ?, ?, ?,
+             COUNT(DISTINCT fingerprint),
+             COUNT(*),
+             COUNT(DISTINCT CASE WHEN severity = 'critical' THEN fingerprint END),
+             COUNT(DISTINCT CASE WHEN severity = 'error' THEN fingerprint END),
+             COUNT(DISTINCT CASE WHEN severity = 'warning' THEN fingerprint END),
+             ?
+      FROM new_events
+      HAVING COUNT(*) > 0
+      ON CONFLICT(report_id) DO NOTHING
+    `).bind(
+      eventGroupsJson,
+      installationHash,
+      reportId,
+      installationHash,
+      safeText(payload.version, 'unknown', 80),
+      schemaVersion,
+      country,
+      eventGroupsJson,
+    );
+    const issueRetentionCleanup = c.env.HEALTH_DB.prepare(`
+      DELETE FROM health_issue_reports
+      WHERE report_key IN (
+        SELECT report_key FROM health_issue_reports
+        WHERE updated_at < datetime('now', '-400 days')
+        ORDER BY updated_at
+        LIMIT 25
+      )
+    `);
+    const batchRetentionCleanup = c.env.HEALTH_DB.prepare(`
+      DELETE FROM health_report_batches
+      WHERE report_id IN (
+        SELECT report_id FROM health_report_batches
+        WHERE report_date < date('now', '-400 days')
+        ORDER BY report_date
+        LIMIT 1
+      )
+    `);
+    statements.unshift(issueRetentionCleanup, batchRetentionCleanup);
+    statements.push(isEventReport ? eventBatchMarker : legacyBatchMarker);
+
+    const results = await c.env.HEALTH_DB.batch(statements);
+    const markerResult = results[results.length - 1];
+    const duplicate = Number(markerResult?.meta?.changes ?? 0) === 0;
+    return c.json({ status: 'ok', accepted: duplicate ? 0 : accepted, duplicate });
   } catch (e: any) {
     console.error('Health issue telemetry error:', e);
     return c.json({ error: e.message }, 500);

@@ -219,6 +219,7 @@
     "settings.telegram.bot_token_placeholder",
     "shortcuts.actions",
     "shortcuts.navigation",
+    "status.notifications",
     "theme.font_compact",
     "theme.font_studio",
     "theme.horizontal",

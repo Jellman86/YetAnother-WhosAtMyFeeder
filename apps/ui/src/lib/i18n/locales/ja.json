@@ -9,6 +9,8 @@
     "dashboard": "ダッシュボード",
     "explorer": "エクスプローラー",
     "leaderboard": "リーダーボード",
+    "observe": "観察",
+    "manage": "管理",
     "audio_history": "音声履歴",
     "settings": "設定",
     "setup_wizard": "セットアップウィザード",
@@ -1255,6 +1257,12 @@
     "status_check_again": "再確認"
   },
   "status": {
+    "title": "システム状態",
+    "live_updates": "ライブ更新",
+    "online": "オンライン",
+    "offline": "オフライン",
+    "audio_analysis": "音声分析",
+    "notifications": "通知",
     "audio_active": "音声分析中",
     "notifications_enabled": "通知有効",
     "system_online": "システムオンライン",
