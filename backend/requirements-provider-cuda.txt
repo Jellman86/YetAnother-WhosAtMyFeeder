@@ -1,4 +1,4 @@
 # ONNX Runtime with packaged CUDA 12 / cuDNN 9 userspace libraries. The host
 # still needs an NVIDIA driver and NVIDIA Container Toolkit GPU passthrough.
 # ORT 1.27 uses CUDA 13 extras that are not available from the normal PyPI index.
-onnxruntime-gpu[cuda,cudnn]>=1.24.0,<1.27.0
+onnxruntime-gpu[cuda,cudnn]>=1.28.0,<1.29.0
