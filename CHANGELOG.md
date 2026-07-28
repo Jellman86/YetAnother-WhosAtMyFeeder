@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **Pull requests and roadmap work now have an explicit delivery contract.**
+  Everyday changes use short-lived branches and reviewed pull requests into
+  `dev`, while release pull requests alone target `main`. The roadmap records
+  prioritised outcomes and evidence gates; issues retain actionable discussion,
+  and pull requests retain the verified delivery slice.
+- **CI now scans the repository's full history for committed secrets.** Gitleaks
+  runs on pull requests, pushes to `dev` and `main`, a weekly schedule, and
+  manual dispatch with read-only repository permissions.
 - **Provider support now has a global candidate contract and an installation proof.** Registry and
   release-sidecar generator metadata distinguish providers that are safe everywhere from reviewed
   candidates that are worth probing. Compatibility evidence schema 4 binds each passing provider
