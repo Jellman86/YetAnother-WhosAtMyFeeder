@@ -123,7 +123,8 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - **FocalNet-B EU Medium:** 707-species European birds-only model with validated CPU, Intel CPU,
   Intel GPU, and Intel NPU support.
 - **FlexiViT Global Birds:** compact birds-only model for global or unsupported regions, with CPU,
-  Intel CPU, and Intel NPU validation.
+  Intel CPU, and Intel NPU validation. Intel GPU is offered only after the exact installation
+  passes the isolated CPU-equivalence sweep.
 
 #### Legacy TFLite (MobileNet V2)
 - **Format:** TFLite — runs on CPU-only systems without ONNX Runtime

@@ -134,7 +134,7 @@ intersection of:
 
 Each candidate is compiled and executed in an isolated child process so a native
 CUDA, GPU, or NPU failure cannot restart the application. The compatibility sweep
-uses up to 12 taxonomy-verified bird images, requires finite output, compares every
+uses up to 24 taxonomy-verified bird images, requires finite output, compares every
 accelerator's top prediction with the CPU baseline, and records median inference
 latency. The measured passing order is persisted without treating a merely installed runtime as
 working hardware.
@@ -210,9 +210,11 @@ The NPU is validated per model, not enabled blanket:
 
 - YA-WAMF only runs a model on the NPU when that model is marked NPU-validated
   (compiles, produces finite output, and its top-k agrees with the CPU baseline).
-  The `rope_vit_b14` classifier and accurate YOLOX-Tiny crop detector are validated on Arrow Lake;
-  classifiers compare top-k output while crop detectors compare admitted detection presence,
-  geometry, and confidence.
+  The current Arrow Lake reference includes ConvNeXt Large, RoPE ViT-B14, FocalNet-B, FlexiViT,
+  MogaNet-S, ConvNeXt-V1 Tiny, RegNet-Y-8G, UniFormer-S, EVA-02 Large, and accurate YOLOX-Tiny.
+  Medium Birds EU is a host-gated NPU candidate; Medium Birds NA is a different artifact and does
+  not inherit that result. Classifiers compare top-k output while crop detectors compare admitted
+  detection presence, geometry, and confidence.
 - The NPU is stricter than the GPU on some operations, so not every model is
   NPU-viable. When a model cannot compile on the selected device, YA-WAMF keeps
   the model installed and runs inference on the OpenVINO CPU fallback, and the

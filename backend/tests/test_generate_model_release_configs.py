@@ -37,6 +37,64 @@ def test_release_model_configs_use_current_provider_policy():
         "cpu",
         "cuda",
         "intel_cpu",
+        "intel_npu",
+    ]
+    assert configs["rope_vit_b14_inat21_model_config.json"]["candidate_inference_providers"] == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_gpu",
+        "intel_npu",
+    ]
+    assert configs["flexivit_il_all_model_config.json"]["supported_inference_providers"] == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_npu",
+    ]
+    assert configs["flexivit_il_all_model_config.json"]["candidate_inference_providers"] == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_gpu",
+        "intel_npu",
+    ]
+    assert configs["eu_medium_focalnet_b_model_config.json"]["supported_inference_providers"] == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_gpu",
+        "intel_npu",
+    ]
+    assert configs["medium_birds_eu_convnext_v2_tiny_256_candidate_model_config.json"][
+        "candidate_inference_providers"
+    ] == [
+        "cpu",
+        "intel_cpu",
+        "intel_gpu",
+        "intel_npu",
+    ]
+    assert configs["medium_birds_na_binocular_candidate_model_config.json"]["candidate_inference_providers"] == [
+        "cpu",
+        "intel_cpu",
+        "intel_gpu",
+    ]
+    for filename in (
+        "convnext_v1_tiny_eu_common_model_config.json",
+        "regnet_y_8g_eu_common_model_config.json",
+        "uniformer_s_eu_common_model_config.json",
+    ):
+        assert configs[filename]["candidate_inference_providers"] == [
+            "cpu",
+            "intel_cpu",
+            "intel_gpu",
+            "intel_npu",
+            "cuda",
+        ]
+    assert configs["eva02_large_inat21_model_config.json"]["candidate_inference_providers"] == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
         "intel_gpu",
         "intel_npu",
     ]
@@ -47,11 +105,19 @@ def test_release_model_configs_use_current_provider_policy():
         "intel_gpu",
         "intel_npu",
     ]
+    assert configs["small_birds_eu_mobilenet_v4_l_candidate_model_config.json"]["supported_inference_providers"] == [
+        "cpu",
+        "intel_cpu",
+    ]
+    assert configs["small_birds_eu_mobilenet_v4_l_candidate_model_config.json"]["candidate_inference_providers"] == [
+        "cpu",
+        "intel_cpu",
+        "intel_gpu",
+    ]
     assert configs["small_birds_eu_mobilenet_v4_l_candidate_model_config.json"] == {
         **configs["small_birds_eu_mobilenet_v4_l_candidate_model_config.json"],
         "model_id": "small_birds",
         "region_scope": "eu",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
     }
 
 

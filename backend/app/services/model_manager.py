@@ -153,7 +153,8 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High",
         "inference_speed": "Medium",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "intel_cpu"],
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
         "download_url": "pending",
         "labels_url": "pending",
         "input_size": 224,
@@ -185,7 +186,8 @@ REMOTE_REGISTRY = [
                 "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
                 "file_size_mb": 122.7,
                 "input_size": 384,
-                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+                "supported_inference_providers": ["cpu", "intel_cpu"],
+                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
                 "preprocessing": {
                     "color_space": "RGB",
                     "resize_mode": "center_crop",
@@ -217,7 +219,8 @@ REMOTE_REGISTRY = [
                     "std": [0.229, 0.224, 0.225],
                     "normalization": "float32",
                 },
-                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+                "supported_inference_providers": ["cpu", "intel_cpu"],
+                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
                 "label_grouping": {
                     "strategy": "strip_trailing_parenthetical",
                 },
@@ -230,7 +233,7 @@ REMOTE_REGISTRY = [
                 },
             },
         },
-        "notes": "Regional birds-only family. Assets pending validation and release upload.",
+        "notes": "Regional birds-only family. Both regional artifacts have conflicting historical Intel GPU results, so GPU support requires an exact-installation sweep. The EU MobileNetV4 artifact passed Quark / OpenVINO 2026.2.1 on 24/24 real images; the NA EfficientNet artifact was not exercised by that EU-resolved run.",
     },
     {
         "id": "convnext_large_inat21",
@@ -315,7 +318,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "CPU, Intel CPU, Intel GPU, and Intel NPU validated. The Arrow Lake / OpenVINO 2026.2.1 NPU produced finite output and matched CPU top-1 on all 12 real sweep images. CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input.",
+        "notes": "CPU, Intel CPU, Intel GPU, and Intel NPU are globally supported. Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images for every Intel provider; Intel GPU averaged 5/5 top-5 overlap and Intel NPU 4.96/5. CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input.",
     },
     {
         "id": "flexivit_il_all",
@@ -326,7 +329,8 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High",
         "inference_speed": "Fast (~80-150ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
+        "candidate_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all_labels.txt",
@@ -356,7 +360,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU, Intel CPU, and Intel NPU validated; the Arrow Lake / OpenVINO 2026.2.1 NPU matched CPU top-1 on all 12 real sweep images. Intel GPU has failed on older hosts and remains subject to per-host validation. CUDA unverified. 550 global bird species, uses ONNX external data file.",
+        "notes": "CPU, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: older OpenVINO runs produced non-finite output, while Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images with 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection. CUDA unverified. 550 global bird species, uses ONNX external data file.",
     },
     {
         "id": "medium_birds",
@@ -367,7 +371,8 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High",
         "inference_speed": "Medium-Slow",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "intel_cpu"],
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
         "download_url": "pending",
         "labels_url": "pending",
         "input_size": 224,
@@ -400,6 +405,10 @@ REMOTE_REGISTRY = [
                 "file_size_mb": 108.5,
                 "input_size": 256,
                 "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+                # NPU is artifact-specific and host-gated. The EU ConvNeXt-V2
+                # artifact matched CPU top-1 on 24/24 real images on Quark's
+                # OpenVINO 2026.2.1 stack; the NA Binocular artifact has not.
+                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu"],
                 "preprocessing": {
                     "color_space": "RGB",
                     "resize_mode": "center_crop",
@@ -412,6 +421,7 @@ REMOTE_REGISTRY = [
                 "crop_generator": {
                     "enabled": False,
                 },
+                "notes": "The EU ConvNeXt-V2 artifact supports CPU and Intel GPU globally. Intel NPU is host-gated: Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images with 4.88/5 mean top-5 overlap. The NA variant has separate metadata and does not inherit this candidate.",
             },
             "na": {
                 "region_scope": "na",
@@ -433,7 +443,8 @@ REMOTE_REGISTRY = [
                     "std": [0.229, 0.224, 0.225],
                     "normalization": "float32",
                 },
-                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+                "supported_inference_providers": ["cpu", "intel_cpu"],
+                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
                 "label_grouping": {
                     "strategy": "strip_trailing_parenthetical",
                 },
@@ -446,7 +457,7 @@ REMOTE_REGISTRY = [
                 },
             },
         },
-        "notes": "Regional birds-only family. Assets pending validation and release upload.",
+        "notes": "Regional birds-only family. The EU ConvNeXt-V2 artifact has globally supported Intel GPU output and a host-gated NPU candidate. The NA Binocular artifact has conflicting historical GPU results and therefore requires an exact-installation sweep.",
     },
     {
         "id": "rope_vit_b14_inat21",
@@ -458,11 +469,12 @@ REMOTE_REGISTRY = [
         "inference_speed": "Medium-Slow (~220-400ms)",
         "runtime": "onnx",
         # Intel GPU and NPU are validated on Arrow Lake with OpenVINO 2026.2.1.
-        # The 2026-07-18 full device sweep compiled both accelerators in isolated
-        # subprocesses, produced finite output for 12 real images, and matched the
+        # The 2026-07-28 full device sweep compiled both accelerators in isolated
+        # subprocesses, produced finite output for 24 real images, and matched the
         # CPU top-1 on every image. Older Intel GPU / OpenVINO 2025.4 combinations
         # produced NaNs, so the per-host validation gate remains authoritative.
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
+        "candidate_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_model_config.json",
@@ -490,7 +502,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "CPU, Intel CPU, Intel GPU, and Intel NPU validated on Arrow Lake with OpenVINO 2026.2.1. The 2026-07-18 full device sweep produced finite output and exact CPU top-1 agreement on all 12 real comparison images for both accelerators. Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so validate on each host before selection; YA-WAMF falls back safely when validation fails. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
+        "notes": "CPU, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: Quark / OpenVINO 2026.2.1 produced finite output and exact CPU top-1 agreement on 24/24 real images with 5/5 mean top-5 overlap, while older OpenVINO 2025.4 combinations produced NaNs. Validate Intel GPU on each host before selection; YA-WAMF falls back safely when validation fails. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
     {
         "id": "eva02_large_inat21",
@@ -501,13 +513,12 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Elite (91%+)",
         "inference_speed": "Slow (~1s)",
         "runtime": "onnx",
-        # NOT intel_gpu: EVA-02 SIGABRTs the runtime on Intel iGPU
-        # (CL_OUT_OF_RESOURCES → process abort). Documented in
-        # tests/test_model_openvino_gpu.py GPU_NOT_SUPPORTED. Tested OV
-        # 2024.6.0, 2026.0.0, 2025.4.1 — all crash. Hard requirement, do
-        # not re-enable without confirming the OpenCL kernel issue is
-        # fixed in a future OpenVINO release.
+        # Intel GPU remains host-gated. OpenVINO 2024.6.0 through 2025.4.1
+        # could abort with CL_OUT_OF_RESOURCES, while Quark's isolated
+        # OpenVINO 2026.2.1 sweep completed 24/24 real images with exact
+        # CPU top-1 agreement. Never make it a globally safe default.
         "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
+        "candidate_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_labels.txt",
@@ -537,7 +548,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "Elite accuracy model. CPU, Intel CPU, and Intel NPU validated; the Arrow Lake / OpenVINO 2026.2.1 NPU matched CPU top-1 on all 12 real sweep images. Intel GPU caused fatal process crashes on older runtimes and remains globally disabled despite passing this Arrow Lake host's isolated check. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
+        "notes": "Elite accuracy model. CPU, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: OpenVINO 2024.6.0 through 2025.4.1 could abort with CL_OUT_OF_RESOURCES, while Quark / OpenVINO 2026.2.1 completed 24/24 real images with exact CPU top-1 agreement and 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
     {
         "id": "moganet_s_eu_common",
@@ -579,13 +590,14 @@ REMOTE_REGISTRY = [
     {
         "id": "convnext_v1_tiny_eu_common",
         "name": "ConvNeXt-V1 Tiny EU-Common",
-        "description": "ConvNeXt-V1-Tiny on Birder's eu-common dataset (707 species). V1 predecessor to convnext_v2_tiny_eu_common. Runs on CPU or a host-validated Intel NPU; older iGPU output was precision-degraded.",
+        "description": "ConvNeXt-V1-Tiny on Birder's eu-common dataset (707 species). V1 predecessor to convnext_v2_tiny_eu_common. Runs on CPU or a validated Intel accelerator; GPU support is gated per installation.",
         "architecture": "ConvNeXt-V1-Tiny",
         "file_size_mb": 109,
         "accuracy_tier": "High",
         "inference_speed": "Medium (~140ms CPU)",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_model_config.json",
@@ -605,24 +617,25 @@ REMOTE_REGISTRY = [
         "tier": "medium",
         "taxonomy_scope": "birds_only",
         "recommended_threshold": 0.5,
-        "recommended_for": "Architecture comparison reference for ConvNeXt-V2 on CPU or a validated Intel NPU.",
+        "recommended_for": "Architecture comparison reference for ConvNeXt-V2 on CPU or a validated Intel accelerator.",
         "estimated_ram_mb": 512,
         "advanced_only": True,
         "sort_order": 23,
         "status": "experimental",
         "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/convnext_v1_tiny_eu-common. Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images. Older iGPU output was precision-degraded, so the registry excludes intel_gpu.",
+        "notes": "Sourced from huggingface.co/birder-project/convnext_v1_tiny_eu-common. Intel NPU is globally supported. Intel GPU is host-gated: older OpenVINO output was precision-degraded, while Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images with 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection.",
     },
     {
         "id": "regnet_y_8g_eu_common",
         "name": "RegNet-Y-8G EU-Common",
-        "description": "RegNet-Y-8G on Birder's eu-common dataset (707 species). Pure CNN, no attention. Runs on CPU or a host-validated Intel NPU; older iGPU predictions diverged from CPU.",
+        "description": "RegNet-Y-8G on Birder's eu-common dataset (707 species). Pure CNN, no attention. Runs on CPU or a validated Intel accelerator; GPU support is gated per installation.",
         "architecture": "RegNet-Y-8G",
         "file_size_mb": 148,
         "accuracy_tier": "High",
         "inference_speed": "Slow (~200ms CPU)",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_model_config.json",
@@ -642,24 +655,25 @@ REMOTE_REGISTRY = [
         "tier": "medium",
         "taxonomy_scope": "birds_only",
         "recommended_threshold": 0.5,
-        "recommended_for": "Pure CNN reference baseline for CPU or a validated Intel NPU.",
+        "recommended_for": "Pure CNN reference baseline for CPU or a validated Intel accelerator.",
         "estimated_ram_mb": 768,
         "advanced_only": True,
         "sort_order": 24,
         "status": "experimental",
         "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/regnet_y_8g_intermediate-eu-common. Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images. Older iGPU predictions diverged, so the registry excludes intel_gpu.",
+        "notes": "Sourced from huggingface.co/birder-project/regnet_y_8g_intermediate-eu-common. Intel NPU is globally supported. Intel GPU is host-gated: older OpenVINO predictions diverged, while Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images with 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection.",
     },
     {
         "id": "uniformer_s_eu_common",
         "name": "UniFormer-S EU-Common",
-        "description": "UniFormer-S on Birder's eu-common dataset (707 species). Convolution-attention hybrid. Runs on CPU or a host-validated Intel NPU; older iGPU runs produced NaNs.",
+        "description": "UniFormer-S on Birder's eu-common dataset (707 species). Convolution-attention hybrid. Runs on CPU or a validated Intel accelerator; GPU support is gated per installation.",
         "architecture": "UniFormer-S",
         "file_size_mb": 82,
         "accuracy_tier": "High",
         "inference_speed": "Medium (~95ms CPU)",
         "runtime": "onnx",
         "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_model_config.json",
@@ -679,13 +693,13 @@ REMOTE_REGISTRY = [
         "tier": "medium",
         "taxonomy_scope": "birds_only",
         "recommended_threshold": 0.5,
-        "recommended_for": "Architectural comparison alternative for CPU or a validated Intel NPU.",
+        "recommended_for": "Architectural comparison alternative for CPU or a validated Intel accelerator.",
         "estimated_ram_mb": 384,
         "advanced_only": True,
         "sort_order": 27,
         "status": "experimental",
         "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/uniformer_s_eu-common. Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images. Older iGPU runs produced NaNs, so the registry excludes intel_gpu.",
+        "notes": "Sourced from huggingface.co/birder-project/uniformer_s_eu-common. Intel NPU is globally supported. Intel GPU is host-gated: older OpenVINO runs produced NaNs, while Quark / OpenVINO 2026.2.1 produced finite output and matched CPU top-1 on 24/24 real images with 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection.",
     },
 ]
 

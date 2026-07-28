@@ -148,6 +148,14 @@ For a complete metadata audit on the Intel image, use:
 }
 ```
 
+The Quark reference run `20260728-200619` used the `dev-intel` image with OpenVINO 2026.2.1 and
+completed all 12 classifiers plus both crop detectors. Classifiers used 24 real images. The fast
+SSD crop detector remained CPU-only; accurate YOLOX-Tiny matched CPU detection presence and
+geometry on Intel CPU/GPU/NPU, with Intel GPU fastest on that host. Discovery also found current
+CPU-equivalent routes that were absent from older metadata. Those routes were added only to the
+reviewed candidate lists, so another installation must still reproduce the pass before its UI or
+runtime can select them.
+
 The hardware sweep validates runtime compatibility, not classifier image-selection accuracy. Crop
 policy is evaluated separately with the feeder harness. Distant-bird validation must retain each
 full frame and compare it with timestamp-distinct Frigate-hint and detector crops; multiple crops of

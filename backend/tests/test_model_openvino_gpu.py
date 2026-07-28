@@ -71,33 +71,15 @@ GPU_VALIDATED: set[str] = {
     # moganet_s_eu_common: probed 2026-05-08, top-5 overlap 5/5 (best of any
     # tested candidate), range ratio 1.03. Multi-order gated CNN — no attention.
     "moganet_s_eu_common",
-    # The entries below were probed on OpenVINO 2025.4.1 via the model
-    # evaluation harness on 2026-05-08. They compile clean on Intel GPU
-    # AND produce useful predictions in the live ClassifierService
-    # pipeline. Harness gpu_diagnostic confirmed real predictions and
-    # provider=intel_gpu for each.
-    "medium_birds",
-    "medium_birds_na",
-    "small_birds",
-    "small_birds_eu",
-    "small_birds_na",
+    # Accurate YOLOX-Tiny matched CPU detection presence and geometry on
+    # OpenVINO 2026.2.1 across the current clean panel plus hard negatives.
     "bird_crop_detector_accurate_yolox_tiny",
-    "flexivit_il_all",
-    # RoPE ViT-B14: full isolated device sweep on Arrow Lake-S with OpenVINO
-    # 2026.2.1, 2026-07-18. GPU compiled, produced finite output for 12 real
-    # images, matched CPU top-1 on all 12, and had mean top-5 overlap 5.0/5.
-    # Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so the
-    # per-host validation gate still decides whether a particular host may use it.
-    "rope_vit_b14_inat21",
-    # convnext_large_inat21 remains excluded from globally safe providers, but
-    # is now a reviewed host-gated candidate (see GPU_HOST_GATED).
-    # eva02_large_inat21 is intentionally excluded everywhere — it
-    # SIGABRTs the runtime, killing any in-progress eval run.
 }
 
-# GPU_CRASH_RISK: models that cause an unrecoverable process crash (SIGABRT /
-# longjmp) on GPU inference — not merely wrong output.  These must NOT be
-# attempted inside the test runner; the gpu-unsupported test skips them.
+# GPU_CRASH_RISK: models that have caused an unrecoverable process crash
+# (SIGABRT / longjmp) on older GPU runtimes. Keep direct in-process tests away
+# from them; the production compatibility sweep probes them in a disposable
+# child process and can admit an exact current installation if it passes.
 GPU_CRASH_RISK: set[str] = {
     "eva02_large_inat21",  # clWaitForEvents -14 / CL_OUT_OF_RESOURCES → SIGABRT
 }
@@ -106,45 +88,64 @@ GPU_CRASH_RISK: set[str] = {
 # generations. They are not globally safe, but the isolated current-image
 # sweep may admit them on an exact installation after CPU-equivalence checks.
 GPU_HOST_GATED: dict[str, str] = {
+    "small_birds": (
+        "Family-level GPU support depends on the resolved artifact, and both "
+        "regional artifacts have conflicting historical results."
+    ),
+    "small_birds_eu": (
+        "The EU MobileNetV4 artifact corrupted a shared GPU context on an older "
+        "runtime, while Arrow Lake / OpenVINO 2026.2.1 matched CPU top-1 on "
+        "24/24 real images in isolated execution."
+    ),
+    "small_birds_na": (
+        "The NA EfficientNet artifact passed some isolated runs but also showed "
+        "non-deterministic crashes on older OpenVINO runtimes."
+    ),
+    "medium_birds": (
+        "Family-level GPU support depends on the resolved artifact; the EU "
+        "artifact is safe while the NA artifact has conflicting historical results."
+    ),
+    "medium_birds_na": (
+        "The NA Binocular artifact produced both passing and non-finite historical "
+        "results, so it requires exact-installation evidence."
+    ),
+    "flexivit_il_all": (
+        "Older OpenVINO runs produced non-finite output, while Arrow Lake / "
+        "OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images."
+    ),
+    "rope_vit_b14_inat21": (
+        "Older OpenVINO 2025.4 combinations produced NaNs, while Arrow Lake / "
+        "OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images."
+    ),
     "convnext_large_inat21": (
         "OpenVINO 2025.4.1 produced systematically wrong rankings, while "
         "Arrow Lake / OpenVINO 2026.2.1 matched CPU top-1 on two independent "
         "real-image sweeps (12/12 and 24/24, mean top-5 overlap 5.0)."
+    ),
+    "convnext_v1_tiny_eu_common": (
+        "OpenVINO 2025.4.1 produced precision-degraded output, while Arrow "
+        "Lake / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images."
+    ),
+    "regnet_y_8g_eu_common": (
+        "OpenVINO 2025.4.1 predictions diverged from CPU, while Arrow Lake / "
+        "OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images."
+    ),
+    "uniformer_s_eu_common": (
+        "OpenVINO 2025.4.1 produced NaNs, while Arrow Lake / OpenVINO 2026.2.1 "
+        "produced finite output and matched CPU top-1 on 24/24 real images."
+    ),
+    "eva02_large_inat21": (
+        "OpenVINO 2024.6.0 through 2025.4.1 could abort with "
+        "CL_OUT_OF_RESOURCES, while Arrow Lake / OpenVINO 2026.2.1 completed "
+        "an isolated 24-image sweep with exact CPU top-1 agreement."
     ),
 }
 
 # GPU_NOT_SUPPORTED: models where Intel GPU is NOT supported, with documented
 # failure reason. Tested on Intel integrated GPU with OpenVINO 2025.4.x.
 GPU_NOT_SUPPORTED: dict[str, str] = {
-    "convnext_v1_tiny_eu_common": (
-        "Precision-degraded on Intel iGPU. Probed 2026-05-08: compile and "
-        "inference succeed and output is finite, but range_ratio vs CPU "
-        "is only 0.53 and top-5 overlap is 2/5. V1's BatchNorm differs "
-        "from V2's LayerNorm in iGPU precision behavior. CPU-only."
-    ),
-    "regnet_y_8g_eu_common": (
-        "iGPU output finite but predictions disagree with CPU. Probed "
-        "2026-05-08: range_ratio 1.46, top-5 overlap 0/5, top-1 mismatch. "
-        "The squeeze-excite blocks and the GroupNorm at large widths "
-        "appear to interact poorly with iGPU f32 precision. CPU-only."
-    ),
-    "uniformer_s_eu_common": (
-        "NaN output on Intel iGPU even with f32 hint. Probed 2026-05-08. "
-        "UniFormer's MHRA (Multi-Head Relation Aggregator) attention "
-        "blocks behave like other ViT variants on this hardware. CPU-only."
-    ),
-    "eva02_large_inat21": (
-        "Process crash — clWaitForEvents error code -14 / CL_OUT_OF_RESOURCES causes "
-        "SIGABRT on Intel GPU. Behaviour is non-deterministic: first inference attempt may "
-        "return NaN, second attempt crashes the process. Observed on OV 2024.6.0, 2026.0.0, "
-        "and 2025.4.1. NOT a RAM limitation: iGPU has access to 28.7 GB system RAM with a "
-        "4 GB max allocation — the 1.2 GB model fits easily. Root cause is an EVA-CLIP attention "
-        "op / OpenCL kernel incompatibility on this iGPU generation. "
-        "Do NOT attempt GPU inference; test runner skips this model to prevent abort."
-    ),
     "mobilenet_v2_birds": "TFLite model — not loaded via OpenVINO",
     "bird_crop_detector": "Crop detector — CPU-only by design",
-    # small_birds NA (EfficientNet-B0): non-deterministic on Intel GPU. Probed 22 March 2026.
 }
 
 # ---------------------------------------------------------------------------
@@ -618,9 +619,13 @@ def test_registry_host_gated_gpu_candidates_match_validation_matrix() -> None:
 
     entries = {str(entry.get("id") or ""): entry for entry in REMOTE_REGISTRY}
     for model_id in GPU_HOST_GATED:
-        entry = entries[model_id]
-        assert "intel_gpu" in (entry.get("candidate_inference_providers") or [])
-        assert "intel_gpu" not in (entry.get("supported_inference_providers") or [])
+        if model_id.endswith(("_eu", "_na")):
+            family_id, region = model_id.rsplit("_", 1)
+            metadata = (entries[family_id].get("region_variants") or {})[region]
+        else:
+            metadata = entries[model_id]
+        assert "intel_gpu" in (metadata.get("candidate_inference_providers") or [])
+        assert "intel_gpu" not in (metadata.get("supported_inference_providers") or [])
 
 
 # ---------------------------------------------------------------------------

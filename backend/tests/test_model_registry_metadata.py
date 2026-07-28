@@ -92,7 +92,14 @@ async def test_available_models_expose_tiered_metadata():
     assert {"eu", "na"} <= set(by_id["small_birds"].region_variants.keys())
     assert by_id["small_birds"].default_region == "na"
     assert by_id["small_birds"].region_variants["na"]["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
-    assert by_id["small_birds"].region_variants["na"]["supported_inference_providers"] == [
+    assert by_id["small_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu"]
+    assert by_id["small_birds"].region_variants["na"]["candidate_inference_providers"] == [
+        "cpu",
+        "intel_cpu",
+        "intel_gpu",
+    ]
+    assert by_id["small_birds"].region_variants["eu"]["supported_inference_providers"] == ["cpu", "intel_cpu"]
+    assert by_id["small_birds"].region_variants["eu"]["candidate_inference_providers"] == [
         "cpu",
         "intel_cpu",
         "intel_gpu",
@@ -115,7 +122,19 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["medium_birds"].region_variants["eu"]["region_scope"] == "eu"
     assert by_id["medium_birds"].region_variants["na"]["region_scope"] == "na"
     assert by_id["medium_birds"].region_variants["na"]["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
-    assert by_id["medium_birds"].region_variants["na"]["supported_inference_providers"] == [
+    assert by_id["medium_birds"].region_variants["na"]["supported_inference_providers"] == ["cpu", "intel_cpu"]
+    assert by_id["medium_birds"].region_variants["eu"]["supported_inference_providers"] == [
+        "cpu",
+        "intel_cpu",
+        "intel_gpu",
+    ]
+    assert by_id["medium_birds"].region_variants["eu"]["candidate_inference_providers"] == [
+        "cpu",
+        "intel_cpu",
+        "intel_gpu",
+        "intel_npu",
+    ]
+    assert by_id["medium_birds"].region_variants["na"]["candidate_inference_providers"] == [
         "cpu",
         "intel_cpu",
         "intel_gpu",
@@ -156,8 +175,14 @@ async def test_available_models_expose_tiered_metadata():
     assert "Intel CPU" in by_id["rope_vit_b14_inat21"].notes
     assert "Intel NPU" in by_id["rope_vit_b14_inat21"].notes
     assert "Intel GPU" in by_id["rope_vit_b14_inat21"].notes
-    assert "validate on each host" in by_id["rope_vit_b14_inat21"].notes
+    assert "host-gated" in by_id["rope_vit_b14_inat21"].notes
     assert by_id["rope_vit_b14_inat21"].supported_inference_providers == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_npu",
+    ]
+    assert by_id["rope_vit_b14_inat21"].candidate_inference_providers == [
         "cpu",
         "cuda",
         "intel_cpu",
@@ -178,6 +203,39 @@ async def test_available_models_expose_tiered_metadata():
     assert by_id["eva02_large_inat21"].model_config_url
     assert by_id["eva02_large_inat21"].preprocessing["resize_mode"] == "center_crop"
     assert by_id["eva02_large_inat21"].preprocessing["crop_pct"] == pytest.approx(1.0)
+    assert by_id["eva02_large_inat21"].candidate_inference_providers == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_gpu",
+        "intel_npu",
+    ]
+    assert by_id["flexivit_il_all"].supported_inference_providers == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_npu",
+    ]
+    assert by_id["flexivit_il_all"].candidate_inference_providers == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_gpu",
+        "intel_npu",
+    ]
+
+    for model_id in (
+        "convnext_v1_tiny_eu_common",
+        "regnet_y_8g_eu_common",
+        "uniformer_s_eu_common",
+    ):
+        assert by_id[model_id].candidate_inference_providers == [
+            "cpu",
+            "intel_cpu",
+            "intel_gpu",
+            "intel_npu",
+            "cuda",
+        ]
 
     assert by_id["bird_crop_detector"].tier == "fast"
     assert by_id["bird_crop_detector"].advanced_only is True
@@ -233,6 +291,13 @@ async def test_available_models_resolve_family_variant_sizes_from_settings():
         assert eu_by_id["medium_birds"].file_size_mb == pytest.approx(108.5, abs=0.1)
         assert "intel_cpu" in (eu_by_id["small_birds"].supported_inference_providers or [])
         assert "intel_cpu" in (eu_by_id["medium_birds"].supported_inference_providers or [])
+        assert eu_by_id["small_birds"].candidate_inference_providers == ["cpu", "intel_cpu", "intel_gpu"]
+        assert eu_by_id["medium_birds"].candidate_inference_providers == [
+            "cpu",
+            "intel_cpu",
+            "intel_gpu",
+            "intel_npu",
+        ]
 
         settings.location.country = "US"
         settings.classification.bird_model_region_override = "auto"
@@ -241,8 +306,10 @@ async def test_available_models_resolve_family_variant_sizes_from_settings():
 
         assert na_by_id["small_birds"].file_size_mb == pytest.approx(18.0, abs=0.1)
         assert na_by_id["medium_birds"].file_size_mb == pytest.approx(333.0, abs=0.1)
-        assert na_by_id["small_birds"].supported_inference_providers == ["cpu", "intel_cpu", "intel_gpu"]
-        assert na_by_id["medium_birds"].supported_inference_providers == ["cpu", "intel_cpu", "intel_gpu"]
+        assert na_by_id["small_birds"].supported_inference_providers == ["cpu", "intel_cpu"]
+        assert na_by_id["small_birds"].candidate_inference_providers == ["cpu", "intel_cpu", "intel_gpu"]
+        assert na_by_id["medium_birds"].supported_inference_providers == ["cpu", "intel_cpu"]
+        assert na_by_id["medium_birds"].candidate_inference_providers == ["cpu", "intel_cpu", "intel_gpu"]
     finally:
         settings.location.country = original_country
         settings.classification.bird_model_region_override = original_override

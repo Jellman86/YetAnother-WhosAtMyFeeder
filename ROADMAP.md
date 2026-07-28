@@ -582,7 +582,11 @@ hardware, kernels, and image flavours. Reproducible release sidecars prevent old
 metadata from narrowing or widening the current application contract. Crop-detector audits now use unique identities across a
 round-robin clean species panel and hard negatives, fail on incomplete comparison coverage, and
 test only proposals production could admit. The accurate YOLOX-Tiny tier is validated on Quark's
-Intel CPU/GPU/NPU; the fast quantized SSD remains CPU-only.
+Intel CPU/GPU/NPU; the fast quantized SSD remains CPU-only. The 28 July 2026 full Intel audit
+validated all 12 classifier artifacts and both crop detectors. Its reviewed candidate expansion is
+artifact-specific: NPU for Medium Birds EU and GPU for ConvNeXt-V1 Tiny, RegNet-Y-8G, UniFormer-S,
+and EVA-02 Large. The same audit narrowed historically inconsistent GPU routes to host-gated
+candidates, with every installation required to prove them before selection.
 
 **Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots with conservative,
 temporally independent multi-frame crop refinement for distant subjects, a protected Frigate final

@@ -36,6 +36,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   OpenVINO CPU, and Intel NPU as the safe baseline. Quark's current OpenVINO stack matched CPU
   top-1 on 24/24 real images with 4.96/5 mean top-5 overlap; older OpenVINO 2025.4.1 evidence remains
   documented as incompatible and cannot authorize a current install.
+- **The global candidate registry now reflects the complete current Intel hardware audit.**
+  Quark's 28 July schema-4 sweep tested 12 classifiers and both crop detectors over 24 real images
+  plus detector hard negatives. It adds host-gated candidates for the Intel NPU on the EU Medium
+  Birds artifact and the Intel GPU on ConvNeXt-V1 Tiny, RegNet-Y-8G, UniFormer-S, and EVA-02 Large.
+  It also moves Intel GPU routes with conflicting historical results—Small Birds EU/NA, Medium
+  Birds NA, FlexiViT, and RoPE—from globally safe to host-gated. Medium Birds EU and FocalNet-B
+  remain globally GPU-supported because both older and current reference runtimes agree.
 
 ### Fixed
 
