@@ -89,7 +89,8 @@ so timestamp proximity alone is not a safe identity rule.
 YA-WAMF caches the snapshot and clip to local storage the moment the MQTT event arrives, before any classification attempt. When the event precheck later returns `event_not_found`, YA-WAMF checks whether the clip is already cached:
 
 - **Cached clip found** → classification proceeds using the local cache. The diagnostic entry will show reason code `precheck_cache_bypass`.
-- **No cached clip** → the detection is marked as failed with error `event_not_found`.
+- **No cached clip** → automatic video work records `event_not_found`; an owner-requested job
+  continues with the best snapshot after its bounded retry.
 
 Local video takes precedence over a live Frigate fetch in all subsequent operations (manual
 reclassify, video analysis retry), so a detection that was cached before Frigate lost the event can
@@ -98,6 +99,12 @@ recording, a decodable partial recording, the cached event clip, and finally Fri
 The ideal duration controls full-visit completeness, not whether retained frames are valid
 classification evidence. If one cached file is corrupt, YA-WAMF removes that candidate and tries
 the next source before considering a snapshot fallback.
+
+For an owner-requested reclassification, failure of the event precheck or any video source is not
+terminal by itself. The bounded video job preserves the manual request across the delayed Frigate
+race retry, broadcasts a video-to-snapshot strategy change, and classifies the best cached or live
+snapshot. Automatic video work still records an unavailable clip without silently changing its
+configured strategy unless that caller explicitly enabled snapshot fallback.
 
 The player and classifier therefore share the same retained-media principle even though they have
 different validation needs: a file must be decodable for inference, not merely present on disk. A
@@ -135,7 +142,8 @@ You can control this in **Settings → Data → Media integrity**:
 | `precheck_cache_bypass` | event processor | The event was gone from Frigate, but YA-WAMF had cached the clip and classified from it. | ✅ kept |
 | `event_not_found` | event processor / video | Frigate had no event and no cached copy existed. | ⚠️ classify failed |
 | `drop_classify_snapshot_unavailable` | event processor | No snapshot could be fetched from Frigate and none was cached in time, so the detection was **dropped** before classification. | ❌ **dropped** |
-| `clip_not_found` / `clip_not_retained` | video analysis | The event clip is not (or no longer) available in Frigate. Video analysis is skipped; snapshot classification is unaffected. | ✅ kept |
+| `clip_not_found` / `clip_not_retained` | video analysis | The event clip is not (or no longer) available in Frigate. Manual analysis visibly falls back to the best snapshot; automatic work records the unavailable video according to its fallback policy. | ✅ kept |
+| `video_precheck_snapshot_fallback` | video analysis | Frigate could not supply the event/video, so an owner-requested job continued from the best snapshot. | ✅ kept |
 | `frigate_missing_marked` | frigate-missing policy | A stored detection was flagged because Frigate no longer has its event/media (see Media integrity above). | ✅ kept |
 | `frigate_missing_deleted` | frigate-missing policy | A stored detection was **deleted** because Frigate no longer has it and the policy is set to delete. | ❌ **deleted** |
 

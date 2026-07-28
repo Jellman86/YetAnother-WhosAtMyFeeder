@@ -96,7 +96,7 @@ also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable)
 
 | UI label | Value | Image flavor | Host device | Notes |
 |---|---|---|---|---|
-| Auto | `auto` | any | — | Chooses the best packaged and available path, preferring Intel GPU, then CUDA, then CPU. |
+| Auto | `auto` | any | — | Uses this model/install's measured passing order; without a sweep it stays within the registry's globally safe paths. |
 | CPU (ONNX Runtime) | `cpu` | any | none | Always packaged; the safe fallback. |
 | NVIDIA CUDA | `cuda` | `full` or `cuda` | NVIDIA GPU | Needs the NVIDIA Container Toolkit on the host. |
 | Intel GPU (OpenVINO) | `intel_gpu` | `full` or `intel` | `/dev/dri` | Integrated Arc/UHD graphics. |
@@ -106,11 +106,11 @@ also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable)
 `Auto` is recommended unless you have a reason to pin a device.
 
 The selector is capability-aware. It only offers providers that are included in
-the running image, pass the host runtime/device probe, and are declared compatible
-with the active model. Options begin with the active provider and its concrete
-recovery sequence; any remaining valid manual alternatives follow. The UI prints
-the recovery sequence separately so the order is not confused with a list of
-providers that `Auto` will necessarily try.
+the running image, pass the host runtime/device probe, and are safe in the global
+model contract or pass that model's current installation sweep. Options begin
+with the active provider and its concrete recovery sequence; any remaining valid
+manual alternatives follow. The UI prints the recovery sequence separately so
+the order is not confused with a list of providers that `Auto` will necessarily try.
 
 The setup wizard applies the same contract to the model currently selected in the
 wizard, even before that model is activated. This prevents the previous active
@@ -130,22 +130,24 @@ intersection of:
 
 1. providers packaged by the running image;
 2. providers whose runtime and device probe succeeds on this host; and
-3. providers declared compatible with the selected model.
+3. providers declared globally safe or reviewed as host-gated candidates for the selected model.
 
 Each candidate is compiled and executed in an isolated child process so a native
 CUDA, GPU, or NPU failure cannot restart the application. The compatibility sweep
 uses up to 12 taxonomy-verified bird images, requires finite output, compares every
 accelerator's top prediction with the CPU baseline, and records median inference
-latency. The fastest passing candidate is reported without treating a merely
-installed runtime as working hardware.
+latency. The measured passing order is persisted without treating a merely installed runtime as
+working hardware.
 
 The resulting matrix is image-aware: `cpu`/`rpi` test CPU, `cuda` tests ONNX CPU and
 CUDA, `intel` tests ONNX CPU plus the detected OpenVINO targets, and `full` tests all
 applicable targets. In particular, OpenVINO CPU in the full image does not suppress
-CUDA validation. Switching flavors keeps the underlying history but filters it
-through an exact per-model image-flavor record, so even a provider name shared by
-two flavors must be revalidated after the switch. Stale Intel, CUDA, or CPU evidence
-cannot authorize a model in a different runtime image.
+CUDA validation. Eligibility schema 4 binds each model result to the image flavour, inference
+package versions, kernel, visible accelerator identity, architecture, and registry model checksum.
+Switching flavours, changing the runtime/kernel, replacing an artifact, or moving the config volume
+to different hardware keeps the historical record but requires new proof before a host-gated
+provider becomes selectable. Stale Intel, CUDA, or CPU evidence cannot authorize a different
+installation.
 
 Published images fail closed when their expected runtime is missing: a bundled live
 fallback cannot be mistaken for successful validation of the selected ONNX model.

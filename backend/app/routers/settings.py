@@ -1436,6 +1436,36 @@ async def update_settings(
     if auth_enabled_after_update and not auth_password_will_exist:
         raise HTTPException(status_code=422, detail=AUTH_PASSWORD_REQUIRED_TO_ENABLE_MESSAGE)
 
+    if (
+        "inference_provider" in fields_set
+        and update.inference_provider is not None
+        and update.inference_provider != "auto"
+        and update.inference_provider != str(getattr(settings.classification, "inference_provider", "auto") or "auto")
+    ):
+        # The UI filters this list, but the API is the security/correctness
+        # boundary. A *new* explicit provider may be saved only when the running
+        # image exposes it and the active model's current-image host sweep
+        # admitted it. This prevents raw API calls or stale clients from
+        # bypassing per-install numerical validation. An unchanged stale choice
+        # is allowed through full-form settings saves so an image switch does not
+        # make unrelated settings impossible to edit.
+        from app.services.classifier_service import get_classifier
+
+        status = get_classifier().get_status()
+        selectable = {
+            str(provider or "").strip().lower()
+            for provider in (status.get("available_providers") or [])
+            if str(provider or "").strip()
+        }
+        if update.inference_provider not in selectable:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"{update.inference_provider} is not validated for the active model "
+                    "in this image on this host. Run hardware validation before selecting it."
+                ),
+            )
+
     if "frigate_url" in fields_set and update.frigate_url is not None:
         settings.frigate.frigate_url = update.frigate_url
     if "mqtt_server" in fields_set and update.mqtt_server is not None:

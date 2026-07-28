@@ -155,9 +155,15 @@ async def activate_model(model_id: str, background_tasks: BackgroundTasks, auth:
 
     # Keep settings.classification.model in sync so config.json reflects the active model
     settings.classification.model = model_id
-    recommended_provider = activation_provider_recommendation(model_id)
-    if recommended_provider:
-        settings.classification.inference_provider = recommended_provider
+    recommended_provider = activation_provider_recommendation(
+        model_id,
+        artifact_sha256=(target.metadata.sha256 if target.metadata else None),
+    )
+    # Provider evidence is model-specific. Never carry an explicit provider
+    # selected for the previous model across activation when this model has no
+    # current-image recommendation; ``auto`` will select from the new model's
+    # globally safe or host-validated contract.
+    settings.classification.inference_provider = recommended_provider or "auto"
     await settings.save()
 
     # Reload the classifier in the background to prevent blocking API timeouts

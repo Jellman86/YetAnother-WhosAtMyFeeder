@@ -28,6 +28,12 @@ available, YA-WAMF performs temporal video analysis; it does not replace that ex
 with a faster snapshot-only result. If no video can be decoded, it explains the downgrade and uses
 the best cached or Frigate snapshot as a fallback.
 
+The action is admitted to the same bounded queue as live and maintenance video work, returns
+immediately, and deduplicates by event. The Jobs view is authoritative for queued/running progress.
+Temporal inference always runs in a supervised subprocess; cancellation or a hard timeout
+terminates that worker, so native OpenVINO/ONNX work cannot continue invisibly after the request
+ends.
+
 A shorter-than-requested full-visit clip remains valid evidence when it is a real, decodable MP4.
 YA-WAMF analyzes the frames it contains instead of discarding the clip merely because Frigate could
 not provide the ideal window.
@@ -46,8 +52,9 @@ During analysis, a real-time **progress overlay** appears on the detection card.
 - A progress bar counting toward the total frame count
 
 Once complete, the detection card updates with the new result. A valid abstention closes the job
-normally and explains that the existing identification was kept; missing or unreadable media and
-runtime faults remain explicit failures.
+normally and explains that the existing identification was kept. Missing or unreadable video first
+causes a visible downgrade to the best snapshot; exhaustion of both media routes or an unrecovered
+runtime fault remains an explicit failure.
 
 The owner **Jobs** view also shows automatic and maintenance video work from the backend. A queued
 item remains labelled **Queued** until a worker starts it, and pending/processing automatic jobs are

@@ -38,7 +38,9 @@
       "delete_failed": "Impossibile eliminare il rilevamento",
       "update_failed": "Impossibile aggiornare il rilevamento",
       "wildlife_model_unavailable": "Modello fauna selvatica non disponibile. Si prega di scaricarlo prima.",
-      "reclassification_failed": "Riclassificazione fallita"
+      "reclassification_failed": "Riclassificazione fallita",
+      "video_analysis_paused": "L’analisi video è temporaneamente sospesa dopo ripetuti errori di inferenza. Riprova più tardi.",
+      "video_analysis_capacity": "L’analisi video ha raggiunto la capacità massima. Riprova al termine dei processi attuali."
     },
     "species": {
       "unknown_bird": "Uccello Sconosciuto",

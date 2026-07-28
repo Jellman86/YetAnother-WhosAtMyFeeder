@@ -122,6 +122,29 @@ describe('inference provider choices', () => {
         ]);
     });
 
+    it('orders a prospective model by its own measured install preference', () => {
+        const status: ClassifierStatus = {
+            ...baseStatus,
+            image_flavor: 'intel',
+            packaged_inference_providers: ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
+            host_available_providers: ['intel_gpu', 'intel_cpu', 'cpu', 'intel_npu'],
+            available_providers: ['intel_cpu', 'cpu'],
+        };
+
+        expect(buildInferenceProviderChoices(
+            status,
+            'auto',
+            ['cpu', 'intel_cpu', 'intel_gpu', 'intel_npu'],
+            ['intel_cpu', 'intel_gpu', 'intel_npu'],
+            ['intel_npu', 'intel_gpu', 'intel_cpu'],
+        )).toEqual([
+            { value: 'auto', unavailable: false },
+            { value: 'intel_npu', unavailable: false },
+            { value: 'intel_gpu', unavailable: false },
+            { value: 'intel_cpu', unavailable: false },
+        ]);
+    });
+
     it('keeps a stale configured provider visible but disabled until it is replaced', () => {
         const status: ClassifierStatus = {
             ...baseStatus,

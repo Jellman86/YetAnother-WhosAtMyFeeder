@@ -14,7 +14,12 @@ from typing import Any, List, Optional, Dict
 from app.models.ai_models import CropGeneratorConfig, ModelMetadata, InstalledModel, DownloadProgress
 from app.config import settings
 from app.config_models import normalize_crop_model_override, normalize_crop_source_override
-from app.services.model_validation import is_model_validated
+from app.services.model_validation import (
+    activation_provider_recommendation,
+    host_eligible_providers,
+    host_provider_preference_order,
+    is_model_validated,
+)
 from app.services.bird_model_region_resolver import resolve_bird_model_region
 
 
@@ -236,11 +241,12 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (90%+)",
         "inference_speed": "Slow (~500-800ms)",
         "runtime": "onnx",
-        # NOT intel_gpu: harness retest 2026-05-08 on OV 2025.4.1 confirmed
-        # the depthwise-conv precision issue persists. Compile succeeds on
-        # iGPU but top-1 collapses 66.8% → 32.7%; the model produces
-        # systematically wrong species. Stays CPU-only.
+        # Intel GPU is host-gated. OpenVINO 2025.4.1 produced systematically
+        # wrong output, while Quark's OpenVINO 2026.2.1 matched CPU top-1 on
+        # two independent real-image sweeps (12/12 and 24/24). It is therefore
+        # a validation candidate, never a globally trusted provider.
         "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
+        "candidate_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21_labels.txt",
@@ -270,7 +276,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "CPU, Intel CPU, and Intel NPU validated; the Arrow Lake / OpenVINO 2026.2.1 NPU matched CPU top-1 on all 12 real sweep images. Intel GPU is not globally supported: older Intel GPU runs produced systematically wrong species, so only a successful per-host validation may override that restriction. CUDA unverified. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45.",
+        "notes": "CPU, CUDA, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: OpenVINO 2025.4.1 produced wrong rankings, while Arrow Lake / OpenVINO 2026.2.1 matched CPU top-1 on two independent real-image sweeps (12/12 and 24/24). YA-WAMF exposes Intel GPU only after the exact installation passes the numerical-equivalence sweep. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45.",
     },
     {
         "id": "eu_medium_focalnet_b",
@@ -1054,6 +1060,11 @@ class ModelManager:
         merged["supported_inference_providers"] = list(
             variant.get("supported_inference_providers") or model_meta.get("supported_inference_providers") or []
         )
+        merged["candidate_inference_providers"] = list(
+            variant.get("candidate_inference_providers")
+            or model_meta.get("candidate_inference_providers")
+            or merged["supported_inference_providers"]
+        )
         if "crop_generator" in variant:
             merged["crop_generator"] = self._normalize_crop_generator_block(variant.get("crop_generator"))
         else:
@@ -1072,6 +1083,9 @@ class ModelManager:
             "preprocessing": dict(model_meta.get("preprocessing") or {}),
             "label_grouping": dict(model_meta.get("label_grouping") or {}),
             "supported_inference_providers": list(model_meta.get("supported_inference_providers") or []),
+            "candidate_inference_providers": list(
+                model_meta.get("candidate_inference_providers") or model_meta.get("supported_inference_providers") or []
+            ),
             "crop_generator": self._normalize_crop_generator_block(model_meta.get("crop_generator")),
         }
         for checksum_key in ("sha256", "labels_sha256", "weights_sha256"):
@@ -1109,6 +1123,7 @@ class ModelManager:
         *,
         installed_providers: list[Any],
         registry_providers: list[Any],
+        registry_candidate_providers: list[Any] | None = None,
         model_dir: str,
     ) -> tuple[list[str], list[str]]:
         """Apply the current registry's provider policy to an installed model.
@@ -1142,7 +1157,16 @@ class ModelManager:
         if not allowed_registry:
             return installed_normalized, []
 
-        unsupported = [provider for provider in installed_normalized if provider not in allowed_registry_set]
+        candidate_set = {
+            str(provider or "").strip().lower()
+            for provider in (registry_candidate_providers or registry_providers)
+            if str(provider or "").strip()
+        }
+        unsupported = [
+            provider
+            for provider in installed_normalized
+            if provider not in allowed_registry_set and provider not in candidate_set
+        ]
         missing = [provider for provider in allowed_registry if provider not in seen_installed]
 
         if not unsupported and not missing:
@@ -1223,17 +1247,32 @@ class ModelManager:
                 for provider in (spec.get("supported_inference_providers") or [])
                 if str(provider or "").strip()
             }
+            registry_candidate_set = {
+                str(provider or "").strip().lower()
+                for provider in (
+                    spec.get("candidate_inference_providers") or spec.get("supported_inference_providers") or []
+                )
+                if str(provider or "").strip()
+            }
             registry_unsupported_providers: list[str] = []
             seen_registry_unsupported: set[str] = set()
             for provider in providers:
                 normalized = str(provider or "").strip().lower()
-                if not normalized or normalized in registry_provider_set or normalized in seen_registry_unsupported:
+                if (
+                    not normalized
+                    or normalized in registry_provider_set
+                    or normalized in registry_candidate_set
+                    or normalized in seen_registry_unsupported
+                ):
                     continue
                 registry_unsupported_providers.append(normalized)
                 seen_registry_unsupported.add(normalized)
             reconciled_providers, provider_warnings = self._reconcile_installed_inference_providers(
                 installed_providers=providers,
                 registry_providers=list(spec.get("supported_inference_providers") or []),
+                registry_candidate_providers=list(
+                    spec.get("candidate_inference_providers") or spec.get("supported_inference_providers") or []
+                ),
                 model_dir=model_dir,
             )
             if reconciled_providers:
@@ -1315,10 +1354,14 @@ class ModelManager:
                     "runtime": str(merged.get("runtime") or "tflite"),
                     "label_grouping": dict(merged.get("label_grouping") or {}),
                     "supported_inference_providers": list(merged.get("supported_inference_providers") or []),
+                    "candidate_inference_providers": list(
+                        merged.get("candidate_inference_providers") or merged.get("supported_inference_providers") or []
+                    ),
                     "recommended_threshold": float(merged.get("recommended_threshold", 0.65) or 0.65),
                     "weights_url": merged.get("weights_url"),
                     "resolved_region": region,
                     "model_config_url": merged.get("model_config_url"),
+                    "artifact_sha256": merged.get("sha256"),
                     "crop_generator": self._normalize_crop_generator_block(merged.get("crop_generator")),
                 }
                 return self._apply_crop_overrides(self._apply_installed_model_config(spec, model_dir=variant_dir))
@@ -1360,9 +1403,15 @@ class ModelManager:
                     "runtime": runtime,
                     "label_grouping": dict(model_meta.get("label_grouping") or {}),
                     "supported_inference_providers": list(model_meta.get("supported_inference_providers") or []),
+                    "candidate_inference_providers": list(
+                        model_meta.get("candidate_inference_providers")
+                        or model_meta.get("supported_inference_providers")
+                        or []
+                    ),
                     "recommended_threshold": float(model_meta.get("recommended_threshold", 0.65) or 0.65),
                     "weights_url": model_meta.get("weights_url"),
                     "model_config_url": model_meta.get("model_config_url"),
+                    "artifact_sha256": model_meta.get("sha256"),
                     "crop_generator": self._normalize_crop_generator_block(model_meta.get("crop_generator")),
                 }
                 return self._apply_crop_overrides(self._apply_installed_model_config(spec, model_dir=target_dir))
@@ -1388,9 +1437,15 @@ class ModelManager:
             "runtime": "tflite",
             "label_grouping": dict(fallback_meta.get("label_grouping") or {}),
             "supported_inference_providers": list(fallback_meta.get("supported_inference_providers") or ["cpu"]),
+            "candidate_inference_providers": list(
+                fallback_meta.get("candidate_inference_providers")
+                or fallback_meta.get("supported_inference_providers")
+                or ["cpu"]
+            ),
             "recommended_threshold": float(fallback_meta.get("recommended_threshold", 0.70) or 0.70),
             "weights_url": None,
             "model_config_url": fallback_meta.get("model_config_url"),
+            "artifact_sha256": fallback_meta.get("sha256"),
             "crop_generator": self._normalize_crop_generator_block(fallback_meta.get("crop_generator")),
         }
         return self._apply_crop_overrides(
@@ -1541,9 +1596,27 @@ class ModelManager:
                 model.id,
                 active_model_id=self.active_model_id,
                 bundled_ids=bundled_ids,
+                artifact_sha256=(model.metadata.sha256 if model.metadata else None),
             )
             model.validated = validated
             model.validation_reason = reason
+            artifact_sha256 = model.metadata.sha256 if model.metadata else None
+            model.validated_inference_providers = host_eligible_providers(
+                model.id,
+                artifact_sha256=artifact_sha256,
+            )
+            model.provider_preference_order = host_provider_preference_order(
+                model.id,
+                artifact_sha256=artifact_sha256,
+            )
+            model.preferred_inference_provider = (
+                model.provider_preference_order[0]
+                if model.provider_preference_order
+                else activation_provider_recommendation(
+                    model.id,
+                    artifact_sha256=artifact_sha256,
+                )
+            )
 
         return installed
 

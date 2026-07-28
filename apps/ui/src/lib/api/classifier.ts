@@ -50,6 +50,9 @@ export interface ClassifierStatus {
     host_available_providers?: string[];
     available_providers?: string[];
     provider_preference_order?: string[];
+    active_model_candidate_providers?: string[];
+    active_model_validated_providers?: string[];
+    validated_provider_preference_order?: string[];
     cuda_enabled?: boolean;
     personalized_rerank_enabled?: boolean;
     personalization_min_feedback_tags?: number;

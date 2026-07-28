@@ -10,13 +10,15 @@ Two records back the gate, both on the config volume under
 ``$YAWAMF_EVAL_RUNS_DIR`` (default ``/config/yawamf-eval``):
 
 - ``device_eligibility.json`` — written by the shared provider sweep; keyed
-  ``model_id -> [verified providers]`` with an exact per-model image flavor.
+  ``model_id -> [verified providers]`` with per-model image, runtime/hardware
+  signature, artifact checksum, and provider metrics.
 - ``model_validation.json`` — written by both the single-model endpoint and
   compatibility runs; keyed
   ``model_id -> {validated, provider, image_flavor, checked_at, reason}``.
 
-Either current-image record clearing the gate keeps the flow honest across CPU,
-CUDA and Intel images. The currently-active model and bundled models are
+Only current installation evidence clears the gate, keeping the flow honest
+across CPU, CUDA and Intel images, runtime/driver upgrades, model replacements,
+and config-volume moves. The currently-active model and bundled models are
 grandfathered so an upgrade never blocks a working install.
 
 Everything here is fail-soft: a missing or unreadable record yields "not
@@ -26,12 +28,17 @@ validated", never an exception.
 from __future__ import annotations
 
 import asyncio
+import hashlib
+from importlib import metadata as importlib_metadata
 import json
 import math
 import os
+import platform
+import threading
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -43,6 +50,90 @@ log = structlog.get_logger()
 
 VALIDATION_FILENAME = "model_validation.json"
 ELIGIBILITY_FILENAME = "device_eligibility.json"
+ELIGIBILITY_SCHEMA_VERSION = 4
+_EVIDENCE_WRITE_LOCK = threading.RLock()
+
+_INFERENCE_RUNTIME_PACKAGES = (
+    "numpy",
+    "onnxruntime",
+    "onnxruntime-gpu",
+    "openvino",
+    "tensorflow",
+    "tflite-runtime",
+)
+
+
+def current_inference_runtime_signature() -> str:
+    """Stable identity for inference binaries and accelerator hardware.
+
+    Provider compatibility evidence must not survive a runtime/driver-facing
+    image change or a config-volume move to different accelerator silicon.
+    The optional override lets image builders add a driver/image ABI marker
+    without coupling validity to every application-only commit.
+    """
+    return _inference_runtime_signature_for(
+        get_image_flavor(),
+        str(os.environ.get("YAWAMF_INFERENCE_RUNTIME_ID") or "").strip(),
+    )
+
+
+def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
+    """Replace an evidence document atomically so readers never see torn JSON."""
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    try:
+        temporary.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        os.replace(temporary, path)
+    finally:
+        try:
+            temporary.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+@lru_cache(maxsize=16)
+def _inference_runtime_signature_for(image_flavor: str, runtime_abi: str) -> str:
+    packages: dict[str, str] = {}
+    for package in _INFERENCE_RUNTIME_PACKAGES:
+        try:
+            packages[package] = importlib_metadata.version(package)
+        except importlib_metadata.PackageNotFoundError:
+            continue
+
+    hardware: dict[str, str] = {}
+    marker_paths: list[Path] = []
+    for pattern in (
+        "/sys/class/drm/card*/device/vendor",
+        "/sys/class/drm/card*/device/device",
+        "/sys/class/drm/card*/device/revision",
+        "/sys/class/accel/accel*/device/vendor",
+        "/sys/class/accel/accel*/device/device",
+    ):
+        marker_paths.extend(sorted(Path("/").glob(pattern.lstrip("/"))))
+    marker_paths.extend(sorted(Path("/proc/driver/nvidia/gpus").glob("*/information")))
+    for marker in (
+        Path("/proc/driver/nvidia/version"),
+        Path("/sys/module/i915/version"),
+        Path("/sys/module/xe/version"),
+    ):
+        if marker.is_file():
+            marker_paths.append(marker)
+    for path in marker_paths:
+        try:
+            hardware[str(path)] = path.read_text(encoding="utf-8", errors="replace").strip()
+        except OSError:
+            continue
+
+    identity = {
+        "image_flavor": image_flavor,
+        "runtime_abi": runtime_abi,
+        "machine": platform.machine().lower(),
+        "kernel": platform.release(),
+        "packages": packages,
+        "hardware": hardware,
+    }
+    encoded = json.dumps(identity, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
 
 VALIDATION_PROVIDER_ORDER = ("cpu", "intel_cpu", "cuda", "intel_gpu", "intel_npu")
 
@@ -116,27 +207,182 @@ def _eval_root() -> Path:
     return Path(os.environ.get("YAWAMF_EVAL_RUNS_DIR", "/config/yawamf-eval"))
 
 
-def host_eligible_providers(model_id: str) -> list[str]:
-    """Providers the unified sweep validated for ``model_id`` in this image."""
-    if not model_id:
-        return []
+def _read_current_eligibility_payload() -> dict[str, Any]:
+    """Read eligibility evidence only when it belongs to this exact image.
+
+    A single helper keeps provider selection, the Settings UI, and activation
+    recommendations from applying different flavor rules.
+    """
     try:
         path = _eval_root() / ELIGIBILITY_FILENAME
         if not path.is_file():
-            return []
+            return {}
         data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _model_eligibility_is_current(
+    data: dict[str, Any],
+    model_id: str,
+    *,
+    artifact_sha256: str | None = None,
+) -> bool:
+    current_flavor = get_image_flavor()
+    recorded_flavor = str((data.get("model_image_flavors") or {}).get(model_id) or "").strip().lower()
+    if current_flavor != "unknown" and recorded_flavor != current_flavor:
+        return False
+    if int(data.get("schema_version") or 0) < ELIGIBILITY_SCHEMA_VERSION:
+        return False
+    recorded_runtime = str((data.get("model_runtime_signatures") or {}).get(model_id) or "").strip().lower()
+    if not recorded_runtime or recorded_runtime != current_inference_runtime_signature():
+        return False
+    expected_artifact = str(artifact_sha256 or "").strip().lower()
+    if expected_artifact:
+        recorded_artifact = str((data.get("model_artifact_sha256") or {}).get(model_id) or "").strip().lower()
+        if recorded_artifact != expected_artifact:
+            return False
+    return True
+
+
+def host_eligible_providers(
+    model_id: str,
+    *,
+    artifact_sha256: str | None = None,
+) -> list[str]:
+    """Providers validated for this model artifact, runtime stack, and host."""
+    if not model_id:
+        return []
+    try:
+        data = _read_current_eligibility_payload()
+        if not data or not _model_eligibility_is_current(
+            data,
+            model_id,
+            artifact_sha256=artifact_sha256,
+        ):
+            return []
         providers = [str(p).strip().lower() for p in (data.get("models") or {}).get(model_id) or [] if str(p).strip()]
         current_flavor = get_image_flavor()
-        recorded_flavor = str((data.get("model_image_flavors") or {}).get(model_id) or "").strip().lower()
-        # Published images require evidence from the exact runtime image tested.
-        # Legacy records lacked this metadata and therefore require one revalidation;
-        # the already-active and bundled models remain grandfathered by the gate.
-        if current_flavor != "unknown" and recorded_flavor != current_flavor:
-            return []
         packaged = set(packaged_inference_providers(current_flavor))
         return [provider for provider in providers if not packaged or provider in packaged]
     except Exception:
         return []
+
+
+def host_eligibility_summary() -> dict[str, Any]:
+    """Summarize current evidence with one bounded evidence-file read."""
+    empty = {
+        "verified_providers": [],
+        "generated_at": None,
+        "run_id": None,
+        "model_count": 0,
+    }
+    try:
+        data = _read_current_eligibility_payload()
+        models = data.get("models") or {}
+        if not isinstance(models, dict):
+            return empty
+        verified: set[str] = set()
+        model_count = 0
+        for raw_model_id, raw_providers in models.items():
+            model_id = str(raw_model_id or "").strip()
+            if not model_id or not _model_eligibility_is_current(data, model_id):
+                continue
+            providers = [
+                str(provider or "").strip().lower() for provider in (raw_providers or []) if str(provider or "").strip()
+            ]
+            if not providers:
+                continue
+            model_count += 1
+            verified.update(providers)
+        return {
+            "verified_providers": sorted(verified),
+            "generated_at": data.get("generated_at"),
+            "run_id": data.get("run_id"),
+            "model_count": model_count,
+        }
+    except Exception:
+        return empty
+
+
+def host_provider_validation_results(
+    model_id: str,
+    *,
+    artifact_sha256: str | None = None,
+) -> dict[str, dict[str, Any]]:
+    """Per-provider passing evidence for a model in the current image.
+
+    Older evidence did not retain enough runtime/artifact identity and is
+    deliberately rejected by ``host_eligible_providers`` until revalidation.
+    A schema-4 entry may still omit metrics when written by a narrow probe.
+    """
+    if not model_id:
+        return {}
+    data = _read_current_eligibility_payload()
+    if not data or not _model_eligibility_is_current(
+        data,
+        model_id,
+        artifact_sha256=artifact_sha256,
+    ):
+        return {}
+    eligible = set(host_eligible_providers(model_id, artifact_sha256=artifact_sha256))
+    raw = (data.get("model_provider_results") or {}).get(model_id) or {}
+    if not isinstance(raw, dict):
+        return {}
+    results: dict[str, dict[str, Any]] = {}
+    for raw_provider, raw_result in raw.items():
+        provider = str(raw_provider or "").strip().lower()
+        if provider not in eligible or not isinstance(raw_result, dict):
+            continue
+        result = dict(raw_result)
+        if result.get("ok") is not True:
+            continue
+        results[provider] = result
+    return results
+
+
+def host_provider_preference_order(
+    model_id: str,
+    *,
+    artifact_sha256: str | None = None,
+) -> list[str]:
+    """Return this installation's validated provider order for ``model_id``.
+
+    Schema-4 metrics order passing providers by measured latency with a
+    deterministic tie-break. A narrow schema-4 probe without metrics falls
+    back to its recorded activation recommendation.
+    """
+    eligible = host_eligible_providers(model_id, artifact_sha256=artifact_sha256)
+    if not eligible:
+        return []
+
+    preferred = str((read_validation_record(model_id) or {}).get("provider") or "").strip().lower()
+    results = host_provider_validation_results(model_id, artifact_sha256=artifact_sha256)
+    stable_rank = {provider: index for index, provider in enumerate(VALIDATION_PROVIDER_ORDER)}
+
+    def _latency_key(provider: str) -> tuple[float, int, str]:
+        value = (results.get(provider) or {}).get("latency_ms")
+        try:
+            latency = float(value)
+        except (TypeError, ValueError):
+            latency = float("inf")
+        if not math.isfinite(latency) or latency < 0:
+            latency = float("inf")
+        return (latency, stable_rank.get(provider, len(stable_rank)), provider)
+
+    measured = [provider for provider in eligible if provider in results]
+    unmeasured = [provider for provider in eligible if provider not in results]
+    ordered: list[str] = sorted(measured, key=_latency_key)
+    # Narrow validation records may have no per-provider metrics. Preserve their
+    # recommendation, but never let it override newer measured evidence if the
+    # process stopped between the two persistence writes.
+    if not measured and preferred in unmeasured:
+        ordered.append(preferred)
+    for provider in sorted(unmeasured, key=_latency_key):
+        if provider not in ordered:
+            ordered.append(provider)
+    return ordered
 
 
 def read_validation_record(model_id: str) -> dict | None:
@@ -154,30 +400,47 @@ def read_validation_record(model_id: str) -> dict | None:
         return None
 
 
-def activation_provider_recommendation(model_id: str) -> str | None:
+def activation_provider_recommendation(
+    model_id: str,
+    *,
+    artifact_sha256: str | None = None,
+) -> str | None:
     """Return a current, eligible provider recommendation for activation.
 
-    The two persisted records must agree: the single-model recommendation must
-    belong to this image flavor and the provider sweep must still list it as
-    eligible. This keeps activation atomic and fail-closed across image switches,
-    interrupted sweeps, and hand-edited state files.
+    The two persisted records must be current: the model record must belong to
+    this runtime/image/artifact and the provider sweep must still list a passing
+    route. This stays fail-closed across image or hardware switches, interrupted
+    sweeps, replaced artifacts, and hand-edited state files.
     """
 
     record = read_validation_record(model_id) or {}
     if record.get("validated") is not True:
         return None
-    provider = str(record.get("provider") or "").strip().lower()
-    if provider not in _VALIDATION_PROVIDER_TARGETS:
-        return None
     current_flavor = get_image_flavor()
     recorded_flavor = str(record.get("image_flavor") or "").strip().lower()
     if current_flavor != "unknown" and recorded_flavor != current_flavor:
         return None
-    return provider if provider in host_eligible_providers(model_id) else None
+    if str(record.get("runtime_signature") or "").strip().lower() != current_inference_runtime_signature():
+        return None
+    expected_artifact = str(artifact_sha256 or "").strip().lower()
+    if expected_artifact and str(record.get("artifact_sha256") or "").strip().lower() != expected_artifact:
+        return None
+    # Schema-v3 compatibility evidence contains the full measured order. It is
+    # stronger than the single-provider record, which may be stale if a process
+    # stopped between the two persistence writes. Legacy evidence still places
+    # that recorded provider first in host_provider_preference_order().
+    preference = host_provider_preference_order(model_id, artifact_sha256=artifact_sha256)
+    return preference[0] if preference else None
 
 
 def write_validation_record(
-    model_id: str, *, provider: str, ok: bool, reason: str, latency_ms: float | None = None
+    model_id: str,
+    *,
+    provider: str,
+    ok: bool,
+    reason: str,
+    latency_ms: float | None = None,
+    artifact_sha256: str | None = None,
 ) -> None:
     """Record this image's validation outcome while preserving every other model.
 
@@ -187,6 +450,7 @@ def write_validation_record(
         return
     root = _eval_root()
     path = root / VALIDATION_FILENAME
+    _EVIDENCE_WRITE_LOCK.acquire()
     try:
         root.mkdir(parents=True, exist_ok=True)
         models: dict = {}
@@ -200,16 +464,18 @@ def write_validation_record(
             "validated": bool(ok),
             "provider": str(provider or "").strip().lower(),
             "image_flavor": get_image_flavor(),
+            "runtime_signature": current_inference_runtime_signature(),
+            "artifact_sha256": str(artifact_sha256 or "").strip().lower() or None,
             "reason": reason,
             "latency_ms": latency_ms,
             "checked_at": datetime.now(timezone.utc).isoformat(),
         }
-        path.write_text(
-            json.dumps({"models": models}, indent=2),
-            encoding="utf-8",
-        )
+        with _EVIDENCE_WRITE_LOCK:
+            _write_json_atomic(path, {"models": models})
     except OSError as e:
         log.warning("model_validation_write_failed", model_id=model_id, error=str(e))
+    finally:
+        _EVIDENCE_WRITE_LOCK.release()
 
 
 def write_eligibility_entry(
@@ -218,6 +484,8 @@ def write_eligibility_entry(
     *,
     run_id: str | None = None,
     image_flavor: str | None = None,
+    provider_results: list[dict[str, Any]] | None = None,
+    artifact_sha256: str | None = None,
 ) -> None:
     """Record which inference providers this host validated for ``model_id`` in
     ``device_eligibility.json``, preserving every other model's entry. Fail-soft."""
@@ -225,36 +493,87 @@ def write_eligibility_entry(
         return
     root = _eval_root()
     path = root / ELIGIBILITY_FILENAME
+    _EVIDENCE_WRITE_LOCK.acquire()
     try:
         root.mkdir(parents=True, exist_ok=True)
         models: dict = {}
         generated: dict = {}
         model_image_flavors: dict[str, str] = {}
+        model_runtime_signatures: dict[str, str] = {}
+        model_artifact_sha256: dict[str, str] = {}
+        model_provider_results: dict[str, dict[str, dict[str, Any]]] = {}
         if path.is_file():
             try:
                 existing = json.loads(path.read_text(encoding="utf-8"))
                 models = existing.get("models") or {}
                 model_image_flavors = existing.get("model_image_flavors") or {}
+                model_runtime_signatures = existing.get("model_runtime_signatures") or {}
+                model_artifact_sha256 = existing.get("model_artifact_sha256") or {}
+                model_provider_results = existing.get("model_provider_results") or {}
                 generated = {k: existing.get(k) for k in ("run_id", "image_flavor") if existing.get(k)}
             except Exception:
                 models = {}
                 model_image_flavors = {}
+                model_runtime_signatures = {}
+                model_artifact_sha256 = {}
+                model_provider_results = {}
         models[model_id] = [str(p).strip().lower() for p in providers if str(p).strip()]
+        eligible = set(models[model_id])
+        normalized_results: dict[str, dict[str, Any]] = {}
+        for result in provider_results or []:
+            if not isinstance(result, dict):
+                continue
+            provider = str(result.get("provider") or "").strip().lower()
+            if provider not in eligible or result.get("ok") is not True:
+                continue
+            normalized_results[provider] = {
+                key: result.get(key)
+                for key in (
+                    "provider",
+                    "backend",
+                    "device",
+                    "ok",
+                    "compiles",
+                    "finite",
+                    "latency_ms",
+                    "images_evaluated",
+                    "images_compared",
+                    "matches_baseline",
+                    "top1_match_rate",
+                    "mean_top5_overlap",
+                )
+                if key in result
+            }
+            normalized_results[provider]["provider"] = provider
+        if provider_results is not None:
+            model_provider_results[model_id] = normalized_results
         if run_id:
             generated["run_id"] = run_id
         if image_flavor:
             generated["image_flavor"] = image_flavor
             model_image_flavors[model_id] = image_flavor
+        model_runtime_signatures[model_id] = current_inference_runtime_signature()
+        normalized_artifact = str(artifact_sha256 or "").strip().lower()
+        if normalized_artifact:
+            model_artifact_sha256[model_id] = normalized_artifact
+        else:
+            model_artifact_sha256.pop(model_id, None)
         payload = {
-            "schema_version": 2,
+            "schema_version": ELIGIBILITY_SCHEMA_VERSION,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "models": models,
             "model_image_flavors": model_image_flavors,
+            "model_runtime_signatures": model_runtime_signatures,
+            "model_artifact_sha256": model_artifact_sha256,
+            "model_provider_results": model_provider_results,
             **generated,
         }
-        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        with _EVIDENCE_WRITE_LOCK:
+            _write_json_atomic(path, payload)
     except OSError as e:
         log.warning("model_eligibility_write_failed", model_id=model_id, error=str(e))
+    finally:
+        _EVIDENCE_WRITE_LOCK.release()
 
 
 def _parse_probe_report(stdout: bytes) -> dict | None:
@@ -539,13 +858,13 @@ async def sweep_model_devices(
     candidates = validation_provider_candidates(
         image_flavor=image_flavor,
         capabilities=capabilities,
-        supported_providers=spec.get("supported_inference_providers"),
+        supported_providers=(spec.get("candidate_inference_providers") or spec.get("supported_inference_providers")),
         model_runtime=str(spec.get("runtime") or "onnx"),
         discover_providers=discover_providers,
     )
     declared_providers = {
         str(provider or "").strip().lower()
-        for provider in (spec.get("supported_inference_providers") or [])
+        for provider in (spec.get("candidate_inference_providers") or spec.get("supported_inference_providers") or [])
         if str(provider or "").strip()
     }
     baseline_provider = next(
@@ -641,6 +960,7 @@ async def sweep_model_devices(
 
     return {
         "image_flavor": image_flavor,
+        "artifact_sha256": str(spec.get("artifact_sha256") or "").strip().lower() or None,
         "baseline_provider": baseline_provider,
         "providers": per_provider,
         # Backwards-compatible response field used by older API clients.
@@ -677,13 +997,17 @@ async def sweep_crop_model_devices(
     candidates = validation_provider_candidates(
         image_flavor=image_flavor,
         capabilities=capabilities,
-        supported_providers=metadata.get("supported_inference_providers"),
+        supported_providers=(
+            metadata.get("candidate_inference_providers") or metadata.get("supported_inference_providers")
+        ),
         model_runtime=str(metadata.get("runtime") or "onnx"),
         discover_providers=discover_providers,
     )
     declared_providers = {
         str(provider or "").strip().lower()
-        for provider in (metadata.get("supported_inference_providers") or [])
+        for provider in (
+            metadata.get("candidate_inference_providers") or metadata.get("supported_inference_providers") or []
+        )
         if str(provider or "").strip()
     }
     baseline_provider = next(
@@ -811,6 +1135,7 @@ async def sweep_crop_model_devices(
 
     return {
         "image_flavor": image_flavor,
+        "artifact_sha256": str(metadata.get("sha256") or "").strip().lower() or None,
         "comparison_kind": "crop_box",
         "baseline_provider": baseline_provider,
         "providers": per_provider,
@@ -827,6 +1152,7 @@ def is_model_validated(
     *,
     active_model_id: str | None,
     bundled_ids: set[str],
+    artifact_sha256: str | None = None,
 ) -> tuple[bool, str]:
     """Whether ``model_id`` may be selected on this host, and why.
 
@@ -842,7 +1168,7 @@ def is_model_validated(
         # Grandfather the running model: an upgrade must never deactivate a model
         # that is already live and working.
         return (True, "active")
-    if host_eligible_providers(model_id):
+    if host_eligible_providers(model_id, artifact_sha256=artifact_sha256):
         return (True, "device_sweep")
     record = read_validation_record(model_id)
     if record and record.get("validated") is True:
@@ -851,7 +1177,19 @@ def is_model_validated(
         recorded_flavor = str(record.get("image_flavor") or "").strip().lower()
         packaged = set(packaged_inference_providers(current_flavor))
         flavor_matches = current_flavor == "unknown" or recorded_flavor == current_flavor
-        if flavor_matches and (not packaged or not provider or provider in packaged):
+        runtime_matches = (
+            str(record.get("runtime_signature") or "").strip().lower() == current_inference_runtime_signature()
+        )
+        expected_artifact = str(artifact_sha256 or "").strip().lower()
+        artifact_matches = (
+            not expected_artifact or str(record.get("artifact_sha256") or "").strip().lower() == expected_artifact
+        )
+        if (
+            flavor_matches
+            and runtime_matches
+            and artifact_matches
+            and (not packaged or not provider or provider in packaged)
+        ):
             return (True, "probe")
     return (False, "unvalidated")
 
@@ -906,12 +1244,27 @@ async def run_validation_probe(model_id: str) -> dict:
     original_active = model_manager.active_model_id
     classifier = get_classifier()
     provider = "cpu"
+    registry_lookup = getattr(model_manager, "_get_registry_model_meta", None)
+    registry_meta = registry_lookup(model_id) if callable(registry_lookup) else {}
+    registry_meta = registry_meta or {}
+    artifact_sha256 = str(registry_meta.get("sha256") or "").strip().lower() or None
     try:
         activated = await model_manager.activate_model(model_id)
         if not activated:
             reason = "model files are missing or incomplete"
-            write_eligibility_entry(model_id, [], image_flavor=get_image_flavor())
-            write_validation_record(model_id, provider=provider, ok=False, reason=reason)
+            write_eligibility_entry(
+                model_id,
+                [],
+                image_flavor=get_image_flavor(),
+                artifact_sha256=artifact_sha256,
+            )
+            write_validation_record(
+                model_id,
+                provider=provider,
+                ok=False,
+                reason=reason,
+                artifact_sha256=artifact_sha256,
+            )
             return {
                 "model_id": model_id,
                 "ok": False,
@@ -931,11 +1284,24 @@ async def run_validation_probe(model_id: str) -> dict:
             eligible = sweep["eligible_providers"]
             best = sweep["best"]
             if eligible:
-                write_eligibility_entry(model_id, eligible, image_flavor=sweep["image_flavor"])
+                write_eligibility_entry(
+                    model_id,
+                    eligible,
+                    image_flavor=sweep["image_flavor"],
+                    provider_results=sweep["providers"],
+                    artifact_sha256=sweep.get("artifact_sha256") or artifact_sha256,
+                )
                 best_provider = best["provider"] if best else eligible[0]
                 latency_ms = best["latency_ms"] if best else None
                 reason = "validated against this image's providers on this host"
-                write_validation_record(model_id, provider=best_provider, ok=True, reason=reason, latency_ms=latency_ms)
+                write_validation_record(
+                    model_id,
+                    provider=best_provider,
+                    ok=True,
+                    reason=reason,
+                    latency_ms=latency_ms,
+                    artifact_sha256=sweep.get("artifact_sha256") or artifact_sha256,
+                )
                 return {
                     "model_id": model_id,
                     "ok": True,
@@ -948,8 +1314,20 @@ async def run_validation_probe(model_id: str) -> dict:
                     "best_provider": best_provider,
                 }
             reason = "model did not run correctly on any provider in this image"
-            write_eligibility_entry(model_id, [], image_flavor=sweep["image_flavor"])
-            write_validation_record(model_id, provider="cpu", ok=False, reason=reason)
+            write_eligibility_entry(
+                model_id,
+                [],
+                image_flavor=sweep["image_flavor"],
+                provider_results=sweep["providers"],
+                artifact_sha256=sweep.get("artifact_sha256") or artifact_sha256,
+            )
+            write_validation_record(
+                model_id,
+                provider="cpu",
+                ok=False,
+                reason=reason,
+                artifact_sha256=sweep.get("artifact_sha256") or artifact_sha256,
+            )
             return {
                 "model_id": model_id,
                 "ok": False,
@@ -967,8 +1345,19 @@ async def run_validation_probe(model_id: str) -> dict:
         # fallback accidentally validate a different model.
         if get_image_flavor() != "unknown":
             reason = "no compatible provider runtime is available in this image"
-            write_eligibility_entry(model_id, [], image_flavor=get_image_flavor())
-            write_validation_record(model_id, provider="cpu", ok=False, reason=reason)
+            write_eligibility_entry(
+                model_id,
+                [],
+                image_flavor=get_image_flavor(),
+                artifact_sha256=artifact_sha256,
+            )
+            write_validation_record(
+                model_id,
+                provider="cpu",
+                ok=False,
+                reason=reason,
+                artifact_sha256=artifact_sha256,
+            )
             return {
                 "model_id": model_id,
                 "ok": False,
@@ -983,7 +1372,12 @@ async def run_validation_probe(model_id: str) -> dict:
 
         # Last-resort compatibility path for unknown development environments
         # whose runtime probe exposed no concrete provider target.
-        write_eligibility_entry(model_id, [], image_flavor=get_image_flavor())
+        write_eligibility_entry(
+            model_id,
+            [],
+            image_flavor=get_image_flavor(),
+            artifact_sha256=artifact_sha256,
+        )
         await classifier.reload_bird_model()
         try:
             status = classifier.get_status()
@@ -1001,7 +1395,14 @@ async def run_validation_probe(model_id: str) -> dict:
         latency_ms = round(sorted(samples)[len(samples) // 2], 1) if samples else None
 
         ok, reason = _judge_predictions(results)
-        write_validation_record(model_id, provider=provider, ok=ok, reason=reason, latency_ms=latency_ms)
+        write_validation_record(
+            model_id,
+            provider=provider,
+            ok=ok,
+            reason=reason,
+            latency_ms=latency_ms,
+            artifact_sha256=artifact_sha256,
+        )
         return {
             "model_id": model_id,
             "ok": ok,
@@ -1016,8 +1417,19 @@ async def run_validation_probe(model_id: str) -> dict:
     except Exception as e:
         reason = f"validation errored: {e}"
         log.warning("model_validation_probe_failed", model_id=model_id, error=str(e))
-        write_eligibility_entry(model_id, [], image_flavor=get_image_flavor())
-        write_validation_record(model_id, provider=provider, ok=False, reason=reason)
+        write_eligibility_entry(
+            model_id,
+            [],
+            image_flavor=get_image_flavor(),
+            artifact_sha256=artifact_sha256,
+        )
+        write_validation_record(
+            model_id,
+            provider=provider,
+            ok=False,
+            reason=reason,
+            artifact_sha256=artifact_sha256,
+        )
         return {
             "model_id": model_id,
             "ok": False,

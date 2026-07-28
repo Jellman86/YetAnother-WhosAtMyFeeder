@@ -1,5 +1,8 @@
 {
   "artifact_kind": "classifier",
+  "candidate_inference_providers": [
+    "cpu"
+  ],
   "crop_generator": {
     "enabled": true,
     "source_preference": "standard"

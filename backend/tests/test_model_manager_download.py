@@ -639,7 +639,7 @@ def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_li
     ]
 
 
-def test_get_active_model_spec_does_not_let_old_sidecar_hide_newly_validated_npu(tmp_path, monkeypatch):
+def test_get_active_model_spec_treats_host_gated_gpu_as_candidate_and_adds_new_safe_npu(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 
     model_dir = tmp_path / "convnext_large_inat21"
@@ -662,7 +662,14 @@ def test_get_active_model_spec_does_not_let_old_sidecar_hide_newly_validated_npu
     spec = manager.get_active_model_spec()
 
     assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
-    assert spec["model_config_registry_unsupported_providers"] == ["intel_gpu"]
+    assert spec["candidate_inference_providers"] == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_gpu",
+        "intel_npu",
+    ]
+    assert spec.get("model_config_registry_unsupported_providers", []) == []
     assert spec["model_config_registry_missing_providers"] == ["intel_npu"]
 
 

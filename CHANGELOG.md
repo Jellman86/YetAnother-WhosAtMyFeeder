@@ -6,6 +6,41 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **Provider support now has a global candidate contract and an installation proof.** Registry and
+  release-sidecar generator metadata distinguish providers that are safe everywhere from reviewed
+  candidates that are worth probing. Compatibility evidence schema 4 binds each passing provider
+  to the image flavour, inference package versions, kernel/visible accelerator identity, and model
+  artifact checksum, so a runtime upgrade, host move, image switch, or replaced artifact cannot
+  inherit an unrelated GPU/NPU pass.
+
+### Changed
+
+- **Accelerator selection is now ordered per model and installation.** A compatibility sweep keeps
+  per-provider latency and numerical-agreement evidence; `Auto`, Settings, Model Manager, and the
+  setup wizard use that measured order. The UI exposes only the image-packaged, host-visible,
+  model-approved intersection, while raw settings and model-activation APIs enforce the same gate.
+  Activating another model resets an explicit provider from the previous model unless the new
+  model has current evidence.
+- **ConvNeXt Large treats Intel GPU as host-gated rather than globally broken or globally safe.**
+  The reviewed global registry allows an isolated Intel GPU probe while retaining CPU, CUDA,
+  OpenVINO CPU, and Intel NPU as the safe baseline. Quark's current OpenVINO stack matched CPU
+  top-1 on 24/24 real images with 4.96/5 mean top-5 overlap; older OpenVINO 2025.4.1 evidence remains
+  documented as incompatible and cannot authorize a current install.
+
+### Fixed
+
+- **Manual video reclassification is queue-owned, bounded, and cancellable.** The request now
+  returns immediately, deduplicates against live/maintenance work, reports real Jobs progress, and
+  always runs video inference in a killable subprocess so a timeout or disconnected client cannot
+  leave native inference consuming the accelerator.
+- **Playable cached media is no longer discarded because Frigate forgot the event.** Manual
+  analysis prefers complete or partial cached recordings and cached event clips before a Frigate
+  fetch. If event lookup, retention, fetch, validation, decoding, or video inference cannot provide
+  usable video, the same job visibly downgrades to the best available snapshot instead of failing
+  without attempting the remaining evidence.
+
 ## [2.16.0] - 2026-07-25
 
 ### Added

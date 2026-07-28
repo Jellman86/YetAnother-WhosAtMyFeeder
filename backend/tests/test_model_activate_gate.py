@@ -126,7 +126,7 @@ async def test_activation_applies_the_verified_provider_only_after_model_activat
     monkeypatch.setattr(
         models_router,
         "activation_provider_recommendation",
-        lambda _model_id: "cuda",
+        lambda _model_id, **_kwargs: "cuda",
     )
     original_provider = settings.classification.inference_provider
     try:
@@ -134,6 +134,30 @@ async def test_activation_applies_the_verified_provider_only_after_model_activat
         assert resp.status_code == 200, resp.text
         assert stub_activation["id"] == "small_birds"
         assert settings.classification.inference_provider == "cuda"
+    finally:
+        settings.classification.inference_provider = original_provider
+
+
+@pytest.mark.asyncio
+async def test_activation_resets_stale_explicit_provider_when_model_has_no_recommendation(
+    client, monkeypatch, stub_activation
+):
+    async def fake_installed():
+        return [_installed("small_birds", validated=True)]
+
+    monkeypatch.setattr(models_router.model_manager, "list_installed_models", fake_installed)
+    monkeypatch.setattr(
+        models_router,
+        "activation_provider_recommendation",
+        lambda _model_id, **_kwargs: None,
+    )
+    original_provider = settings.classification.inference_provider
+    try:
+        settings.classification.inference_provider = "cuda"
+        resp = await client.post("/api/models/small_birds/activate")
+        assert resp.status_code == 200, resp.text
+        assert stub_activation["id"] == "small_birds"
+        assert settings.classification.inference_provider == "auto"
     finally:
         settings.classification.inference_provider = original_provider
 

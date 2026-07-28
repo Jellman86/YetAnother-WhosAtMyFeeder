@@ -161,9 +161,11 @@ Key fields:
 - `host_available_providers` (packaged providers that passed runtime/device probes,
   before model compatibility is applied)
 - `available_providers` (packaged providers that passed runtime/device probes and
-  are supported by the active model)
+  are globally safe or currently validated for the active model)
 - `provider_preference_order` (the active provider followed by its concrete
   runtime-recovery path)
+- `active_model_candidate_providers`, `active_model_validated_providers`, and
+  `validated_provider_preference_order`
 - `cuda_provider_installed` vs `cuda_available`
   - `true` / `false` means the CUDA-capable ONNX Runtime wheel is installed, but no usable NVIDIA GPU is available to the container
 - `openvino_available`
@@ -184,12 +186,14 @@ uses an actually available fallback. Switch to the full or matching provider ima
 [safe flavor procedure](../setup/hardware-acceleration.md#switch-safely-between-flavors);
 do not try to install packages into the running container.
 
-Provider validation is model- and image-specific. The sweep only tests providers that the running
-image packages, the host probe exposes, and the model declares compatible. Passing results are
-reported under `host_device_eligibility`; results left on the persistent volume by another image
-flavor are rejected unless that exact flavor validated the model. A remaining `model_config_warnings`
-entry is therefore actionable: repair or download the model again in **Settings → Detection →
-Model Manager**, or include it in a diagnostics bundle when asking for help.
+Provider validation is installation- and model-specific. The global registry separates safe
+providers from reviewed candidates; the sweep only tests candidates that the running image
+packages and the host probe exposes. Schema-4 evidence is tied to the model checksum, inference
+package versions, kernel, architecture, visible accelerator identity, and image flavour. Evidence
+left by a different artifact, runtime, host, kernel, or flavour is rejected and the model returns
+to its globally safe baseline until revalidated. A remaining `model_config_warnings` entry is
+therefore actionable: repair or download the model again in **Settings → Detection → Model
+Manager**, or include it in a diagnostics bundle when asking for help.
 
 ### Intel iGPU (OpenVINO) checklist
 

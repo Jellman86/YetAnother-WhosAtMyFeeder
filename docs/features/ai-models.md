@@ -23,15 +23,16 @@ by the connection tests — with three stages:
 2. **Validate and tune on this hardware** — intersects the running image, host probe, and model
    contract; then tests ONNX CPU/CUDA and OpenVINO CPU/GPU/NPU as applicable. Each provider runs in
    an isolated process, must produce finite output matching the CPU baseline, and reports median
-   per-frame inference latency. The fastest passing provider becomes the recommendation.
+   per-frame inference latency. The measured passing order becomes this installation's recommendation.
 3. **Enable for selection** — makes the model active, restoring the previous model if validation
    fails. Only after activation succeeds is the still-eligible recommendation applied.
 
 A model that has never been validated on this host shows **Validate to enable** instead of **Use
 this model**, and the API rejects activating it (`409`). The model already running and bundled
 models are grandfathered, so upgrading never blocks a working install. Validation works on every
-image flavor and tests only providers that image actually owns. Evidence is scoped to the exact
-image flavor, so switching images requires a new proof even for a shared provider such as CPU. The
+image flavor and tests only providers that image actually owns. Evidence is scoped to the model
+artifact, inference runtime/kernel, visible accelerator hardware, and exact image flavor, so a
+change to any of those requires new proof even for a shared provider such as CPU. The
 same [provider compatibility sweep](model-evaluation.md) backs the setup wizard, Model Manager, and
 Detection Diagnostics.
 
@@ -40,7 +41,8 @@ Detection Diagnostics.
 For ONNX models, YA-WAMF supports a provider selector under
 **Settings → Detection → Inference Provider**:
 
-- `Auto` (recommended): prefers **Intel GPU (OpenVINO)**, then **NVIDIA CUDA**, then CPU.
+- `Auto` (recommended): uses the selected model's measured passing order on this installation and
+  otherwise remains within its globally safe provider contract.
 - `CPU`: ONNX Runtime CPU execution.
 - `NVIDIA CUDA`: ONNX Runtime with CUDA (falls back to CPU if CUDA is not actually usable).
 - `Intel GPU (OpenVINO)`: OpenVINO GPU plugin (falls back to OpenVINO CPU if the Intel GPU is unavailable).

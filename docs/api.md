@@ -220,8 +220,8 @@ Notes:
 - `GET /api/models/families/resolved` (owner)
 - `POST /api/models/{model_id}/download` (owner)
 - `GET /api/models/download-status/{model_id}` (owner)
-- `POST /api/models/{model_id}/validate` (owner) — trial-activates a classifier, validates every provider in the running image/host/model intersection in isolated processes, compares accelerator output with a CPU baseline, records provider eligibility and median inference latency, chooses the fastest passing provider, and restores the previously active model. Crop-detector artifacts are rejected with `409`.
-- `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the artifact is a crop detector or the classifier has not been validated in the current image on this host (unless it is bundled or already active); after activation succeeds, applies the fastest still-eligible provider recorded by the shared validation engine.
+- `POST /api/models/{model_id}/validate` (owner) — trial-activates a classifier, validates every globally safe or reviewed candidate provider in the running image/host/model intersection in isolated processes, compares accelerator output with a CPU baseline, records schema-4 artifact/runtime/hardware-bound eligibility and median inference latency, orders passing providers by measured latency, and restores the previously active model. Crop-detector artifacts are rejected with `409`.
+- `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the artifact is a crop detector or the classifier has not been validated for this artifact/runtime/install (unless it is bundled or already active); after activation succeeds, applies the first still-eligible provider and never carries an explicit provider from the previous model.
 
 `GET /api/classifier/status` separates packaging, hardware availability, and the
 active model session. Important deployment fields are:
@@ -237,6 +237,9 @@ active model session. Important deployment fields are:
 | `host_available_providers` | Providers packaged in this image whose runtime/device probe passed, before applying a model-specific compatibility filter. Used when choosing a different model. |
 | `available_providers` | Providers packaged in this image whose runtime/device probe passed and which the active model supports, ordered with the active recovery path first and other valid manual choices afterwards. |
 | `provider_preference_order` | The active provider followed by the concrete providers the current runtime will try if inference recovery is required. This is a subset of `available_providers`. |
+| `active_model_candidate_providers` | Reviewed global candidates that this model's isolated compatibility sweep may probe. A candidate is not automatically selectable. |
+| `active_model_validated_providers` | Providers that passed current artifact/runtime/install validation for the active model. |
+| `validated_provider_preference_order` | Passing providers ordered by this installation's measured latency. |
 | `selected_provider` | Saved preference from configuration. An image mismatch does not rewrite it. |
 | `active_provider` / `inference_backend` | Provider and backend used by the loaded model session. |
 | `fallback_reason` | Why the active session differs from the selected provider, when known. |
@@ -256,7 +259,7 @@ summary plus `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with
 `artifact=device_matrix.json`. Its provider matrix records image flavor, baseline,
 compile/finite-output status, real-image agreement, eligibility, and inference latency.
 Compatibility summaries also expose `validated_providers` and `failed_providers` per model; the
-fastest passing declared provider becomes the current-image activation recommendation.
+measured passing order becomes the current-install activation and `Auto` recommendation.
 `discover_providers=true` additionally probes packaged, host-visible providers omitted by current
 model metadata. Passing undeclared rows are reported as `declared: false` and under
 `discovered_providers`; they do not widen runtime eligibility until the registry is reviewed.

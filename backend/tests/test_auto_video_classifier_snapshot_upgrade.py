@@ -232,6 +232,48 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
     service._save_results.assert_awaited_once_with(
         "evt-batch-fallback",
         {"label": "Robin", "score": 0.88, "index": 1, "input_source": "frigate_snapshot"},
+        manual_tagged=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_manual_reclassification_falls_back_for_any_unavailable_video_error():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._load_preferred_clip = AsyncMock(  # type: ignore[method-assign]
+        return_value=(None, "clip_fetch_failed", "event")
+    )
+    service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()) as broadcast,
+        patch.object(auto_video_classifier_module.random, "uniform", return_value=0.0),
+    ):
+        await service._process_event(
+            "evt-manual-video-unavailable",
+            "cam1",
+            skip_delay=True,
+            source="manual",
+        )
+
+    service._classify_from_snapshot.assert_awaited_once_with(
+        "evt-manual-video-unavailable",
+        "cam1",
+        event_data={"has_clip": True},
+        manual_tagged=True,
+    )
+    service._auto_delete_if_missing.assert_not_awaited()
+    assert any(
+        call.args[0].get("type") == "reclassification_strategy_changed"
+        and call.args[0]["data"]["reason"] == "clip_fetch_failed"
+        for call in broadcast.await_args_list
     )
     service._auto_delete_if_missing.assert_not_awaited()
 
@@ -278,6 +320,7 @@ async def test_process_event_snapshot_fallback_retries_background_overload_then_
     service._save_results.assert_awaited_once_with(
         "evt-batch-fallback-retry",
         {"label": "Robin", "score": 0.88, "index": 1, "input_source": "frigate_snapshot"},
+        manual_tagged=False,
     )
     service._record_success.assert_called_once_with("evt-batch-fallback-retry", source="maintenance")
     service._record_failure.assert_not_called()
@@ -706,6 +749,7 @@ async def test_process_event_maintenance_timeout_falls_back_to_snapshot_without_
             "evt-video-timeout-fallback",
             "cam1",
             event_data={"has_clip": True},
+            manual_tagged=False,
         )
         service._record_success.assert_called_once_with("evt-video-timeout-fallback", source="maintenance")
         service._record_failure.assert_not_called()

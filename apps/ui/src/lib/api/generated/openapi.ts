@@ -855,9 +855,12 @@ export interface components {
     labels_path: string;
     metadata?: components['schemas']['ModelMetadata'] | null;
     path: string;
+    preferred_inference_provider?: string | null;
+    provider_preference_order?: Array<string>;
     ready?: boolean;
     reason?: string;
     validated?: boolean;
+    validated_inference_providers?: Array<string>;
     validation_reason?: string;
 };
     JobLaneSnapshot: {
@@ -994,6 +997,7 @@ export interface components {
     advanced_only?: boolean;
     architecture: string;
     artifact_kind?: string;
+    candidate_inference_providers?: Array<string> | null;
     crop_generator?: components['schemas']['CropGeneratorConfig'];
     default_region?: string | null;
     description: string;
@@ -1005,6 +1009,7 @@ export interface components {
     inference_speed: string;
     input_size?: number;
     label_grouping?: Record<string, unknown> | null;
+    labels_sha256?: string | null;
     labels_url: string;
     model_config_url?: string | null;
     name: string;
@@ -1014,11 +1019,13 @@ export interface components {
     recommended_threshold?: number | null;
     region_variants?: Record<string, Record<string, unknown>> | null;
     runtime?: string | null;
+    sha256?: string | null;
     sort_order?: number;
     status?: string;
     supported_inference_providers?: Array<string> | null;
     taxonomy_scope: string;
     tier: string;
+    weights_sha256?: string | null;
     weights_url?: string | null;
 };
     ModelValidateDevice: {
@@ -1075,8 +1082,9 @@ export interface components {
     new_score: number;
     new_species: string;
     old_species: string;
+    queue_state?: "queued" | "duplicate" | null;
     reason?: "no_confident_result" | null;
-    status: "success" | "no_result";
+    status: "queued" | "success" | "no_result";
     updated: boolean;
 };
     RecordingClipCapabilityResponse: {

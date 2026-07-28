@@ -401,7 +401,7 @@ def _build_default_classify_fn() -> Callable[..., list[dict[str, Any]]]:
         image = Image.open(BytesIO(b64decode(image_b64.encode("ascii")))).convert("RGB")
         return service.classify(image, camera_name=camera_name, model_id=model_id, input_context=input_context)
 
-    _classify_fn._runtime_recovery_getter = lambda: service._last_runtime_recovery  # type: ignore[attr-defined]
+    _classify_fn._runtime_recovery_getter = service.latest_runtime_recovery  # type: ignore[attr-defined]
     _classify_fn._video_classify_fn = service.classify_video  # type: ignore[attr-defined]
     return _classify_fn
 

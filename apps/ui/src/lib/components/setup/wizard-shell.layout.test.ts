@@ -72,7 +72,9 @@ describe('setup wizard wiring', () => {
         expect(modelStepSource).toContain('id="setup-provider"');
         expect(modelStepSource).toContain('buildInferenceProviderChoices');
         expect(modelStepSource).toContain('selectedModel?.supported_inference_providers');
-        expect(modelStepSource).toContain('selectedValidation?.validated_providers');
+        expect(modelStepSource).toContain('selectedValidatedProviders');
+        expect(modelStepSource).toContain('selectedInstalledModel?.validated_inference_providers');
+        expect(modelStepSource).toContain('selectedInstalledModel?.provider_preference_order');
         expect(modelStepSource).toContain('providerTouched');
         expect(modelStepSource).toContain('providerPreferenceLabel');
         expect(modelStepSource).toContain('model_ids: [selectedModelId]');

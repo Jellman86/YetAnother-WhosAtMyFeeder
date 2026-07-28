@@ -62,6 +62,8 @@ faster, on which hardware, and whether accuracy or power use changes.
 - [ ] The exact tag's CI and migration checks are green.
 - [ ] Full, CPU, Intel, and CUDA images all started successfully from the same commit.
 - [ ] The full → CPU → full persistence gate passed before release and `latest*` tags were promoted.
+- [ ] Release `model_config.json` sidecars were regenerated from `REMOTE_REGISTRY`; globally safe
+  and host-gated candidate provider lists match the reviewed compatibility evidence.
 - [ ] Every statement is supported by shipped code, tests, or verified operation.
 - [ ] The opening summary makes sense without reading the changelog.
 - [ ] Bullets describe feeder-owner outcomes rather than internal components.

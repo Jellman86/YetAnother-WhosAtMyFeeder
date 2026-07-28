@@ -3,6 +3,7 @@ import numpy as np
 import os
 import cv2
 import asyncio
+import contextlib
 import inspect
 import base64
 import ctypes
@@ -432,7 +433,11 @@ def _normalize_inference_provider(value: Optional[str]) -> str:
     return normalized if normalized in SUPPORTED_INFERENCE_PROVIDERS else "auto"
 
 
-def _host_validated_providers(model_id: str) -> list[str]:
+def _host_validated_providers(
+    model_id: str,
+    *,
+    artifact_sha256: str | None = None,
+) -> list[str]:
     """Providers validated for this model, host, and exact runtime image.
 
     The model-validation service owns the persisted schema and legacy migration
@@ -444,27 +449,72 @@ def _host_validated_providers(model_id: str) -> list[str]:
     try:
         from app.services.model_validation import host_eligible_providers
 
-        return host_eligible_providers(model_id)
+        return host_eligible_providers(model_id, artifact_sha256=artifact_sha256)
     except Exception:
         return []
 
 
 def _apply_host_validated_provider_policy(spec: dict[str, Any], *, model_id: str) -> dict[str, Any]:
-    """Attach validation evidence without widening the model's provider contract.
+    """Resolve the effective provider contract for this exact installation.
 
-    Eligibility files persist across upgrades and image switches. They prove a
-    provider ran at one point; they do not override current registry/sidecar
-    compatibility metadata. This fail-closed boundary prevents stale historical
-    sweeps from re-enabling a provider deliberately removed from a model config.
+    ``supported_inference_providers`` is the globally safe baseline.
+    ``candidate_inference_providers`` is the wider set an isolated host sweep may
+    probe. Current-image validation evidence narrows the runtime to passing
+    providers and may widen it only to reviewed candidates. Evidence from an
+    older image flavor is filtered by ``host_eligible_providers``.
     """
     resolved = dict(spec)
-    supported = [str(provider).strip().lower() for provider in spec.get("supported_inference_providers") or []]
-    resolved["supported_inference_providers"] = supported
-    resolved["host_added_inference_providers"] = []
-    resolved["host_validated_inference_providers"] = [
-        provider for provider in _host_validated_providers(model_id) if provider in supported
+    supported = _unique_provider_names(spec.get("supported_inference_providers"))
+    candidates = _unique_provider_names(spec.get("candidate_inference_providers") or supported)
+    candidate_set = set(candidates)
+    artifact_sha256 = str(spec.get("artifact_sha256") or "").strip().lower() or None
+    validated = [
+        provider
+        for provider in _host_validated_providers(
+            model_id,
+            artifact_sha256=artifact_sha256,
+        )
+        if provider in candidate_set
     ]
+    try:
+        from app.services.model_validation import host_provider_preference_order
+
+        preference = [
+            provider
+            for provider in host_provider_preference_order(
+                model_id,
+                artifact_sha256=artifact_sha256,
+            )
+            if provider in validated
+        ]
+    except Exception:
+        preference = []
+    for provider in validated:
+        if provider not in preference:
+            preference.append(provider)
+
+    # Once a sweep exists it is authoritative: providers that were available
+    # but failed must not remain selectable merely because they are globally
+    # supported. Without a current sweep, retain the safe global baseline so
+    # upgrades do not deactivate a previously working installation.
+    effective = list(preference or supported)
+    resolved["supported_inference_providers"] = effective
+    resolved["candidate_inference_providers"] = candidates
+    resolved["host_added_inference_providers"] = [provider for provider in effective if provider not in supported]
+    resolved["host_validated_inference_providers"] = list(validated)
+    resolved["host_provider_preference_order"] = list(preference)
+    resolved["host_validation_applied"] = bool(validated)
     return resolved
+
+
+def _unique_provider_names(values: Any) -> list[str]:
+    providers: list[str] = []
+    for value in values or []:
+        provider = _normalize_inference_provider(str(value or ""))
+        if provider == "auto" or provider in providers:
+            continue
+        providers.append(provider)
+    return providers
 
 
 def _host_device_eligibility_summary() -> dict[str, Any]:
@@ -472,25 +522,9 @@ def _host_device_eligibility_summary() -> dict[str, Any]:
     providers validated across all models, plus when/what run produced it.
     Lets the Settings UI show iGPU/NPU as verified vs unverified per host."""
     try:
-        base = os.environ.get("YAWAMF_EVAL_RUNS_DIR", "/config/yawamf-eval")
-        path = Path(base) / "device_eligibility.json"
-        if not path.is_file():
-            return {"verified_providers": [], "generated_at": None, "run_id": None, "model_count": 0}
-        data = json.loads(path.read_text())
-        models = data.get("models") or {}
-        union: set[str] = set()
-        current_model_count = 0
-        for model_id in models:
-            providers = _host_validated_providers(str(model_id))
-            if providers:
-                current_model_count += 1
-                union.update(providers)
-        return {
-            "verified_providers": sorted(union),
-            "generated_at": data.get("generated_at"),
-            "run_id": data.get("run_id"),
-            "model_count": current_model_count,
-        }
+        from app.services.model_validation import host_eligibility_summary
+
+        return host_eligibility_summary()
     except Exception:
         return {"verified_providers": [], "generated_at": None, "run_id": None, "model_count": 0}
 
@@ -1170,6 +1204,7 @@ def _runtime_fallback_targets_for(
     active_backend: str,
     active_provider: str,
     caps: dict[str, Any],
+    provider_order: list[str] | tuple[str, ...] | None = None,
 ) -> list[tuple[str, str]]:
     """Return the concrete recovery order for the active inference runtime."""
     targets: list[tuple[str, str]] = []
@@ -1178,6 +1213,25 @@ def _runtime_fallback_targets_for(
         target = (target_backend, target_provider)
         if target not in targets and target != (active_backend, active_provider):
             targets.append(target)
+
+    provider_backends = {
+        "intel_npu": ("openvino", "intel_npu"),
+        "intel_gpu": ("openvino", "intel_gpu"),
+        "cuda": ("onnxruntime", "cuda"),
+        "intel_cpu": ("openvino", "intel_cpu"),
+        "cpu": ("onnxruntime", "cpu"),
+    }
+    available = {
+        "intel_npu": bool(caps.get("openvino_available") and caps.get("intel_npu_available")),
+        "intel_gpu": bool(caps.get("openvino_available") and caps.get("intel_gpu_available")),
+        "cuda": bool(caps.get("ort_available") and caps.get("cuda_available")),
+        "intel_cpu": bool(caps.get("openvino_available") and caps.get("intel_cpu_available")),
+        "cpu": bool(caps.get("ort_available")),
+    }
+    for provider in _unique_provider_names(provider_order):
+        if available.get(provider) and provider in provider_backends:
+            backend, normalized_provider = provider_backends[provider]
+            _append(backend, normalized_provider)
 
     if active_backend == "openvino":
         if active_provider in {"intel_gpu", "intel_npu"} and caps.get("intel_cpu_available"):
@@ -1211,6 +1265,7 @@ def _provider_capability_contract(
     supported_providers: list[str] | tuple[str, ...] | None,
     active_backend: str,
     active_provider: str,
+    provider_order: list[str] | tuple[str, ...] | None = None,
 ) -> dict[str, list[str]]:
     """Build the provider list exposed to configuration clients.
 
@@ -1245,12 +1300,14 @@ def _provider_capability_contract(
         return bool(_host_selectable(provider) and (not supported or provider in supported))
 
     fallback_candidates = [active_provider]
+    fallback_candidates.extend(_unique_provider_names(provider_order))
     fallback_candidates.extend(
         provider
         for _backend, provider in _runtime_fallback_targets_for(
             active_backend=active_backend,
             active_provider=active_provider,
             caps=caps,
+            provider_order=provider_order,
         )
     )
 
@@ -1265,7 +1322,13 @@ def _provider_capability_contract(
             host_available_providers.append(provider)
 
     available_providers = list(provider_preference_order)
-    for provider in ("intel_npu", "intel_gpu", "cuda", "intel_cpu", "cpu"):
+    manual_candidates = _unique_provider_names(provider_order)
+    manual_candidates.extend(
+        provider
+        for provider in ("intel_npu", "intel_gpu", "cuda", "intel_cpu", "cpu")
+        if provider not in manual_candidates
+    )
+    for provider in manual_candidates:
         if _host_selectable(provider) and provider not in host_available_providers:
             host_available_providers.append(provider)
         if _selectable(provider) and provider not in available_providers:
@@ -1282,6 +1345,7 @@ def _resolve_inference_selection(
     requested_provider: Optional[str],
     caps: dict,
     supported_providers: Optional[list[str]] = None,
+    preferred_providers: Optional[list[str]] = None,
 ) -> dict:
     """Resolve desired inference provider to a concrete backend/device with fallback."""
     requested = _normalize_inference_provider(requested_provider)
@@ -1440,45 +1504,58 @@ def _resolve_inference_selection(
             )
         )
 
-    # auto: prefer Intel GPU, then CUDA, then CPU
-    if caps.get("openvino_available") and caps.get("intel_gpu_available") and _provider_allowed("intel_gpu"):
-        return {
-            "requested_provider": requested,
-            "active_provider": "intel_gpu",
-            "backend": "openvino",
-            "ort_providers": [],
-            "openvino_device": "GPU",
-            "fallback_reason": None,
-        }
-    if caps.get("ort_available") and caps.get("cuda_available") and _provider_allowed("cuda"):
-        return {
-            "requested_provider": requested,
-            "active_provider": "cuda",
-            "backend": "onnxruntime",
-            "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
-            "openvino_device": None,
-            "fallback_reason": None,
-        }
-    if caps.get("openvino_available") and caps.get("intel_cpu_available") and _provider_allowed("intel_cpu"):
-        fallback_reason = None
-        if allowed and "intel_gpu" not in allowed:
-            fallback_reason = "Active model artifact does not support Intel GPU"
-        elif caps.get("cuda_probe_error"):
-            fallback_reason = _cuda_unavailable_reason(caps)
-        return {
-            "requested_provider": requested,
-            "active_provider": "intel_cpu",
-            "backend": "openvino",
-            "ort_providers": [],
-            "openvino_device": "CPU",
-            "fallback_reason": fallback_reason,
-        }
-    fallback_reason = None
-    if allowed and "intel_gpu" not in allowed:
-        fallback_reason = "Active model artifact does not support Intel GPU"
-    elif caps.get("cuda_probe_error"):
-        fallback_reason = _cuda_unavailable_reason(caps)
-    return _ort_cpu(fallback_reason)
+    # ``auto`` follows this installation's measured order when available.
+    # Without sweep evidence, use a conservative accelerator-first order; the
+    # effective model contract still prevents unvalidated host-gated candidates
+    # from appearing here.
+    auto_order = _unique_provider_names(preferred_providers)
+    for provider in ("intel_npu", "intel_gpu", "cuda", "intel_cpu", "cpu"):
+        if provider not in auto_order:
+            auto_order.append(provider)
+
+    for provider in auto_order:
+        if not _provider_allowed(provider):
+            continue
+        if provider == "intel_npu" and caps.get("openvino_available") and caps.get("intel_npu_available"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "intel_npu",
+                "backend": "openvino",
+                "ort_providers": [],
+                "openvino_device": "NPU",
+                "fallback_reason": None,
+            }
+        if provider == "intel_gpu" and caps.get("openvino_available") and caps.get("intel_gpu_available"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "intel_gpu",
+                "backend": "openvino",
+                "ort_providers": [],
+                "openvino_device": "GPU",
+                "fallback_reason": None,
+            }
+        if provider == "cuda" and caps.get("ort_available") and caps.get("cuda_available"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "cuda",
+                "backend": "onnxruntime",
+                "ort_providers": ["CUDAExecutionProvider", "CPUExecutionProvider"],
+                "openvino_device": None,
+                "fallback_reason": None,
+            }
+        if provider == "intel_cpu" and caps.get("openvino_available") and caps.get("intel_cpu_available"):
+            return {
+                "requested_provider": requested,
+                "active_provider": "intel_cpu",
+                "backend": "openvino",
+                "ort_providers": [],
+                "openvino_device": "CPU",
+                "fallback_reason": None,
+            }
+        if provider == "cpu" and caps.get("ort_available"):
+            return _ort_cpu()
+
+    return _ort_cpu("No validated provider for the active model is available on this host")
 
 
 def _reconcile_ort_active_provider(
@@ -2526,6 +2603,7 @@ class ClassifierService:
         )
         self._image_execution_mode = "in_process" if self._worker_process_mode else configured_mode
         self._classifier_supervisor = supervisor
+        self._video_supervisor = supervisor
         self._bird_crop_service = bird_crop_service
         self._crop_source_resolver = crop_source_resolver
         # Use dedicated executors so long-running video analysis cannot starve
@@ -2562,7 +2640,7 @@ class ClassifierService:
         )
         # Backward-compatible alias for any external references.
         self._executor = self._image_executor
-        if self._classifier_supervisor is None and self._image_execution_mode == "subprocess":
+        if not self._worker_process_mode and self._video_supervisor is None:
             video_timeout_seconds = float(
                 getattr(settings.classification, "video_classification_timeout_seconds", 180) or 180.0
             )
@@ -2580,7 +2658,7 @@ class ClassifierService:
                     or 120.0
                 ),
             )
-            self._classifier_supervisor = ClassifierSupervisor(
+            isolated_supervisor = ClassifierSupervisor(
                 live_worker_count=int(
                     getattr(settings.classification, "live_worker_count", image_workers) or image_workers
                 ),
@@ -2600,6 +2678,9 @@ class ClassifierService:
                     min(60.0, max(30.0, video_timeout_seconds / 2.0)),
                 ),
             )
+            self._video_supervisor = isolated_supervisor
+            if self._image_execution_mode == "subprocess":
+                self._classifier_supervisor = isolated_supervisor
         self._selected_inference_provider = _normalize_inference_provider(
             getattr(settings.classification, "inference_provider", "auto")
         )
@@ -2668,6 +2749,7 @@ class ClassifierService:
         preprocessing = spec.get("preprocessing")
         label_grouping = spec.get("label_grouping")
         supported_inference_providers = list(spec.get("supported_inference_providers") or [])
+        candidate_inference_providers = list(spec.get("candidate_inference_providers") or supported_inference_providers)
         runtime = str(spec.get("runtime") or "tflite")
         crop_generator = dict(spec.get("crop_generator") or {})
         model_config_warnings = list(spec.get("model_config_warnings") or [])
@@ -2690,8 +2772,12 @@ class ClassifierService:
             "runtime": runtime,
             "resolved_region": spec.get("resolved_region"),
             "supported_inference_providers": supported_inference_providers,
+            "candidate_inference_providers": candidate_inference_providers,
             "model_config_warnings": model_config_warnings,
             "host_added_inference_providers": list(spec.get("host_added_inference_providers") or []),
+            "host_validated_inference_providers": list(spec.get("host_validated_inference_providers") or []),
+            "host_provider_preference_order": list(spec.get("host_provider_preference_order") or []),
+            "host_validation_applied": bool(spec.get("host_validation_applied")),
             "crop_generator": crop_generator,
         }
 
@@ -3100,10 +3186,15 @@ class ClassifierService:
                     pass
 
     def _runtime_fallback_targets(self) -> list[tuple[str, str]]:
+        try:
+            provider_order = list(self._resolve_active_bird_model_spec().get("host_provider_preference_order") or [])
+        except Exception:
+            provider_order = []
         return _runtime_fallback_targets_for(
             active_backend=self._inference_backend,
             active_provider=self._active_inference_provider,
             caps=self._accel_caps,
+            provider_order=provider_order,
         )
 
     def _load_runtime_fallback_bird_model(
@@ -3240,6 +3331,18 @@ class ClassifierService:
                 active_key.model_id,
             )
         self._inference_health.record_recovery(key, recovery)
+
+    def latest_runtime_recovery(self) -> dict[str, Any] | None:
+        """Return the newest runtime recovery for worker telemetry.
+
+        Runtime recovery state moved into ``InferenceHealth`` when health was
+        made provider/model scoped.  Keep the worker protocol behind this
+        method so child processes do not reach for a removed implementation
+        attribute and turn an otherwise successful inference into a worker
+        error while serialising its telemetry.
+        """
+        recovery = self._inference_health.most_recent_recovery()
+        return dict(recovery) if isinstance(recovery, dict) else None
 
     def register_gpu_unhealthy_signal(
         self,
@@ -3529,6 +3632,7 @@ class ClassifierService:
         preprocessing = spec.get("preprocessing")
         runtime = str(spec["runtime"])
         supported_inference_providers = list(spec.get("supported_inference_providers") or [])
+        host_provider_preference_order = list(spec.get("host_provider_preference_order") or [])
         host_added = list(spec.get("host_added_inference_providers") or [])
         if host_added:
             log.info(
@@ -3606,6 +3710,7 @@ class ClassifierService:
                 self._selected_inference_provider,
                 self._accel_caps,
                 supported_providers=supported_inference_providers,
+                preferred_providers=host_provider_preference_order,
             )
             self._inference_fallback_reason = selection.get("fallback_reason")
             self._active_inference_provider = selection.get("active_provider", "unavailable")
@@ -3961,6 +4066,10 @@ class ClassifierService:
         if self._classifier_supervisor is not None:
             log.info("Requesting supervisor worker restart for model change")
             await self._classifier_supervisor.restart_pool()
+        elif self._video_supervisor is not None:
+            # In-process live/image inference still uses an isolated, lazily
+            # started video worker so native video hangs remain killable.
+            await self._video_supervisor.restart_pool("video")
 
         log.info("Reloaded bird model")
 
@@ -3996,10 +4105,11 @@ class ClassifierService:
         return counts
 
     def _get_supervisor_metrics(self) -> dict | None:
-        if self._classifier_supervisor is None:
+        supervisor = self._classifier_supervisor or self._video_supervisor
+        if supervisor is None:
             return None
         try:
-            metrics = self._classifier_supervisor.get_metrics()
+            metrics = supervisor.get_metrics()
             return metrics if isinstance(metrics, dict) else None
         except Exception:
             return None
@@ -4286,15 +4396,22 @@ class ClassifierService:
         try:
             active_model_spec = self._resolve_active_bird_model_spec()
             supported_providers = list(active_model_spec.get("supported_inference_providers") or [])
+            validated_providers = list(active_model_spec.get("host_validated_inference_providers") or [])
+            provider_order = list(active_model_spec.get("host_provider_preference_order") or [])
+            candidate_providers = list(active_model_spec.get("candidate_inference_providers") or supported_providers)
             effective_model_id = str(active_model_spec.get("model_id") or active_model_id or "").strip() or None
         except Exception:
             supported_providers = []
+            validated_providers = []
+            provider_order = []
+            candidate_providers = []
         provider_capabilities = _provider_capability_contract(
             caps=self._accel_caps,
             packaged_providers=packaged_providers,
             supported_providers=supported_providers,
             active_backend=str(effective_backend or ""),
             active_provider=str(effective_provider or ""),
+            provider_order=provider_order,
         )
 
         status = {
@@ -4326,6 +4443,9 @@ class ClassifierService:
             "intel_cpu_available": bool(self._accel_caps.get("intel_cpu_available")),
             "intel_npu_available": bool(self._accel_caps.get("intel_npu_available")),
             "host_device_eligibility": _host_device_eligibility_summary(),
+            "active_model_candidate_providers": candidate_providers,
+            "active_model_validated_providers": validated_providers,
+            "validated_provider_preference_order": provider_order,
             "dev_dri_present": bool(self._accel_caps.get("dev_dri_present")),
             "dev_dri_entries": self._accel_caps.get("dev_dri_entries") or [],
             "dev_accel_present": bool(self._accel_caps.get("dev_accel_present")),
@@ -5586,6 +5706,12 @@ class ClassifierService:
                 result = shutdown_fn()
                 if inspect.isawaitable(result):
                     await result
+        if self._video_supervisor is not None and self._video_supervisor is not self._classifier_supervisor:
+            shutdown_fn = getattr(self._video_supervisor, "shutdown", None)
+            if callable(shutdown_fn):
+                result = shutdown_fn()
+                if inspect.isawaitable(result):
+                    await result
         for executor in (
             self._image_executor,
             self._live_image_executor,
@@ -5936,17 +6062,31 @@ class ClassifierService:
         if max_frames is None:
             max_frames = settings.classification.video_classification_frames
 
-        if self._image_execution_mode == "subprocess" and self._classifier_supervisor is not None:
+        if self._video_supervisor is not None:
+            work_id = f"video-{time.monotonic_ns()}"
+            lease_token = 1
             try:
-                base_results = await self._classifier_supervisor.classify_video(
-                    work_id=f"video-{time.monotonic_ns()}",
-                    lease_token=1,
+                base_results = await self._video_supervisor.classify_video(
+                    work_id=work_id,
+                    lease_token=lease_token,
                     video_path=video_path,
                     stride=stride,
                     max_frames=max_frames,
                     progress_callback=progress_callback,
                     input_context=dict(normalized_input_context.model_dump()),
                 )
+            except asyncio.CancelledError:
+                # ``wait_for`` cancellation must kill the native worker, not
+                # merely abandon the Future while OpenVINO continues burning
+                # CPU/GPU in an unreachable process.
+                with contextlib.suppress(Exception):
+                    await self._video_supervisor.abort_request(
+                        priority="video",
+                        work_id=work_id,
+                        lease_token=lease_token,
+                        reason="video_request_cancelled",
+                    )
+                raise
             except (
                 ClassifierWorkerCircuitOpenError,
                 ClassifierWorkerHeartbeatTimeoutError,

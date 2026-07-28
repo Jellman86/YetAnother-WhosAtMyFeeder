@@ -114,8 +114,11 @@ never clobbers unrelated config). Steps:
   loads and runs on the providers available to the running image. The shared provider sweep now
   intersects the image package, host probe, and selected model; tests ONNX CPU/CUDA and OpenVINO
   CPU/GPU/NPU as applicable; compares real-image output with a CPU baseline; and persists the
-  fastest verified provider. The wizard validates only the selected installed model, while the
-  Diagnostics surface can optionally download and test the whole registry.
+  measured provider order. A reviewed global candidate list can widen what the isolated sweep
+  probes without making that provider globally selectable. Schema-4 evidence is bound to the
+  runtime stack, visible hardware, image flavour, and model checksum, so stale proof fails closed.
+  The wizard validates only the selected installed model, while the Diagnostics surface can
+  optionally download and test the whole registry.
 - **Integrations** — Frigate, BirdNET-Go, media servers, notifications: guided connect + test.
 - **Frigate settings** — cameras, recording-retention guidance, and the detection gates that
   drive the Event-Not-Found problem (`min_score` / `min_initialized` / `threshold`).
@@ -564,9 +567,12 @@ empty predictions.
 
 **Acceleration:** Intel iGPU (OpenVINO), **Intel NPU** (`intel_npu` provider, capability probe,
 device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and
-clean fallback chains. Full registry audits can probe undeclared host providers without making them
-eligible, and reproducible release sidecars prevent older provider metadata from narrowing or
-widening the current application contract. Crop-detector audits now use unique identities across a
+clean fallback chains. The global registry separates safe providers from reviewed, host-gated
+candidates; full audits can still probe undeclared providers without making them eligible.
+Runtime selection, setup, Settings, and the activation API consume the same per-install measured
+order, and schema-4 evidence expires across model artifacts, runtime stacks, visible accelerator
+hardware, kernels, and image flavours. Reproducible release sidecars prevent older provider
+metadata from narrowing or widening the current application contract. Crop-detector audits now use unique identities across a
 round-robin clean species panel and hard negatives, fail on incomplete comparison coverage, and
 test only proposals production could admit. The accurate YOLOX-Tiny tier is validated on Quark's
 Intel CPU/GPU/NPU; the fast quantized SSD remains CPU-only.
@@ -580,7 +586,9 @@ corrupt media remains rejected, and HQ recovery has persistent bounded backoff a
 restarts. Manual temporal
 reclassification follows the same best-available-media contract: complete cached recording →
 decodable partial recording → cached event clip → Frigate event clip → snapshot fallback, with an
-invalid cache entry unable to block the next usable source.
+invalid cache entry unable to block the next usable source. It is owned by the bounded video queue,
+deduplicates across manual/live/maintenance callers, reports Jobs progress, and isolates temporal
+inference in a subprocess that can be terminated on cancellation or timeout.
 
 **Integrations:** Frigate NVR (MQTT + media proxy), BirdNET-Go audio correlation, multi-platform
 notifications (Discord/Telegram/Pushover/Email + Notification Center), BirdWeather, eBird (sightings,

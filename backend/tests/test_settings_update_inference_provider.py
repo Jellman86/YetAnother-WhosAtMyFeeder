@@ -9,11 +9,15 @@ from app.main import app
 
 
 class _DummyClassifier:
-    def __init__(self) -> None:
+    def __init__(self, available_providers: list[str] | None = None) -> None:
         self.reload_calls = 0
+        self.available_providers = available_providers or ["cpu"]
 
     async def reload_bird_model(self) -> None:
         self.reload_calls += 1
+
+    def get_status(self) -> dict:
+        return {"available_providers": list(self.available_providers)}
 
 
 def _base_payload() -> dict:
@@ -67,6 +71,58 @@ async def test_update_settings_reloads_model_when_provider_changes(monkeypatch):
 
         assert resp.status_code == 200
         assert dummy.reload_calls == 1
+    finally:
+        settings.classification.inference_provider = original_provider
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_update_settings_rejects_provider_not_validated_for_install(monkeypatch):
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="test")
+    original_provider = settings.classification.inference_provider
+    settings.classification.inference_provider = "auto"
+
+    dummy = _DummyClassifier(["cpu", "intel_npu"])
+    monkeypatch.setattr("app.services.classifier_service.get_classifier", lambda: dummy)
+
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            payload = _base_payload()
+            payload["inference_provider"] = "intel_gpu"
+            resp = await client.post("/api/settings", json=payload)
+
+        assert resp.status_code == 409
+        assert "not validated for the active model" in resp.json()["detail"]
+        assert settings.classification.inference_provider == "auto"
+        assert dummy.reload_calls == 0
+    finally:
+        settings.classification.inference_provider = original_provider
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_full_form_save_preserves_unchanged_provider_that_is_temporarily_unavailable(monkeypatch):
+    app.dependency_overrides[require_owner] = lambda: AuthContext(
+        auth_level=AuthLevel.OWNER,
+        username="test",
+    )
+    original_provider = settings.classification.inference_provider
+    settings.classification.inference_provider = "intel_gpu"
+
+    dummy = _DummyClassifier(["cpu", "intel_npu"])
+    monkeypatch.setattr("app.services.classifier_service.get_classifier", lambda: dummy)
+
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            payload = _base_payload()
+            payload["inference_provider"] = "intel_gpu"
+            resp = await client.post("/api/settings", json=payload)
+
+        assert resp.status_code == 200
+        assert settings.classification.inference_provider == "intel_gpu"
+        assert dummy.reload_calls == 0
     finally:
         settings.classification.inference_provider = original_provider
         app.dependency_overrides.clear()

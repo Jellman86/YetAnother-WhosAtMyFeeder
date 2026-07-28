@@ -842,6 +842,9 @@ class ModelEvalRunner:
         crop_detectors = list(crop_detectors or [])
         total = len(classifiers) + len(crop_detectors)
         for m_idx, model in enumerate(classifiers):
+            artifact_sha256 = (
+                str(getattr(getattr(model, "metadata", None), "sha256", None) or "").strip().lower() or None
+            )
             await self._emit(
                 run_id,
                 phase="device_sweep",
@@ -863,6 +866,7 @@ class ModelEvalRunner:
                     [],
                     run_id=run_id,
                     image_flavor=image_flavor,
+                    artifact_sha256=artifact_sha256,
                 )
                 await asyncio.to_thread(
                     write_validation_record,
@@ -870,6 +874,7 @@ class ModelEvalRunner:
                     provider="cpu",
                     ok=False,
                     reason="model activation failed before provider validation",
+                    artifact_sha256=artifact_sha256,
                 )
                 continue
 
@@ -896,6 +901,7 @@ class ModelEvalRunner:
                     [],
                     run_id=run_id,
                     image_flavor=image_flavor,
+                    artifact_sha256=artifact_sha256,
                 )
                 await asyncio.to_thread(
                     write_validation_record,
@@ -903,6 +909,7 @@ class ModelEvalRunner:
                     provider="cpu",
                     ok=False,
                     reason=f"provider sweep failed: {e}",
+                    artifact_sha256=artifact_sha256,
                 )
                 continue
             image_flavor = str(result.get("image_flavor") or image_flavor)
@@ -929,6 +936,8 @@ class ModelEvalRunner:
                 list(result.get("eligible_providers") or []),
                 run_id=run_id,
                 image_flavor=image_flavor,
+                provider_results=list(result.get("providers") or []),
+                artifact_sha256=result.get("artifact_sha256") or artifact_sha256,
             )
             best_provider = str(best.get("provider") or "cpu")
             await asyncio.to_thread(
@@ -942,10 +951,14 @@ class ModelEvalRunner:
                     else "model did not run correctly on any provider in this image"
                 ),
                 latency_ms=best.get("latency_ms"),
+                artifact_sha256=result.get("artifact_sha256") or artifact_sha256,
             )
 
         crop_matrix: dict[str, Any] = {}
         for crop_idx, model in enumerate(crop_detectors):
+            artifact_sha256 = (
+                str(getattr(getattr(model, "metadata", None), "sha256", None) or "").strip().lower() or None
+            )
             progress_index = len(classifiers) + crop_idx
             await self._emit(
                 run_id,
@@ -976,6 +989,7 @@ class ModelEvalRunner:
                     [],
                     run_id=run_id,
                     image_flavor=image_flavor,
+                    artifact_sha256=artifact_sha256,
                 )
                 await asyncio.to_thread(
                     write_validation_record,
@@ -983,6 +997,7 @@ class ModelEvalRunner:
                     provider="cpu",
                     ok=False,
                     reason=f"crop provider sweep failed: {exc}",
+                    artifact_sha256=artifact_sha256,
                 )
                 continue
             image_flavor = str(result.get("image_flavor") or image_flavor)
@@ -1009,6 +1024,8 @@ class ModelEvalRunner:
                 eligible,
                 run_id=run_id,
                 image_flavor=image_flavor,
+                provider_results=list(result.get("providers") or []),
+                artifact_sha256=result.get("artifact_sha256") or artifact_sha256,
             )
             await asyncio.to_thread(
                 write_validation_record,
@@ -1021,6 +1038,7 @@ class ModelEvalRunner:
                     else "crop detector did not match the CPU box baseline on any declared provider"
                 ),
                 latency_ms=best.get("latency_ms"),
+                artifact_sha256=result.get("artifact_sha256") or artifact_sha256,
             )
 
         # Apply a newly validated crop provider without waiting for a restart.
@@ -1076,7 +1094,7 @@ def _compatibility_model_summaries(payload: dict[str, Any] | None) -> list[dict[
         provider_rows = (row or {}).get("providers") or (row or {}).get("devices") or {}
         best_provider = (row or {}).get("best_provider")
         best = provider_rows.get(best_provider) or {}
-        passed = [entry for entry in provider_rows.values() if entry.get("ok")]
+        passed = [entry for entry in provider_rows.values() if entry.get("ok") and entry.get("declared", True)]
         failed = [provider for provider, entry in provider_rows.items() if not entry.get("ok")]
         error = (row or {}).get("error")
         warnings: list[dict[str, str]] = []
@@ -1104,7 +1122,11 @@ def _compatibility_model_summaries(payload: dict[str, Any] | None) -> list[dict[
                 "device": best.get("device") or best_provider,
                 "ready": bool(passed),
                 "ready_reason": "provider_validated" if passed else "provider_validation_failed",
-                "validated_providers": [provider for provider, entry in provider_rows.items() if entry.get("ok")],
+                "validated_providers": [
+                    provider
+                    for provider, entry in provider_rows.items()
+                    if entry.get("ok") and entry.get("declared", True)
+                ],
                 "failed_providers": failed,
                 "images_evaluated": max(
                     (int(entry.get("images_evaluated") or 0) for entry in provider_rows.values()),

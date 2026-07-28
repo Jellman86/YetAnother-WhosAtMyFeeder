@@ -924,6 +924,54 @@ async def test_classifier_service_routes_video_requests_through_supervisor(mock_
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_aborts_isolated_video_worker_when_request_is_cancelled(
+    mock_tflite,
+    mock_os_path_exists,
+):
+    original_mode = settings.classification.image_execution_mode
+    settings.classification.image_execution_mode = "in_process"
+
+    class _BlockingVideoSupervisor:
+        def __init__(self):
+            self.started = asyncio.Event()
+            self.abort_calls = []
+
+        async def classify_video(self, **_kwargs):
+            self.started.set()
+            await asyncio.Event().wait()
+
+        async def abort_request(self, **kwargs):
+            self.abort_calls.append(dict(kwargs))
+            return True
+
+    supervisor = _BlockingVideoSupervisor()
+    try:
+        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+            service = ClassifierService(supervisor=supervisor)
+            task = asyncio.create_task(
+                service.classify_video_async(
+                    "/tmp/demo.mp4",
+                    max_frames=3,
+                    camera_name="front",
+                )
+            )
+            await asyncio.wait_for(supervisor.started.wait(), timeout=1.0)
+
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+            assert len(supervisor.abort_calls) == 1
+            assert supervisor.abort_calls[0]["priority"] == "video"
+            assert supervisor.abort_calls[0]["reason"] == "video_request_cancelled"
+            assert supervisor.abort_calls[0]["lease_token"] == 1
+            assert supervisor.abort_calls[0]["work_id"].startswith("video-")
+            await service.shutdown()
+    finally:
+        settings.classification.image_execution_mode = original_mode
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_forwards_video_input_context_through_supervisor(mock_tflite, mock_os_path_exists):
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
@@ -1244,7 +1292,7 @@ async def test_init_bird_model_surfaces_model_config_provider_warning_in_status(
         await service.shutdown()
 
 
-def test_host_validated_provider_policy_never_widens_current_model_contract(monkeypatch):
+def test_host_validated_provider_policy_is_authoritative_without_widening_unreviewed_providers(monkeypatch):
     provider_warning = (
         "Installed model_config.json advertised providers no longer supported by the current "
         "registry and they were ignored: intel_gpu"
@@ -1259,7 +1307,7 @@ def test_host_validated_provider_policy_never_widens_current_model_contract(monk
     monkeypatch.setattr(
         classifier_service_module,
         "_host_validated_providers",
-        lambda model_id: ["intel_cpu", "intel_gpu"] if model_id == "eva02_large_inat21" else [],
+        lambda model_id, **_kwargs: ["intel_cpu", "intel_gpu"] if model_id == "eva02_large_inat21" else [],
     )
 
     resolved = classifier_service_module._apply_host_validated_provider_policy(
@@ -1267,7 +1315,7 @@ def test_host_validated_provider_policy_never_widens_current_model_contract(monk
         model_id="eva02_large_inat21",
     )
 
-    assert resolved["supported_inference_providers"] == ["cpu", "intel_cpu"]
+    assert resolved["supported_inference_providers"] == ["intel_cpu"]
     assert resolved["model_config_warnings"] == [provider_warning, unrelated_warning]
     assert resolved["host_added_inference_providers"] == []
     assert resolved["host_validated_inference_providers"] == ["intel_cpu"]
@@ -3407,7 +3455,7 @@ async def test_classifier_service_classify_async_live_passes_custom_queue_timeou
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_uses_separate_executors_for_image_and_video_work(mock_tflite, mock_os_path_exists):
+async def test_classifier_service_isolates_video_work_from_image_executors(mock_tflite, mock_os_path_exists):
     class _FakeLoop:
         def __init__(self, real_loop):
             self.executors = []
@@ -3431,14 +3479,14 @@ async def test_classifier_service_uses_separate_executors_for_image_and_video_wo
             patch.object(ClassifierService, "_init_bird_model", return_value=None),
             patch("app.services.classifier_service.ModelInstance.load", return_value=True),
             patch.object(ClassifierService, "classify", return_value=[{"label": "Robin", "score": 0.9, "index": 0}]),
-            patch.object(
-                ClassifierService, "classify_video", return_value=[{"label": "Robin", "score": 0.9, "index": 0}]
-            ),
             patch("app.services.classifier_service.asyncio.get_running_loop") as mock_get_loop,
         ):
             fake_loop = _FakeLoop(real_loop)
             mock_get_loop.return_value = fake_loop
-            service = ClassifierService()
+            supervisor = MagicMock()
+            supervisor.classify_video = AsyncMock(return_value=[{"label": "Robin", "score": 0.9, "index": 0}])
+            supervisor.shutdown = AsyncMock()
+            service = ClassifierService(supervisor=supervisor)
 
             img = Image.new("RGB", (100, 100))
             await service.classify_async(img, camera_name="front")
@@ -3447,7 +3495,8 @@ async def test_classifier_service_uses_separate_executors_for_image_and_video_wo
 
             assert fake_loop.executors[0] is service._image_executor
             assert fake_loop.executors[1] is service._background_image_executor
-            assert fake_loop.executors[2] is service._video_executor
+            assert len(fake_loop.executors) == 2
+            supervisor.classify_video.assert_awaited_once()
             assert service._image_executor is not service._video_executor
             assert service._background_image_executor is not service._video_executor
             assert service._background_image_executor is not service._image_executor
@@ -5089,7 +5138,7 @@ def test_resolve_inference_selection_auto_skips_intel_gpu_when_model_disallows_i
     assert sel["active_provider"] == "intel_cpu"
     assert sel["backend"] == "openvino"
     assert sel["openvino_device"] == "CPU"
-    assert "does not support Intel GPU" in (sel["fallback_reason"] or "")
+    assert sel["fallback_reason"] is None
 
 
 @pytest.mark.asyncio
@@ -5157,7 +5206,7 @@ async def test_classifier_service_respects_artifact_provider_constraints(mock_os
     assert service._inference_backend == "openvino"
     assert service._active_inference_provider == "intel_cpu"
     assert _FakeOpenVINOModel.created_devices == ["CPU"]
-    assert "does not support Intel GPU" in (service._inference_fallback_reason or "")
+    assert service._inference_fallback_reason is None
     await service.shutdown()
 
 

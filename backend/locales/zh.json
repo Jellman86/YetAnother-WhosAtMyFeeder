@@ -38,7 +38,9 @@
       "delete_failed": "删除检测记录失败",
       "update_failed": "更新检测记录失败",
       "wildlife_model_unavailable": "野生动物模型不可用。请先下载。",
-      "reclassification_failed": "重新分类失败"
+      "reclassification_failed": "重新分类失败",
+      "video_analysis_paused": "由于推理连续失败，视频分析已暂时暂停。请稍后重试。",
+      "video_analysis_capacity": "视频分析已达到处理上限。请在当前任务完成后重试。"
     },
     "species": {
       "unknown_bird": "未知鸟类",

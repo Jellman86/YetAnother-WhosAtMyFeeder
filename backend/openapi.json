@@ -5860,6 +5860,24 @@
             "title": "Path",
             "type": "string"
           },
+          "preferred_inference_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preferred Inference Provider"
+          },
+          "provider_preference_order": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Provider Preference Order",
+            "type": "array"
+          },
           "ready": {
             "default": true,
             "title": "Ready",
@@ -5874,6 +5892,13 @@
             "default": true,
             "title": "Validated",
             "type": "boolean"
+          },
+          "validated_inference_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Validated Inference Providers",
+            "type": "array"
           },
           "validation_reason": {
             "default": "validated",
@@ -6773,6 +6798,20 @@
             "title": "Artifact Kind",
             "type": "string"
           },
+          "candidate_inference_providers": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidate Inference Providers"
+          },
           "crop_generator": {
             "$ref": "#/components/schemas/CropGeneratorConfig"
           },
@@ -6845,6 +6884,17 @@
               }
             ],
             "title": "Label Grouping"
+          },
+          "labels_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels Sha256"
           },
           "labels_url": {
             "title": "Labels Url",
@@ -6929,6 +6979,17 @@
             ],
             "title": "Runtime"
           },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
           "sort_order": {
             "default": 0,
             "title": "Sort Order",
@@ -6960,6 +7021,17 @@
           "tier": {
             "title": "Tier",
             "type": "string"
+          },
+          "weights_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weights Sha256"
           },
           "weights_url": {
             "anyOf": [
@@ -7354,6 +7426,21 @@
             "title": "Old Species",
             "type": "string"
           },
+          "queue_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "queued",
+                  "duplicate"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue State"
+          },
           "reason": {
             "anyOf": [
               {
@@ -7368,6 +7455,7 @@
           },
           "status": {
             "enum": [
+              "queued",
               "success",
               "no_result"
             ],

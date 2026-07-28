@@ -26,6 +26,13 @@ def test_release_model_configs_use_current_provider_policy():
         "intel_cpu",
         "intel_npu",
     ]
+    assert configs["convnext_large_inat21_model_config.json"]["candidate_inference_providers"] == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_gpu",
+        "intel_npu",
+    ]
     assert configs["rope_vit_b14_inat21_model_config.json"]["supported_inference_providers"] == [
         "cpu",
         "cuda",

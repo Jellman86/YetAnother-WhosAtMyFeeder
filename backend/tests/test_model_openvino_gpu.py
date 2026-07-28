@@ -9,7 +9,9 @@ Two categories of tests live here:
 
 2. **OpenVINO GPU validation** (requires Intel GPU + OpenVINO)
    - GPU_VALIDATED: models confirmed to compile AND produce correct output on GPU.
-   - GPU_NOT_SUPPORTED: models with documented GPU failures and their failure reason.
+   - GPU_HOST_GATED: models whose correctness depends on the host/runtime and
+     therefore require the per-install numerical-equivalence sweep.
+   - GPU_NOT_SUPPORTED: models with consistent GPU failures and their failure reason.
    - CPU vs GPU comparison: runs both devices on the same image and compares logit
      distributions (range ratio, Spearman rank correlation, top-k overlap).
 
@@ -87,8 +89,8 @@ GPU_VALIDATED: set[str] = {
     # Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so the
     # per-host validation gate still decides whether a particular host may use it.
     "rope_vit_b14_inat21",
-    # convnext_large_inat21 was retested but remains excluded from the global
-    # registry pending validation beyond the Arrow Lake host.
+    # convnext_large_inat21 remains excluded from globally safe providers, but
+    # is now a reviewed host-gated candidate (see GPU_HOST_GATED).
     # eva02_large_inat21 is intentionally excluded everywhere — it
     # SIGABRTs the runtime, killing any in-progress eval run.
 }
@@ -100,21 +102,20 @@ GPU_CRASH_RISK: set[str] = {
     "eva02_large_inat21",  # clWaitForEvents -14 / CL_OUT_OF_RESOURCES → SIGABRT
 }
 
+# GPU_HOST_GATED: models with conflicting, reproducible results across runtime
+# generations. They are not globally safe, but the isolated current-image
+# sweep may admit them on an exact installation after CPU-equivalence checks.
+GPU_HOST_GATED: dict[str, str] = {
+    "convnext_large_inat21": (
+        "OpenVINO 2025.4.1 produced systematically wrong rankings, while "
+        "Arrow Lake / OpenVINO 2026.2.1 matched CPU top-1 on two independent "
+        "real-image sweeps (12/12 and 24/24, mean top-5 overlap 5.0)."
+    ),
+}
+
 # GPU_NOT_SUPPORTED: models where Intel GPU is NOT supported, with documented
 # failure reason. Tested on Intel integrated GPU with OpenVINO 2025.4.x.
 GPU_NOT_SUPPORTED: dict[str, str] = {
-    "convnext_large_inat21": (
-        "Wrong predictions — harness retest 2026-05-08 on OV 2025.4.1 "
-        "confirmed the depthwise-conv precision issue persists. Compile "
-        "succeeds on iGPU and inference is ~2x faster (599 ms vs 1175 ms "
-        "CPU), but top-1 accuracy collapses from 66.8% to 32.7% and "
-        "shared-core top-1 from 65.3% to 28.0% — model names systematically "
-        "wrong species. Documented historical root cause: 7×7 depthwise-conv "
-        "+ LayerNorm precision degradation. No precision strategy fixes "
-        "it (f16 → NaN; HETERO:GPU,CPU → range recovers but rankings still "
-        "wrong). Not fixable without OpenVINO depthwise-conv precision "
-        "fixes for this iGPU generation."
-    ),
     "convnext_v1_tiny_eu_common": (
         "Precision-degraded on Intel iGPU. Probed 2026-05-08: compile and "
         "inference succeed and output is finite, but range_ratio vs CPU "
@@ -611,6 +612,17 @@ def test_registry_intel_gpu_matches_validation_matrix() -> None:
     )
 
 
+def test_registry_host_gated_gpu_candidates_match_validation_matrix() -> None:
+    """Host-gated providers must be explicit and must not leak into safe defaults."""
+    from app.services.model_manager import REMOTE_REGISTRY
+
+    entries = {str(entry.get("id") or ""): entry for entry in REMOTE_REGISTRY}
+    for model_id in GPU_HOST_GATED:
+        entry = entries[model_id]
+        assert "intel_gpu" in (entry.get("candidate_inference_providers") or [])
+        assert "intel_gpu" not in (entry.get("supported_inference_providers") or [])
+
+
 # ---------------------------------------------------------------------------
 # GPU failure documentation tests (informational, requires GPU)
 # ---------------------------------------------------------------------------
@@ -1014,16 +1026,17 @@ def test_gpu_nan_fix_probe(gpu_available: bool, openvino_version: str) -> None:
 
 
 def test_convnext_gpu_precision_probe(gpu_available: bool, openvino_version: str) -> None:
-    """Dedicated precision-degradation probe for ConvNeXt Large on Intel GPU.
+    """Dedicated cross-runtime regression probe for ConvNeXt Large on Intel GPU.
 
-    ConvNeXt Large compiles and runs without NaN on GPU but produces wrong predictions
-    because the logit dynamic range collapses (~3–7 GPU vs ~15 CPU).  Root cause is
-    numeric precision degradation in the 7×7 depthwise convolution + LayerNorm path.
+    OpenVINO 2025.4 compiled without NaN but produced wrong predictions because
+    the logit range collapsed. Quark's OpenVINO 2026.2.1 instead matched CPU
+    top-1 and top-5 across two varied real-image sweeps. The model is therefore
+    host-gated, and this probe detects regressions or newly safe strategies.
 
     The NaN fix probe skipped ConvNeXt historically (no NaN); this test covers it
     with a wider set of strategies specifically targeting precision rather than NaN:
 
-      f32/LATENCY      — current production config (baseline, expected to fail)
+      f32/LATENCY      — current production config and primary regression path
       f16/LATENCY      — native iGPU precision; may avoid f32 emulation artifacts
       f32/ACCURACY     — forces slower, more numerically stable GPU algorithms
       f16/ACCURACY     — native precision + stable algorithms
@@ -1035,8 +1048,8 @@ def test_convnext_gpu_precision_probe(gpu_available: bool, openvino_version: str
 
         pytest tests/test_model_openvino_gpu.py::test_convnext_gpu_precision_probe -v -s
 
-    If any strategy shows *** FIXED ***, update GPU_NOT_SUPPORTED/GPU_VALIDATED and
-    the production compile config in classifier_service.py accordingly.
+    If a current installation regresses, retain Intel GPU as candidate-only and
+    investigate before changing the global registry contract.
     """
     if not gpu_available:
         pytest.skip("No Intel GPU available")

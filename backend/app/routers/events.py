@@ -4,7 +4,6 @@ import unicodedata
 from fastapi import APIRouter, HTTPException, Query, Request, Depends
 from typing import List, Optional, Literal
 from datetime import datetime, date, timedelta
-from pathlib import Path
 from pydantic import BaseModel, Field
 import structlog
 from PIL import Image
@@ -15,7 +14,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.config import settings
 from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
-from app.services.high_quality_snapshot_service import high_quality_snapshot_service
+from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
@@ -32,10 +31,7 @@ from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.public_access import effective_public_events_days
-from app.utils.system_stats import get_ram_usage_string
 from app.utils.api_datetime import serialize_api_datetime
-from app.routers.proxy import _get_valid_cached_recording_clip_path
-from app.utils.video_analysis import rank_video_top_frames
 from app.utils.canonical_species import (
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
     should_hide_species_label,
@@ -53,28 +49,6 @@ def decode_image_bytes(contents: bytes) -> Image.Image:
     image = Image.open(BytesIO(contents))
     image.load()
     return image
-
-
-def _write_validated_temp_clip(contents: bytes) -> tuple[str, bool]:
-    """Write and decode-check a temporary clip outside the async event loop."""
-    import tempfile
-    import cv2
-
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-        tmp.write(contents)
-        path = tmp.name
-    cap = cv2.VideoCapture(path)
-    try:
-        valid = cap.isOpened() and cap.read()[0]
-    finally:
-        cap.release()
-    if not valid:
-        Path(path).unlink(missing_ok=True)
-    return path, valid
-
-
-def _unlink_path(path: str) -> None:
-    Path(path).unlink(missing_ok=True)
 
 
 class DeleteEventResponse(BaseModel):
@@ -1026,8 +1000,9 @@ class BulkDeleteResponse(BaseModel):
 class ReclassifyResponse(BaseModel):
     """Response from reclassification."""
 
-    status: Literal["success", "no_result"]
+    status: Literal["queued", "success", "no_result"]
     reason: Literal["no_confident_result"] | None = None
+    queue_state: Literal["queued", "duplicate"] | None = None
     event_id: str
     old_species: str
     new_species: str
@@ -1295,6 +1270,41 @@ async def reclassify_event(
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
 
         old_species = detection.display_name
+
+        # Temporal reclassification is always owned by the canonical bounded
+        # video queue. Returning immediately avoids reverse-proxy timeouts and
+        # client-disconnect orphan work; the Jobs API and SSE stream carry
+        # durable progress/completion. The queue deduplicates this event across
+        # live, maintenance, backfill, and manual callers.
+        if strategy == "video":
+            queue_state = await auto_video_classifier.queue_classification(
+                event_id,
+                detection.camera_name,
+                skip_delay=True,
+                fallback_to_snapshot=True,
+                source="manual",
+            )
+            if queue_state == "blocked":
+                raise HTTPException(
+                    status_code=503,
+                    detail=i18n_service.translate("errors.events.video_analysis_paused", lang=lang),
+                )
+            if queue_state == "full":
+                raise HTTPException(
+                    status_code=503,
+                    detail=i18n_service.translate("errors.events.video_analysis_capacity", lang=lang),
+                )
+            return ReclassifyResponse(
+                status="queued",
+                queue_state="duplicate" if queue_state == "duplicate" else "queued",
+                event_id=event_id,
+                old_species=old_species,
+                new_species=detection.display_name,
+                new_score=detection.score,
+                updated=False,
+                actual_strategy="video",
+            )
+
         classifier = get_classifier()
         started_reclassification = False
         completion_broadcasted = False
@@ -1330,334 +1340,13 @@ async def reclassify_event(
                 {"type": "reclassification_failed", "data": {"event_id": event_id, "error": error}}
             )
 
-        async def broadcast_snapshot_fallback(reason: str) -> None:
-            await broadcaster.broadcast(
-                {
-                    "type": "reclassification_strategy_changed",
-                    "data": {
-                        "event_id": event_id,
-                        "from": "video",
-                        "to": "snapshot",
-                        "reason": reason,
-                    },
-                }
-            )
-
-        async def broadcast_video_status(status: str, error: str | None = None):
-            await repo.update_video_status(event_id, status, error=error)
-            refreshed = await repo.get_by_frigate_event(event_id)
-            payload_source = refreshed or detection
-            await broadcaster.broadcast(
-                {
-                    "type": "detection_updated",
-                    "data": _detection_updated_payload(
-                        payload_source,
-                        overrides={
-                            "video_classification_status": status,
-                            "video_classification_error": error,
-                        },
-                    ),
-                }
-            )
-
         try:
-            # Determine effective strategy
-            # If video requested but no clip, fallback to snapshot.  A Frigate
-            # event_not_found response does not by itself mean the clip is
-            # unavailable — we may have a cached event or recording clip that
-            # _load_reclassification_clip can use.  Only fall back when neither
-            # Frigate nor the local cache has a clip.
-            event_data, event_error = await frigate_client.get_event_with_error(event_id, timeout=8.0)
-            has_frigate_clip = event_data.get("has_clip", False) if event_data else False
-            has_cached_clip = media_cache.has_clip(event_id) or media_cache.has_recording_clip(event_id)
-            has_clip = has_frigate_clip or has_cached_clip
-
-            effective_strategy = strategy
-            if strategy == "video" and not has_clip:
-                log.warning(
-                    "Video strategy requested but no clip available, falling back to snapshot", event_id=event_id
-                )
-                fallback_reason = event_error or "clip_unavailable"
-                await broadcast_snapshot_fallback(fallback_reason)
-                await broadcast_video_status("failed", fallback_reason)
-                effective_strategy = "snapshot"
-
+            # Snapshot work remains synchronous because it is bounded to one
+            # image. Video work returned above and is exclusively queue-owned.
+            event_data, _event_error = await frigate_client.get_event_with_error(event_id, timeout=8.0)
+            effective_strategy: Literal["snapshot", "video"] = "snapshot"
             results = []
 
-            # An explicit video request means temporal analysis. A snapshot
-            # remains the safe fallback when no usable clip can be decoded, but
-            # it must not short-circuit a locally cached video that the user can
-            # already play.
-
-            if effective_strategy == "video":
-                await broadcast_video_status("processing", None)
-
-                # Fetch clip - check cache first
-                async def _load_reclassification_clip(
-                    *,
-                    allow_recording_cache: bool,
-                    allow_event_cache: bool,
-                ) -> tuple[bytes | None, str | None, str, Literal["event", "recording"], str | None]:
-                    if allow_recording_cache:
-                        attempted_recording_path: str | None = None
-                        try:
-                            (
-                                recording_cached_path,
-                                _camera_name,
-                                _start_ts,
-                                _end_ts,
-                            ) = await _get_valid_cached_recording_clip_path(
-                                event_id,
-                                lang,
-                            )
-                            if recording_cached_path:
-                                attempted_recording_path = str(recording_cached_path)
-                                log.info("Using cached recording clip for reclassification", event_id=event_id)
-                                clip_bytes = await asyncio.to_thread(Path(recording_cached_path).read_bytes)
-                                return clip_bytes, None, "recording_cache", "recording", str(recording_cached_path)
-                        except Exception as exc:
-                            log.debug(
-                                "Failed to resolve cached recording clip for reclassification",
-                                event_id=event_id,
-                                error=str(exc),
-                            )
-
-                        # Full-visit generation can retain a shorter-than-requested
-                        # window when the recording starts late or has already begun
-                        # expiring. It is still useful for temporal inference when it
-                        # is a real, decodable MP4. Automatic analysis already accepts
-                        # this usable partial; manual reclassification must do the same
-                        # rather than treating ideal duration as a validity requirement.
-                        partial_recording_path = media_cache.get_recording_clip_path(event_id)
-                        if partial_recording_path and str(partial_recording_path) != attempted_recording_path:
-                            log.info(
-                                "Using retained partial recording clip for reclassification",
-                                event_id=event_id,
-                            )
-                            try:
-                                clip_bytes = await asyncio.to_thread(Path(partial_recording_path).read_bytes)
-                                return (
-                                    clip_bytes,
-                                    None,
-                                    "recording_cache_partial",
-                                    "recording",
-                                    str(partial_recording_path),
-                                )
-                            except Exception as exc:
-                                log.debug(
-                                    "Failed to read retained partial recording clip for reclassification",
-                                    event_id=event_id,
-                                    error=str(exc),
-                                )
-
-                    if allow_event_cache:
-                        cached_path = media_cache.get_clip_path(event_id)
-                        if cached_path:
-                            log.info("Using cached clip for reclassification", event_id=event_id)
-                            try:
-                                clip_bytes = await asyncio.to_thread(Path(cached_path).read_bytes)
-                                return clip_bytes, None, "cache", "event", str(cached_path)
-                            except Exception as exc:
-                                log.debug(
-                                    "Failed to read cached event clip for reclassification",
-                                    event_id=event_id,
-                                    error=str(exc),
-                                )
-
-                    clip_bytes, error_code = await frigate_client.get_clip_with_error(event_id, timeout=10.0)
-                    return clip_bytes, error_code, "frigate", "event", None
-
-                clip_data = None
-                clip_error = None
-                clip_source = "frigate"
-                clip_variant: Literal["event", "recording"] = "event"
-                cached_source_path: str | None = None
-                (
-                    clip_data,
-                    clip_error,
-                    clip_source,
-                    clip_variant,
-                    cached_source_path,
-                ) = await _load_reclassification_clip(
-                    allow_recording_cache=True,
-                    allow_event_cache=True,
-                )
-
-                tmp_path: str | None = None
-                valid_clip = False
-                validation_error: str | None = None
-                while clip_data:
-                    has_mp4_header = clip_data.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_data[:32]
-                    if has_mp4_header:
-                        tmp_path, valid_clip = await asyncio.to_thread(_write_validated_temp_clip, clip_data)
-                        validation_error = None if valid_clip else "clip_decode_failed"
-                    else:
-                        validation_error = "clip_invalid"
-
-                    if valid_clip:
-                        break
-
-                    log.warning(
-                        "Cached clip validation failed; trying the next video source",
-                        event_id=event_id,
-                        source=clip_source,
-                        error=validation_error,
-                    )
-                    if not cached_source_path or clip_source == "frigate":
-                        break
-
-                    try:
-                        await asyncio.to_thread(_unlink_path, cached_source_path)
-                    except OSError:
-                        pass
-
-                    retry_event_cache = clip_variant == "recording"
-                    (
-                        clip_data,
-                        clip_error,
-                        clip_source,
-                        clip_variant,
-                        cached_source_path,
-                    ) = await _load_reclassification_clip(
-                        allow_recording_cache=False,
-                        allow_event_cache=retry_event_cache,
-                    )
-
-                if not clip_data:
-                    log.warning("Failed to fetch clip data, falling back to snapshot", event_id=event_id)
-                    fallback_reason = clip_error or validation_error or "clip_fetch_failed"
-                    await broadcast_snapshot_fallback(fallback_reason)
-                    await broadcast_video_status("failed", fallback_reason)
-                    effective_strategy = "snapshot"
-                elif not valid_clip or tmp_path is None:
-                    fallback_reason = validation_error or "clip_decode_failed"
-                    log.warning(
-                        "No usable video source remained, falling back to snapshot",
-                        event_id=event_id,
-                        source=clip_source,
-                        error=fallback_reason,
-                    )
-                    await broadcast_snapshot_fallback(fallback_reason)
-                    await broadcast_video_status("failed", fallback_reason)
-                    effective_strategy = "snapshot"
-                else:
-                    try:
-                        await broadcast_reclassification_started("video")
-
-                        _video_frame_scores: list[dict] = []
-
-                        async def progress_callback(
-                            current_frame,
-                            total_frames,
-                            frame_score,
-                            top_label,
-                            frame_thumb=None,
-                            frame_index=None,
-                            clip_total=None,
-                            model_name=None,
-                            frame_offset_seconds=None,
-                        ):
-                            if frame_index is not None and frame_score is not None:
-                                _video_frame_scores.append(
-                                    {
-                                        "frame_index": int(frame_index) - 1,
-                                        "frame_offset_seconds": frame_offset_seconds,
-                                        "frame_score": float(frame_score),
-                                        "top_label": top_label,
-                                        "top_score": float(frame_score),
-                                    }
-                                )
-                            await broadcaster.broadcast(
-                                {
-                                    "type": "reclassification_progress",
-                                    "data": {
-                                        "event_id": event_id,
-                                        "current_frame": current_frame,
-                                        "total_frames": total_frames,
-                                        "frame_score": frame_score,
-                                        "top_label": top_label,
-                                        "frame_thumb": frame_thumb,
-                                        "frame_index": frame_index,
-                                        "clip_total": clip_total,
-                                        "model_name": model_name,
-                                        "ram_usage": get_ram_usage_string(),
-                                    },
-                                }
-                            )
-
-                        results = await classifier.classify_video_async(
-                            tmp_path,
-                            progress_callback=progress_callback,
-                            camera_name=detection.camera_name,
-                            input_context=_build_event_classification_input_context(
-                                event_id=event_id,
-                                event_data=event_data,
-                                is_cropped=False,
-                                clip_variant=clip_variant,
-                            ),
-                        )
-                    finally:
-                        await asyncio.to_thread(_unlink_path, tmp_path)
-
-                    if not results:
-                        log.warning(
-                            "Video classification yielded no results, falling back to snapshot", event_id=event_id
-                        )
-                        await broadcast_snapshot_fallback("video_no_results")
-                        await broadcast_video_status("failed", "video_no_results")
-                        effective_strategy = "snapshot"
-                    else:
-                        top_result = results[0]
-                        hidden_video_label = should_hide_species_label(top_result.get("label"))
-                        await repo.update_video_classification(
-                            frigate_event=event_id,
-                            label=None if hidden_video_label else top_result["label"],
-                            score=top_result["score"],
-                            index=top_result["index"],
-                            status="completed",
-                            provider=top_result.get("inference_provider"),
-                            backend=top_result.get("inference_backend"),
-                            model_id=top_result.get("model_id"),
-                            input_source=top_result.get("input_source"),
-                        )
-                        await broadcast_video_status("completed", None)
-                        if hidden_video_label:
-                            log.debug(
-                                "Manual video reclassify produced Unknown; recording completion without species label",
-                                event_id=event_id,
-                                video_score=top_result.get("score"),
-                            )
-
-                        # Persist top video-analysis frames for HQ snapshot reuse
-                        if _video_frame_scores:
-                            try:
-                                top_frames = rank_video_top_frames(
-                                    _video_frame_scores,
-                                    limit=8,
-                                    clip_variant=clip_variant,
-                                )
-                                await repo.replace_video_top_frames(event_id, top_frames)
-                            except Exception as e:
-                                log.warning("Failed to persist video top frames", event_id=event_id, error=str(e))
-
-                        # Generate HQ snapshot after top frames are persisted so the
-                        # crop model works on the best-scored frames from this run.
-                        if settings.media_cache.high_quality_event_snapshots:
-                            try:
-                                await high_quality_snapshot_service.replace_from_clip_bytes(
-                                    event_id,
-                                    clip_data,
-                                    event_data=event_data,
-                                    clip_variant=clip_variant,
-                                )
-                            except Exception as e:
-                                log.warning(
-                                    "High-quality snapshot upgrade failed during manual video reclassification",
-                                    event_id=event_id,
-                                    error=str(e),
-                                )
-
-            # Snapshot strategy (Default or Fallback)
             if effective_strategy == "snapshot":
                 await broadcast_reclassification_started("snapshot")
 

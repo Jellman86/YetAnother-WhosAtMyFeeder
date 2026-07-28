@@ -139,15 +139,15 @@ video moment for multi-frame species refinement, preventing one visual frame fro
 ## Intel GPU Support
 
 The original matrix was tested on OpenVINO 2025.4.1 with an Intel integrated GPU. RoPE ViT-B14 was
-revalidated on 18 July 2026 on Arrow Lake-S with OpenVINO 2026.2.1 using the isolated full-device
-sweep against 12 real images per device:
+revalidated on 18 July 2026 and ConvNeXt Large on 21 July 2026 on Arrow Lake-S with OpenVINO
+2026.2.1, using isolated full-device sweeps against real images:
 
 | Model | Intel GPU Status | Notes |
 |-------|-----------------|-------|
 | EU FocalNet-B | ✅ Validated | Correct finite output. Static-batch reshape required (applied automatically). |
 | Small Birds EU (MobileNetV4-L) | ✅ Validated | ratio=1.03, Spearman=0.996, top5∩=5. Excellent GPU match. Probed 22 March 2026. |
 | Medium Birds EU (ConvNeXt-V2-Tiny) | ✅ Validated | ratio=0.98, Spearman=0.959, top5∩=3. Smaller kernel avoids ConvNeXt Large's precision issue. Probed 22 March 2026. |
-| ConvNeXt Large | ❌ Not supported | Wrong predictions — GPU logit spread ~3–7 vs ~18 on CPU; top-1 is entirely wrong species. Seven compilation strategies tested exhaustively (f16, ACCURACY hint, no-Winograd, HETERO): f16 → NaN; ACCURACY → compile crash; HETERO → range recovers but ranking still wrong (Spearman 0.16). Not fixable on this iGPU generation with OV 2025.4. |
+| ConvNeXt Large | ✅ Host-gated candidate | Arrow Lake-S / OpenVINO 2026.2.1: 24/24 GPU top-1 results matched CPU, mean top-5 overlap was 5/5, and median inference was about 379 ms. OpenVINO 2025.4.1 produced systematically wrong rankings on the same model, so Intel GPU is deliberately a registry candidate rather than globally safe. |
 | RoPE ViT-B14 | ✅ Host-validated | Arrow Lake-S / OpenVINO 2026.2.1: GPU compiled, produced finite output on 12 real images, matched CPU top-1 on all 12, and averaged 5/5 top-5 overlap. Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so per-host validation is required. |
 | FlexiViT Global | ❌ Not supported | NaN in both f32 and f16. FlexiViT DINOv2 RMSNorm produces non-finite values. |
 | Small Birds NA (EfficientNet-B0) | ❌ Not supported | Non-deterministic crash — first inference after clean state may pass (f32: ratio=0.83, Spearman=0.821), but subsequent GPU compilations crash with `CL_OUT_OF_RESOURCES`. f16 → NaN. Too unreliable for production use. |
@@ -156,7 +156,9 @@ sweep against 12 real images per device:
 
 **Intel CPU (OpenVINO)** works correctly for all ONNX models and provides a meaningful speedup over plain ONNX Runtime CPU. It remains the safe fallback when host validation rejects an accelerator.
 
-The `auto` provider setting will try GPU first, run the startup self-test, detect failures, and fall back to `Intel CPU (OpenVINO)` or `CPU` automatically.
+The `auto` provider setting uses the measured passing order for the exact model artifact, runtime
+stack, image, and visible hardware. Without current evidence it stays within the model's globally
+safe provider list; it does not assume that a detected GPU is numerically correct.
 
 ### Intel NPU support
 
@@ -362,7 +364,9 @@ docker exec yawamf-monalithic python -m pytest \
 
 #### ConvNeXt Large focused probe
 
-ConvNeXt Large is broken on Intel iGPU (precision degradation, not fixable with OV 2025.4).  This probe checks whether NVIDIA GPU gives correct results and includes Intel iGPU reference data for direct comparison:
+ConvNeXt Large was broken on the tested OpenVINO 2025.4 Intel path but passes on Quark's current
+OpenVINO 2026.2.1 stack. This focused probe remains useful for NVIDIA validation and for detecting
+future Intel runtime regressions:
 
 ```bash
 docker exec yawamf-monalithic python -m pytest \

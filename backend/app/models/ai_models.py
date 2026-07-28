@@ -38,10 +38,20 @@ class ModelMetadata(YAWAMFBaseModel):
     weights_url: Optional[str] = None
     labels_url: str
     model_config_url: Optional[str] = None
+    sha256: Optional[str] = None
+    labels_sha256: Optional[str] = None
+    weights_sha256: Optional[str] = None
     input_size: int = 224
     runtime: Optional[str] = None
     preprocessing: Optional[Dict[str, Any]] = None
     supported_inference_providers: Optional[List[str]] = None
+    # Providers that the isolated per-install validation sweep is allowed to
+    # probe. This may be wider than ``supported_inference_providers`` when a
+    # model/runtime combination is host-dependent (for example, an Intel GPU
+    # kernel that is correct on a current driver but not on an older one).
+    # Candidate providers never become selectable until that exact model
+    # artifact, runtime/image stack, and host pass the numerical-equivalence gate.
+    candidate_inference_providers: Optional[List[str]] = None
     tier: str
     taxonomy_scope: str
     recommended_for: str
@@ -82,6 +92,9 @@ class InstalledModel(YAWAMFBaseModel):
     # this host has proven the model runs here, and is what gates activation.
     validated: bool = True
     validation_reason: str = "validated"
+    validated_inference_providers: List[str] = Field(default_factory=list)
+    provider_preference_order: List[str] = Field(default_factory=list)
+    preferred_inference_provider: Optional[str] = None
     metadata: Optional[ModelMetadata] = None
 
 

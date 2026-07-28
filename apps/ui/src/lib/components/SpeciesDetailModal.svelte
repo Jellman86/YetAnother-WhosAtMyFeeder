@@ -344,6 +344,7 @@
         try {
             const result = await reclassifyDetection(eventId, strategy);
 
+            if (result.status === 'queued') return;
             if (!result.updated) {
                 toastStore.warning($_('notifications.reclassify_no_result'));
                 return;
