@@ -3,6 +3,9 @@
 The single, forward-looking plan for YA-WAMF. This is where **planned** and
 **in-progress** work lives; **completed** work moves to [`CHANGELOG.md`](CHANGELOG.md)
 and is summarised in the [Delivered](#3-delivered) catalogue at the bottom.
+Entries are ordered by product and safety dependency, not promised dates. Each
+entry states an outcome and the evidence needed to call it complete; priority
+and effort are planning aids, not release promises.
 
 > **YA-WAMF is already feature-rich.** This roadmap tracks what's *next*, not what
 > exists — see the [README](README.md) and [Delivered](#3-delivered) for current
@@ -28,6 +31,10 @@ It is anchored by two honest assessments of *where we stand*:
 **Issues first.** Before new feature work, clear anything in `ISSUES.md` and the
 [GitHub issue tracker](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues).
 If a section ever claims "none open", treat it as stale and check both sources.
+Issues retain implementation-ready scope, acceptance criteria, and discussion;
+short-lived pull requests deliver reviewable slices into `dev`. Code and tests
+remain the source of truth, so roadmap work is not shipped until the repository
+proves it.
 
 ---
 

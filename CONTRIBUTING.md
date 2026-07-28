@@ -62,16 +62,22 @@ migration can upgrade, downgrade, and upgrade again.
 
 ## Branches and Pull Requests
 
-Everyday work targets `dev`. Create feature branches from `dev` unless a
-maintainer asks for a different base.
+Start from current `dev` and create a short-lived branch for one reviewable
+behaviour change or tightly related maintenance slice. Open the pull request
+into `dev`; release pull requests alone target `main`.
 
-Pull requests should:
+Use the repository pull request template to:
 
-- describe the behaviour change and why it is needed,
-- include tests for new or changed behaviour,
-- update `CHANGELOG.md` under `Unreleased`,
-- update docs when settings, APIs, integrations, or user-visible behaviour change,
-- keep CI green.
+- describe the useful outcome and exact included/excluded scope;
+- record focused and full checks with their real results;
+- include tests for new or changed behaviour;
+- update `CHANGELOG.md` under `Unreleased`;
+- update docs when settings, APIs, integrations, or user-visible behaviour change;
+- identify data-integrity, migration, security, or operational risk and recovery;
+- keep required checks green and resolve blocking review conversations.
+
+A pull request is delivery evidence, not a substitute for tests or a place to
+accumulate unrelated roadmap work.
 
 ## UI Notification Rules
 

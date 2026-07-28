@@ -263,6 +263,11 @@ looser.
   [`backend/scripts/docs_consistency_check.py`](backend/scripts/docs_consistency_check.py):
   local doc links resolve, documented endpoints in `docs/api.md` map to real routes,
   and stale compose/nav terms are rejected.
+- [`.github/workflows/security.yml`](.github/workflows/security.yml) — scans the
+  complete Git history with Gitleaks on pull requests, protected-branch pushes,
+  a weekly schedule, and manual dispatch. It has read-only repository
+  permissions and may not expose repository or deployment secrets to
+  pull-request code.
 - [`.github/dependabot.yml`](.github/dependabot.yml) — dependency updates for pip,
   npm, Docker, and Actions.
 
@@ -273,7 +278,15 @@ gate as permission to skip the local Definition of Done command.
 
 ## 10. Workflow & commit rules
 
-- **Everyday work happens on `dev`.** Release tags / `main` are handled separately.
+- **Start everyday work from current `dev` on a short-lived branch.** Keep each
+  branch to one reviewable behaviour change or tightly related maintenance slice,
+  then open a pull request into `dev`.
+- Release pull requests alone target `main`; release tags are created from the
+  reviewed release state.
+- Pull requests state the outcome, included and excluded scope, real verification
+  results, and material data, migration, security, or operational risk. Do not
+  merge while a required check is failing or a blocking review conversation is
+  unresolved.
 - **Write GitHub Releases for the person updating their feeder, not for the commit
   history.** Follow [`docs/development/releasing.md`](docs/development/releasing.md)
   and start from [`.github/RELEASE_NOTES_TEMPLATE.md`](.github/RELEASE_NOTES_TEMPLATE.md).
