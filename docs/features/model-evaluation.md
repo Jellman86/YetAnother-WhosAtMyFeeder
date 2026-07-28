@@ -148,13 +148,16 @@ For a complete metadata audit on the Intel image, use:
 }
 ```
 
-The Quark reference run `20260728-200619` used the `dev-intel` image with OpenVINO 2026.2.1 and
-completed all 12 classifiers plus both crop detectors. Classifiers used 24 real images. The fast
-SSD crop detector remained CPU-only; accurate YOLOX-Tiny matched CPU detection presence and
-geometry on Intel CPU/GPU/NPU, with Intel GPU fastest on that host. Discovery also found current
-CPU-equivalent routes that were absent from older metadata. Those routes were added only to the
-reviewed candidate lists, so another installation must still reproduce the pass before its UI or
-runtime can select them.
+The post-deploy Quark reference run `20260728-210739` used the `dev-intel` image with OpenVINO
+2026.2.1 and completed all 12 classifier entries plus both crop detectors. Classifiers used 24 real
+images. Because Quark's then-running build did not recognise the stored country name `United
+Kingdom`, that full run resolved regional families to NA. Scoped EU runs `20260728-212610` and
+`20260728-212955` then tested the distinct EU artifacts explicitly, and the country resolver was
+fixed. The fast SSD crop detector remained CPU-only; accurate YOLOX-Tiny matched CPU detection
+presence and geometry on Intel CPU/GPU/NPU, with Intel GPU fastest on that host. Discovery found
+additional CPU-equivalent routes, but only repeatable, artifact-attributed results were added to
+reviewed candidate lists; another installation must still reproduce a candidate pass before its UI
+or runtime can select it.
 
 The hardware sweep validates runtime compatibility, not classifier image-selection accuracy. Crop
 policy is evaluated separately with the feeder harness. Distant-bird validation must retain each

@@ -187,7 +187,10 @@ REMOTE_REGISTRY = [
                 "file_size_mb": 122.7,
                 "input_size": 384,
                 "supported_inference_providers": ["cpu", "intel_cpu"],
-                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+                # NPU is artifact-specific and host-gated. Two isolated
+                # Quark/OpenVINO 2026.2.1 runs matched CPU top-1 and top-5 on
+                # every real comparison image; it is not globally enabled.
+                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu"],
                 "preprocessing": {
                     "color_space": "RGB",
                     "resize_mode": "center_crop",
@@ -233,7 +236,7 @@ REMOTE_REGISTRY = [
                 },
             },
         },
-        "notes": "Regional birds-only family. Both regional artifacts have conflicting historical Intel GPU results, so GPU support requires an exact-installation sweep. The EU MobileNetV4 artifact passed Quark / OpenVINO 2026.2.1 on 24/24 real images; the NA EfficientNet artifact was not exercised by that EU-resolved run.",
+        "notes": "Regional birds-only family. Both regional artifacts keep Intel GPU host-gated because of historical conflicts. The EU MobileNetV4 artifact also exposes Intel NPU as a host-gated candidate after two isolated Quark / OpenVINO 2026.2.1 runs matched CPU on every real comparison image; the NA EfficientNet NPU route remains excluded after inconsistent runs.",
     },
     {
         "id": "convnext_large_inat21",
@@ -405,10 +408,7 @@ REMOTE_REGISTRY = [
                 "file_size_mb": 108.5,
                 "input_size": 256,
                 "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
-                # NPU is artifact-specific and host-gated. The EU ConvNeXt-V2
-                # artifact matched CPU top-1 on 24/24 real images on Quark's
-                # OpenVINO 2026.2.1 stack; the NA Binocular artifact has not.
-                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu"],
+                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
                 "preprocessing": {
                     "color_space": "RGB",
                     "resize_mode": "center_crop",
@@ -421,7 +421,7 @@ REMOTE_REGISTRY = [
                 "crop_generator": {
                     "enabled": False,
                 },
-                "notes": "The EU ConvNeXt-V2 artifact supports CPU and Intel GPU globally. Intel NPU is host-gated: Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images with 4.88/5 mean top-5 overlap. The NA variant has separate metadata and does not inherit this candidate.",
+                "notes": "The EU ConvNeXt-V2 artifact supports CPU and Intel GPU. Intel NPU remains excluded after Quark / OpenVINO 2026.2.1 disagreed with CPU top-1 on one of 24 real comparison images.",
             },
             "na": {
                 "region_scope": "na",
@@ -444,7 +444,11 @@ REMOTE_REGISTRY = [
                     "normalization": "float32",
                 },
                 "supported_inference_providers": ["cpu", "intel_cpu"],
-                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+                # The NA Binocular artifact has conflicting historical GPU
+                # results, while two current isolated NPU runs matched CPU
+                # top-1 on every real comparison image. Both accelerators stay
+                # host-gated rather than becoming globally safe.
+                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu"],
                 "label_grouping": {
                     "strategy": "strip_trailing_parenthetical",
                 },
@@ -457,7 +461,7 @@ REMOTE_REGISTRY = [
                 },
             },
         },
-        "notes": "Regional birds-only family. The EU ConvNeXt-V2 artifact has globally supported Intel GPU output and a host-gated NPU candidate. The NA Binocular artifact has conflicting historical GPU results and therefore requires an exact-installation sweep.",
+        "notes": "Regional birds-only family. The EU ConvNeXt-V2 artifact supports Intel GPU but excludes NPU after a current CPU-equivalence failure. The NA Binocular artifact keeps Intel GPU and NPU host-gated behind an exact-installation sweep.",
     },
     {
         "id": "rope_vit_b14_inat21",

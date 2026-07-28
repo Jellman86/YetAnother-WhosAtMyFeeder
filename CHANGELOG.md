@@ -38,14 +38,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   documented as incompatible and cannot authorize a current install.
 - **The global candidate registry now reflects the complete current Intel hardware audit.**
   Quark's 28 July schema-4 sweep tested 12 classifiers and both crop detectors over 24 real images
-  plus detector hard negatives. It adds host-gated candidates for the Intel NPU on the EU Medium
-  Birds artifact and the Intel GPU on ConvNeXt-V1 Tiny, RegNet-Y-8G, UniFormer-S, and EVA-02 Large.
+  plus detector hard negatives. Explicit regional reruns corrected the family attribution: Small
+  Birds EU and Medium Birds NA expose Intel NPU as host-gated candidates, while Medium Birds EU
+  failed CPU-equivalence and Small Birds NA remains excluded after inconsistent NPU results. The
+  audit also adds host-gated Intel GPU candidates for ConvNeXt-V1 Tiny, RegNet-Y-8G, UniFormer-S,
+  and EVA-02 Large.
   It also moves Intel GPU routes with conflicting historical results—Small Birds EU/NA, Medium
   Birds NA, FlexiViT, and RoPE—from globally safe to host-gated. Medium Birds EU and FocalNet-B
   remain globally GPU-supported because both older and current reference runtimes agree.
 
 ### Fixed
 
+- **Automatic bird-model regions now understand the country values the setup UI actually stores.**
+  ISO-2, ISO-3, and supported human-readable names such as `United Kingdom` and `United States`
+  resolve consistently. UK installations no longer silently fall back to North American
+  Small/Medium artifacts, and hardware evidence remains bound to the regional artifact it tested.
 - **Manual video reclassification is queue-owned, bounded, and cancellable.** The request now
   returns immediately, deduplicates against live/maintenance work, reports real Jobs progress, and
   always runs video inference in a killable subprocess so a timeout or disconnected client cannot

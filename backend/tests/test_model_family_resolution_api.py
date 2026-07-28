@@ -30,7 +30,7 @@ def reset_settings():
 async def test_model_family_resolution_api_uses_auto_country_resolution(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
-    settings.location.country = "GB"
+    settings.location.country = "United Kingdom"
     settings.classification.bird_model_region_override = "auto"
 
     response = await client.get("/api/models/families/resolved")

@@ -10,6 +10,12 @@ You can manage models directly from **Settings → Detection → Model Manager**
 - A legacy TFLite fallback for very constrained CPU-only systems
 - Separately managed bird-crop detector tiers for generated thumbnails and automatic localization
 
+The [model release catalog](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/tag/models)
+lists each artifact's download size, input resolution, estimated model working-set RAM, provider
+contract, and measured Quark latency. RAM figures are planning estimates rather than measured peak
+container RSS; leave at least 1–2 GB for YA-WAMF and the operating system, with additional headroom
+when Frigate shares the host.
+
 > **Platform note:** Raspberry Pi compatibility is currently a best-effort ARM64 target and has not yet been validated on physical Pi hardware in this project environment.
 
 ### Validate before you select (post-install gate)

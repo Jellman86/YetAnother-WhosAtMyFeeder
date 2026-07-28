@@ -145,8 +145,8 @@ schema-4 sweep against 24 real images per classifier:
 | Model | Intel GPU Status | Notes |
 |-------|-----------------|-------|
 | EU FocalNet-B | ✅ Validated | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 146.6 ms. |
-| Small Birds EU (MobileNetV4-L) | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 5.6 ms. An older shared-context run failed, so the isolated exact-installation gate remains required. |
-| Medium Birds EU (ConvNeXt-V2-Tiny) | ✅ Validated | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 98.3 ms. |
+| Small Birds EU (MobileNetV4-L) | ✅ Host-gated candidate | Two explicit EU runs matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap; the latest measured 25.3 ms. An older shared-context run failed, so the isolated exact-installation gate remains required. |
+| Medium Birds EU (ConvNeXt-V2-Tiny) | ✅ Validated | The explicit EU run matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap at 36.1 ms. |
 | MogaNet-S EU | ✅ Validated | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 72.2 ms. |
 | FlexiViT Global | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 71.1 ms. Older OpenVINO runs produced non-finite output. |
 | ConvNeXt Large | ✅ Host-gated candidate | 24/24 GPU top-1 results matched CPU, mean top-5 overlap was 5/5, and median inference was 355.8 ms. OpenVINO 2025.4.1 produced systematically wrong rankings, so Intel GPU is a candidate rather than globally safe. |
@@ -155,8 +155,8 @@ schema-4 sweep against 24 real images per classifier:
 | RegNet-Y-8G EU | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 73.0 ms. Older OpenVINO predictions diverged. |
 | UniFormer-S EU | ✅ Host-gated candidate | Finite output, 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 49.8 ms. Older OpenVINO runs produced NaNs. |
 | EVA-02 Large | ✅ Host-gated candidate | The isolated current-runtime sweep completed 24/24 images with exact CPU top-1 and 5/5 top-5 overlap at 692.3 ms. OpenVINO 2024.6.0 through 2025.4.1 could abort with `CL_OUT_OF_RESOURCES`, so it is never globally enabled. |
-| Small Birds NA (EfficientNet-B0) | ⚠️ Host-gated, unverified on Quark | Historical runs conflict: isolated inference could pass, while subsequent compilations crashed with `CL_OUT_OF_RESOURCES` or produced non-finite output. It is never assumed safe and must pass on the exact artifact and installation. |
-| Medium Birds NA (Binocular) | ⚠️ Host-gated, unverified on Quark | Older runs produced non-finite output. The EU-resolved Quark sweep did not test this distinct NA artifact, so it receives no eligibility from the EU result. |
+| Small Birds NA (EfficientNet-B0) | ✅ Host-gated candidate | The post-deploy NA run matched CPU top-1 on 24/24 images at 5.4 ms, but historical runs crashed or produced non-finite output. It is never assumed safe and must pass on the exact artifact and installation. |
+| Medium Birds NA (Binocular) | ✅ Host-gated candidate | The post-deploy NA run matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap at 96.6 ms. Older runs produced non-finite output, so exact-installation validation remains mandatory. |
 
 **Intel CPU (OpenVINO)** works correctly for all ONNX models and provides a meaningful speedup over plain ONNX Runtime CPU. It remains the safe fallback when host validation rejects an accelerator.
 
@@ -166,16 +166,18 @@ safe provider list; it does not assume that a detected GPU is numerically correc
 
 ### Intel NPU support
 
-The 28 July 2026 Arrow Lake-S / OpenVINO 2026.2.1 sweep validated NPU execution for RoPE ViT-B14,
+The 28 July 2026 Arrow Lake-S / OpenVINO 2026.2.1 sweeps validated NPU execution for RoPE ViT-B14,
 ConvNeXt Large, EVA-02 Large, FlexiViT, FocalNet-B, MogaNet-S, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU,
-UniFormer-S EU, and Medium Birds EU. Each compiled in an isolated process, produced finite output
-for 24 real images, and matched CPU top-1 on all 24. Medium Birds EU averaged 4.88/5 top-5 overlap
-and is a host-gated candidate because the North American family variant is a different artifact.
+UniFormer-S EU, Small Birds EU, and Medium Birds NA. Each compiled in an isolated process, produced
+finite output for 24 real images, and matched CPU top-1 on all 24. Small Birds EU repeated that
+result in two explicit regional runs and is a host-gated candidate; Medium Birds NA also remains
+host-gated because older runtime evidence conflicted.
 
-MobileNet V2 remains TFLite/CPU-only. Small Birds EU's NPU output disagreed on one of 24 top-1
-results, so NPU remains excluded for that artifact. NPU was not the fastest device for every model;
-the guided validation therefore benchmarks the current installation and selects the fastest passing
-provider rather than preferring an accelerator by name.
+MobileNet V2 remains TFLite/CPU-only. Medium Birds EU's NPU output disagreed on one of 24 top-1
+results, and Small Birds NA disagreed in an earlier run despite passing the post-deploy panel, so
+NPU remains excluded for both artifacts. NPU was not the fastest device for every model; the guided
+validation therefore benchmarks the current installation and selects the fastest passing provider
+rather than preferring an accelerator by name.
 
 ---
 

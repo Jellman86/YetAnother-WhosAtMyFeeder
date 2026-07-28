@@ -72,12 +72,12 @@ def test_release_model_configs_use_current_provider_policy():
         "cpu",
         "intel_cpu",
         "intel_gpu",
-        "intel_npu",
     ]
     assert configs["medium_birds_na_binocular_candidate_model_config.json"]["candidate_inference_providers"] == [
         "cpu",
         "intel_cpu",
         "intel_gpu",
+        "intel_npu",
     ]
     for filename in (
         "convnext_v1_tiny_eu_common_model_config.json",
@@ -113,6 +113,7 @@ def test_release_model_configs_use_current_provider_policy():
         "cpu",
         "intel_cpu",
         "intel_gpu",
+        "intel_npu",
     ]
     assert configs["small_birds_eu_mobilenet_v4_l_candidate_model_config.json"] == {
         **configs["small_birds_eu_mobilenet_v4_l_candidate_model_config.json"],

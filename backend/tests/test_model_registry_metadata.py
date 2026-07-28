@@ -103,6 +103,7 @@ async def test_available_models_expose_tiered_metadata():
         "cpu",
         "intel_cpu",
         "intel_gpu",
+        "intel_npu",
     ]
     assert by_id["small_birds"].region_variants["eu"]["model_config_url"]
     assert by_id["small_birds"].region_variants["eu"]["preprocessing"]["resize_mode"] == "center_crop"
@@ -132,12 +133,12 @@ async def test_available_models_expose_tiered_metadata():
         "cpu",
         "intel_cpu",
         "intel_gpu",
-        "intel_npu",
     ]
     assert by_id["medium_birds"].region_variants["na"]["candidate_inference_providers"] == [
         "cpu",
         "intel_cpu",
         "intel_gpu",
+        "intel_npu",
     ]
     assert by_id["medium_birds"].region_variants["eu"]["model_config_url"]
     assert by_id["medium_birds"].region_variants["eu"]["preprocessing"]["resize_mode"] == "center_crop"
@@ -282,7 +283,7 @@ async def test_available_models_resolve_family_variant_sizes_from_settings():
     original_country = settings.location.country
     original_override = settings.classification.bird_model_region_override
     try:
-        settings.location.country = "GB"
+        settings.location.country = "United Kingdom"
         settings.classification.bird_model_region_override = "auto"
         eu_models = await manager.list_available_models()
         eu_by_id = {model.id: model for model in eu_models}
@@ -291,12 +292,16 @@ async def test_available_models_resolve_family_variant_sizes_from_settings():
         assert eu_by_id["medium_birds"].file_size_mb == pytest.approx(108.5, abs=0.1)
         assert "intel_cpu" in (eu_by_id["small_birds"].supported_inference_providers or [])
         assert "intel_cpu" in (eu_by_id["medium_birds"].supported_inference_providers or [])
-        assert eu_by_id["small_birds"].candidate_inference_providers == ["cpu", "intel_cpu", "intel_gpu"]
-        assert eu_by_id["medium_birds"].candidate_inference_providers == [
+        assert eu_by_id["small_birds"].candidate_inference_providers == [
             "cpu",
             "intel_cpu",
             "intel_gpu",
             "intel_npu",
+        ]
+        assert eu_by_id["medium_birds"].candidate_inference_providers == [
+            "cpu",
+            "intel_cpu",
+            "intel_gpu",
         ]
 
         settings.location.country = "US"
@@ -309,7 +314,12 @@ async def test_available_models_resolve_family_variant_sizes_from_settings():
         assert na_by_id["small_birds"].supported_inference_providers == ["cpu", "intel_cpu"]
         assert na_by_id["small_birds"].candidate_inference_providers == ["cpu", "intel_cpu", "intel_gpu"]
         assert na_by_id["medium_birds"].supported_inference_providers == ["cpu", "intel_cpu"]
-        assert na_by_id["medium_birds"].candidate_inference_providers == ["cpu", "intel_cpu", "intel_gpu"]
+        assert na_by_id["medium_birds"].candidate_inference_providers == [
+            "cpu",
+            "intel_cpu",
+            "intel_gpu",
+            "intel_npu",
+        ]
     finally:
         settings.location.country = original_country
         settings.classification.bird_model_region_override = original_override

@@ -212,9 +212,10 @@ The NPU is validated per model, not enabled blanket:
   (compiles, produces finite output, and its top-k agrees with the CPU baseline).
   The current Arrow Lake reference includes ConvNeXt Large, RoPE ViT-B14, FocalNet-B, FlexiViT,
   MogaNet-S, ConvNeXt-V1 Tiny, RegNet-Y-8G, UniFormer-S, EVA-02 Large, and accurate YOLOX-Tiny.
-  Medium Birds EU is a host-gated NPU candidate; Medium Birds NA is a different artifact and does
-  not inherit that result. Classifiers compare top-k output while crop detectors compare admitted
-  detection presence, geometry, and confidence.
+  Small Birds EU and Medium Birds NA are host-gated NPU candidates. Medium Birds EU disagreed with
+  CPU top-1 on one of 24 real images, while Small Birds NA was inconsistent across runs, so those
+  two regional routes remain excluded. Classifiers compare top-k output while crop detectors
+  compare admitted detection presence, geometry, and confidence.
 - The NPU is stricter than the GPU on some operations, so not every model is
   NPU-viable. When a model cannot compile on the selected device, YA-WAMF keeps
   the model installed and runs inference on the OpenVINO CPU fallback, and the
