@@ -68,9 +68,6 @@ GPU_VALIDATED: set[str] = {
     # the depthwise-conv precision issue seen in convnext_large_inat21.
     # Probed on Intel iGPU, OV 2025.4.1, 22 March 2026.
     "medium_birds_eu",
-    # moganet_s_eu_common: probed 2026-05-08, top-5 overlap 5/5 (best of any
-    # tested candidate), range ratio 1.03. Multi-order gated CNN — no attention.
-    "moganet_s_eu_common",
     # Accurate YOLOX-Tiny matched CPU detection presence and geometry on
     # OpenVINO 2026.2.1 across the current clean panel plus hard negatives.
     "bird_crop_detector_accurate_yolox_tiny",
@@ -121,18 +118,6 @@ GPU_HOST_GATED: dict[str, str] = {
         "OpenVINO 2025.4.1 produced systematically wrong rankings, while "
         "Arrow Lake / OpenVINO 2026.2.1 matched CPU top-1 on two independent "
         "real-image sweeps (12/12 and 24/24, mean top-5 overlap 5.0)."
-    ),
-    "convnext_v1_tiny_eu_common": (
-        "OpenVINO 2025.4.1 produced precision-degraded output, while Arrow "
-        "Lake / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images."
-    ),
-    "regnet_y_8g_eu_common": (
-        "OpenVINO 2025.4.1 predictions diverged from CPU, while Arrow Lake / "
-        "OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images."
-    ),
-    "uniformer_s_eu_common": (
-        "OpenVINO 2025.4.1 produced NaNs, while Arrow Lake / OpenVINO 2026.2.1 "
-        "produced finite output and matched CPU top-1 on 24/24 real images."
     ),
     "eva02_large_inat21": (
         "OpenVINO 2024.6.0 through 2025.4.1 could abort with "

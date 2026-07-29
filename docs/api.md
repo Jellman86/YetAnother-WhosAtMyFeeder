@@ -223,6 +223,11 @@ Notes:
 - `POST /api/models/{model_id}/validate` (owner) — trial-activates a classifier, validates every globally safe or reviewed candidate provider in the running image/host/model intersection in isolated processes, compares accelerator output with a CPU baseline, records schema-4 artifact/runtime/hardware-bound eligibility and median inference latency, orders passing providers by measured latency, and restores the previously active model. Crop-detector artifacts are rejected with `409`.
 - `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the artifact is a crop detector or the classifier has not been validated for this artifact/runtime/install (unless it is bundled or already active); after activation succeeds, applies the first still-eligible provider and never carries an explicit provider from the previous model.
 
+MogaNet-S EU, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU, and UniFormer-S EU are retired from the
+current catalogue. Download, validation, and activation requests for those IDs return `410 Gone`.
+Their existing release files remain available to pre-3.0 application versions during the
+compatibility window; current releases neither list nor run them.
+
 `GET /api/classifier/status` separates packaging, hardware availability, and the
 active model session. Important deployment fields are:
 

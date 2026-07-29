@@ -96,6 +96,7 @@
         "cameras_count": "{count} cameras",
         "cameras_all": "All cameras",
         "model_wrong_kind": "A crop detector is selected as the classifier",
+        "model_retired": "The saved classifier has been retired",
         "model_fallback": "Bundled fallback",
         "quality_best": "Best available snapshots",
         "quality_standard": "Standard snapshots",

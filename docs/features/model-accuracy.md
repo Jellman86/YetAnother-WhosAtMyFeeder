@@ -79,6 +79,11 @@ produced 4,032 classifications using the accurate YOLOX-Tiny detector.
 Top-1 accuracy is primary. Differences below two percentage points are treated as ties, resolved by
 top-3 accuracy, Unknown rate, then median latency.
 
+The MogaNet-S EU, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU, and UniFormer-S EU rows are retained as
+historical evidence from the full comparison. Those models are no longer present in the current
+application catalogue; their pre-3.0 release assets remain temporarily available for older
+applications.
+
 | Model or variant | Crop on top-1 / top-3 | Full frame top-1 / top-3 | Automatic policy |
 |---|---:|---:|---|
 | MobileNet V2 | 54.86 / 66.67 | 50.00 / 60.42 | **Crop on** |
@@ -91,10 +96,10 @@ top-3 accuracy, Unknown rate, then median latency.
 | FocalNet-B EU | 36.81 / 40.28 | 38.19 / 41.67 | Full frame |
 | RoPE ViT-B14 | 62.50 / 71.53 | 67.36 / 75.00 | Full frame |
 | EVA-02 Large | 68.06 / 77.78 | 67.36 / 79.86 | Full frame |
-| MogaNet-S EU | 27.78 / 31.94 | 27.78 / 34.72 | Full frame |
-| ConvNeXt-V1 Tiny EU | 27.78 / 32.64 | 29.17 / 35.42 | Full frame |
-| RegNet-Y-8G EU | 25.69 / 29.86 | 26.39 / 33.33 | Full frame |
-| UniFormer-S EU | 28.47 / 31.94 | 27.08 / 34.03 | Full frame |
+| MogaNet-S EU (retired) | 27.78 / 31.94 | 27.78 / 34.72 | Full frame |
+| ConvNeXt-V1 Tiny EU (retired) | 27.78 / 32.64 | 29.17 / 35.42 | Full frame |
+| RegNet-Y-8G EU (retired) | 25.69 / 29.86 | 26.39 / 33.33 | Full frame |
+| UniFormer-S EU (retired) | 28.47 / 31.94 | 27.08 / 34.03 | Full frame |
 
 All 2,016 crop-on cases attempted localization. The detector applied 1,736 crops, rejected 182
 images below its confidence threshold, rejected 98 candidates as too small, and recorded zero load
@@ -147,13 +152,13 @@ schema-4 sweep against 24 real images per classifier:
 | EU FocalNet-B | ✅ Validated | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 146.6 ms. |
 | Small Birds EU (MobileNetV4-L) | ✅ Host-gated candidate | Two explicit EU runs matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap; the latest measured 25.3 ms. An older shared-context run failed, so the isolated exact-installation gate remains required. |
 | Medium Birds EU (ConvNeXt-V2-Tiny) | ✅ Validated | The explicit EU run matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap at 36.1 ms. |
-| MogaNet-S EU | ✅ Validated | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 72.2 ms. |
+| MogaNet-S EU (retired) | Historical pass | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 72.2 ms. Retained as retirement evidence, not a current option. |
 | FlexiViT Global | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 71.1 ms. Older OpenVINO runs produced non-finite output. |
 | ConvNeXt Large | ✅ Host-gated candidate | 24/24 GPU top-1 results matched CPU, mean top-5 overlap was 5/5, and median inference was 355.8 ms. OpenVINO 2025.4.1 produced systematically wrong rankings, so Intel GPU is a candidate rather than globally safe. |
 | RoPE ViT-B14 | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 310.8 ms. Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so per-host validation remains required. |
-| ConvNeXt-V1 Tiny EU | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 57.8 ms. Older OpenVINO output was precision-degraded. |
-| RegNet-Y-8G EU | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 73.0 ms. Older OpenVINO predictions diverged. |
-| UniFormer-S EU | ✅ Host-gated candidate | Finite output, 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 49.8 ms. Older OpenVINO runs produced NaNs. |
+| ConvNeXt-V1 Tiny EU (retired) | Historical pass | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 57.8 ms. Retained as retirement evidence, not a current option. |
+| RegNet-Y-8G EU (retired) | Historical pass | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 73.0 ms. Retained as retirement evidence, not a current option. |
+| UniFormer-S EU (retired) | Historical pass | Finite output, 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 49.8 ms. Retained as retirement evidence, not a current option. |
 | EVA-02 Large | ✅ Host-gated candidate | The isolated current-runtime sweep completed 24/24 images with exact CPU top-1 and 5/5 top-5 overlap at 692.3 ms. OpenVINO 2024.6.0 through 2025.4.1 could abort with `CL_OUT_OF_RESOURCES`, so it is never globally enabled. |
 | Small Birds NA (EfficientNet-B0) | ✅ Host-gated candidate | The post-deploy NA run matched CPU top-1 on 24/24 images at 5.4 ms, but historical runs crashed or produced non-finite output. It is never assumed safe and must pass on the exact artifact and installation. |
 | Medium Birds NA (Binocular) | ✅ Host-gated candidate | The post-deploy NA run matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap at 96.6 ms. Older runs produced non-finite output, so exact-installation validation remains mandatory. |
@@ -166,12 +171,13 @@ safe provider list; it does not assume that a detected GPU is numerically correc
 
 ### Intel NPU support
 
-The 28 July 2026 Arrow Lake-S / OpenVINO 2026.2.1 sweeps validated NPU execution for RoPE ViT-B14,
-ConvNeXt Large, EVA-02 Large, FlexiViT, FocalNet-B, MogaNet-S, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU,
-UniFormer-S EU, Small Birds EU, and Medium Birds NA. Each compiled in an isolated process, produced
-finite output for 24 real images, and matched CPU top-1 on all 24. Small Birds EU repeated that
-result in two explicit regional runs and is a host-gated candidate; Medium Birds NA also remains
-host-gated because older runtime evidence conflicted.
+The 28 July 2026 Arrow Lake-S / OpenVINO 2026.2.1 sweeps validated current NPU execution for RoPE
+ViT-B14, ConvNeXt Large, EVA-02 Large, FlexiViT, FocalNet-B, Small Birds EU, and Medium Birds NA.
+Each compiled in an isolated process, produced finite output for 24 real images, and matched CPU
+top-1 on all 24. Small Birds EU repeated that result in two explicit regional runs and is a
+host-gated candidate; Medium Birds NA also remains host-gated because older runtime evidence
+conflicted. MogaNet-S, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU, and UniFormer-S also passed that
+historical sweep but have since been retired from the application catalogue.
 
 MobileNet V2 remains TFLite/CPU-only. Medium Birds EU's NPU output disagreed on one of 24 top-1
 results, and Small Birds NA disagreed in an earlier run despite passing the post-deploy panel, so

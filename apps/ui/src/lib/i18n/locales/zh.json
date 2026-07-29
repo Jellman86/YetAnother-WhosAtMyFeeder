@@ -65,7 +65,7 @@
       "load_failed": "无法加载设置摘要。已保存的设置未被更改。",
       "retry": "重试加载摘要",
       "stale": "由于最新刷新失败，当前显示上一次的设置摘要。",
-      "detail": { "account_password_protected": "密码保护", "account_auth_disabled": "身份验证已禁用", "account_not_configured": "未配置", "frigate_url": "Frigate 地址", "mqtt_broker": "MQTT 代理", "mqtt_username": "MQTT 用户名", "mqtt_password": "MQTT 密码", "connection_missing": "设置 {items}", "cameras_count": "{count} 个摄像头", "cameras_all": "所有摄像头", "model_wrong_kind": "裁剪检测器被选作分类器", "model_fallback": "内置后备模型", "quality_best": "最佳可用快照", "quality_standard": "标准快照", "integrations_needs": "需要设置：{integrations}", "integrations_configured": "已配置：{integrations}", "integrations_none": "均未启用" }
+      "detail": { "account_password_protected": "密码保护", "account_auth_disabled": "身份验证已禁用", "account_not_configured": "未配置", "frigate_url": "Frigate 地址", "mqtt_broker": "MQTT 代理", "mqtt_username": "MQTT 用户名", "mqtt_password": "MQTT 密码", "connection_missing": "设置 {items}", "cameras_count": "{count} 个摄像头", "cameras_all": "所有摄像头", "model_wrong_kind": "裁剪检测器被选作分类器", "model_retired": "已停用保存的分类模型", "model_fallback": "内置后备模型", "quality_best": "最佳可用快照", "quality_standard": "标准快照", "integrations_needs": "需要设置：{integrations}", "integrations_configured": "已配置：{integrations}", "integrations_none": "均未启用" }
     }
   },
   "theme": {

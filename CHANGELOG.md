@@ -37,15 +37,27 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   top-1 on 24/24 real images with 4.96/5 mean top-5 overlap; older OpenVINO 2025.4.1 evidence remains
   documented as incompatible and cannot authorize a current install.
 - **The global candidate registry now reflects the complete current Intel hardware audit.**
-  Quark's 28 July schema-4 sweep tested 12 classifiers and both crop detectors over 24 real images
-  plus detector hard negatives. Explicit regional reruns corrected the family attribution: Small
-  Birds EU and Medium Birds NA expose Intel NPU as host-gated candidates, while Medium Birds EU
-  failed CPU-equivalence and Small Birds NA remains excluded after inconsistent NPU results. The
-  audit also adds host-gated Intel GPU candidates for ConvNeXt-V1 Tiny, RegNet-Y-8G, UniFormer-S,
-  and EVA-02 Large.
+  Quark's 28 July schema-4 sweep tested the then-current 12 classifiers and both crop detectors
+  over 24 real images plus detector hard negatives. Explicit regional reruns corrected the family
+  attribution: Small Birds EU and Medium Birds NA expose Intel NPU as host-gated candidates, while
+  Medium Birds EU failed CPU-equivalence and Small Birds NA remains excluded after inconsistent
+  NPU results. The audit also adds a host-gated Intel GPU candidate for EVA-02 Large and records
+  the final compatibility evidence for the subsequently retired comparison models.
   It also moves Intel GPU routes with conflicting historical results—Small Birds EU/NA, Medium
   Birds NA, FlexiViT, and RoPE—from globally safe to host-gated. Medium Birds EU and FocalNet-B
   remain globally GPU-supported because both older and current reference runtimes agree.
+- **A retired saved classifier now moves to a supported model before background work starts.**
+  YA-WAMF prefers an already installed ConvNeXt Large and otherwise uses the bundled MobileNet
+  fallback, resets provider selection only when the active model changes, and leaves every retired
+  model file untouched for rollback.
+
+### Removed
+
+- **Four redundant comparison classifiers no longer appear or run in current YA-WAMF releases.**
+  MogaNet-S EU, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU, and UniFormer-S EU have been removed from the
+  current registry, Model Manager, setup wizard, validation sweep, download path, and activation
+  path. Their existing GitHub release assets remain available to pre-3.0 applications until the
+  planned 3.0 asset retirement.
 
 ### Fixed
 

@@ -174,6 +174,21 @@ async def test_activate_missing_model_is_404(client, monkeypatch, stub_activatio
 
 
 @pytest.mark.asyncio
+async def test_retired_model_actions_are_gone(client, monkeypatch, stub_activation):
+    async def fake_installed():
+        return [_installed("moganet_s_eu_common", validated=True)]
+
+    monkeypatch.setattr(models_router.model_manager, "list_installed_models", fake_installed)
+
+    for action in ("download", "validate", "activate"):
+        resp = await client.post(f"/api/models/moganet_s_eu_common/{action}")
+        assert resp.status_code == 410, (action, resp.text)
+        assert "retired" in resp.json()["detail"].lower()
+
+    assert "id" not in stub_activation
+
+
+@pytest.mark.asyncio
 async def test_validate_route_runs_probe_and_returns_result(client, monkeypatch):
     async def fake_installed():
         return [_installed("small_birds", validated=False)]
@@ -219,6 +234,21 @@ def test_model_manager_refuses_to_persist_crop_detector_as_active_classifier(mon
     monkeypatch.setattr(models_router.model_manager, "_save_active_model_id", persisted.append)
 
     assert models_router.model_manager._activate_model_sync("bird_crop_detector") is False
+    assert persisted == []
+
+
+def test_model_manager_refuses_to_persist_retired_classifier(monkeypatch, tmp_path):
+    retired_dir = tmp_path / "moganet_s_eu_common"
+    retired_dir.mkdir(parents=True)
+    (retired_dir / "model.onnx").write_bytes(b"retired")
+    (retired_dir / "labels.txt").write_text("bird\n", encoding="utf-8")
+    persisted: list[str] = []
+
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+    manager = models_router.model_manager.__class__()
+    monkeypatch.setattr(manager, "_save_active_model_id", persisted.append)
+
+    assert manager._activate_model_sync("moganet_s_eu_common") is False
     assert persisted == []
 
 

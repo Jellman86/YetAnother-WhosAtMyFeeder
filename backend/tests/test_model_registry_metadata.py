@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 import pytest
 
 from app.config import settings
-from app.services.model_manager import REMOTE_REGISTRY, ModelManager
+from app.services.model_manager import RETIRED_CLASSIFIER_MODEL_IDS, REMOTE_REGISTRY, ModelManager
 
 
 def test_every_github_release_model_asset_has_a_pinned_checksum():
@@ -50,6 +50,8 @@ def test_bundled_mobilenet_registry_contract_is_pinned_and_checksum_verified():
 async def test_available_models_expose_tiered_metadata():
     models = await ModelManager().list_available_models()
     by_id = {model.id: model for model in models}
+
+    assert RETIRED_CLASSIFIER_MODEL_IDS.isdisjoint(by_id)
 
     assert by_id["mobilenet_v2_birds"].tier == "cpu_only"
     assert by_id["mobilenet_v2_birds"].taxonomy_scope == "birds_only"
@@ -224,19 +226,6 @@ async def test_available_models_expose_tiered_metadata():
         "intel_gpu",
         "intel_npu",
     ]
-
-    for model_id in (
-        "convnext_v1_tiny_eu_common",
-        "regnet_y_8g_eu_common",
-        "uniformer_s_eu_common",
-    ):
-        assert by_id[model_id].candidate_inference_providers == [
-            "cpu",
-            "intel_cpu",
-            "intel_gpu",
-            "intel_npu",
-            "cuda",
-        ]
 
     assert by_id["bird_crop_detector"].tier == "fast"
     assert by_id["bird_crop_detector"].advanced_only is True

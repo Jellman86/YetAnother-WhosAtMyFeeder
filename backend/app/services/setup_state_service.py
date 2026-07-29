@@ -15,7 +15,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.services.model_manager import registry_artifact_kind
+from app.services.model_manager import is_retired_model, registry_artifact_kind
 
 # Section ids line up with the wizard steps (welcome/language is not a config section).
 SETUP_SECTION_IDS = ("account", "connection", "cameras", "model", "quality", "integrations")
@@ -102,6 +102,13 @@ def _cameras(settings) -> SetupSectionState:
 def _model(settings) -> SetupSectionState:
     # A bundled classifier always ships, so this is functional out of the box.
     model_id = str(settings.classification.model or "").strip()
+    if is_retired_model(model_id):
+        return SetupSectionState(
+            id="model",
+            status="attention",
+            detail="The saved classifier has been retired",
+            detail_code="model_retired",
+        )
     if model_id and registry_artifact_kind(model_id) != "classifier":
         return SetupSectionState(
             id="model",

@@ -67,6 +67,8 @@
                 return $_('setup.review.detail.cameras_all', { default: 'All cameras' });
             case 'model_wrong_kind':
                 return $_('setup.review.detail.model_wrong_kind', { default: 'A crop detector is selected as the classifier' });
+            case 'model_retired':
+                return $_('setup.review.detail.model_retired', { default: 'The saved classifier has been retired' });
             case 'model_selected':
                 return text('model');
             case 'model_fallback':
