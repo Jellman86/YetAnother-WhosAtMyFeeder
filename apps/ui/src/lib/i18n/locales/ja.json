@@ -65,7 +65,7 @@
       "load_failed": "設定の概要を読み込めませんでした。保存済みの設定は変更されていません。",
       "retry": "概要を再読み込み",
       "stale": "最新の更新に失敗したため、前回の設定概要を表示しています。",
-      "detail": { "account_password_protected": "パスワード保護あり", "account_auth_disabled": "認証無効", "account_not_configured": "未設定", "frigate_url": "Frigate の URL", "mqtt_broker": "MQTT ブローカー", "mqtt_username": "MQTT ユーザー名", "mqtt_password": "MQTT パスワード", "connection_missing": "{items} を設定", "cameras_count": "{count} 台のカメラ", "cameras_all": "すべてのカメラ", "model_wrong_kind": "クロップ検出器が分類器として選択されています", "model_fallback": "同梱フォールバック", "quality_best": "利用可能な最良のスナップショット", "quality_standard": "標準スナップショット", "integrations_needs": "設定が必要: {integrations}", "integrations_configured": "設定済み: {integrations}", "integrations_none": "有効な連携なし" }
+      "detail": { "account_password_protected": "パスワード保護あり", "account_auth_disabled": "認証無効", "account_not_configured": "未設定", "frigate_url": "Frigate の URL", "mqtt_broker": "MQTT ブローカー", "mqtt_username": "MQTT ユーザー名", "mqtt_password": "MQTT パスワード", "connection_missing": "{items} を設定", "cameras_count": "{count} 台のカメラ", "cameras_all": "すべてのカメラ", "model_wrong_kind": "クロップ検出器が分類器として選択されています", "model_retired": "保存済みの分類モデルは廃止されました", "model_fallback": "同梱フォールバック", "quality_best": "利用可能な最良のスナップショット", "quality_standard": "標準スナップショット", "integrations_needs": "設定が必要: {integrations}", "integrations_configured": "設定済み: {integrations}", "integrations_none": "有効な連携なし" }
     }
   },
   "theme": {

@@ -414,6 +414,14 @@ async def lifespan(app: FastAPI):
         )
         from app.services.model_manager import model_manager
 
+        await _run_lifecycle_phase(
+            app,
+            "retired_model_reconciliation",
+            model_manager.reconcile_retired_model_selection,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=72,
+        )
         create_background_task(model_manager.ensure_installed_model_configs(), name="model_config_refresh")
         await _run_lifecycle_phase(
             app,

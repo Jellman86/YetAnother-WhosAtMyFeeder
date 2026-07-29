@@ -1,9 +1,11 @@
 """Generate GitHub Release model sidecars from the application registry.
 
-The registry is the reviewed source of truth for preprocessing, crop policy,
-and provider compatibility. Publishing sidecars from the same source prevents
-an older release asset from hiding a newly validated provider or re-enabling a
-provider that the application has since withdrawn.
+The current registry is the reviewed source of truth for preprocessing, crop
+policy, and provider compatibility. Publishing sidecars from the same source
+prevents an older release asset from hiding a newly validated provider or
+re-enabling a provider that the application has since withdrawn. Retired
+pre-3.0 assets are intentionally outside this generator and remain untouched
+until their documented 3.0 removal.
 """
 
 from __future__ import annotations

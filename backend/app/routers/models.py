@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel, Field, JsonValue
 from typing import List, Optional
 from app.config import settings
-from app.services.model_manager import model_manager, registry_artifact_kind
+from app.services.model_manager import is_retired_model, model_manager, registry_artifact_kind
 from app.services.model_validation import activation_provider_recommendation, run_validation_probe
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 from app.services.classifier_service import get_classifier
@@ -59,6 +59,17 @@ def _require_classifier_artifact(target: InstalledModel) -> None:
         )
 
 
+def _reject_retired_model(model_id: str) -> None:
+    if is_retired_model(model_id):
+        raise HTTPException(
+            status_code=410,
+            detail=(
+                "This model has been retired from the current application. "
+                "Its release assets remain available to older YA-WAMF versions until 3.0."
+            ),
+        )
+
+
 @router.get("/models/available", response_model=List[ModelMetadata])
 async def get_available_models(auth: AuthContext = Depends(require_owner)):
     """List all models available for download. Owner only."""
@@ -85,6 +96,7 @@ async def get_resolved_model_families(
 @router.post("/models/{model_id}/download", response_model=ModelActionResponse)
 async def download_model(model_id: str, background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Download and install a specific model. Owner only."""
+    _reject_retired_model(model_id)
     # Run in background
     background_tasks.add_task(model_manager.download_model, model_id)
     return {"status": "pending", "message": f"Download started for {model_id}"}
@@ -109,6 +121,7 @@ async def validate_model(model_id: str, auth: AuthContext = Depends(require_owne
     live model/provider pair. Clears the selection gate on success and restores the
     previously active model. Owner only.
     """
+    _reject_retired_model(model_id)
     installed = await model_manager.list_installed_models()
     target = next((m for m in installed if m.id == model_id), None)
     if target is None:
@@ -138,6 +151,7 @@ async def activate_model(model_id: str, background_tasks: BackgroundTasks, auth:
     activated through the API — the caller must run `/validate` first. This guards
     every path (Model Manager, the settings picker, a raw POST), not just the UI.
     """
+    _reject_retired_model(model_id)
     installed = await model_manager.list_installed_models()
     target = next((m for m in installed if m.id == model_id), None)
     if target is None:

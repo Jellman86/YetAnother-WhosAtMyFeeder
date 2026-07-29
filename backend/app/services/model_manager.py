@@ -34,6 +34,19 @@ log = structlog.get_logger()
 _PERSISTENT_MODELS_DIR = "/data/models"
 _PACKAGED_DEFAULT_MODEL_DIR = "/app/data/models"
 
+# These classifier assets remain published for pre-3.0 applications, but current
+# releases must not advertise, validate, download, or reactivate them. Installed
+# files are deliberately left untouched so an operator can still roll back.
+RETIRED_CLASSIFIER_MODEL_IDS = frozenset(
+    {
+        "moganet_s_eu_common",
+        "convnext_v1_tiny_eu_common",
+        "regnet_y_8g_eu_common",
+        "uniformer_s_eu_common",
+    }
+)
+_RETIRED_CLASSIFIER_REPLACEMENT_ID = "convnext_large_inat21"
+
 # Model Registry
 # Supports both TFLite and ONNX runtimes
 REMOTE_REGISTRY = [
@@ -554,157 +567,6 @@ REMOTE_REGISTRY = [
         },
         "notes": "Elite accuracy model. CPU, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: OpenVINO 2024.6.0 through 2025.4.1 could abort with CL_OUT_OF_RESOURCES, while Quark / OpenVINO 2026.2.1 completed 24/24 real images with exact CPU top-1 agreement and 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
-    {
-        "id": "moganet_s_eu_common",
-        "name": "MogaNet-S EU-Common (iGPU)",
-        "description": "MogaNet-S on Birder's eu-common dataset (707 bird species). Multi-order gated aggregation CNN — no rotary/attention. Validated cleanly on Intel iGPU with the strongest CPU-vs-GPU agreement of any new candidate (top-5 overlap = 5/5).",
-        "architecture": "MogaNet-S",
-        "file_size_mb": 96,
-        "accuracy_tier": "High",
-        "inference_speed": "Fast on iGPU (~130ms)",
-        "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"],
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common.onnx",
-        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common_labels.txt",
-        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common_model_config.json",
-        "sha256": "cac213ac1d41611654c3461fd9faf16415ed2af72293f85ac14d0234a625328f",
-        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
-        "input_size": 384,
-        "preprocessing": {
-            "color_space": "RGB",
-            "resize_mode": "center_crop",
-            "interpolation": "bicubic",
-            "crop_pct": 1.0,
-            "mean": [0.5, 0.5, 0.5],
-            "std": [0.5, 0.5, 0.5],
-            "normalization": "float32",
-        },
-        "license": "Apache-2.0",
-        "tier": "medium",
-        "taxonomy_scope": "birds_only",
-        "recommended_threshold": 0.5,
-        "recommended_for": "EU users with Intel iGPU. Strong GPU/CPU agreement makes this the most robust candidate for users who want consistent predictions regardless of provider.",
-        "estimated_ram_mb": 512,
-        "advanced_only": True,
-        "sort_order": 22,
-        "status": "experimental",
-        "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/moganet_s_eu-common. Converted via legacy torch.onnx.export. Intel GPU validated 2026-05-08; Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images.",
-    },
-    {
-        "id": "convnext_v1_tiny_eu_common",
-        "name": "ConvNeXt-V1 Tiny EU-Common",
-        "description": "ConvNeXt-V1-Tiny on Birder's eu-common dataset (707 species). V1 predecessor to convnext_v2_tiny_eu_common. Runs on CPU or a validated Intel accelerator; GPU support is gated per installation.",
-        "architecture": "ConvNeXt-V1-Tiny",
-        "file_size_mb": 109,
-        "accuracy_tier": "High",
-        "inference_speed": "Medium (~140ms CPU)",
-        "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
-        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"],
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common.onnx",
-        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_labels.txt",
-        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_model_config.json",
-        "sha256": "a638ea3457e0c50bd8259869aa72351f576eb13c2f353fd36b56b78013e77f7f",
-        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
-        "input_size": 384,
-        "preprocessing": {
-            "color_space": "RGB",
-            "resize_mode": "center_crop",
-            "interpolation": "bicubic",
-            "crop_pct": 1.0,
-            "mean": [0.5, 0.5, 0.5],
-            "std": [0.5, 0.5, 0.5],
-            "normalization": "float32",
-        },
-        "license": "Apache-2.0",
-        "tier": "medium",
-        "taxonomy_scope": "birds_only",
-        "recommended_threshold": 0.5,
-        "recommended_for": "Architecture comparison reference for ConvNeXt-V2 on CPU or a validated Intel accelerator.",
-        "estimated_ram_mb": 512,
-        "advanced_only": True,
-        "sort_order": 23,
-        "status": "experimental",
-        "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/convnext_v1_tiny_eu-common. Intel NPU is globally supported. Intel GPU is host-gated: older OpenVINO output was precision-degraded, while Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images with 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection.",
-    },
-    {
-        "id": "regnet_y_8g_eu_common",
-        "name": "RegNet-Y-8G EU-Common",
-        "description": "RegNet-Y-8G on Birder's eu-common dataset (707 species). Pure CNN, no attention. Runs on CPU or a validated Intel accelerator; GPU support is gated per installation.",
-        "architecture": "RegNet-Y-8G",
-        "file_size_mb": 148,
-        "accuracy_tier": "High",
-        "inference_speed": "Slow (~200ms CPU)",
-        "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
-        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"],
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common.onnx",
-        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_labels.txt",
-        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_model_config.json",
-        "sha256": "67a19680561b2ac6bfef31ea42b9713eda429a3e2282b5abf841d23df0131d69",
-        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
-        "input_size": 384,
-        "preprocessing": {
-            "color_space": "RGB",
-            "resize_mode": "center_crop",
-            "interpolation": "bicubic",
-            "crop_pct": 1.0,
-            "mean": [0.5, 0.5, 0.5],
-            "std": [0.5, 0.5, 0.5],
-            "normalization": "float32",
-        },
-        "license": "Apache-2.0",
-        "tier": "medium",
-        "taxonomy_scope": "birds_only",
-        "recommended_threshold": 0.5,
-        "recommended_for": "Pure CNN reference baseline for CPU or a validated Intel accelerator.",
-        "estimated_ram_mb": 768,
-        "advanced_only": True,
-        "sort_order": 24,
-        "status": "experimental",
-        "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/regnet_y_8g_intermediate-eu-common. Intel NPU is globally supported. Intel GPU is host-gated: older OpenVINO predictions diverged, while Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images with 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection.",
-    },
-    {
-        "id": "uniformer_s_eu_common",
-        "name": "UniFormer-S EU-Common",
-        "description": "UniFormer-S on Birder's eu-common dataset (707 species). Convolution-attention hybrid. Runs on CPU or a validated Intel accelerator; GPU support is gated per installation.",
-        "architecture": "UniFormer-S",
-        "file_size_mb": 82,
-        "accuracy_tier": "High",
-        "inference_speed": "Medium (~95ms CPU)",
-        "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
-        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"],
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common.onnx",
-        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_labels.txt",
-        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_model_config.json",
-        "sha256": "1e19b7d971b085f4bda5d149faa92a756d0e49b2e140dab3e9fc4061bd853955",
-        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
-        "input_size": 384,
-        "preprocessing": {
-            "color_space": "RGB",
-            "resize_mode": "center_crop",
-            "interpolation": "bicubic",
-            "crop_pct": 1.0,
-            "mean": [0.5, 0.5, 0.5],
-            "std": [0.5, 0.5, 0.5],
-            "normalization": "float32",
-        },
-        "license": "Apache-2.0",
-        "tier": "medium",
-        "taxonomy_scope": "birds_only",
-        "recommended_threshold": 0.5,
-        "recommended_for": "Architectural comparison alternative for CPU or a validated Intel accelerator.",
-        "estimated_ram_mb": 384,
-        "advanced_only": True,
-        "sort_order": 27,
-        "status": "experimental",
-        "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/uniformer_s_eu-common. Intel NPU is globally supported. Intel GPU is host-gated: older OpenVINO runs produced NaNs, while Quark / OpenVINO 2026.2.1 produced finite output and matched CPU top-1 on 24/24 real images with 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection.",
-    },
 ]
 
 
@@ -713,6 +575,11 @@ def registry_artifact_kind(model_id: str) -> str:
     normalized = str(model_id or "").strip()
     metadata = next((model for model in REMOTE_REGISTRY if model["id"] == normalized), None)
     return str((metadata or {}).get("artifact_kind") or "classifier").strip().lower()
+
+
+def is_retired_model(model_id: str) -> bool:
+    """Return whether a legacy classifier is intentionally absent from the current catalog."""
+    return str(model_id or "").strip() in RETIRED_CLASSIFIER_MODEL_IDS
 
 
 def _configured_models_dir() -> str:
@@ -874,10 +741,116 @@ class ModelManager:
     def _save_active_model_id(self, model_id: str):
         """Save the active model ID (thread-safe)."""
         config_path = os.path.join(MODELS_DIR, "active_model.json")
+        temporary_path = f"{config_path}.tmp"
         with self._active_model_lock:
-            with open(config_path, "w") as f:
-                json.dump({"active_model_id": model_id}, f)
+            with open(temporary_path, "w", encoding="utf-8") as handle:
+                json.dump({"active_model_id": model_id}, handle)
+            os.replace(temporary_path, config_path)
             self.active_model_id = model_id
+
+    def _is_classifier_installed(self, model_id: str) -> bool:
+        """Return whether a current classifier has a complete runnable artifact."""
+        if is_retired_model(model_id):
+            return False
+        model_meta = self._get_registry_model_meta(model_id)
+        if not model_meta or str(model_meta.get("artifact_kind") or "classifier") != "classifier":
+            return False
+
+        target_dir = os.path.join(MODELS_DIR, model_id)
+        if os.path.isdir(target_dir):
+            if self._is_family_model(model_meta):
+                resolved = self._resolve_installed_family_variant(target_dir, model_meta)
+                return bool(
+                    resolved
+                    and os.path.exists(str(resolved.get("model_path") or ""))
+                    and os.path.exists(str(resolved.get("labels_path") or ""))
+                )
+            complete, _reason = self._model_install_status(model_meta, target_dir)
+            if complete:
+                runtime = str(model_meta.get("runtime") or "tflite")
+                model_filename = self._model_filename_for_runtime(runtime)
+                return not model_meta.get("weights_url") or os.path.exists(
+                    os.path.join(target_dir, f"{model_filename}.data")
+                )
+
+        if model_id != "mobilenet_v2_birds":
+            return False
+        return any(
+            os.path.exists(os.path.join(base_dir, "model.tflite"))
+            and os.path.exists(os.path.join(base_dir, "labels.txt"))
+            for base_dir in (MODELS_DIR, BUNDLED_MODELS_DIR)
+        )
+
+    async def reconcile_retired_model_selection(self) -> Optional[str]:
+        """Move a retired saved selection to a current, installed classifier.
+
+        ConvNeXt Large is the preferred compatibility replacement while it is
+        installed. The bundled MobileNet remains the fail-safe for installations
+        that never downloaded ConvNeXt. Retired model directories are preserved.
+        """
+        active_model_id = str(self.active_model_id or "").strip()
+        configured_model_id = str(getattr(settings.classification, "model", "") or "").strip()
+        if not is_retired_model(active_model_id) and not is_retired_model(configured_model_id):
+            return None
+
+        if active_model_id and not is_retired_model(active_model_id) and self._is_classifier_installed(active_model_id):
+            replacement_id = active_model_id
+            replacing_active_model = False
+        else:
+            current_config_candidate = (
+                configured_model_id if configured_model_id and not is_retired_model(configured_model_id) else ""
+            )
+            replacement_id = next(
+                (
+                    candidate
+                    for candidate in (
+                        current_config_candidate,
+                        _RETIRED_CLASSIFIER_REPLACEMENT_ID,
+                        "mobilenet_v2_birds",
+                    )
+                    if candidate and self._is_classifier_installed(candidate)
+                ),
+                "mobilenet_v2_birds",
+            )
+            replacing_active_model = replacement_id != active_model_id
+
+        previous_setting_model = settings.classification.model
+        previous_provider = settings.classification.inference_provider
+        artifact_meta = self._get_registry_model_meta(replacement_id) or {}
+        recommended_provider = activation_provider_recommendation(
+            replacement_id,
+            artifact_sha256=artifact_meta.get("sha256"),
+        )
+        settings.classification.model = replacement_id
+        if replacing_active_model:
+            settings.classification.inference_provider = recommended_provider or "auto"
+
+        try:
+            if replacing_active_model:
+                await asyncio.to_thread(self._save_active_model_id, replacement_id)
+            await settings.save()
+        except Exception:
+            settings.classification.model = previous_setting_model
+            settings.classification.inference_provider = previous_provider
+            if replacing_active_model:
+                try:
+                    await asyncio.to_thread(self._save_active_model_id, active_model_id)
+                except Exception as rollback_error:
+                    log.error(
+                        "Failed to restore active classifier selection after reconciliation error",
+                        active_model_id=active_model_id,
+                        rollback_error=str(rollback_error),
+                    )
+            raise
+
+        log.warning(
+            "Retired classifier selection replaced",
+            active_model_id=active_model_id,
+            configured_model_id=configured_model_id,
+            replacement_model_id=replacement_id,
+            retired_assets_preserved=True,
+        )
+        return replacement_id
 
     def _get_registry_model_meta(self, model_id: str) -> Optional[dict[str, Any]]:
         return next((m for m in REMOTE_REGISTRY if m["id"] == model_id), None)
@@ -1534,6 +1507,8 @@ class ModelManager:
             for item in os.listdir(base_dir):
                 if item in seen_ids:
                     continue
+                if is_retired_model(item):
+                    continue
 
                 model_dir = os.path.join(base_dir, item)
                 if os.path.isdir(model_dir):
@@ -2067,6 +2042,9 @@ class ModelManager:
 
     def _activate_model_sync(self, model_id: str) -> bool:
         """Set a model as active."""
+        if is_retired_model(model_id):
+            log.warning("Activation rejected: classifier has been retired", model_id=model_id)
+            return False
         if registry_artifact_kind(model_id) != "classifier":
             log.warning(
                 "Activation rejected: artifact is not a classifier",

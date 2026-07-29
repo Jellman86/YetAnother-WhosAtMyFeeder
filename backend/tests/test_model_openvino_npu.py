@@ -62,14 +62,10 @@ NPU_VALIDATED: set[str] = {
     # matched CPU on every case; sub-0.02 raw proposals are deliberately ignored.
     "bird_crop_detector_accurate_yolox_tiny",
     "convnext_large_inat21",
-    "convnext_v1_tiny_eu_common",
     "eu_medium_focalnet_b",
     "eva02_large_inat21",
     "flexivit_il_all",
-    "moganet_s_eu_common",
-    "regnet_y_8g_eu_common",
     "rope_vit_b14_inat21",
-    "uniformer_s_eu_common",
 }
 
 # Models known NOT to work on the NPU — fill in from hardware validation runs.

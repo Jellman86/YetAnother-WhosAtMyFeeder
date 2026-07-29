@@ -10,11 +10,15 @@ ASSETS_DIR = Path(__file__).resolve().parents[1] / "app" / "assets"
 def test_release_model_configs_cover_every_registry_sidecar_once():
     configs = build_release_model_configs()
 
-    assert len(configs) == 16
+    assert len(configs) == 12
     assert len(configs) == len(set(configs))
     assert "rope_vit_b14_inat21_model_config.json" in configs
     assert "small_birds_eu_mobilenet_v4_l_candidate_model_config.json" in configs
     assert "small_birds_na_efficientnet_b0_candidate_model_config.json" in configs
+    assert "moganet_s_eu_common_model_config.json" not in configs
+    assert "convnext_v1_tiny_eu_common_model_config.json" not in configs
+    assert "regnet_y_8g_eu_common_model_config.json" not in configs
+    assert "uniformer_s_eu_common_model_config.json" not in configs
 
 
 def test_release_model_configs_use_current_provider_policy():
@@ -79,18 +83,6 @@ def test_release_model_configs_use_current_provider_policy():
         "intel_gpu",
         "intel_npu",
     ]
-    for filename in (
-        "convnext_v1_tiny_eu_common_model_config.json",
-        "regnet_y_8g_eu_common_model_config.json",
-        "uniformer_s_eu_common_model_config.json",
-    ):
-        assert configs[filename]["candidate_inference_providers"] == [
-            "cpu",
-            "intel_cpu",
-            "intel_gpu",
-            "intel_npu",
-            "cuda",
-        ]
     assert configs["eva02_large_inat21_model_config.json"]["candidate_inference_providers"] == [
         "cpu",
         "cuda",

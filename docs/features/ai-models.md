@@ -16,6 +16,12 @@ contract, and measured Quark latency. RAM figures are planning estimates rather 
 container RSS; leave at least 1–2 GB for YA-WAMF and the operating system, with additional headroom
 when Frigate shares the host.
 
+MogaNet-S EU, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU, and UniFormer-S EU are retired comparison
+models. Current releases do not list, download, validate, or activate them. YA-WAMF leaves an
+existing model directory untouched for rollback, but replaces a saved retired selection at startup:
+an installed ConvNeXt Large is preferred, with bundled MobileNet as the fail-safe. The legacy
+release assets remain available to pre-3.0 applications until the planned 3.0 asset retirement.
+
 > **Platform note:** Raspberry Pi compatibility is currently a best-effort ARM64 target and has not yet been validated on physical Pi hardware in this project environment.
 
 ### Validate before you select (post-install gate)
@@ -131,6 +137,10 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - **FlexiViT Global Birds:** compact birds-only model for global or unsupported regions, with CPU,
   Intel CPU, and Intel NPU validation. Intel GPU is offered only after the exact installation
   passes the isolated CPU-equivalence sweep.
+
+The four retired EU comparison architectures are intentionally not part of this tier. Their
+benchmark rows remain in [Model Accuracy & Benchmarks](model-accuracy.md) as historical evidence
+for the catalogue decision, not as current recommendations.
 
 #### Legacy TFLite (MobileNet V2)
 - **Format:** TFLite — runs on CPU-only systems without ONNX Runtime

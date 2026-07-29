@@ -519,14 +519,18 @@ in-app and in docs; the release makes them final.
   password-based auth already available under Settings → Security. The deprecation notice is
   live today (`backend/app/auth.py`: *"API key support will be removed in v3.0"*); `3.0`
   deletes the code path.
+- **Retired comparison-model downloads removed.** MogaNet-S EU, ConvNeXt-V1 Tiny EU,
+  RegNet-Y-8G EU, and UniFormer-S EU are already absent from the current application catalogue.
+  Their release assets remain temporarily available so pre-3.0 applications can still download
+  them; the 3.0 release retires those legacy assets after the compatibility window.
 - **Migration must be lossless.** Existing split-deployment installs must be able to move to
   the monolith with unchanged `/config` and `/data` volumes (DB, models, `config.json`), and
   the [split-to-monolith guide](docs/setup/migrate-split-to-monolith.md) stays the supported
   path through the transition.
 
 **Acceptance:** `3.0` docs/compose/proxy guidance are monolith-first; the split path and
-`X-API-Key` are gone from the recommended surface; a documented migration preserves all user
-data and runs DB migrations cleanly.
+`X-API-Key` and the four legacy comparison-model assets are gone from the recommended/runtime
+surface; a documented migration preserves all user data and runs DB migrations cleanly.
 
 ---
 
@@ -583,11 +587,13 @@ metadata from narrowing or widening the current application contract. Crop-detec
 round-robin clean species panel and hard negatives, fail on incomplete comparison coverage, and
 test only proposals production could admit. The accurate YOLOX-Tiny tier is validated on Quark's
 Intel CPU/GPU/NPU; the fast quantized SSD remains CPU-only. The 28 July 2026 full Intel audit
-validated all 12 classifier entries and both crop detectors, followed by explicit EU/NA family
-reruns after fixing human-readable country resolution. Its reviewed candidate expansion is
-artifact-specific: NPU for Small Birds EU and Medium Birds NA, and GPU for ConvNeXt-V1 Tiny,
-RegNet-Y-8G, UniFormer-S, and EVA-02 Large. Medium Birds EU failed NPU CPU-equivalence and Small
-Birds NA produced inconsistent NPU results, so neither route is selectable. The same audit narrowed
+validated all 12 classifier entries that were present at the time and both crop detectors, followed
+by explicit EU/NA family reruns after fixing human-readable country resolution. Its reviewed
+candidate expansion is artifact-specific: NPU for Small Birds EU and Medium Birds NA, and GPU for
+EVA-02 Large. The completed comparison also justified retiring MogaNet-S EU, ConvNeXt-V1 Tiny EU,
+RegNet-Y-8G EU, and UniFormer-S EU from the current catalogue while retaining their release assets
+for pre-3.0 clients. Medium Birds EU failed NPU CPU-equivalence and Small Birds NA produced
+inconsistent NPU results, so neither route is selectable. The same audit narrowed
 historically inconsistent GPU routes to host-gated candidates, with every installation required to
 prove them before selection.
 
