@@ -569,6 +569,9 @@ export interface components {
     id?: number | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
+    observation_latitude?: number | null;
+    observation_location_source?: string | null;
+    observation_longitude?: number | null;
     observation_notes?: string | null;
     observation_source?: string;
     score: number;
@@ -599,6 +602,9 @@ export interface components {
     is_favorite?: boolean;
     is_hidden?: boolean;
     manual_tagged?: boolean;
+    observation_latitude?: number | null;
+    observation_location_source?: string | null;
+    observation_longitude?: number | null;
     observation_notes?: string | null;
     observation_source?: string;
     scientific_name?: string | null;
@@ -978,6 +984,9 @@ export interface components {
     ManualObservationConfirmRequest: {
     camera_name?: string;
     label: string;
+    latitude?: number | null;
+    location_source?: "image_metadata" | "manual_pin" | "none" | null;
+    longitude?: number | null;
     notes?: string | null;
     observed_at?: string | null;
 };
@@ -986,6 +995,7 @@ export interface components {
     status: "deleted";
 };
     ManualObservationPrediction: {
+    common_name?: string | null;
     inference_backend?: string | null;
     inference_provider?: string | null;
     input_is_cropped?: boolean | null;
@@ -993,7 +1003,9 @@ export interface components {
     label: string;
     model_id?: string | null;
     model_name?: string | null;
+    scientific_name?: string | null;
     score: number;
+    taxa_id?: number | null;
 };
     ManualObservationResponse: {
     content_sha256: string;
@@ -1002,6 +1014,9 @@ export interface components {
     error_code?: string | null;
     error_message?: string | null;
     id: string;
+    latitude?: number | null;
+    location_source?: "image_metadata" | "manual_pin" | null;
+    longitude?: number | null;
     media_type: "image" | "video";
     media_url: string;
     original_filename: string;

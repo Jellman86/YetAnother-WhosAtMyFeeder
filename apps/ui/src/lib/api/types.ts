@@ -3,6 +3,9 @@ export interface Detection {
     frigate_event: string;
     observation_source?: 'frigate' | 'manual_upload';
     observation_notes?: string | null;
+    observation_latitude?: number | null;
+    observation_longitude?: number | null;
+    observation_location_source?: 'image_metadata' | 'manual_pin' | null;
     display_name: string;
     score: number;
     detection_time: string;

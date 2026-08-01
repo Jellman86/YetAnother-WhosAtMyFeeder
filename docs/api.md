@@ -148,10 +148,15 @@ validation; a confident snapshot does not short-circuit an available cached vide
 - `GET /api/manual-observations/{draft_id}/media` (owner)
 
 Upload and retry responses expose durable status, progress, model alternatives, inference
-provider/model/input provenance, and local preview/media URLs. Confirmation creates a normal
+provider/model/input provenance, common/scientific taxonomy names, optional extracted GPS
+coordinates, and local preview/media URLs. The confirmation body accepts optional `latitude` and
+`longitude` together plus `location_source` (`image_metadata`, `manual_pin`, or `none` to clear an
+extracted location). Confirmation creates a normal
 detection with `observation_source: "manual_upload"`; its owner-confirmed species stays distinct
-from the retained top classifier result. Manual media is served through the canonical snapshot and
-clip routes but is excluded from Frigate reconciliation.
+from the retained top classifier result. Detection responses expose confirmed location as
+`observation_latitude`, `observation_longitude`, and `observation_location_source`. Manual media is
+served through the canonical snapshot, thumbnail, and clip routes but is excluded from Frigate
+reconciliation and BirdNET-Go context lookup.
 
 ### Media Proxy and Share Links
 

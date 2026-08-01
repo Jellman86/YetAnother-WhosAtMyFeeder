@@ -600,7 +600,9 @@ prove them before selection.
 **Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots with conservative,
 an owner-only full-page manual-observation flow for photos and short videos with durable analysis,
 explicit review, duplicate protection, production crop/temporal inference, and Frigate-independent
-original-media retention,
+original-media retention, taxonomy and runtime provenance for uploaded-photo review, local history
+thumbnails, omission of unrelated BirdNET-Go context, defensively extracted EXIF GPS with an
+owner-editable optional map pin,
 temporally independent multi-frame crop refinement for distant subjects, a protected Frigate final
 best-frame baseline with correctly reconstructed bottom-centre path coordinates, recording-frame
 classification fallback, media caching, and the video player with HTTP-Range seeking + expiring

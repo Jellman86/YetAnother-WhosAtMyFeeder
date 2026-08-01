@@ -54,8 +54,15 @@
     },
     "review": {
       "preview_alt": "Observation preview", "title": "Review before saving", "body": "Confirm the suggested species, correct it if needed, and add the field context you want to keep.",
-      "candidates": "Model suggestions", "species": "Species", "when": "Observed at", "location": "Camera or location", "notes": "Notes",
+      "candidates": "Model suggestions", "species": "Species", "when": "Observed at", "location": "Camera or place name", "notes": "Notes",
       "saving": "Saving observation…", "save": "Save observation"
+    },
+    "location": {
+      "title": "Sighting location", "extracted": "Location found in the image metadata. Check the pin and adjust it if needed.",
+      "missing": "No embedded location was found. Place a pin if you know where the sighting was made.", "manual": "This pin was placed or adjusted manually. Check it before saving.", "from_image": "From image metadata",
+      "map_label": "Map for placing the sighting pin", "map_help": "Click or tap the map to place the pin. Drag it to make a precise adjustment.",
+      "latitude": "Latitude", "longitude": "Longitude", "clear": "Clear location", "incomplete": "Enter both latitude and longitude, or clear the location.", "invalid": "Latitude must be −90 to 90 and longitude −180 to 180.",
+      "selected": "Pin selected at {latitude}, {longitude}", "unselected": "No sighting location selected", "pin_label": "Sighting location pin; drag to adjust"
     },
     "saved": {
       "toast": "Observation added", "eyebrow": "Record complete", "title": "Observation saved", "body": "The verified record is now part of your detection history and species totals.",

@@ -27,6 +27,9 @@ class ManualObservationDraft:
     error_message: str | None = None
     saved_event_id: str | None = None
     notes: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    location_source: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -37,7 +40,8 @@ class ManualObservationDraft:
 class ManualObservationRepository:
     _COLUMNS = """id, status, media_type, original_filename, content_type, content_sha256,
         size_bytes, source_filename, progress_current, progress_total, progress_message,
-        results_json, error_code, error_message, saved_event_id, notes, created_at, updated_at"""
+        results_json, error_code, error_message, saved_event_id, notes, latitude, longitude,
+        location_source, created_at, updated_at"""
 
     def __init__(self, db: aiosqlite.Connection) -> None:
         self.db = db
@@ -61,8 +65,11 @@ class ManualObservationRepository:
             error_message=row[13],
             saved_event_id=row[14],
             notes=row[15],
-            created_at=datetime.fromisoformat(row[16]) if isinstance(row[16], str) else row[16],
-            updated_at=datetime.fromisoformat(row[17]) if isinstance(row[17], str) else row[17],
+            latitude=float(row[16]) if row[16] is not None else None,
+            longitude=float(row[17]) if row[17] is not None else None,
+            location_source=row[18],
+            created_at=datetime.fromisoformat(row[19]) if isinstance(row[19], str) else row[19],
+            updated_at=datetime.fromisoformat(row[20]) if isinstance(row[20], str) else row[20],
         )
 
     async def create(self, draft: ManualObservationDraft) -> None:
@@ -70,8 +77,9 @@ class ManualObservationRepository:
         await self.db.execute(
             """INSERT INTO manual_observation_drafts (
                 id, status, media_type, original_filename, content_type, content_sha256,
-                size_bytes, source_filename, progress_current, progress_total, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                size_bytes, source_filename, progress_current, progress_total, latitude, longitude,
+                location_source, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 draft.id,
                 draft.status,
@@ -83,6 +91,9 @@ class ManualObservationRepository:
                 draft.source_filename,
                 draft.progress_current,
                 draft.progress_total,
+                draft.latitude,
+                draft.longitude,
+                draft.location_source,
                 now,
                 now,
             ),
@@ -119,17 +130,27 @@ class ManualObservationRepository:
             rows = await cursor.fetchall()
         return [str(row[0]) for row in rows]
 
-    async def notes_by_event_ids(self, event_ids: list[str]) -> dict[str, str]:
+    async def metadata_by_event_ids(self, event_ids: list[str]) -> dict[str, dict[str, object]]:
         ids = [event_id for event_id in event_ids if event_id.startswith("manual_")]
         if not ids:
             return {}
         placeholders = ",".join("?" for _ in ids)
         async with self.db.execute(
-            f"SELECT saved_event_id, notes FROM manual_observation_drafts WHERE saved_event_id IN ({placeholders})",
+            f"""SELECT saved_event_id, notes, latitude, longitude, location_source
+                FROM manual_observation_drafts WHERE saved_event_id IN ({placeholders})""",
             ids,
         ) as cursor:
             rows = await cursor.fetchall()
-        return {str(row[0]): str(row[1]) for row in rows if row[0] and row[1]}
+        return {
+            str(row[0]): {
+                "notes": str(row[1]) if row[1] else None,
+                "latitude": float(row[2]) if row[2] is not None else None,
+                "longitude": float(row[3]) if row[3] is not None else None,
+                "location_source": str(row[4]) if row[4] else None,
+            }
+            for row in rows
+            if row[0]
+        }
 
     async def update_progress(self, draft_id: str, current: int, total: int, message: str | None = None) -> None:
         await self.db.execute(
@@ -165,11 +186,20 @@ class ManualObservationRepository:
         )
         await self.db.commit()
 
-    async def mark_saved(self, draft_id: str, event_id: str, notes: str | None) -> None:
+    async def mark_saved(
+        self,
+        draft_id: str,
+        event_id: str,
+        notes: str | None,
+        *,
+        latitude: float | None,
+        longitude: float | None,
+        location_source: str | None,
+    ) -> None:
         await self.db.execute(
             """UPDATE manual_observation_drafts SET status = 'saved', saved_event_id = ?, notes = ?,
-               updated_at = ? WHERE id = ?""",
-            (event_id, notes, utc_naive_now(), draft_id),
+               latitude = ?, longitude = ?, location_source = ?, updated_at = ? WHERE id = ?""",
+            (event_id, notes, latitude, longitude, location_source, utc_naive_now(), draft_id),
         )
         await self.db.commit()
 

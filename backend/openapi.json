@@ -3861,6 +3861,39 @@
             "title": "Is Hidden",
             "type": "boolean"
           },
+          "observation_latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Latitude"
+          },
+          "observation_location_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Location Source"
+          },
+          "observation_longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Longitude"
+          },
           "observation_notes": {
             "anyOf": [
               {
@@ -4090,6 +4123,39 @@
             "default": false,
             "title": "Manual Tagged",
             "type": "boolean"
+          },
+          "observation_latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Latitude"
+          },
+          "observation_location_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Location Source"
+          },
+          "observation_longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Longitude"
           },
           "observation_notes": {
             "anyOf": [
@@ -6686,6 +6752,48 @@
             "title": "Label",
             "type": "string"
           },
+          "latitude": {
+            "anyOf": [
+              {
+                "maximum": 90.0,
+                "minimum": -90.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "location_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "image_metadata",
+                  "manual_pin",
+                  "none"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Source"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "maximum": 180.0,
+                "minimum": -180.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
           "notes": {
             "anyOf": [
               {
@@ -6738,6 +6846,17 @@
       },
       "ManualObservationPrediction": {
         "properties": {
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
           "inference_backend": {
             "anyOf": [
               {
@@ -6808,9 +6927,31 @@
             ],
             "title": "Model Name"
           },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
           }
         },
         "required": [
@@ -6866,6 +7007,43 @@
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "location_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "image_metadata",
+                  "manual_pin"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Source"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
           },
           "media_type": {
             "enum": [

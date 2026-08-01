@@ -34,7 +34,8 @@
     "errors": { "load": "无法加载分析状态。", "type": "请选择 JPEG、PNG、WebP、MP4、MOV 或 WebM 文件。", "upload": "无法上传媒体。", "retry": "无法重新启动分析。", "save": "无法保存观察记录。" },
     "upload": { "title": "选择照片或视频", "help": "请尽量使用原始文件。YA-WAMF 会保留原文件，并选择最适合分类的输入。", "change": "选择其他文件", "drop": "将媒体拖放到此处或选择文件", "formats": "JPEG、PNG、WebP 最大 25 MB · MP4、MOV、WebM 最大 250 MB／3 分钟", "uploading": "正在安全保存原文件…", "analyse": "上传并分析" },
     "analysis": { "preview_alt": "已上传媒体预览", "video": "视频", "image": "照片", "title": "正在寻找最有力的证据", "body": "生产分类器正在比较帧和裁剪候选。您可以离开此页面，返回时会恢复草稿。", "progress": "分析进度", "failed_title": "分析已安全停止", "failed_body": "原始媒体仍已保存。模型可用后请重试。", "retry": "重试分析" },
-    "review": { "preview_alt": "观察记录预览", "title": "保存前审核", "body": "确认建议的物种，必要时进行更正，并添加您希望保留的现场信息。", "candidates": "模型建议", "species": "物种", "when": "观察时间", "location": "相机或地点", "notes": "备注", "saving": "正在保存观察记录…", "save": "保存观察记录" },
+    "review": { "preview_alt": "观察记录预览", "title": "保存前审核", "body": "确认建议的物种，必要时进行更正，并添加您希望保留的现场信息。", "candidates": "模型建议", "species": "物种", "when": "观察时间", "location": "相机或地点名称", "notes": "备注", "saving": "正在保存观察记录…", "save": "保存观察记录" },
+    "location": { "title": "目击地点", "extracted": "已从图像元数据中找到位置。请检查图钉，并在需要时调整。", "missing": "未找到图像内嵌的位置。如果知道目击地点，请放置图钉。", "manual": "此图钉已被手动放置或调整。保存前请检查。", "from_image": "来自图像元数据", "map_label": "用于放置目击地点图钉的地图", "map_help": "点击或轻触地图以放置图钉。拖动图钉可进行精确调整。", "latitude": "纬度", "longitude": "经度", "clear": "清除位置", "incomplete": "请输入纬度和经度，或清除位置。", "invalid": "纬度必须介于 −90 和 90 之间，经度必须介于 −180 和 180 之间。", "selected": "图钉已放置在 {latitude}, {longitude}", "unselected": "尚未选择目击地点", "pin_label": "目击地点图钉；拖动可调整" },
     "saved": { "toast": "已添加观察记录", "eyebrow": "记录完成", "title": "观察记录已保存", "body": "已核实的记录现已计入检测历史和物种统计。", "view": "查看检测", "another": "再添加一条" },
     "start_over": "重新开始"
   },

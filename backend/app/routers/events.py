@@ -618,7 +618,7 @@ async def get_events(
         clip_availability = await batch_check_clips(event_ids)
         from app.repositories.manual_observation_repository import ManualObservationRepository
 
-        manual_observation_notes = await ManualObservationRepository(db).notes_by_event_ids(event_ids)
+        manual_observation_metadata = await ManualObservationRepository(db).metadata_by_event_ids(event_ids)
 
         # Get labels that should be displayed as "Unknown Bird"
         unknown_labels = settings.classification.unknown_bird_labels
@@ -699,6 +699,7 @@ async def get_events(
         # Convert to response models with clip info
         response_events = []
         for event in events:
+            manual_metadata = manual_observation_metadata.get(event.frigate_event, {})
             # Transform unknown bird labels for display
             public_species = user_facing_species_fields(
                 display_name=event.display_name,
@@ -743,7 +744,10 @@ async def get_events(
                 category_name=category_name,
                 frigate_event=event.frigate_event,
                 observation_source="manual_upload" if event.frigate_event.startswith("manual_") else "frigate",
-                observation_notes=manual_observation_notes.get(event.frigate_event),
+                observation_notes=manual_metadata.get("notes"),
+                observation_latitude=manual_metadata.get("latitude"),
+                observation_longitude=manual_metadata.get("longitude"),
+                observation_location_source=manual_metadata.get("location_source"),
                 camera_name="Hidden" if hide_camera_names else event.camera_name,
                 has_clip=clip_availability.get(event.frigate_event, {}).get("has_clip", False),
                 has_snapshot=clip_availability.get(event.frigate_event, {}).get("has_snapshot", False),

@@ -9,8 +9,11 @@
         retryManualObservation,
         uploadManualObservation,
         type ManualObservation,
+        type ManualObservationPrediction,
     } from '../api';
     import { withAuthParams } from '../api/core';
+    import LocationPicker from '../components/LocationPicker.svelte';
+    import { settingsStore } from '../stores/settings.svelte';
     import { toastStore } from '../stores/toast.svelte';
 
     let { onNavigate } = $props<{ onNavigate: (path: string) => void }>();
@@ -29,6 +32,10 @@
     let cameraName = $state('Manual upload');
     let notes = $state('');
     let observedAt = $state('');
+    let latitude = $state<number | null>(null);
+    let longitude = $state<number | null>(null);
+    let locationSource = $state<'image_metadata' | 'manual_pin' | 'none' | null>(null);
+    let locationTouched = false;
 
     const stage = $derived.by(() => {
         if (draft?.status === 'saved') return 4;
@@ -39,6 +46,19 @@
     const previewUrl = $derived(draft ? withAuthParams(draft.preview_url) : localPreviewUrl);
     const progress = $derived(draft?.progress_percent ?? (uploading ? 8 : 0));
     const topPrediction = $derived(draft?.predictions?.[0] ?? null);
+    const hasLocation = $derived(latitude != null && longitude != null);
+    const locationIncomplete = $derived((latitude == null) !== (longitude == null));
+    const locationOutOfRange = $derived(
+        latitude != null && longitude != null &&
+        (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)
+    );
+    const defaultMapCenter = $derived.by((): [number, number] => {
+        const configuredLatitude = settingsStore.settings?.location_latitude;
+        const configuredLongitude = settingsStore.settings?.location_longitude;
+        return typeof configuredLatitude === 'number' && typeof configuredLongitude === 'number'
+            ? [configuredLatitude, configuredLongitude]
+            : [20, 0];
+    });
     const sourceLabel = $derived.by(() => {
         const source = topPrediction?.input_source;
         if (!source) return $_('manual_observation.evidence.full_frame', { default: 'Full frame' });
@@ -57,6 +77,51 @@
         pollTimer = null;
     }
 
+    function applyDraft(value: ManualObservation): void {
+        draft = value;
+        if (!locationTouched) {
+            latitude = value.latitude ?? null;
+            longitude = value.longitude ?? null;
+            locationSource = value.latitude != null && value.longitude != null
+                ? (value.location_source ?? 'image_metadata')
+                : null;
+        }
+    }
+
+    function predictionPrimaryName(prediction: ManualObservationPrediction): string {
+        return prediction.common_name?.trim() || prediction.label;
+    }
+
+    function predictionSecondaryName(prediction: ManualObservationPrediction): string | null {
+        const primary = predictionPrimaryName(prediction).toLocaleLowerCase();
+        const scientific = prediction.scientific_name?.trim();
+        if (scientific && scientific.toLocaleLowerCase() !== primary) return scientific;
+        if (prediction.label.toLocaleLowerCase() !== primary) return prediction.label;
+        return null;
+    }
+
+    function chooseLocation(nextLatitude: number, nextLongitude: number): void {
+        latitude = nextLatitude;
+        longitude = nextLongitude;
+        locationSource = 'manual_pin';
+        locationTouched = true;
+    }
+
+    function updateCoordinate(axis: 'latitude' | 'longitude', raw: string): void {
+        const parsed = raw.trim() === '' ? null : Number(raw);
+        if (axis === 'latitude') latitude = Number.isFinite(parsed) ? parsed : null;
+        else longitude = Number.isFinite(parsed) ? parsed : null;
+        locationSource = latitude == null && longitude == null ? 'none' : 'manual_pin';
+        locationTouched = true;
+    }
+
+    function clearLocation(): void {
+        latitude = null;
+        longitude = null;
+        locationSource = 'none';
+        locationTouched = true;
+    }
+
     function schedulePoll(): void {
         clearPoll();
         if (!draft || !['queued', 'analyzing'].includes(draft.status)) return;
@@ -66,7 +131,7 @@
     async function refreshDraft(): Promise<void> {
         if (!draft) return;
         try {
-            draft = await fetchManualObservation(draft.id);
+            applyDraft(await fetchManualObservation(draft.id));
             if (draft.status === 'ready' && !selectedLabel) selectedLabel = draft.predictions[0]?.label ?? '';
             sessionStorage.setItem('manual_observation_draft', draft.id);
             schedulePoll();
@@ -100,8 +165,10 @@
         uploading = true;
         errorMessage = null;
         try {
-            draft = await uploadManualObservation(selectedFile);
-            sessionStorage.setItem('manual_observation_draft', draft.id);
+            locationTouched = false;
+            const uploadedDraft = await uploadManualObservation(selectedFile);
+            applyDraft(uploadedDraft);
+            sessionStorage.setItem('manual_observation_draft', uploadedDraft.id);
             schedulePoll();
         } catch (error) {
             errorMessage = error instanceof Error ? error.message : $_('manual_observation.errors.upload', { default: 'The media could not be uploaded.' });
@@ -132,6 +199,11 @@
         selectedLabel = '';
         notes = '';
         observedAt = '';
+        cameraName = 'Manual upload';
+        latitude = null;
+        longitude = null;
+        locationSource = null;
+        locationTouched = false;
         errorMessage = null;
         if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
         localPreviewUrl = null;
@@ -139,13 +211,16 @@
     }
 
     async function saveObservation(): Promise<void> {
-        if (!draft || !selectedLabel.trim() || saving) return;
+        if (!draft || !selectedLabel.trim() || saving || locationIncomplete || locationOutOfRange) return;
         saving = true;
         errorMessage = null;
         try {
             const saved = await confirmManualObservation(draft.id, {
                 label: selectedLabel.trim(), camera_name: cameraName.trim() || 'Manual upload',
                 notes: notes.trim() || null, observed_at: observedAt ? new Date(observedAt).toISOString() : null,
+                latitude: hasLocation ? latitude : null,
+                longitude: hasLocation ? longitude : null,
+                location_source: hasLocation ? (locationSource === 'image_metadata' ? 'image_metadata' : 'manual_pin') : locationSource,
             });
             draft = { ...draft, status: 'saved', saved_event_id: saved.event_id };
             sessionStorage.removeItem('manual_observation_draft');
@@ -162,7 +237,7 @@
         const remembered = sessionStorage.getItem('manual_observation_draft');
         if (remembered) {
             void fetchManualObservation(remembered).then((value) => {
-                draft = value;
+                applyDraft(value);
                 selectedLabel = value.predictions[0]?.label ?? '';
                 schedulePoll();
             }).catch(() => sessionStorage.removeItem('manual_observation_draft'));
@@ -267,11 +342,27 @@
                     <div>
                         <h3 class="text-xl font-bold text-slate-900 dark:text-white">{$_('manual_observation.review.title', { default: 'Does this look right?' })}</h3>
                         <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.review.body', { default: 'Choose a suggestion or correct it before this becomes part of your observation history.' })}</p>
-                        <fieldset class="mt-5 space-y-2"><legend class="sr-only">{$_('manual_observation.review.candidates', { default: 'Classification candidates' })}</legend>{#each (draft?.predictions ?? []).slice(0, 4) as prediction, index}<label class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 transition {selectedLabel === prediction.label ? 'border-brand-400 bg-brand-50/70 dark:border-brand-600 dark:bg-brand-950/30' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'}"><input type="radio" class="h-4 w-4 accent-teal-600" name="candidate" value={prediction.label} bind:group={selectedLabel} /><span class="min-w-0 flex-1 truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{prediction.label}</span><span class="text-xs font-bold tabular-nums {index === 0 ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}">{Math.round(prediction.score * 100)}%</span></label>{/each}</fieldset>
-                        <label class="mt-4 block"><span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('manual_observation.review.species', { default: 'Confirmed species' })}</span><input class="input-base mt-2" list="manual-species-labels" bind:value={selectedLabel} autocomplete="off" /><datalist id="manual-species-labels">{#each speciesLabels as label}<option value={label}></option>{/each}</datalist></label>
-                        <div class="mt-4 grid gap-4 sm:grid-cols-2"><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.when', { default: 'Observed at' })}</span><input class="input-base mt-1.5" type="datetime-local" bind:value={observedAt} /></label><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.location', { default: 'Camera or location' })}</span><input class="input-base mt-1.5" bind:value={cameraName} maxlength="100" /></label></div>
+                        <fieldset class="mt-5 space-y-2"><legend class="sr-only">{$_('manual_observation.review.candidates', { default: 'Classification candidates' })}</legend>{#each (draft?.predictions ?? []).slice(0, 4) as prediction, index}<label class="flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 transition {selectedLabel === prediction.label ? 'border-brand-400 bg-brand-50/70 dark:border-brand-600 dark:bg-brand-950/30' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'}"><input type="radio" class="h-4 w-4 accent-teal-600" name="candidate" value={prediction.label} bind:group={selectedLabel} /><span class="min-w-0 flex-1"><span class="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{predictionPrimaryName(prediction)}</span>{#if predictionSecondaryName(prediction)}<span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400">{predictionSecondaryName(prediction)}</span>{/if}</span><span class="text-xs font-bold tabular-nums {index === 0 ? 'text-brand-700 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}">{Math.round(prediction.score * 100)}%</span></label>{/each}</fieldset>
+                        <label class="mt-4 block"><span class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('manual_observation.review.species', { default: 'Confirmed species' })}</span><input class="input-base mt-2 min-h-11" list="manual-species-labels" bind:value={selectedLabel} autocomplete="off" /><datalist id="manual-species-labels">{#each speciesLabels as label}<option value={label}></option>{/each}</datalist></label>
+                        <div class="mt-4 grid gap-4 sm:grid-cols-2"><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.when', { default: 'Observed at' })}</span><input class="input-base mt-1.5 min-h-11" type="datetime-local" bind:value={observedAt} /></label><label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.location', { default: 'Camera or place name' })}</span><input class="input-base mt-1.5 min-h-11" bind:value={cameraName} maxlength="100" /></label></div>
+                        <section class="mt-5 border-t border-slate-200 pt-5 dark:border-slate-700" aria-labelledby="manual-observation-location-title">
+                            <div class="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                    <h4 id="manual-observation-location-title" class="text-sm font-bold text-slate-800 dark:text-slate-100">{$_('manual_observation.location.title', { default: 'Sighting location' })}</h4>
+                                    <p class="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">{locationSource === 'image_metadata' ? $_('manual_observation.location.extracted', { default: 'Location found in the image metadata. Check the pin and adjust it if needed.' }) : locationSource === 'manual_pin' ? $_('manual_observation.location.manual', { default: 'This pin was placed or adjusted manually. Check it before saving.' }) : $_('manual_observation.location.missing', { default: 'No embedded location was found. Place a pin if you know where the sighting was made.' })}</p>
+                                </div>
+                                {#if locationSource === 'image_metadata'}<span class="rounded-full bg-accent-50 px-2.5 py-1 text-[10px] font-bold text-accent-700 dark:bg-accent-950/40 dark:text-accent-300">{$_('manual_observation.location.from_image', { default: 'From image metadata' })}</span>{/if}
+                            </div>
+                            <div class="mt-4"><LocationPicker {latitude} {longitude} center={defaultMapCenter} onchange={chooseLocation} /></div>
+                            <div class="mt-4 grid gap-3 sm:grid-cols-2">
+                                <label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.location.latitude', { default: 'Latitude' })}</span><input class="input-base mt-1.5 min-h-11" type="number" min="-90" max="90" step="0.000001" value={latitude ?? ''} oninput={(event) => updateCoordinate('latitude', event.currentTarget.value)} /></label>
+                                <label><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.location.longitude', { default: 'Longitude' })}</span><input class="input-base mt-1.5 min-h-11" type="number" min="-180" max="180" step="0.000001" value={longitude ?? ''} oninput={(event) => updateCoordinate('longitude', event.currentTarget.value)} /></label>
+                            </div>
+                            {#if locationIncomplete}<p role="alert" class="mt-2 text-xs font-semibold text-rose-600 dark:text-rose-300">{$_('manual_observation.location.incomplete', { default: 'Enter both latitude and longitude, or clear the location.' })}</p>{:else if locationOutOfRange}<p role="alert" class="mt-2 text-xs font-semibold text-rose-600 dark:text-rose-300">{$_('manual_observation.location.invalid', { default: 'Latitude must be −90 to 90 and longitude −180 to 180.' })}</p>{/if}
+                            {#if hasLocation}<button type="button" class="btn btn-ghost mt-2 min-h-11 px-3 py-2" onclick={clearLocation}>{$_('manual_observation.location.clear', { default: 'Clear location' })}</button>{/if}
+                        </section>
                         <label class="mt-4 block"><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.notes', { default: 'Notes (optional)' })}</span><textarea class="input-base mt-1.5 min-h-20 resize-y" bind:value={notes} maxlength="1000"></textarea></label>
-                        <div class="mt-6 flex flex-wrap items-center justify-between gap-3"><button class="btn btn-ghost px-3 py-2.5" onclick={startOver}>{$_('manual_observation.start_over', { default: 'Start over' })}</button><button class="btn btn-primary px-5 py-2.5" disabled={!selectedLabel.trim() || saving} onclick={saveObservation}>{saving ? $_('manual_observation.review.saving', { default: 'Saving…' }) : $_('manual_observation.review.save', { default: 'Add observation' })}</button></div>
+                        <div class="mt-6 flex flex-wrap items-center justify-between gap-3"><button class="btn btn-ghost min-h-11 px-3 py-2.5" onclick={startOver}>{$_('manual_observation.start_over', { default: 'Start over' })}</button><button class="btn btn-primary min-h-11 px-5 py-2.5" disabled={!selectedLabel.trim() || saving || locationIncomplete || locationOutOfRange} onclick={saveObservation}>{saving ? $_('manual_observation.review.saving', { default: 'Saving…' }) : $_('manual_observation.review.save', { default: 'Add observation' })}</button></div>
                     </div>
                 </div>
             {:else}

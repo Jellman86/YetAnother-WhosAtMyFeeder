@@ -9,6 +9,9 @@ export interface ManualObservationPrediction {
     inference_backend?: string | null;
     input_source?: string | null;
     input_is_cropped?: boolean | null;
+    scientific_name?: string | null;
+    common_name?: string | null;
+    taxa_id?: number | null;
 }
 
 export interface ManualObservation {
@@ -27,6 +30,9 @@ export interface ManualObservation {
     error_code?: string | null;
     error_message?: string | null;
     saved_event_id?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    location_source?: 'image_metadata' | 'manual_pin' | null;
     preview_url: string;
     media_url: string;
     created_at?: string | null;
@@ -38,6 +44,9 @@ export interface ConfirmManualObservation {
     camera_name: string;
     notes?: string | null;
     observed_at?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    location_source?: 'image_metadata' | 'manual_pin' | 'none' | null;
 }
 
 export interface SavedManualObservation {
