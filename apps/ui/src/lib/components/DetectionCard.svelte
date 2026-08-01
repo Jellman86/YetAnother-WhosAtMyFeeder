@@ -61,9 +61,10 @@
     let primaryName = $derived(naming.primary);
     let subName = $derived(naming.secondary);
 
-    let isVerified = $derived(detection.audio_confirmed && detection.score > 0.7);
-    let hasAudioConfirmed = $derived(!!detection.audio_confirmed);
-    let upstreamMissing = $derived(detection.frigate_status === 'missing');
+    let isManualObservation = $derived(detection.observation_source === 'manual_upload');
+    let isVerified = $derived(!isManualObservation && detection.audio_confirmed && detection.score > 0.7);
+    let hasAudioConfirmed = $derived(!isManualObservation && !!detection.audio_confirmed);
+    let upstreamMissing = $derived(!isManualObservation && detection.frigate_status === 'missing');
 
     let hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
@@ -280,12 +281,11 @@
                 {#if detection.observation_source === 'manual_upload'}
                     <div
                         role="img"
-                        class="flex h-7 items-center gap-1.5 rounded-full bg-brand-500/95 px-2.5 text-white shadow-lg shadow-brand-500/30"
+                        class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/95 text-white shadow-lg shadow-brand-500/30"
                         title={$_('detection.manual_upload', { default: 'Added from an upload' })}
                         aria-label={$_('detection.manual_upload', { default: 'Added from an upload' })}
                     >
                         <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
-                        <span class="text-[10px] font-bold uppercase tracking-wide">{$_('detection.uploaded', { default: 'Uploaded' })}</span>
                     </div>
                 {/if}
                 {#if upstreamMissing}

@@ -2389,6 +2389,16 @@ async def proxy_thumb(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
 
+    if event_id.startswith("manual_"):
+        from app.services.manual_observation_service import manual_observation_service
+
+        manual_thumbnail = await manual_observation_service.path_for_event(event_id, preview=True)
+        if not manual_thumbnail:
+            raise HTTPException(
+                status_code=404, detail=i18n_service.translate("errors.proxy.thumbnail_not_found", lang)
+            )
+        return FileResponse(manual_thumbnail, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_thumbnail(event_id)
         snapshot_cached = await media_cache.get_snapshot(event_id)

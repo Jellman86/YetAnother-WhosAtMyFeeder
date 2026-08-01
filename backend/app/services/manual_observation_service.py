@@ -40,6 +40,107 @@ ALLOWED_MEDIA = {
     "video/quicktime": ("video", ".mov"),
     "video/webm": ("video", ".webm"),
 }
+GPS_INFO_TAG = 34853
+
+
+def _rational_as_float(value: object) -> float:
+    if isinstance(value, (tuple, list)) and len(value) == 2:
+        numerator, denominator = value
+        denominator_value = float(denominator)
+        if denominator_value == 0:
+            raise ValueError("Invalid zero EXIF rational denominator")
+        return float(numerator) / denominator_value
+    return float(value)
+
+
+def _gps_coordinates_from_ifd(gps: object) -> tuple[float, float] | None:
+    """Return validated decimal coordinates from a Pillow GPS IFD."""
+    if not hasattr(gps, "get"):
+        return None
+    try:
+        latitude_values = gps.get(2)
+        longitude_values = gps.get(4)
+        if not latitude_values or not longitude_values or len(latitude_values) != 3 or len(longitude_values) != 3:
+            return None
+
+        def decimal(values: object, maximum_degrees: float) -> float:
+            degrees, minutes, seconds = (_rational_as_float(item) for item in values)
+            if not (0 <= degrees <= maximum_degrees and 0 <= minutes < 60 and 0 <= seconds < 60):
+                raise ValueError("Invalid EXIF GPS degrees, minutes, or seconds")
+            if degrees == maximum_degrees and (minutes or seconds):
+                raise ValueError("EXIF GPS coordinate exceeds its axis limit")
+            return degrees + minutes / 60 + seconds / 3600
+
+        latitude = decimal(latitude_values, 90)
+        longitude = decimal(longitude_values, 180)
+        latitude_ref = gps.get(1)
+        longitude_ref = gps.get(3)
+        if isinstance(latitude_ref, bytes):
+            latitude_ref = latitude_ref.decode("ascii", errors="ignore")
+        if isinstance(longitude_ref, bytes):
+            longitude_ref = longitude_ref.decode("ascii", errors="ignore")
+        latitude_ref = str(latitude_ref or "").strip().upper()
+        longitude_ref = str(longitude_ref or "").strip().upper()
+        if latitude_ref not in {"N", "S"} or longitude_ref not in {"E", "W"}:
+            return None
+        if latitude_ref == "S":
+            latitude *= -1
+        if longitude_ref == "W":
+            longitude *= -1
+        if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+            return None
+        return round(latitude, 7), round(longitude, 7)
+    except (TypeError, ValueError, ZeroDivisionError):
+        return None
+
+
+async def _prepare_classification_results(results: list[dict], classifier: object) -> list[dict]:
+    """Attach the runtime and user-facing taxonomy evidence used for manual review."""
+    try:
+        status = classifier.get_status()
+    except Exception:
+        status = {}
+    model_id = str(status.get("effective_model_id") or status.get("active_model_id") or "").strip() or None
+    provider = str(status.get("active_provider") or "").strip() or None
+    backend = str(status.get("inference_backend") or "").strip() or None
+    try:
+        from app.services.model_manager import REMOTE_REGISTRY
+
+        model = next((item for item in REMOTE_REGISTRY if item.get("id") == model_id), None)
+    except Exception:
+        model = None
+    model_name = str((model or {}).get("name") or "").strip() or None
+
+    prepared = [dict(item) for item in results]
+    for item in prepared:
+        if not item.get("model_id"):
+            item["model_id"] = model_id
+        if not item.get("model_name"):
+            item["model_name"] = model_name
+        if not item.get("inference_provider"):
+            item["inference_provider"] = provider
+        if not item.get("inference_backend"):
+            item["inference_backend"] = backend
+        if not item.get("input_source"):
+            item["input_source"] = "full_frame"
+        if item.get("input_is_cropped") is None:
+            item["input_is_cropped"] = "crop" in str(item.get("input_source") or "")
+
+    async def add_taxonomy(item: dict) -> None:
+        label = str(item.get("label") or "").strip()
+        if not label:
+            return
+        try:
+            names = await asyncio.wait_for(taxonomy_service.get_names(label), timeout=5)
+        except Exception as exc:
+            log.warning("Manual observation taxonomy lookup failed", label=label, error=str(exc))
+            return
+        for key in ("scientific_name", "common_name", "taxa_id"):
+            if names.get(key) is not None:
+                item[key] = names[key]
+
+    await asyncio.gather(*(add_taxonomy(item) for item in prepared[:4]))
+    return prepared
 
 
 class ManualObservationService:
@@ -83,7 +184,9 @@ class ManualObservationService:
                     await output.write(chunk)
             if size == 0:
                 raise HTTPException(status_code=400, detail="The uploaded file is empty.")
-            await self._validate_and_create_preview(source_path, draft_dir / "preview.jpg", media_type)
+            extracted_location = await self._validate_and_create_preview(
+                source_path, draft_dir / "preview.jpg", media_type
+            )
             content_sha256 = digest.hexdigest()
             async with get_db() as db:
                 repo = ManualObservationRepository(db)
@@ -106,6 +209,9 @@ class ManualObservationService:
                     content_sha256=content_sha256,
                     size_bytes=size,
                     source_filename=source_filename,
+                    latitude=extracted_location[0] if extracted_location else None,
+                    longitude=extracted_location[1] if extracted_location else None,
+                    location_source="image_metadata" if extracted_location else None,
                 )
                 try:
                     await repo.create(draft)
@@ -119,25 +225,32 @@ class ManualObservationService:
         finally:
             await media.close()
 
-    async def _validate_and_create_preview(self, source: Path, preview: Path, media_type: str) -> None:
+    async def _validate_and_create_preview(
+        self, source: Path, preview: Path, media_type: str
+    ) -> tuple[float, float] | None:
         if media_type == "image":
 
-            def validate_image() -> None:
+            def validate_image() -> tuple[float, float] | None:
                 with Image.open(source) as image:
+                    try:
+                        coordinates = _gps_coordinates_from_ifd(image.getexif().get_ifd(GPS_INFO_TAG))
+                    except (AttributeError, KeyError, TypeError, ValueError):
+                        coordinates = None
                     image.load()
                     if image.width * image.height > MAX_IMAGE_PIXELS:
                         raise HTTPException(status_code=413, detail="Image dimensions are too large.")
                     normalized = ImageOps.exif_transpose(image).convert("RGB")
                     normalized.thumbnail((1920, 1920), Image.Resampling.LANCZOS)
                     normalized.save(preview, "JPEG", quality=92, optimize=True)
+                    return coordinates
 
             try:
-                await asyncio.to_thread(validate_image)
+                return await asyncio.to_thread(validate_image)
             except HTTPException:
                 raise
             except Exception as exc:
                 raise HTTPException(status_code=422, detail="The image could not be decoded safely.") from exc
-            return
+            return None
 
         def validate_video() -> None:
             capture = cv2.VideoCapture(str(source))
@@ -173,6 +286,7 @@ class ManualObservationService:
                 capture.release()
 
         await asyncio.to_thread(validate_video)
+        return None
 
     async def _purge_expired_drafts(self) -> None:
         cutoff = utc_naive_now() - timedelta(days=DRAFT_RETENTION_DAYS)
@@ -246,6 +360,7 @@ class ManualObservationService:
                 )
             if not results:
                 raise RuntimeError("The classifier did not return a usable result.")
+            results = await _prepare_classification_results(results, classifier)
             async with get_db() as db:
                 await ManualObservationRepository(db).mark_ready(draft_id, results[:10])
         except asyncio.CancelledError:
@@ -279,7 +394,16 @@ class ManualObservationService:
         return draft
 
     async def confirm(
-        self, draft_id: str, *, label: str, camera_name: str, notes: str | None, observed_at: datetime | None
+        self,
+        draft_id: str,
+        *,
+        label: str,
+        camera_name: str,
+        notes: str | None,
+        observed_at: datetime | None,
+        latitude: float | None,
+        longitude: float | None,
+        location_source: str | None,
     ) -> str:
         draft = await self.get(draft_id)
         if draft.status == "saved" and draft.saved_event_id:
@@ -301,6 +425,18 @@ class ManualObservationService:
         )
         score = float((matching or {}).get("score") or 1.0)
         classifier_score = float(top_result.get("score") or 0.0)
+        if location_source == "none":
+            saved_latitude = None
+            saved_longitude = None
+            saved_location_source = None
+        elif latitude is not None and longitude is not None:
+            saved_latitude = latitude
+            saved_longitude = longitude
+            saved_location_source = location_source or "manual_pin"
+        else:
+            saved_latitude = draft.latitude
+            saved_longitude = draft.longitude
+            saved_location_source = draft.location_source
         event_id = f"manual_{draft_id}"
         detection = Detection(
             detection_time=utc_naive_datetime(observed_at) if observed_at else utc_naive_now(),
@@ -337,7 +473,14 @@ class ManualObservationService:
                     model_id=detection.video_classification_model_id,
                     input_source=detection.video_classification_input_source,
                 )
-            await ManualObservationRepository(db).mark_saved(draft_id, event_id, notes)
+            await ManualObservationRepository(db).mark_saved(
+                draft_id,
+                event_id,
+                notes,
+                latitude=saved_latitude,
+                longitude=saved_longitude,
+                location_source=saved_location_source,
+            )
         return event_id
 
     async def delete(self, draft_id: str) -> None:

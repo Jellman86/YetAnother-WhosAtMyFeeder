@@ -148,6 +148,7 @@
     // True when video classification completed with a real species but did not
     // match any current primary identity field, so owner confirmation is needed.
     let videoPromotionGated = $derived(isVideoPromotionGated(detection));
+    const isManualObservation = $derived(detection.observation_source === 'manual_upload');
 
     // State
     let modalElement = $state<HTMLElement | null>(null);
@@ -413,7 +414,7 @@
         }
         return values;
     });
-    const hasAudioContext = $derived(detection.audio_confirmed || audioContextSpecies.length > 0);
+    const hasAudioContext = $derived(!isManualObservation && (detection.audio_confirmed || audioContextSpecies.length > 0));
     const audioNearbySummary = $derived(audioContextSpecies.join(', '));
 
     // Pick the best audioContext entry to render its BirdNET-Go spectrogram
@@ -500,6 +501,16 @@
     // a reliable indication that nearby audio exists.
     $effect(() => {
         const eventId = detection.frigate_event;
+        if (detection.observation_source === 'manual_upload') {
+            untrack(() => {
+                audioContext = [];
+                audioContextLoaded = true;
+                audioContextLoading = false;
+                audioContextError = null;
+                audioContextOpen = false;
+            });
+            return;
+        }
         const controller = new AbortController();
         untrack(() => {
             audioContext = [];
@@ -661,7 +672,6 @@
         enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
     );
     const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
-    const isManualObservation = $derived(detection.observation_source === 'manual_upload');
     const missingEventMetadataGone = $derived(
         !isManualObservation && (detection.frigate_status === 'missing'
         || detection.has_frigate_event === false
@@ -2170,6 +2180,26 @@
                 <div class="border-l-2 border-brand-300 pl-3 dark:border-brand-700">
                     <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('detection.observation_notes', { default: 'Observation notes' })}</div>
                     <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-300">{detection.observation_notes}</p>
+                </div>
+            {/if}
+            {#if isManualObservation && detection.observation_latitude != null && detection.observation_longitude != null}
+                <div data-manual-observation-location class="border-l-2 border-accent-300 pl-3 dark:border-accent-700">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('manual_observation.location.title', { default: 'Sighting location' })}</div>
+                            <p class="mt-1 text-xs tabular-nums text-slate-600 dark:text-slate-300">{detection.observation_latitude.toFixed(5)}, {detection.observation_longitude.toFixed(5)}</p>
+                        </div>
+                        {#if detection.observation_location_source === 'image_metadata'}
+                            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{$_('manual_observation.location.from_image', { default: 'From image metadata' })}</span>
+                        {/if}
+                    </div>
+                    <div class="mt-3 h-44 overflow-hidden rounded-xl">
+                        <Map
+                            markers={[{ lat: detection.observation_latitude, lng: detection.observation_longitude, title: naming.primary }]}
+                            center={[detection.observation_latitude, detection.observation_longitude]}
+                            zoom={14}
+                        />
+                    </div>
                 </div>
             {/if}
             <!-- Confidence Bar -->

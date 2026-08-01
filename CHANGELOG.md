@@ -68,6 +68,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Uploaded observations now retain complete, relevant evidence.** Image results show common and
+  scientific names plus the active model, provider, backend, and input source; history thumbnails
+  are served from the retained local preview instead of being requested from Frigate. Upload badges
+  are icon-only, and manual detections no longer fetch or display unrelated BirdNET-Go context.
+- **Photo locations can be recovered and corrected before saving.** Valid EXIF GPS coordinates are
+  extracted defensively, shown on an editable map, and retained with the observation. When an image
+  has no coordinates, the owner can place a pin or enter latitude and longitude; location remains
+  optional and can be cleared.
 - **Automatic bird-model regions now understand the country values the setup UI actually stores.**
   ISO-2, ISO-3, and supported human-readable names such as `United Kingdom` and `United States`
   resolve consistently. UK installations no longer silently fall back to North American

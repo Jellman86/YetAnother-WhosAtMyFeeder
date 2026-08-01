@@ -91,6 +91,9 @@ class DetectionResponse(Detection):
     has_snapshot: bool = True  # Snapshot availability from Frigate
     has_frigate_event: bool = True  # Event still exists in Frigate
     observation_notes: str | None = None
+    observation_latitude: float | None = None
+    observation_longitude: float | None = None
+    observation_location_source: str | None = None
 
 
 class DetectionListItemResponse(APIModel):
@@ -113,6 +116,9 @@ class DetectionListItemResponse(APIModel):
     audio_confirmed: bool = False
     audio_context_species: list[str] | None = None
     observation_notes: str | None = None
+    observation_latitude: float | None = None
+    observation_longitude: float | None = None
+    observation_location_source: str | None = None
 
 
 class FrigateEvent(APIModel):

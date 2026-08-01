@@ -5,7 +5,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from app.auth import AuthContext, require_owner
 from app.repositories.manual_observation_repository import ManualObservationDraft
@@ -25,6 +25,9 @@ class ManualObservationPrediction(BaseModel):
     inference_backend: str | None = None
     input_source: str | None = None
     input_is_cropped: bool | None = None
+    scientific_name: str | None = None
+    common_name: str | None = None
+    taxa_id: int | None = None
 
 
 class ManualObservationResponse(BaseModel):
@@ -43,6 +46,9 @@ class ManualObservationResponse(BaseModel):
     error_code: str | None = None
     error_message: str | None = None
     saved_event_id: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    location_source: Literal["image_metadata", "manual_pin"] | None = None
     preview_url: str
     media_url: str
     created_at: str | None = None
@@ -54,6 +60,21 @@ class ManualObservationConfirmRequest(BaseModel):
     camera_name: str = Field(default="Manual upload", max_length=100)
     notes: str | None = Field(default=None, max_length=1000)
     observed_at: datetime | None = None
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    location_source: Literal["image_metadata", "manual_pin", "none"] | None = None
+
+    @model_validator(mode="after")
+    def validate_location(self) -> "ManualObservationConfirmRequest":
+        has_latitude = self.latitude is not None
+        has_longitude = self.longitude is not None
+        if has_latitude != has_longitude:
+            raise ValueError("Latitude and longitude must be supplied together.")
+        if self.location_source == "none" and (has_latitude or has_longitude):
+            raise ValueError("A removed location cannot include coordinates.")
+        if self.location_source == "manual_pin" and not (has_latitude and has_longitude):
+            raise ValueError("A manual pin requires latitude and longitude.")
+        return self
 
 
 class ManualObservationSavedResponse(BaseModel):
@@ -88,6 +109,9 @@ def _response(draft: ManualObservationDraft) -> ManualObservationResponse:
                             "inference_backend",
                             "input_source",
                             "input_is_cropped",
+                            "scientific_name",
+                            "common_name",
+                            "taxa_id",
                         )
                         if item.get(key) is not None
                     },
@@ -109,6 +133,9 @@ def _response(draft: ManualObservationDraft) -> ManualObservationResponse:
         error_code=draft.error_code,
         error_message=draft.error_message,
         saved_event_id=draft.saved_event_id,
+        latitude=draft.latitude,
+        longitude=draft.longitude,
+        location_source=draft.location_source,
         preview_url=f"/api/manual-observations/{draft.id}/preview",
         media_url=f"/api/manual-observations/{draft.id}/media",
         created_at=serialize_api_datetime(draft.created_at),
@@ -142,7 +169,14 @@ async def confirm_manual_observation(
     draft_id: str, body: ManualObservationConfirmRequest, _auth: AuthContext = Depends(require_owner)
 ) -> ManualObservationSavedResponse:
     event_id = await manual_observation_service.confirm(
-        draft_id, label=body.label, camera_name=body.camera_name, notes=body.notes, observed_at=body.observed_at
+        draft_id,
+        label=body.label,
+        camera_name=body.camera_name,
+        notes=body.notes,
+        observed_at=body.observed_at,
+        latitude=body.latitude,
+        longitude=body.longitude,
+        location_source=body.location_source,
     )
     return ManualObservationSavedResponse(status="saved", event_id=event_id, detection_url=f"/events?event={event_id}")
 
