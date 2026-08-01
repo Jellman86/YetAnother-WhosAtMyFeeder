@@ -120,7 +120,21 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
 async def test_process_event_records_temporal_abstention_without_breaker_failure():
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()
-    service._classifier.classify_video_async = AsyncMock(return_value=[])
+    diagnostics = {
+        "version": 1,
+        "outcome": "abstained",
+        "reason": "no_source_consensus",
+        "sampled_frames": 30,
+        "processed_frames": 30,
+        "minimum_frame_score": 0.5,
+        "sources": {},
+    }
+
+    async def classify_without_consensus(*args, **kwargs):
+        kwargs["diagnostics_callback"](diagnostics)
+        return []
+
+    service._classifier.classify_video_async = AsyncMock(side_effect=classify_without_consensus)
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
@@ -135,7 +149,7 @@ async def test_process_event_records_temporal_abstention_without_breaker_failure
                 "get_event_with_error",
                 new=AsyncMock(return_value=({"has_clip": True}, None)),
             ),
-            patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+            patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()) as broadcast,
         ):
             await service._process_event("evt-video-abstention", "cam1", skip_delay=True)
 
@@ -145,9 +159,21 @@ async def test_process_event_records_temporal_abstention_without_breaker_failure
             "evt-video-abstention",
             "failed",
             error="video_no_results",
-            diagnostics=None,
+            diagnostics=diagnostics,
             broadcast=True,
         )
+        completion = next(
+            call.args[0]
+            for call in broadcast.await_args_list
+            if call.args[0].get("type") == "reclassification_completed"
+        )
+        assert completion["data"] == {
+            "event_id": "evt-video-abstention",
+            "results": [],
+            "outcome": "no_result",
+            "reason": "video_no_results",
+            "diagnostics": diagnostics,
+        }
         diagnostic = next(
             item
             for item in error_diagnostics_history.snapshot(limit=20)["events"]

@@ -78,6 +78,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   summary with decoded, confident, required, and recurring-candidate frame counts. Detection details
   presents that evidence after reload or restart instead of reducing every safe abstention to the
   generic `video_no_results` message; all nine language catalogs include the new surface.
+- **Manual reclassification now ends with an explicit outcome.** When no species clears the
+  confidence and agreement rules, the progress overlay says that the identification was unchanged,
+  explains why, and shows the strongest frame evidence instead of ending ambiguously at 100% with
+  an empty result. Queued video and snapshot-fallback completions now carry a structured success,
+  no-result, or failure outcome so Jobs, notifications, detection details, and the overlay agree.
 
 - **Uploaded observations now retain complete, relevant evidence.** Image results show common and
   scientific names plus the active model, provider, backend, and input source; history thumbnails
