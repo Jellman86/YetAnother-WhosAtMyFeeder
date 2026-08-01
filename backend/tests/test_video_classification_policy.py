@@ -3,6 +3,7 @@ import pytest
 
 from app.services.video_classification_policy import (
     SourceTemporalConsensus,
+    assess_temporal_consensus,
     build_temporal_consensus,
     select_temporal_source_consensus,
 )
@@ -64,6 +65,44 @@ def test_temporal_consensus_requires_three_evaluated_frames():
         )
         is None
     )
+
+
+def test_temporal_assessment_explains_rejected_evidence_without_accepting_it():
+    assessment = assess_temporal_consensus(
+        [
+            np.array([0.91, 0.09]),
+            np.array([0.82, 0.18]),
+            np.array([0.20, 0.80]),
+            np.array([0.34, 0.33]),
+        ],
+        minimum_frame_score=0.5,
+    )
+
+    assert assessment.consensus is None
+    assert assessment.evaluated_frame_count == 4
+    assert assessment.confident_frame_count == 3
+    assert assessment.required_supporting_frames == 3
+    assert assessment.reason == "insufficient_class_agreement"
+    assert assessment.ranked_classes[0].class_index == 0
+    assert assessment.ranked_classes[0].supporting_frame_count == 2
+
+
+def test_temporal_consensus_can_require_source_coverage_before_accepting_votes():
+    scores = [
+        np.array([0.91, 0.09]),
+        np.array([0.88, 0.12]),
+        np.array([0.86, 0.14]),
+    ]
+
+    assessment = assess_temporal_consensus(
+        scores,
+        minimum_frame_score=0.5,
+        minimum_evaluated_frames=5,
+    )
+
+    assert assessment.consensus is None
+    assert assessment.reason == "insufficient_source_coverage"
+    assert assessment.evaluated_frame_count == 3
 
 
 def test_temporal_consensus_masks_non_species_classes_before_voting():

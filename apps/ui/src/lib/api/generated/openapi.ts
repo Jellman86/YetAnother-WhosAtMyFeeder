@@ -382,6 +382,7 @@ export interface components {
     ClassificationStatusResponse: {
     event_id: string;
     video_classification_backend?: string | null;
+    video_classification_diagnostics?: Record<string, unknown> | null;
     video_classification_error?: string | null;
     video_classification_input_source?: string | null;
     video_classification_model_id?: string | null;
@@ -535,6 +536,7 @@ export interface components {
     taxa_id?: number | null;
     temperature?: number | null;
     video_classification_backend?: string | null;
+    video_classification_diagnostics?: Record<string, unknown> | null;
     video_classification_error?: string | null;
     video_classification_input_source?: string | null;
     video_classification_label?: string | null;
@@ -613,6 +615,7 @@ export interface components {
     taxa_id?: number | null;
     temperature?: number | null;
     video_classification_backend?: string | null;
+    video_classification_diagnostics?: Record<string, unknown> | null;
     video_classification_error?: string | null;
     video_classification_input_source?: string | null;
     video_classification_label?: string | null;

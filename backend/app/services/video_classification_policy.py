@@ -35,6 +35,19 @@ class TemporalConsensus:
 
 
 @dataclass(frozen=True)
+class TemporalConsensusAssessment:
+    """Complete evidence summary, including conservative abstentions."""
+
+    consensus: TemporalConsensus | None
+    evaluated_frame_count: int
+    confident_frame_count: int
+    required_supporting_frames: int
+    ranked_classes: tuple[TemporalClassEvidence, ...]
+    ranked_observations: tuple[TemporalClassEvidence, ...]
+    reason: str
+
+
+@dataclass(frozen=True)
 class SourceTemporalConsensus:
     """Temporal evidence produced from one image representation per frame."""
 
@@ -47,6 +60,7 @@ def build_temporal_consensus(
     *,
     minimum_frame_score: float,
     excluded_class_indices: set[int] | None = None,
+    minimum_evaluated_frames: int = VIDEO_MIN_EVALUATED_FRAMES,
 ) -> TemporalConsensus | None:
     """Return robust class evidence only when independent frames agree.
 
@@ -56,9 +70,32 @@ def build_temporal_consensus(
     60% of all evaluated frames. The reported confidence is the median of its
     supporting frames, so one extreme frame cannot determine the result.
     """
+    return assess_temporal_consensus(
+        frame_scores,
+        minimum_frame_score=minimum_frame_score,
+        excluded_class_indices=excluded_class_indices,
+        minimum_evaluated_frames=minimum_evaluated_frames,
+    ).consensus
+
+
+def assess_temporal_consensus(
+    frame_scores: Iterable[np.ndarray],
+    *,
+    minimum_frame_score: float,
+    excluded_class_indices: set[int] | None = None,
+    minimum_evaluated_frames: int = VIDEO_MIN_EVALUATED_FRAMES,
+) -> TemporalConsensusAssessment:
+    """Assess temporal evidence and retain why a source was rejected.
+
+    Only frames that actually produced a score array count as evaluated. Callers
+    can set a higher coverage floor for optional representations such as dynamic
+    crops, preventing a tiny number of lucky crops from deciding a whole clip.
+    """
     excluded = excluded_class_indices or set()
     minimum_score = min(1.0, max(0.0, float(minimum_frame_score)))
+    required_evaluated_frames = max(VIDEO_MIN_EVALUATED_FRAMES, int(minimum_evaluated_frames))
     votes: list[tuple[int, float]] = []
+    observations: list[tuple[int, float]] = []
     evaluated_count = 0
 
     expected_size: int | None = None
@@ -78,45 +115,88 @@ def build_temporal_consensus(
                 eligible_scores[class_index] = -np.inf
         top_index = int(np.argmax(eligible_scores))
         top_score = float(eligible_scores[top_index])
-        if not math.isfinite(top_score) or top_score < minimum_score:
+        if not math.isfinite(top_score):
+            continue
+        observations.append((top_index, top_score))
+        if top_score < minimum_score:
             continue
         votes.append((top_index, top_score))
 
-    if evaluated_count < VIDEO_MIN_EVALUATED_FRAMES or len(votes) < VIDEO_MIN_SUPPORTING_FRAMES:
-        return None
-
-    vote_counts = Counter(class_index for class_index, _score in votes)
-    evidence: list[TemporalClassEvidence] = []
-    for class_index, support_count in vote_counts.items():
-        supporting_scores = [score for vote_index, score in votes if vote_index == class_index]
-        evidence.append(
-            TemporalClassEvidence(
-                class_index=class_index,
-                score=float(statistics.median(supporting_scores)),
-                supporting_frame_count=support_count,
-                support_ratio=support_count / evaluated_count,
+    def _rank_evidence(items: list[tuple[int, float]]) -> tuple[TemporalClassEvidence, ...]:
+        counts = Counter(class_index for class_index, _score in items)
+        evidence: list[TemporalClassEvidence] = []
+        for class_index, support_count in counts.items():
+            supporting_scores = [score for item_index, score in items if item_index == class_index]
+            evidence.append(
+                TemporalClassEvidence(
+                    class_index=class_index,
+                    score=float(statistics.median(supporting_scores)),
+                    supporting_frame_count=support_count,
+                    support_ratio=support_count / evaluated_count,
+                )
             )
+        evidence.sort(
+            key=lambda item: (item.supporting_frame_count, item.score),
+            reverse=True,
         )
-    evidence.sort(
-        key=lambda item: (item.supporting_frame_count, item.score),
-        reverse=True,
-    )
+        return tuple(evidence)
 
-    winner = evidence[0]
+    ranked_evidence = _rank_evidence(votes)
+    ranked_observations = _rank_evidence(observations)
+
     required_support = max(
         VIDEO_MIN_SUPPORTING_FRAMES,
         math.ceil(evaluated_count * VIDEO_CLASS_CONSENSUS_RATIO),
     )
-    if winner.supporting_frame_count < required_support:
-        return None
+    if evaluated_count < required_evaluated_frames:
+        return TemporalConsensusAssessment(
+            consensus=None,
+            evaluated_frame_count=evaluated_count,
+            confident_frame_count=len(votes),
+            required_supporting_frames=required_support,
+            ranked_classes=ranked_evidence,
+            ranked_observations=ranked_observations,
+            reason="insufficient_source_coverage",
+        )
+    if len(votes) < VIDEO_MIN_SUPPORTING_FRAMES:
+        return TemporalConsensusAssessment(
+            consensus=None,
+            evaluated_frame_count=evaluated_count,
+            confident_frame_count=len(votes),
+            required_supporting_frames=required_support,
+            ranked_classes=ranked_evidence,
+            ranked_observations=ranked_observations,
+            reason="insufficient_confident_frames",
+        )
 
-    return TemporalConsensus(
+    winner = ranked_evidence[0]
+    if winner.supporting_frame_count < required_support:
+        return TemporalConsensusAssessment(
+            consensus=None,
+            evaluated_frame_count=evaluated_count,
+            confident_frame_count=len(votes),
+            required_supporting_frames=required_support,
+            ranked_classes=ranked_evidence,
+            ranked_observations=ranked_observations,
+            reason="insufficient_class_agreement",
+        )
+
+    consensus = TemporalConsensus(
         winner_index=winner.class_index,
         score=winner.score,
         supporting_frame_count=winner.supporting_frame_count,
         evaluated_frame_count=evaluated_count,
         required_supporting_frames=required_support,
-        ranked_classes=tuple(evidence),
+        ranked_classes=ranked_evidence,
+    )
+    return TemporalConsensusAssessment(
+        consensus=consensus,
+        evaluated_frame_count=evaluated_count,
+        confident_frame_count=len(votes),
+        required_supporting_frames=required_support,
+        ranked_classes=ranked_evidence,
+        ranked_observations=ranked_observations,
+        reason="accepted",
     )
 
 

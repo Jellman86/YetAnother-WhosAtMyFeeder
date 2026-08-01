@@ -58,6 +58,7 @@ detections = Table(
     Column("video_classification_backend", String),
     Column("video_classification_model_id", String),
     Column("video_classification_input_source", String),
+    Column("video_classification_diagnostics", String),
     Column("video_result_blocked", Boolean, default=False),
     Column("frigate_status", String, server_default="present"),
     Column("frigate_missing_since", TIMESTAMP),

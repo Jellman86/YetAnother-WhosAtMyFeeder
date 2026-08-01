@@ -122,6 +122,13 @@ model-driven crop is reported as `snapshot_model_crop` or `snapshot_frigate_hint
 from image dimensions. A trusted upstream label that won because local image evidence did not
 clear policy is reported as `frigate_sublabel` rather than as snapshot or video inference.
 
+For current video runs, event rows and the classification-status endpoint can also expose
+`video_classification_diagnostics`. This bounded object records sampled/decoded frame counts,
+minimum per-frame confidence, final outcome/reason, and per-source evaluated, confident, required,
+and recurring-candidate evidence. It is `null` while work is pending, after a successful result,
+and for historical runs that predate retained diagnostics. Candidate evidence explains an
+abstention; clients must not present it as an accepted identification.
+
 An HQ baseline built from Frigate's regular ended-event snapshot because the clean copy was absent
 uses `hq_candidate_frigate_snapshot_fallback`. It is treated conservatively as already cropped: the
 ended-event API ignores crop query overrides, so YA-WAMF must not run localisation a second time.

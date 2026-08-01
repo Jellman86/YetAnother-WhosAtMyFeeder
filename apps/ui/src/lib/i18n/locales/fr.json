@@ -1490,6 +1490,16 @@
       "gated_title": "La vidéo a trouvé une correspondance — confirmez pour l'appliquer",
       "gated_desc": "La promotion automatique a été retenue car le score vidéo est inférieur à votre seuil de confiance minimum. Lancez Reclassifier pour appliquer ce résultat, ou abaissez le seuil dans Paramètres → Détection.",
       "gated_action": "Reclassifier",
+      "evidence": {
+        "title": "Indices de cette analyse",
+        "summary": "{processed} images sur {sampled} échantillonnées ont été décodées. Une image devait atteindre au moins {threshold} % de confiance pour voter.",
+        "confident_short": "fiables",
+        "required": "Il fallait {required} images concordantes pour cette source.",
+        "top_candidates": "Candidats les plus récurrents",
+        "full_frame": "Image complète",
+        "frigate_hint_crop": "Recadrage guidé par Frigate",
+        "model_crop": "Recadrage IA"
+      },
       "blocked_label": "Correspond à une espèce bloquée — non appliqué"
     },
     "card_analysis": {

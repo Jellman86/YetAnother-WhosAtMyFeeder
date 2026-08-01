@@ -68,6 +68,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Deep video analysis now uses sparse crops and tracked motion honestly.** Dynamic crop consensus
+  counts only frames where the detector produced a usable crop, while still requiring coverage of
+  at least 30% of the sampled clip. Frigate path coordinates are aligned to cached recording and
+  event-clip timestamps so the guided crop follows the bird instead of reusing one final box. The
+  centre-weighted sampler no longer fills overlapping targets with adjacent opening frames, and
+  conservative cross-source agreement still rejects confidently wrong outliers.
+- **A video abstention now explains the evidence it rejected.** YA-WAMF stores a bounded per-source
+  summary with decoded, confident, required, and recurring-candidate frame counts. Detection details
+  presents that evidence after reload or restart instead of reducing every safe abstention to the
+  generic `video_no_results` message; all nine language catalogs include the new surface.
+
 - **Uploaded observations now retain complete, relevant evidence.** Image results show common and
   scientific names plus the active model, provider, backend, and input source; history thumbnails
   are served from the retained local preview instead of being requested from Frigate. Upload badges

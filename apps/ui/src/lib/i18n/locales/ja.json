@@ -1490,6 +1490,16 @@
       "gated_title": "動画で一致を検出 — 適用するには確認してください",
       "gated_desc": "動画スコアが最低信頼度を下回っているため、自動適用が保留されました。Reclassify を実行してこの結果を適用するか、設定 → 検出 で下限値を下げてください。",
       "gated_action": "再分類",
+      "evidence": {
+        "title": "今回の解析根拠",
+        "summary": "サンプリングした{sampled}フレームのうち{processed}フレームをデコードしました。投票には各フレームで{threshold}%以上の信頼度が必要でした。",
+        "confident_short": "高信頼",
+        "required": "この入力では一致するフレームが{required}件必要でした。",
+        "top_candidates": "繰り返し現れた上位候補",
+        "full_frame": "フルフレーム",
+        "frigate_hint_crop": "Frigateガイド切り抜き",
+        "model_crop": "AI切り抜き"
+      },
       "blocked_label": "ブロック対象の種に一致 — 適用されません"
     },
     "card_analysis": {

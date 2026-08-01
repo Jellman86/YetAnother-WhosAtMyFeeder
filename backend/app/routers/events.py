@@ -333,6 +333,7 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "video_classification_label": detection.video_classification_label,
         "video_classification_status": detection.video_classification_status,
         "video_classification_error": detection.video_classification_error,
+        "video_classification_diagnostics": detection.video_classification_diagnostics,
         "video_classification_provider": detection.video_classification_provider,
         "video_classification_backend": detection.video_classification_backend,
         "video_classification_model_id": detection.video_classification_model_id,
@@ -786,6 +787,7 @@ async def get_events(
                 video_classification_model_id=event.video_classification_model_id,
                 video_classification_model_name=_video_classification_model_name(event.video_classification_model_id),
                 video_classification_input_source=event.video_classification_input_source,
+                video_classification_diagnostics=event.video_classification_diagnostics,
                 ai_analysis=event.ai_analysis,
                 ai_analysis_timestamp=event.ai_analysis_timestamp,
             )
@@ -1045,6 +1047,7 @@ class ClassificationStatusResponse(BaseModel):
     video_classification_model_id: str | None = None
     video_classification_model_name: str | None = None
     video_classification_input_source: str | None = None
+    video_classification_diagnostics: dict[str, object] | None = None
 
 
 @router.get("/events/{event_id}/classification-status", response_model=ClassificationStatusResponse)
@@ -1068,6 +1071,7 @@ async def get_event_classification_status(event_id: str, request: Request, auth:
             video_classification_model_id=detection.video_classification_model_id,
             video_classification_model_name=_video_classification_model_name(detection.video_classification_model_id),
             video_classification_input_source=detection.video_classification_input_source,
+            video_classification_diagnostics=detection.video_classification_diagnostics,
         )
 
 

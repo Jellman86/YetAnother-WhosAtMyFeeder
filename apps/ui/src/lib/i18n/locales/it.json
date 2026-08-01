@@ -1499,6 +1499,16 @@
       "gated_title": "Il video ha trovato una corrispondenza — conferma per applicarla",
       "gated_desc": "La promozione automatica è stata trattenuta perché il punteggio video è inferiore alla soglia minima di confidenza. Esegui Riclassifica per applicare questo risultato, oppure abbassa la soglia in Impostazioni → Rilevamento.",
       "gated_action": "Riclassifica",
+      "evidence": {
+        "title": "Evidenze di questa analisi",
+        "summary": "Sono stati decodificati {processed} dei {sampled} fotogrammi campionati. Per votare, un fotogramma richiedeva almeno il {threshold}% di confidenza.",
+        "confident_short": "affidabili",
+        "required": "Erano necessari {required} fotogrammi concordanti da questa fonte.",
+        "top_candidates": "Candidati più ricorrenti",
+        "full_frame": "Fotogramma intero",
+        "frigate_hint_crop": "Ritaglio guidato da Frigate",
+        "model_crop": "Ritaglio IA"
+      },
       "blocked_label": "Corrisponde a una specie bloccata — non applicato"
     },
     "card_analysis": {

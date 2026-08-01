@@ -2410,6 +2410,18 @@
             ],
             "title": "Video Classification Backend"
           },
+          "video_classification_diagnostics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Diagnostics"
+          },
           "video_classification_error": {
             "anyOf": [
               {
@@ -3562,6 +3574,18 @@
             ],
             "title": "Video Classification Backend"
           },
+          "video_classification_diagnostics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Diagnostics"
+          },
           "video_classification_error": {
             "anyOf": [
               {
@@ -4231,6 +4255,18 @@
               }
             ],
             "title": "Video Classification Backend"
+          },
+          "video_classification_diagnostics": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Video Classification Diagnostics"
           },
           "video_classification_error": {
             "anyOf": [
