@@ -119,7 +119,7 @@ def _quote_key(key: str) -> str:
 
 def _response_schema(operation: dict[str, Any]) -> dict[str, Any] | None:
     responses = operation.get("responses") or {}
-    response = responses.get("200") or responses.get("201") or responses.get("204")
+    response = responses.get("200") or responses.get("201") or responses.get("202") or responses.get("204")
     if not isinstance(response, dict):
         return None
     content = response.get("content") or {}

@@ -598,6 +598,9 @@ historically inconsistent GPU routes to host-gated candidates, with every instal
 prove them before selection.
 
 **Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots with conservative,
+an owner-only full-page manual-observation flow for photos and short videos with durable analysis,
+explicit review, duplicate protection, production crop/temporal inference, and Frigate-independent
+original-media retention,
 temporally independent multi-frame crop refinement for distant subjects, a protected Frigate final
 best-frame baseline with correctly reconstructed bottom-centre path coordinates, recording-frame
 classification fallback, media caching, and the video player with HTTP-Range seeking + expiring

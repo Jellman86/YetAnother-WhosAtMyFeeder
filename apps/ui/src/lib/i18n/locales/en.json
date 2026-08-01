@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "explorer": "Explorer",
+    "add_observation": "Add observation",
     "leaderboard": "Leaderboard",
     "observe": "Observe",
     "manage": "Manage",
@@ -24,6 +25,43 @@
     "events": "Events",
     "notifications": "Notifications",
     "species": "Species"
+  },
+  "manual_observation": {
+    "eyebrow": "Field record",
+    "intro_title": "Turn a photo or clip into a verified observation",
+    "intro_body": "YA-WAMF uses the same model, crop selection, and video consensus as live detections. Nothing is added until you review it.",
+    "progress_label": "Observation progress",
+    "steps": {
+      "upload": "Upload", "upload_detail": "Choose original media",
+      "analyse": "Analyse", "analyse_detail": "Find the strongest evidence",
+      "review": "Review", "review_detail": "Confirm the species",
+      "save": "Save", "save_detail": "Add to observations"
+    },
+    "evidence": { "full_frame": "Full frame", "crop": "Best crop", "model": "Model", "provider": "Provider" },
+    "errors": {
+      "load": "The analysis status could not be loaded.", "type": "Choose a JPEG, PNG, WebP, MP4, MOV, or WebM file.",
+      "upload": "The media could not be uploaded.", "retry": "The analysis could not be restarted.", "save": "The observation could not be saved."
+    },
+    "upload": {
+      "title": "Choose a photo or video", "help": "Use the original file when possible. YA-WAMF will preserve it and choose the strongest input for classification.",
+      "change": "Choose a different file", "drop": "Drop media here or choose a file", "formats": "JPEG, PNG, WebP up to 25 MB · MP4, MOV, WebM up to 250 MB / 3 minutes",
+      "uploading": "Securing the original…", "analyse": "Upload and analyse"
+    },
+    "analysis": {
+      "preview_alt": "Uploaded media preview", "video": "Video", "image": "Photo", "title": "Finding the strongest evidence",
+      "body": "The production classifier is comparing frames and crop candidates. You can leave this page; the draft will be restored when you return.",
+      "progress": "Analysis progress", "failed_title": "Analysis stopped safely", "failed_body": "Your original media is still stored. Retry when the model is available.", "retry": "Retry analysis"
+    },
+    "review": {
+      "preview_alt": "Observation preview", "title": "Review before saving", "body": "Confirm the suggested species, correct it if needed, and add the field context you want to keep.",
+      "candidates": "Model suggestions", "species": "Species", "when": "Observed at", "location": "Camera or location", "notes": "Notes",
+      "saving": "Saving observation…", "save": "Save observation"
+    },
+    "saved": {
+      "toast": "Observation added", "eyebrow": "Record complete", "title": "Observation saved", "body": "The verified record is now part of your detection history and species totals.",
+      "view": "View detection", "another": "Add another"
+    },
+    "start_over": "Start over"
   },
   "setup": {
     "action_failed": "That change could not be saved. Check the details and try again.",
@@ -1376,6 +1414,8 @@
     "reclassify_selected": "Reclassify Selected"
   },
   "detection": {
+    "uploaded": "Uploaded",
+    "observation_notes": "Observation notes",
     "confidence": "Confidence",
     "verified": "Verified",
     "hidden": "Hidden",
@@ -2393,6 +2433,7 @@
     "about": "Version, changelog, contributors, and support links.",
     "dashboard": "Live detections, recent activity, and feeder health at a glance.",
     "events": "Browse, filter, and manage every classified visit.",
+    "add_observation": "Classify your own photo or video, review the evidence, and add it to your history.",
     "audio_history": "Browse persisted BirdNET-Go detections and audio-only activity.",
     "notifications": "Alerts, reminders, and active background jobs.",
     "settings": "Connections, classification, integrations, and personalization.",

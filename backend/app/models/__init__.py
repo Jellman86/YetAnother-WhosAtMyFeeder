@@ -41,6 +41,7 @@ class Detection(APIModel):
     display_name: str
     category_name: str
     frigate_event: str
+    observation_source: str = "frigate"
     camera_name: str
     is_hidden: bool = False
     is_favorite: bool = False
@@ -89,6 +90,7 @@ class DetectionResponse(Detection):
     has_clip: bool = False  # Clip availability from Frigate
     has_snapshot: bool = True  # Snapshot availability from Frigate
     has_frigate_event: bool = True  # Event still exists in Frigate
+    observation_notes: str | None = None
 
 
 class DetectionListItemResponse(APIModel):
@@ -100,6 +102,7 @@ class DetectionListItemResponse(APIModel):
     category_name: str
     camera_name: str
     frigate_event: str
+    observation_source: str = "frigate"
     is_hidden: bool = False
     is_favorite: bool = False
     has_clip: bool = False
@@ -109,6 +112,7 @@ class DetectionListItemResponse(APIModel):
     audio_score: float | None = None
     audio_confirmed: bool = False
     audio_context_species: list[str] | None = None
+    observation_notes: str | None = None
 
 
 class FrigateEvent(APIModel):

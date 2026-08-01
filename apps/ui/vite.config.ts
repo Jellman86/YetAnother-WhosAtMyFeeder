@@ -135,7 +135,7 @@ export default defineConfig(({ mode }) => ({
         port: 3000,
         proxy: {
             '/api': {
-                target: 'http://yawamf-backend:8000',
+                target: process.env.VITE_BACKEND_PROXY_TARGET || 'http://yawamf-backend:8000',
                 changeOrigin: true,
             }
         }

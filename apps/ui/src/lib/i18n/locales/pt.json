@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "Painel",
     "explorer": "Explorar",
+    "add_observation": "Adicionar observação",
     "leaderboard": "Ranking",
     "observe": "Observar",
     "manage": "Gerir",
@@ -24,6 +25,18 @@
     "events": "Eventos",
     "notifications": "Notificações",
     "species": "Espécies"
+  },
+  "manual_observation": {
+    "eyebrow": "Registo de campo", "intro_title": "Transforme uma foto ou vídeo numa observação verificada",
+    "intro_body": "O YA-WAMF usa o mesmo modelo, seleção de recorte e consenso de vídeo das deteções em direto. Nada é adicionado antes da sua revisão.", "progress_label": "Progresso da observação",
+    "steps": { "upload": "Carregar", "upload_detail": "Escolher o ficheiro original", "analyse": "Analisar", "analyse_detail": "Encontrar a melhor evidência", "review": "Rever", "review_detail": "Confirmar a espécie", "save": "Guardar", "save_detail": "Adicionar às observações" },
+    "evidence": { "full_frame": "Imagem completa", "crop": "Melhor recorte", "model": "Modelo", "provider": "Fornecedor" },
+    "errors": { "load": "Não foi possível carregar o estado da análise.", "type": "Escolha um ficheiro JPEG, PNG, WebP, MP4, MOV ou WebM.", "upload": "Não foi possível carregar o ficheiro.", "retry": "Não foi possível reiniciar a análise.", "save": "Não foi possível guardar a observação." },
+    "upload": { "title": "Escolha uma foto ou vídeo", "help": "Use o ficheiro original sempre que possível. O YA-WAMF irá preservá-lo e escolher a melhor entrada para classificação.", "change": "Escolher outro ficheiro", "drop": "Largue o ficheiro aqui ou escolha um", "formats": "JPEG, PNG, WebP até 25 MB · MP4, MOV, WebM até 250 MB / 3 minutos", "uploading": "A proteger o original…", "analyse": "Carregar e analisar" },
+    "analysis": { "preview_alt": "Pré-visualização do ficheiro carregado", "video": "Vídeo", "image": "Foto", "title": "A encontrar a melhor evidência", "body": "O classificador de produção compara fotogramas e recortes. Pode sair desta página; o rascunho será restaurado quando voltar.", "progress": "Progresso da análise", "failed_title": "Análise interrompida em segurança", "failed_body": "O ficheiro original continua guardado. Tente novamente quando o modelo estiver disponível.", "retry": "Repetir análise" },
+    "review": { "preview_alt": "Pré-visualização da observação", "title": "Reveja antes de guardar", "body": "Confirme a espécie sugerida, corrija-a se necessário e adicione o contexto que pretende manter.", "candidates": "Sugestões do modelo", "species": "Espécie", "when": "Observada em", "location": "Câmara ou local", "notes": "Notas", "saving": "A guardar observação…", "save": "Guardar observação" },
+    "saved": { "toast": "Observação adicionada", "eyebrow": "Registo concluído", "title": "Observação guardada", "body": "O registo verificado faz agora parte do histórico e dos totais por espécie.", "view": "Ver deteção", "another": "Adicionar outra" },
+    "start_over": "Recomeçar"
   },
   "setup": {
     "action_failed": "Não foi possível guardar a alteração. Verifique os dados e tente novamente.",
@@ -1338,6 +1351,8 @@
     "reclassify_selected": "Reclassificar selecionados"
   },
   "detection": {
+    "uploaded": "Carregada",
+    "observation_notes": "Notas da observação",
     "confidence": "Confiança",
     "verified": "Verificado",
     "hidden": "Oculto",
@@ -2328,6 +2343,7 @@
     "about": "Versão, registo de alterações, colaboradores e ligações de suporte.",
     "dashboard": "Deteções em direto, atividade recente e estado do comedouro num relance.",
     "events": "Procura, filtra e gere cada visita classificada.",
+    "add_observation": "Classifica uma foto ou vídeo, revê as evidências e adiciona-o ao histórico.",
     "notifications": "Alertas, lembretes e tarefas em segundo plano ativas.",
     "settings": "Ligações, classificação, integrações e personalização.",
     "species": "Tabela, totais e detalhes taxonómicos das aves que viste."

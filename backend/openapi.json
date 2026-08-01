@@ -1972,6 +1972,20 @@
         "title": "Body_classify_image_api_classifier_classify_post",
         "type": "object"
       },
+      "Body_create_manual_observation_api_manual_observations_post": {
+        "properties": {
+          "media": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Media",
+            "type": "string"
+          }
+        },
+        "required": [
+          "media"
+        ],
+        "title": "Body_create_manual_observation_api_manual_observations_post",
+        "type": "object"
+      },
       "Body_probe_bird_classifier_runtime_api_classifier_probe_post": {
         "properties": {
           "image": {
@@ -3484,6 +3498,11 @@
             "title": "Manual Tagged",
             "type": "boolean"
           },
+          "observation_source": {
+            "default": "frigate",
+            "title": "Observation Source",
+            "type": "string"
+          },
           "scientific_name": {
             "anyOf": [
               {
@@ -3842,6 +3861,22 @@
             "title": "Is Hidden",
             "type": "boolean"
           },
+          "observation_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Notes"
+          },
+          "observation_source": {
+            "default": "frigate",
+            "title": "Observation Source",
+            "type": "string"
+          },
           "score": {
             "title": "Score",
             "type": "number"
@@ -4055,6 +4090,22 @@
             "default": false,
             "title": "Manual Tagged",
             "type": "boolean"
+          },
+          "observation_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Notes"
+          },
+          "observation_source": {
+            "default": "frigate",
+            "title": "Observation Source",
+            "type": "string"
           },
           "scientific_name": {
             "anyOf": [
@@ -6619,6 +6670,330 @@
           "detections_to_cleanup"
         ],
         "title": "MaintenanceStatsResponse",
+        "type": "object"
+      },
+      "ManualObservationConfirmRequest": {
+        "properties": {
+          "camera_name": {
+            "default": "Manual upload",
+            "maxLength": 100,
+            "title": "Camera Name",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          },
+          "observed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observed At"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "ManualObservationConfirmRequest",
+        "type": "object"
+      },
+      "ManualObservationDeleteResponse": {
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "deleted",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "id"
+        ],
+        "title": "ManualObservationDeleteResponse",
+        "type": "object"
+      },
+      "ManualObservationPrediction": {
+        "properties": {
+          "inference_backend": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Backend"
+          },
+          "inference_provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Inference Provider"
+          },
+          "input_is_cropped": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Is Cropped"
+          },
+          "input_source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Source"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "model_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Id"
+          },
+          "model_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Name"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "label",
+          "score"
+        ],
+        "title": "ManualObservationPrediction",
+        "type": "object"
+      },
+      "ManualObservationResponse": {
+        "properties": {
+          "content_sha256": {
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "media_type": {
+            "enum": [
+              "image",
+              "video"
+            ],
+            "title": "Media Type",
+            "type": "string"
+          },
+          "media_url": {
+            "title": "Media Url",
+            "type": "string"
+          },
+          "original_filename": {
+            "title": "Original Filename",
+            "type": "string"
+          },
+          "predictions": {
+            "items": {
+              "$ref": "#/components/schemas/ManualObservationPrediction"
+            },
+            "title": "Predictions",
+            "type": "array"
+          },
+          "preview_url": {
+            "title": "Preview Url",
+            "type": "string"
+          },
+          "progress_current": {
+            "title": "Progress Current",
+            "type": "integer"
+          },
+          "progress_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Progress Message"
+          },
+          "progress_percent": {
+            "title": "Progress Percent",
+            "type": "integer"
+          },
+          "progress_total": {
+            "title": "Progress Total",
+            "type": "integer"
+          },
+          "saved_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved Event Id"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "analyzing",
+              "ready",
+              "failed",
+              "saved"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "media_type",
+          "original_filename",
+          "content_type",
+          "content_sha256",
+          "size_bytes",
+          "progress_current",
+          "progress_total",
+          "progress_percent",
+          "preview_url",
+          "media_url"
+        ],
+        "title": "ManualObservationResponse",
+        "type": "object"
+      },
+      "ManualObservationSavedResponse": {
+        "properties": {
+          "detection_url": {
+            "title": "Detection Url",
+            "type": "string"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "status": {
+            "const": "saved",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "event_id",
+          "detection_url"
+        ],
+        "title": "ManualObservationSavedResponse",
         "type": "object"
       },
       "ManualTagResponse": {
@@ -20116,6 +20491,370 @@
           }
         ],
         "summary": "Reset Video Circuit"
+      }
+    },
+    "/api/manual-observations": {
+      "post": {
+        "operationId": "create_manual_observation_api_manual_observations_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_manual_observation_api_manual_observations_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualObservationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Create Manual Observation",
+        "tags": [
+          "manual observations"
+        ]
+      }
+    },
+    "/api/manual-observations/{draft_id}": {
+      "delete": {
+        "operationId": "delete_manual_observation_api_manual_observations__draft_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualObservationDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Delete Manual Observation",
+        "tags": [
+          "manual observations"
+        ]
+      },
+      "get": {
+        "operationId": "get_manual_observation_api_manual_observations__draft_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualObservationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Manual Observation",
+        "tags": [
+          "manual observations"
+        ]
+      }
+    },
+    "/api/manual-observations/{draft_id}/confirm": {
+      "post": {
+        "operationId": "confirm_manual_observation_api_manual_observations__draft_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualObservationConfirmRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualObservationSavedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Confirm Manual Observation",
+        "tags": [
+          "manual observations"
+        ]
+      }
+    },
+    "/api/manual-observations/{draft_id}/media": {
+      "get": {
+        "operationId": "media_manual_observation_api_manual_observations__draft_id__media_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Media Manual Observation",
+        "tags": [
+          "manual observations"
+        ]
+      }
+    },
+    "/api/manual-observations/{draft_id}/preview": {
+      "get": {
+        "operationId": "preview_manual_observation_api_manual_observations__draft_id__preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Preview Manual Observation",
+        "tags": [
+          "manual observations"
+        ]
+      }
+    },
+    "/api/manual-observations/{draft_id}/retry": {
+      "post": {
+        "operationId": "retry_manual_observation_api_manual_observations__draft_id__retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "draft_id",
+            "required": true,
+            "schema": {
+              "title": "Draft Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManualObservationResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Retry Manual Observation",
+        "tags": [
+          "manual observations"
+        ]
       }
     },
     "/api/models/available": {

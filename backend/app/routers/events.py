@@ -254,6 +254,16 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
 
     async def check(event_id: str) -> tuple[str, dict[str, bool]]:
         async with semaphore:
+            if event_id.startswith("manual_"):
+                from app.services.manual_observation_service import manual_observation_service
+
+                snapshot = await manual_observation_service.path_for_event(event_id, preview=True)
+                media = await manual_observation_service.path_for_event(event_id, preview=False)
+                return event_id, {
+                    "has_frigate_event": False,
+                    "has_clip": bool(media and media.suffix.lower() in {".mp4", ".mov", ".webm"}),
+                    "has_snapshot": bool(snapshot),
+                }
             try:
                 event_data = await frigate_client.get_event(event_id)
                 cached_flags = cached_media_flags(event_id)
@@ -478,6 +488,7 @@ _LIST_FIELDS = {
     "category_name",
     "camera_name",
     "frigate_event",
+    "observation_source",
     "is_hidden",
     "is_favorite",
     "has_clip",
@@ -605,6 +616,9 @@ async def get_events(
         # Batch fetch clip availability from Frigate (eliminates N individual HEAD requests)
         event_ids = [e.frigate_event for e in events]
         clip_availability = await batch_check_clips(event_ids)
+        from app.repositories.manual_observation_repository import ManualObservationRepository
+
+        manual_observation_notes = await ManualObservationRepository(db).notes_by_event_ids(event_ids)
 
         # Get labels that should be displayed as "Unknown Bird"
         unknown_labels = settings.classification.unknown_bird_labels
@@ -728,6 +742,8 @@ async def get_events(
                 display_name=display_name,
                 category_name=category_name,
                 frigate_event=event.frigate_event,
+                observation_source="manual_upload" if event.frigate_event.startswith("manual_") else "frigate",
+                observation_notes=manual_observation_notes.get(event.frigate_event),
                 camera_name="Hidden" if hide_camera_names else event.camera_name,
                 has_clip=clip_availability.get(event.frigate_event, {}).get("has_clip", False),
                 has_snapshot=clip_availability.get(event.frigate_event, {}).get("has_snapshot", False),
@@ -876,6 +892,10 @@ async def delete_event(event_id: str, request: Request, auth: AuthContext = Depe
 
         deleted = await repo.delete_by_frigate_event(event_id)
         if deleted:
+            if event_id.startswith("manual_"):
+                from app.services.manual_observation_service import manual_observation_service
+
+                await manual_observation_service.delete_saved_event_media(event_id)
             await broadcaster.broadcast(
                 {
                     "type": "detection_deleted",

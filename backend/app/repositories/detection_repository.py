@@ -1840,7 +1840,9 @@ class DetectionRepository:
 
     async def get_all_frigate_event_ids(self) -> list[str]:
         """Get all Frigate event IDs."""
-        async with self.db.execute("SELECT frigate_event FROM detections") as cursor:
+        async with self.db.execute(
+            "SELECT frigate_event FROM detections WHERE frigate_event NOT LIKE 'manual\\_%' ESCAPE '\\'"
+        ) as cursor:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 

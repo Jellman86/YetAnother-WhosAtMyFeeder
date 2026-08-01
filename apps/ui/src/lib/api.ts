@@ -15,3 +15,4 @@ export * from './api/audio';
 export * from './api/stats';
 export * from './api/integrations';
 export * from './api/model_eval';
+export * from './api/manual-observations';

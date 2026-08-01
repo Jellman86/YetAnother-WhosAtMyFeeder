@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "explorer": "Esplora",
+    "add_observation": "Aggiungi osservazione",
     "leaderboard": "Classifica",
     "observe": "Osserva",
     "manage": "Gestisci",
@@ -24,6 +25,18 @@
     "events": "Eventi",
     "notifications": "Notifiche",
     "species": "Specie"
+  },
+  "manual_observation": {
+    "eyebrow": "Osservazione sul campo", "intro_title": "Trasforma una foto o un video in un’osservazione verificata",
+    "intro_body": "YA-WAMF usa lo stesso modello, la stessa selezione del ritaglio e lo stesso consenso video dei rilevamenti in tempo reale. Nulla viene aggiunto prima della tua verifica.", "progress_label": "Avanzamento dell’osservazione",
+    "steps": { "upload": "Carica", "upload_detail": "Scegli il file originale", "analyse": "Analizza", "analyse_detail": "Trova la prova migliore", "review": "Verifica", "review_detail": "Conferma la specie", "save": "Salva", "save_detail": "Aggiungi alle osservazioni" },
+    "evidence": { "full_frame": "Fotogramma intero", "crop": "Ritaglio migliore", "model": "Modello", "provider": "Motore" },
+    "errors": { "load": "Impossibile caricare lo stato dell’analisi.", "type": "Scegli un file JPEG, PNG, WebP, MP4, MOV o WebM.", "upload": "Impossibile caricare il file.", "retry": "Impossibile riavviare l’analisi.", "save": "Impossibile salvare l’osservazione." },
+    "upload": { "title": "Scegli una foto o un video", "help": "Usa il file originale quando possibile. YA-WAMF lo conserverà e sceglierà l’input migliore per la classificazione.", "change": "Scegli un altro file", "drop": "Trascina qui il file o scegline uno", "formats": "JPEG, PNG, WebP fino a 25 MB · MP4, MOV, WebM fino a 250 MB / 3 minuti", "uploading": "Salvataggio dell’originale…", "analyse": "Carica e analizza" },
+    "analysis": { "preview_alt": "Anteprima del file caricato", "video": "Filmato", "image": "Foto", "title": "Ricerca della prova migliore", "body": "Il classificatore di produzione confronta fotogrammi e ritagli. Puoi lasciare questa pagina; la bozza verrà ripristinata al tuo ritorno.", "progress": "Avanzamento dell’analisi", "failed_title": "Analisi interrotta in sicurezza", "failed_body": "Il file originale è ancora conservato. Riprova quando il modello sarà disponibile.", "retry": "Riprova l’analisi" },
+    "review": { "preview_alt": "Anteprima dell’osservazione", "title": "Verifica prima di salvare", "body": "Conferma la specie suggerita, correggila se necessario e aggiungi il contesto che vuoi conservare.", "candidates": "Suggerimenti del modello", "species": "Specie", "when": "Osservata il", "location": "Fotocamera o luogo", "notes": "Note", "saving": "Salvataggio dell’osservazione…", "save": "Salva osservazione" },
+    "saved": { "toast": "Osservazione aggiunta", "eyebrow": "Scheda completata", "title": "Osservazione salvata", "body": "La scheda verificata ora fa parte della cronologia e dei totali per specie.", "view": "Visualizza rilevamento", "another": "Aggiungine un’altra" },
+    "start_over": "Ricomincia"
   },
   "setup": {
     "action_failed": "Non è stato possibile salvare la modifica. Controlla i dati e riprova.",
@@ -1338,6 +1351,8 @@
     "reclassify_selected": "Riclassifica selezionati"
   },
   "detection": {
+    "uploaded": "Caricata",
+    "observation_notes": "Note sull’osservazione",
     "confidence": "Confidenza",
     "verified": "Verificato",
     "hidden": "Nascosto",
@@ -2328,6 +2343,7 @@
     "about": "Versione, changelog, collaboratori e link al supporto.",
     "dashboard": "Rilevamenti in tempo reale, attività recente e salute della mangiatoia a colpo d'occhio.",
     "events": "Sfoglia, filtra e gestisci ogni visita classificata.",
+    "add_observation": "Classifica una foto o un video, verifica gli indizi e aggiungilo alla cronologia.",
     "notifications": "Avvisi, promemoria e job attivi in background.",
     "settings": "Connessioni, classificazione, integrazioni e personalizzazione.",
     "species": "Classifica, totali e dettagli tassonomici degli uccelli avvistati."

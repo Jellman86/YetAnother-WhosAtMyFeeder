@@ -95,6 +95,7 @@ Use the full docs hub for setup, integrations, and troubleshooting:
 - [🔗 BirdNET-Go Integration](docs/integrations/birdnet-go.md)
 - [🏠 Home Assistant Setup](docs/integrations/home-assistant.md)
 - [🧠 AI Models & Performance](docs/features/ai-models.md)
+- [📤 Manual Observations](docs/features/manual-observations.md)
 - [🛠 Troubleshooting Guide](docs/troubleshooting/diagnostics.md)
 - [🧪 Known Issues / Testing Gaps](ISSUES.md)
 - [✅ Integration Testing Requests](INTEGRATION_TESTING.md)

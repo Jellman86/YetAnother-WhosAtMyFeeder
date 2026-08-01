@@ -50,6 +50,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - [📊 Model Accuracy & Benchmarks](features/model-accuracy.md) - Benchmark results, GPU support matrix, and how to run accuracy tests
 - [🧪 Model Evaluation](features/model-evaluation.md) - Compare installed models against labelled feeder images
 - [🎞 Deep Video Analysis](features/video-analysis.md) - Multi-frame clip analysis, sampling behavior, and UI feedback
+- [📤 Manual Observations](features/manual-observations.md) - Classify an uploaded photo or video, review the evidence, and add it to history
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
 - [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email + Notification Center
 - [📊 Telemetry](features/telemetry.md) - Transparency on anonymous usage metrics

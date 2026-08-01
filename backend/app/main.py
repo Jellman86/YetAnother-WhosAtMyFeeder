@@ -61,6 +61,7 @@ from app.routers import (
     setup as setup_router,
     auth as auth_router,
     jobs as jobs_router,
+    manual_observations,
 )
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
@@ -586,6 +587,7 @@ app.include_router(
     model_eval.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)]
 )
 app.include_router(jobs_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(manual_observations.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(
     inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)]

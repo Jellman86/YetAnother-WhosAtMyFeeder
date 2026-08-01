@@ -8,6 +8,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **Owners can add a verified observation from an uploaded photo or video.** The new full-page
+  **Observe → Add observation** flow securely persists the original media, runs the production
+  full-frame/crop or temporal-consensus classifier path, shows alternatives and model/provider/input
+  provenance, and creates a detection only after species confirmation. Durable progress survives
+  browser reloads, failures retry without re-uploading, duplicate content is rejected, and locally
+  stored media remains available to the normal snapshot and clip views independently of Frigate retention.
+
 - **Pull requests and roadmap work now have an explicit delivery contract.**
   Everyday changes use short-lived branches and reviewed pull requests into
   `dev`, while release pull requests alone target `main`. The roadmap records
