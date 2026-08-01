@@ -2,12 +2,18 @@ import pytest
 import aiosqlite
 from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, patch
-from app.services.taxonomy.taxonomy_service import TaxonomyService
+from app.services.taxonomy.taxonomy_service import TaxonomyService, _parenthetical_aliases
 
 
 @pytest.fixture
 def taxonomy_service():
     return TaxonomyService()
+
+
+def test_parenthetical_aliases_are_linear_and_preserve_existing_semantics():
+    assert _parenthetical_aliases("Blue Jay (Cyanocitta cristata)") == ("Blue Jay", "Cyanocitta cristata")
+    assert _parenthetical_aliases("Blue Jay") == (None, None)
+    assert _parenthetical_aliases("(" + "a" * 100_000) == (None, None)
 
 
 @pytest.mark.asyncio

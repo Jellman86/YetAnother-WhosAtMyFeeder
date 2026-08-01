@@ -2,7 +2,6 @@ import httpx
 import structlog
 import asyncio
 import aiosqlite
-import re
 from typing import Optional, Dict
 from datetime import datetime
 from app.database import get_db
@@ -11,6 +10,19 @@ from app.services.ebird_service import ebird_service
 from app.utils.enrichment import get_effective_enrichment_settings
 
 log = structlog.get_logger()
+
+
+def _parenthetical_aliases(value: str) -> tuple[Optional[str], Optional[str]]:
+    """Split a trailing parenthetical alias without regex backtracking."""
+    normalized = value.strip()
+    if not normalized.endswith(")"):
+        return None, None
+    opening = normalized.find("(")
+    if opening < 0:
+        return None, None
+    left = normalized[:opening].strip() or None
+    right = normalized[opening + 1 : -1].strip() or None
+    return left, right
 
 
 class TaxonomyService:
@@ -58,10 +70,8 @@ class TaxonomyService:
 
         # Try raw name first, then try splitting parentheticals if it looks like an alias
         lookup_names = [query_name]
-        match = re.match(r"^(.*?)\s*\((.*?)\)\s*$", query_name)
-        if match:
-            left = match.group(1).strip()
-            right = match.group(2).strip()
+        left, right = _parenthetical_aliases(query_name)
+        if left or right:
             if left and left not in lookup_names:
                 lookup_names.append(left)
             if right and right not in lookup_names:
@@ -353,10 +363,8 @@ class TaxonomyService:
                             continue
                         if normalized not in lookup_candidates:
                             lookup_candidates.append(normalized)
-                        match = re.match(r"^(.*?)\s*\((.*?)\)\s*$", normalized)
-                        if match:
-                            left = match.group(1).strip()
-                            right = match.group(2).strip()
+                        left, right = _parenthetical_aliases(normalized)
+                        if left or right:
                             if left and left not in lookup_candidates:
                                 lookup_candidates.append(left)
                             if right and right not in lookup_candidates:
