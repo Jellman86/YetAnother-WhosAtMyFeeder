@@ -43,7 +43,7 @@ YAWAMF_MONALITHIC_TAG=latest-intel
 `MONALITHIC` is the established spelling in this public variable. Keep that
 spelling so an existing `.env` continues to control the Compose image tag.
 
-Pinned releases use the same suffix, for example `v2.16.0-intel`. Unsuffixed
+Pinned releases use the same suffix, for example `v2.17.0-intel`. Unsuffixed
 `latest`, `dev`, `main`, release and commit tags always mean `full`, so existing
 installs keep their current runtime. Switching flavor is non-destructive because
 every image uses the same `/config` and `/data` volume contract.
@@ -61,7 +61,7 @@ therefore stay outside the image. A flavor switch must change **only the image
 tag**; do not create new mount paths or copy data into the container filesystem.
 
 1. Keep the application version constant while testing. For example, switch
-   `dev` → `dev-intel`, or `v2.16.0` → `v2.16.0-intel`. Immutable commit tags are
+   `dev` → `dev-intel`, or `v2.17.0` → `v2.17.0-intel`. Immutable commit tags are
    even safer for comparisons: `<sha>`, `<sha>-cpu`, `<sha>-intel`, and
    `<sha>-cuda` are built from exactly the same source.
 2. Record the current tag. Export a configuration backup from **Settings → Data

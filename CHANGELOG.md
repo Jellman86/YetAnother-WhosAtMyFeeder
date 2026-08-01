@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-08-01
+
 ### Added
 
 - **Owners can add a verified observation from an uploaded photo or video.** The new full-page
