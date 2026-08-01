@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "explorer": "Explorer",
+    "add_observation": "Beobachtung hinzufügen",
     "leaderboard": "Bestenliste",
     "observe": "Beobachten",
     "manage": "Verwalten",
@@ -24,6 +25,18 @@
     "events": "Ereignisse",
     "notifications": "Benachrichtigungen",
     "species": "Arten"
+  },
+  "manual_observation": {
+    "eyebrow": "Feldbeobachtung", "intro_title": "Foto oder Clip in eine bestätigte Beobachtung verwandeln",
+    "intro_body": "YA-WAMF nutzt dasselbe Modell, dieselbe Ausschnittwahl und denselben Videokonsens wie Live-Erkennungen. Gespeichert wird erst nach deiner Prüfung.", "progress_label": "Fortschritt der Beobachtung",
+    "steps": { "upload": "Hochladen", "upload_detail": "Originalmedium auswählen", "analyse": "Analysieren", "analyse_detail": "Stärksten Nachweis finden", "review": "Prüfen", "review_detail": "Art bestätigen", "save": "Speichern", "save_detail": "Zu Beobachtungen hinzufügen" },
+    "evidence": { "full_frame": "Vollbild", "crop": "Bester Ausschnitt", "model": "Modell", "provider": "Anbieter" },
+    "errors": { "load": "Der Analysestatus konnte nicht geladen werden.", "type": "Wähle eine JPEG-, PNG-, WebP-, MP4-, MOV- oder WebM-Datei.", "upload": "Das Medium konnte nicht hochgeladen werden.", "retry": "Die Analyse konnte nicht neu gestartet werden.", "save": "Die Beobachtung konnte nicht gespeichert werden." },
+    "upload": { "title": "Foto oder Video auswählen", "help": "Verwende möglichst die Originaldatei. YA-WAMF bewahrt sie auf und wählt die beste Eingabe für die Klassifizierung.", "change": "Andere Datei auswählen", "drop": "Medium hier ablegen oder Datei auswählen", "formats": "JPEG, PNG, WebP bis 25 MB · MP4, MOV, WebM bis 250 MB / 3 Minuten", "uploading": "Original wird gesichert…", "analyse": "Hochladen und analysieren" },
+    "analysis": { "preview_alt": "Vorschau des hochgeladenen Mediums", "video": "Videodatei", "image": "Foto", "title": "Stärkster Nachweis wird gesucht", "body": "Der Produktiv-Klassifikator vergleicht Einzelbilder und Ausschnitte. Du kannst die Seite verlassen; der Entwurf wird bei deiner Rückkehr wiederhergestellt.", "progress": "Analysefortschritt", "failed_title": "Analyse sicher angehalten", "failed_body": "Dein Originalmedium bleibt gespeichert. Wiederhole den Vorgang, sobald das Modell verfügbar ist.", "retry": "Analyse wiederholen" },
+    "review": { "preview_alt": "Vorschau der Beobachtung", "title": "Vor dem Speichern prüfen", "body": "Bestätige die vorgeschlagene Art, korrigiere sie bei Bedarf und ergänze den gewünschten Kontext.", "candidates": "Modellvorschläge", "species": "Art", "when": "Beobachtet am", "location": "Kamera oder Ort", "notes": "Notizen", "saving": "Beobachtung wird gespeichert…", "save": "Beobachtung speichern" },
+    "saved": { "toast": "Beobachtung hinzugefügt", "eyebrow": "Eintrag abgeschlossen", "title": "Beobachtung gespeichert", "body": "Der bestätigte Eintrag gehört nun zu deinem Erkennungsverlauf und den Artensummen.", "view": "Erkennung anzeigen", "another": "Weitere hinzufügen" },
+    "start_over": "Neu beginnen"
   },
   "setup": {
     "action_failed": "Die Änderung konnte nicht gespeichert werden. Prüfe die Angaben und versuche es erneut.",
@@ -1329,6 +1342,8 @@
     "reclassify_selected": "Auswahl neu klassifizieren"
   },
   "detection": {
+    "uploaded": "Hochgeladen",
+    "observation_notes": "Beobachtungsnotizen",
     "confidence": "Konfidenz",
     "verified": "Verifiziert",
     "hidden": "Ausgeblendet",
@@ -2345,6 +2360,7 @@
     "about": "Version, Changelog, Mitwirkende und Support-Links.",
     "dashboard": "Live-Erkennungen, jüngste Aktivität und Futterstellen-Status auf einen Blick.",
     "events": "Jeden klassifizierten Besuch durchsuchen, filtern und verwalten.",
+    "add_observation": "Ein eigenes Foto oder Video klassifizieren, die Hinweise prüfen und zum Verlauf hinzufügen.",
     "notifications": "Benachrichtigungen, Erinnerungen und aktive Hintergrundaufgaben.",
     "settings": "Verbindungen, Klassifizierung, Integrationen und Personalisierung.",
     "species": "Bestenliste, Gesamtzahlen und Taxonomie-Details für die gesehenen Vögel."

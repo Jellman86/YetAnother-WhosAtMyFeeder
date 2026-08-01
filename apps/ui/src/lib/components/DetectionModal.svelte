@@ -554,6 +554,7 @@
     );
     const showSnapshotRepairAction = $derived(
         hasOwnerDetectionActions
+        && detection.observation_source !== 'manual_upload'
         && !showMediaSlotVideoAnalysis
         && !reclassifyProgress
         && hasSnapshotRepairWork
@@ -660,13 +661,14 @@
         enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
     );
     const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
+    const isManualObservation = $derived(detection.observation_source === 'manual_upload');
     const missingEventMetadataGone = $derived(
-        detection.frigate_status === 'missing'
+        !isManualObservation && (detection.frigate_status === 'missing'
         || detection.has_frigate_event === false
-        || detection.video_classification_error === 'event_not_found'
+        || detection.video_classification_error === 'event_not_found')
     );
     const frigateIssueBadgeVisible = $derived(hasFrigateMediaIssue(detection) && !missingEventMetadataGone);
-    const upstreamMissing = $derived(detection.frigate_status === 'missing');
+    const upstreamMissing = $derived(!isManualObservation && detection.frigate_status === 'missing');
     const missingEventNoticeVisible = $derived(upstreamMissing || missingEventMetadataGone);
     const videoFailureInsight = $derived.by(() => getVideoFailureInsight(detection, $_));
 
@@ -2043,6 +2045,12 @@
                             {formatDateTime(detection.detection_time)}
                         </p>
                         <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
+                        {#if isManualObservation}
+                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-3.5 text-xs font-bold text-white shadow-xl backdrop-blur-sm">
+                                <svg class="h-4 w-4 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+                                {$_('detection.uploaded', { default: 'Uploaded' })}
+                            </div>
+                        {/if}
                         {#if canPlayVideo && !snapshotRepairOpen}
                             <div class="flex items-center gap-2">
                                 {#if fullVisitFetched}
@@ -2158,6 +2166,12 @@
                      video-status notice below.  The same information is now shown
                      once instead of three times. -->
             </details>
+            {#if isManualObservation && detection.observation_notes}
+                <div class="border-l-2 border-brand-300 pl-3 dark:border-brand-700">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('detection.observation_notes', { default: 'Observation notes' })}</div>
+                    <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-300">{detection.observation_notes}</p>
+                </div>
+            {/if}
             <!-- Confidence Bar -->
             {#if currentClassificationSource !== 'manual'}
                 <div>
@@ -3145,12 +3159,14 @@
             <!-- Actions -->
             {#if hasOwnerDetectionActions}
                 <div class="flex gap-2">
-                    <button
-                        onclick={handleReclassifyClick}
-                        class="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
-                    >
-                        {$_('actions.reclassify')}
-                    </button>
+                    {#if !isManualObservation}
+                        <button
+                            onclick={handleReclassifyClick}
+                            class="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                        >
+                            {$_('actions.reclassify')}
+                        </button>
+                    {/if}
 
                     <div class="relative flex-1">
                         <button

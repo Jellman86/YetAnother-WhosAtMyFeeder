@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "仪表盘",
     "explorer": "探索",
+    "add_observation": "添加观察",
     "leaderboard": "排行榜",
     "observe": "观察",
     "manage": "管理",
@@ -24,6 +25,18 @@
     "events": "事件",
     "notifications": "通知",
     "species": "物种"
+  },
+  "manual_observation": {
+    "eyebrow": "野外记录", "intro_title": "将照片或视频转为已核实的观察记录",
+    "intro_body": "YA-WAMF 使用与实时检测相同的模型、裁剪选择和视频共识流程。在您审核前不会添加任何记录。", "progress_label": "观察记录进度",
+    "steps": { "upload": "上传", "upload_detail": "选择原始媒体", "analyse": "分析", "analyse_detail": "寻找最有力的证据", "review": "审核", "review_detail": "确认物种", "save": "保存", "save_detail": "添加到观察记录" },
+    "evidence": { "full_frame": "完整画面", "crop": "最佳裁剪", "model": "模型", "provider": "提供程序" },
+    "errors": { "load": "无法加载分析状态。", "type": "请选择 JPEG、PNG、WebP、MP4、MOV 或 WebM 文件。", "upload": "无法上传媒体。", "retry": "无法重新启动分析。", "save": "无法保存观察记录。" },
+    "upload": { "title": "选择照片或视频", "help": "请尽量使用原始文件。YA-WAMF 会保留原文件，并选择最适合分类的输入。", "change": "选择其他文件", "drop": "将媒体拖放到此处或选择文件", "formats": "JPEG、PNG、WebP 最大 25 MB · MP4、MOV、WebM 最大 250 MB／3 分钟", "uploading": "正在安全保存原文件…", "analyse": "上传并分析" },
+    "analysis": { "preview_alt": "已上传媒体预览", "video": "视频", "image": "照片", "title": "正在寻找最有力的证据", "body": "生产分类器正在比较帧和裁剪候选。您可以离开此页面，返回时会恢复草稿。", "progress": "分析进度", "failed_title": "分析已安全停止", "failed_body": "原始媒体仍已保存。模型可用后请重试。", "retry": "重试分析" },
+    "review": { "preview_alt": "观察记录预览", "title": "保存前审核", "body": "确认建议的物种，必要时进行更正，并添加您希望保留的现场信息。", "candidates": "模型建议", "species": "物种", "when": "观察时间", "location": "相机或地点", "notes": "备注", "saving": "正在保存观察记录…", "save": "保存观察记录" },
+    "saved": { "toast": "已添加观察记录", "eyebrow": "记录完成", "title": "观察记录已保存", "body": "已核实的记录现已计入检测历史和物种统计。", "view": "查看检测", "another": "再添加一条" },
+    "start_over": "重新开始"
   },
   "setup": {
     "action_failed": "无法保存此更改。请检查内容后重试。",
@@ -1329,6 +1342,8 @@
     "reclassify_selected": "重新分类所选"
   },
   "detection": {
+    "uploaded": "已上传",
+    "observation_notes": "观察备注",
     "confidence": "置信度",
     "verified": "已验证",
     "hidden": "已隐藏",
@@ -2324,6 +2339,7 @@
     "about": "版本、变更日志、贡献者和支持链接。",
     "dashboard": "实时检测、近期活动和喂食器状态一览。",
     "events": "浏览、筛选并管理每一次已分类的访问。",
+    "add_observation": "分类自己的照片或视频，核对依据并将其添加到观察历史。",
     "notifications": "提醒、通知和正在运行的后台任务。",
     "settings": "连接、分类、集成与个性化。",
     "species": "已观察到的鸟类的排行榜、总数和分类详情。"

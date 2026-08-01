@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "Tableau de bord",
     "explorer": "Explorateur",
+    "add_observation": "Ajouter une observation",
     "leaderboard": "Classement",
     "observe": "Observer",
     "manage": "Gérer",
@@ -24,6 +25,18 @@
     "events": "Événements",
     "notifications": "Notifications",
     "species": "Espèces"
+  },
+  "manual_observation": {
+    "eyebrow": "Observation de terrain", "intro_title": "Transformer une photo ou une vidéo en observation vérifiée",
+    "intro_body": "YA-WAMF utilise le même modèle, la même sélection de recadrage et le même consensus vidéo que les détections en direct. Rien n’est ajouté avant votre validation.", "progress_label": "Progression de l’observation",
+    "steps": { "upload": "Importer", "upload_detail": "Choisir le média original", "analyse": "Analyser", "analyse_detail": "Trouver la meilleure preuve", "review": "Vérifier", "review_detail": "Confirmer l’espèce", "save": "Enregistrer", "save_detail": "Ajouter aux observations" },
+    "evidence": { "full_frame": "Image entière", "crop": "Meilleur recadrage", "model": "Modèle", "provider": "Fournisseur" },
+    "errors": { "load": "L’état de l’analyse n’a pas pu être chargé.", "type": "Choisissez un fichier JPEG, PNG, WebP, MP4, MOV ou WebM.", "upload": "Le média n’a pas pu être importé.", "retry": "L’analyse n’a pas pu être relancée.", "save": "L’observation n’a pas pu être enregistrée." },
+    "upload": { "title": "Choisir une photo ou une vidéo", "help": "Utilisez si possible le fichier original. YA-WAMF le conservera et choisira la meilleure entrée pour la classification.", "change": "Choisir un autre fichier", "drop": "Déposez le média ici ou choisissez un fichier", "formats": "JPEG, PNG, WebP jusqu’à 25 Mo · MP4, MOV, WebM jusqu’à 250 Mo / 3 minutes", "uploading": "Conservation de l’original…", "analyse": "Importer et analyser" },
+    "analysis": { "preview_alt": "Aperçu du média importé", "video": "Vidéo", "image": "Photographie", "title": "Recherche de la meilleure preuve", "body": "Le classificateur de production compare les images et les recadrages. Vous pouvez quitter cette page ; le brouillon sera restauré à votre retour.", "progress": "Progression de l’analyse", "failed_title": "Analyse arrêtée en toute sécurité", "failed_body": "Votre média original reste conservé. Réessayez lorsque le modèle sera disponible.", "retry": "Relancer l’analyse" },
+    "review": { "preview_alt": "Aperçu de l’observation", "title": "Vérifier avant d’enregistrer", "body": "Confirmez l’espèce suggérée, corrigez-la si nécessaire et ajoutez le contexte à conserver.", "candidates": "Suggestions du modèle", "species": "Espèce", "when": "Observé le", "location": "Caméra ou lieu", "notes": "Remarques", "saving": "Enregistrement de l’observation…", "save": "Enregistrer l’observation" },
+    "saved": { "toast": "Observation ajoutée", "eyebrow": "Fiche terminée", "title": "Observation enregistrée", "body": "La fiche vérifiée fait maintenant partie de votre historique et des totaux par espèce.", "view": "Voir la détection", "another": "En ajouter une autre" },
+    "start_over": "Recommencer"
   },
   "setup": {
     "action_failed": "Cette modification n’a pas pu être enregistrée. Vérifiez les informations et réessayez.",
@@ -1329,6 +1342,8 @@
     "reclassify_selected": "Reclassifier la sélection"
   },
   "detection": {
+    "uploaded": "Importée",
+    "observation_notes": "Remarques sur l’observation",
     "confidence": "Confiance",
     "verified": "Vérifié",
     "hidden": "Masqué",
@@ -2328,6 +2343,7 @@
     "about": "Version, journal des modifications, contributeurs et liens de support.",
     "dashboard": "Détections en direct, activité récente et état de la mangeoire en un coup d'œil.",
     "events": "Parcourez, filtrez et gérez chaque visite classifiée.",
+    "add_observation": "Classez votre photo ou vidéo, vérifiez les indices et ajoutez-la à votre historique.",
     "notifications": "Alertes, rappels et tâches d'arrière-plan actives.",
     "settings": "Connexions, classification, intégrations et personnalisation.",
     "species": "Classement, totaux et détails taxonomiques des oiseaux observés."

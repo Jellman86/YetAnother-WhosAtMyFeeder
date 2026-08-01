@@ -303,6 +303,9 @@ export interface components {
     BodyClassifyImageApiClassifierClassifyPost: {
     image: string;
 };
+    BodyCreateManualObservationApiManualObservationsPost: {
+    media: string;
+};
     BodyProbeBirdClassifierRuntimeApiClassifierProbePost: {
     image?: string | null;
 };
@@ -525,6 +528,7 @@ export interface components {
     is_favorite?: boolean;
     is_hidden?: boolean;
     manual_tagged?: boolean;
+    observation_source?: string;
     scientific_name?: string | null;
     score: number;
     sub_label?: string | null;
@@ -565,6 +569,8 @@ export interface components {
     id?: number | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
+    observation_notes?: string | null;
+    observation_source?: string;
     score: number;
 };
     DetectionResponse: {
@@ -593,6 +599,8 @@ export interface components {
     is_favorite?: boolean;
     is_hidden?: boolean;
     manual_tagged?: boolean;
+    observation_notes?: string | null;
+    observation_source?: string;
     scientific_name?: string | null;
     score: number;
     sub_label?: string | null;
@@ -966,6 +974,52 @@ export interface components {
     oldest_detection?: string | null;
     retention_days: number;
     total_detections: number;
+};
+    ManualObservationConfirmRequest: {
+    camera_name?: string;
+    label: string;
+    notes?: string | null;
+    observed_at?: string | null;
+};
+    ManualObservationDeleteResponse: {
+    id: string;
+    status: "deleted";
+};
+    ManualObservationPrediction: {
+    inference_backend?: string | null;
+    inference_provider?: string | null;
+    input_is_cropped?: boolean | null;
+    input_source?: string | null;
+    label: string;
+    model_id?: string | null;
+    model_name?: string | null;
+    score: number;
+};
+    ManualObservationResponse: {
+    content_sha256: string;
+    content_type: string;
+    created_at?: string | null;
+    error_code?: string | null;
+    error_message?: string | null;
+    id: string;
+    media_type: "image" | "video";
+    media_url: string;
+    original_filename: string;
+    predictions?: Array<components['schemas']['ManualObservationPrediction']>;
+    preview_url: string;
+    progress_current: number;
+    progress_message?: string | null;
+    progress_percent: number;
+    progress_total: number;
+    saved_event_id?: string | null;
+    size_bytes: number;
+    status: "queued" | "analyzing" | "ready" | "failed" | "saved";
+    updated_at?: string | null;
+};
+    ManualObservationSavedResponse: {
+    detection_url: string;
+    event_id: string;
+    status: "saved";
 };
     ManualTagResponse: {
     common_name?: string | null;
@@ -3048,6 +3102,79 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['VideoCircuitResetResponse'];
+    };
+  };
+  "/api/manual-observations": {
+    post: {
+      operationId: "create_manual_observation_api_manual_observations_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['BodyCreateManualObservationApiManualObservationsPost'];
+      response: components['schemas']['ManualObservationResponse'];
+    };
+  };
+  "/api/manual-observations/{draft_id}": {
+    get: {
+      operationId: "get_manual_observation_api_manual_observations__draft_id__get";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ManualObservationResponse'];
+    };
+    delete: {
+      operationId: "delete_manual_observation_api_manual_observations__draft_id__delete";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ManualObservationDeleteResponse'];
+    };
+  };
+  "/api/manual-observations/{draft_id}/confirm": {
+    post: {
+      operationId: "confirm_manual_observation_api_manual_observations__draft_id__confirm_post";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['ManualObservationConfirmRequest'];
+      response: components['schemas']['ManualObservationSavedResponse'];
+    };
+  };
+  "/api/manual-observations/{draft_id}/media": {
+    get: {
+      operationId: "media_manual_observation_api_manual_observations__draft_id__media_get";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
+  "/api/manual-observations/{draft_id}/preview": {
+    get: {
+      operationId: "preview_manual_observation_api_manual_observations__draft_id__preview_get";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
+  "/api/manual-observations/{draft_id}/retry": {
+    post: {
+      operationId: "retry_manual_observation_api_manual_observations__draft_id__retry_post";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ManualObservationResponse'];
     };
   };
   "/api/models/available": {

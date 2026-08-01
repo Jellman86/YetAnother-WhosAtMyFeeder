@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "ダッシュボード",
     "explorer": "エクスプローラー",
+    "add_observation": "観察を追加",
     "leaderboard": "リーダーボード",
     "observe": "観察",
     "manage": "管理",
@@ -24,6 +25,18 @@
     "events": "イベント",
     "notifications": "通知",
     "species": "種"
+  },
+  "manual_observation": {
+    "eyebrow": "フィールド記録", "intro_title": "写真や動画を確認済みの観察記録にする",
+    "intro_body": "YA-WAMF はライブ検出と同じモデル、クロップ選択、動画合意判定を使用します。確認するまで記録には追加されません。", "progress_label": "観察記録の進行状況",
+    "steps": { "upload": "アップロード", "upload_detail": "元のメディアを選択", "analyse": "解析", "analyse_detail": "最も強い根拠を探す", "review": "確認", "review_detail": "種を確定", "save": "保存", "save_detail": "観察記録に追加" },
+    "evidence": { "full_frame": "フルフレーム", "crop": "最適なクロップ", "model": "モデル", "provider": "プロバイダー" },
+    "errors": { "load": "解析状況を読み込めませんでした。", "type": "JPEG、PNG、WebP、MP4、MOV、WebM のいずれかを選択してください。", "upload": "メディアをアップロードできませんでした。", "retry": "解析を再開できませんでした。", "save": "観察記録を保存できませんでした。" },
+    "upload": { "title": "写真または動画を選択", "help": "可能な限り元のファイルを使用してください。YA-WAMF が保存し、分類に最適な入力を選びます。", "change": "別のファイルを選択", "drop": "ここにメディアをドロップするかファイルを選択", "formats": "JPEG、PNG、WebP は25 MBまで · MP4、MOV、WebM は250 MB／3分まで", "uploading": "元ファイルを安全に保存中…", "analyse": "アップロードして解析" },
+    "analysis": { "preview_alt": "アップロードしたメディアのプレビュー", "video": "動画", "image": "写真", "title": "最も強い根拠を探索中", "body": "本番用分類器がフレームとクロップ候補を比較しています。このページを離れても、戻ったときに下書きが復元されます。", "progress": "解析の進行状況", "failed_title": "解析を安全に停止しました", "failed_body": "元のメディアは保存されています。モデルが利用可能になったら再試行してください。", "retry": "解析を再試行" },
+    "review": { "preview_alt": "観察記録のプレビュー", "title": "保存前に確認", "body": "提案された種を確認し、必要に応じて修正して、残したいフィールド情報を追加してください。", "candidates": "モデルの候補", "species": "種", "when": "観察日時", "location": "カメラまたは場所", "notes": "メモ", "saving": "観察記録を保存中…", "save": "観察記録を保存" },
+    "saved": { "toast": "観察記録を追加しました", "eyebrow": "記録完了", "title": "観察記録を保存しました", "body": "確認済みの記録が検出履歴と種別集計に追加されました。", "view": "検出を表示", "another": "別の記録を追加" },
+    "start_over": "最初からやり直す"
   },
   "setup": {
     "action_failed": "変更を保存できませんでした。内容を確認して、もう一度お試しください。",
@@ -1329,6 +1342,8 @@
     "reclassify_selected": "選択項目を再分類"
   },
   "detection": {
+    "uploaded": "アップロード済み",
+    "observation_notes": "観察メモ",
     "confidence": "信頼度",
     "verified": "確認済み",
     "hidden": "非表示",
@@ -2324,6 +2339,7 @@
     "about": "バージョン、変更履歴、貢献者、サポートリンク。",
     "dashboard": "ライブ検出、最近のアクティビティ、給餌台の状態を一目で確認。",
     "events": "分類されたすべての訪問を閲覧、フィルタリング、管理。",
+    "add_observation": "写真や動画を分類し、根拠を確認して観察履歴に追加します。",
     "notifications": "アラート、リマインダー、実行中のバックグラウンドジョブ。",
     "settings": "接続、分類、連携、パーソナライズ。",
     "species": "これまでに観察した鳥のランキング、合計、分類情報。"

@@ -1,6 +1,8 @@
 export interface Detection {
     id?: number;
     frigate_event: string;
+    observation_source?: 'frigate' | 'manual_upload';
+    observation_notes?: string | null;
     display_name: string;
     score: number;
     detection_time: string;

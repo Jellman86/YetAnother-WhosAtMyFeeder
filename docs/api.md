@@ -137,6 +137,22 @@ source order is complete cached recording, decodable partial cached recording, c
 then the live Frigate event clip. A snapshot is used only after those sources are absent or fail
 validation; a confident snapshot does not short-circuit an available cached video.
 
+### Manual observations
+
+- `POST /api/manual-observations` (owner; multipart `media`, returns `202`)
+- `GET /api/manual-observations/{draft_id}` (owner)
+- `POST /api/manual-observations/{draft_id}/retry` (owner; returns `202`)
+- `POST /api/manual-observations/{draft_id}/confirm` (owner)
+- `DELETE /api/manual-observations/{draft_id}` (owner; unsaved drafts only)
+- `GET /api/manual-observations/{draft_id}/preview` (owner)
+- `GET /api/manual-observations/{draft_id}/media` (owner)
+
+Upload and retry responses expose durable status, progress, model alternatives, inference
+provider/model/input provenance, and local preview/media URLs. Confirmation creates a normal
+detection with `observation_source: "manual_upload"`; its owner-confirmed species stays distinct
+from the retained top classifier result. Manual media is served through the canonical snapshot and
+clip routes but is excluded from Frigate reconciliation.
+
 ### Media Proxy and Share Links
 
 - `GET /api/frigate/{event_id}/snapshot.jpg`
