@@ -685,6 +685,13 @@
     const videoClassificationSources = $derived(
         Object.entries(videoClassificationDiagnostics?.sources ?? {})
     );
+    const videoAnalysisAbstained = $derived.by(() => {
+        const error = (detection.video_classification_error || '').trim().toLowerCase();
+        return error === 'video_no_results'
+            || error === 'snapshot_no_results'
+            || error === 'snapshot_no_usable_result'
+            || error === 'no_confident_result';
+    });
 
     // Consolidated video-status notice: single source of truth that replaces
     // the three overlapping panels (Frigate-event-missing pill, "Result from
@@ -707,7 +714,7 @@
         // recovered classification to fall back on.  When the snapshot path
         // already produced a real result we tier amber/slate based on
         // confidence so we don't over-alarm successful classifications.
-        if (status === 'failed' && currentClassificationSource !== 'snapshot') {
+        if (status === 'failed' && !videoAnalysisAbstained && currentClassificationSource !== 'snapshot') {
             return {
                 kind: 'rose' as const,
                 container: 'bg-rose-50/80 dark:bg-rose-500/10 border-rose-200/80 dark:border-rose-500/30 text-rose-900 dark:text-rose-200',
@@ -733,6 +740,9 @@
     });
     const videoStatusNoticeTitle = $derived.by(() => {
         const status = (detection.video_classification_status || '').trim().toLowerCase();
+        if (status === 'failed' && videoAnalysisAbstained) {
+            return $_('detection.reclassification.unchanged_title', { default: 'Identification unchanged' });
+        }
         if (status === 'failed' && currentClassificationSource !== 'snapshot') {
             return $_('detection.video_analysis.failed_title');
         }
@@ -740,6 +750,11 @@
     });
     const videoStatusNoticeDescription = $derived.by(() => {
         const error = (detection.video_classification_error || '').trim();
+        if (videoAnalysisAbstained) {
+            return $_('detection.reclassification.unchanged_description', {
+                default: 'No result cleared the confidence rules, so the existing identification was kept.'
+            });
+        }
         if (error) {
             return $_(
                 `detection.reclassification.snapshot_fallback_reason.${error}`,

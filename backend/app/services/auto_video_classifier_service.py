@@ -1548,8 +1548,11 @@ class AutoVideoClassifierService:
                     await self._update_status(frigate_event, "failed", error=event_error, broadcast=True)
                     self._record_failure(frigate_event, event_error, source=source)
                     await self._auto_delete_if_missing(frigate_event, event_error)
-                    await broadcaster.broadcast(
-                        {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+                    await self._broadcast_reclassification_completed(
+                        frigate_event,
+                        [],
+                        outcome="failed",
+                        reason=event_error,
                     )
                     return
 
@@ -1594,8 +1597,11 @@ class AutoVideoClassifierService:
                 )
                 self._record_failure(frigate_event, clip_error or "clip_unavailable", source=source)
                 await self._auto_delete_if_missing(frigate_event, clip_error or "clip_unavailable")
-                await broadcaster.broadcast(
-                    {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+                await self._broadcast_reclassification_completed(
+                    frigate_event,
+                    [],
+                    outcome="failed",
+                    reason=clip_error or "clip_unavailable",
                 )
                 return
 
@@ -1763,8 +1769,11 @@ class AutoVideoClassifierService:
                     )
                     await self._update_status(frigate_event, "failed", error="video_timeout", broadcast=True)
                     self._record_failure(frigate_event, "video_timeout", source=source)
-                    await broadcaster.broadcast(
-                        {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+                    await self._broadcast_reclassification_completed(
+                        frigate_event,
+                        [],
+                        outcome="failed",
+                        reason="video_timeout",
                     )
                     return
                 except VideoClassificationWorkerError as exc:
@@ -1778,8 +1787,11 @@ class AutoVideoClassifierService:
                     )
                     await self._update_status(frigate_event, "failed", error=reason_code, broadcast=True)
                     self._record_failure(frigate_event, reason_code, source=source)
-                    await broadcaster.broadcast(
-                        {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+                    await self._broadcast_reclassification_completed(
+                        frigate_event,
+                        [],
+                        outcome="failed",
+                        reason=reason_code,
                     )
                     return
 
@@ -1828,8 +1840,10 @@ class AutoVideoClassifierService:
                             )
 
                     # Broadcast completion
-                    await broadcaster.broadcast(
-                        {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": results}}
+                    await self._broadcast_reclassification_completed(
+                        frigate_event,
+                        results,
+                        outcome="success",
                     )
 
                     log.info(
@@ -1857,8 +1871,12 @@ class AutoVideoClassifierService:
                         diagnostics=video_diagnostics,
                         broadcast=True,
                     )
-                    await broadcaster.broadcast(
-                        {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+                    await self._broadcast_reclassification_completed(
+                        frigate_event,
+                        [],
+                        outcome="no_result",
+                        reason="video_no_results",
+                        diagnostics=video_diagnostics,
                     )
 
             finally:
@@ -1905,8 +1923,11 @@ class AutoVideoClassifierService:
             await self._update_status(frigate_event, "failed", error="video_exception", broadcast=True)
             self._record_failure(frigate_event, "video_exception", source=source)
             await self._auto_delete_if_missing(frigate_event, "video_exception")
-            await broadcaster.broadcast(
-                {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="failed",
+                reason="video_exception",
             )
 
     def _record_diagnostic(
@@ -2285,6 +2306,27 @@ class AutoVideoClassifierService:
         except Exception as e:
             log.error("Failed to apply missing clip policy", event_id=frigate_event, error=str(e))
 
+    @staticmethod
+    async def _broadcast_reclassification_completed(
+        frigate_event: str,
+        results: list,
+        *,
+        outcome: Literal["success", "no_result", "failed"],
+        reason: str | None = None,
+        diagnostics: dict | None = None,
+    ) -> None:
+        """Publish an explicit terminal result for progress and notification clients."""
+        data: dict = {
+            "event_id": frigate_event,
+            "results": results,
+            "outcome": outcome,
+        }
+        if reason:
+            data["reason"] = reason
+        if diagnostics:
+            data["diagnostics"] = diagnostics
+        await broadcaster.broadcast({"type": "reclassification_completed", "data": data})
+
     async def _update_status(
         self,
         frigate_event: str,
@@ -2425,8 +2467,11 @@ class AutoVideoClassifierService:
         )
         if not snapshot_data:
             await self._update_status(frigate_event, "failed", error="snapshot_fetch_failed", broadcast=True)
-            await broadcaster.broadcast(
-                {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="failed",
+                reason="snapshot_fetch_failed",
             )
             return "snapshot_fetch_failed"
 
@@ -2486,15 +2531,21 @@ class AutoVideoClassifierService:
                 context={"attempts": SNAPSHOT_FALLBACK_MAX_ATTEMPTS},
             )
             await self._update_status(frigate_event, "failed", error=last_unavailable_error, broadcast=True)
-            await broadcaster.broadcast(
-                {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="failed",
+                reason=last_unavailable_error,
             )
             return last_unavailable_error
 
         if not results:
             await self._update_status(frigate_event, "failed", error="snapshot_no_results", broadcast=True)
-            await broadcaster.broadcast(
-                {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="no_result",
+                reason="snapshot_no_results",
             )
             return "snapshot_no_results"
 
@@ -2506,8 +2557,11 @@ class AutoVideoClassifierService:
             await self._update_status(
                 frigate_event, "failed", error=reason or "snapshot_no_usable_result", broadcast=True
             )
-            await broadcaster.broadcast(
-                {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="no_result",
+                reason=reason or "snapshot_no_usable_result",
             )
             return reason or "snapshot_no_usable_result"
         top_with_provenance = dict(top)
@@ -2517,8 +2571,10 @@ class AutoVideoClassifierService:
             top_with_provenance,
             manual_tagged=manual_tagged,
         )
-        await broadcaster.broadcast(
-            {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": results}}
+        await self._broadcast_reclassification_completed(
+            frigate_event,
+            results,
+            outcome="success",
         )
         log.info(
             "Snapshot fallback classification completed",

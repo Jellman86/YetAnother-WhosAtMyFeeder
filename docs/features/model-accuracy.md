@@ -166,6 +166,13 @@ candidates with median confidence. **Detection details → Show technical detail
 evidence. The summary explains the decision; it never promotes a rejected candidate or replaces the
 raw media needed for later reclassification.
 
+Manual reclassification uses the same safety rule. Its progress view finishes with one explicit
+outcome: a new identification, **Identification unchanged** when the available evidence abstains,
+or a technical failure with its reason. An unchanged result includes the strongest confident-frame
+count and the matching-frame requirement, then keeps the previous identification intact. The
+detection details notice remains visible after the progress view closes, with the full per-source
+evidence available under **Show technical details**.
+
 ---
 
 ## Intel GPU Support

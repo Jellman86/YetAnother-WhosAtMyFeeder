@@ -2,6 +2,7 @@
     import { fade, scale } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
     import { getThumbnailUrl, fetchClassifierStatus } from '../api';
+    import type { VideoClassificationSourceEvidence } from '../api';
     import type { ReclassificationProgress } from '../stores/detections.svelte';
     import SnapshotAnalysisScanner from './SnapshotAnalysisScanner.svelte';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
@@ -18,10 +19,19 @@
         return Boolean(frame);
     }
 
+    function isSourceEvidence(value: unknown): value is VideoClassificationSourceEvidence {
+        if (typeof value !== 'object' || value === null) return false;
+        const candidate = value as Partial<VideoClassificationSourceEvidence>;
+        return Number.isFinite(candidate.evaluated_frames)
+            && Number.isFinite(candidate.confident_frames)
+            && Number.isFinite(candidate.required_supporting_frames);
+    }
+
     let latestFrame = $derived(progress.frameResults.findLast(hasFrameResult));
     let finalTopResult = $derived(
         Array.isArray(progress.results) && progress.results.length > 0 ? progress.results[0] : null
     );
+    let hasFinalResult = $derived(Boolean(finalTopResult?.label));
     let currentFrameThumb = $derived(latestFrame?.thumb || null);
     let backdropImageUrl = $derived.by(() => {
         if (currentFrameThumb) return `data:image/jpeg;base64,${currentFrameThumb}`;
@@ -34,13 +44,15 @@
             ? Math.max(1, Math.floor(progress.totalFrames))
             : 1
     );
-    let isComplete = $derived(progress.status === 'completed' || safeCurrentFrame >= safeTotalFrames);
+    let isComplete = $derived(progress.status === 'completed');
+    let isNoResult = $derived(isComplete && progress.outcome === 'no_result');
+    let isFailed = $derived(isComplete && progress.outcome === 'failed');
     let progressPercent = $derived(Math.round((safeCurrentFrame / safeTotalFrames) * 100));
     let displayFrameIndex = $derived(progress.frameIndex || safeCurrentFrame);
     let displayClipTotal = $derived(progress.clipTotal || safeTotalFrames);
     let modelLabel = $derived(progress.modelName || null);
     let displayLabel = $derived(
-        isComplete && finalTopResult?.label ? finalTopResult.label : latestFrame?.label
+        isComplete && hasFinalResult ? finalTopResult?.label : (!isComplete ? latestFrame?.label : null)
     );
     let displayScorePercent = $derived(
         isComplete && typeof finalTopResult?.score === 'number'
@@ -52,6 +64,42 @@
     let hasFallenBackToSnapshot = $derived(
         (progress.fallbackFrom ?? '').toLowerCase() === 'video'
     );
+    let strongestEvidence = $derived.by(() => {
+        const diagnostics = progress.diagnostics;
+        if (!diagnostics) return null;
+        const sources = Object.values(diagnostics.sources).filter(isSourceEvidence);
+        return sources.sort((left, right) => {
+            const leftProgress = left.required_supporting_frames > 0
+                ? left.confident_frames / left.required_supporting_frames
+                : 0;
+            const rightProgress = right.required_supporting_frames > 0
+                ? right.confident_frames / right.required_supporting_frames
+                : 0;
+            return rightProgress - leftProgress;
+        })[0] ?? null;
+    });
+
+    function formatTerminalReason(code: string | null | undefined): string {
+        if (progress.diagnostics?.reason === 'no_source_consensus') {
+            return $_('detection.reclassification.unchanged_reason_no_source_consensus', {
+                default: 'The sampled frames did not agree on one species strongly enough.'
+            });
+        }
+        if (progress.outcome === 'no_result') {
+            return $_('detection.reclassification.unchanged_description', {
+                default: 'No result cleared the confidence rules, so the existing identification was kept.'
+            });
+        }
+        if (!code) {
+            return $_('detection.reclassification.unchanged_description', {
+                default: 'No result cleared the confidence rules, so the existing identification was kept.'
+            });
+        }
+        return $_('detection.reclassification.failed_description', {
+            default: 'The analysis ended before a usable result was produced. Technical reason: {reason}.',
+            values: { reason: code.replaceAll('_', ' ') }
+        });
+    }
     function formatFallbackReason(code: string | null | undefined): string {
         if (!code) return $_('detection.reclassification.snapshot_fallback_reason_generic', { default: 'Video clip was unavailable' });
         return $_(
@@ -157,7 +205,11 @@
                         </svg>
                         <div class="absolute inset-0 flex flex-col items-center justify-center">
                             <span class="text-2xl font-black text-slate-900 dark:text-white">{progressPercent}%</span>
-                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-300 uppercase tracking-widest leading-none">{$_('detection.reclassification.analysis')}</span>
+                            <span class="text-[10px] font-bold text-brand-600 dark:text-brand-300 uppercase tracking-widest leading-none">
+                                {isComplete
+                                    ? $_('detection.reclassification.complete', { default: 'Complete' })
+                                    : $_('detection.reclassification.analysis')}
+                            </span>
                         </div>
                     </div>
 
@@ -209,7 +261,7 @@
                                 {$_('detection.reclassification.auto_video_source', { default: 'Auto Video' })}
                             </span>
                         {/if}
-                        {#if hasFallenBackToSnapshot}
+                        {#if hasFallenBackToSnapshot && !isComplete}
                             <div class="w-full max-w-md px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-800 dark:text-amber-200 mb-2 flex items-start gap-2" role="status">
                                 <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
@@ -226,9 +278,48 @@
                                 </div>
                             </div>
                         {/if}
+                        {#if isNoResult}
+                            <div class="w-full max-w-md border-y border-amber-300/70 dark:border-amber-400/25 py-3 text-left" role="status">
+                                <div class="flex items-start gap-3">
+                                    <svg class="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M8 12h8"/>
+                                        <circle cx="12" cy="12" r="9"/>
+                                    </svg>
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-bold text-slate-900 dark:text-white">
+                                            {$_('detection.reclassification.unchanged_title', { default: 'Identification unchanged' })}
+                                        </p>
+                                        <p class="mt-1 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+                                            {formatTerminalReason(progress.reason)}
+                                        </p>
+                                        {#if strongestEvidence}
+                                            <p class="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                                {$_('detection.reclassification.unchanged_evidence', {
+                                                    default: 'Best evidence: {confident} of {evaluated} frames were confident; {required} matching frames were needed.',
+                                                    values: {
+                                                        confident: strongestEvidence.confident_frames,
+                                                        evaluated: strongestEvidence.evaluated_frames,
+                                                        required: strongestEvidence.required_supporting_frames
+                                                    }
+                                                })}
+                                            </p>
+                                        {/if}
+                                    </div>
+                                </div>
+                            </div>
+                        {:else if isFailed}
+                            <div class="w-full max-w-md border-y border-rose-300/70 dark:border-rose-400/25 py-3 text-left" role="alert">
+                                <p class="text-sm font-bold text-slate-900 dark:text-white">
+                                    {$_('detection.reclassification.failed_title', { default: 'Reclassification could not finish' })}
+                                </p>
+                                <p class="mt-1 text-xs font-medium leading-relaxed text-slate-600 dark:text-slate-300">
+                                    {formatTerminalReason(progress.reason)}
+                                </p>
+                            </div>
+                        {/if}
                         {#if displayLabel}
                             <div class="flex flex-col items-center" transition:fade>
-                                {#if isComplete}
+                                {#if isComplete && hasFinalResult}
                                     <span class="px-2 py-0.5 rounded-md bg-accent-500/15 border border-accent-500/30 text-[9px] font-black text-accent-700 dark:text-accent-300 uppercase tracking-widest mb-1.5">
                                         {$_('detection.reclassification.final_result', { default: 'Final Result' })}
                                     </span>
@@ -281,9 +372,13 @@
                 <div class="flex items-center gap-1.5 min-w-0">
                     <div class="w-1.5 h-1.5 rounded-full bg-brand-400 {isComplete ? '' : 'animate-ping'}"></div>
                     <span class="text-[10px] font-black text-slate-700 dark:text-white uppercase tracking-wider">
-                        {hasFallenBackToSnapshot
-                            ? $_('detection.reclassification.snapshot_fallback_title', { default: 'Classifying from snapshot' })
-                            : $_('detection.reclassification.ai_analysis')}
+                        {isNoResult
+                            ? $_('detection.reclassification.unchanged_title', { default: 'Identification unchanged' })
+                            : isFailed
+                                ? $_('detection.reclassification.failed_title', { default: 'Reclassification could not finish' })
+                                : hasFallenBackToSnapshot
+                                    ? $_('detection.reclassification.snapshot_fallback_title', { default: 'Classifying from snapshot' })
+                                    : $_('detection.reclassification.ai_analysis')}
                     </span>
                     {#if hasFallenBackToSnapshot}
                         <span
@@ -348,7 +443,7 @@
                             {/if}
                         </div>
                     {/if}
-                    {#if !small && isComplete}
+                    {#if !small && isComplete && hasFinalResult}
                         <span class="px-2 py-0.5 rounded-md bg-accent-500/15 border border-accent-500/30 text-[9px] font-black text-accent-700 dark:text-accent-300 uppercase tracking-widest mb-1.5">
                             {$_('detection.reclassification.final_result', { default: 'Final Result' })}
                         </span>

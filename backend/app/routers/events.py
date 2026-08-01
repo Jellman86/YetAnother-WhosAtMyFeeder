@@ -1347,17 +1347,16 @@ async def reclassify_event(
         async def broadcast_reclassification_completed(
             results_payload: list,
             outcome: Literal["success", "no_result"],
+            reason: str | None = None,
         ) -> None:
             nonlocal completion_broadcasted
             if completion_broadcasted:
                 return
             completion_broadcasted = True
-            await broadcaster.broadcast(
-                {
-                    "type": "reclassification_completed",
-                    "data": {"event_id": event_id, "results": results_payload, "outcome": outcome},
-                }
-            )
+            data = {"event_id": event_id, "results": results_payload, "outcome": outcome}
+            if reason:
+                data["reason"] = reason
+            await broadcaster.broadcast({"type": "reclassification_completed", "data": data})
 
         async def broadcast_reclassification_failed(error: str) -> None:
             nonlocal completion_broadcasted
@@ -1409,7 +1408,7 @@ async def reclassify_event(
                     event_id=event_id,
                     strategy=effective_strategy,
                 )
-                await broadcast_reclassification_completed([], "no_result")
+                await broadcast_reclassification_completed([], "no_result", "no_confident_result")
                 return ReclassifyResponse(
                     status="no_result",
                     reason="no_confident_result",
@@ -1438,7 +1437,11 @@ async def reclassify_event(
                     strategy=effective_strategy,
                     reason=_reason,
                 )
-                await broadcast_reclassification_completed([], "no_result")
+                await broadcast_reclassification_completed(
+                    [],
+                    "no_result",
+                    _reason or "no_confident_result",
+                )
                 return ReclassifyResponse(
                     status="no_result",
                     reason="no_confident_result",
