@@ -45,11 +45,23 @@ class ManualObservationRepository:
     @staticmethod
     def _from_row(row: tuple) -> ManualObservationDraft:
         return ManualObservationDraft(
-            id=row[0], status=row[1], media_type=row[2], original_filename=row[3],
-            content_type=row[4], content_sha256=row[5], size_bytes=int(row[6]), source_filename=row[7],
-            progress_current=int(row[8] or 0), progress_total=int(row[9] or 0), progress_message=row[10],
-            results=json.loads(row[11]) if row[11] else None, error_code=row[12], error_message=row[13],
-            saved_event_id=row[14], notes=row[15], created_at=datetime.fromisoformat(row[16]) if isinstance(row[16], str) else row[16],
+            id=row[0],
+            status=row[1],
+            media_type=row[2],
+            original_filename=row[3],
+            content_type=row[4],
+            content_sha256=row[5],
+            size_bytes=int(row[6]),
+            source_filename=row[7],
+            progress_current=int(row[8] or 0),
+            progress_total=int(row[9] or 0),
+            progress_message=row[10],
+            results=json.loads(row[11]) if row[11] else None,
+            error_code=row[12],
+            error_message=row[13],
+            saved_event_id=row[14],
+            notes=row[15],
+            created_at=datetime.fromisoformat(row[16]) if isinstance(row[16], str) else row[16],
             updated_at=datetime.fromisoformat(row[17]) if isinstance(row[17], str) else row[17],
         )
 
@@ -60,9 +72,20 @@ class ManualObservationRepository:
                 id, status, media_type, original_filename, content_type, content_sha256,
                 size_bytes, source_filename, progress_current, progress_total, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (draft.id, draft.status, draft.media_type, draft.original_filename, draft.content_type,
-             draft.content_sha256, draft.size_bytes, draft.source_filename, draft.progress_current,
-             draft.progress_total, now, now),
+            (
+                draft.id,
+                draft.status,
+                draft.media_type,
+                draft.original_filename,
+                draft.content_type,
+                draft.content_sha256,
+                draft.size_bytes,
+                draft.source_filename,
+                draft.progress_current,
+                draft.progress_total,
+                now,
+                now,
+            ),
         )
         await self.db.commit()
 

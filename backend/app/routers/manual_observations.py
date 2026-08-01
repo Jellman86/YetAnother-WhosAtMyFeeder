@@ -75,18 +75,43 @@ def _response(draft: ManualObservationDraft) -> ManualObservationResponse:
     for item in draft.results or []:
         label = str(item.get("label") or "").strip()
         if label:
-            predictions.append(ManualObservationPrediction(label=label, score=float(item.get("score") or 0), **{
-                key: item.get(key) for key in (
-                    "model_id", "model_name", "inference_provider", "inference_backend", "input_source", "input_is_cropped"
-                ) if item.get(key) is not None
-            }))
+            predictions.append(
+                ManualObservationPrediction(
+                    label=label,
+                    score=float(item.get("score") or 0),
+                    **{
+                        key: item.get(key)
+                        for key in (
+                            "model_id",
+                            "model_name",
+                            "inference_provider",
+                            "inference_backend",
+                            "input_source",
+                            "input_is_cropped",
+                        )
+                        if item.get(key) is not None
+                    },
+                )
+            )
     return ManualObservationResponse(
-        id=draft.id, status=draft.status, media_type=draft.media_type, original_filename=draft.original_filename,
-        content_type=draft.content_type, content_sha256=draft.content_sha256, size_bytes=draft.size_bytes,
-        progress_current=current, progress_total=total, progress_percent=percent, progress_message=draft.progress_message,
-        predictions=predictions, error_code=draft.error_code, error_message=draft.error_message,
-        saved_event_id=draft.saved_event_id, preview_url=f"/api/manual-observations/{draft.id}/preview",
-        media_url=f"/api/manual-observations/{draft.id}/media", created_at=serialize_api_datetime(draft.created_at),
+        id=draft.id,
+        status=draft.status,
+        media_type=draft.media_type,
+        original_filename=draft.original_filename,
+        content_type=draft.content_type,
+        content_sha256=draft.content_sha256,
+        size_bytes=draft.size_bytes,
+        progress_current=current,
+        progress_total=total,
+        progress_percent=percent,
+        progress_message=draft.progress_message,
+        predictions=predictions,
+        error_code=draft.error_code,
+        error_message=draft.error_message,
+        saved_event_id=draft.saved_event_id,
+        preview_url=f"/api/manual-observations/{draft.id}/preview",
+        media_url=f"/api/manual-observations/{draft.id}/media",
+        created_at=serialize_api_datetime(draft.created_at),
         updated_at=serialize_api_datetime(draft.updated_at),
     )
 
@@ -99,12 +124,16 @@ async def create_manual_observation(
 
 
 @router.get("/{draft_id}", response_model=ManualObservationResponse)
-async def get_manual_observation(draft_id: str, _auth: AuthContext = Depends(require_owner)) -> ManualObservationResponse:
+async def get_manual_observation(
+    draft_id: str, _auth: AuthContext = Depends(require_owner)
+) -> ManualObservationResponse:
     return _response(await manual_observation_service.get(draft_id))
 
 
 @router.post("/{draft_id}/retry", response_model=ManualObservationResponse, status_code=status.HTTP_202_ACCEPTED)
-async def retry_manual_observation(draft_id: str, _auth: AuthContext = Depends(require_owner)) -> ManualObservationResponse:
+async def retry_manual_observation(
+    draft_id: str, _auth: AuthContext = Depends(require_owner)
+) -> ManualObservationResponse:
     return _response(await manual_observation_service.retry(draft_id))
 
 
@@ -119,7 +148,9 @@ async def confirm_manual_observation(
 
 
 @router.delete("/{draft_id}", response_model=ManualObservationDeleteResponse)
-async def delete_manual_observation(draft_id: str, _auth: AuthContext = Depends(require_owner)) -> ManualObservationDeleteResponse:
+async def delete_manual_observation(
+    draft_id: str, _auth: AuthContext = Depends(require_owner)
+) -> ManualObservationDeleteResponse:
     await manual_observation_service.delete(draft_id)
     return ManualObservationDeleteResponse(status="deleted", id=draft_id)
 

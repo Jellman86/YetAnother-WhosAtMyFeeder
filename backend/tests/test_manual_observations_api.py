@@ -121,13 +121,18 @@ async def test_confirmed_upload_becomes_manual_detection(client: httpx.AsyncClie
             SET status = 'ready', results_json = ?, progress_current = 1, progress_total = 1
             WHERE id = ?
             """,
-            ('[{"label":"European Robin","score":0.91,"model_id":"convnext_large","inference_provider":"intel_gpu","input_source":"model_crop"}]', draft_id),
+            (
+                '[{"label":"European Robin","score":0.91,"model_id":"convnext_large","inference_provider":"intel_gpu","input_source":"model_crop"}]',
+                draft_id,
+            ),
         )
         await db.commit()
 
     with patch(
         "app.services.manual_observation_service.taxonomy_service.get_names",
-        new=AsyncMock(return_value={"scientific_name": "Passer domesticus", "common_name": "House Sparrow", "taxa_id": 2492481}),
+        new=AsyncMock(
+            return_value={"scientific_name": "Passer domesticus", "common_name": "House Sparrow", "taxa_id": 2492481}
+        ),
     ):
         response = await client.post(
             f"/api/manual-observations/{draft_id}/confirm",
@@ -148,7 +153,16 @@ async def test_confirmed_upload_becomes_manual_detection(client: httpx.AsyncClie
             (payload["event_id"],),
         ) as cursor:
             row = await cursor.fetchone()
-    assert row == ("House Sparrow", "Garden upload", 1, "European Robin", 0.91, "intel_gpu", "convnext_large", "model_crop")
+    assert row == (
+        "House Sparrow",
+        "Garden upload",
+        1,
+        "European Robin",
+        0.91,
+        "intel_gpu",
+        "convnext_large",
+        "model_crop",
+    )
 
     with patch("app.routers.events.frigate_client.get_event", new=AsyncMock()) as frigate_lookup:
         event_response = await client.get("/api/events", params={"event_id": payload["event_id"]})

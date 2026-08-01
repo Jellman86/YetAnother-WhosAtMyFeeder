@@ -1915,7 +1915,9 @@ async def proxy_clip(
             manual_media,
             media_type=media_type,
             filename=f"{event_id}{manual_media.suffix.lower()}",
-            headers={"Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}{manual_media.suffix.lower()}"},
+            headers={
+                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}{manual_media.suffix.lower()}"
+            },
         )
 
     if not settings.frigate.clips_enabled:

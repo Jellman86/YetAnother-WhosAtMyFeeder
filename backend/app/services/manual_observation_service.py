@@ -33,8 +33,12 @@ MAX_VIDEO_BYTES = 250 * 1024 * 1024
 MAX_IMAGE_PIXELS = 80_000_000
 DRAFT_RETENTION_DAYS = 7
 ALLOWED_MEDIA = {
-    "image/jpeg": ("image", ".jpg"), "image/png": ("image", ".png"), "image/webp": ("image", ".webp"),
-    "video/mp4": ("video", ".mp4"), "video/quicktime": ("video", ".mov"), "video/webm": ("video", ".webm"),
+    "image/jpeg": ("image", ".jpg"),
+    "image/png": ("image", ".png"),
+    "image/webp": ("image", ".webp"),
+    "video/mp4": ("video", ".mp4"),
+    "video/quicktime": ("video", ".mov"),
+    "video/webm": ("video", ".webm"),
 }
 
 
@@ -71,7 +75,10 @@ class ManualObservationService:
                 while chunk := await media.read(1024 * 1024):
                     size += len(chunk)
                     if size > size_limit:
-                        raise HTTPException(status_code=413, detail=f"{media_type.title()} exceeds the {size_limit // 1024 // 1024} MB limit.")
+                        raise HTTPException(
+                            status_code=413,
+                            detail=f"{media_type.title()} exceeds the {size_limit // 1024 // 1024} MB limit.",
+                        )
                     digest.update(chunk)
                     await output.write(chunk)
             if size == 0:
@@ -84,12 +91,20 @@ class ManualObservationService:
                 if existing:
                     raise HTTPException(
                         status_code=409,
-                        detail={"message": "This media has already been uploaded.", "draft_id": existing.id, "event_id": existing.saved_event_id},
+                        detail={
+                            "message": "This media has already been uploaded.",
+                            "draft_id": existing.id,
+                            "event_id": existing.saved_event_id,
+                        },
                     )
                 draft = ManualObservationDraft(
-                    id=draft_id, status="queued", media_type=media_type,
+                    id=draft_id,
+                    status="queued",
+                    media_type=media_type,
                     original_filename=Path(media.filename or f"observation{suffix}").name[:255],
-                    content_type=content_type, content_sha256=content_sha256, size_bytes=size,
+                    content_type=content_type,
+                    content_sha256=content_sha256,
+                    size_bytes=size,
                     source_filename=source_filename,
                 )
                 try:
@@ -106,6 +121,7 @@ class ManualObservationService:
 
     async def _validate_and_create_preview(self, source: Path, preview: Path, media_type: str) -> None:
         if media_type == "image":
+
             def validate_image() -> None:
                 with Image.open(source) as image:
                     image.load()
@@ -114,6 +130,7 @@ class ManualObservationService:
                     normalized = ImageOps.exif_transpose(image).convert("RGB")
                     normalized.thumbnail((1920, 1920), Image.Resampling.LANCZOS)
                     normalized.save(preview, "JPEG", quality=92, optimize=True)
+
             try:
                 await asyncio.to_thread(validate_image)
             except HTTPException:
@@ -154,6 +171,7 @@ class ManualObservationService:
                     raise HTTPException(status_code=422, detail="A video preview could not be generated.")
             finally:
                 capture.release()
+
         await asyncio.to_thread(validate_video)
 
     async def _purge_expired_drafts(self) -> None:
@@ -203,19 +221,26 @@ class ManualObservationService:
             if draft.media_type == "image":
                 image = await asyncio.to_thread(load_rgb_image, source_path)
                 results = await asyncio.wait_for(
-                    classifier.classify_async_background(image, camera_name="Manual upload", input_context={"is_cropped": False}),
+                    classifier.classify_async_background(
+                        image, camera_name="Manual upload", input_context={"is_cropped": False}
+                    ),
                     timeout=float(settings.classification.video_classification_timeout_seconds),
                 )
             else:
+
                 async def progress_callback(current: int, total: int, *_args, **_kwargs) -> None:
                     async with get_db() as progress_db:
                         await ManualObservationRepository(progress_db).update_progress(
                             draft_id, int(current), int(total), "Choosing the strongest frames"
                         )
+
                 results = await asyncio.wait_for(
                     classifier.classify_video_async(
-                        str(source_path), camera_name="Manual upload", progress_callback=progress_callback,
-                        input_context={"is_cropped": False}, propagate_worker_failure=True,
+                        str(source_path),
+                        camera_name="Manual upload",
+                        progress_callback=progress_callback,
+                        input_context={"is_cropped": False},
+                        propagate_worker_failure=True,
                     ),
                     timeout=float(settings.classification.video_classification_timeout_seconds),
                 )
@@ -225,12 +250,16 @@ class ManualObservationService:
                 await ManualObservationRepository(db).mark_ready(draft_id, results[:10])
         except asyncio.CancelledError:
             async with get_db() as db:
-                await ManualObservationRepository(db).mark_failed(draft_id, "interrupted", "Analysis was interrupted. You can retry it safely.")
+                await ManualObservationRepository(db).mark_failed(
+                    draft_id, "interrupted", "Analysis was interrupted. You can retry it safely."
+                )
             raise
         except Exception as exc:
             log.exception("Manual observation analysis failed", draft_id=draft_id)
             async with get_db() as db:
-                await ManualObservationRepository(db).mark_failed(draft_id, "classification_failed", str(exc) or "Classification failed")
+                await ManualObservationRepository(db).mark_failed(
+                    draft_id, "classification_failed", str(exc) or "Classification failed"
+                )
 
     async def get(self, draft_id: str) -> ManualObservationDraft:
         self.directory(draft_id)
@@ -262,18 +291,33 @@ class ManualObservationService:
             raise HTTPException(status_code=422, detail="Choose or enter a species before saving.")
         taxonomy = await taxonomy_service.get_names(normalized_label)
         top_result = (draft.results or [{}])[0]
-        matching = next((item for item in (draft.results or []) if str(item.get("label", "")).casefold() == normalized_label.casefold()), None)
+        matching = next(
+            (
+                item
+                for item in (draft.results or [])
+                if str(item.get("label", "")).casefold() == normalized_label.casefold()
+            ),
+            None,
+        )
         score = float((matching or {}).get("score") or 1.0)
         classifier_score = float(top_result.get("score") or 0.0)
         event_id = f"manual_{draft_id}"
         detection = Detection(
-            detection_time=utc_naive_datetime(observed_at) if observed_at else utc_naive_now(), detection_index=0,
-            score=max(0.0, min(1.0, score)), display_name=normalized_label, category_name=normalized_label,
-            frigate_event=event_id, camera_name=(" ".join(camera_name.split()) or "Manual upload")[:100],
-            manual_tagged=True, scientific_name=taxonomy.get("scientific_name"), common_name=taxonomy.get("common_name"),
-            taxa_id=taxonomy.get("taxa_id"), video_classification_score=classifier_score,
+            detection_time=utc_naive_datetime(observed_at) if observed_at else utc_naive_now(),
+            detection_index=0,
+            score=max(0.0, min(1.0, score)),
+            display_name=normalized_label,
+            category_name=normalized_label,
+            frigate_event=event_id,
+            camera_name=(" ".join(camera_name.split()) or "Manual upload")[:100],
+            manual_tagged=True,
+            scientific_name=taxonomy.get("scientific_name"),
+            common_name=taxonomy.get("common_name"),
+            taxa_id=taxonomy.get("taxa_id"),
+            video_classification_score=classifier_score,
             video_classification_label=str(top_result.get("label") or normalized_label),
-            video_classification_status="completed", video_classification_provider=top_result.get("inference_provider"),
+            video_classification_status="completed",
+            video_classification_provider=top_result.get("inference_provider"),
             video_classification_backend=top_result.get("inference_backend"),
             video_classification_model_id=top_result.get("model_id"),
             video_classification_input_source=top_result.get("input_source"),
