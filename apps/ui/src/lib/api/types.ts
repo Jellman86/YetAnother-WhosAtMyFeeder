@@ -49,9 +49,35 @@ export interface Detection {
     video_classification_model_id?: string | null;
     video_classification_model_name?: string | null;
     video_classification_input_source?: string | null;
+    video_classification_diagnostics?: VideoClassificationDiagnostics | null;
     video_result_blocked?: boolean;
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
+}
+
+export interface VideoClassificationCandidateEvidence {
+    label: string;
+    supporting_frames: number;
+    support_ratio: number;
+    median_score: number;
+}
+
+export interface VideoClassificationSourceEvidence {
+    reason: string;
+    evaluated_frames: number;
+    confident_frames: number;
+    required_supporting_frames: number;
+    top_candidates: VideoClassificationCandidateEvidence[];
+}
+
+export interface VideoClassificationDiagnostics {
+    version: number;
+    outcome: 'accepted' | 'abstained';
+    reason: string;
+    sampled_frames: number;
+    processed_frames: number;
+    minimum_frame_score: number;
+    sources: Record<string, VideoClassificationSourceEvidence>;
 }
 
 export interface SpeciesCount {

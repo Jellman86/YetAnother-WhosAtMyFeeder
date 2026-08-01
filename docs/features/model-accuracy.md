@@ -139,6 +139,33 @@ tracked box's **bottom-centre**, not its geometric centre. YA-WAMF now reconstru
 box's bottom-centre when choosing frames. Final-still candidates do not count as an independent
 video moment for multi-frame species refinement, preventing one visual frame from voting twice.
 
+### Video consensus and safe abstention (1 August 2026)
+
+Video reclassification samples unique frames with a deterministic centre-weighted distribution.
+Event clips favour the centre more strongly; complete recording/full-visit clips retain broader
+edge coverage. Rounding collisions are repaired beside their intended timestamp, so they cannot
+silently turn into adjacent frames at the beginning of the clip.
+
+Each representation is evaluated independently: unchanged full frame, Frigate-guided crop, and
+detector-generated crop. Low-confidence predictions from a representation remain abstaining votes,
+but a missing dynamic crop is not an evaluated crop. The dynamic crop source must still exist on at
+least three frames and 30% of all decoded samples before it can win. Within an eligible source, one
+exact class needs at least two votes and 60% of that source's evaluated frames. If independently
+trustworthy sources select different species, YA-WAMF abstains instead of choosing the most
+confident transformation.
+
+Frigate `path_data` now guides video crops as well as HQ snapshots. YA-WAMF aligns each absolute
+bottom-centre path point with the actual event-clip or retained recording start timestamp, restores
+the tracked box at that sampled moment, and ignores a path point more than 0.75 seconds away. When
+timeline metadata is absent or stale, it retains the static Frigate box, model crop, and full frame
+rather than applying a guessed track.
+
+When no source clears the policy, YA-WAMF stores a bounded diagnostic summary on the detection:
+decoded and confident frame counts, the support required for each source, and up to three recurring
+candidates with median confidence. **Detection details → Show technical details** presents this
+evidence. The summary explains the decision; it never promotes a rejected candidate or replaces the
+raw media needed for later reclassification.
+
 ---
 
 ## Intel GPU Support

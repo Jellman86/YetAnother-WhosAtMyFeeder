@@ -11,6 +11,27 @@ describe('toDetection', () => {
             camera_name: ''
         });
     });
+
+    it('retains video abstention diagnostics in detection updates', () => {
+        const diagnostics = {
+            version: 1,
+            outcome: 'abstained' as const,
+            reason: 'no_source_consensus',
+            sampled_frames: 30,
+            processed_frames: 30,
+            minimum_frame_score: 0.5,
+            sources: {}
+        };
+
+        expect(toDetection({
+            frigate_event: 'event-2',
+            video_classification_error: 'video_no_results',
+            video_classification_diagnostics: diagnostics
+        })).toMatchObject({
+            video_classification_error: 'video_no_results',
+            video_classification_diagnostics: diagnostics
+        });
+    });
 });
 
 function buildCoordinator(options?: {

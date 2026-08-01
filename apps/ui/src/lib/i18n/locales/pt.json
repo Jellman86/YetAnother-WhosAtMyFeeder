@@ -1499,6 +1499,16 @@
       "gated_title": "O vídeo encontrou uma correspondência — confirma para aplicar",
       "gated_desc": "A promoção automática foi retida porque a pontuação do vídeo está abaixo do teu mínimo de confiança. Executa Reclassificar para aplicar este resultado, ou baixa o limiar em Definições → Deteção.",
       "gated_action": "Reclassificar",
+      "evidence": {
+        "title": "Evidências desta análise",
+        "summary": "Foram descodificados {processed} de {sampled} fotogramas amostrados. Cada fotograma precisava de pelo menos {threshold}% de confiança para votar.",
+        "confident_short": "confiáveis",
+        "required": "Eram necessários {required} fotogramas concordantes desta fonte.",
+        "top_candidates": "Candidatos mais recorrentes",
+        "full_frame": "Fotograma completo",
+        "frigate_hint_crop": "Recorte guiado pelo Frigate",
+        "model_crop": "Recorte por IA"
+      },
       "blocked_label": "Coincide com uma espécie bloqueada — não aplicado"
     },
     "card_analysis": {

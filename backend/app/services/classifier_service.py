@@ -150,7 +150,7 @@ from app.services.classifier_supervisor import (  # noqa: E402
 from app.services.personalization_service import personalization_service  # noqa: E402
 from app.services.video_classification_policy import (  # noqa: E402
     SourceTemporalConsensus,
-    build_temporal_consensus,
+    assess_temporal_consensus,
     select_temporal_source_consensus,
 )
 from app.utils.classifier_labels import (  # noqa: E402
@@ -309,48 +309,34 @@ def _select_video_frame_indices(
     if normalized_variant not in {"event", "recording"}:
         normalized_variant = "event"
 
-    def _linspace_indices(start: int, end: int, count: int) -> list[int]:
-        if count <= 0:
-            return []
-        if count == 1:
-            return [int(round((start + end) / 2))]
-        return [int(round(value)) for value in np.linspace(start, end, count)]
+    # Quantiles of a symmetric power curve give deterministic, centre-weighted
+    # coverage without merging two grids that can collide and then fill from
+    # frame zero. Event clips get the stronger centre bias; recording/full-visit
+    # clips retain broader edge coverage because their padding is meaningful.
+    centre_bias = 1.65 if normalized_variant == "event" else 1.25
+    quantiles = np.linspace(-1.0, 1.0, sample_count)
+    normalized_targets = 0.5 + (0.5 * np.sign(quantiles) * np.power(np.abs(quantiles), centre_bias))
+    targets = [int(round(float(value) * max_index)) for value in normalized_targets]
 
-    center_start = int(round(max_index * 0.25))
-    center_end = int(round(max_index * 0.75))
-
-    candidate_indices: list[int] = []
-    if normalized_variant == "recording":
-        uniform_count = max(2, int(math.ceil(sample_count * 0.7)))
-        uniform_count = min(uniform_count, sample_count)
-        center_count = max(0, sample_count - uniform_count)
-        candidate_indices.extend(_linspace_indices(0, max_index, uniform_count))
-        candidate_indices.extend(_linspace_indices(center_start, center_end, center_count))
-    else:
-        edge_count = min(2, sample_count)
-        center_count = max(0, sample_count - edge_count)
-        candidate_indices.extend([0, max_index][:edge_count])
-        candidate_indices.extend(_linspace_indices(center_start, center_end, center_count))
-
-    deduped: list[int] = []
-    seen: set[int] = set()
-    for idx in sorted(max(0, min(max_index, int(value))) for value in candidate_indices):
-        if idx in seen:
+    selected: set[int] = set()
+    for target in targets:
+        target = max(0, min(max_index, target))
+        if target not in selected:
+            selected.add(target)
             continue
-        seen.add(idx)
-        deduped.append(idx)
-
-    if len(deduped) < sample_count:
-        for idx in _linspace_indices(0, max_index, total_frames):
-            idx = max(0, min(max_index, int(idx)))
-            if idx in seen:
+        # Rounding can collide only when the requested density approaches the
+        # number of frames. Repair around the intended target, never from the
+        # start of the clip, so the temporal distribution remains honest.
+        for distance in range(1, max_index + 1):
+            for candidate in (target - distance, target + distance):
+                if 0 <= candidate <= max_index and candidate not in selected:
+                    selected.add(candidate)
+                    break
+            else:
                 continue
-            seen.add(idx)
-            deduped.append(idx)
-            if len(deduped) >= sample_count:
-                break
+            break
 
-    return np.array(sorted(deduped[:sample_count]), dtype=int)
+    return np.array(sorted(selected), dtype=int)
 
 
 def _invoke_model_classify(
@@ -4643,6 +4629,67 @@ class ClassifierService:
             }
         return None
 
+    def _tracked_frigate_box_for_frame(
+        self,
+        input_context: ClassificationInputContext,
+        *,
+        frame_offset_seconds: float | None,
+    ) -> list[float] | None:
+        """Align Frigate's tracked path with the actual clip timeline."""
+        raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
+        raw_box = self._input_context_extra(input_context, "frigate_box")
+        raw_clip_start = self._input_context_extra(input_context, "clip_start_timestamp")
+        if (
+            not isinstance(raw_path_data, list)
+            or not isinstance(raw_box, (list, tuple))
+            or len(raw_box) != 4
+            or frame_offset_seconds is None
+        ):
+            return None
+        try:
+            clip_start = float(raw_clip_start)
+            offset = float(frame_offset_seconds)
+            _left, _top, width, height = [float(value) for value in raw_box]
+        except (TypeError, ValueError):
+            return None
+        if (
+            not all(math.isfinite(value) for value in (clip_start, offset, width, height))
+            or offset < 0.0
+            or not (0.0 < width <= 1.0)
+            or not (0.0 < height <= 1.0)
+        ):
+            return None
+
+        path_points: list[tuple[float, float, float]] = []
+        for item in raw_path_data:
+            if not isinstance(item, (list, tuple)) or len(item) < 2:
+                continue
+            point = item[0]
+            if not isinstance(point, (list, tuple)) or len(point) < 2:
+                continue
+            try:
+                x = float(point[0])
+                y = float(point[1])
+                timestamp = float(item[1])
+            except (TypeError, ValueError):
+                continue
+            if all(math.isfinite(value) for value in (x, y, timestamp)) and 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0:
+                path_points.append((timestamp, x, y))
+        if not path_points:
+            return None
+
+        target_timestamp = clip_start + offset
+        point_timestamp, bottom_center_x, bottom_y = min(
+            path_points,
+            key=lambda item: abs(item[0] - target_timestamp),
+        )
+        if abs(point_timestamp - target_timestamp) > 0.75:
+            return None
+
+        left = max(0.0, min(1.0 - width, bottom_center_x - width / 2.0))
+        top = max(0.0, min(1.0 - height, bottom_y - height))
+        return [left, top, width, height]
+
     @staticmethod
     def _frigate_snapshot_crop_box(
         box: tuple[int, int, int, int],
@@ -5841,19 +5888,25 @@ class ClassifierService:
                 image = Image.fromarray(frame_rgb)
                 processed_frame_count += 1
 
+                frame_context_payload = dict(normalized_input_context.model_dump())
+                tracked_box = self._tracked_frigate_box_for_frame(
+                    normalized_input_context,
+                    frame_offset_seconds=frame_offset_sec,
+                )
+                if tracked_box is not None:
+                    frame_context_payload["frigate_box"] = tracked_box
+                frame_input_context = _normalize_classification_input_context(frame_context_payload)
+
                 candidate_scores: dict[str, np.ndarray] = {}
                 candidate_images: dict[str, Image.Image] = {}
                 for input_source, candidate_image in self._video_frame_candidates(
                     image,
-                    input_context=normalized_input_context,
+                    input_context=frame_input_context,
                 ):
                     if input_source not in scores_by_input_source:
                         expected_input_sources.append(input_source)
-                        scores_by_input_source[input_source] = [
-                            np.zeros(len(getattr(bird_model, "labels", []) or []), dtype=np.float32)
-                            for _ in range(processed_frame_count - 1)
-                        ]
-                    candidate_context = dict(normalized_input_context.model_dump())
+                        scores_by_input_source[input_source] = []
+                    candidate_context = dict(frame_input_context.model_dump())
                     candidate_context.update(
                         {
                             "is_cropped": input_source != "full_frame",
@@ -5874,11 +5927,9 @@ class ClassifierService:
 
                 labels = list(getattr(bird_model, "labels", []) or [])
                 class_count = len(labels)
-                for input_source in expected_input_sources:
-                    scores = candidate_scores.get(input_source)
-                    if scores is None or len(scores) != class_count:
-                        scores = np.zeros(class_count, dtype=np.float32)
-                    scores_by_input_source[input_source].append(scores)
+                for input_source, scores in candidate_scores.items():
+                    if len(scores) == class_count:
+                        scores_by_input_source[input_source].append(scores)
 
                 strongest_frame_candidate: tuple[float, int, str, Image.Image] | None = None
                 for input_source, scores in candidate_scores.items():
@@ -5947,31 +5998,64 @@ class ClassifierService:
                 float(getattr(settings.classification, "min_confidence", 0.0) or 0.0),
                 recommended_threshold,
             )
-            source_consensuses = [
-                SourceTemporalConsensus(
-                    input_source=input_source,
-                    consensus=build_temporal_consensus(
-                        source_scores,
-                        minimum_frame_score=minimum_frame_score,
-                        excluded_class_indices=excluded_class_indices,
-                    ),
+            minimum_dynamic_crop_frames = max(3, math.ceil(processed_frame_count * 0.30))
+            source_assessments = {
+                input_source: assess_temporal_consensus(
+                    source_scores,
+                    minimum_frame_score=minimum_frame_score,
+                    excluded_class_indices=excluded_class_indices,
+                    minimum_evaluated_frames=(minimum_dynamic_crop_frames if input_source == "model_crop" else 3),
                 )
                 for input_source, source_scores in scores_by_input_source.items()
+            }
+            source_consensuses = [
+                SourceTemporalConsensus(input_source=input_source, consensus=assessment.consensus)
+                for input_source, assessment in source_assessments.items()
             ]
             selected_source_consensus = select_temporal_source_consensus(source_consensuses)
             consensus_diagnostics = {
-                item.input_source: (
-                    {
-                        "winner_index": item.consensus.winner_index,
-                        "supporting_frames": item.consensus.supporting_frame_count,
-                        "evaluated_frames": item.consensus.evaluated_frame_count,
-                        "score": round(item.consensus.score, 4),
-                    }
-                    if item.consensus is not None
-                    else None
-                )
-                for item in source_consensuses
+                input_source: {
+                    "reason": assessment.reason,
+                    "evaluated_frames": assessment.evaluated_frame_count,
+                    "confident_frames": assessment.confident_frame_count,
+                    "required_supporting_frames": assessment.required_supporting_frames,
+                    "top_candidates": [
+                        {
+                            "label": (
+                                normalize_classifier_label(labels[evidence.class_index])
+                                if evidence.class_index < len(labels)
+                                else f"Class {evidence.class_index}"
+                            ),
+                            "supporting_frames": evidence.supporting_frame_count,
+                            "support_ratio": round(evidence.support_ratio, 4),
+                            "median_score": round(evidence.score, 4),
+                        }
+                        for evidence in assessment.ranked_observations[:3]
+                    ],
+                }
+                for input_source, assessment in source_assessments.items()
             }
+            diagnostic_payload = {
+                "version": 1,
+                "outcome": "accepted" if selected_source_consensus is not None else "abstained",
+                "sampled_frames": len(frame_indices),
+                "processed_frames": processed_frame_count,
+                "minimum_frame_score": round(minimum_frame_score, 4),
+                "sources": consensus_diagnostics,
+                "reason": (
+                    "accepted"
+                    if selected_source_consensus is not None
+                    else (
+                        "source_disagreement"
+                        if len(
+                            {item.consensus.winner_index for item in source_consensuses if item.consensus is not None}
+                        )
+                        > 1
+                        else "no_source_consensus"
+                    )
+                ),
+            }
+            include_diagnostics = bool(self._input_context_extra(normalized_input_context, "include_video_diagnostics"))
             if selected_source_consensus is None or selected_source_consensus.consensus is None:
                 log.info(
                     "Video classification abstained because inputs lacked consensus or disagreed",
@@ -5980,7 +6064,7 @@ class ClassifierService:
                     skipped_unknown_frames=skipped_unknown_frame_count,
                     input_consensus=consensus_diagnostics,
                 )
-                return []
+                return [{"_video_diagnostics": diagnostic_payload}] if include_diagnostics else []
 
             input_source = selected_source_consensus.input_source
             consensus = selected_source_consensus.consensus
@@ -6022,7 +6106,9 @@ class ClassifierService:
                         degenerate_cutoff=degenerate_cutoff,
                         top_label=classifications[0].get("label"),
                     )
-                    return []
+                    diagnostic_payload["outcome"] = "abstained"
+                    diagnostic_payload["reason"] = "degenerate_output"
+                    return [{"_video_diagnostics": diagnostic_payload}] if include_diagnostics else []
 
             log.info(
                 f"Video classification complete (consensus). Analyzed {processed_frame_count} frames.",
@@ -6036,6 +6122,8 @@ class ClassifierService:
                 input_consensus=consensus_diagnostics,
             )
 
+            if include_diagnostics:
+                classifications.append({"_video_diagnostics": diagnostic_payload})
             return classifications
 
         except Exception as e:
@@ -6056,6 +6144,7 @@ class ClassifierService:
         model_id: Optional[str] = None,
         input_context: Any | None = None,
         propagate_worker_failure: bool = False,
+        diagnostics_callback: Callable[[dict[str, Any]], Awaitable[None] | None] | None = None,
     ) -> list[dict]:
         """Async wrapper for video classification."""
         normalized_input_context = _normalize_classification_input_context(input_context)
@@ -6166,6 +6255,24 @@ class ClassifierService:
                     None,
                     normalized_input_context,
                 )
+
+        diagnostics = next(
+            (
+                item.get("_video_diagnostics")
+                for item in base_results
+                if isinstance(item, dict) and isinstance(item.get("_video_diagnostics"), dict)
+            ),
+            None,
+        )
+        base_results = [
+            item
+            for item in base_results
+            if not (isinstance(item, dict) and isinstance(item.get("_video_diagnostics"), dict))
+        ]
+        if diagnostics_callback is not None and diagnostics is not None:
+            callback_result = diagnostics_callback(diagnostics)
+            if inspect.isawaitable(callback_result):
+                await callback_result
 
         if not base_results:
             return base_results

@@ -27,7 +27,7 @@ DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score
                       CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
                       d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked,
                       d.frigate_status, d.frigate_missing_since, d.frigate_last_checked_at, d.frigate_last_error,
-                      d.video_classification_input_source"""
+                      d.video_classification_input_source, d.video_classification_diagnostics"""
 
 
 @dataclass
@@ -78,6 +78,7 @@ class Detection:
     video_classification_backend: Optional[str] = None
     video_classification_model_id: Optional[str] = None
     video_classification_input_source: Optional[str] = None
+    video_classification_diagnostics: Optional[dict] = None
     # AI naturalist analysis fields
     ai_analysis: Optional[str] = None
     ai_analysis_timestamp: Optional[datetime] = None
@@ -335,6 +336,12 @@ def _row_to_detection(row: aiosqlite.Row) -> Detection:
         d.frigate_last_error = row[43]
     if len(row) > 44:
         d.video_classification_input_source = row[44]
+    if len(row) > 45 and row[45]:
+        try:
+            parsed_diagnostics = json.loads(row[45])
+            d.video_classification_diagnostics = parsed_diagnostics if isinstance(parsed_diagnostics, dict) else None
+        except (TypeError, ValueError, json.JSONDecodeError):
+            d.video_classification_diagnostics = None
 
     return d
 
@@ -905,6 +912,7 @@ class DetectionRepository:
                 video_classification_backend = ?,
                 video_classification_model_id = ?,
                 video_classification_input_source = ?,
+                video_classification_diagnostics = NULL,
                 video_result_blocked = ?
             WHERE frigate_event = ?
         """,
@@ -972,7 +980,13 @@ class DetectionRepository:
         await self.db.commit()
         return changed
 
-    async def update_video_status(self, frigate_event: str, status: str, error: Optional[str] = None) -> bool:
+    async def update_video_status(
+        self,
+        frigate_event: str,
+        status: str,
+        error: Optional[str] = None,
+        diagnostics: Optional[dict] = None,
+    ) -> bool:
         """Update video classification status and report whether the detection exists."""
         now = utc_naive_now()
         await self.db.execute(
@@ -980,10 +994,17 @@ class DetectionRepository:
             UPDATE detections
             SET video_classification_status = ?,
                 video_classification_error = ?,
+                video_classification_diagnostics = ?,
                 video_classification_timestamp = ?
             WHERE frigate_event = ?
         """,
-            (status, error, now, frigate_event),
+            (
+                status,
+                error,
+                json.dumps(diagnostics, separators=(",", ":"), sort_keys=True) if diagnostics else None,
+                now,
+                frigate_event,
+            ),
         )
         changed = await self._last_statement_changes()
         await self.db.commit()

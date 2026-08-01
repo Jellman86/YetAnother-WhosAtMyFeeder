@@ -1490,6 +1490,16 @@
       "gated_title": "Video hat eine Übereinstimmung gefunden — zur Übernahme bestätigen",
       "gated_desc": "Die automatische Übernahme wurde zurückgehalten, weil der Video-Score unter Ihrem Mindest-Konfidenzwert liegt. Reclassify ausführen, um dieses Ergebnis anzuwenden, oder den Schwellenwert in Einstellungen → Erkennung senken.",
       "gated_action": "Neu klassifizieren",
+      "evidence": {
+        "title": "Belege aus diesem Durchlauf",
+        "summary": "{processed} von {sampled} ausgewählten Frames wurden dekodiert. Ein Frame benötigte mindestens {threshold} % Konfidenz, um abzustimmen.",
+        "confident_short": "sicher",
+        "required": "Für diese Quelle waren {required} übereinstimmende Frames erforderlich.",
+        "top_candidates": "Häufigste Kandidaten",
+        "full_frame": "Vollbild",
+        "frigate_hint_crop": "Frigate-geführter Ausschnitt",
+        "model_crop": "KI-Ausschnitt"
+      },
       "blocked_label": "Mit blockierter Art übereinstimmend — nicht angewendet"
     },
     "card_analysis": {

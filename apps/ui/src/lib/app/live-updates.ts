@@ -232,6 +232,8 @@ export function toDetection(data: SseData): Detection {
         video_classification_score: data.video_classification_score,
         video_classification_label: data.video_classification_label,
         video_classification_status: data.video_classification_status,
+        video_classification_error: data.video_classification_error,
+        video_classification_diagnostics: data.video_classification_diagnostics,
         video_classification_provider: data.video_classification_provider,
         video_classification_backend: data.video_classification_backend,
         video_classification_model_id: data.video_classification_model_id,

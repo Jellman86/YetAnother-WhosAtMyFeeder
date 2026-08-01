@@ -681,6 +681,10 @@
     const upstreamMissing = $derived(!isManualObservation && detection.frigate_status === 'missing');
     const missingEventNoticeVisible = $derived(upstreamMissing || missingEventMetadataGone);
     const videoFailureInsight = $derived.by(() => getVideoFailureInsight(detection, $_));
+    const videoClassificationDiagnostics = $derived(detection.video_classification_diagnostics ?? null);
+    const videoClassificationSources = $derived(
+        Object.entries(videoClassificationDiagnostics?.sources ?? {})
+    );
 
     // Consolidated video-status notice: single source of truth that replaces
     // the three overlapping panels (Frigate-event-missing pill, "Result from
@@ -752,11 +756,24 @@
         // something useful inside it (a known error code, a "why" list, or
         // a "checks" list).  No point offering a disclosure that opens onto
         // an empty section.
-        if (!videoFailureInsight.errorCode && videoFailureInsight.causes.length === 0 && videoFailureInsight.checks.length === 0) {
+        if (!videoFailureInsight.errorCode && videoFailureInsight.causes.length === 0 && videoFailureInsight.checks.length === 0 && !videoClassificationDiagnostics) {
             return false;
         }
         return true;
     });
+
+    function videoEvidenceSourceLabel(source: string): string {
+        if (source === 'full_frame') {
+            return $_('detection.video_analysis.evidence.full_frame', { default: 'Full frame' });
+        }
+        if (source === 'frigate_hint_crop') {
+            return $_('detection.video_analysis.evidence.frigate_hint_crop', { default: 'Frigate-guided crop' });
+        }
+        if (source === 'model_crop') {
+            return $_('detection.video_analysis.evidence.model_crop', { default: 'AI crop' });
+        }
+        return source.replaceAll('_', ' ');
+    }
 
     function formatEbirdDate(dateStr?: string | null) {
         if (!dateStr) return '—';
@@ -2289,6 +2306,54 @@
                                         <p class="font-mono text-[10px] text-slate-600 dark:text-slate-400">
                                             {$_('detection.video_analysis.error_details.error_code', { default: 'Error code: {code}', values: { code: videoFailureInsight.errorCode } })}
                                         </p>
+                                    {/if}
+                                    {#if videoClassificationDiagnostics}
+                                        <section aria-labelledby="video-evidence-heading">
+                                            <p id="video-evidence-heading" class="font-bold text-slate-800 dark:text-slate-200">
+                                                {$_('detection.video_analysis.evidence.title', { default: 'Evidence from this run' })}
+                                            </p>
+                                            <p class="mt-0.5 text-slate-600 dark:text-slate-400">
+                                                {$_('detection.video_analysis.evidence.summary', {
+                                                    default: '{processed} of {sampled} sampled frames were decoded. A frame needed at least {threshold}% confidence to vote.',
+                                                    values: {
+                                                        processed: videoClassificationDiagnostics.processed_frames,
+                                                        sampled: videoClassificationDiagnostics.sampled_frames,
+                                                        threshold: Math.round(videoClassificationDiagnostics.minimum_frame_score * 100)
+                                                    }
+                                                })}
+                                            </p>
+                                            <dl class="mt-2 divide-y divide-slate-200/80 dark:divide-slate-700/70 border-y border-slate-200/80 dark:border-slate-700/70">
+                                                {#each videoClassificationSources as [source, evidence]}
+                                                    <div class="py-2 first:pt-0 last:pb-0">
+                                                        <div class="flex items-baseline justify-between gap-3">
+                                                            <dt class="font-bold text-slate-800 dark:text-slate-200">
+                                                                {videoEvidenceSourceLabel(source)}
+                                                            </dt>
+                                                            <dd class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
+                                                                {evidence.confident_frames}/{evidence.evaluated_frames}
+                                                                {$_('detection.video_analysis.evidence.confident_short', { default: 'confident' })}
+                                                            </dd>
+                                                        </div>
+                                                        <p class="mt-0.5 text-slate-600 dark:text-slate-400">
+                                                            {$_('detection.video_analysis.evidence.required', {
+                                                                default: 'Needed {required} matching frames from this source.',
+                                                                values: { required: evidence.required_supporting_frames }
+                                                            })}
+                                                        </p>
+                                                        {#if evidence.top_candidates.length > 0}
+                                                            <ul class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-600 dark:text-slate-400" aria-label={$_('detection.video_analysis.evidence.top_candidates', { default: 'Top recurring candidates' })}>
+                                                                {#each evidence.top_candidates as candidate}
+                                                                    <li>
+                                                                        <span class="font-semibold text-slate-700 dark:text-slate-300">{candidate.label}</span>
+                                                                        · {candidate.supporting_frames}× · {Math.round(candidate.median_score * 100)}%
+                                                                    </li>
+                                                                {/each}
+                                                            </ul>
+                                                        {/if}
+                                                    </div>
+                                                {/each}
+                                            </dl>
+                                        </section>
                                     {/if}
                                     {#if videoFailureInsight.causes.length > 0}
                                         <div>

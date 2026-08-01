@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import math
 import os
 from pathlib import Path
 import random
@@ -1286,11 +1287,13 @@ class AutoVideoClassifierService:
         event_data: dict | None,
         is_cropped: bool,
         clip_variant: Literal["event", "recording"] = "event",
+        clip_start_timestamp: float | None = None,
     ) -> dict[str, object]:
         context: dict[str, object] = {
             "is_cropped": bool(is_cropped),
             "event_id": str(event_id),
             "clip_variant": str(clip_variant or "event"),
+            "include_video_diagnostics": True,
         }
         payload = dict((event_data or {}).get("data") or {})
         frigate_box = payload.get("box")
@@ -1299,6 +1302,24 @@ class AutoVideoClassifierService:
             context["frigate_box"] = list(frigate_box)
         if isinstance(frigate_region, (list, tuple)) and len(frigate_region) == 4:
             context["frigate_region"] = list(frigate_region)
+        raw_path_data = payload.get("path_data")
+        if isinstance(raw_path_data, list):
+            path_data: list[list[object]] = []
+            for item in raw_path_data[:100]:
+                if not isinstance(item, (list, tuple)) or len(item) < 2:
+                    continue
+                point = item[0]
+                if isinstance(point, (list, tuple)) and len(point) >= 2:
+                    path_data.append([list(point[:2]), item[1]])
+            if path_data:
+                context["frigate_path_data"] = path_data
+        if clip_start_timestamp is not None:
+            try:
+                normalized_clip_start = float(clip_start_timestamp)
+            except (TypeError, ValueError):
+                normalized_clip_start = -1.0
+            if math.isfinite(normalized_clip_start) and normalized_clip_start >= 0:
+                context["clip_start_timestamp"] = normalized_clip_start
         return context
 
     async def _process_event(
@@ -1533,7 +1554,7 @@ class AutoVideoClassifierService:
                     return
 
             # 2. Prefer a cached recording/full-visit clip when available.
-            clip_bytes, clip_error, clip_variant = await self._load_preferred_clip(
+            clip_bytes, clip_error, clip_variant, clip_start_timestamp = await self._load_preferred_clip(
                 frigate_event,
                 skip_delay=skip_delay,
             )
@@ -1602,6 +1623,11 @@ class AutoVideoClassifierService:
                 )
 
                 _video_frame_scores: list[dict] = []
+                video_diagnostics: dict | None = None
+
+                def capture_video_diagnostics(payload: dict) -> None:
+                    nonlocal video_diagnostics
+                    video_diagnostics = dict(payload)
 
                 async def progress_callback(
                     current_frame,
@@ -1657,6 +1683,11 @@ class AutoVideoClassifierService:
                         event_data=event_data,
                         is_cropped=False,
                         clip_variant=clip_variant,
+                        clip_start_timestamp=(
+                            clip_start_timestamp
+                            if clip_start_timestamp is not None
+                            else (event_data or {}).get("start_time")
+                        ),
                     )
                     results = await asyncio.wait_for(
                         self._classifier.classify_video_async(
@@ -1666,6 +1697,7 @@ class AutoVideoClassifierService:
                             camera_name=camera,
                             input_context=input_context,
                             propagate_worker_failure=True,
+                            diagnostics_callback=capture_video_diagnostics,
                         ),
                         timeout=timeout,
                     )
@@ -1816,8 +1848,15 @@ class AutoVideoClassifierService:
                         reason_code="video_no_results",
                         message="Video classification completed without a confident temporal result",
                         severity="info",
+                        context=video_diagnostics,
                     )
-                    await self._update_status(frigate_event, "failed", error="video_no_results", broadcast=True)
+                    await self._update_status(
+                        frigate_event,
+                        "failed",
+                        error="video_no_results",
+                        diagnostics=video_diagnostics,
+                        broadcast=True,
+                    )
                     await broadcaster.broadcast(
                         {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
                     )
@@ -1987,10 +2026,16 @@ class AutoVideoClassifierService:
         frigate_event: str,
         *,
         skip_delay: bool = False,
-    ) -> tuple[Optional[bytes], Optional[str], Literal["event", "recording"]]:
+    ) -> tuple[Optional[bytes], Optional[str], Literal["event", "recording"], float | None]:
         """Prefer a cached recording/full-visit clip when available, otherwise poll the event clip."""
+        recording_start_ts: float | int | None = None
         try:
-            recording_cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(
+            (
+                recording_cached_path,
+                _camera_name,
+                recording_start_ts,
+                _end_ts,
+            ) = await _get_valid_cached_recording_clip_path(
                 frigate_event,
                 "en",
             )
@@ -2002,7 +2047,12 @@ class AutoVideoClassifierService:
                     and (clip_bytes.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_bytes[:32])
                     and await self._clip_decodes(clip_bytes)
                 ):
-                    return clip_bytes, None, "recording"
+                    return (
+                        clip_bytes,
+                        None,
+                        "recording",
+                        float(recording_start_ts) if recording_start_ts is not None else None,
+                    )
                 log.warning(
                     "Cached recording clip was invalid; falling back to Frigate event clip",
                     event_id=frigate_event,
@@ -2028,7 +2078,12 @@ class AutoVideoClassifierService:
                         "Using retained partial recording clip for auto video classification",
                         event_id=frigate_event,
                     )
-                    return clip_bytes, None, "recording"
+                    return (
+                        clip_bytes,
+                        None,
+                        "recording",
+                        float(recording_start_ts) if recording_start_ts is not None else None,
+                    )
             except Exception as exc:
                 log.debug(
                     "Failed to read retained partial recording clip",
@@ -2051,7 +2106,7 @@ class AutoVideoClassifierService:
                     and await self._clip_decodes(clip_bytes)
                 ):
                     log.info("Using cached event clip for auto video classification", event_id=frigate_event)
-                    return clip_bytes, None, "event"
+                    return clip_bytes, None, "event", None
                 log.warning(
                     "Cached event clip was invalid; falling back to Frigate fetch",
                     event_id=frigate_event,
@@ -2065,7 +2120,7 @@ class AutoVideoClassifierService:
                 )
 
         clip_bytes, clip_error = await self._wait_for_clip(frigate_event, skip_delay=skip_delay)
-        return clip_bytes, clip_error, "event"
+        return clip_bytes, clip_error, "event", None
 
     @staticmethod
     def _clip_decodes_sync(clip_bytes: bytes) -> bool:
@@ -2231,12 +2286,22 @@ class AutoVideoClassifierService:
             log.error("Failed to apply missing clip policy", event_id=frigate_event, error=str(e))
 
     async def _update_status(
-        self, frigate_event: str, status: str, error: Optional[str] = None, broadcast: bool = False
+        self,
+        frigate_event: str,
+        status: str,
+        error: Optional[str] = None,
+        diagnostics: Optional[dict] = None,
+        broadcast: bool = False,
     ) -> bool:
         """Update video classification status in DB."""
         async with get_db() as db:
             repo = DetectionRepository(db)
-            updated = await repo.update_video_status(frigate_event, status, error=error)
+            updated = await repo.update_video_status(
+                frigate_event,
+                status,
+                error=error,
+                diagnostics=diagnostics,
+            )
             await video_classification_waiter.publish(frigate_event, status, error=error)
             if broadcast:
                 det = await repo.get_by_frigate_event(frigate_event)
@@ -2281,6 +2346,7 @@ class AutoVideoClassifierService:
                                 "video_classification_label": det.video_classification_label,
                                 "video_classification_status": det.video_classification_status,
                                 "video_classification_error": det.video_classification_error,
+                                "video_classification_diagnostics": det.video_classification_diagnostics,
                                 "video_classification_provider": det.video_classification_provider,
                                 "video_classification_backend": det.video_classification_backend,
                                 "video_classification_input_source": det.video_classification_input_source,

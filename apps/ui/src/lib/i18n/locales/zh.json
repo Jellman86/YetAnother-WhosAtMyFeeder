@@ -1490,6 +1490,16 @@
       "gated_title": "视频已找到匹配 — 请确认以应用",
       "gated_desc": "由于视频得分低于您的最低置信度阈值,自动应用已被搁置。运行\"重新分类\"以应用此结果,或在 设置 → 检测 中降低阈值。",
       "gated_action": "重新分类",
+      "evidence": {
+        "title": "本次分析的证据",
+        "summary": "已解码 {sampled} 个采样帧中的 {processed} 个。每帧至少需要 {threshold}% 的置信度才能投票。",
+        "confident_short": "高置信",
+        "required": "此来源需要 {required} 个结果一致的帧。",
+        "top_candidates": "最常出现的候选物种",
+        "full_frame": "完整画面",
+        "frigate_hint_crop": "Frigate 引导裁剪",
+        "model_crop": "AI 裁剪"
+      },
       "blocked_label": "匹配到已屏蔽的物种 — 未应用"
     },
     "card_analysis": {

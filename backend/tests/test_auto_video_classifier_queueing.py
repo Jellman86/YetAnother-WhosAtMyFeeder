@@ -779,7 +779,7 @@ async def test_process_event_uses_cached_clip_when_precheck_returns_event_not_fo
     )
     # _load_preferred_clip returns no clip — this causes a graceful early exit after
     # the precheck bypass without needing to mock the entire classification pipeline.
-    load_clip_mock = AsyncMock(return_value=(None, "clip_not_retained", "event"))
+    load_clip_mock = AsyncMock(return_value=(None, "clip_not_retained", "event", None))
     monkeypatch.setattr(service, "_load_preferred_clip", load_clip_mock)
     monkeypatch.setattr(service, "_record_failure", lambda *args, **kwargs: None)
 
@@ -820,7 +820,7 @@ async def test_process_event_uses_cached_recording_clip_when_precheck_returns_ev
         "has_recording_clip",
         lambda event_id: True,
     )
-    load_clip_mock = AsyncMock(return_value=(None, "clip_not_retained", "recording"))
+    load_clip_mock = AsyncMock(return_value=(None, "clip_not_retained", "recording", 100.0))
     monkeypatch.setattr(service, "_load_preferred_clip", load_clip_mock)
     monkeypatch.setattr(service, "_record_failure", lambda *args, **kwargs: None)
 
@@ -1072,11 +1072,14 @@ async def test_load_preferred_clip_uses_cached_event_clip_before_polling_frigate
         AsyncMock(return_value=(None, None, None, None)),
     )
 
-    clip_bytes, clip_error, clip_variant = await service._load_preferred_clip("evt-cached-event-clip", skip_delay=True)
+    clip_bytes, clip_error, clip_variant, clip_start_timestamp = await service._load_preferred_clip(
+        "evt-cached-event-clip", skip_delay=True
+    )
 
     assert clip_bytes == valid_clip
     assert clip_error is None
     assert clip_variant == "event"
+    assert clip_start_timestamp is None
     wait_for_clip_mock.assert_not_awaited()  # must NOT have gone to Frigate
 
 
@@ -1105,7 +1108,7 @@ async def test_load_preferred_clip_classifies_retained_partial_recording(monkeyp
     wait_for_clip_mock = AsyncMock(return_value=(None, "clip_not_found"))
     monkeypatch.setattr(service, "_wait_for_clip", wait_for_clip_mock)
 
-    clip_bytes, clip_error, clip_variant = await service._load_preferred_clip(
+    clip_bytes, clip_error, clip_variant, clip_start_timestamp = await service._load_preferred_clip(
         "evt-partial-recording",
         skip_delay=True,
     )
@@ -1113,4 +1116,5 @@ async def test_load_preferred_clip_classifies_retained_partial_recording(monkeyp
     assert clip_bytes == valid_clip
     assert clip_error is None
     assert clip_variant == "recording"
+    assert clip_start_timestamp == 100.0
     wait_for_clip_mock.assert_not_awaited()

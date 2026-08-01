@@ -924,6 +924,40 @@ async def test_classifier_service_routes_video_requests_through_supervisor(mock_
 
 
 @pytest.mark.asyncio
+async def test_classifier_service_returns_diagnostics_separately_from_species_results(mock_tflite, mock_os_path_exists):
+    class _DiagnosticSupervisor:
+        async def classify_video(self, **_kwargs):
+            return [
+                {
+                    "_video_diagnostics": {
+                        "version": 1,
+                        "outcome": "abstained",
+                        "reason": "no_source_consensus",
+                    }
+                }
+            ]
+
+    captured: list[dict] = []
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService(supervisor=_DiagnosticSupervisor())
+        results = await service.classify_video_async(
+            "/tmp/demo.mp4",
+            max_frames=3,
+            diagnostics_callback=lambda payload: captured.append(payload),
+        )
+
+        assert results == []
+        assert captured == [
+            {
+                "version": 1,
+                "outcome": "abstained",
+                "reason": "no_source_consensus",
+            }
+        ]
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_classifier_service_aborts_isolated_video_worker_when_request_is_cancelled(
     mock_tflite,
     mock_os_path_exists,
@@ -1701,13 +1735,15 @@ async def test_classify_video_normalizes_birder_taxonomy_labels(mock_tflite, moc
 
 
 @pytest.mark.asyncio
-async def test_classify_video_returns_empty_for_degenerate_uniform_confidence(mock_tflite, mock_os_path_exists):
+async def test_classify_video_reports_degenerate_near_uniform_confidence(mock_tflite, mock_os_path_exists):
     class _FakeBirdModel:
         loaded = True
-        labels = [f"Class {i}" for i in range(5)]
+        labels = [f"Class {i}" for i in range(2)]
 
     fake_model = _FakeBirdModel()
-    fake_probs = np.full(5, 0.2, dtype=np.float32)
+    # Scores can clear the configured acceptance threshold while still being
+    # suspiciously close to a uniform distribution across this small label set.
+    fake_probs = np.full(2, 0.55, dtype=np.float32)
     fake_frame = np.zeros((32, 32, 3), dtype=np.uint8)
 
     with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
@@ -1725,9 +1761,15 @@ async def test_classify_video_returns_empty_for_degenerate_uniform_confidence(mo
             capture.get.side_effect = lambda prop: 20 if prop == 7 else 10  # 7 is cv2.CAP_PROP_FRAME_COUNT
             capture.set.return_value = True
             capture.read.return_value = (True, fake_frame)
-            results = service.classify_video("/tmp/fake.mp4", max_frames=5)
+            results = service.classify_video(
+                "/tmp/fake.mp4",
+                max_frames=5,
+                input_context={"include_video_diagnostics": True},
+            )
 
-        assert results == []
+        assert len(results) == 1
+        assert results[0]["_video_diagnostics"]["outcome"] == "abstained"
+        assert results[0]["_video_diagnostics"]["reason"] == "degenerate_output"
         await service.shutdown()
 
 
@@ -3562,6 +3604,83 @@ def test_video_frame_indices_cover_edges_for_recording_clips():
     assert any(54 <= idx < 126 for idx in recording_indices)
 
 
+def test_recording_sampler_does_not_fill_duplicate_targets_from_clip_start():
+    recording_indices = _select_video_frame_indices(total_frames=700, sample_count=30, clip_variant="recording")
+
+    assert len(recording_indices) == 30
+    assert len(set(recording_indices.tolist())) == 30
+    assert recording_indices[:4].tolist() != [0, 1, 2, 3]
+    assert recording_indices[1] >= 10
+
+
+def test_video_consensus_counts_only_frames_where_dynamic_crop_exists(mock_tflite, mock_os_path_exists, monkeypatch):
+    class _SparseCropBirdModel:
+        loaded = True
+        labels = ["Wood Pigeon", "Sparrowhawk"]
+
+        def classify_raw(self, image):
+            if image.size == (60, 60):
+                return np.array([0.88, 0.12], dtype=np.float32)
+            return np.array([0.34, 0.33], dtype=np.float32)
+
+    class _SparseCropService:
+        def __init__(self):
+            self.calls = 0
+
+        def get_status(self):
+            return {"installed": True, "enabled_for_runtime": True}
+
+        def generate_classification_candidate_crop(self, image):
+            self.calls += 1
+            if self.calls > 3:
+                return {"crop_image": None, "reason": "no_candidate"}
+            return {
+                "crop_image": image.crop((20, 20, 80, 80)),
+                "box": (20, 20, 80, 80),
+                "confidence": 0.88,
+                "reason": "selected",
+            }
+
+    class _TenFrameCapture:
+        def __init__(self, _path):
+            self._index = 0
+
+        def isOpened(self):
+            return True
+
+        def get(self, prop):
+            if prop == classifier_service_module.cv2.CAP_PROP_FRAME_COUNT:
+                return 10
+            if prop == classifier_service_module.cv2.CAP_PROP_FPS:
+                return 10
+            return 0
+
+        def set(self, _prop, value):
+            self._index = int(value)
+
+        def read(self):
+            if 0 <= self._index < 10:
+                return True, np.full((100, 100, 3), 48 + self._index, dtype=np.uint8)
+            return False, None
+
+        def release(self):
+            return None
+
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        service._models["bird"] = _SparseCropBirdModel()
+        service._bird_crop_service = _SparseCropService()
+        monkeypatch.setattr(classifier_service_module.cv2, "VideoCapture", _TenFrameCapture)
+        monkeypatch.setattr(classifier_service_module.cv2, "cvtColor", lambda frame, _code: frame)
+        monkeypatch.setattr(settings.classification, "min_confidence", 0.45)
+
+        results = service.classify_video("/tmp/demo.mp4", max_frames=10)
+
+        assert results[0]["label"] == "Wood Pigeon"
+        assert results[0]["input_source"] == "model_crop"
+        assert results[0]["temporal_evaluated_frames"] == 3
+
+
 @pytest.mark.asyncio
 async def test_classifier_service_classify_video_forwards_input_context_to_frame_classification(
     mock_tflite, mock_os_path_exists, monkeypatch
@@ -3857,6 +3976,32 @@ async def test_video_model_crop_uses_frigate_hint_as_guided_search_region(
 
         assert [source for source, _image in candidates] == ["full_frame", "frigate_hint_crop", "model_crop"]
         assert crop_service.guided_calls == [((100, 100), (1, 1, 97, 97))]
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_video_frigate_hint_follows_time_aligned_tracking_path(mock_tflite, mock_os_path_exists):
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        context = classifier_service_module._normalize_classification_input_context(
+            {
+                "is_cropped": False,
+                "frigate_box": [0.1, 0.1, 0.2, 0.2],
+                "frigate_path_data": [
+                    [[0.2, 0.3], 100.0],
+                    [[0.8, 0.9], 102.0],
+                ],
+                "clip_start_timestamp": 100.0,
+            }
+        )
+
+        first_box = service._tracked_frigate_box_for_frame(context, frame_offset_seconds=0.0)
+        last_box = service._tracked_frigate_box_for_frame(context, frame_offset_seconds=2.0)
+        unaligned_box = service._tracked_frigate_box_for_frame(context, frame_offset_seconds=1.0)
+
+        assert first_box == pytest.approx([0.1, 0.1, 0.2, 0.2])
+        assert last_box == pytest.approx([0.7, 0.7, 0.2, 0.2])
+        assert unaligned_box is None
         await service.shutdown()
 
 

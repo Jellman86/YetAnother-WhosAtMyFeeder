@@ -28,6 +28,20 @@ def reset_settings():
     settings.maintenance.auto_delete_missing_clips = original_auto_delete_missing_clips
 
 
+@pytest.mark.parametrize("invalid_start", ["not-a-timestamp", float("nan"), float("inf"), -1.0])
+def test_video_input_context_ignores_invalid_clip_start_timestamps(invalid_start):
+    service = AutoVideoClassifierService()
+
+    context = service._build_classification_input_context(
+        event_id="evt-invalid-clip-start",
+        event_data=None,
+        is_cropped=False,
+        clip_start_timestamp=invalid_start,
+    )
+
+    assert "clip_start_timestamp" not in context
+
+
 @pytest.mark.asyncio
 async def test_auto_delete_if_missing_marks_detection_when_policy_is_mark_missing():
     service = AutoVideoClassifierService()
@@ -131,6 +145,7 @@ async def test_process_event_records_temporal_abstention_without_breaker_failure
             "evt-video-abstention",
             "failed",
             error="video_no_results",
+            diagnostics=None,
             broadcast=True,
         )
         diagnostic = next(
@@ -197,9 +212,11 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
                 return_value=(
                     {
                         "has_clip": True,
+                        "start_time": 100.0,
                         "data": {
                             "box": [0.2, 0.3, 0.4, 0.5],
                             "region": [0.1, 0.2, 0.8, 0.9],
+                            "path_data": [[[0.4, 0.8], 100.5]],
                         },
                     },
                     None,
@@ -243,7 +260,7 @@ async def test_manual_reclassification_falls_back_for_any_unavailable_video_erro
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
     service._load_preferred_clip = AsyncMock(  # type: ignore[method-assign]
-        return_value=(None, "clip_fetch_failed", "event")
+        return_value=(None, "clip_fetch_failed", "event", None)
     )
     service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
 
@@ -427,9 +444,11 @@ async def test_process_event_passes_event_id_into_video_classification_context()
                 return_value=(
                     {
                         "has_clip": True,
+                        "start_time": 100.0,
                         "data": {
                             "box": [0.2, 0.3, 0.4, 0.5],
                             "region": [0.1, 0.2, 0.8, 0.9],
+                            "path_data": [[[0.4, 0.8], 100.5]],
                         },
                     },
                     None,
@@ -445,8 +464,11 @@ async def test_process_event_passes_event_id_into_video_classification_context()
         "is_cropped": False,
         "event_id": "evt-batch-video-context",
         "clip_variant": "event",
+        "include_video_diagnostics": True,
+        "clip_start_timestamp": 100.0,
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],
+        "frigate_path_data": [[[0.4, 0.8], 100.5]],
     }
 
 
@@ -491,6 +513,8 @@ async def test_process_event_prefers_cached_recording_clip_when_available():
         "is_cropped": False,
         "event_id": "evt-recording-preferred",
         "clip_variant": "recording",
+        "include_video_diagnostics": True,
+        "clip_start_timestamp": 1.0,
     }
 
 
@@ -533,6 +557,7 @@ async def test_process_event_falls_back_to_event_clip_when_cached_recording_is_i
         "is_cropped": False,
         "event_id": "evt-recording-invalid",
         "clip_variant": "event",
+        "include_video_diagnostics": True,
     }
 
 
