@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import math
 import os
 from pathlib import Path
 import random
@@ -141,12 +142,17 @@ resolve_live_classifier = getattr(
     lambda classifier=None: classifier or get_classifier(),
 )
 VideoClassificationWorkerError = classifier_service_module.VideoClassificationWorkerError
-JobSource = Literal["live", "maintenance"]
+JobSource = Literal["live", "manual", "maintenance"]
 
 
 def _empty_breaker_state() -> dict[JobSource, dict[str, object]]:
     return {
         "live": {
+            "failure_events": deque(),
+            "failure_event_ids": set(),
+            "open_until": None,
+        },
+        "manual": {
             "failure_events": deque(),
             "failure_event_ids": set(),
             "open_until": None,
@@ -162,6 +168,7 @@ def _empty_breaker_state() -> dict[JobSource, dict[str, object]]:
 def _empty_timeout_state() -> dict[JobSource, dict[str, object]]:
     return {
         "live": {"count": 0, "last": None},
+        "manual": {"count": 0, "last": None},
         "maintenance": {"count": 0, "last": None},
     }
 
@@ -189,6 +196,10 @@ class AutoVideoClassifierService:
         self._pending_ids: set[str] = set()
         self._pending_metadata: dict[str, dict[str, object]] = {}
         self._active_metadata: dict[str, dict[str, object]] = {}
+        # Manual requests may join queued live/maintenance work. Keep one
+        # physical event owner while preserving user-initiated fallback and
+        # feedback semantics for the eventual result.
+        self._manual_requested_ids: set[str] = set()
         self._queue_lock = asyncio.Lock()
         self._processor_task: Optional[asyncio.Task] = None
         self._stale_task: Optional[asyncio.Task] = None
@@ -271,6 +282,7 @@ class AutoVideoClassifierService:
         self._pending_ids.clear()
         self._pending_metadata.clear()
         self._active_metadata.clear()
+        self._manual_requested_ids.clear()
         self._timeout_state = _empty_timeout_state()
         log.info("AutoVideoClassifierService stopped")
 
@@ -359,6 +371,7 @@ class AutoVideoClassifierService:
         self._pending_ids.clear()
         self._pending_metadata.clear()
         self._active_metadata.clear()
+        self._manual_requested_ids.clear()
 
         # Reset circuit breaker state
         self._reset_all_breakers()
@@ -451,6 +464,11 @@ class AutoVideoClassifierService:
                         "source": source,
                         "started_at": time.monotonic(),
                         "started_at_epoch": time.time(),
+                        "updated_at_epoch": time.time(),
+                        "phase": "preparing",
+                        "current": 0,
+                        "total": int(settings.classification.video_classification_frames or 0),
+                        "manual_requested": (source == "manual" or frigate_event in self._manual_requested_ids),
                         "maintenance_holder_id": maintenance_holder_id,
                     }
                     if source == "maintenance":
@@ -774,8 +792,10 @@ class AutoVideoClassifierService:
         """Get current queue status."""
         self._cleanup_completed_tasks()
         circuit = self.get_circuit_status("live")
+        manual_circuit = self.get_circuit_status("manual")
         maintenance_circuit = self.get_circuit_status("maintenance")
         live_timeout = self._timeout_bucket("live")
+        manual_timeout = self._timeout_bucket("manual")
         maintenance_timeout = self._timeout_bucket("maintenance")
         pending = self._pending_queue.qsize()
         configured_max = int(settings.classification.video_classification_max_concurrent or 1)
@@ -786,7 +806,7 @@ class AutoVideoClassifierService:
         status = self._queue_status(
             pending=pending,
             active=active,
-            circuit_open=bool(circuit["open"] or maintenance_circuit["open"]),
+            circuit_open=bool(circuit["open"] or manual_circuit["open"] or maintenance_circuit["open"]),
         )
         return {
             "status": status,
@@ -795,12 +815,17 @@ class AutoVideoClassifierService:
             "circuit_open": circuit["open"],
             "open_until": circuit["open_until"],
             "failure_count": circuit["failure_count"],
+            "manual_circuit_open": manual_circuit["open"],
+            "manual_open_until": manual_circuit["open_until"],
+            "manual_failure_count": manual_circuit["failure_count"],
             "maintenance_circuit_open": maintenance_circuit["open"],
             "maintenance_open_until": maintenance_circuit["open_until"],
             "maintenance_failure_count": maintenance_circuit["failure_count"],
             "live_timeout_count": int(live_timeout["count"]),
+            "manual_timeout_count": int(manual_timeout["count"]),
             "maintenance_timeout_count": int(maintenance_timeout["count"]),
             "last_live_timeout": live_timeout["last"],
+            "last_manual_timeout": manual_timeout["last"],
             "last_maintenance_timeout": maintenance_timeout["last"],
             "pending_capacity": MAX_PENDING_QUEUE,
             "pending_available": max(0, MAX_PENDING_QUEUE - pending),
@@ -822,18 +847,20 @@ class AutoVideoClassifierService:
         """Return current per-event work for the owner Jobs view."""
         jobs: list[dict[str, object]] = []
         for event_id, metadata in self._pending_metadata.items():
-            source = str(metadata.get("source") or "maintenance")
+            source = "manual" if metadata.get("manual_requested") else str(metadata.get("source") or "maintenance")
             queued_at = metadata.get("queued_at_epoch")
+            updated_at = metadata.get("updated_at_epoch")
+            kind = "reclassify" if source == "manual" else "auto_video" if source == "live" else "video_analysis"
             jobs.append(
                 {
-                    "id": f"video:{event_id}",
+                    "id": f"reclassify:{event_id}" if source == "manual" else f"video:{event_id}",
                     "event_id": event_id,
-                    "kind": "auto_video" if source == "live" else "video_analysis",
+                    "kind": kind,
                     "source": source,
                     "status": "queued",
-                    "phase": "waiting",
-                    "current": 0,
-                    "total": int(settings.classification.video_classification_frames or 0),
+                    "phase": str(metadata.get("phase") or "waiting"),
+                    "current": max(0, int(metadata.get("current") or 0)),
+                    "total": max(0, int(metadata.get("total") or 0)),
                     "unit": "frames",
                     "route": f"/events?detection={event_id}",
                     "created_at": (
@@ -841,13 +868,19 @@ class AutoVideoClassifierService:
                         if isinstance(queued_at, (int, float))
                         else None
                     ),
-                    "updated_at": None,
+                    "updated_at": (
+                        datetime.fromtimestamp(float(updated_at), tz=timezone.utc).isoformat()
+                        if isinstance(updated_at, (int, float))
+                        else None
+                    ),
                     "error": None,
                 }
             )
         for event_id, metadata in self._active_metadata.items():
-            source = str(metadata.get("source") or "maintenance")
+            source = "manual" if metadata.get("manual_requested") else str(metadata.get("source") or "maintenance")
             started_at = metadata.get("started_at_epoch")
+            updated_at = metadata.get("updated_at_epoch")
+            kind = "reclassify" if source == "manual" else "auto_video" if source == "live" else "video_analysis"
             started_iso = (
                 datetime.fromtimestamp(float(started_at), tz=timezone.utc).isoformat()
                 if isinstance(started_at, (int, float))
@@ -855,18 +888,22 @@ class AutoVideoClassifierService:
             )
             jobs.append(
                 {
-                    "id": f"video:{event_id}",
+                    "id": f"reclassify:{event_id}" if source == "manual" else f"video:{event_id}",
                     "event_id": event_id,
-                    "kind": "auto_video" if source == "live" else "video_analysis",
+                    "kind": kind,
                     "source": source,
                     "status": "running",
-                    "phase": "analyzing",
-                    "current": 0,
-                    "total": int(settings.classification.video_classification_frames or 0),
+                    "phase": str(metadata.get("phase") or "analyzing"),
+                    "current": max(0, int(metadata.get("current") or 0)),
+                    "total": max(0, int(metadata.get("total") or 0)),
                     "unit": "frames",
                     "route": f"/events?detection={event_id}",
                     "created_at": started_iso,
-                    "updated_at": started_iso,
+                    "updated_at": (
+                        datetime.fromtimestamp(float(updated_at), tz=timezone.utc).isoformat()
+                        if isinstance(updated_at, (int, float))
+                        else started_iso
+                    ),
                     "error": None,
                 }
             )
@@ -890,7 +927,7 @@ class AutoVideoClassifierService:
         skip_delay: bool = True,
         fallback_to_snapshot: bool = False,
         source: JobSource = "maintenance",
-    ) -> Literal["queued", "duplicate", "deferred", "full"]:
+    ) -> Literal["queued", "duplicate", "deferred", "full", "blocked"]:
         """
         Queue a video classification task.
         Use this for bulk operations or retries.
@@ -898,8 +935,16 @@ class AutoVideoClassifierService:
         async with self._queue_lock:
             self._cleanup_completed_tasks()
             if frigate_event in self._active_tasks or frigate_event in self._pending_ids:
+                if source == "manual":
+                    self._manual_requested_ids.add(frigate_event)
+                    metadata = self._active_metadata.get(frigate_event) or self._pending_metadata.get(frigate_event)
+                    if isinstance(metadata, dict):
+                        metadata["manual_requested"] = True
+                        metadata["updated_at_epoch"] = time.time()
                 log.debug("Video classification already queued/active; skipping duplicate", event_id=frigate_event)
                 return "duplicate"
+            if self._is_circuit_open(source):
+                return "blocked"
             status_persisted = False
             try:
                 status_persisted = bool(
@@ -927,12 +972,28 @@ class AutoVideoClassifierService:
                     queue_size=self._pending_queue.qsize(),
                     max_pending=MAX_PENDING_QUEUE,
                 )
+                if source == "manual":
+                    if status_persisted:
+                        await self._update_status(
+                            frigate_event,
+                            "failed",
+                            error="video_queue_full",
+                            broadcast=True,
+                        )
+                    return "full"
                 return "deferred" if status_persisted else "full"
             self._pending_ids.add(frigate_event)
+            if source == "manual":
+                self._manual_requested_ids.add(frigate_event)
             self._pending_metadata[frigate_event] = {
                 "source": source,
                 "queued_at": time.monotonic(),
                 "queued_at_epoch": time.time(),
+                "updated_at_epoch": time.time(),
+                "phase": "waiting",
+                "current": 0,
+                "total": int(settings.classification.video_classification_frames or 0),
+                "manual_requested": source == "manual",
             }
             log.debug("Queued video classification", event_id=frigate_event, queue_size=self._pending_queue.qsize())
             return "queued"
@@ -963,6 +1024,10 @@ class AutoVideoClassifierService:
                 "source": "maintenance",
                 "queued_at": time.monotonic(),
                 "queued_at_epoch": time.time(),
+                "updated_at_epoch": time.time(),
+                "phase": "waiting",
+                "current": 0,
+                "total": int(settings.classification.video_classification_frames or 0),
                 "recovered": True,
             }
             restored += 1
@@ -974,6 +1039,7 @@ class AutoVideoClassifierService:
             self._active_tasks.pop(frigate_event, None)
             self._pending_metadata.pop(frigate_event, None)
             metadata = self._active_metadata.pop(frigate_event, None)
+            self._manual_requested_ids.discard(frigate_event)
             maintenance_holder_id = None
             if isinstance(metadata, dict) and str(metadata.get("source") or "") == "maintenance":
                 self._maintenance_last_progress_at = time.monotonic()
@@ -1011,6 +1077,28 @@ class AutoVideoClassifierService:
                 continue
             count += 1
         return count
+
+    def _note_job_progress(
+        self,
+        event_id: str,
+        *,
+        current: int | None = None,
+        total: int | None = None,
+        phase: str | None = None,
+    ) -> None:
+        """Update the canonical owner snapshot without blocking inference."""
+        metadata = self._active_metadata.get(event_id)
+        if not isinstance(metadata, dict):
+            return
+        if current is not None:
+            metadata["current"] = max(0, int(current))
+        if total is not None:
+            metadata["total"] = max(0, int(total))
+        if phase:
+            metadata["phase"] = str(phase)
+        metadata["updated_at_epoch"] = time.time()
+        if str(metadata.get("source") or "") == "maintenance":
+            self._maintenance_last_progress_at = time.monotonic()
 
     def _maintenance_status_summary(self, throttle_state: dict | None = None) -> dict[str, object]:
         throttle = throttle_state or self._get_mqtt_throttle_state(
@@ -1199,11 +1287,13 @@ class AutoVideoClassifierService:
         event_data: dict | None,
         is_cropped: bool,
         clip_variant: Literal["event", "recording"] = "event",
+        clip_start_timestamp: float | None = None,
     ) -> dict[str, object]:
         context: dict[str, object] = {
             "is_cropped": bool(is_cropped),
             "event_id": str(event_id),
             "clip_variant": str(clip_variant or "event"),
+            "include_video_diagnostics": True,
         }
         payload = dict((event_data or {}).get("data") or {})
         frigate_box = payload.get("box")
@@ -1212,6 +1302,24 @@ class AutoVideoClassifierService:
             context["frigate_box"] = list(frigate_box)
         if isinstance(frigate_region, (list, tuple)) and len(frigate_region) == 4:
             context["frigate_region"] = list(frigate_region)
+        raw_path_data = payload.get("path_data")
+        if isinstance(raw_path_data, list):
+            path_data: list[list[object]] = []
+            for item in raw_path_data[:100]:
+                if not isinstance(item, (list, tuple)) or len(item) < 2:
+                    continue
+                point = item[0]
+                if isinstance(point, (list, tuple)) and len(point) >= 2:
+                    path_data.append([list(point[:2]), item[1]])
+            if path_data:
+                context["frigate_path_data"] = path_data
+        if clip_start_timestamp is not None:
+            try:
+                normalized_clip_start = float(clip_start_timestamp)
+            except (TypeError, ValueError):
+                normalized_clip_start = -1.0
+            if math.isfinite(normalized_clip_start) and normalized_clip_start >= 0:
+                context["clip_start_timestamp"] = normalized_clip_start
         return context
 
     async def _process_event(
@@ -1239,12 +1347,31 @@ class AutoVideoClassifierService:
         )
         tmp_path: str | None = None  # pre-declared so CancelledError handler is always safe
         try:
+
+            def snapshot_fallback_requested() -> bool:
+                # Evaluate at each decision point: a manual request may join an
+                # already-running live/maintenance owner after this task starts.
+                return bool(fallback_to_snapshot) or source == "manual" or frigate_event in self._manual_requested_ids
+
+            def manual_reclassification_requested() -> bool:
+                return source == "manual" or frigate_event in self._manual_requested_ids
+
             # 1. Update status in DB to 'pending'
             await self._update_status(frigate_event, "pending", error=None, broadcast=False)
 
             # Broadcast start
             await broadcaster.broadcast(
-                {"type": "reclassification_started", "data": {"event_id": frigate_event, "strategy": "auto_video"}}
+                {
+                    "type": "reclassification_started",
+                    "data": {
+                        "event_id": frigate_event,
+                        "strategy": (
+                            "video"
+                            if source == "manual" or frigate_event in self._manual_requested_ids
+                            else "auto_video"
+                        ),
+                    },
+                }
             )
 
             # Retry precheck on event_not_found to handle the Frigate race condition
@@ -1354,9 +1481,47 @@ class AutoVideoClassifierService:
                             frigate_event=frigate_event,
                             camera=camera,
                             fallback_to_snapshot=fallback_to_snapshot,
-                            source=source,
+                            # Preserve user intent after the owning queue task has
+                            # returned and cleaned up _manual_requested_ids.
+                            source="manual" if snapshot_fallback_requested() else source,
                             next_attempt=precheck_retry_attempt + 1,
                         )
+                        return
+
+                    if snapshot_fallback_requested():
+                        log.info(
+                            "Falling back to snapshot classification after Frigate event precheck failed",
+                            event_id=frigate_event,
+                            error=event_error,
+                        )
+                        self._record_diagnostic(
+                            frigate_event,
+                            reason_code="video_precheck_snapshot_fallback",
+                            message=(
+                                "Frigate could not supply the event or video clip; "
+                                "classification is continuing with the best available snapshot."
+                            ),
+                            severity="info",
+                            context={
+                                "precheck_error": event_error,
+                                "attempts": _precheck_attempts,
+                                "retry_attempt": precheck_retry_attempt,
+                            },
+                        )
+                        await self._broadcast_snapshot_fallback(
+                            frigate_event,
+                            reason=event_error or "event_unavailable",
+                        )
+                        snapshot_error = await self._classify_from_snapshot(
+                            frigate_event,
+                            camera,
+                            event_data=event_data,
+                            manual_tagged=(source == "manual" or frigate_event in self._manual_requested_ids),
+                        )
+                        if snapshot_error is None:
+                            self._record_success(frigate_event, source=source)
+                        else:
+                            self._record_failure(frigate_event, snapshot_error, source=source)
                         return
 
                     log.warning(
@@ -1386,48 +1551,36 @@ class AutoVideoClassifierService:
                     await self._update_status(frigate_event, "failed", error=event_error, broadcast=True)
                     self._record_failure(frigate_event, event_error, source=source)
                     await self._auto_delete_if_missing(frigate_event, event_error)
-                    await broadcaster.broadcast(
-                        {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+                    await self._broadcast_reclassification_completed(
+                        frigate_event,
+                        [],
+                        outcome="failed",
+                        reason=event_error,
                     )
                     return
 
             # 2. Prefer a cached recording/full-visit clip when available.
-            clip_bytes, clip_error, clip_variant = await self._load_preferred_clip(
+            clip_bytes, clip_error, clip_variant, clip_start_timestamp = await self._load_preferred_clip(
                 frigate_event,
                 skip_delay=skip_delay,
             )
             if not clip_bytes:
-                if clip_error == "clip_not_retained" and fallback_to_snapshot:
+                if snapshot_fallback_requested():
                     log.info(
-                        "Falling back to snapshot classification for missing retained clip",
+                        "Falling back to snapshot classification because video is unavailable",
                         event_id=frigate_event,
+                        error=clip_error,
                     )
-                    # Tell the UI that this job has downgraded from a video run to
-                    # a snapshot run.  Without this the in-flight film-reel overlay
-                    # keeps the "video analysis" framing while we silently classify
-                    # from a single frame — confusing for the owner and masking the
-                    # accuracy cost of the fallback.
-                    await broadcaster.broadcast(
-                        {
-                            "type": "reclassification_strategy_changed",
-                            "data": {
-                                "event_id": frigate_event,
-                                "from": "video",
-                                "to": "snapshot",
-                                "reason": clip_error or "clip_unavailable",
-                            },
-                        }
+                    await self._broadcast_snapshot_fallback(
+                        frigate_event,
+                        reason=clip_error or "clip_unavailable",
+                        jitter=True,
                     )
-                    # Small random jitter before the first snapshot admission
-                    # attempt.  During bulk backfill runs many workers hit
-                    # "clip not retained" simultaneously; without jitter they
-                    # all race the single background-image admission slot at the
-                    # same instant, generating a burst of admission timeouts.
-                    await asyncio.sleep(random.uniform(0.0, 0.5))
                     snapshot_error = await self._classify_from_snapshot(
                         frigate_event,
                         camera,
                         event_data=event_data,
+                        manual_tagged=(source == "manual" or frigate_event in self._manual_requested_ids),
                     )
                     if snapshot_error is None:
                         self._record_success(frigate_event, source=source)
@@ -1447,8 +1600,11 @@ class AutoVideoClassifierService:
                 )
                 self._record_failure(frigate_event, clip_error or "clip_unavailable", source=source)
                 await self._auto_delete_if_missing(frigate_event, clip_error or "clip_unavailable")
-                await broadcaster.broadcast(
-                    {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+                await self._broadcast_reclassification_completed(
+                    frigate_event,
+                    [],
+                    outcome="failed",
+                    reason=clip_error or "clip_unavailable",
                 )
                 return
 
@@ -1468,8 +1624,19 @@ class AutoVideoClassifierService:
             try:
                 # 4. Run classification
                 await self._update_status(frigate_event, "processing", error=None, broadcast=False)
+                self._note_job_progress(
+                    frigate_event,
+                    current=0,
+                    total=int(settings.classification.video_classification_frames or 0),
+                    phase="analyzing",
+                )
 
                 _video_frame_scores: list[dict] = []
+                video_diagnostics: dict | None = None
+
+                def capture_video_diagnostics(payload: dict) -> None:
+                    nonlocal video_diagnostics
+                    video_diagnostics = dict(payload)
 
                 async def progress_callback(
                     current_frame,
@@ -1482,6 +1649,12 @@ class AutoVideoClassifierService:
                     model_name=None,
                     frame_offset_seconds=None,
                 ):
+                    self._note_job_progress(
+                        frigate_event,
+                        current=current_frame,
+                        total=total_frames,
+                        phase="analyzing",
+                    )
                     # Accumulate per-frame score data for top-frame persistence
                     if frame_index is not None and frame_score is not None:
                         _video_frame_scores.append(
@@ -1519,6 +1692,11 @@ class AutoVideoClassifierService:
                         event_data=event_data,
                         is_cropped=False,
                         clip_variant=clip_variant,
+                        clip_start_timestamp=(
+                            clip_start_timestamp
+                            if clip_start_timestamp is not None
+                            else (event_data or {}).get("start_time")
+                        ),
                     )
                     results = await asyncio.wait_for(
                         self._classifier.classify_video_async(
@@ -1528,6 +1706,7 @@ class AutoVideoClassifierService:
                             camera_name=camera,
                             input_context=input_context,
                             propagate_worker_failure=True,
+                            diagnostics_callback=capture_video_diagnostics,
                         ),
                         timeout=timeout,
                     )
@@ -1556,12 +1735,15 @@ class AutoVideoClassifierService:
                         except Exception:
                             pass
 
-                    if source == "maintenance" and fallback_to_snapshot:
+                    if (
+                        source in {"manual", "maintenance"} or frigate_event in self._manual_requested_ids
+                    ) and snapshot_fallback_requested():
                         timeout_context["snapshot_fallback_attempted"] = True
                         snapshot_error = await self._classify_from_snapshot(
                             frigate_event,
                             camera,
                             event_data=event_data,
+                            manual_tagged=(source == "manual" or frigate_event in self._manual_requested_ids),
                         )
                         timeout_context["snapshot_fallback_recovered"] = snapshot_error is None
                         if snapshot_error is not None:
@@ -1590,8 +1772,11 @@ class AutoVideoClassifierService:
                     )
                     await self._update_status(frigate_event, "failed", error="video_timeout", broadcast=True)
                     self._record_failure(frigate_event, "video_timeout", source=source)
-                    await broadcaster.broadcast(
-                        {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+                    await self._broadcast_reclassification_completed(
+                        frigate_event,
+                        [],
+                        outcome="failed",
+                        reason="video_timeout",
                     )
                     return
                 except VideoClassificationWorkerError as exc:
@@ -1605,15 +1790,65 @@ class AutoVideoClassifierService:
                     )
                     await self._update_status(frigate_event, "failed", error=reason_code, broadcast=True)
                     self._record_failure(frigate_event, reason_code, source=source)
-                    await broadcaster.broadcast(
-                        {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+                    await self._broadcast_reclassification_completed(
+                        frigate_event,
+                        [],
+                        outcome="failed",
+                        reason=reason_code,
                     )
                     return
+
+                if results and manual_reclassification_requested():
+                    from app.services.detection_service import DetectionService
+
+                    manual_result, rejection_reason = DetectionService(self._classifier).select_manual_reclassification(
+                        results, frigate_event
+                    )
+                    if manual_result is None:
+                        fallback_reason = rejection_reason or "video_no_usable_result"
+                        log.info(
+                            "Manual video result did not clear promotion rules; trying retained snapshot",
+                            event_id=frigate_event,
+                            reason=fallback_reason,
+                        )
+                        self._record_diagnostic(
+                            frigate_event,
+                            reason_code="video_result_not_promotable",
+                            message=(
+                                "Video frames reached temporal consensus but the result did not clear the "
+                                "configured promotion rules; retained snapshot fallback was requested"
+                            ),
+                            severity="info",
+                            context={
+                                "reason": fallback_reason,
+                                "video_diagnostics": video_diagnostics,
+                            },
+                        )
+                        await self._broadcast_snapshot_fallback(
+                            frigate_event,
+                            reason=fallback_reason,
+                        )
+                        snapshot_error = await self._classify_from_snapshot(
+                            frigate_event,
+                            camera,
+                            event_data=event_data,
+                            manual_tagged=True,
+                        )
+                        if snapshot_error is None:
+                            self._record_success(frigate_event, source=source)
+                        else:
+                            self._record_failure(frigate_event, snapshot_error, source=source)
+                        return
+                    results = [manual_result]
 
                 if results:
                     top = results[0]
                     # 5. Save results to DB
-                    await self._save_results(frigate_event, top)
+                    await self._save_results(
+                        frigate_event,
+                        top,
+                        manual_tagged=(source == "manual" or frigate_event in self._manual_requested_ids),
+                    )
                     self._record_success(frigate_event, source=source)
 
                     # Persist top video-analysis frames for HQ snapshot reuse
@@ -1651,8 +1886,10 @@ class AutoVideoClassifierService:
                             )
 
                     # Broadcast completion
-                    await broadcaster.broadcast(
-                        {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": results}}
+                    await self._broadcast_reclassification_completed(
+                        frigate_event,
+                        results,
+                        outcome="success",
                     )
 
                     log.info(
@@ -1671,10 +1908,38 @@ class AutoVideoClassifierService:
                         reason_code="video_no_results",
                         message="Video classification completed without a confident temporal result",
                         severity="info",
+                        context=video_diagnostics,
                     )
-                    await self._update_status(frigate_event, "failed", error="video_no_results", broadcast=True)
-                    await broadcaster.broadcast(
-                        {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+                    if snapshot_fallback_requested():
+                        await self._broadcast_snapshot_fallback(
+                            frigate_event,
+                            reason="video_no_results",
+                            jitter=not manual_reclassification_requested(),
+                        )
+                        snapshot_error = await self._classify_from_snapshot(
+                            frigate_event,
+                            camera,
+                            event_data=event_data,
+                            manual_tagged=manual_reclassification_requested(),
+                        )
+                        if snapshot_error is None:
+                            self._record_success(frigate_event, source=source)
+                        else:
+                            self._record_failure(frigate_event, snapshot_error, source=source)
+                        return
+                    await self._update_status(
+                        frigate_event,
+                        "failed",
+                        error="video_no_results",
+                        diagnostics=video_diagnostics,
+                        broadcast=True,
+                    )
+                    await self._broadcast_reclassification_completed(
+                        frigate_event,
+                        [],
+                        outcome="no_result",
+                        reason="video_no_results",
+                        diagnostics=video_diagnostics,
                     )
 
             finally:
@@ -1721,8 +1986,11 @@ class AutoVideoClassifierService:
             await self._update_status(frigate_event, "failed", error="video_exception", broadcast=True)
             self._record_failure(frigate_event, "video_exception", source=source)
             await self._auto_delete_if_missing(frigate_event, "video_exception")
-            await broadcaster.broadcast(
-                {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="failed",
+                reason="video_exception",
             )
 
     def _record_diagnostic(
@@ -1842,10 +2110,16 @@ class AutoVideoClassifierService:
         frigate_event: str,
         *,
         skip_delay: bool = False,
-    ) -> tuple[Optional[bytes], Optional[str], Literal["event", "recording"]]:
+    ) -> tuple[Optional[bytes], Optional[str], Literal["event", "recording"], float | None]:
         """Prefer a cached recording/full-visit clip when available, otherwise poll the event clip."""
+        recording_start_ts: float | int | None = None
         try:
-            recording_cached_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(
+            (
+                recording_cached_path,
+                _camera_name,
+                recording_start_ts,
+                _end_ts,
+            ) = await _get_valid_cached_recording_clip_path(
                 frigate_event,
                 "en",
             )
@@ -1857,7 +2131,12 @@ class AutoVideoClassifierService:
                     and (clip_bytes.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_bytes[:32])
                     and await self._clip_decodes(clip_bytes)
                 ):
-                    return clip_bytes, None, "recording"
+                    return (
+                        clip_bytes,
+                        None,
+                        "recording",
+                        float(recording_start_ts) if recording_start_ts is not None else None,
+                    )
                 log.warning(
                     "Cached recording clip was invalid; falling back to Frigate event clip",
                     event_id=frigate_event,
@@ -1883,7 +2162,12 @@ class AutoVideoClassifierService:
                         "Using retained partial recording clip for auto video classification",
                         event_id=frigate_event,
                     )
-                    return clip_bytes, None, "recording"
+                    return (
+                        clip_bytes,
+                        None,
+                        "recording",
+                        float(recording_start_ts) if recording_start_ts is not None else None,
+                    )
             except Exception as exc:
                 log.debug(
                     "Failed to read retained partial recording clip",
@@ -1906,7 +2190,7 @@ class AutoVideoClassifierService:
                     and await self._clip_decodes(clip_bytes)
                 ):
                     log.info("Using cached event clip for auto video classification", event_id=frigate_event)
-                    return clip_bytes, None, "event"
+                    return clip_bytes, None, "event", None
                 log.warning(
                     "Cached event clip was invalid; falling back to Frigate fetch",
                     event_id=frigate_event,
@@ -1920,7 +2204,7 @@ class AutoVideoClassifierService:
                 )
 
         clip_bytes, clip_error = await self._wait_for_clip(frigate_event, skip_delay=skip_delay)
-        return clip_bytes, clip_error, "event"
+        return clip_bytes, clip_error, "event", None
 
     @staticmethod
     def _clip_decodes_sync(clip_bytes: bytes) -> bool:
@@ -2085,13 +2369,44 @@ class AutoVideoClassifierService:
         except Exception as e:
             log.error("Failed to apply missing clip policy", event_id=frigate_event, error=str(e))
 
+    @staticmethod
+    async def _broadcast_reclassification_completed(
+        frigate_event: str,
+        results: list,
+        *,
+        outcome: Literal["success", "no_result", "failed"],
+        reason: str | None = None,
+        diagnostics: dict | None = None,
+    ) -> None:
+        """Publish an explicit terminal result for progress and notification clients."""
+        data: dict = {
+            "event_id": frigate_event,
+            "results": results,
+            "outcome": outcome,
+        }
+        if reason:
+            data["reason"] = reason
+        if diagnostics:
+            data["diagnostics"] = diagnostics
+        await broadcaster.broadcast({"type": "reclassification_completed", "data": data})
+
     async def _update_status(
-        self, frigate_event: str, status: str, error: Optional[str] = None, broadcast: bool = False
+        self,
+        frigate_event: str,
+        status: str,
+        error: Optional[str] = None,
+        diagnostics: Optional[dict] = None,
+        broadcast: bool = False,
     ) -> bool:
         """Update video classification status in DB."""
         async with get_db() as db:
             repo = DetectionRepository(db)
-            updated = await repo.update_video_status(frigate_event, status, error=error)
+            updated = await repo.update_video_status(
+                frigate_event,
+                status,
+                error=error,
+                diagnostics=diagnostics,
+            )
             await video_classification_waiter.publish(frigate_event, status, error=error)
             if broadcast:
                 det = await repo.get_by_frigate_event(frigate_event)
@@ -2136,6 +2451,7 @@ class AutoVideoClassifierService:
                                 "video_classification_label": det.video_classification_label,
                                 "video_classification_status": det.video_classification_status,
                                 "video_classification_error": det.video_classification_error,
+                                "video_classification_diagnostics": det.video_classification_diagnostics,
                                 "video_classification_provider": det.video_classification_provider,
                                 "video_classification_backend": det.video_classification_backend,
                                 "video_classification_input_source": det.video_classification_input_source,
@@ -2165,7 +2481,13 @@ class AutoVideoClassifierService:
         except Exception as e:
             log.warning("Failed to persist video top frames", event_id=frigate_event, error=str(e))
 
-    async def _save_results(self, frigate_event: str, result: dict):
+    async def _save_results(
+        self,
+        frigate_event: str,
+        result: dict,
+        *,
+        manual_tagged: bool = False,
+    ):
         """Save final results via DetectionService to handle intelligent overrides."""
         from app.services.detection_service import DetectionService
 
@@ -2180,6 +2502,7 @@ class AutoVideoClassifierService:
             video_backend=result.get("inference_backend"),
             video_model_id=result.get("model_id"),
             video_input_source=result.get("input_source"),
+            manual_tagged=manual_tagged,
         )
         await video_classification_waiter.publish(
             frigate_event,
@@ -2196,6 +2519,7 @@ class AutoVideoClassifierService:
         camera: str,
         *,
         event_data: dict | None = None,
+        manual_tagged: bool = False,
     ) -> str | None:
         """Fallback path for queued user-initiated analysis when Frigate clips are no longer retained."""
         snapshot_data, provenance = await load_snapshot_classification_input(
@@ -2206,8 +2530,11 @@ class AutoVideoClassifierService:
         )
         if not snapshot_data:
             await self._update_status(frigate_event, "failed", error="snapshot_fetch_failed", broadcast=True)
-            await broadcaster.broadcast(
-                {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="failed",
+                reason="snapshot_fetch_failed",
             )
             return "snapshot_fetch_failed"
 
@@ -2267,35 +2594,55 @@ class AutoVideoClassifierService:
                 context={"attempts": SNAPSHOT_FALLBACK_MAX_ATTEMPTS},
             )
             await self._update_status(frigate_event, "failed", error=last_unavailable_error, broadcast=True)
-            await broadcaster.broadcast(
-                {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="failed",
+                reason=last_unavailable_error,
             )
             return last_unavailable_error
 
         if not results:
             await self._update_status(frigate_event, "failed", error="snapshot_no_results", broadcast=True)
-            await broadcaster.broadcast(
-                {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="no_result",
+                reason="snapshot_no_results",
             )
             return "snapshot_no_results"
 
         from app.services.detection_service import DetectionService
 
         svc = DetectionService(self._classifier)
-        top, reason = svc.select_usable_classification(results, frigate_event)
+        selection = (
+            svc.select_manual_reclassification(results, frigate_event)
+            if manual_tagged
+            else svc.select_usable_classification(results, frigate_event)
+        )
+        top, reason = selection
         if not top:
             await self._update_status(
                 frigate_event, "failed", error=reason or "snapshot_no_usable_result", broadcast=True
             )
-            await broadcaster.broadcast(
-                {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": []}}
+            await self._broadcast_reclassification_completed(
+                frigate_event,
+                [],
+                outcome="no_result",
+                reason=reason or "snapshot_no_usable_result",
             )
             return reason or "snapshot_no_usable_result"
         top_with_provenance = dict(top)
         top_with_provenance.setdefault("input_source", provenance.input_source)
-        await self._save_results(frigate_event, top_with_provenance)
-        await broadcaster.broadcast(
-            {"type": "reclassification_completed", "data": {"event_id": frigate_event, "results": results}}
+        await self._save_results(
+            frigate_event,
+            top_with_provenance,
+            manual_tagged=manual_tagged,
+        )
+        await self._broadcast_reclassification_completed(
+            frigate_event,
+            results,
+            outcome="success",
         )
         log.info(
             "Snapshot fallback classification completed",
@@ -2304,6 +2651,30 @@ class AutoVideoClassifierService:
             score=top["score"],
         )
         return None
+
+    @staticmethod
+    async def _broadcast_snapshot_fallback(
+        frigate_event: str,
+        *,
+        reason: str,
+        jitter: bool = False,
+    ) -> None:
+        """Expose a video-to-snapshot downgrade and optionally stagger bulk work."""
+        await broadcaster.broadcast(
+            {
+                "type": "reclassification_strategy_changed",
+                "data": {
+                    "event_id": frigate_event,
+                    "from": "video",
+                    "to": "snapshot",
+                    "reason": reason,
+                },
+            }
+        )
+        if jitter:
+            # Bulk recovery can make many retained-clip misses converge on the
+            # single background-image admission slot at once.
+            await asyncio.sleep(random.uniform(0.0, 0.5))
 
 
 # Global singleton

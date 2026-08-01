@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "仪表盘",
     "explorer": "探索",
+    "add_observation": "添加观察",
     "leaderboard": "排行榜",
     "observe": "观察",
     "manage": "管理",
@@ -24,6 +25,19 @@
     "events": "事件",
     "notifications": "通知",
     "species": "物种"
+  },
+  "manual_observation": {
+    "eyebrow": "野外记录", "intro_title": "将照片或视频转为已核实的观察记录",
+    "intro_body": "YA-WAMF 使用与实时检测相同的模型、裁剪选择和视频共识流程。在您审核前不会添加任何记录。", "progress_label": "观察记录进度",
+    "steps": { "upload": "上传", "upload_detail": "选择原始媒体", "analyse": "分析", "analyse_detail": "寻找最有力的证据", "review": "审核", "review_detail": "确认物种", "save": "保存", "save_detail": "添加到观察记录" },
+    "evidence": { "full_frame": "完整画面", "crop": "最佳裁剪", "model": "模型", "provider": "提供程序" },
+    "errors": { "load": "无法加载分析状态。", "type": "请选择 JPEG、PNG、WebP、MP4、MOV 或 WebM 文件。", "upload": "无法上传媒体。", "retry": "无法重新启动分析。", "save": "无法保存观察记录。" },
+    "upload": { "title": "选择照片或视频", "help": "请尽量使用原始文件。YA-WAMF 会保留原文件，并选择最适合分类的输入。", "change": "选择其他文件", "drop": "将媒体拖放到此处或选择文件", "formats": "JPEG、PNG、WebP 最大 25 MB · MP4、MOV、WebM 最大 250 MB／3 分钟", "uploading": "正在安全保存原文件…", "analyse": "上传并分析" },
+    "analysis": { "preview_alt": "已上传媒体预览", "video": "视频", "image": "照片", "title": "正在寻找最有力的证据", "body": "生产分类器正在比较帧和裁剪候选。您可以离开此页面，返回时会恢复草稿。", "progress": "分析进度", "failed_title": "分析已安全停止", "failed_body": "原始媒体仍已保存。模型可用后请重试。", "retry": "重试分析" },
+    "review": { "preview_alt": "观察记录预览", "title": "保存前审核", "body": "确认建议的物种，必要时进行更正，并添加您希望保留的现场信息。", "candidates": "模型建议", "species": "物种", "when": "观察时间", "location": "相机或地点名称", "notes": "备注", "saving": "正在保存观察记录…", "save": "保存观察记录" },
+    "location": { "title": "目击地点", "extracted": "已从图像元数据中找到位置。请检查图钉，并在需要时调整。", "missing": "未找到图像内嵌的位置。如果知道目击地点，请放置图钉。", "manual": "此图钉已被手动放置或调整。保存前请检查。", "from_image": "来自图像元数据", "map_label": "用于放置目击地点图钉的地图", "map_help": "点击或轻触地图以放置图钉。拖动图钉可进行精确调整。", "latitude": "纬度", "longitude": "经度", "clear": "清除位置", "incomplete": "请输入纬度和经度，或清除位置。", "invalid": "纬度必须介于 −90 和 90 之间，经度必须介于 −180 和 180 之间。", "selected": "图钉已放置在 {latitude}, {longitude}", "unselected": "尚未选择目击地点", "pin_label": "目击地点图钉；拖动可调整" },
+    "saved": { "toast": "已添加观察记录", "eyebrow": "记录完成", "title": "观察记录已保存", "body": "已核实的记录现已计入检测历史和物种统计。", "view": "查看检测", "another": "再添加一条" },
+    "start_over": "重新开始"
   },
   "setup": {
     "action_failed": "无法保存此更改。请检查内容后重试。",
@@ -65,7 +79,7 @@
       "load_failed": "无法加载设置摘要。已保存的设置未被更改。",
       "retry": "重试加载摘要",
       "stale": "由于最新刷新失败，当前显示上一次的设置摘要。",
-      "detail": { "account_password_protected": "密码保护", "account_auth_disabled": "身份验证已禁用", "account_not_configured": "未配置", "frigate_url": "Frigate 地址", "mqtt_broker": "MQTT 代理", "mqtt_username": "MQTT 用户名", "mqtt_password": "MQTT 密码", "connection_missing": "设置 {items}", "cameras_count": "{count} 个摄像头", "cameras_all": "所有摄像头", "model_wrong_kind": "裁剪检测器被选作分类器", "model_fallback": "内置后备模型", "quality_best": "最佳可用快照", "quality_standard": "标准快照", "integrations_needs": "需要设置：{integrations}", "integrations_configured": "已配置：{integrations}", "integrations_none": "均未启用" }
+      "detail": { "account_password_protected": "密码保护", "account_auth_disabled": "身份验证已禁用", "account_not_configured": "未配置", "frigate_url": "Frigate 地址", "mqtt_broker": "MQTT 代理", "mqtt_username": "MQTT 用户名", "mqtt_password": "MQTT 密码", "connection_missing": "设置 {items}", "cameras_count": "{count} 个摄像头", "cameras_all": "所有摄像头", "model_wrong_kind": "裁剪检测器被选作分类器", "model_retired": "已停用保存的分类模型", "model_fallback": "内置后备模型", "quality_best": "最佳可用快照", "quality_standard": "标准快照", "integrations_needs": "需要设置：{integrations}", "integrations_configured": "已配置：{integrations}", "integrations_none": "均未启用" }
     }
   },
   "theme": {
@@ -1329,6 +1343,8 @@
     "reclassify_selected": "重新分类所选"
   },
   "detection": {
+    "uploaded": "已上传",
+    "observation_notes": "观察备注",
     "confidence": "置信度",
     "verified": "已验证",
     "hidden": "已隐藏",
@@ -1474,6 +1490,16 @@
       "gated_title": "视频已找到匹配 — 请确认以应用",
       "gated_desc": "由于视频得分低于您的最低置信度阈值,自动应用已被搁置。运行\"重新分类\"以应用此结果,或在 设置 → 检测 中降低阈值。",
       "gated_action": "重新分类",
+      "evidence": {
+        "title": "本次分析的证据",
+        "summary": "已解码 {sampled} 个采样帧中的 {processed} 个。每帧至少需要 {threshold}% 的置信度才能投票。",
+        "confident_short": "高置信",
+        "required": "此来源需要 {required} 个达到置信要求且结果一致的独立时刻。",
+        "top_candidates": "最常出现的候选物种",
+        "full_frame": "完整画面",
+        "frigate_hint_crop": "Frigate 引导裁剪",
+        "model_crop": "AI 裁剪"
+      },
       "blocked_label": "匹配到已屏蔽的物种 — 未应用"
     },
     "card_analysis": {
@@ -1495,6 +1521,13 @@
       "auto_video_source": "自动视频分析",
       "auto_video_source_hint": "结果已根据剪辑帧进一步优化。",
       "final_result": "最终结果",
+      "complete": "已完成",
+      "unchanged_title": "识别结果未更改",
+      "unchanged_description": "没有结果达到置信度规则，因此保留了现有识别结果。",
+      "unchanged_reason_no_source_consensus": "采样帧未能充分一致地指向同一物种。",
+      "unchanged_evidence": "最佳证据：{independent} 个独立时刻中有 {confident} 个可参与投票；领先物种在 {supporting} 个时刻一致，要求为 {required} 个。",
+      "failed_title": "无法完成重新分类",
+      "failed_description": "分析在得到可用结果前结束。技术原因：{reason}。",
       "snapshot_fallback_title": "正在根据快照分类",
       "snapshot_fallback_badge": "回退到快照",
       "snapshot_fallback_reason_generic": "视频片段不可用",
@@ -1504,7 +1537,10 @@
         "clip_invalid": "视频片段已损坏或无法读取。",
         "clip_decode_failed": "无法解码视频片段。",
         "clip_fetch_failed": "无法从 Frigate 获取视频片段。",
-        "event_not_found": "Frigate 已不再保留此事件,且没有可用的缓存片段。"
+        "event_not_found": "Frigate 已不再保留此事件,且没有可用的缓存片段。",
+        "video_no_results": "视频帧未能对同一物种形成可靠共识。",
+        "below_threshold": "视频对候选物种达成一致，但置信度低于已配置的阈值。",
+        "video_no_usable_result": "视频结果未通过已配置的替换规则。"
       },
       "snapshot_scanning": "正在扫描快照"
     },
@@ -2324,6 +2360,7 @@
     "about": "版本、变更日志、贡献者和支持链接。",
     "dashboard": "实时检测、近期活动和喂食器状态一览。",
     "events": "浏览、筛选并管理每一次已分类的访问。",
+    "add_observation": "分类自己的照片或视频，核对依据并将其添加到观察历史。",
     "notifications": "提醒、通知和正在运行的后台任务。",
     "settings": "连接、分类、集成与个性化。",
     "species": "已观察到的鸟类的排行榜、总数和分类详情。"

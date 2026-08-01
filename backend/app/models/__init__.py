@@ -41,6 +41,7 @@ class Detection(APIModel):
     display_name: str
     category_name: str
     frigate_event: str
+    observation_source: str = "frigate"
     camera_name: str
     is_hidden: bool = False
     is_favorite: bool = False
@@ -80,6 +81,7 @@ class Detection(APIModel):
     video_classification_model_id: str | None = None
     video_classification_model_name: str | None = None
     video_classification_input_source: str | None = None
+    video_classification_diagnostics: dict[str, object] | None = None
     # AI naturalist analysis fields
     ai_analysis: str | None = None
     ai_analysis_timestamp: datetime | None = None
@@ -89,6 +91,10 @@ class DetectionResponse(Detection):
     has_clip: bool = False  # Clip availability from Frigate
     has_snapshot: bool = True  # Snapshot availability from Frigate
     has_frigate_event: bool = True  # Event still exists in Frigate
+    observation_notes: str | None = None
+    observation_latitude: float | None = None
+    observation_longitude: float | None = None
+    observation_location_source: str | None = None
 
 
 class DetectionListItemResponse(APIModel):
@@ -100,6 +106,7 @@ class DetectionListItemResponse(APIModel):
     category_name: str
     camera_name: str
     frigate_event: str
+    observation_source: str = "frigate"
     is_hidden: bool = False
     is_favorite: bool = False
     has_clip: bool = False
@@ -109,6 +116,10 @@ class DetectionListItemResponse(APIModel):
     audio_score: float | None = None
     audio_confirmed: bool = False
     audio_context_species: list[str] | None = None
+    observation_notes: str | None = None
+    observation_latitude: float | None = None
+    observation_longitude: float | None = None
+    observation_location_source: str | None = None
 
 
 class FrigateEvent(APIModel):

@@ -14,7 +14,12 @@ from typing import Any, List, Optional, Dict
 from app.models.ai_models import CropGeneratorConfig, ModelMetadata, InstalledModel, DownloadProgress
 from app.config import settings
 from app.config_models import normalize_crop_model_override, normalize_crop_source_override
-from app.services.model_validation import is_model_validated
+from app.services.model_validation import (
+    activation_provider_recommendation,
+    host_eligible_providers,
+    host_provider_preference_order,
+    is_model_validated,
+)
 from app.services.bird_model_region_resolver import resolve_bird_model_region
 
 
@@ -28,6 +33,19 @@ log = structlog.get_logger()
 
 _PERSISTENT_MODELS_DIR = "/data/models"
 _PACKAGED_DEFAULT_MODEL_DIR = "/app/data/models"
+
+# These classifier assets remain published for pre-3.0 applications, but current
+# releases must not advertise, validate, download, or reactivate them. Installed
+# files are deliberately left untouched so an operator can still roll back.
+RETIRED_CLASSIFIER_MODEL_IDS = frozenset(
+    {
+        "moganet_s_eu_common",
+        "convnext_v1_tiny_eu_common",
+        "regnet_y_8g_eu_common",
+        "uniformer_s_eu_common",
+    }
+)
+_RETIRED_CLASSIFIER_REPLACEMENT_ID = "convnext_large_inat21"
 
 # Model Registry
 # Supports both TFLite and ONNX runtimes
@@ -148,7 +166,8 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High",
         "inference_speed": "Medium",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "intel_cpu"],
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
         "download_url": "pending",
         "labels_url": "pending",
         "input_size": 224,
@@ -180,7 +199,11 @@ REMOTE_REGISTRY = [
                 "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
                 "file_size_mb": 122.7,
                 "input_size": 384,
-                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+                "supported_inference_providers": ["cpu", "intel_cpu"],
+                # NPU is artifact-specific and host-gated. Two isolated
+                # Quark/OpenVINO 2026.2.1 runs matched CPU top-1 and top-5 on
+                # every real comparison image; it is not globally enabled.
+                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu"],
                 "preprocessing": {
                     "color_space": "RGB",
                     "resize_mode": "center_crop",
@@ -212,7 +235,8 @@ REMOTE_REGISTRY = [
                     "std": [0.229, 0.224, 0.225],
                     "normalization": "float32",
                 },
-                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+                "supported_inference_providers": ["cpu", "intel_cpu"],
+                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
                 "label_grouping": {
                     "strategy": "strip_trailing_parenthetical",
                 },
@@ -225,7 +249,7 @@ REMOTE_REGISTRY = [
                 },
             },
         },
-        "notes": "Regional birds-only family. Assets pending validation and release upload.",
+        "notes": "Regional birds-only family. Both regional artifacts keep Intel GPU host-gated because of historical conflicts. The EU MobileNetV4 artifact also exposes Intel NPU as a host-gated candidate after two isolated Quark / OpenVINO 2026.2.1 runs matched CPU on every real comparison image; the NA EfficientNet NPU route remains excluded after inconsistent runs.",
     },
     {
         "id": "convnext_large_inat21",
@@ -236,11 +260,12 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High (90%+)",
         "inference_speed": "Slow (~500-800ms)",
         "runtime": "onnx",
-        # NOT intel_gpu: harness retest 2026-05-08 on OV 2025.4.1 confirmed
-        # the depthwise-conv precision issue persists. Compile succeeds on
-        # iGPU but top-1 collapses 66.8% → 32.7%; the model produces
-        # systematically wrong species. Stays CPU-only.
+        # Intel GPU is host-gated. OpenVINO 2025.4.1 produced systematically
+        # wrong output, while Quark's OpenVINO 2026.2.1 matched CPU top-1 on
+        # two independent real-image sweeps (12/12 and 24/24). It is therefore
+        # a validation candidate, never a globally trusted provider.
         "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
+        "candidate_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_large_inat21_labels.txt",
@@ -270,7 +295,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "CPU, Intel CPU, and Intel NPU validated; the Arrow Lake / OpenVINO 2026.2.1 NPU matched CPU top-1 on all 12 real sweep images. Intel GPU is not globally supported: older Intel GPU runs produced systematically wrong species, so only a successful per-host validation may override that restriction. CUDA unverified. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45.",
+        "notes": "CPU, CUDA, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: OpenVINO 2025.4.1 produced wrong rankings, while Arrow Lake / OpenVINO 2026.2.1 matched CPU top-1 on two independent real-image sweeps (12/12 and 24/24). YA-WAMF exposes Intel GPU only after the exact installation passes the numerical-equivalence sweep. Higher-accuracy broad model. Uses a 10,000-class label space; lower confidence scores are normal — recommended threshold is 0.45.",
     },
     {
         "id": "eu_medium_focalnet_b",
@@ -309,7 +334,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "CPU, Intel CPU, Intel GPU, and Intel NPU validated. The Arrow Lake / OpenVINO 2026.2.1 NPU produced finite output and matched CPU top-1 on all 12 real sweep images. CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input.",
+        "notes": "CPU, Intel CPU, Intel GPU, and Intel NPU are globally supported. Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images for every Intel provider; Intel GPU averaged 5/5 top-5 overlap and Intel NPU 4.96/5. CUDA unverified. Exported from Birder pretrained weights (focalnet_b_lrf_intermediate-eu-common). 707 European species, 384px input.",
     },
     {
         "id": "flexivit_il_all",
@@ -320,7 +345,8 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "High",
         "inference_speed": "Fast (~80-150ms)",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
+        "candidate_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/flexivit_il_all_labels.txt",
@@ -350,7 +376,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": True,
         },
-        "notes": "CPU, Intel CPU, and Intel NPU validated; the Arrow Lake / OpenVINO 2026.2.1 NPU matched CPU top-1 on all 12 real sweep images. Intel GPU has failed on older hosts and remains subject to per-host validation. CUDA unverified. 550 global bird species, uses ONNX external data file.",
+        "notes": "CPU, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: older OpenVINO runs produced non-finite output, while Quark / OpenVINO 2026.2.1 matched CPU top-1 on 24/24 real images with 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection. CUDA unverified. 550 global bird species, uses ONNX external data file.",
     },
     {
         "id": "medium_birds",
@@ -361,7 +387,8 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Very High",
         "inference_speed": "Medium-Slow",
         "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+        "supported_inference_providers": ["cpu", "intel_cpu"],
+        "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
         "download_url": "pending",
         "labels_url": "pending",
         "input_size": 224,
@@ -394,6 +421,7 @@ REMOTE_REGISTRY = [
                 "file_size_mb": 108.5,
                 "input_size": 256,
                 "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
                 "preprocessing": {
                     "color_space": "RGB",
                     "resize_mode": "center_crop",
@@ -406,6 +434,7 @@ REMOTE_REGISTRY = [
                 "crop_generator": {
                     "enabled": False,
                 },
+                "notes": "The EU ConvNeXt-V2 artifact supports CPU and Intel GPU. Intel NPU remains excluded after Quark / OpenVINO 2026.2.1 disagreed with CPU top-1 on one of 24 real comparison images.",
             },
             "na": {
                 "region_scope": "na",
@@ -427,7 +456,12 @@ REMOTE_REGISTRY = [
                     "std": [0.229, 0.224, 0.225],
                     "normalization": "float32",
                 },
-                "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
+                "supported_inference_providers": ["cpu", "intel_cpu"],
+                # The NA Binocular artifact has conflicting historical GPU
+                # results, while two current isolated NPU runs matched CPU
+                # top-1 on every real comparison image. Both accelerators stay
+                # host-gated rather than becoming globally safe.
+                "candidate_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu"],
                 "label_grouping": {
                     "strategy": "strip_trailing_parenthetical",
                 },
@@ -440,7 +474,7 @@ REMOTE_REGISTRY = [
                 },
             },
         },
-        "notes": "Regional birds-only family. Assets pending validation and release upload.",
+        "notes": "Regional birds-only family. The EU ConvNeXt-V2 artifact supports Intel GPU but excludes NPU after a current CPU-equivalence failure. The NA Binocular artifact keeps Intel GPU and NPU host-gated behind an exact-installation sweep.",
     },
     {
         "id": "rope_vit_b14_inat21",
@@ -452,11 +486,12 @@ REMOTE_REGISTRY = [
         "inference_speed": "Medium-Slow (~220-400ms)",
         "runtime": "onnx",
         # Intel GPU and NPU are validated on Arrow Lake with OpenVINO 2026.2.1.
-        # The 2026-07-18 full device sweep compiled both accelerators in isolated
-        # subprocesses, produced finite output for 12 real images, and matched the
+        # The 2026-07-28 full device sweep compiled both accelerators in isolated
+        # subprocesses, produced finite output for 24 real images, and matched the
         # CPU top-1 on every image. Older Intel GPU / OpenVINO 2025.4 combinations
         # produced NaNs, so the per-host validation gate remains authoritative.
-        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
+        "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
+        "candidate_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21.onnx",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_labels.txt",
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_model_config.json",
@@ -484,7 +519,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "CPU, Intel CPU, Intel GPU, and Intel NPU validated on Arrow Lake with OpenVINO 2026.2.1. The 2026-07-18 full device sweep produced finite output and exact CPU top-1 agreement on all 12 real comparison images for both accelerators. Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so validate on each host before selection; YA-WAMF falls back safely when validation fails. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
+        "notes": "CPU, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: Quark / OpenVINO 2026.2.1 produced finite output and exact CPU top-1 agreement on 24/24 real images with 5/5 mean top-5 overlap, while older OpenVINO 2025.4 combinations produced NaNs. Validate Intel GPU on each host before selection; YA-WAMF falls back safely when validation fails. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
     {
         "id": "eva02_large_inat21",
@@ -495,13 +530,12 @@ REMOTE_REGISTRY = [
         "accuracy_tier": "Elite (91%+)",
         "inference_speed": "Slow (~1s)",
         "runtime": "onnx",
-        # NOT intel_gpu: EVA-02 SIGABRTs the runtime on Intel iGPU
-        # (CL_OUT_OF_RESOURCES → process abort). Documented in
-        # tests/test_model_openvino_gpu.py GPU_NOT_SUPPORTED. Tested OV
-        # 2024.6.0, 2026.0.0, 2025.4.1 — all crash. Hard requirement, do
-        # not re-enable without confirming the OpenCL kernel issue is
-        # fixed in a future OpenVINO release.
+        # Intel GPU remains host-gated. OpenVINO 2024.6.0 through 2025.4.1
+        # could abort with CL_OUT_OF_RESOURCES, while Quark's isolated
+        # OpenVINO 2026.2.1 sweep completed 24/24 real images with exact
+        # CPU top-1 agreement. Never make it a globally safe default.
         "supported_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_npu"],
+        "candidate_inference_providers": ["cpu", "cuda", "intel_cpu", "intel_gpu", "intel_npu"],
         "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx",
         "weights_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21.onnx.data",
         "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eva02_large_inat21_labels.txt",
@@ -531,155 +565,7 @@ REMOTE_REGISTRY = [
         "crop_generator": {
             "enabled": False,
         },
-        "notes": "Elite accuracy model. CPU, Intel CPU, and Intel NPU validated; the Arrow Lake / OpenVINO 2026.2.1 NPU matched CPU top-1 on all 12 real sweep images. Intel GPU caused fatal process crashes on older runtimes and remains globally disabled despite passing this Arrow Lake host's isolated check. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
-    },
-    {
-        "id": "moganet_s_eu_common",
-        "name": "MogaNet-S EU-Common (iGPU)",
-        "description": "MogaNet-S on Birder's eu-common dataset (707 bird species). Multi-order gated aggregation CNN — no rotary/attention. Validated cleanly on Intel iGPU with the strongest CPU-vs-GPU agreement of any new candidate (top-5 overlap = 5/5).",
-        "architecture": "MogaNet-S",
-        "file_size_mb": 96,
-        "accuracy_tier": "High",
-        "inference_speed": "Fast on iGPU (~130ms)",
-        "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu", "intel_npu", "cuda"],
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common.onnx",
-        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common_labels.txt",
-        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/moganet_s_eu_common_model_config.json",
-        "sha256": "cac213ac1d41611654c3461fd9faf16415ed2af72293f85ac14d0234a625328f",
-        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
-        "input_size": 384,
-        "preprocessing": {
-            "color_space": "RGB",
-            "resize_mode": "center_crop",
-            "interpolation": "bicubic",
-            "crop_pct": 1.0,
-            "mean": [0.5, 0.5, 0.5],
-            "std": [0.5, 0.5, 0.5],
-            "normalization": "float32",
-        },
-        "license": "Apache-2.0",
-        "tier": "medium",
-        "taxonomy_scope": "birds_only",
-        "recommended_threshold": 0.5,
-        "recommended_for": "EU users with Intel iGPU. Strong GPU/CPU agreement makes this the most robust candidate for users who want consistent predictions regardless of provider.",
-        "estimated_ram_mb": 512,
-        "advanced_only": True,
-        "sort_order": 22,
-        "status": "experimental",
-        "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/moganet_s_eu-common. Converted via legacy torch.onnx.export. Intel GPU validated 2026-05-08; Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images.",
-    },
-    {
-        "id": "convnext_v1_tiny_eu_common",
-        "name": "ConvNeXt-V1 Tiny EU-Common",
-        "description": "ConvNeXt-V1-Tiny on Birder's eu-common dataset (707 species). V1 predecessor to convnext_v2_tiny_eu_common. Runs on CPU or a host-validated Intel NPU; older iGPU output was precision-degraded.",
-        "architecture": "ConvNeXt-V1-Tiny",
-        "file_size_mb": 109,
-        "accuracy_tier": "High",
-        "inference_speed": "Medium (~140ms CPU)",
-        "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common.onnx",
-        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_labels.txt",
-        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/convnext_v1_tiny_eu_common_model_config.json",
-        "sha256": "a638ea3457e0c50bd8259869aa72351f576eb13c2f353fd36b56b78013e77f7f",
-        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
-        "input_size": 384,
-        "preprocessing": {
-            "color_space": "RGB",
-            "resize_mode": "center_crop",
-            "interpolation": "bicubic",
-            "crop_pct": 1.0,
-            "mean": [0.5, 0.5, 0.5],
-            "std": [0.5, 0.5, 0.5],
-            "normalization": "float32",
-        },
-        "license": "Apache-2.0",
-        "tier": "medium",
-        "taxonomy_scope": "birds_only",
-        "recommended_threshold": 0.5,
-        "recommended_for": "Architecture comparison reference for ConvNeXt-V2 on CPU or a validated Intel NPU.",
-        "estimated_ram_mb": 512,
-        "advanced_only": True,
-        "sort_order": 23,
-        "status": "experimental",
-        "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/convnext_v1_tiny_eu-common. Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images. Older iGPU output was precision-degraded, so the registry excludes intel_gpu.",
-    },
-    {
-        "id": "regnet_y_8g_eu_common",
-        "name": "RegNet-Y-8G EU-Common",
-        "description": "RegNet-Y-8G on Birder's eu-common dataset (707 species). Pure CNN, no attention. Runs on CPU or a host-validated Intel NPU; older iGPU predictions diverged from CPU.",
-        "architecture": "RegNet-Y-8G",
-        "file_size_mb": 148,
-        "accuracy_tier": "High",
-        "inference_speed": "Slow (~200ms CPU)",
-        "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common.onnx",
-        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_labels.txt",
-        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/regnet_y_8g_eu_common_model_config.json",
-        "sha256": "67a19680561b2ac6bfef31ea42b9713eda429a3e2282b5abf841d23df0131d69",
-        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
-        "input_size": 384,
-        "preprocessing": {
-            "color_space": "RGB",
-            "resize_mode": "center_crop",
-            "interpolation": "bicubic",
-            "crop_pct": 1.0,
-            "mean": [0.5, 0.5, 0.5],
-            "std": [0.5, 0.5, 0.5],
-            "normalization": "float32",
-        },
-        "license": "Apache-2.0",
-        "tier": "medium",
-        "taxonomy_scope": "birds_only",
-        "recommended_threshold": 0.5,
-        "recommended_for": "Pure CNN reference baseline for CPU or a validated Intel NPU.",
-        "estimated_ram_mb": 768,
-        "advanced_only": True,
-        "sort_order": 24,
-        "status": "experimental",
-        "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/regnet_y_8g_intermediate-eu-common. Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images. Older iGPU predictions diverged, so the registry excludes intel_gpu.",
-    },
-    {
-        "id": "uniformer_s_eu_common",
-        "name": "UniFormer-S EU-Common",
-        "description": "UniFormer-S on Birder's eu-common dataset (707 species). Convolution-attention hybrid. Runs on CPU or a host-validated Intel NPU; older iGPU runs produced NaNs.",
-        "architecture": "UniFormer-S",
-        "file_size_mb": 82,
-        "accuracy_tier": "High",
-        "inference_speed": "Medium (~95ms CPU)",
-        "runtime": "onnx",
-        "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu", "cuda"],
-        "download_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common.onnx",
-        "labels_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_labels.txt",
-        "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/uniformer_s_eu_common_model_config.json",
-        "sha256": "1e19b7d971b085f4bda5d149faa92a756d0e49b2e140dab3e9fc4061bd853955",
-        "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
-        "input_size": 384,
-        "preprocessing": {
-            "color_space": "RGB",
-            "resize_mode": "center_crop",
-            "interpolation": "bicubic",
-            "crop_pct": 1.0,
-            "mean": [0.5, 0.5, 0.5],
-            "std": [0.5, 0.5, 0.5],
-            "normalization": "float32",
-        },
-        "license": "Apache-2.0",
-        "tier": "medium",
-        "taxonomy_scope": "birds_only",
-        "recommended_threshold": 0.5,
-        "recommended_for": "Architectural comparison alternative for CPU or a validated Intel NPU.",
-        "estimated_ram_mb": 384,
-        "advanced_only": True,
-        "sort_order": 27,
-        "status": "experimental",
-        "crop_generator": {"enabled": False},
-        "notes": "Sourced from huggingface.co/birder-project/uniformer_s_eu-common. Intel NPU validated on Arrow Lake / OpenVINO 2026.2.1 with finite output and CPU top-1 agreement on all 12 real sweep images. Older iGPU runs produced NaNs, so the registry excludes intel_gpu.",
+        "notes": "Elite accuracy model. CPU, Intel CPU, and Intel NPU are globally supported. Intel GPU is host-gated: OpenVINO 2024.6.0 through 2025.4.1 could abort with CL_OUT_OF_RESOURCES, while Quark / OpenVINO 2026.2.1 completed 24/24 real images with exact CPU top-1 agreement and 5/5 top-5 overlap. The exact installation must pass the isolated sweep before selection. CUDA unverified. Uses a 10,000-class label space; recommended threshold is 0.45.",
     },
 ]
 
@@ -689,6 +575,11 @@ def registry_artifact_kind(model_id: str) -> str:
     normalized = str(model_id or "").strip()
     metadata = next((model for model in REMOTE_REGISTRY if model["id"] == normalized), None)
     return str((metadata or {}).get("artifact_kind") or "classifier").strip().lower()
+
+
+def is_retired_model(model_id: str) -> bool:
+    """Return whether a legacy classifier is intentionally absent from the current catalog."""
+    return str(model_id or "").strip() in RETIRED_CLASSIFIER_MODEL_IDS
 
 
 def _configured_models_dir() -> str:
@@ -850,10 +741,116 @@ class ModelManager:
     def _save_active_model_id(self, model_id: str):
         """Save the active model ID (thread-safe)."""
         config_path = os.path.join(MODELS_DIR, "active_model.json")
+        temporary_path = f"{config_path}.tmp"
         with self._active_model_lock:
-            with open(config_path, "w") as f:
-                json.dump({"active_model_id": model_id}, f)
+            with open(temporary_path, "w", encoding="utf-8") as handle:
+                json.dump({"active_model_id": model_id}, handle)
+            os.replace(temporary_path, config_path)
             self.active_model_id = model_id
+
+    def _is_classifier_installed(self, model_id: str) -> bool:
+        """Return whether a current classifier has a complete runnable artifact."""
+        if is_retired_model(model_id):
+            return False
+        model_meta = self._get_registry_model_meta(model_id)
+        if not model_meta or str(model_meta.get("artifact_kind") or "classifier") != "classifier":
+            return False
+
+        target_dir = os.path.join(MODELS_DIR, model_id)
+        if os.path.isdir(target_dir):
+            if self._is_family_model(model_meta):
+                resolved = self._resolve_installed_family_variant(target_dir, model_meta)
+                return bool(
+                    resolved
+                    and os.path.exists(str(resolved.get("model_path") or ""))
+                    and os.path.exists(str(resolved.get("labels_path") or ""))
+                )
+            complete, _reason = self._model_install_status(model_meta, target_dir)
+            if complete:
+                runtime = str(model_meta.get("runtime") or "tflite")
+                model_filename = self._model_filename_for_runtime(runtime)
+                return not model_meta.get("weights_url") or os.path.exists(
+                    os.path.join(target_dir, f"{model_filename}.data")
+                )
+
+        if model_id != "mobilenet_v2_birds":
+            return False
+        return any(
+            os.path.exists(os.path.join(base_dir, "model.tflite"))
+            and os.path.exists(os.path.join(base_dir, "labels.txt"))
+            for base_dir in (MODELS_DIR, BUNDLED_MODELS_DIR)
+        )
+
+    async def reconcile_retired_model_selection(self) -> Optional[str]:
+        """Move a retired saved selection to a current, installed classifier.
+
+        ConvNeXt Large is the preferred compatibility replacement while it is
+        installed. The bundled MobileNet remains the fail-safe for installations
+        that never downloaded ConvNeXt. Retired model directories are preserved.
+        """
+        active_model_id = str(self.active_model_id or "").strip()
+        configured_model_id = str(getattr(settings.classification, "model", "") or "").strip()
+        if not is_retired_model(active_model_id) and not is_retired_model(configured_model_id):
+            return None
+
+        if active_model_id and not is_retired_model(active_model_id) and self._is_classifier_installed(active_model_id):
+            replacement_id = active_model_id
+            replacing_active_model = False
+        else:
+            current_config_candidate = (
+                configured_model_id if configured_model_id and not is_retired_model(configured_model_id) else ""
+            )
+            replacement_id = next(
+                (
+                    candidate
+                    for candidate in (
+                        current_config_candidate,
+                        _RETIRED_CLASSIFIER_REPLACEMENT_ID,
+                        "mobilenet_v2_birds",
+                    )
+                    if candidate and self._is_classifier_installed(candidate)
+                ),
+                "mobilenet_v2_birds",
+            )
+            replacing_active_model = replacement_id != active_model_id
+
+        previous_setting_model = settings.classification.model
+        previous_provider = settings.classification.inference_provider
+        artifact_meta = self._get_registry_model_meta(replacement_id) or {}
+        recommended_provider = activation_provider_recommendation(
+            replacement_id,
+            artifact_sha256=artifact_meta.get("sha256"),
+        )
+        settings.classification.model = replacement_id
+        if replacing_active_model:
+            settings.classification.inference_provider = recommended_provider or "auto"
+
+        try:
+            if replacing_active_model:
+                await asyncio.to_thread(self._save_active_model_id, replacement_id)
+            await settings.save()
+        except Exception:
+            settings.classification.model = previous_setting_model
+            settings.classification.inference_provider = previous_provider
+            if replacing_active_model:
+                try:
+                    await asyncio.to_thread(self._save_active_model_id, active_model_id)
+                except Exception as rollback_error:
+                    log.error(
+                        "Failed to restore active classifier selection after reconciliation error",
+                        active_model_id=active_model_id,
+                        rollback_error=str(rollback_error),
+                    )
+            raise
+
+        log.warning(
+            "Retired classifier selection replaced",
+            active_model_id=active_model_id,
+            configured_model_id=configured_model_id,
+            replacement_model_id=replacement_id,
+            retired_assets_preserved=True,
+        )
+        return replacement_id
 
     def _get_registry_model_meta(self, model_id: str) -> Optional[dict[str, Any]]:
         return next((m for m in REMOTE_REGISTRY if m["id"] == model_id), None)
@@ -1054,6 +1051,11 @@ class ModelManager:
         merged["supported_inference_providers"] = list(
             variant.get("supported_inference_providers") or model_meta.get("supported_inference_providers") or []
         )
+        merged["candidate_inference_providers"] = list(
+            variant.get("candidate_inference_providers")
+            or model_meta.get("candidate_inference_providers")
+            or merged["supported_inference_providers"]
+        )
         if "crop_generator" in variant:
             merged["crop_generator"] = self._normalize_crop_generator_block(variant.get("crop_generator"))
         else:
@@ -1072,6 +1074,9 @@ class ModelManager:
             "preprocessing": dict(model_meta.get("preprocessing") or {}),
             "label_grouping": dict(model_meta.get("label_grouping") or {}),
             "supported_inference_providers": list(model_meta.get("supported_inference_providers") or []),
+            "candidate_inference_providers": list(
+                model_meta.get("candidate_inference_providers") or model_meta.get("supported_inference_providers") or []
+            ),
             "crop_generator": self._normalize_crop_generator_block(model_meta.get("crop_generator")),
         }
         for checksum_key in ("sha256", "labels_sha256", "weights_sha256"):
@@ -1109,6 +1114,7 @@ class ModelManager:
         *,
         installed_providers: list[Any],
         registry_providers: list[Any],
+        registry_candidate_providers: list[Any] | None = None,
         model_dir: str,
     ) -> tuple[list[str], list[str]]:
         """Apply the current registry's provider policy to an installed model.
@@ -1142,7 +1148,16 @@ class ModelManager:
         if not allowed_registry:
             return installed_normalized, []
 
-        unsupported = [provider for provider in installed_normalized if provider not in allowed_registry_set]
+        candidate_set = {
+            str(provider or "").strip().lower()
+            for provider in (registry_candidate_providers or registry_providers)
+            if str(provider or "").strip()
+        }
+        unsupported = [
+            provider
+            for provider in installed_normalized
+            if provider not in allowed_registry_set and provider not in candidate_set
+        ]
         missing = [provider for provider in allowed_registry if provider not in seen_installed]
 
         if not unsupported and not missing:
@@ -1223,17 +1238,32 @@ class ModelManager:
                 for provider in (spec.get("supported_inference_providers") or [])
                 if str(provider or "").strip()
             }
+            registry_candidate_set = {
+                str(provider or "").strip().lower()
+                for provider in (
+                    spec.get("candidate_inference_providers") or spec.get("supported_inference_providers") or []
+                )
+                if str(provider or "").strip()
+            }
             registry_unsupported_providers: list[str] = []
             seen_registry_unsupported: set[str] = set()
             for provider in providers:
                 normalized = str(provider or "").strip().lower()
-                if not normalized or normalized in registry_provider_set or normalized in seen_registry_unsupported:
+                if (
+                    not normalized
+                    or normalized in registry_provider_set
+                    or normalized in registry_candidate_set
+                    or normalized in seen_registry_unsupported
+                ):
                     continue
                 registry_unsupported_providers.append(normalized)
                 seen_registry_unsupported.add(normalized)
             reconciled_providers, provider_warnings = self._reconcile_installed_inference_providers(
                 installed_providers=providers,
                 registry_providers=list(spec.get("supported_inference_providers") or []),
+                registry_candidate_providers=list(
+                    spec.get("candidate_inference_providers") or spec.get("supported_inference_providers") or []
+                ),
                 model_dir=model_dir,
             )
             if reconciled_providers:
@@ -1315,10 +1345,14 @@ class ModelManager:
                     "runtime": str(merged.get("runtime") or "tflite"),
                     "label_grouping": dict(merged.get("label_grouping") or {}),
                     "supported_inference_providers": list(merged.get("supported_inference_providers") or []),
+                    "candidate_inference_providers": list(
+                        merged.get("candidate_inference_providers") or merged.get("supported_inference_providers") or []
+                    ),
                     "recommended_threshold": float(merged.get("recommended_threshold", 0.65) or 0.65),
                     "weights_url": merged.get("weights_url"),
                     "resolved_region": region,
                     "model_config_url": merged.get("model_config_url"),
+                    "artifact_sha256": merged.get("sha256"),
                     "crop_generator": self._normalize_crop_generator_block(merged.get("crop_generator")),
                 }
                 return self._apply_crop_overrides(self._apply_installed_model_config(spec, model_dir=variant_dir))
@@ -1360,9 +1394,15 @@ class ModelManager:
                     "runtime": runtime,
                     "label_grouping": dict(model_meta.get("label_grouping") or {}),
                     "supported_inference_providers": list(model_meta.get("supported_inference_providers") or []),
+                    "candidate_inference_providers": list(
+                        model_meta.get("candidate_inference_providers")
+                        or model_meta.get("supported_inference_providers")
+                        or []
+                    ),
                     "recommended_threshold": float(model_meta.get("recommended_threshold", 0.65) or 0.65),
                     "weights_url": model_meta.get("weights_url"),
                     "model_config_url": model_meta.get("model_config_url"),
+                    "artifact_sha256": model_meta.get("sha256"),
                     "crop_generator": self._normalize_crop_generator_block(model_meta.get("crop_generator")),
                 }
                 return self._apply_crop_overrides(self._apply_installed_model_config(spec, model_dir=target_dir))
@@ -1388,9 +1428,15 @@ class ModelManager:
             "runtime": "tflite",
             "label_grouping": dict(fallback_meta.get("label_grouping") or {}),
             "supported_inference_providers": list(fallback_meta.get("supported_inference_providers") or ["cpu"]),
+            "candidate_inference_providers": list(
+                fallback_meta.get("candidate_inference_providers")
+                or fallback_meta.get("supported_inference_providers")
+                or ["cpu"]
+            ),
             "recommended_threshold": float(fallback_meta.get("recommended_threshold", 0.70) or 0.70),
             "weights_url": None,
             "model_config_url": fallback_meta.get("model_config_url"),
+            "artifact_sha256": fallback_meta.get("sha256"),
             "crop_generator": self._normalize_crop_generator_block(fallback_meta.get("crop_generator")),
         }
         return self._apply_crop_overrides(
@@ -1460,6 +1506,8 @@ class ModelManager:
             # Check for directory-based models (e.g. /data/models/mobilenet_v2_birds/)
             for item in os.listdir(base_dir):
                 if item in seen_ids:
+                    continue
+                if is_retired_model(item):
                     continue
 
                 model_dir = os.path.join(base_dir, item)
@@ -1541,9 +1589,27 @@ class ModelManager:
                 model.id,
                 active_model_id=self.active_model_id,
                 bundled_ids=bundled_ids,
+                artifact_sha256=(model.metadata.sha256 if model.metadata else None),
             )
             model.validated = validated
             model.validation_reason = reason
+            artifact_sha256 = model.metadata.sha256 if model.metadata else None
+            model.validated_inference_providers = host_eligible_providers(
+                model.id,
+                artifact_sha256=artifact_sha256,
+            )
+            model.provider_preference_order = host_provider_preference_order(
+                model.id,
+                artifact_sha256=artifact_sha256,
+            )
+            model.preferred_inference_provider = (
+                model.provider_preference_order[0]
+                if model.provider_preference_order
+                else activation_provider_recommendation(
+                    model.id,
+                    artifact_sha256=artifact_sha256,
+                )
+            )
 
         return installed
 
@@ -1976,6 +2042,9 @@ class ModelManager:
 
     def _activate_model_sync(self, model_id: str) -> bool:
         """Set a model as active."""
+        if is_retired_model(model_id):
+            log.warning("Activation rejected: classifier has been retired", model_id=model_id)
+            return False
         if registry_artifact_kind(model_id) != "classifier":
             log.warning(
                 "Activation rejected: artifact is not a classifier",

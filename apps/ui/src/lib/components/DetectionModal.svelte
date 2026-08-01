@@ -148,6 +148,7 @@
     // True when video classification completed with a real species but did not
     // match any current primary identity field, so owner confirmation is needed.
     let videoPromotionGated = $derived(isVideoPromotionGated(detection));
+    const isManualObservation = $derived(detection.observation_source === 'manual_upload');
 
     // State
     let modalElement = $state<HTMLElement | null>(null);
@@ -413,7 +414,7 @@
         }
         return values;
     });
-    const hasAudioContext = $derived(detection.audio_confirmed || audioContextSpecies.length > 0);
+    const hasAudioContext = $derived(!isManualObservation && (detection.audio_confirmed || audioContextSpecies.length > 0));
     const audioNearbySummary = $derived(audioContextSpecies.join(', '));
 
     // Pick the best audioContext entry to render its BirdNET-Go spectrogram
@@ -500,6 +501,16 @@
     // a reliable indication that nearby audio exists.
     $effect(() => {
         const eventId = detection.frigate_event;
+        if (detection.observation_source === 'manual_upload') {
+            untrack(() => {
+                audioContext = [];
+                audioContextLoaded = true;
+                audioContextLoading = false;
+                audioContextError = null;
+                audioContextOpen = false;
+            });
+            return;
+        }
         const controller = new AbortController();
         untrack(() => {
             audioContext = [];
@@ -554,6 +565,7 @@
     );
     const showSnapshotRepairAction = $derived(
         hasOwnerDetectionActions
+        && detection.observation_source !== 'manual_upload'
         && !showMediaSlotVideoAnalysis
         && !reclassifyProgress
         && hasSnapshotRepairWork
@@ -661,14 +673,25 @@
     );
     const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
     const missingEventMetadataGone = $derived(
-        detection.frigate_status === 'missing'
+        !isManualObservation && (detection.frigate_status === 'missing'
         || detection.has_frigate_event === false
-        || detection.video_classification_error === 'event_not_found'
+        || detection.video_classification_error === 'event_not_found')
     );
     const frigateIssueBadgeVisible = $derived(hasFrigateMediaIssue(detection) && !missingEventMetadataGone);
-    const upstreamMissing = $derived(detection.frigate_status === 'missing');
+    const upstreamMissing = $derived(!isManualObservation && detection.frigate_status === 'missing');
     const missingEventNoticeVisible = $derived(upstreamMissing || missingEventMetadataGone);
     const videoFailureInsight = $derived.by(() => getVideoFailureInsight(detection, $_));
+    const videoClassificationDiagnostics = $derived(detection.video_classification_diagnostics ?? null);
+    const videoClassificationSources = $derived(
+        Object.entries(videoClassificationDiagnostics?.sources ?? {})
+    );
+    const videoAnalysisAbstained = $derived.by(() => {
+        const error = (detection.video_classification_error || '').trim().toLowerCase();
+        return error === 'video_no_results'
+            || error === 'snapshot_no_results'
+            || error === 'snapshot_no_usable_result'
+            || error === 'no_confident_result';
+    });
 
     // Consolidated video-status notice: single source of truth that replaces
     // the three overlapping panels (Frigate-event-missing pill, "Result from
@@ -691,7 +714,7 @@
         // recovered classification to fall back on.  When the snapshot path
         // already produced a real result we tier amber/slate based on
         // confidence so we don't over-alarm successful classifications.
-        if (status === 'failed' && currentClassificationSource !== 'snapshot') {
+        if (status === 'failed' && !videoAnalysisAbstained && currentClassificationSource !== 'snapshot') {
             return {
                 kind: 'rose' as const,
                 container: 'bg-rose-50/80 dark:bg-rose-500/10 border-rose-200/80 dark:border-rose-500/30 text-rose-900 dark:text-rose-200',
@@ -717,6 +740,9 @@
     });
     const videoStatusNoticeTitle = $derived.by(() => {
         const status = (detection.video_classification_status || '').trim().toLowerCase();
+        if (status === 'failed' && videoAnalysisAbstained) {
+            return $_('detection.reclassification.unchanged_title', { default: 'Identification unchanged' });
+        }
         if (status === 'failed' && currentClassificationSource !== 'snapshot') {
             return $_('detection.video_analysis.failed_title');
         }
@@ -724,6 +750,11 @@
     });
     const videoStatusNoticeDescription = $derived.by(() => {
         const error = (detection.video_classification_error || '').trim();
+        if (videoAnalysisAbstained) {
+            return $_('detection.reclassification.unchanged_description', {
+                default: 'No result cleared the confidence rules, so the existing identification was kept.'
+            });
+        }
         if (error) {
             return $_(
                 `detection.reclassification.snapshot_fallback_reason.${error}`,
@@ -740,11 +771,24 @@
         // something useful inside it (a known error code, a "why" list, or
         // a "checks" list).  No point offering a disclosure that opens onto
         // an empty section.
-        if (!videoFailureInsight.errorCode && videoFailureInsight.causes.length === 0 && videoFailureInsight.checks.length === 0) {
+        if (!videoFailureInsight.errorCode && videoFailureInsight.causes.length === 0 && videoFailureInsight.checks.length === 0 && !videoClassificationDiagnostics) {
             return false;
         }
         return true;
     });
+
+    function videoEvidenceSourceLabel(source: string): string {
+        if (source === 'full_frame') {
+            return $_('detection.video_analysis.evidence.full_frame', { default: 'Full frame' });
+        }
+        if (source === 'frigate_hint_crop') {
+            return $_('detection.video_analysis.evidence.frigate_hint_crop', { default: 'Frigate-guided crop' });
+        }
+        if (source === 'model_crop') {
+            return $_('detection.video_analysis.evidence.model_crop', { default: 'AI crop' });
+        }
+        return source.replaceAll('_', ' ');
+    }
 
     function formatEbirdDate(dateStr?: string | null) {
         if (!dateStr) return '—';
@@ -2043,6 +2087,12 @@
                             {formatDateTime(detection.detection_time)}
                         </p>
                         <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
+                        {#if isManualObservation}
+                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-3.5 text-xs font-bold text-white shadow-xl backdrop-blur-sm">
+                                <svg class="h-4 w-4 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+                                {$_('detection.uploaded', { default: 'Uploaded' })}
+                            </div>
+                        {/if}
                         {#if canPlayVideo && !snapshotRepairOpen}
                             <div class="flex items-center gap-2">
                                 {#if fullVisitFetched}
@@ -2158,6 +2208,32 @@
                      video-status notice below.  The same information is now shown
                      once instead of three times. -->
             </details>
+            {#if isManualObservation && detection.observation_notes}
+                <div class="border-l-2 border-brand-300 pl-3 dark:border-brand-700">
+                    <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('detection.observation_notes', { default: 'Observation notes' })}</div>
+                    <p class="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700 dark:text-slate-300">{detection.observation_notes}</p>
+                </div>
+            {/if}
+            {#if isManualObservation && detection.observation_latitude != null && detection.observation_longitude != null}
+                <div data-manual-observation-location class="border-l-2 border-accent-300 pl-3 dark:border-accent-700">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{$_('manual_observation.location.title', { default: 'Sighting location' })}</div>
+                            <p class="mt-1 text-xs tabular-nums text-slate-600 dark:text-slate-300">{detection.observation_latitude.toFixed(5)}, {detection.observation_longitude.toFixed(5)}</p>
+                        </div>
+                        {#if detection.observation_location_source === 'image_metadata'}
+                            <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">{$_('manual_observation.location.from_image', { default: 'From image metadata' })}</span>
+                        {/if}
+                    </div>
+                    <div class="mt-3 h-44 overflow-hidden rounded-xl">
+                        <Map
+                            markers={[{ lat: detection.observation_latitude, lng: detection.observation_longitude, title: naming.primary }]}
+                            center={[detection.observation_latitude, detection.observation_longitude]}
+                            zoom={14}
+                        />
+                    </div>
+                </div>
+            {/if}
             <!-- Confidence Bar -->
             {#if currentClassificationSource !== 'manual'}
                 <div>
@@ -2245,6 +2321,54 @@
                                         <p class="font-mono text-[10px] text-slate-600 dark:text-slate-400">
                                             {$_('detection.video_analysis.error_details.error_code', { default: 'Error code: {code}', values: { code: videoFailureInsight.errorCode } })}
                                         </p>
+                                    {/if}
+                                    {#if videoClassificationDiagnostics}
+                                        <section aria-labelledby="video-evidence-heading">
+                                            <p id="video-evidence-heading" class="font-bold text-slate-800 dark:text-slate-200">
+                                                {$_('detection.video_analysis.evidence.title', { default: 'Evidence from this run' })}
+                                            </p>
+                                            <p class="mt-0.5 text-slate-600 dark:text-slate-400">
+                                                {$_('detection.video_analysis.evidence.summary', {
+                                                    default: '{processed} of {sampled} sampled frames were decoded. A frame needed at least {threshold}% confidence to vote.',
+                                                    values: {
+                                                        processed: videoClassificationDiagnostics.processed_frames,
+                                                        sampled: videoClassificationDiagnostics.sampled_frames,
+                                                        threshold: Math.round(videoClassificationDiagnostics.minimum_frame_score * 100)
+                                                    }
+                                                })}
+                                            </p>
+                                            <dl class="mt-2 divide-y divide-slate-200/80 dark:divide-slate-700/70 border-y border-slate-200/80 dark:border-slate-700/70">
+                                                {#each videoClassificationSources as [source, evidence]}
+                                                    <div class="py-2 first:pt-0 last:pb-0">
+                                                        <div class="flex items-baseline justify-between gap-3">
+                                                            <dt class="font-bold text-slate-800 dark:text-slate-200">
+                                                                {videoEvidenceSourceLabel(source)}
+                                                            </dt>
+                                                            <dd class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
+                                                                {evidence.confident_frames}/{evidence.independent_frames ?? evidence.evaluated_frames}
+                                                                {$_('detection.video_analysis.evidence.confident_short', { default: 'confident' })}
+                                                            </dd>
+                                                        </div>
+                                                        <p class="mt-0.5 text-slate-600 dark:text-slate-400">
+                                                            {$_('detection.video_analysis.evidence.required', {
+                                                                default: 'Needed {required} matching confident moments from this source.',
+                                                                values: { required: evidence.required_supporting_frames }
+                                                            })}
+                                                        </p>
+                                                        {#if evidence.top_candidates.length > 0}
+                                                            <ul class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-600 dark:text-slate-400" aria-label={$_('detection.video_analysis.evidence.top_candidates', { default: 'Top recurring candidates' })}>
+                                                                {#each evidence.top_candidates as candidate}
+                                                                    <li>
+                                                                        <span class="font-semibold text-slate-700 dark:text-slate-300">{candidate.label}</span>
+                                                                        · {candidate.supporting_frames}× · {Math.round(candidate.median_score * 100)}%
+                                                                    </li>
+                                                                {/each}
+                                                            </ul>
+                                                        {/if}
+                                                    </div>
+                                                {/each}
+                                            </dl>
+                                        </section>
                                     {/if}
                                     {#if videoFailureInsight.causes.length > 0}
                                         <div>
@@ -3145,12 +3269,14 @@
             <!-- Actions -->
             {#if hasOwnerDetectionActions}
                 <div class="flex gap-2">
-                    <button
-                        onclick={handleReclassifyClick}
-                        class="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
-                    >
-                        {$_('actions.reclassify')}
-                    </button>
+                    {#if !isManualObservation}
+                        <button
+                            onclick={handleReclassifyClick}
+                            class="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
+                        >
+                            {$_('actions.reclassify')}
+                        </button>
+                    {/if}
 
                     <div class="relative flex-1">
                         <button

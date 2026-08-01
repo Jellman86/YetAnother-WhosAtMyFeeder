@@ -116,6 +116,10 @@ def _build_lanes(items: list[JobSnapshotItem]) -> list[JobLaneSnapshot]:
             int(video_status.get("max_concurrent_configured") or 1),
             int(video_status.get("max_concurrent_effective") or 0),
         ),
+        "reclassify": (
+            int(video_status.get("max_concurrent_configured") or 1),
+            int(video_status.get("max_concurrent_effective") or 0),
+        ),
         "high_quality_snapshot": (
             int(high_quality_snapshot_service.MAX_CONCURRENT_TASKS),
             int(high_quality_snapshot_service.MAX_CONCURRENT_TASKS),
@@ -134,6 +138,7 @@ def _build_lanes(items: list[JobSnapshotItem]) -> list[JobLaneSnapshot]:
             if video_status.get("throttled_for_live_pressure")
             else None
         ),
+        "reclassify": "paused_after_failures" if video_status.get("manual_circuit_open") else None,
         "high_quality_snapshot": "waiting_for_capacity" if int(hq_status.get("deferred") or 0) > 0 else None,
         "full_visit": (
             "waiting_for_capacity"

@@ -8,9 +8,10 @@ model means a one-time PyTorch → ONNX conversion.
 
 You want a wider bird vocabulary than the existing `medium_birds` family or a
 different architecture profile (DaViT, MViT, PVT, etc.). You're willing to do
-empirical iGPU validation through the model evaluation harness afterward — the
-historical pattern on this hardware is that anything bigger than ConvNeXt-V2-Tiny /
-FocalNet-B fails on Intel iGPU (NaN logits, wrong predictions, or process crash).
+empirical iGPU validation through the model evaluation harness afterward. Older OpenVINO stacks
+often produced NaN logits, wrong predictions, or process crashes for larger architectures, while
+current Quark/OpenVINO validation shows that some of those results are runtime-specific. ConvNeXt
+Large, for example, failed on OpenVINO 2025.4.1 but matches CPU on the current 2026.2.1 stack.
 Two recently-converted candidates that both **fail on iGPU** are documented
 in `tests/test_model_openvino_gpu.py` GPU_NOT_SUPPORTED:
 
@@ -71,11 +72,13 @@ for dev in ['CPU', 'GPU']:
 "
 ```
 
-Use the result to decide what `supported_inference_providers` to declare:
+This one-image smoke test can reject an obviously broken provider, but it cannot make that provider
+globally safe. Use the varied-image compatibility sweep to choose between the two registry fields:
 
 | Probe outcome | Registry action |
 |---|---|
-| GPU compile + finite output + reasonable range | List `intel_gpu` |
+| Repeated hardware/runtime matrices pass across supported installations | List `intel_gpu` in `supported_inference_providers` |
+| Current install passes but older/currently supported stacks disagree | Keep the global safe list unchanged and add `intel_gpu` to `candidate_inference_providers` |
 | GPU compile but non-finite or near-zero range | Exclude `intel_gpu`. Document in GPU_NOT_SUPPORTED |
 | GPU compile crashes (CL_OUT_OF_RESOURCES, terminate, etc.) | Exclude `intel_gpu` AND add to GPU_CRASH_RISK |
 
@@ -117,6 +120,7 @@ python backend/scripts/generate_model_release_configs.py /tmp/yawamf-model-confi
 ```
 
 The output is the canonical install contract for runtime, input size, preprocessing, checksums,
-provider policy, and classifier crop policy. Crop-detector metadata remains a separate artifact
-contract and does not acquire the classifier `crop_generator` block. Upload only after the model
-asset digests and a real-image provider sweep agree with the registry.
+globally safe and host-gated candidate provider policy, and classifier crop policy. Crop-detector
+metadata remains a separate artifact contract and does not acquire the classifier
+`crop_generator` block. Upload only after the model asset digests and a real-image provider sweep
+agree with the registry.

@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "Tableau de bord",
     "explorer": "Explorateur",
+    "add_observation": "Ajouter une observation",
     "leaderboard": "Classement",
     "observe": "Observer",
     "manage": "Gérer",
@@ -24,6 +25,19 @@
     "events": "Événements",
     "notifications": "Notifications",
     "species": "Espèces"
+  },
+  "manual_observation": {
+    "eyebrow": "Observation de terrain", "intro_title": "Transformer une photo ou une vidéo en observation vérifiée",
+    "intro_body": "YA-WAMF utilise le même modèle, la même sélection de recadrage et le même consensus vidéo que les détections en direct. Rien n’est ajouté avant votre validation.", "progress_label": "Progression de l’observation",
+    "steps": { "upload": "Importer", "upload_detail": "Choisir le média original", "analyse": "Analyser", "analyse_detail": "Trouver la meilleure preuve", "review": "Vérifier", "review_detail": "Confirmer l’espèce", "save": "Enregistrer", "save_detail": "Ajouter aux observations" },
+    "evidence": { "full_frame": "Image entière", "crop": "Meilleur recadrage", "model": "Modèle", "provider": "Fournisseur" },
+    "errors": { "load": "L’état de l’analyse n’a pas pu être chargé.", "type": "Choisissez un fichier JPEG, PNG, WebP, MP4, MOV ou WebM.", "upload": "Le média n’a pas pu être importé.", "retry": "L’analyse n’a pas pu être relancée.", "save": "L’observation n’a pas pu être enregistrée." },
+    "upload": { "title": "Choisir une photo ou une vidéo", "help": "Utilisez si possible le fichier original. YA-WAMF le conservera et choisira la meilleure entrée pour la classification.", "change": "Choisir un autre fichier", "drop": "Déposez le média ici ou choisissez un fichier", "formats": "JPEG, PNG, WebP jusqu’à 25 Mo · MP4, MOV, WebM jusqu’à 250 Mo / 3 minutes", "uploading": "Conservation de l’original…", "analyse": "Importer et analyser" },
+    "analysis": { "preview_alt": "Aperçu du média importé", "video": "Vidéo", "image": "Photographie", "title": "Recherche de la meilleure preuve", "body": "Le classificateur de production compare les images et les recadrages. Vous pouvez quitter cette page ; le brouillon sera restauré à votre retour.", "progress": "Progression de l’analyse", "failed_title": "Analyse arrêtée en toute sécurité", "failed_body": "Votre média original reste conservé. Réessayez lorsque le modèle sera disponible.", "retry": "Relancer l’analyse" },
+    "review": { "preview_alt": "Aperçu de l’observation", "title": "Vérifier avant d’enregistrer", "body": "Confirmez l’espèce suggérée, corrigez-la si nécessaire et ajoutez le contexte à conserver.", "candidates": "Suggestions du modèle", "species": "Espèce", "when": "Observé le", "location": "Caméra ou nom du lieu", "notes": "Remarques", "saving": "Enregistrement de l’observation…", "save": "Enregistrer l’observation" },
+    "location": { "title": "Lieu de l’observation", "extracted": "Un lieu a été trouvé dans les métadonnées de l’image. Vérifiez le repère et ajustez-le si nécessaire.", "missing": "Aucun lieu intégré n’a été trouvé. Placez un repère si vous connaissez le lieu de l’observation.", "manual": "Ce repère a été placé ou ajusté manuellement. Vérifiez-le avant d’enregistrer.", "from_image": "Métadonnées de l’image", "map_label": "Carte pour placer le repère de l’observation", "map_help": "Cliquez ou touchez la carte pour placer le repère. Faites-le glisser pour l’ajuster précisément.", "latitude": "Latitude", "longitude": "Longitude", "clear": "Effacer le lieu", "incomplete": "Saisissez la latitude et la longitude, ou effacez le lieu.", "invalid": "La latitude doit être comprise entre −90 et 90 et la longitude entre −180 et 180.", "selected": "Repère placé à {latitude}, {longitude}", "unselected": "Aucun lieu d’observation sélectionné", "pin_label": "Repère du lieu d’observation ; faites-le glisser pour l’ajuster" },
+    "saved": { "toast": "Observation ajoutée", "eyebrow": "Fiche terminée", "title": "Observation enregistrée", "body": "La fiche vérifiée fait maintenant partie de votre historique et des totaux par espèce.", "view": "Voir la détection", "another": "En ajouter une autre" },
+    "start_over": "Recommencer"
   },
   "setup": {
     "action_failed": "Cette modification n’a pas pu être enregistrée. Vérifiez les informations et réessayez.",
@@ -65,7 +79,7 @@
       "load_failed": "Le résumé de la configuration n’a pas pu être chargé. Vos paramètres enregistrés n’ont pas été modifiés.",
       "retry": "Réessayer le résumé",
       "stale": "Le dernier résumé est affiché car l’actualisation la plus récente a échoué.",
-      "detail": { "account_password_protected": "Protégé par mot de passe", "account_auth_disabled": "Authentification désactivée", "account_not_configured": "Non configuré", "frigate_url": "URL Frigate", "mqtt_broker": "Courtier MQTT", "mqtt_username": "Nom d’utilisateur MQTT", "mqtt_password": "Mot de passe MQTT", "connection_missing": "Définir {items}", "cameras_count": "{count} caméras", "cameras_all": "Toutes les caméras", "model_wrong_kind": "Un détecteur de recadrage est sélectionné comme classificateur", "model_fallback": "Solution de repli intégrée", "quality_best": "Meilleurs instantanés disponibles", "quality_standard": "Instantanés standard", "integrations_needs": "Configuration requise : {integrations}", "integrations_configured": "Configuré : {integrations}", "integrations_none": "Aucune activée" }
+      "detail": { "account_password_protected": "Protégé par mot de passe", "account_auth_disabled": "Authentification désactivée", "account_not_configured": "Non configuré", "frigate_url": "URL Frigate", "mqtt_broker": "Courtier MQTT", "mqtt_username": "Nom d’utilisateur MQTT", "mqtt_password": "Mot de passe MQTT", "connection_missing": "Définir {items}", "cameras_count": "{count} caméras", "cameras_all": "Toutes les caméras", "model_wrong_kind": "Un détecteur de recadrage est sélectionné comme classificateur", "model_retired": "Le classificateur enregistré a été retiré", "model_fallback": "Solution de repli intégrée", "quality_best": "Meilleurs instantanés disponibles", "quality_standard": "Instantanés standard", "integrations_needs": "Configuration requise : {integrations}", "integrations_configured": "Configuré : {integrations}", "integrations_none": "Aucune activée" }
     }
   },
   "theme": {
@@ -1329,6 +1343,8 @@
     "reclassify_selected": "Reclassifier la sélection"
   },
   "detection": {
+    "uploaded": "Importée",
+    "observation_notes": "Remarques sur l’observation",
     "confidence": "Confiance",
     "verified": "Vérifié",
     "hidden": "Masqué",
@@ -1474,6 +1490,16 @@
       "gated_title": "La vidéo a trouvé une correspondance — confirmez pour l'appliquer",
       "gated_desc": "La promotion automatique a été retenue car le score vidéo est inférieur à votre seuil de confiance minimum. Lancez Reclassifier pour appliquer ce résultat, ou abaissez le seuil dans Paramètres → Détection.",
       "gated_action": "Reclassifier",
+      "evidence": {
+        "title": "Indices de cette analyse",
+        "summary": "{processed} images sur {sampled} échantillonnées ont été décodées. Une image devait atteindre au moins {threshold} % de confiance pour voter.",
+        "confident_short": "fiables",
+        "required": "Il fallait {required} instants fiables et concordants pour cette source.",
+        "top_candidates": "Candidats les plus récurrents",
+        "full_frame": "Image complète",
+        "frigate_hint_crop": "Recadrage guidé par Frigate",
+        "model_crop": "Recadrage IA"
+      },
       "blocked_label": "Correspond à une espèce bloquée — non appliqué"
     },
     "card_analysis": {
@@ -1495,6 +1521,13 @@
       "auto_video_source": "Analyse vidéo automatique",
       "auto_video_source_hint": "Résultat affiné à partir des images du clip.",
       "final_result": "Résultat final",
+      "complete": "Terminé",
+      "unchanged_title": "Identification inchangée",
+      "unchanged_description": "Aucun résultat n’a satisfait aux règles de confiance. L’identification existante a donc été conservée.",
+      "unchanged_reason_no_source_consensus": "Les images échantillonnées ne concordaient pas assez nettement sur une seule espèce.",
+      "unchanged_evidence": "Meilleure preuve : {confident} des {independent} instants indépendants pouvaient voter ; l’espèce en tête concordait sur {supporting}, contre {required} requis.",
+      "failed_title": "La reclassification n’a pas pu aboutir",
+      "failed_description": "L’analyse s’est terminée sans résultat exploitable. Motif technique : {reason}.",
       "snapshot_fallback_title": "Classification à partir d'une capture",
       "snapshot_fallback_badge": "Repli sur capture",
       "snapshot_fallback_reason_generic": "Le clip vidéo n'était pas disponible",
@@ -1504,7 +1537,10 @@
         "clip_invalid": "Le clip vidéo était corrompu ou illisible.",
         "clip_decode_failed": "Le clip vidéo n'a pas pu être décodé.",
         "clip_fetch_failed": "Impossible de récupérer le clip vidéo depuis Frigate.",
-        "event_not_found": "Frigate n'a plus cet événement et aucun clip en cache n'était disponible."
+        "event_not_found": "Frigate n'a plus cet événement et aucun clip en cache n'était disponible.",
+        "video_no_results": "Les images vidéo n’ont pas permis d’établir un consensus fiable sur l’espèce.",
+        "below_threshold": "La vidéo a convergé vers un candidat, mais sa confiance restait sous le seuil configuré.",
+        "video_no_usable_result": "Le résultat vidéo n’a pas satisfait les règles de promotion configurées."
       },
       "snapshot_scanning": "Analyse de la capture"
     },
@@ -2328,6 +2364,7 @@
     "about": "Version, journal des modifications, contributeurs et liens de support.",
     "dashboard": "Détections en direct, activité récente et état de la mangeoire en un coup d'œil.",
     "events": "Parcourez, filtrez et gérez chaque visite classifiée.",
+    "add_observation": "Classez votre photo ou vidéo, vérifiez les indices et ajoutez-la à votre historique.",
     "notifications": "Alertes, rappels et tâches d'arrière-plan actives.",
     "settings": "Connexions, classification, intégrations et personnalisation.",
     "species": "Classement, totaux et détails taxonomiques des oiseaux observés."

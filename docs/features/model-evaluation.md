@@ -90,12 +90,22 @@ documented in [`../plans/2026-07-16-model-crop-policy.md`](../plans/2026-07-16-m
 
 ## Provider compatibility and the post-install gate
 
-The `compat_only` provider sweep writes a per-host, per-image `device_eligibility.json` containing
-every provider that compiled, produced finite output, and agreed with its CPU baseline. Candidates
-are limited to the running image/host/model intersection, covering ONNX CPU/CUDA and OpenVINO
-CPU/GPU/NPU when applicable. Each compile and inference run is isolated in a child process; one
-model/provider failure is retained in the matrix without aborting the rest of the run. Classifiers
-use up to 24 images selected round-robin across species and compare their output ranking. Installed
+The `compat_only` provider sweep writes schema-4 `device_eligibility.json` evidence containing
+every provider that compiled, produced finite output, and agreed with its CPU baseline. The
+registry has two layers: `supported_inference_providers` is the globally safe baseline, while
+`candidate_inference_providers` is a reviewed wider set that an isolated install may probe.
+Candidates are still limited to the running image/host/model intersection, covering ONNX CPU/CUDA
+and OpenVINO CPU/GPU/NPU when applicable. An undeclared discovery row remains informational.
+
+Each model result is bound to the exact registry artifact checksum and a cached runtime signature
+covering image flavour, inference package versions, kernel, architecture, and visible accelerator
+identity. A model replacement, runtime or kernel upgrade, image switch, or config-volume move to
+different hardware therefore invalidates the accelerator proof and restores the global safe
+baseline until the model is revalidated. Old schema evidence is not silently promoted.
+
+Each compile and inference run is isolated in a child process; one model/provider failure is
+retained in the matrix without aborting the rest of the run. Classifiers use up to 24 images
+selected round-robin across species and compare their output ranking. Installed
 crop detectors use the same real panel plus three deterministic hard negatives and compare
 detection presence, top-box IoU, and confidence with CPU. Detector rows live under the separate
 schema-3 `crop_detectors` key, so they cannot affect classifier scoring or setup recommendations.
@@ -111,10 +121,13 @@ previously active model after the trial. The setup wizard also requests a single
 compatibility run; Detection Diagnostics tests installed models by default and can optionally
 download and test every registry classifier and crop detector. See
 [AI Models — Validate before you select](ai-models.md#validate-before-you-select-post-install-gate).
-Every sweep also stores its fastest passing provider as the activation recommendation. Setup
-defaults to that result and removes providers that failed for the selected model; activation applies
-the recommendation only after the model switch succeeds. Re-running a failed sweep invalidates old
-evidence for that model instead of silently retaining a previously passing result.
+Every sweep stores the passing providers and their measured latency. `Auto` uses that per-model
+order; Setup, Model Manager, and Settings display the same order and remove providers that failed
+for the selected model. Activation applies the first still-eligible recommendation only after the
+model switch succeeds and never carries an explicit provider from the previous model. The settings
+and activation APIs enforce the same gate, so a stale client cannot select a hidden provider.
+Re-running a failed sweep invalidates old evidence for that model instead of silently retaining a
+previously passing result.
 
 Maintainers auditing registry metadata can send `discover_providers: true` with an owner-only run.
 Discovery tests every provider packaged by the image and exposed by the host, including providers
@@ -134,6 +147,17 @@ For a complete metadata audit on the Intel image, use:
   "discover_providers": true
 }
 ```
+
+The post-deploy Quark reference run `20260728-210739` used the `dev-intel` image with OpenVINO
+2026.2.1 and completed all 12 classifier entries plus both crop detectors. Classifiers used 24 real
+images. Because Quark's then-running build did not recognise the stored country name `United
+Kingdom`, that full run resolved regional families to NA. Scoped EU runs `20260728-212610` and
+`20260728-212955` then tested the distinct EU artifacts explicitly, and the country resolver was
+fixed. The fast SSD crop detector remained CPU-only; accurate YOLOX-Tiny matched CPU detection
+presence and geometry on Intel CPU/GPU/NPU, with Intel GPU fastest on that host. Discovery found
+additional CPU-equivalent routes, but only repeatable, artifact-attributed results were added to
+reviewed candidate lists; another installation must still reproduce a candidate pass before its UI
+or runtime can select it.
 
 The hardware sweep validates runtime compatibility, not classifier image-selection accuracy. Crop
 policy is evaluated separately with the feeder harness. Distant-bird validation must retain each

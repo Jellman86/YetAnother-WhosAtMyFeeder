@@ -3,6 +3,7 @@ import pytest
 
 from app.services.video_classification_policy import (
     SourceTemporalConsensus,
+    assess_temporal_consensus,
     build_temporal_consensus,
     select_temporal_source_consensus,
 )
@@ -38,22 +39,46 @@ def test_temporal_consensus_abstains_without_sixty_percent_class_agreement():
     assert build_temporal_consensus(scores, minimum_frame_score=0.4) is None
 
 
-def test_temporal_consensus_counts_low_confidence_frames_as_abstentions():
+def test_temporal_consensus_uses_low_confidence_frames_for_coverage_not_species_agreement():
     scores = [
         np.array([0.72, 0.20, 0.08]),
         np.array([0.68, 0.25, 0.07]),
-        np.array([0.36, 0.34, 0.30]),
+        *[np.array([0.36, 0.34, 0.30]) for _ in range(28)],
     ]
 
     consensus = build_temporal_consensus(scores, minimum_frame_score=0.45)
 
     assert consensus is not None
     assert consensus.winner_index == 0
-    assert consensus.evaluated_frame_count == 3
+    assert consensus.evaluated_frame_count == 30
+    assert consensus.independent_frame_count == 30
     assert consensus.supporting_frame_count == 2
+    assert consensus.confident_frame_count == 2
+    assert consensus.required_supporting_frames == 2
+    assert consensus.ranked_classes[0].support_ratio == pytest.approx(1.0)
     assert consensus.score == pytest.approx(0.70)
 
     assert build_temporal_consensus([np.array([0.99, 0.01])], minimum_frame_score=0.45) is None
+
+
+def test_temporal_consensus_rejects_disagreement_between_confident_frames():
+    assessment = assess_temporal_consensus(
+        [
+            np.array([0.91, 0.08, 0.01]),
+            np.array([0.10, 0.88, 0.02]),
+            np.array([0.12, 0.84, 0.04]),
+            np.array([0.08, 0.10, 0.82]),
+            *[np.array([0.36, 0.34, 0.30]) for _ in range(25)],
+        ],
+        minimum_frame_score=0.5,
+    )
+
+    assert assessment.consensus is None
+    assert assessment.confident_frame_count == 4
+    assert assessment.required_supporting_frames == 3
+    assert assessment.ranked_classes[0].class_index == 1
+    assert assessment.ranked_classes[0].supporting_frame_count == 2
+    assert assessment.reason == "insufficient_class_agreement"
 
 
 def test_temporal_consensus_requires_three_evaluated_frames():
@@ -64,6 +89,101 @@ def test_temporal_consensus_requires_three_evaluated_frames():
         )
         is None
     )
+
+
+def test_temporal_assessment_explains_rejected_evidence_without_accepting_it():
+    assessment = assess_temporal_consensus(
+        [
+            np.array([0.91, 0.08, 0.01]),
+            np.array([0.82, 0.17, 0.01]),
+            np.array([0.18, 0.80, 0.02]),
+            np.array([0.18, 0.12, 0.70]),
+            np.array([0.34, 0.33, 0.33]),
+        ],
+        minimum_frame_score=0.5,
+    )
+
+    assert assessment.consensus is None
+    assert assessment.evaluated_frame_count == 5
+    assert assessment.independent_frame_count == 5
+    assert assessment.confident_frame_count == 4
+    assert assessment.required_supporting_frames == 3
+    assert assessment.reason == "insufficient_class_agreement"
+    assert assessment.ranked_classes[0].class_index == 0
+    assert assessment.ranked_classes[0].supporting_frame_count == 2
+
+
+def test_temporal_consensus_can_require_source_coverage_before_accepting_votes():
+    scores = [
+        np.array([0.91, 0.09]),
+        np.array([0.88, 0.12]),
+        np.array([0.86, 0.14]),
+    ]
+
+    assessment = assess_temporal_consensus(
+        scores,
+        minimum_frame_score=0.5,
+        minimum_evaluated_frames=5,
+    )
+
+    assert assessment.consensus is None
+    assert assessment.reason == "insufficient_source_coverage"
+    assert assessment.evaluated_frame_count == 3
+
+
+def test_temporal_consensus_counts_only_separated_moments_as_independent_support():
+    assessment = assess_temporal_consensus(
+        [
+            np.array([0.91, 0.09]),
+            np.array([0.89, 0.11]),
+            np.array([0.87, 0.13]),
+            np.array([0.30, 0.70]),
+        ],
+        minimum_frame_score=0.5,
+        frame_offsets_seconds=[0.0, 0.08, 0.16, 1.0],
+    )
+
+    assert assessment.evaluated_frame_count == 4
+    assert assessment.independent_frame_count == 2
+    assert assessment.confident_frame_count == 2
+    assert assessment.consensus is None
+    assert assessment.reason == "insufficient_source_coverage"
+
+
+def test_temporal_consensus_accepts_sparse_votes_at_independent_moments():
+    consensus = build_temporal_consensus(
+        [
+            np.array([0.91, 0.09]),
+            np.array([0.88, 0.12]),
+            np.array([0.36, 0.34]),
+        ],
+        minimum_frame_score=0.5,
+        frame_offsets_seconds=[0.0, 0.5, 1.0],
+    )
+
+    assert consensus is not None
+    assert consensus.winner_index == 0
+    assert consensus.supporting_frame_count == 2
+    assert consensus.independent_frame_count == 3
+
+
+def test_temporal_consensus_uses_robust_top_five_pool_for_fleeting_evidence():
+    consensus = build_temporal_consensus(
+        [
+            np.array([0.95, 0.05]),
+            np.array([0.90, 0.10]),
+            np.array([0.85, 0.15]),
+            np.array([0.80, 0.20]),
+            np.array([0.75, 0.25]),
+            np.array([0.55, 0.45]),
+            np.array([0.51, 0.49]),
+        ],
+        minimum_frame_score=0.5,
+    )
+
+    assert consensus is not None
+    assert consensus.score == pytest.approx(0.85)
+    assert consensus.ranked_classes[0].pooled_frame_count == 5
 
 
 def test_temporal_consensus_masks_non_species_classes_before_voting():

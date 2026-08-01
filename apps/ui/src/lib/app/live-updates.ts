@@ -42,6 +42,7 @@ interface SseData extends Omit<Partial<Detection>, 'id'> {
     camera?: string;
     clip_total?: number;
     current_frame?: number;
+    diagnostics?: Detection['video_classification_diagnostics'];
     error?: string;
     errors?: number;
     event_id?: string;
@@ -54,7 +55,7 @@ interface SseData extends Omit<Partial<Detection>, 'id'> {
     message?: string;
     model_name?: string;
     new_detections?: number;
-    outcome?: 'success' | 'no_result';
+    outcome?: 'success' | 'no_result' | 'failed';
     processed?: number;
     ram_usage?: string | null;
     reason?: string;
@@ -105,7 +106,13 @@ interface DetectionsStoreLike {
         modelName: string,
         ramUsage?: string | null
     ): void;
-    completeReclassification(eventId: string, results: unknown): void;
+    completeReclassification(
+        eventId: string,
+        results: unknown,
+        outcome: 'success' | 'no_result' | 'failed',
+        reason: string | null,
+        diagnostics: Detection['video_classification_diagnostics']
+    ): void;
     dismissReclassification(eventId: string): void;
     markReclassificationStrategyChanged(
         eventId: string,
@@ -232,6 +239,8 @@ export function toDetection(data: SseData): Detection {
         video_classification_score: data.video_classification_score,
         video_classification_label: data.video_classification_label,
         video_classification_status: data.video_classification_status,
+        video_classification_error: data.video_classification_error,
+        video_classification_diagnostics: data.video_classification_diagnostics,
         video_classification_provider: data.video_classification_provider,
         video_classification_backend: data.video_classification_backend,
         video_classification_model_id: data.video_classification_model_id,
@@ -564,38 +573,56 @@ export class LiveUpdateCoordinator {
                     this.deps.logger.warn('SSE invalid reclassification_completed payload', { payload });
                     return;
                 }
+                const results = Array.isArray(payload.data.results) ? payload.data.results : [];
+                const outcome = payload.data.outcome
+                    ?? (results.length > 0 ? 'success' : 'no_result');
                 if (this.deps.shouldNotify()) {
                     const prior = this.reclassifyProgressByEvent.get(payload.data.event_id);
                     const isBatch = this.activeReclassifyEvents.get(payload.data.event_id)?.strategy === 'auto_video';
-                    const noResult = payload.data.outcome === 'no_result';
                     if (!isBatch) {
-                        this.deps.jobProgress.markCompleted({
+                        const terminalJob = {
                             id: `reclassify:${payload.data.event_id}`,
                             kind: 'reclassify',
                             title: this.deps.t('actions.reclassify'),
-                            message: this.deps.t(
-                                noResult ? 'notifications.reclassify_no_result' : 'notifications.event_reclassify'
-                            ),
+                            message: outcome === 'failed'
+                                ? this.deps.t('notifications.reclassify_failed', {
+                                    message: payload.data.reason ?? 'Unknown error'
+                                })
+                                : this.deps.t(
+                                    outcome === 'no_result'
+                                        ? 'notifications.reclassify_no_result'
+                                        : 'notifications.event_reclassify'
+                                ),
                             route: `/events?event=${encodeURIComponent(payload.data.event_id)}`,
                             current: prior?.current ?? 0,
                             total: prior?.total ?? 0,
-                            source: 'sse'
-                        });
+                            source: 'sse' as const
+                        };
+                        if (outcome === 'failed') {
+                            this.deps.jobProgress.markFailed(terminalJob);
+                        } else {
+                            this.deps.jobProgress.markCompleted(terminalJob);
+                        }
                     }
                     this.clearReclassifyProgressNotification(payload.data.event_id);
                 }
                 this.deps.detectionsStore.completeReclassification(
                     payload.data.event_id,
-                    payload.data.results
+                    results,
+                    outcome,
+                    payload.data.reason ?? null,
+                    payload.data.diagnostics ?? null
                 );
-                const topLabel = Array.isArray(payload.data.results) && payload.data.results.length > 0
-                    ? payload.data.results[0]?.label ?? null
+                const topLabel = results.length > 0
+                    ? results[0]?.label ?? null
                     : null;
-                this.addReclassifyNotification(
-                    payload.data.event_id,
-                    topLabel,
-                    payload.data.outcome === 'no_result'
-                );
+                if (outcome !== 'failed') {
+                    this.addReclassifyNotification(
+                        payload.data.event_id,
+                        topLabel,
+                        outcome === 'no_result'
+                    );
+                }
                 return;
             }
 

@@ -126,7 +126,7 @@ async def test_activation_applies_the_verified_provider_only_after_model_activat
     monkeypatch.setattr(
         models_router,
         "activation_provider_recommendation",
-        lambda _model_id: "cuda",
+        lambda _model_id, **_kwargs: "cuda",
     )
     original_provider = settings.classification.inference_provider
     try:
@@ -134,6 +134,30 @@ async def test_activation_applies_the_verified_provider_only_after_model_activat
         assert resp.status_code == 200, resp.text
         assert stub_activation["id"] == "small_birds"
         assert settings.classification.inference_provider == "cuda"
+    finally:
+        settings.classification.inference_provider = original_provider
+
+
+@pytest.mark.asyncio
+async def test_activation_resets_stale_explicit_provider_when_model_has_no_recommendation(
+    client, monkeypatch, stub_activation
+):
+    async def fake_installed():
+        return [_installed("small_birds", validated=True)]
+
+    monkeypatch.setattr(models_router.model_manager, "list_installed_models", fake_installed)
+    monkeypatch.setattr(
+        models_router,
+        "activation_provider_recommendation",
+        lambda _model_id, **_kwargs: None,
+    )
+    original_provider = settings.classification.inference_provider
+    try:
+        settings.classification.inference_provider = "cuda"
+        resp = await client.post("/api/models/small_birds/activate")
+        assert resp.status_code == 200, resp.text
+        assert stub_activation["id"] == "small_birds"
+        assert settings.classification.inference_provider == "auto"
     finally:
         settings.classification.inference_provider = original_provider
 
@@ -147,6 +171,21 @@ async def test_activate_missing_model_is_404(client, monkeypatch, stub_activatio
 
     resp = await client.post("/api/models/does_not_exist/activate")
     assert resp.status_code == 404, resp.text
+
+
+@pytest.mark.asyncio
+async def test_retired_model_actions_are_gone(client, monkeypatch, stub_activation):
+    async def fake_installed():
+        return [_installed("moganet_s_eu_common", validated=True)]
+
+    monkeypatch.setattr(models_router.model_manager, "list_installed_models", fake_installed)
+
+    for action in ("download", "validate", "activate"):
+        resp = await client.post(f"/api/models/moganet_s_eu_common/{action}")
+        assert resp.status_code == 410, (action, resp.text)
+        assert "retired" in resp.json()["detail"].lower()
+
+    assert "id" not in stub_activation
 
 
 @pytest.mark.asyncio
@@ -195,6 +234,21 @@ def test_model_manager_refuses_to_persist_crop_detector_as_active_classifier(mon
     monkeypatch.setattr(models_router.model_manager, "_save_active_model_id", persisted.append)
 
     assert models_router.model_manager._activate_model_sync("bird_crop_detector") is False
+    assert persisted == []
+
+
+def test_model_manager_refuses_to_persist_retired_classifier(monkeypatch, tmp_path):
+    retired_dir = tmp_path / "moganet_s_eu_common"
+    retired_dir.mkdir(parents=True)
+    (retired_dir / "model.onnx").write_bytes(b"retired")
+    (retired_dir / "labels.txt").write_text("bird\n", encoding="utf-8")
+    persisted: list[str] = []
+
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+    manager = models_router.model_manager.__class__()
+    monkeypatch.setattr(manager, "_save_active_model_id", persisted.append)
+
+    assert manager._activate_model_sync("moganet_s_eu_common") is False
     assert persisted == []
 
 

@@ -61,9 +61,10 @@
     let primaryName = $derived(naming.primary);
     let subName = $derived(naming.secondary);
 
-    let isVerified = $derived(detection.audio_confirmed && detection.score > 0.7);
-    let hasAudioConfirmed = $derived(!!detection.audio_confirmed);
-    let upstreamMissing = $derived(detection.frigate_status === 'missing');
+    let isManualObservation = $derived(detection.observation_source === 'manual_upload');
+    let isVerified = $derived(!isManualObservation && detection.audio_confirmed && detection.score > 0.7);
+    let hasAudioConfirmed = $derived(!isManualObservation && !!detection.audio_confirmed);
+    let upstreamMissing = $derived(!isManualObservation && detection.frigate_status === 'missing');
 
     let hasWeather = $derived(
         detection.temperature !== undefined && detection.temperature !== null ||
@@ -277,6 +278,16 @@
                         </svg>
                     </div>
                 {/if}
+                {#if detection.observation_source === 'manual_upload'}
+                    <div
+                        role="img"
+                        class="flex h-7 w-7 items-center justify-center rounded-full bg-brand-500/95 text-white shadow-lg shadow-brand-500/30"
+                        title={$_('detection.manual_upload', { default: 'Added from an upload' })}
+                        aria-label={$_('detection.manual_upload', { default: 'Added from an upload' })}
+                    >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+                    </div>
+                {/if}
                 {#if upstreamMissing}
                     <div
                         role="img"
@@ -343,7 +354,7 @@
         {/if}
         {#if (onReclassify || onRetag) && !analysisActive}
             <div class="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0">
-                {#if onReclassify}
+                {#if onReclassify && detection.observation_source !== 'manual_upload'}
                     <button
                         onclick={handleReclassifyClick}
                         onkeydown={(e) => {

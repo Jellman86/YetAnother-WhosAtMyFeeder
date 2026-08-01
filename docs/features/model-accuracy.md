@@ -79,6 +79,11 @@ produced 4,032 classifications using the accurate YOLOX-Tiny detector.
 Top-1 accuracy is primary. Differences below two percentage points are treated as ties, resolved by
 top-3 accuracy, Unknown rate, then median latency.
 
+The MogaNet-S EU, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU, and UniFormer-S EU rows are retained as
+historical evidence from the full comparison. Those models are no longer present in the current
+application catalogue; their pre-3.0 release assets remain temporarily available for older
+applications.
+
 | Model or variant | Crop on top-1 / top-3 | Full frame top-1 / top-3 | Automatic policy |
 |---|---:|---:|---|
 | MobileNet V2 | 54.86 / 66.67 | 50.00 / 60.42 | **Crop on** |
@@ -91,10 +96,10 @@ top-3 accuracy, Unknown rate, then median latency.
 | FocalNet-B EU | 36.81 / 40.28 | 38.19 / 41.67 | Full frame |
 | RoPE ViT-B14 | 62.50 / 71.53 | 67.36 / 75.00 | Full frame |
 | EVA-02 Large | 68.06 / 77.78 | 67.36 / 79.86 | Full frame |
-| MogaNet-S EU | 27.78 / 31.94 | 27.78 / 34.72 | Full frame |
-| ConvNeXt-V1 Tiny EU | 27.78 / 32.64 | 29.17 / 35.42 | Full frame |
-| RegNet-Y-8G EU | 25.69 / 29.86 | 26.39 / 33.33 | Full frame |
-| UniFormer-S EU | 28.47 / 31.94 | 27.08 / 34.03 | Full frame |
+| MogaNet-S EU (retired) | 27.78 / 31.94 | 27.78 / 34.72 | Full frame |
+| ConvNeXt-V1 Tiny EU (retired) | 27.78 / 32.64 | 29.17 / 35.42 | Full frame |
+| RegNet-Y-8G EU (retired) | 25.69 / 29.86 | 26.39 / 33.33 | Full frame |
+| UniFormer-S EU (retired) | 28.47 / 31.94 | 27.08 / 34.03 | Full frame |
 
 All 2,016 crop-on cases attempted localization. The detector applied 1,736 crops, rejected 182
 images below its confidence threshold, rejected 98 candidates as too small, and recorded zero load
@@ -134,41 +139,100 @@ tracked box's **bottom-centre**, not its geometric centre. YA-WAMF now reconstru
 box's bottom-centre when choosing frames. Final-still candidates do not count as an independent
 video moment for multi-frame species refinement, preventing one visual frame from voting twice.
 
+### Video consensus and safe abstention (1 August 2026)
+
+Video reclassification samples unique frames with a deterministic centre-weighted distribution.
+Event clips favour the centre more strongly; complete recording/full-visit clips retain broader
+edge coverage. Rounding collisions are repaired beside their intended timestamp, so they cannot
+silently turn into adjacent frames at the beginning of the clip.
+
+Each representation is evaluated independently: unchanged full frame, Frigate-guided crop, and
+detector-generated crop. Low-confidence predictions prove that a representation was evaluated but
+do not vote against a fleeting subject; a missing dynamic crop is not an evaluated crop. Samples
+less than 250 ms apart are correlated and collapse into one moment, retaining the strongest
+observation. A source needs three independent evaluated moments before it can win, but it does not
+need to occupy a fixed percentage of a long clip. Within an eligible source, one exact class needs
+at least two votes and 60% of that source's **confident** votes. Its aggregate score is the median of
+up to the five strongest independent supporting moments. If independently trustworthy sources
+select different species, YA-WAMF abstains instead of choosing the most confident transformation.
+
+This is a sparse multiple-instance decision rather than majority voting over every decoded frame:
+brief recurring evidence should survive a long visit containing empty frames, while near-duplicate
+decodes must not manufacture support. The design follows the sparse-evidence motivation in
+[attention-based multiple-instance learning](https://proceedings.mlr.press/v80/ilse18a.html) and
+[sparse temporal pooling](https://openaccess.thecvf.com/content_cvpr_2018/html/Nguyen_Weakly_Supervised_Action_CVPR_2018_paper.html).
+YA-WAMF deliberately does not call raw model scores calibrated probabilities. The model's reviewed
+admission floor and the user's configured promotion threshold remain safety gates; probability
+calibration and formal risk/coverage selection require a representative labelled clip set, as
+described by [Guo et al.](https://proceedings.mlr.press/v70/guo17a.html) and
+[Geifman and El-Yaniv](https://papers.nips.cc/paper/2017/hash/4a8423d5e91fda00bb7e46540e2b0cf1-Abstract.html).
+
+Frigate `path_data` now guides video crops as well as HQ snapshots. YA-WAMF aligns each absolute
+bottom-centre path point with the actual event-clip or retained recording start timestamp, restores
+the tracked box at that sampled moment, and ignores a path point more than 0.75 seconds away. A
+retained recording never reuses the event's one static box outside those aligned moments; when
+tracking metadata is absent or stale, full-frame and detector-crop evidence remain available.
+
+When no source clears the policy, YA-WAMF stores a bounded diagnostic summary on the detection:
+decoded frames, independent moments, confident votes, the support required for each source, up to
+three confident candidates, and separate all-score observation context. **Detection details → Show
+technical details** presents the voting evidence. The summary explains the decision; it never
+promotes a rejected candidate or replaces the raw media needed for later reclassification.
+
+Manual reclassification uses the same safety and configured confidence rules; clicking Reclassify
+does not bypass the promotion threshold. A video abstention or below-threshold candidate triggers
+the best retained snapshot before the run finishes. Its progress view ends with one explicit
+outcome: a new identification, **Identification unchanged** when both routes abstain, or a technical
+failure with its reason. An unchanged result includes the confident-frame count, leading-species
+support, and matching requirement, then keeps the previous identification intact. The detection
+details notice remains visible after the progress view closes, with the full per-source evidence
+available under **Show technical details**.
+
 ---
 
 ## Intel GPU Support
 
-The original matrix was tested on OpenVINO 2025.4.1 with an Intel integrated GPU. RoPE ViT-B14 was
-revalidated on 18 July 2026 on Arrow Lake-S with OpenVINO 2026.2.1 using the isolated full-device
-sweep against 12 real images per device:
+The original matrix was tested on OpenVINO 2025.4.1 with an Intel integrated GPU. The complete
+matrix was revalidated on 28 July 2026 on Arrow Lake-S with OpenVINO 2026.2.1, using the isolated
+schema-4 sweep against 24 real images per classifier:
 
 | Model | Intel GPU Status | Notes |
 |-------|-----------------|-------|
-| EU FocalNet-B | ✅ Validated | Correct finite output. Static-batch reshape required (applied automatically). |
-| Small Birds EU (MobileNetV4-L) | ✅ Validated | ratio=1.03, Spearman=0.996, top5∩=5. Excellent GPU match. Probed 22 March 2026. |
-| Medium Birds EU (ConvNeXt-V2-Tiny) | ✅ Validated | ratio=0.98, Spearman=0.959, top5∩=3. Smaller kernel avoids ConvNeXt Large's precision issue. Probed 22 March 2026. |
-| ConvNeXt Large | ❌ Not supported | Wrong predictions — GPU logit spread ~3–7 vs ~18 on CPU; top-1 is entirely wrong species. Seven compilation strategies tested exhaustively (f16, ACCURACY hint, no-Winograd, HETERO): f16 → NaN; ACCURACY → compile crash; HETERO → range recovers but ranking still wrong (Spearman 0.16). Not fixable on this iGPU generation with OV 2025.4. |
-| RoPE ViT-B14 | ✅ Host-validated | Arrow Lake-S / OpenVINO 2026.2.1: GPU compiled, produced finite output on 12 real images, matched CPU top-1 on all 12, and averaged 5/5 top-5 overlap. Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so per-host validation is required. |
-| FlexiViT Global | ❌ Not supported | NaN in both f32 and f16. FlexiViT DINOv2 RMSNorm produces non-finite values. |
-| Small Birds NA (EfficientNet-B0) | ❌ Not supported | Non-deterministic crash — first inference after clean state may pass (f32: ratio=0.83, Spearman=0.821), but subsequent GPU compilations crash with `CL_OUT_OF_RESOURCES`. f16 → NaN. Too unreliable for production use. |
-| Medium Birds NA (Binocular) | ❌ Not supported | NaN in both f32 and f16. |
-| EVA-02 Large | ❌ Fatal crash | Non-deterministic: first attempt may return NaN, second attempt crashes the process with `clWaitForEvents -14` / `CL_OUT_OF_RESOURCES`. Not a RAM issue — iGPU can address 28.7 GB with 4 GB max allocation; the 1.2 GB model fits easily. Root cause is an EVA-CLIP attention op incompatibility on this iGPU generation. Confirmed on OV 2024.6.0, 2026.0.0, and 2025.4.1. Do not use with Intel GPU. |
+| EU FocalNet-B | ✅ Validated | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 146.6 ms. |
+| Small Birds EU (MobileNetV4-L) | ✅ Host-gated candidate | Two explicit EU runs matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap; the latest measured 25.3 ms. An older shared-context run failed, so the isolated exact-installation gate remains required. |
+| Medium Birds EU (ConvNeXt-V2-Tiny) | ✅ Validated | The explicit EU run matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap at 36.1 ms. |
+| MogaNet-S EU (retired) | Historical pass | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 72.2 ms. Retained as retirement evidence, not a current option. |
+| FlexiViT Global | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 71.1 ms. Older OpenVINO runs produced non-finite output. |
+| ConvNeXt Large | ✅ Host-gated candidate | 24/24 GPU top-1 results matched CPU, mean top-5 overlap was 5/5, and median inference was 355.8 ms. OpenVINO 2025.4.1 produced systematically wrong rankings, so Intel GPU is a candidate rather than globally safe. |
+| RoPE ViT-B14 | ✅ Host-gated candidate | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 310.8 ms. Older Intel GPU / OpenVINO 2025.4 combinations produced NaNs, so per-host validation remains required. |
+| ConvNeXt-V1 Tiny EU (retired) | Historical pass | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 57.8 ms. Retained as retirement evidence, not a current option. |
+| RegNet-Y-8G EU (retired) | Historical pass | 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 73.0 ms. Retained as retirement evidence, not a current option. |
+| UniFormer-S EU (retired) | Historical pass | Finite output, 24/24 top-1 matched CPU, 5/5 mean top-5 overlap, 49.8 ms. Retained as retirement evidence, not a current option. |
+| EVA-02 Large | ✅ Host-gated candidate | The isolated current-runtime sweep completed 24/24 images with exact CPU top-1 and 5/5 top-5 overlap at 692.3 ms. OpenVINO 2024.6.0 through 2025.4.1 could abort with `CL_OUT_OF_RESOURCES`, so it is never globally enabled. |
+| Small Birds NA (EfficientNet-B0) | ✅ Host-gated candidate | The post-deploy NA run matched CPU top-1 on 24/24 images at 5.4 ms, but historical runs crashed or produced non-finite output. It is never assumed safe and must pass on the exact artifact and installation. |
+| Medium Birds NA (Binocular) | ✅ Host-gated candidate | The post-deploy NA run matched CPU top-1 on 24/24 images with 5/5 mean top-5 overlap at 96.6 ms. Older runs produced non-finite output, so exact-installation validation remains mandatory. |
 
 **Intel CPU (OpenVINO)** works correctly for all ONNX models and provides a meaningful speedup over plain ONNX Runtime CPU. It remains the safe fallback when host validation rejects an accelerator.
 
-The `auto` provider setting will try GPU first, run the startup self-test, detect failures, and fall back to `Intel CPU (OpenVINO)` or `CPU` automatically.
+The `auto` provider setting uses the measured passing order for the exact model artifact, runtime
+stack, image, and visible hardware. Without current evidence it stays within the model's globally
+safe provider list; it does not assume that a detected GPU is numerically correct.
 
 ### Intel NPU support
 
-The 18 July 2026 Arrow Lake-S / OpenVINO 2026.2.1 sweep validated NPU execution for RoPE ViT-B14,
-ConvNeXt Large, EVA-02 Large, FlexiViT, FocalNet-B, MogaNet-S, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU,
-and UniFormer-S EU. Each compiled in an isolated process, produced finite output for 12 real images,
-and matched CPU top-1 on all 12. NPU was not the fastest device for most models on this host, so the
-guided validation still benchmarks the available devices and selects the fastest passing provider.
+The 28 July 2026 Arrow Lake-S / OpenVINO 2026.2.1 sweeps validated current NPU execution for RoPE
+ViT-B14, ConvNeXt Large, EVA-02 Large, FlexiViT, FocalNet-B, Small Birds EU, and Medium Birds NA.
+Each compiled in an isolated process, produced finite output for 24 real images, and matched CPU
+top-1 on all 24. Small Birds EU repeated that result in two explicit regional runs and is a
+host-gated candidate; Medium Birds NA also remains host-gated because older runtime evidence
+conflicted. MogaNet-S, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU, and UniFormer-S also passed that
+historical sweep but have since been retired from the application catalogue.
 
-MobileNet V2 remains TFLite/CPU-only. Small and Medium regional families are not given a global NPU
-flag yet because the retained eligibility record is keyed by family ID rather than EU/NA artifact;
-both variants need independent validation before that claim is safe.
+MobileNet V2 remains TFLite/CPU-only. Medium Birds EU's NPU output disagreed on one of 24 top-1
+results, and Small Birds NA disagreed in an earlier run despite passing the post-deploy panel, so
+NPU remains excluded for both artifacts. NPU was not the fastest device for every model; the guided
+validation therefore benchmarks the current installation and selects the fastest passing provider
+rather than preferring an accelerator by name.
 
 ---
 
@@ -362,7 +426,9 @@ docker exec yawamf-monalithic python -m pytest \
 
 #### ConvNeXt Large focused probe
 
-ConvNeXt Large is broken on Intel iGPU (precision degradation, not fixable with OV 2025.4).  This probe checks whether NVIDIA GPU gives correct results and includes Intel iGPU reference data for direct comparison:
+ConvNeXt Large was broken on the tested OpenVINO 2025.4 Intel path but passes on Quark's current
+OpenVINO 2026.2.1 stack. This focused probe remains useful for NVIDIA validation and for detecting
+future Intel runtime regressions:
 
 ```bash
 docker exec yawamf-monalithic python -m pytest \

@@ -4,7 +4,7 @@ import json
 import pytest
 
 from app.config import settings
-from app.services.model_manager import ModelManager
+from app.services.model_manager import RETIRED_CLASSIFIER_MODEL_IDS, ModelManager
 
 
 def test_swap_model_dirs_rolls_back_on_rename_failure(tmp_path, monkeypatch):
@@ -99,6 +99,117 @@ def test_load_active_model_id_respects_selection(tmp_path, monkeypatch):
 
     manager = ModelManager()
     assert manager.active_model_id == "eva02_large_inat21"
+
+
+@pytest.mark.asyncio
+async def test_reconcile_retired_selection_prefers_installed_convnext_large(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+    active_path = tmp_path / "active_model.json"
+    active_path.write_text(json.dumps({"active_model_id": "moganet_s_eu_common"}), encoding="utf-8")
+
+    convnext_dir = tmp_path / "convnext_large_inat21"
+    convnext_dir.mkdir()
+    (convnext_dir / "model.onnx").write_bytes(b"convnext")
+    (convnext_dir / "model.onnx.data").write_bytes(b"weights")
+    (convnext_dir / "labels.txt").write_text("bird\n", encoding="utf-8")
+    (convnext_dir / "model_config.json").write_text("{}", encoding="utf-8")
+
+    saved: list[tuple[str, str]] = []
+
+    async def fake_save(_self):
+        saved.append((settings.classification.model, settings.classification.inference_provider))
+
+    monkeypatch.setattr(type(settings), "save", fake_save)
+    monkeypatch.setattr(
+        "app.services.model_manager.activation_provider_recommendation",
+        lambda _model_id, **_kwargs: "intel_npu",
+    )
+    original_model = settings.classification.model
+    original_provider = settings.classification.inference_provider
+    try:
+        settings.classification.model = "moganet_s_eu_common"
+        settings.classification.inference_provider = "intel_gpu"
+        manager = ModelManager()
+
+        replacement = await manager.reconcile_retired_model_selection()
+
+        assert replacement == "convnext_large_inat21"
+        assert manager.active_model_id == "convnext_large_inat21"
+        assert settings.classification.model == "convnext_large_inat21"
+        assert settings.classification.inference_provider == "intel_npu"
+        assert json.loads(active_path.read_text(encoding="utf-8")) == {"active_model_id": "convnext_large_inat21"}
+        assert saved == [("convnext_large_inat21", "intel_npu")]
+    finally:
+        settings.classification.model = original_model
+        settings.classification.inference_provider = original_provider
+
+
+@pytest.mark.asyncio
+async def test_reconcile_retired_selection_uses_bundled_fallback_when_convnext_is_absent(tmp_path, monkeypatch):
+    models_dir = tmp_path / "models"
+    models_dir.mkdir()
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(models_dir))
+    active_path = models_dir / "active_model.json"
+    active_path.write_text(json.dumps({"active_model_id": "uniformer_s_eu_common"}), encoding="utf-8")
+
+    bundled_dir = tmp_path / "bundled"
+    bundled_dir.mkdir()
+    (bundled_dir / "model.tflite").write_bytes(b"mobilenet")
+    (bundled_dir / "labels.txt").write_text("bird\n", encoding="utf-8")
+    monkeypatch.setattr("app.services.model_manager.BUNDLED_MODELS_DIR", str(bundled_dir))
+
+    async def fake_save(_self):
+        return None
+
+    monkeypatch.setattr(type(settings), "save", fake_save)
+    original_model = settings.classification.model
+    original_provider = settings.classification.inference_provider
+    try:
+        settings.classification.model = "uniformer_s_eu_common"
+        settings.classification.inference_provider = "intel_npu"
+        manager = ModelManager()
+
+        replacement = await manager.reconcile_retired_model_selection()
+
+        assert replacement == "mobilenet_v2_birds"
+        assert manager.active_model_id == "mobilenet_v2_birds"
+        assert settings.classification.model == "mobilenet_v2_birds"
+        assert settings.classification.inference_provider == "auto"
+    finally:
+        settings.classification.model = original_model
+        settings.classification.inference_provider = original_provider
+
+
+@pytest.mark.asyncio
+async def test_reconcile_retired_selection_does_not_change_current_convnext_selection(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+    (tmp_path / "active_model.json").write_text(
+        json.dumps({"active_model_id": "convnext_large_inat21"}),
+        encoding="utf-8",
+    )
+    save_called = False
+
+    async def fake_save(_self):
+        nonlocal save_called
+        save_called = True
+
+    monkeypatch.setattr(type(settings), "save", fake_save)
+    original_model = settings.classification.model
+    original_provider = settings.classification.inference_provider
+    try:
+        settings.classification.model = "convnext_large_inat21"
+        settings.classification.inference_provider = "intel_npu"
+        manager = ModelManager()
+
+        replacement = await manager.reconcile_retired_model_selection()
+
+        assert replacement is None
+        assert manager.active_model_id == "convnext_large_inat21"
+        assert settings.classification.inference_provider == "intel_npu"
+        assert save_called is False
+    finally:
+        settings.classification.model = original_model
+        settings.classification.inference_provider = original_provider
 
 
 def test_resolve_models_dir_prefers_model_dir_env(tmp_path, monkeypatch):
@@ -305,7 +416,8 @@ def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_pa
         assert na_spec["labels_path"] == str(na_dir / "labels.txt")
         assert na_spec["input_size"] == 224
         assert na_spec["label_grouping"]["strategy"] == "strip_trailing_parenthetical"
-        assert na_spec["supported_inference_providers"] == ["cpu", "intel_cpu", "intel_gpu"]
+        assert na_spec["supported_inference_providers"] == ["cpu", "intel_cpu"]
+        assert na_spec["candidate_inference_providers"] == ["cpu", "intel_cpu", "intel_gpu"]
         assert na_spec["crop_generator"]["enabled"] is True
         assert na_spec["crop_generator"]["input_context"]["is_cropped"] is True
 
@@ -315,7 +427,9 @@ def test_get_active_model_spec_resolves_family_variant_paths_and_metadata(tmp_pa
         assert eu_spec["labels_path"] == str(eu_dir / "labels.txt")
         assert eu_spec["input_size"] == 384
         assert "intel_cpu" in eu_spec["supported_inference_providers"]
-        assert "intel_gpu" in eu_spec["supported_inference_providers"]
+        assert "intel_gpu" not in eu_spec["supported_inference_providers"]
+        assert "intel_gpu" in eu_spec["candidate_inference_providers"]
+        assert "intel_npu" in eu_spec["candidate_inference_providers"]
         assert eu_spec["crop_generator"]["enabled"] is False
     finally:
         settings.location.country = original_country
@@ -639,7 +753,7 @@ def test_get_active_model_spec_falls_back_to_registry_when_installed_provider_li
     ]
 
 
-def test_get_active_model_spec_does_not_let_old_sidecar_hide_newly_validated_npu(tmp_path, monkeypatch):
+def test_get_active_model_spec_treats_host_gated_gpu_as_candidate_and_adds_new_safe_npu(tmp_path, monkeypatch):
     monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
 
     model_dir = tmp_path / "convnext_large_inat21"
@@ -662,7 +776,14 @@ def test_get_active_model_spec_does_not_let_old_sidecar_hide_newly_validated_npu
     spec = manager.get_active_model_spec()
 
     assert spec["supported_inference_providers"] == ["cpu", "cuda", "intel_cpu", "intel_npu"]
-    assert spec["model_config_registry_unsupported_providers"] == ["intel_gpu"]
+    assert spec["candidate_inference_providers"] == [
+        "cpu",
+        "cuda",
+        "intel_cpu",
+        "intel_gpu",
+        "intel_npu",
+    ]
+    assert spec.get("model_config_registry_unsupported_providers", []) == []
     assert spec["model_config_registry_missing_providers"] == ["intel_npu"]
 
 
@@ -732,6 +853,26 @@ async def test_list_installed_models_includes_crop_detector_when_downloaded(monk
     assert "bird_crop_detector" in by_id
     assert by_id["bird_crop_detector"].path == str(detector_dir / "model.onnx")
     assert by_id["bird_crop_detector"].metadata is not None
+
+
+@pytest.mark.asyncio
+async def test_list_installed_models_hides_retired_models_without_deleting_assets(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    retired_id = "moganet_s_eu_common"
+    retired_dir = tmp_path / retired_id
+    retired_dir.mkdir(parents=True, exist_ok=True)
+    model_path = retired_dir / "model.onnx"
+    labels_path = retired_dir / "labels.txt"
+    model_path.write_bytes(b"retired-model")
+    labels_path.write_text("bird\n", encoding="utf-8")
+
+    installed = await ModelManager().list_installed_models()
+
+    assert retired_id in RETIRED_CLASSIFIER_MODEL_IDS
+    assert retired_id not in {model.id for model in installed}
+    assert model_path.read_bytes() == b"retired-model"
+    assert labels_path.read_text(encoding="utf-8") == "bird\n"
 
 
 def test_exact_crop_detector_spec_never_falls_back_to_fast(monkeypatch, tmp_path):
@@ -859,10 +1000,6 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
         "medium_birds",
         "eu_medium_focalnet_b",
         "convnext_large_inat21",
-        "moganet_s_eu_common",
-        "convnext_v1_tiny_eu_common",
-        "regnet_y_8g_eu_common",
-        "uniformer_s_eu_common",
         "eva02_large_inat21",
     ]
     assert [model.sort_order for model in models] == [
@@ -875,10 +1012,6 @@ async def test_list_available_models_returns_models_sorted_by_sort_order(monkeyp
         18,
         19,
         20,
-        22,
-        23,
-        24,
-        27,
         30,
     ]
 

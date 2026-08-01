@@ -61,6 +61,7 @@ from app.routers import (
     setup as setup_router,
     auth as auth_router,
     jobs as jobs_router,
+    manual_observations,
 )
 from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
@@ -414,6 +415,14 @@ async def lifespan(app: FastAPI):
         )
         from app.services.model_manager import model_manager
 
+        await _run_lifecycle_phase(
+            app,
+            "retired_model_reconciliation",
+            model_manager.reconcile_retired_model_selection,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=72,
+        )
         create_background_task(model_manager.ensure_installed_model_configs(), name="model_config_refresh")
         await _run_lifecycle_phase(
             app,
@@ -578,6 +587,7 @@ app.include_router(
     model_eval.router, prefix="/api", tags=["diagnostics"], dependencies=[Depends(get_auth_context_with_legacy)]
 )
 app.include_router(jobs_router.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(manual_observations.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(email.router, prefix="/api", tags=["email"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(
     inaturalist.router, prefix="/api", tags=["inaturalist"], dependencies=[Depends(get_auth_context_with_legacy)]

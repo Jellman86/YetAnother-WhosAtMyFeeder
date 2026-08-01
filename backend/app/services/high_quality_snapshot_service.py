@@ -1331,7 +1331,7 @@ class HighQualitySnapshotService:
         scheduled = 0
         for detection in detections:
             event_id = str(detection.frigate_event or "").strip()
-            if not event_id:
+            if not event_id or event_id.startswith("manual_"):
                 continue
             metadata = await media_cache.get_snapshot_metadata(event_id)
             source = str((metadata or {}).get("source") or "").strip()

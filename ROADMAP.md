@@ -3,6 +3,9 @@
 The single, forward-looking plan for YA-WAMF. This is where **planned** and
 **in-progress** work lives; **completed** work moves to [`CHANGELOG.md`](CHANGELOG.md)
 and is summarised in the [Delivered](#3-delivered) catalogue at the bottom.
+Entries are ordered by product and safety dependency, not promised dates. Each
+entry states an outcome and the evidence needed to call it complete; priority
+and effort are planning aids, not release promises.
 
 > **YA-WAMF is already feature-rich.** This roadmap tracks what's *next*, not what
 > exists — see the [README](README.md) and [Delivered](#3-delivered) for current
@@ -28,6 +31,10 @@ It is anchored by two honest assessments of *where we stand*:
 **Issues first.** Before new feature work, clear anything in `ISSUES.md` and the
 [GitHub issue tracker](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues).
 If a section ever claims "none open", treat it as stale and check both sources.
+Issues retain implementation-ready scope, acceptance criteria, and discussion;
+short-lived pull requests deliver reviewable slices into `dev`. Code and tests
+remain the source of truth, so roadmap work is not shipped until the repository
+proves it.
 
 ---
 
@@ -114,8 +121,11 @@ never clobbers unrelated config). Steps:
   loads and runs on the providers available to the running image. The shared provider sweep now
   intersects the image package, host probe, and selected model; tests ONNX CPU/CUDA and OpenVINO
   CPU/GPU/NPU as applicable; compares real-image output with a CPU baseline; and persists the
-  fastest verified provider. The wizard validates only the selected installed model, while the
-  Diagnostics surface can optionally download and test the whole registry.
+  measured provider order. A reviewed global candidate list can widen what the isolated sweep
+  probes without making that provider globally selectable. Schema-4 evidence is bound to the
+  runtime stack, visible hardware, image flavour, and model checksum, so stale proof fails closed.
+  The wizard validates only the selected installed model, while the Diagnostics surface can
+  optionally download and test the whole registry.
 - **Integrations** — Frigate, BirdNET-Go, media servers, notifications: guided connect + test.
 - **Frigate settings** — cameras, recording-retention guidance, and the detection gates that
   drive the Event-Not-Found problem (`min_score` / `min_initialized` / `threshold`).
@@ -509,14 +519,18 @@ in-app and in docs; the release makes them final.
   password-based auth already available under Settings → Security. The deprecation notice is
   live today (`backend/app/auth.py`: *"API key support will be removed in v3.0"*); `3.0`
   deletes the code path.
+- **Retired comparison-model downloads removed.** MogaNet-S EU, ConvNeXt-V1 Tiny EU,
+  RegNet-Y-8G EU, and UniFormer-S EU are already absent from the current application catalogue.
+  Their release assets remain temporarily available so pre-3.0 applications can still download
+  them; the 3.0 release retires those legacy assets after the compatibility window.
 - **Migration must be lossless.** Existing split-deployment installs must be able to move to
   the monolith with unchanged `/config` and `/data` volumes (DB, models, `config.json`), and
   the [split-to-monolith guide](docs/setup/migrate-split-to-monolith.md) stays the supported
   path through the transition.
 
 **Acceptance:** `3.0` docs/compose/proxy guidance are monolith-first; the split path and
-`X-API-Key` are gone from the recommended surface; a documented migration preserves all user
-data and runs DB migrations cleanly.
+`X-API-Key` and the four legacy comparison-model assets are gone from the recommended/runtime
+surface; a documented migration preserves all user data and runs DB migrations cleanly.
 
 ---
 
@@ -549,29 +563,50 @@ Condensed — see [`CHANGELOG.md`](CHANGELOG.md) and git history for detail. Eve
 shipped.
 
 **Classification & models:** multi-model support (TFLite/ONNX: MobileNetV2, ConvNeXt, EVA-02),
-fast-path mode, manual reclassification with confidence override, canonical species-identity
-normalization, blocked-species picker with reliable taxonomy matching, manual-tag common-name
+fast-path mode, manual reclassification with the configured confidence guard, canonical
+species-identity normalization, blocked-species picker with reliable taxonomy matching, manual-tag common-name
 resolution, the classifier inference-health refactor (`v2.11`, issue #33 resolved), the labeled
 feeder + auto-fetch model-evaluation harnesses, and the **accurate bird-crop detector tier**
 (optional YOLOX-Tiny with fast→original fallback, model-manager UI, and adapter/eval tests), plus
 **automatic per-model crop policy** validated on Quark and synchronized between the runtime registry
 and downloadable model sidecars. The classification pipeline now also separates Frigate object and
 sublabel confidence, runs local inference before trusted fallback, recovers missed MQTT `new` events
-from `update`, protects manual identity atomically, uses three-frame/60% deep-video consensus, and
+from `update`, protects manual identity atomically, uses sparse independent-moment deep-video
+consensus (three separated evaluations, at least two confident votes, and a 60% winner), and
 compares full-frame and cropped video evidence without double-counting frames, persists the winning
-input provenance, and surfaces provider failures for recovery instead of silently treating them as
-empty predictions.
+input provenance, aligns Frigate path coordinates to event and retained-recording timelines, and
+surfaces provider failures for recovery instead of silently treating them as empty predictions.
+Sparse dynamic crops use their own independent-moment denominator without requiring a fleeting
+subject to occupy a fixed percentage of a long clip; centre-weighted sampling stays distributed,
+and safe abstentions retain owner-visible per-source evidence instead of a generic no-result code.
 
 **Acceleration:** Intel iGPU (OpenVINO), **Intel NPU** (`intel_npu` provider, capability probe,
 device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and
-clean fallback chains. Full registry audits can probe undeclared host providers without making them
-eligible, and reproducible release sidecars prevent older provider metadata from narrowing or
-widening the current application contract. Crop-detector audits now use unique identities across a
+clean fallback chains. The global registry separates safe providers from reviewed, host-gated
+candidates; full audits can still probe undeclared providers without making them eligible.
+Runtime selection, setup, Settings, and the activation API consume the same per-install measured
+order, and schema-4 evidence expires across model artifacts, runtime stacks, visible accelerator
+hardware, kernels, and image flavours. Reproducible release sidecars prevent older provider
+metadata from narrowing or widening the current application contract. Crop-detector audits now use unique identities across a
 round-robin clean species panel and hard negatives, fail on incomplete comparison coverage, and
 test only proposals production could admit. The accurate YOLOX-Tiny tier is validated on Quark's
-Intel CPU/GPU/NPU; the fast quantized SSD remains CPU-only.
+Intel CPU/GPU/NPU; the fast quantized SSD remains CPU-only. The 28 July 2026 full Intel audit
+validated all 12 classifier entries that were present at the time and both crop detectors, followed
+by explicit EU/NA family reruns after fixing human-readable country resolution. Its reviewed
+candidate expansion is artifact-specific: NPU for Small Birds EU and Medium Birds NA, and GPU for
+EVA-02 Large. The completed comparison also justified retiring MogaNet-S EU, ConvNeXt-V1 Tiny EU,
+RegNet-Y-8G EU, and UniFormer-S EU from the current catalogue while retaining their release assets
+for pre-3.0 clients. Medium Birds EU failed NPU CPU-equivalence and Small Birds NA produced
+inconsistent NPU results, so neither route is selectable. The same audit narrowed
+historically inconsistent GPU routes to host-gated candidates, with every installation required to
+prove them before selection.
 
 **Media & detection:** full-visit recording clips, HQ event/bird-crop snapshots with conservative,
+an owner-only full-page manual-observation flow for photos and short videos with durable analysis,
+explicit review, duplicate protection, production crop/temporal inference, and Frigate-independent
+original-media retention, taxonomy and runtime provenance for uploaded-photo review, local history
+thumbnails, omission of unrelated BirdNET-Go context, defensively extracted EXIF GPS with an
+owner-editable optional map pin,
 temporally independent multi-frame crop refinement for distant subjects, a protected Frigate final
 best-frame baseline with correctly reconstructed bottom-centre path coordinates, recording-frame
 classification fallback, media caching, and the video player with HTTP-Range seeking + expiring
@@ -580,7 +615,9 @@ corrupt media remains rejected, and HQ recovery has persistent bounded backoff a
 restarts. Manual temporal
 reclassification follows the same best-available-media contract: complete cached recording →
 decodable partial recording → cached event clip → Frigate event clip → snapshot fallback, with an
-invalid cache entry unable to block the next usable source.
+invalid cache entry unable to block the next usable source. It is owned by the bounded video queue,
+deduplicates across manual/live/maintenance callers, reports Jobs progress, and isolates temporal
+inference in a subprocess that can be terminated on cancellation or timeout.
 
 **Integrations:** Frigate NVR (MQTT + media proxy), BirdNET-Go audio correlation, multi-platform
 notifications (Discord/Telegram/Pushover/Email + Notification Center), BirdWeather, eBird (sightings,

@@ -67,6 +67,20 @@
     let selectedModel = $derived(availableModels.find((model) => model.id === selectedModelId) ?? installedModels.find((model) => model.id === selectedModelId)?.metadata ?? null);
     let selectedModelSummary = $derived(summarizeModelMetadata(selectedModel));
     let selectedValidation = $derived(results?.find((result) => result.model_id === selectedModelId) ?? null);
+    let selectedValidatedProviders = $derived(
+        selectedValidation
+            ? selectedValidation.validated_providers
+            : selectedModelId === status?.active_model_id
+                ? ((status?.active_model_validated_providers?.length ?? 0) > 0
+                    ? status?.active_model_validated_providers
+                    : undefined)
+                : (selectedInstalledModel?.validated_inference_providers ?? [])
+    );
+    let selectedProviderPreferenceOrder = $derived(
+        selectedModelId === status?.active_model_id
+            ? status?.validated_provider_preference_order
+            : selectedInstalledModel?.provider_preference_order
+    );
     let needsDownload = $derived(!!selectedModelId && !installedIds.has(selectedModelId));
     let selectedModelReady = $derived(
         !!selectedModelId
@@ -93,8 +107,9 @@
     let providerChoices = $derived(buildInferenceProviderChoices(
         status,
         selectedProvider,
-        selectedModel?.supported_inference_providers,
-        selectedValidation?.validated_providers,
+        selectedModel?.candidate_inference_providers ?? selectedModel?.supported_inference_providers,
+        selectedValidatedProviders,
+        selectedProviderPreferenceOrder,
     ));
     let providerPreferenceLabel = $derived(
         selectedModelId === status?.active_model_id

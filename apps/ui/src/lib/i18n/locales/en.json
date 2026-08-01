@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "explorer": "Explorer",
+    "add_observation": "Add observation",
     "leaderboard": "Leaderboard",
     "observe": "Observe",
     "manage": "Manage",
@@ -24,6 +25,50 @@
     "events": "Events",
     "notifications": "Notifications",
     "species": "Species"
+  },
+  "manual_observation": {
+    "eyebrow": "Field record",
+    "intro_title": "Turn a photo or clip into a verified observation",
+    "intro_body": "YA-WAMF uses the same model, crop selection, and video consensus as live detections. Nothing is added until you review it.",
+    "progress_label": "Observation progress",
+    "steps": {
+      "upload": "Upload", "upload_detail": "Choose original media",
+      "analyse": "Analyse", "analyse_detail": "Find the strongest evidence",
+      "review": "Review", "review_detail": "Confirm the species",
+      "save": "Save", "save_detail": "Add to observations"
+    },
+    "evidence": { "full_frame": "Full frame", "crop": "Best crop", "model": "Model", "provider": "Provider" },
+    "errors": {
+      "load": "The analysis status could not be loaded.", "type": "Choose a JPEG, PNG, WebP, MP4, MOV, or WebM file.",
+      "upload": "The media could not be uploaded.", "retry": "The analysis could not be restarted.", "save": "The observation could not be saved."
+    },
+    "upload": {
+      "title": "Choose a photo or video", "help": "Use the original file when possible. YA-WAMF will preserve it and choose the strongest input for classification.",
+      "change": "Choose a different file", "drop": "Drop media here or choose a file", "formats": "JPEG, PNG, WebP up to 25 MB · MP4, MOV, WebM up to 250 MB / 3 minutes",
+      "uploading": "Securing the original…", "analyse": "Upload and analyse"
+    },
+    "analysis": {
+      "preview_alt": "Uploaded media preview", "video": "Video", "image": "Photo", "title": "Finding the strongest evidence",
+      "body": "The production classifier is comparing frames and crop candidates. You can leave this page; the draft will be restored when you return.",
+      "progress": "Analysis progress", "failed_title": "Analysis stopped safely", "failed_body": "Your original media is still stored. Retry when the model is available.", "retry": "Retry analysis"
+    },
+    "review": {
+      "preview_alt": "Observation preview", "title": "Review before saving", "body": "Confirm the suggested species, correct it if needed, and add the field context you want to keep.",
+      "candidates": "Model suggestions", "species": "Species", "when": "Observed at", "location": "Camera or place name", "notes": "Notes",
+      "saving": "Saving observation…", "save": "Save observation"
+    },
+    "location": {
+      "title": "Sighting location", "extracted": "Location found in the image metadata. Check the pin and adjust it if needed.",
+      "missing": "No embedded location was found. Place a pin if you know where the sighting was made.", "manual": "This pin was placed or adjusted manually. Check it before saving.", "from_image": "From image metadata",
+      "map_label": "Map for placing the sighting pin", "map_help": "Click or tap the map to place the pin. Drag it to make a precise adjustment.",
+      "latitude": "Latitude", "longitude": "Longitude", "clear": "Clear location", "incomplete": "Enter both latitude and longitude, or clear the location.", "invalid": "Latitude must be −90 to 90 and longitude −180 to 180.",
+      "selected": "Pin selected at {latitude}, {longitude}", "unselected": "No sighting location selected", "pin_label": "Sighting location pin; drag to adjust"
+    },
+    "saved": {
+      "toast": "Observation added", "eyebrow": "Record complete", "title": "Observation saved", "body": "The verified record is now part of your detection history and species totals.",
+      "view": "View detection", "another": "Add another"
+    },
+    "start_over": "Start over"
   },
   "setup": {
     "action_failed": "That change could not be saved. Check the details and try again.",
@@ -96,6 +141,7 @@
         "cameras_count": "{count} cameras",
         "cameras_all": "All cameras",
         "model_wrong_kind": "A crop detector is selected as the classifier",
+        "model_retired": "The saved classifier has been retired",
         "model_fallback": "Bundled fallback",
         "quality_best": "Best available snapshots",
         "quality_standard": "Standard snapshots",
@@ -1375,6 +1421,8 @@
     "reclassify_selected": "Reclassify Selected"
   },
   "detection": {
+    "uploaded": "Uploaded",
+    "observation_notes": "Observation notes",
     "confidence": "Confidence",
     "verified": "Verified",
     "hidden": "Hidden",
@@ -1478,6 +1526,16 @@
       "gated_title": "Video found a match — confirm to apply",
       "gated_desc": "Auto-promotion was held back because the video score is below your minimum-confidence floor. Run reclassify to apply this result, or lower the floor in Settings → Detection.",
       "gated_action": "Reclassify",
+      "evidence": {
+        "title": "Evidence from this run",
+        "summary": "{processed} of {sampled} sampled frames were decoded. A frame needed at least {threshold}% confidence to vote.",
+        "confident_short": "confident",
+        "required": "Needed {required} matching confident moments from this source.",
+        "top_candidates": "Top recurring candidates",
+        "full_frame": "Full frame",
+        "frigate_hint_crop": "Frigate-guided crop",
+        "model_crop": "AI crop"
+      },
       "errors": {
         "clip_unavailable": "Clip not available. Using snapshot analysis instead.",
         "clip_not_retained": "Clip no longer retained in Frigate (outside retention window).",
@@ -1485,7 +1543,7 @@
         "clip_decode_failed": "Clip could not be decoded. Using snapshot analysis instead.",
         "timeout": "Frigate timed out while preparing the clip.",
         "frigate_unavailable": "Frigate is unavailable. Using snapshot analysis instead.",
-        "no_results": "Video analysis returned no results.",
+        "no_results": "No species had enough consistent evidence across the video.",
         "event_missing": "Event not found in Frigate.",
         "unknown": "Video analysis failed. Using snapshot analysis instead."
       },
@@ -1512,8 +1570,8 @@
           "frigate_http_error": "Frigate or reverse proxy returned a non-success HTTP response.",
           "video_timeout_large_clip": "Clip processing took longer than configured timeout.",
           "video_timeout_resource": "GPU/CPU resources were saturated while running inference.",
-          "no_results_frames": "Sampled frames did not contain usable bird features.",
-          "no_results_quality": "Motion blur, occlusion, or low light prevented confident classification.",
+          "no_results_frames": "One or more image sources did not produce enough confident, matching frame predictions.",
+          "no_results_quality": "The bird may be visible while wet plumage, motion, distance, occlusion, or crop instability still makes species evidence inconsistent.",
           "pipeline_guard": "Safety guard/circuit breaker paused background video jobs after repeated failures.",
           "pipeline_exception": "A runtime exception or cancellation interrupted the classification task.",
           "unknown_1": "An unexpected error occurred in media retrieval or video processing.",
@@ -1554,6 +1612,13 @@
       "analysis": "Analysis",
       "ai_analysis": "AI Analysis",
       "final_result": "Final Result",
+      "complete": "Complete",
+      "unchanged_title": "Identification unchanged",
+      "unchanged_description": "No result cleared the confidence rules, so the existing identification was kept.",
+      "unchanged_reason_no_source_consensus": "The sampled frames did not agree on one species strongly enough.",
+      "unchanged_evidence": "Best evidence: {confident} of {independent} independent moments could vote; the leading species matched {supporting} and needed {required}.",
+      "failed_title": "Reclassification could not finish",
+      "failed_description": "The analysis ended before a usable result was produced. Technical reason: {reason}.",
       "frame_grid": "Frame Grid",
       "frame_progress": "Frame {current}/{total}",
       "model": "Model: {name}",
@@ -1570,7 +1635,10 @@
         "clip_invalid": "Video clip was corrupt or could not be read.",
         "clip_decode_failed": "Video clip failed to decode.",
         "clip_fetch_failed": "Could not fetch the video clip from Frigate.",
-        "event_not_found": "Frigate no longer has this event; no cached clip was available."
+        "event_not_found": "Frigate no longer has this event; no cached clip was available.",
+        "video_no_results": "The video frames could not form a confident species consensus.",
+        "below_threshold": "The video agreed on a candidate, but its confidence was below your configured threshold.",
+        "video_no_usable_result": "The video result did not clear the configured promotion rules."
       },
       "snapshot_scanning": "Snapshot scan"
     },
@@ -2392,6 +2460,7 @@
     "about": "Version, changelog, contributors, and support links.",
     "dashboard": "Live detections, recent activity, and feeder health at a glance.",
     "events": "Browse, filter, and manage every classified visit.",
+    "add_observation": "Classify your own photo or video, review the evidence, and add it to your history.",
     "audio_history": "Browse persisted BirdNET-Go detections and audio-only activity.",
     "notifications": "Alerts, reminders, and active background jobs.",
     "settings": "Connections, classification, integrations, and personalization.",

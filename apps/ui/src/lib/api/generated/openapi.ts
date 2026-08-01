@@ -303,6 +303,9 @@ export interface components {
     BodyClassifyImageApiClassifierClassifyPost: {
     image: string;
 };
+    BodyCreateManualObservationApiManualObservationsPost: {
+    media: string;
+};
     BodyProbeBirdClassifierRuntimeApiClassifierProbePost: {
     image?: string | null;
 };
@@ -379,6 +382,7 @@ export interface components {
     ClassificationStatusResponse: {
     event_id: string;
     video_classification_backend?: string | null;
+    video_classification_diagnostics?: Record<string, unknown> | null;
     video_classification_error?: string | null;
     video_classification_input_source?: string | null;
     video_classification_model_id?: string | null;
@@ -525,12 +529,14 @@ export interface components {
     is_favorite?: boolean;
     is_hidden?: boolean;
     manual_tagged?: boolean;
+    observation_source?: string;
     scientific_name?: string | null;
     score: number;
     sub_label?: string | null;
     taxa_id?: number | null;
     temperature?: number | null;
     video_classification_backend?: string | null;
+    video_classification_diagnostics?: Record<string, unknown> | null;
     video_classification_error?: string | null;
     video_classification_input_source?: string | null;
     video_classification_label?: string | null;
@@ -565,6 +571,11 @@ export interface components {
     id?: number | null;
     is_favorite?: boolean;
     is_hidden?: boolean;
+    observation_latitude?: number | null;
+    observation_location_source?: string | null;
+    observation_longitude?: number | null;
+    observation_notes?: string | null;
+    observation_source?: string;
     score: number;
 };
     DetectionResponse: {
@@ -593,12 +604,18 @@ export interface components {
     is_favorite?: boolean;
     is_hidden?: boolean;
     manual_tagged?: boolean;
+    observation_latitude?: number | null;
+    observation_location_source?: string | null;
+    observation_longitude?: number | null;
+    observation_notes?: string | null;
+    observation_source?: string;
     scientific_name?: string | null;
     score: number;
     sub_label?: string | null;
     taxa_id?: number | null;
     temperature?: number | null;
     video_classification_backend?: string | null;
+    video_classification_diagnostics?: Record<string, unknown> | null;
     video_classification_error?: string | null;
     video_classification_input_source?: string | null;
     video_classification_label?: string | null;
@@ -855,9 +872,12 @@ export interface components {
     labels_path: string;
     metadata?: components['schemas']['ModelMetadata'] | null;
     path: string;
+    preferred_inference_provider?: string | null;
+    provider_preference_order?: Array<string>;
     ready?: boolean;
     reason?: string;
     validated?: boolean;
+    validated_inference_providers?: Array<string>;
     validation_reason?: string;
 };
     JobLaneSnapshot: {
@@ -964,6 +984,61 @@ export interface components {
     retention_days: number;
     total_detections: number;
 };
+    ManualObservationConfirmRequest: {
+    camera_name?: string;
+    label: string;
+    latitude?: number | null;
+    location_source?: "image_metadata" | "manual_pin" | "none" | null;
+    longitude?: number | null;
+    notes?: string | null;
+    observed_at?: string | null;
+};
+    ManualObservationDeleteResponse: {
+    id: string;
+    status: "deleted";
+};
+    ManualObservationPrediction: {
+    common_name?: string | null;
+    inference_backend?: string | null;
+    inference_provider?: string | null;
+    input_is_cropped?: boolean | null;
+    input_source?: string | null;
+    label: string;
+    model_id?: string | null;
+    model_name?: string | null;
+    scientific_name?: string | null;
+    score: number;
+    taxa_id?: number | null;
+};
+    ManualObservationResponse: {
+    content_sha256: string;
+    content_type: string;
+    created_at?: string | null;
+    error_code?: string | null;
+    error_message?: string | null;
+    id: string;
+    latitude?: number | null;
+    location_source?: "image_metadata" | "manual_pin" | null;
+    longitude?: number | null;
+    media_type: "image" | "video";
+    media_url: string;
+    original_filename: string;
+    predictions?: Array<components['schemas']['ManualObservationPrediction']>;
+    preview_url: string;
+    progress_current: number;
+    progress_message?: string | null;
+    progress_percent: number;
+    progress_total: number;
+    saved_event_id?: string | null;
+    size_bytes: number;
+    status: "queued" | "analyzing" | "ready" | "failed" | "saved";
+    updated_at?: string | null;
+};
+    ManualObservationSavedResponse: {
+    detection_url: string;
+    event_id: string;
+    status: "saved";
+};
     ManualTagResponse: {
     common_name?: string | null;
     event_id: string;
@@ -994,6 +1069,7 @@ export interface components {
     advanced_only?: boolean;
     architecture: string;
     artifact_kind?: string;
+    candidate_inference_providers?: Array<string> | null;
     crop_generator?: components['schemas']['CropGeneratorConfig'];
     default_region?: string | null;
     description: string;
@@ -1005,6 +1081,7 @@ export interface components {
     inference_speed: string;
     input_size?: number;
     label_grouping?: Record<string, unknown> | null;
+    labels_sha256?: string | null;
     labels_url: string;
     model_config_url?: string | null;
     name: string;
@@ -1014,11 +1091,13 @@ export interface components {
     recommended_threshold?: number | null;
     region_variants?: Record<string, Record<string, unknown>> | null;
     runtime?: string | null;
+    sha256?: string | null;
     sort_order?: number;
     status?: string;
     supported_inference_providers?: Array<string> | null;
     taxonomy_scope: string;
     tier: string;
+    weights_sha256?: string | null;
     weights_url?: string | null;
 };
     ModelValidateDevice: {
@@ -1075,8 +1154,9 @@ export interface components {
     new_score: number;
     new_species: string;
     old_species: string;
-    reason?: "no_confident_result" | null;
-    status: "success" | "no_result";
+    queue_state?: "queued" | "duplicate" | null;
+    reason?: "no_confident_result" | "below_threshold" | "low_confidence" | "blocked_label" | "abstention_label" | "invalid_score" | null;
+    status: "queued" | "success" | "no_result";
     updated: boolean;
 };
     RecordingClipCapabilityResponse: {
@@ -3040,6 +3120,79 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['VideoCircuitResetResponse'];
+    };
+  };
+  "/api/manual-observations": {
+    post: {
+      operationId: "create_manual_observation_api_manual_observations_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['BodyCreateManualObservationApiManualObservationsPost'];
+      response: components['schemas']['ManualObservationResponse'];
+    };
+  };
+  "/api/manual-observations/{draft_id}": {
+    get: {
+      operationId: "get_manual_observation_api_manual_observations__draft_id__get";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ManualObservationResponse'];
+    };
+    delete: {
+      operationId: "delete_manual_observation_api_manual_observations__draft_id__delete";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ManualObservationDeleteResponse'];
+    };
+  };
+  "/api/manual-observations/{draft_id}/confirm": {
+    post: {
+      operationId: "confirm_manual_observation_api_manual_observations__draft_id__confirm_post";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: components['schemas']['ManualObservationConfirmRequest'];
+      response: components['schemas']['ManualObservationSavedResponse'];
+    };
+  };
+  "/api/manual-observations/{draft_id}/media": {
+    get: {
+      operationId: "media_manual_observation_api_manual_observations__draft_id__media_get";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
+  "/api/manual-observations/{draft_id}/preview": {
+    get: {
+      operationId: "preview_manual_observation_api_manual_observations__draft_id__preview_get";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
+  "/api/manual-observations/{draft_id}/retry": {
+    post: {
+      operationId: "retry_manual_observation_api_manual_observations__draft_id__retry_post";
+      path: {
+    draft_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ManualObservationResponse'];
     };
   };
   "/api/models/available": {

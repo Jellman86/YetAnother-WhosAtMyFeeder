@@ -83,6 +83,7 @@ export function buildInferenceProviderChoices(
     configuredProvider: string,
     prospectiveModelProviders?: string[] | null,
     validatedModelProviders?: string[] | null,
+    modelPreferenceOrder?: string[] | null,
 ): InferenceProviderChoice[] {
     const choices: InferenceProviderChoice[] = [{ value: 'auto', unavailable: false }];
     const supported = uniqueSelectableProviders(prospectiveModelProviders);
@@ -104,6 +105,18 @@ export function buildInferenceProviderChoices(
     if (Array.isArray(validatedModelProviders)) {
         const validated = uniqueSelectableProviders(validatedModelProviders);
         filteredAvailable = filteredAvailable.filter((provider) => validated.includes(provider));
+    }
+    const preferred = uniqueSelectableProviders(modelPreferenceOrder);
+    if (preferred.length > 0) {
+        const rank = new Map(preferred.map((provider, index) => [provider, index]));
+        filteredAvailable = filteredAvailable
+            .map((provider, index) => ({ provider, index }))
+            .sort((a, b) =>
+                (rank.get(a.provider) ?? Number.MAX_SAFE_INTEGER)
+                - (rank.get(b.provider) ?? Number.MAX_SAFE_INTEGER)
+                || a.index - b.index
+            )
+            .map(({ provider }) => provider);
     }
 
     for (const provider of filteredAvailable) {

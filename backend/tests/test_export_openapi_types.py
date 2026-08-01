@@ -28,6 +28,20 @@ def test_render_openapi_types_covers_components_paths_and_payload_shapes():
             }
         },
         "paths": {
+            "/api/birds/import": {
+                "post": {
+                    "operationId": "import_bird",
+                    "responses": {
+                        "202": {
+                            "content": {
+                                "application/json": {
+                                    "schema": {"$ref": "#/components/schemas/Bird-Result"},
+                                },
+                            },
+                        },
+                    },
+                }
+            },
             "/api/birds/{event_id}": {
                 "patch": {
                     "operationId": "update_bird",
@@ -97,6 +111,9 @@ def test_render_openapi_types_covers_components_paths_and_payload_shapes():
     assert "requestBody: components['schemas']['UpdateRequest'];" in output
     assert "response: components['schemas']['BirdResult'];" in output
     assert '"/api/birds/stream": {' in output
+    assert '"/api/birds/import": {' in output
+    assert 'operationId: "import_bird";' in output
+    assert "response: components['schemas']['BirdResult'];" in output
     assert 'operationId: "stream_birds";' in output
     assert "path: never;" in output
     assert "query: never;" in output

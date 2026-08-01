@@ -122,20 +122,56 @@ model-driven crop is reported as `snapshot_model_crop` or `snapshot_frigate_hint
 from image dimensions. A trusted upstream label that won because local image evidence did not
 clear policy is reported as `frigate_sublabel` rather than as snapshot or video inference.
 
+For current video runs, event rows and the classification-status endpoint can also expose
+`video_classification_diagnostics`. Version 3 records sampled/decoded frame counts, the number of
+temporally independent moments, minimum per-frame confidence, final outcome/reason, and per-source
+evaluated/confident counts, `confident_coverage_ratio`, `required_supporting_frames`, confident
+`top_candidates`, and separate all-score `top_observations`. It also identifies the sparse top-k
+median aggregation, five-moment pool limit, and 250 ms de-correlation interval. The matching
+requirement is calculated from confident independent votes, not every decoded frame. It is `null`
+while work is pending, after a successful result, and for historical runs that predate retained
+diagnostics. Candidate evidence explains an abstention; clients must not present it as an accepted
+identification. Clients should continue to tolerate version 1 and 2 summaries already stored in the
+detections database.
+
 An HQ baseline built from Frigate's regular ended-event snapshot because the clean copy was absent
 uses `hq_candidate_frigate_snapshot_fallback`. It is treated conservatively as already cropped: the
 ended-event API ignores crop query overrides, so YA-WAMF must not run localisation a second time.
 
 `POST /api/events/{event_id}/reclassify` returns `status: "success"` and `updated: true` only after
-the selected result has been persisted. If all video and snapshot candidates are unusable, it
-returns HTTP 200 with `status: "no_result"`, `reason: "no_confident_result"`, and `updated: false`;
-the existing species and score are returned unchanged. Media-fetch, decode, and inference faults
-remain non-2xx errors.
+the selected result has been persisted. A snapshot strategy with no promotable species returns HTTP
+200 with `status: "no_result"`, `updated: false`, and a bounded reason such as
+`no_confident_result`, `below_threshold`, `low_confidence`, `blocked_label`, `abstention_label`, or
+`invalid_score`; the existing species and score are returned unchanged. Media-fetch, decode, and
+inference faults remain non-2xx errors.
 
 With `strategy=video`, the request performs temporal analysis whenever a usable video exists. The
 source order is complete cached recording, decodable partial cached recording, cached event clip,
-then the live Frigate event clip. A snapshot is used only after those sources are absent or fail
-validation; a confident snapshot does not short-circuit an available cached video.
+then the live Frigate event clip. A snapshot does not short-circuit an available video, but becomes
+the final evidence route when video is unavailable, temporal sources abstain, or the consensus
+candidate does not clear the configured promotion threshold. The SSE stream emits
+`reclassification_strategy_changed` before that fallback.
+
+### Manual observations
+
+- `POST /api/manual-observations` (owner; multipart `media`, returns `202`)
+- `GET /api/manual-observations/{draft_id}` (owner)
+- `POST /api/manual-observations/{draft_id}/retry` (owner; returns `202`)
+- `POST /api/manual-observations/{draft_id}/confirm` (owner)
+- `DELETE /api/manual-observations/{draft_id}` (owner; unsaved drafts only)
+- `GET /api/manual-observations/{draft_id}/preview` (owner)
+- `GET /api/manual-observations/{draft_id}/media` (owner)
+
+Upload and retry responses expose durable status, progress, model alternatives, inference
+provider/model/input provenance, common/scientific taxonomy names, optional extracted GPS
+coordinates, and local preview/media URLs. The confirmation body accepts optional `latitude` and
+`longitude` together plus `location_source` (`image_metadata`, `manual_pin`, or `none` to clear an
+extracted location). Confirmation creates a normal
+detection with `observation_source: "manual_upload"`; its owner-confirmed species stays distinct
+from the retained top classifier result. Detection responses expose confirmed location as
+`observation_latitude`, `observation_longitude`, and `observation_location_source`. Manual media is
+served through the canonical snapshot, thumbnail, and clip routes but is excluded from Frigate
+reconciliation and BirdNET-Go context lookup.
 
 ### Media Proxy and Share Links
 
@@ -176,8 +212,9 @@ explicit or automatic generation clears the failure state.
 Snapshot-candidate `frame_offset_seconds` values are temporal evidence, not presentation metadata.
 Automatic crop selection/refinement requires supporting offsets to be at least 250 ms apart;
 neighbouring decode fallbacks never become additional votes. Event-clip Frigate boxes are translated
-to the nearest timestamped path point. Recording clips do not reuse a static event box when their
-timeline start cannot be proven.
+to the nearest timestamped path point. Recording clips never reuse one static event box across
+sampled frames; a Frigate crop is available only when `path_data` aligns it within the 0.75-second
+tolerance. Full-frame and detector-crop evidence remain available when tracking data is absent.
 
 Notes:
 - `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted full-visit clip exists for the event, this route serves that full-visit file before falling back to the shorter Frigate event clip.
@@ -220,8 +257,13 @@ Notes:
 - `GET /api/models/families/resolved` (owner)
 - `POST /api/models/{model_id}/download` (owner)
 - `GET /api/models/download-status/{model_id}` (owner)
-- `POST /api/models/{model_id}/validate` (owner) — trial-activates a classifier, validates every provider in the running image/host/model intersection in isolated processes, compares accelerator output with a CPU baseline, records provider eligibility and median inference latency, chooses the fastest passing provider, and restores the previously active model. Crop-detector artifacts are rejected with `409`.
-- `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the artifact is a crop detector or the classifier has not been validated in the current image on this host (unless it is bundled or already active); after activation succeeds, applies the fastest still-eligible provider recorded by the shared validation engine.
+- `POST /api/models/{model_id}/validate` (owner) — trial-activates a classifier, validates every globally safe or reviewed candidate provider in the running image/host/model intersection in isolated processes, compares accelerator output with a CPU baseline, records schema-4 artifact/runtime/hardware-bound eligibility and median inference latency, orders passing providers by measured latency, and restores the previously active model. Crop-detector artifacts are rejected with `409`.
+- `POST /api/models/{model_id}/activate` (owner) — rejected with `409` if the artifact is a crop detector or the classifier has not been validated for this artifact/runtime/install (unless it is bundled or already active); after activation succeeds, applies the first still-eligible provider and never carries an explicit provider from the previous model.
+
+MogaNet-S EU, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU, and UniFormer-S EU are retired from the
+current catalogue. Download, validation, and activation requests for those IDs return `410 Gone`.
+Their existing release files remain available to pre-3.0 application versions during the
+compatibility window; current releases neither list nor run them.
 
 `GET /api/classifier/status` separates packaging, hardware availability, and the
 active model session. Important deployment fields are:
@@ -237,6 +279,9 @@ active model session. Important deployment fields are:
 | `host_available_providers` | Providers packaged in this image whose runtime/device probe passed, before applying a model-specific compatibility filter. Used when choosing a different model. |
 | `available_providers` | Providers packaged in this image whose runtime/device probe passed and which the active model supports, ordered with the active recovery path first and other valid manual choices afterwards. |
 | `provider_preference_order` | The active provider followed by the concrete providers the current runtime will try if inference recovery is required. This is a subset of `available_providers`. |
+| `active_model_candidate_providers` | Reviewed global candidates that this model's isolated compatibility sweep may probe. A candidate is not automatically selectable. |
+| `active_model_validated_providers` | Providers that passed current artifact/runtime/install validation for the active model. |
+| `validated_provider_preference_order` | Passing providers ordered by this installation's measured latency. |
 | `selected_provider` | Saved preference from configuration. An image mismatch does not rewrite it. |
 | `active_provider` / `inference_backend` | Provider and backend used by the loaded model session. |
 | `fallback_reason` | Why the active session differs from the selected provider, when known. |
@@ -256,7 +301,7 @@ summary plus `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` with
 `artifact=device_matrix.json`. Its provider matrix records image flavor, baseline,
 compile/finite-output status, real-image agreement, eligibility, and inference latency.
 Compatibility summaries also expose `validated_providers` and `failed_providers` per model; the
-fastest passing declared provider becomes the current-image activation recommendation.
+measured passing order becomes the current-install activation and `Auto` recommendation.
 `discover_providers=true` additionally probes packaged, host-visible providers omitted by current
 model metadata. Passing undeclared rows are reported as `declared: false` and under
 `discovered_providers`; they do not widen runtime eligibility until the registry is reviewed.

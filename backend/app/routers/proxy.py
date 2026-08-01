@@ -1548,6 +1548,14 @@ async def proxy_snapshot(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
 
+    if event_id.startswith("manual_"):
+        from app.services.manual_observation_service import manual_observation_service
+
+        manual_snapshot = await manual_observation_service.path_for_event(event_id, preview=True)
+        if not manual_snapshot:
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.snapshot_not_found", lang))
+        return FileResponse(manual_snapshot, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+
     # Check cache first
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_snapshot(event_id)
@@ -1713,14 +1721,22 @@ async def check_clip_exists(
     lang = get_user_language(request)
     from app.services.media_cache import media_cache
 
-    if not settings.frigate.clips_enabled:
-        raise HTTPException(status_code=403, detail=i18n_service.translate("errors.clip_disabled", lang))
-
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
 
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
+
+    if event_id.startswith("manual_"):
+        from app.services.manual_observation_service import manual_observation_service
+
+        manual_media = await manual_observation_service.path_for_event(event_id, preview=False)
+        if manual_media and manual_media.suffix.lower() in {".mp4", ".mov", ".webm"}:
+            return Response(status_code=200)
+        raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.clip_not_found", lang))
+
+    if not settings.frigate.clips_enabled:
+        raise HTTPException(status_code=403, detail=i18n_service.translate("errors.clip_disabled", lang))
 
     if settings.media_cache.enabled:
         recording_cached_path = media_cache.get_recording_clip_path(event_id)
@@ -1880,14 +1896,32 @@ async def proxy_clip(
     request_started = perf_counter()
     log = structlog.get_logger()
 
-    if not settings.frigate.clips_enabled:
-        raise HTTPException(status_code=403, detail=i18n_service.translate("errors.clip_disabled", lang))
-
     if not validate_event_id(event_id):
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
 
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
+
+    if event_id.startswith("manual_"):
+        from app.services.manual_observation_service import manual_observation_service
+
+        manual_media = await manual_observation_service.path_for_event(event_id, preview=False)
+        if not manual_media or manual_media.suffix.lower() not in {".mp4", ".mov", ".webm"}:
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.clip_not_found", lang))
+        media_type = {".mp4": "video/mp4", ".mov": "video/quicktime", ".webm": "video/webm"}.get(
+            manual_media.suffix.lower(), "application/octet-stream"
+        )
+        return FileResponse(
+            manual_media,
+            media_type=media_type,
+            filename=f"{event_id}{manual_media.suffix.lower()}",
+            headers={
+                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}{manual_media.suffix.lower()}"
+            },
+        )
+
+    if not settings.frigate.clips_enabled:
+        raise HTTPException(status_code=403, detail=i18n_service.translate("errors.clip_disabled", lang))
 
     if download_requested and (not auth.is_owner) and (not settings.public_access.allow_clip_downloads):
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.proxy.download_forbidden", lang))
@@ -2354,6 +2388,16 @@ async def proxy_thumb(
 
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
+
+    if event_id.startswith("manual_"):
+        from app.services.manual_observation_service import manual_observation_service
+
+        manual_thumbnail = await manual_observation_service.path_for_event(event_id, preview=True)
+        if not manual_thumbnail:
+            raise HTTPException(
+                status_code=404, detail=i18n_service.translate("errors.proxy.thumbnail_not_found", lang)
+            )
+        return FileResponse(manual_thumbnail, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
     if settings.media_cache.enabled and settings.media_cache.cache_snapshots:
         cached = await media_cache.get_thumbnail(event_id)

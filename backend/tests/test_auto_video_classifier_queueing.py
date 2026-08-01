@@ -124,6 +124,87 @@ async def test_queue_classification_records_job_source_per_job():
 
 
 @pytest.mark.asyncio
+async def test_manual_reclassify_joins_existing_event_owner_and_changes_job_presentation():
+    service = AutoVideoClassifierService()
+    service._update_status = AsyncMock(return_value=True)  # type: ignore[method-assign]
+
+    assert (
+        await service.queue_classification(
+            "evt-manual-join",
+            "cam1",
+            source="maintenance",
+        )
+        == "queued"
+    )
+    assert (
+        await service.queue_classification(
+            "evt-manual-join",
+            "cam1",
+            fallback_to_snapshot=True,
+            source="manual",
+        )
+        == "duplicate"
+    )
+
+    assert service._manual_requested_ids == {"evt-manual-join"}
+    assert service._pending_metadata["evt-manual-join"]["manual_requested"] is True
+    jobs = service.get_jobs_snapshot()
+    assert jobs == [
+        {
+            **jobs[0],
+            "id": "reclassify:evt-manual-join",
+            "event_id": "evt-manual-join",
+            "kind": "reclassify",
+            "source": "manual",
+            "status": "queued",
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_manual_reclassify_fails_fast_when_its_circuit_is_open(monkeypatch: pytest.MonkeyPatch):
+    service = AutoVideoClassifierService()
+    service._update_status = AsyncMock(return_value=True)  # type: ignore[method-assign]
+    monkeypatch.setattr(settings.classification, "video_classification_failure_threshold", 1)
+
+    service._record_failure("evt-manual-failure", "video_timeout", source="manual")
+
+    assert (
+        await service.queue_classification(
+            "evt-manual-blocked",
+            "cam1",
+            source="manual",
+        )
+        == "blocked"
+    )
+    service._update_status.assert_not_awaited()
+    assert service.get_status()["manual_circuit_open"] is True
+
+
+def test_active_manual_job_snapshot_reports_real_frame_progress():
+    service = AutoVideoClassifierService()
+    service._active_metadata["evt-manual-progress"] = {
+        "source": "manual",
+        "manual_requested": True,
+        "started_at_epoch": time.time() - 2,
+        "updated_at_epoch": time.time(),
+        "phase": "analyzing",
+        "current": 7,
+        "total": 15,
+    }
+
+    job = service.get_jobs_snapshot()[0]
+
+    assert job["id"] == "reclassify:evt-manual-progress"
+    assert job["kind"] == "reclassify"
+    assert job["status"] == "running"
+    assert job["phase"] == "analyzing"
+    assert job["current"] == 7
+    assert job["total"] == 15
+    assert job["updated_at"] is not None
+
+
+@pytest.mark.asyncio
 async def test_queue_classification_respects_bounded_capacity(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(auto_video_classifier_module, "MAX_PENDING_QUEUE", 2)
     service = AutoVideoClassifierService()
@@ -698,7 +779,7 @@ async def test_process_event_uses_cached_clip_when_precheck_returns_event_not_fo
     )
     # _load_preferred_clip returns no clip — this causes a graceful early exit after
     # the precheck bypass without needing to mock the entire classification pipeline.
-    load_clip_mock = AsyncMock(return_value=(None, "clip_not_retained", "event"))
+    load_clip_mock = AsyncMock(return_value=(None, "clip_not_retained", "event", None))
     monkeypatch.setattr(service, "_load_preferred_clip", load_clip_mock)
     monkeypatch.setattr(service, "_record_failure", lambda *args, **kwargs: None)
 
@@ -739,7 +820,7 @@ async def test_process_event_uses_cached_recording_clip_when_precheck_returns_ev
         "has_recording_clip",
         lambda event_id: True,
     )
-    load_clip_mock = AsyncMock(return_value=(None, "clip_not_retained", "recording"))
+    load_clip_mock = AsyncMock(return_value=(None, "clip_not_retained", "recording", 100.0))
     monkeypatch.setattr(service, "_load_preferred_clip", load_clip_mock)
     monkeypatch.setattr(service, "_record_failure", lambda *args, **kwargs: None)
 
@@ -839,6 +920,44 @@ async def test_process_event_aborts_after_max_precheck_retries(monkeypatch):
     # No further retry scheduled; abort path took over.
     assert schedule_calls == []
     service._update_status.assert_any_await("evt-second-attempt", "failed", error="event_not_found", broadcast=True)
+
+
+@pytest.mark.asyncio
+async def test_manual_reclassification_falls_back_after_event_precheck_is_exhausted(monkeypatch):
+    service = AutoVideoClassifierService()
+    service._running = True
+
+    monkeypatch.setattr(
+        auto_video_classifier_module.frigate_client,
+        "get_event_with_error",
+        AsyncMock(return_value=(None, "event_not_found")),
+    )
+    monkeypatch.setattr(auto_video_classifier_module.broadcaster, "broadcast", AsyncMock())
+    monkeypatch.setattr(service, "_update_status", AsyncMock())
+    monkeypatch.setattr(service, "_auto_delete_if_missing", AsyncMock())
+    monkeypatch.setattr(service, "_record_diagnostic", lambda *args, **kwargs: None)
+    monkeypatch.setattr(service, "_classify_from_snapshot", AsyncMock(return_value=None))
+    monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+    monkeypatch.setattr(auto_video_classifier_module.media_cache, "has_clip", lambda event_id: False)
+    monkeypatch.setattr(auto_video_classifier_module.media_cache, "has_recording_clip", lambda event_id: False)
+    monkeypatch.setattr(auto_video_classifier_module.settings.frigate, "recording_clip_enabled", False)
+
+    await service._process_event(
+        "evt-manual-no-frigate-event",
+        "cam1",
+        skip_delay=True,
+        source="manual",
+        precheck_retry_attempt=1,
+    )
+
+    service._classify_from_snapshot.assert_awaited_once_with(
+        "evt-manual-no-frigate-event",
+        "cam1",
+        event_data=None,
+        manual_tagged=True,
+    )
+    service._auto_delete_if_missing.assert_not_awaited()
+    assert not any(call.args[1] == "failed" for call in service._update_status.await_args_list if len(call.args) > 1)
 
 
 @pytest.mark.asyncio
@@ -953,11 +1072,14 @@ async def test_load_preferred_clip_uses_cached_event_clip_before_polling_frigate
         AsyncMock(return_value=(None, None, None, None)),
     )
 
-    clip_bytes, clip_error, clip_variant = await service._load_preferred_clip("evt-cached-event-clip", skip_delay=True)
+    clip_bytes, clip_error, clip_variant, clip_start_timestamp = await service._load_preferred_clip(
+        "evt-cached-event-clip", skip_delay=True
+    )
 
     assert clip_bytes == valid_clip
     assert clip_error is None
     assert clip_variant == "event"
+    assert clip_start_timestamp is None
     wait_for_clip_mock.assert_not_awaited()  # must NOT have gone to Frigate
 
 
@@ -986,7 +1108,7 @@ async def test_load_preferred_clip_classifies_retained_partial_recording(monkeyp
     wait_for_clip_mock = AsyncMock(return_value=(None, "clip_not_found"))
     monkeypatch.setattr(service, "_wait_for_clip", wait_for_clip_mock)
 
-    clip_bytes, clip_error, clip_variant = await service._load_preferred_clip(
+    clip_bytes, clip_error, clip_variant, clip_start_timestamp = await service._load_preferred_clip(
         "evt-partial-recording",
         skip_delay=True,
     )
@@ -994,4 +1116,5 @@ async def test_load_preferred_clip_classifies_retained_partial_recording(monkeyp
     assert clip_bytes == valid_clip
     assert clip_error is None
     assert clip_variant == "recording"
+    assert clip_start_timestamp == 100.0
     wait_for_clip_mock.assert_not_awaited()

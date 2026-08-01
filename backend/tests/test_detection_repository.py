@@ -43,6 +43,7 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             video_classification_backend TEXT,
             video_classification_model_id TEXT,
             video_classification_input_source TEXT,
+            video_classification_diagnostics TEXT,
             video_result_blocked BOOLEAN DEFAULT 0,
             ai_analysis TEXT,
             ai_analysis_timestamp TIMESTAMP,
@@ -805,6 +806,43 @@ async def test_update_video_classification_persists_runtime_provider_backend_and
         assert updated.video_classification_backend == "openvino"
         assert updated.video_classification_model_id == "convnext_large_inat21"
         assert updated.video_classification_input_source == "frigate_hint_crop"
+
+
+@pytest.mark.asyncio
+async def test_update_video_status_persists_bounded_consensus_diagnostics():
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+        await repo.create(
+            Detection(
+                detection_time=datetime.utcnow(),
+                detection_index=1,
+                score=0.42,
+                display_name="Unknown Bird",
+                category_name="Bird",
+                frigate_event="evt_video_diagnostics",
+                camera_name="cam_1",
+            )
+        )
+        diagnostics = {
+            "version": 1,
+            "outcome": "abstained",
+            "processed_frames": 30,
+            "sources": {"model_crop": {"evaluated_frames": 15, "confident_frames": 2}},
+        }
+
+        updated = await repo.update_video_status(
+            "evt_video_diagnostics",
+            "failed",
+            error="video_no_results",
+            diagnostics=diagnostics,
+        )
+
+        assert updated is True
+        detection = await repo.get_by_frigate_event("evt_video_diagnostics")
+        assert detection is not None
+        assert detection.video_classification_diagnostics == diagnostics
 
 
 @pytest.mark.asyncio

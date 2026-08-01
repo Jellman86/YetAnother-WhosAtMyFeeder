@@ -133,6 +133,15 @@ def test_model_needs_attention_when_crop_detector_was_saved_as_classifier():
     assert model.detail_code == "model_wrong_kind"
 
 
+def test_model_needs_attention_when_saved_classifier_was_retired():
+    state = compute_setup_state(_settings(classification=ClassificationSettings(model="moganet_s_eu_common")))
+
+    model = _by_id(state)["model"]
+    assert model.status == "attention"
+    assert "retired" in model.detail.lower()
+    assert model.detail_code == "model_retired"
+
+
 def test_integrations_optional_when_all_disabled():
     frigate = FrigateSettings(frigate_url="http://frigate:5000", camera=["front"], birdnet_enabled=False)
     state = compute_setup_state(_settings(frigate=frigate))

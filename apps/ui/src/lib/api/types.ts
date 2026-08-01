@@ -1,6 +1,11 @@
 export interface Detection {
     id?: number;
     frigate_event: string;
+    observation_source?: 'frigate' | 'manual_upload';
+    observation_notes?: string | null;
+    observation_latitude?: number | null;
+    observation_longitude?: number | null;
+    observation_location_source?: 'image_metadata' | 'manual_pin' | null;
     display_name: string;
     score: number;
     detection_time: string;
@@ -44,9 +49,42 @@ export interface Detection {
     video_classification_model_id?: string | null;
     video_classification_model_name?: string | null;
     video_classification_input_source?: string | null;
+    video_classification_diagnostics?: VideoClassificationDiagnostics | null;
     video_result_blocked?: boolean;
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
+}
+
+export interface VideoClassificationCandidateEvidence {
+    label: string;
+    supporting_frames: number;
+    support_ratio: number;
+    median_score: number;
+    pooled_frames?: number;
+}
+
+export interface VideoClassificationSourceEvidence {
+    reason: string;
+    evaluated_frames: number;
+    independent_frames?: number;
+    confident_frames: number;
+    required_supporting_frames: number;
+    confident_coverage_ratio?: number;
+    top_candidates: VideoClassificationCandidateEvidence[];
+    top_observations?: VideoClassificationCandidateEvidence[];
+}
+
+export interface VideoClassificationDiagnostics {
+    version: number;
+    outcome: 'accepted' | 'abstained';
+    reason: string;
+    sampled_frames: number;
+    processed_frames: number;
+    minimum_frame_score: number;
+    aggregation?: string;
+    maximum_pooled_frames?: number;
+    minimum_frame_separation_seconds?: number;
+    sources: Record<string, VideoClassificationSourceEvidence>;
 }
 
 export interface SpeciesCount {

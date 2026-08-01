@@ -60,6 +60,7 @@
   const loadAboutPage = createRetryablePageLoader(() => import('./lib/pages/About.svelte'));
   const loadNotificationsPage = createRetryablePageLoader(() => import('./lib/pages/Notifications.svelte'));
   const loadModelEvaluationPage = createRetryablePageLoader(() => import('./lib/pages/ModelEvaluation.svelte'));
+  const loadManualObservationPage = createRetryablePageLoader(() => import('./lib/pages/ManualObservation.svelte'));
 
   let isSidebarCollapsed = $derived(layoutStore.sidebarCollapsed);
   let isMobile = $state(false);
@@ -72,6 +73,7 @@
   let pageTitle = $derived.by(() => {
       if (currentRoute === '/') return $_('nav.dashboard', { default: 'Dashboard' });
       if (currentRoute.startsWith('/events')) return $_('nav.events', { default: 'Events' });
+      if (currentRoute.startsWith('/observations/new')) return $_('nav.add_observation', { default: 'Add observation' });
       if (currentRoute.startsWith('/species')) return $_('nav.species', { default: 'Species' });
       if (currentRoute.startsWith('/audio')) return $_('nav.audio_history', { default: 'Audio History' });
       if (currentRoute.startsWith('/notifications')) return $_('nav.notifications', { default: 'Notifications' });
@@ -83,6 +85,7 @@
   let pageSubtitle = $derived.by(() => {
       if (currentRoute === '/') return $_('page_subtitle.dashboard', { default: 'Live detections, recent activity, and feeder health at a glance.' });
       if (currentRoute.startsWith('/events')) return $_('page_subtitle.events', { default: 'Browse, filter, and manage every classified visit.' });
+      if (currentRoute.startsWith('/observations/new')) return $_('page_subtitle.add_observation', { default: 'Classify your own photo or video, review the evidence, and add it to your history.' });
       if (currentRoute.startsWith('/species')) return $_('page_subtitle.species', { default: 'Leaderboard, totals, and taxonomy details for the birds you have seen.' });
       if (currentRoute.startsWith('/audio')) return $_('page_subtitle.audio_history', { default: 'Browse persisted BirdNET-Go detections and audio-only activity.' });
       if (currentRoute.startsWith('/notifications')) return $_('page_subtitle.notifications', { default: 'Alerts, reminders, and active background jobs.' });
@@ -144,7 +147,7 @@
   $effect(() => {
       if (!authStore.statusLoaded || !authStore.statusHealthy) return;
       if (authStore.needsInitialSetup) return;
-      const isOwnerOnly = currentRoute.startsWith('/settings') || currentRoute.startsWith('/diagnostics/model-eval');
+      const isOwnerOnly = currentRoute.startsWith('/settings') || currentRoute.startsWith('/diagnostics/model-eval') || currentRoute.startsWith('/observations/new');
       if (!isOwnerOnly) return;
 
       if (!authStore.showSettings) {
@@ -729,6 +732,17 @@
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />
+              {:else if currentRoute.startsWith('/observations/new')}
+                  {#if authStore.showSettings}
+                      <LazyRoute
+                          loader={loadManualObservationPage}
+                          props={{ onNavigate: navigate }}
+                          label={pageTitle}
+                          onLoadError={handleRouteLoadError}
+                      />
+                  {:else}
+                      <div class="h-24"></div>
+                  {/if}
               {:else if currentRoute.startsWith('/species')}
                   <LazyRoute
                       loader={loadSpeciesPage}

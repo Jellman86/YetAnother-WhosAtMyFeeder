@@ -200,7 +200,7 @@ def test_load_model_uses_current_validated_crop_provider(monkeypatch, tmp_path):
     monkeypatch.setenv("BIRD_CROP_MODEL_PATH", str(model_path))
     monkeypatch.setattr(
         "app.services.model_validation.activation_provider_recommendation",
-        lambda model_id: "intel_gpu" if model_id == "bird_crop_detector" else None,
+        lambda model_id, **_kwargs: "intel_gpu" if model_id == "bird_crop_detector" else None,
     )
     monkeypatch.setattr(
         service,

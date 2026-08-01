@@ -10,6 +10,18 @@ You can manage models directly from **Settings → Detection → Model Manager**
 - A legacy TFLite fallback for very constrained CPU-only systems
 - Separately managed bird-crop detector tiers for generated thumbnails and automatic localization
 
+The [model release catalog](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/tag/models)
+lists each artifact's download size, input resolution, estimated model working-set RAM, provider
+contract, and measured Quark latency. RAM figures are planning estimates rather than measured peak
+container RSS; leave at least 1–2 GB for YA-WAMF and the operating system, with additional headroom
+when Frigate shares the host.
+
+MogaNet-S EU, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU, and UniFormer-S EU are retired comparison
+models. Current releases do not list, download, validate, or activate them. YA-WAMF leaves an
+existing model directory untouched for rollback, but replaces a saved retired selection at startup:
+an installed ConvNeXt Large is preferred, with bundled MobileNet as the fail-safe. The legacy
+release assets remain available to pre-3.0 applications until the planned 3.0 asset retirement.
+
 > **Platform note:** Raspberry Pi compatibility is currently a best-effort ARM64 target and has not yet been validated on physical Pi hardware in this project environment.
 
 ### Validate before you select (post-install gate)
@@ -23,15 +35,16 @@ by the connection tests — with three stages:
 2. **Validate and tune on this hardware** — intersects the running image, host probe, and model
    contract; then tests ONNX CPU/CUDA and OpenVINO CPU/GPU/NPU as applicable. Each provider runs in
    an isolated process, must produce finite output matching the CPU baseline, and reports median
-   per-frame inference latency. The fastest passing provider becomes the recommendation.
+   per-frame inference latency. The measured passing order becomes this installation's recommendation.
 3. **Enable for selection** — makes the model active, restoring the previous model if validation
    fails. Only after activation succeeds is the still-eligible recommendation applied.
 
 A model that has never been validated on this host shows **Validate to enable** instead of **Use
 this model**, and the API rejects activating it (`409`). The model already running and bundled
 models are grandfathered, so upgrading never blocks a working install. Validation works on every
-image flavor and tests only providers that image actually owns. Evidence is scoped to the exact
-image flavor, so switching images requires a new proof even for a shared provider such as CPU. The
+image flavor and tests only providers that image actually owns. Evidence is scoped to the model
+artifact, inference runtime/kernel, visible accelerator hardware, and exact image flavor, so a
+change to any of those requires new proof even for a shared provider such as CPU. The
 same [provider compatibility sweep](model-evaluation.md) backs the setup wizard, Model Manager, and
 Detection Diagnostics.
 
@@ -40,7 +53,8 @@ Detection Diagnostics.
 For ONNX models, YA-WAMF supports a provider selector under
 **Settings → Detection → Inference Provider**:
 
-- `Auto` (recommended): prefers **Intel GPU (OpenVINO)**, then **NVIDIA CUDA**, then CPU.
+- `Auto` (recommended): uses the selected model's measured passing order on this installation and
+  otherwise remains within its globally safe provider contract.
 - `CPU`: ONNX Runtime CPU execution.
 - `NVIDIA CUDA`: ONNX Runtime with CUDA (falls back to CPU if CUDA is not actually usable).
 - `Intel GPU (OpenVINO)`: OpenVINO GPU plugin (falls back to OpenVINO CPU if the Intel GPU is unavailable).
@@ -121,7 +135,12 @@ If you only see `OpenVINO: Available` + `Intel GPU: Not detected`, YA-WAMF can s
 - **FocalNet-B EU Medium:** 707-species European birds-only model with validated CPU, Intel CPU,
   Intel GPU, and Intel NPU support.
 - **FlexiViT Global Birds:** compact birds-only model for global or unsupported regions, with CPU,
-  Intel CPU, and Intel NPU validation.
+  Intel CPU, and Intel NPU validation. Intel GPU is offered only after the exact installation
+  passes the isolated CPU-equivalence sweep.
+
+The four retired EU comparison architectures are intentionally not part of this tier. Their
+benchmark rows remain in [Model Accuracy & Benchmarks](model-accuracy.md) as historical evidence
+for the catalogue decision, not as current recommendations.
 
 #### Legacy TFLite (MobileNet V2)
 - **Format:** TFLite — runs on CPU-only systems without ONNX Runtime
@@ -238,11 +257,15 @@ the local prediction does not clear policy. Frigate's sublabel confidence is kep
 bird-object detector score, and YA-WAMF does not echo a fallback label straight back to Frigate.
 
 Deep video uses temporal consensus rather than a single maximum frame. YA-WAMF keeps the unchanged
-full frame, then adds a valid Frigate tracked-object crop and detector crop when available. These
-are alternate views of each sampled frame, not extra votes: each input source must reach its own
-three-frame/60% consensus, and conflicting source winners cause the analysis to abstain. When the
-sources agree, YA-WAMF keeps the strongest consensus and records whether it came from full video
-frames, cropped video frames, a full snapshot fallback, or a cropped snapshot fallback. Detection
+full frame, then adds a time-aligned Frigate tracked-object crop and detector crop when available.
+These are alternate views of each sampled frame, not extra votes: each input source needs at least
+three independent evaluated moments and two confident votes, one species must own 60% of that
+source's confident votes, and conflicting source winners cause the analysis to abstain. Samples
+less than 250 ms apart collapse into one moment. Low-confidence decoded frames count as coverage,
+not votes against a fleeting visitor; accepted confidence is the median of at most the five
+strongest supporting moments. When the sources agree, YA-WAMF keeps the strongest consensus and
+records whether it came from full video frames, cropped video frames, a full snapshot fallback, or
+a cropped snapshot fallback. Detection
 details show that source next to the result. Historical cached snapshots without trustworthy source
 metadata remain usable but are conservatively treated as uncropped instead of being guessed from
 dimensions. If local image evidence does not clear policy and a trusted Frigate sublabel wins, the

@@ -11,6 +11,8 @@ describe('detection surface polish', () => {
         expect(detectionCardSource).not.toContain('group-hover:rotate-1');
         expect(detectionCardSource).not.toContain('ring-1 ring-slate-200/40');
         expect(detectionCardSource).toContain('inline-flex h-11 w-11 items-center justify-center');
+        expect(detectionCardSource).toContain("let isManualObservation = $derived(detection.observation_source === 'manual_upload')");
+        expect(detectionCardSource).not.toContain("manual_observation.uploaded");
     });
 
     it('preserves the full snapshot and exposes a labelled, responsive dialog', () => {
@@ -43,5 +45,12 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('controller.abort()');
         expect(detectionModalSource).toContain('for (const audio of audioContext)');
         expect(detectionModalSource).not.toContain('if (!hasAudioContext) return;');
+        expect(detectionModalSource).toContain('if (detection.observation_source === \'manual_upload\')');
+        expect(detectionModalSource).toContain('!isManualObservation && (detection.audio_confirmed');
+    });
+
+    it('shows retained upload coordinates without BirdNET context', () => {
+        expect(detectionModalSource).toContain('detection.observation_latitude');
+        expect(detectionModalSource).toContain('data-manual-observation-location');
     });
 });

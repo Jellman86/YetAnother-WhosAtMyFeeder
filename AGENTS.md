@@ -14,7 +14,9 @@ assessment of the project against the standards, and the path to close remaining
 gaps, is in
 [`docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md`](docs/reviews/2026-07-07-project-quality-and-gold-standard-review.md).
 
-Everyday work happens on `dev`. Follow the commit rules in `CLAUDE.md` §10.
+Everyday work starts from current `dev` on a short-lived branch and reaches
+`dev` through a pull request. Release pull requests alone target `main`. Follow
+the commit rules in `CLAUDE.md` §10.
 
 Release notes follow the human-first standard in
 [`docs/development/releasing.md`](docs/development/releasing.md) and use

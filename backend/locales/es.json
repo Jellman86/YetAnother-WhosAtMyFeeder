@@ -38,7 +38,9 @@
       "delete_failed": "Error al eliminar la detección",
       "update_failed": "Error al actualizar la detección",
       "wildlife_model_unavailable": "Modelo de fauna silvestre no disponible. Por favor descárguelo primero.",
-      "reclassification_failed": "Error en la reclasificación"
+      "reclassification_failed": "Error en la reclasificación",
+      "video_analysis_paused": "El análisis de vídeo está temporalmente en pausa tras varios fallos de inferencia. Inténtelo de nuevo más tarde.",
+      "video_analysis_capacity": "El análisis de vídeo está al límite de su capacidad. Inténtelo de nuevo cuando terminen los trabajos actuales."
     },
     "species": {
       "unknown_bird": "Ave Desconocida",

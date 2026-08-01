@@ -15,18 +15,37 @@ While real-time detection uses a single snapshot, YA-WAMF provides a **Deep Vide
    **Settings > Detection**.
 3. Each frame is evaluated as a full frame and, when valid, with independent Frigate-hint and
    detector-crop representations that match the active model's input contract.
-4. Each representation must form its own temporal consensus across multiple frames. Conflicting
-   representations cause an abstention rather than adding misleading extra votes.
-5. A confident result updates the detection. If neither video nor the snapshot fallback has usable
-   evidence, YA-WAMF returns **No confident result**, preserves the existing identification, and
-   records no manual override.
+4. Each representation must form its own temporal consensus across multiple frames. At least two
+   confident moments must vote, and one species must own at least 60% of those confident votes.
+   Samples less than 250 ms apart collapse into one moment, and every winning source needs three
+   independent evaluated moments. Decoded frames below the confidence floor prove source coverage
+   but do not vote against a fleeting visitor. A detector crop can win from sparse recurring
+   evidence without occupying a fixed percentage of a long visit. Conflicting source winners cause
+   an abstention instead of adding misleading extra votes.
+5. A video result must still clear the configured promotion threshold before a user-requested run
+   can replace the stored identification. If temporal evidence abstains or stays below that
+   threshold, YA-WAMF tries the best retained snapshot. If neither route has usable evidence, it
+   returns **No confident result**, preserves the existing identification, and records no manual
+   override.
+
+For retained full-visit recordings, a Frigate event box is used only at sampled timestamps that
+match the event's tracked `path_data`. YA-WAMF never repeats one static event box across the whole
+recording after the bird has moved away. Full-frame and detector-crop evidence remain available
+when tracked coordinates are absent.
 
 ## Running an Analysis
 
 Click **Reclassify** on any detection card. When an event clip or fetched full-visit clip is
 available, YA-WAMF performs temporal video analysis; it does not replace that explicit video run
-with a faster snapshot-only result. If no video can be decoded, it explains the downgrade and uses
-the best cached or Frigate snapshot as a fallback.
+with a faster snapshot-only result. If the video is unavailable, cannot form a safe consensus, or
+only produces a below-threshold candidate, it explains the downgrade and uses the best cached or
+Frigate snapshot as a fallback.
+
+The action is admitted to the same bounded queue as live and maintenance video work, returns
+immediately, and deduplicates by event. The Jobs view is authoritative for queued/running progress.
+Temporal inference always runs in a supervised subprocess; cancellation or a hard timeout
+terminates that worker, so native OpenVINO/ONNX work cannot continue invisibly after the request
+ends.
 
 A shorter-than-requested full-visit clip remains valid evidence when it is a real, decodable MP4.
 YA-WAMF analyzes the frames it contains instead of discarding the clip merely because Frigate could
@@ -45,9 +64,11 @@ During analysis, a real-time **progress overlay** appears on the detection card.
 - The current leading species based on frames analyzed so far
 - A progress bar counting toward the total frame count
 
-Once complete, the detection card updates with the new result. A valid abstention closes the job
-normally and explains that the existing identification was kept; missing or unreadable media and
-runtime faults remain explicit failures.
+Once complete, the detection card updates only when a result clears both temporal and promotion
+rules. An unchanged outcome reports how many independent moments could vote, how many supported the
+leading species, and how many matches were required. A snapshot downgrade remains visible;
+exhaustion of both media routes is an unchanged result, while an unrecovered media/runtime fault is
+an explicit failure.
 
 The owner **Jobs** view also shows automatic and maintenance video work from the backend. A queued
 item remains labelled **Queued** until a worker starts it, and pending/processing automatic jobs are

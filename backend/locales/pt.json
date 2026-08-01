@@ -38,7 +38,9 @@
       "delete_failed": "Falha ao excluir detecção",
       "update_failed": "Falha ao atualizar detecção",
       "wildlife_model_unavailable": "Modelo de vida selvagem não disponível. Por favor, faça o download primeiro.",
-      "reclassification_failed": "Falha na reclassificação"
+      "reclassification_failed": "Falha na reclassificação",
+      "video_analysis_paused": "A análise de vídeo está temporariamente pausada após falhas repetidas de inferência. Tente novamente mais tarde.",
+      "video_analysis_capacity": "A análise de vídeo atingiu a capacidade máxima. Tente novamente quando os trabalhos atuais terminarem."
     },
     "species": {
       "unknown_bird": "Pássaro Desconhecido",

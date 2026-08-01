@@ -38,7 +38,9 @@
       "delete_failed": "Löschen der Erkennung fehlgeschlagen",
       "update_failed": "Aktualisierung der Erkennung fehlgeschlagen",
       "wildlife_model_unavailable": "Wildtiermodell nicht verfügbar. Bitte laden Sie es zuerst herunter.",
-      "reclassification_failed": "Neuklassifizierung fehlgeschlagen"
+      "reclassification_failed": "Neuklassifizierung fehlgeschlagen",
+      "video_analysis_paused": "Die Videoanalyse wurde nach wiederholten Inferenzfehlern vorübergehend angehalten. Versuchen Sie es später erneut.",
+      "video_analysis_capacity": "Die Videoanalyse ist ausgelastet. Versuchen Sie es erneut, wenn die aktuellen Aufträge abgeschlossen sind."
     },
     "species": {
       "unknown_bird": "Unbekannter Vogel",

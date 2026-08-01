@@ -50,6 +50,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - [📊 Model Accuracy & Benchmarks](features/model-accuracy.md) - Benchmark results, GPU support matrix, and how to run accuracy tests
 - [🧪 Model Evaluation](features/model-evaluation.md) - Compare installed models against labelled feeder images
 - [🎞 Deep Video Analysis](features/video-analysis.md) - Multi-frame clip analysis, sampling behavior, and UI feedback
+- [📤 Manual Observations](features/manual-observations.md) - Classify an uploaded photo or video, review the evidence, and add it to history
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
 - [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email + Notification Center
 - [📊 Telemetry](features/telemetry.md) - Transparency on anonymous usage metrics
@@ -66,7 +67,7 @@ How the project is built and held to standard.
 - **[🧑‍💻 Code-Quality Standard](standards/code-quality.md)** - The researched code-craft bar for Python/FastAPI + Svelte 5/TypeScript, with authoritative sources.
 - **[🎨 UI/UX Standard](standards/ui-ux.md)** - Usability (Nielsen's heuristics), accessibility (WCAG 2.2 AA), and visual craft (Refactoring UI).
 - **[📣 Writing a Release](development/releasing.md)** - The human-first GitHub Release standard, template, and checklist.
-- **[🎁 YA-WAMF 2.16.0 Release Notes](releases/v2.16.0.md)** - Calmer navigation, live host activity, and safer aggregate telemetry.
+- **[🎁 YA-WAMF 2.17.0 Release Notes](releases/v2.17.0.md)** - Manual observations, safer reclassification, and installation-aware acceleration.
 - **[🏅 Gold-Standard Review (2026-07-07)](reviews/2026-07-07-project-quality-and-gold-standard-review.md)** - Honest assessment against the standards and the path to close remaining gaps.
 - **[🌍 Translation Editorial Review (2026-07-20)](reviews/2026-07-20-translation-editorial-review.md)** - Locale coverage, editorial findings, permanent regression gates, and the native-review limitation.
 - **[🍓 Raspberry Pi Assessment (2026-07-21)](reviews/2026-07-21-raspberry-pi-assessment.md)** - What the ARM64 image and QEMU inference gate prove, plus the physical-hardware exit criteria.

@@ -6,6 +6,123 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.17.0] - 2026-08-01
+
+### Added
+
+- **Owners can add a verified observation from an uploaded photo or video.** The new full-page
+  **Observe → Add observation** flow securely persists the original media, runs the production
+  full-frame/crop or temporal-consensus classifier path, shows alternatives and model/provider/input
+  provenance, and creates a detection only after species confirmation. Durable progress survives
+  browser reloads, failures retry without re-uploading, duplicate content is rejected, and locally
+  stored media remains available to the normal snapshot and clip views independently of Frigate retention.
+
+- **Pull requests and roadmap work now have an explicit delivery contract.**
+  Everyday changes use short-lived branches and reviewed pull requests into
+  `dev`, while release pull requests alone target `main`. The roadmap records
+  prioritised outcomes and evidence gates; issues retain actionable discussion,
+  and pull requests retain the verified delivery slice.
+- **CI now scans the repository's full history for committed secrets.** Gitleaks
+  runs on pull requests, pushes to `dev` and `main`, a weekly schedule, and
+  manual dispatch with read-only repository permissions.
+- **Provider support now has a global candidate contract and an installation proof.** Registry and
+  release-sidecar generator metadata distinguish providers that are safe everywhere from reviewed
+  candidates that are worth probing. Compatibility evidence schema 4 binds each passing provider
+  to the image flavour, inference package versions, kernel/visible accelerator identity, and model
+  artifact checksum, so a runtime upgrade, host move, image switch, or replaced artifact cannot
+  inherit an unrelated GPU/NPU pass.
+
+### Changed
+
+- **Video consensus now pools sparse, independent moments.** A fleeting bird no longer needs to
+  occupy a fixed fraction of an entire retained visit. Observations less than 250 ms apart collapse
+  into one moment; each source needs three independent evaluations, at least two confident votes,
+  and a 60% winner among those votes. Accepted confidence is the median of at most the five
+  strongest supporting moments, while cross-source disagreement still causes an abstention.
+- **Accelerator selection is now ordered per model and installation.** A compatibility sweep keeps
+  per-provider latency and numerical-agreement evidence; `Auto`, Settings, Model Manager, and the
+  setup wizard use that measured order. The UI exposes only the image-packaged, host-visible,
+  model-approved intersection, while raw settings and model-activation APIs enforce the same gate.
+  Activating another model resets an explicit provider from the previous model unless the new
+  model has current evidence.
+- **ConvNeXt Large treats Intel GPU as host-gated rather than globally broken or globally safe.**
+  The reviewed global registry allows an isolated Intel GPU probe while retaining CPU, CUDA,
+  OpenVINO CPU, and Intel NPU as the safe baseline. Quark's current OpenVINO stack matched CPU
+  top-1 on 24/24 real images with 4.96/5 mean top-5 overlap; older OpenVINO 2025.4.1 evidence remains
+  documented as incompatible and cannot authorize a current install.
+- **The global candidate registry now reflects the complete current Intel hardware audit.**
+  Quark's 28 July schema-4 sweep tested the then-current 12 classifiers and both crop detectors
+  over 24 real images plus detector hard negatives. Explicit regional reruns corrected the family
+  attribution: Small Birds EU and Medium Birds NA expose Intel NPU as host-gated candidates, while
+  Medium Birds EU failed CPU-equivalence and Small Birds NA remains excluded after inconsistent
+  NPU results. The audit also adds a host-gated Intel GPU candidate for EVA-02 Large and records
+  the final compatibility evidence for the subsequently retired comparison models.
+  It also moves Intel GPU routes with conflicting historical results—Small Birds EU/NA, Medium
+  Birds NA, FlexiViT, and RoPE—from globally safe to host-gated. Medium Birds EU and FocalNet-B
+  remain globally GPU-supported because both older and current reference runtimes agree.
+- **A retired saved classifier now moves to a supported model before background work starts.**
+  YA-WAMF prefers an already installed ConvNeXt Large and otherwise uses the bundled MobileNet
+  fallback, resets provider selection only when the active model changes, and leaves every retired
+  model file untouched for rollback.
+
+### Removed
+
+- **Four redundant comparison classifiers no longer appear or run in current YA-WAMF releases.**
+  MogaNet-S EU, ConvNeXt-V1 Tiny EU, RegNet-Y-8G EU, and UniFormer-S EU have been removed from the
+  current registry, Model Manager, setup wizard, validation sweep, download path, and activation
+  path. Their existing GitHub release assets remain available to pre-3.0 applications until the
+  planned 3.0 asset retirement.
+
+### Fixed
+
+- **Manual reclassification no longer rejects good fleeting sightings or applies unsafe weak
+  replacements.** Retained recordings use Frigate boxes only at timestamps backed by `path_data`,
+  so one stale box cannot repeatedly classify background after the bird has moved. A video
+  abstention or below-threshold candidate falls back to the best retained snapshot, while an
+  explicit click no longer bypasses the configured threshold or downgrades an existing identity.
+- **Reclassification evidence now describes the actual vote.** Version 3 diagnostics separate
+  decoded frames, independent moments, confident candidates, and all-score observations; the UI
+  reports leading-species support and the actual matching requirement in all nine language
+  catalogs. Historical version 1 and 2 summaries remain readable.
+- **Deep video analysis now uses sparse crops and tracked motion honestly.** Dynamic crop consensus
+  counts only moments where the detector produced a usable crop and can win from three separated
+  moments without requiring the bird to fill a percentage of a long visit. Frigate path coordinates
+  are aligned to cached recording and event-clip timestamps so the guided crop follows the bird
+  instead of reusing one final box. The centre-weighted sampler no longer fills overlapping targets
+  with adjacent opening frames, and conservative cross-source agreement still rejects confidently
+  wrong outliers.
+- **A video abstention now explains the evidence it rejected.** YA-WAMF stores a bounded per-source
+  summary with decoded, confident, required, and recurring-candidate frame counts. Detection details
+  presents that evidence after reload or restart instead of reducing every safe abstention to the
+  generic `video_no_results` message; all nine language catalogs include the new surface.
+- **Manual reclassification now ends with an explicit outcome.** When no species clears the
+  confidence and agreement rules, the progress overlay says that the identification was unchanged,
+  explains why, and shows the strongest frame evidence instead of ending ambiguously at 100% with
+  an empty result. Queued video and snapshot-fallback completions now carry a structured success,
+  no-result, or failure outcome so Jobs, notifications, detection details, and the overlay agree.
+
+- **Uploaded observations now retain complete, relevant evidence.** Image results show common and
+  scientific names plus the active model, provider, backend, and input source; history thumbnails
+  are served from the retained local preview instead of being requested from Frigate. Upload badges
+  are icon-only, and manual detections no longer fetch or display unrelated BirdNET-Go context.
+- **Photo locations can be recovered and corrected before saving.** Valid EXIF GPS coordinates are
+  extracted defensively, shown on an editable map, and retained with the observation. When an image
+  has no coordinates, the owner can place a pin or enter latitude and longitude; location remains
+  optional and can be cleared.
+- **Automatic bird-model regions now understand the country values the setup UI actually stores.**
+  ISO-2, ISO-3, and supported human-readable names such as `United Kingdom` and `United States`
+  resolve consistently. UK installations no longer silently fall back to North American
+  Small/Medium artifacts, and hardware evidence remains bound to the regional artifact it tested.
+- **Manual video reclassification is queue-owned, bounded, and cancellable.** The request now
+  returns immediately, deduplicates against live/maintenance work, reports real Jobs progress, and
+  always runs video inference in a killable subprocess so a timeout or disconnected client cannot
+  leave native inference consuming the accelerator.
+- **Playable cached media is no longer discarded because Frigate forgot the event.** Manual
+  analysis prefers complete or partial cached recordings and cached event clips before a Frigate
+  fetch. If event lookup, retention, fetch, validation, decoding, or video inference cannot provide
+  usable video, the same job visibly downgrades to the best available snapshot instead of failing
+  without attempting the remaining evidence.
+
 ## [2.16.0] - 2026-07-25
 
 ### Added

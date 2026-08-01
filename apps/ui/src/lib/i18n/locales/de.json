@@ -8,6 +8,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "explorer": "Explorer",
+    "add_observation": "Beobachtung hinzufügen",
     "leaderboard": "Bestenliste",
     "observe": "Beobachten",
     "manage": "Verwalten",
@@ -24,6 +25,19 @@
     "events": "Ereignisse",
     "notifications": "Benachrichtigungen",
     "species": "Arten"
+  },
+  "manual_observation": {
+    "eyebrow": "Feldbeobachtung", "intro_title": "Foto oder Clip in eine bestätigte Beobachtung verwandeln",
+    "intro_body": "YA-WAMF nutzt dasselbe Modell, dieselbe Ausschnittwahl und denselben Videokonsens wie Live-Erkennungen. Gespeichert wird erst nach deiner Prüfung.", "progress_label": "Fortschritt der Beobachtung",
+    "steps": { "upload": "Hochladen", "upload_detail": "Originalmedium auswählen", "analyse": "Analysieren", "analyse_detail": "Stärksten Nachweis finden", "review": "Prüfen", "review_detail": "Art bestätigen", "save": "Speichern", "save_detail": "Zu Beobachtungen hinzufügen" },
+    "evidence": { "full_frame": "Vollbild", "crop": "Bester Ausschnitt", "model": "Modell", "provider": "Anbieter" },
+    "errors": { "load": "Der Analysestatus konnte nicht geladen werden.", "type": "Wähle eine JPEG-, PNG-, WebP-, MP4-, MOV- oder WebM-Datei.", "upload": "Das Medium konnte nicht hochgeladen werden.", "retry": "Die Analyse konnte nicht neu gestartet werden.", "save": "Die Beobachtung konnte nicht gespeichert werden." },
+    "upload": { "title": "Foto oder Video auswählen", "help": "Verwende möglichst die Originaldatei. YA-WAMF bewahrt sie auf und wählt die beste Eingabe für die Klassifizierung.", "change": "Andere Datei auswählen", "drop": "Medium hier ablegen oder Datei auswählen", "formats": "JPEG, PNG, WebP bis 25 MB · MP4, MOV, WebM bis 250 MB / 3 Minuten", "uploading": "Original wird gesichert…", "analyse": "Hochladen und analysieren" },
+    "analysis": { "preview_alt": "Vorschau des hochgeladenen Mediums", "video": "Videodatei", "image": "Foto", "title": "Stärkster Nachweis wird gesucht", "body": "Der Produktiv-Klassifikator vergleicht Einzelbilder und Ausschnitte. Du kannst die Seite verlassen; der Entwurf wird bei deiner Rückkehr wiederhergestellt.", "progress": "Analysefortschritt", "failed_title": "Analyse sicher angehalten", "failed_body": "Dein Originalmedium bleibt gespeichert. Wiederhole den Vorgang, sobald das Modell verfügbar ist.", "retry": "Analyse wiederholen" },
+    "review": { "preview_alt": "Vorschau der Beobachtung", "title": "Vor dem Speichern prüfen", "body": "Bestätige die vorgeschlagene Art, korrigiere sie bei Bedarf und ergänze den gewünschten Kontext.", "candidates": "Modellvorschläge", "species": "Art", "when": "Beobachtet am", "location": "Kamera oder Ortsname", "notes": "Notizen", "saving": "Beobachtung wird gespeichert…", "save": "Beobachtung speichern" },
+    "location": { "title": "Sichtungsort", "extracted": "Der Ort wurde in den Bildmetadaten gefunden. Prüfe den Pin und passe ihn bei Bedarf an.", "missing": "Es wurde kein eingebetteter Ort gefunden. Setze einen Pin, wenn du den Sichtungsort kennst.", "manual": "Dieser Pin wurde manuell gesetzt oder angepasst. Prüfe ihn vor dem Speichern.", "from_image": "Aus Bildmetadaten", "map_label": "Karte zum Setzen des Sichtungspins", "map_help": "Klicke oder tippe auf die Karte, um den Pin zu setzen. Ziehe ihn für eine genaue Anpassung.", "latitude": "Breitengrad", "longitude": "Längengrad", "clear": "Ort entfernen", "incomplete": "Gib Breiten- und Längengrad ein oder entferne den Ort.", "invalid": "Der Breitengrad muss zwischen −90 und 90 und der Längengrad zwischen −180 und 180 liegen.", "selected": "Pin bei {latitude}, {longitude} gesetzt", "unselected": "Kein Sichtungsort ausgewählt", "pin_label": "Sichtungsort-Pin; zum Anpassen ziehen" },
+    "saved": { "toast": "Beobachtung hinzugefügt", "eyebrow": "Eintrag abgeschlossen", "title": "Beobachtung gespeichert", "body": "Der bestätigte Eintrag gehört nun zu deinem Erkennungsverlauf und den Artensummen.", "view": "Erkennung anzeigen", "another": "Weitere hinzufügen" },
+    "start_over": "Neu beginnen"
   },
   "setup": {
     "action_failed": "Die Änderung konnte nicht gespeichert werden. Prüfe die Angaben und versuche es erneut.",
@@ -65,7 +79,7 @@
       "load_failed": "Die Einrichtungsübersicht konnte nicht geladen werden. Deine gespeicherten Einstellungen wurden nicht verändert.",
       "retry": "Übersicht erneut laden",
       "stale": "Die letzte Einrichtungsübersicht wird angezeigt, weil die Aktualisierung fehlgeschlagen ist.",
-      "detail": { "account_password_protected": "Passwortgeschützt", "account_auth_disabled": "Authentifizierung deaktiviert", "account_not_configured": "Nicht konfiguriert", "frigate_url": "Frigate-URL", "mqtt_broker": "MQTT-Broker", "mqtt_username": "MQTT-Benutzername", "mqtt_password": "MQTT-Passwort", "connection_missing": "{items} festlegen", "cameras_count": "{count} Kameras", "cameras_all": "Alle Kameras", "model_wrong_kind": "Ein Zuschneidemodell ist als Klassifizierer ausgewählt", "model_fallback": "Mitgelieferter Ersatz", "quality_best": "Bestmögliche Schnappschüsse", "quality_standard": "Standard-Schnappschüsse", "integrations_needs": "Einrichtung nötig: {integrations}", "integrations_configured": "Konfiguriert: {integrations}", "integrations_none": "Keine aktiviert" }
+      "detail": { "account_password_protected": "Passwortgeschützt", "account_auth_disabled": "Authentifizierung deaktiviert", "account_not_configured": "Nicht konfiguriert", "frigate_url": "Frigate-URL", "mqtt_broker": "MQTT-Broker", "mqtt_username": "MQTT-Benutzername", "mqtt_password": "MQTT-Passwort", "connection_missing": "{items} festlegen", "cameras_count": "{count} Kameras", "cameras_all": "Alle Kameras", "model_wrong_kind": "Ein Zuschneidemodell ist als Klassifizierer ausgewählt", "model_retired": "Das gespeicherte Klassifizierungsmodell wurde eingestellt", "model_fallback": "Mitgelieferter Ersatz", "quality_best": "Bestmögliche Schnappschüsse", "quality_standard": "Standard-Schnappschüsse", "integrations_needs": "Einrichtung nötig: {integrations}", "integrations_configured": "Konfiguriert: {integrations}", "integrations_none": "Keine aktiviert" }
     }
   },
   "theme": {
@@ -1329,6 +1343,8 @@
     "reclassify_selected": "Auswahl neu klassifizieren"
   },
   "detection": {
+    "uploaded": "Hochgeladen",
+    "observation_notes": "Beobachtungsnotizen",
     "confidence": "Konfidenz",
     "verified": "Verifiziert",
     "hidden": "Ausgeblendet",
@@ -1474,6 +1490,16 @@
       "gated_title": "Video hat eine Übereinstimmung gefunden — zur Übernahme bestätigen",
       "gated_desc": "Die automatische Übernahme wurde zurückgehalten, weil der Video-Score unter Ihrem Mindest-Konfidenzwert liegt. Reclassify ausführen, um dieses Ergebnis anzuwenden, oder den Schwellenwert in Einstellungen → Erkennung senken.",
       "gated_action": "Neu klassifizieren",
+      "evidence": {
+        "title": "Belege aus diesem Durchlauf",
+        "summary": "{processed} von {sampled} ausgewählten Frames wurden dekodiert. Ein Frame benötigte mindestens {threshold} % Konfidenz, um abzustimmen.",
+        "confident_short": "sicher",
+        "required": "Für diese Quelle waren {required} übereinstimmende, ausreichend sichere Zeitpunkte erforderlich.",
+        "top_candidates": "Häufigste Kandidaten",
+        "full_frame": "Vollbild",
+        "frigate_hint_crop": "Frigate-geführter Ausschnitt",
+        "model_crop": "KI-Ausschnitt"
+      },
       "blocked_label": "Mit blockierter Art übereinstimmend — nicht angewendet"
     },
     "card_analysis": {
@@ -1495,6 +1521,13 @@
       "auto_video_source": "Automatische Videoanalyse",
       "auto_video_source_hint": "Ergebnis anhand von Clip-Frames verfeinert.",
       "final_result": "Endergebnis",
+      "complete": "Abgeschlossen",
+      "unchanged_title": "Bestimmung unverändert",
+      "unchanged_description": "Kein Ergebnis erfüllte die Konfidenzregeln. Die bestehende Bestimmung wurde beibehalten.",
+      "unchanged_reason_no_source_consensus": "Die ausgewählten Bilder stimmten nicht eindeutig genug für eine Art überein.",
+      "unchanged_evidence": "Bester Nachweis: {confident} von {independent} unabhängigen Zeitpunkten konnten abstimmen; die führende Art stimmte in {supporting} überein, erforderlich waren {required}.",
+      "failed_title": "Neubestimmung konnte nicht abgeschlossen werden",
+      "failed_description": "Die Analyse endete ohne verwertbares Ergebnis. Technischer Grund: {reason}.",
       "snapshot_fallback_title": "Klassifiziere aus Snapshot",
       "snapshot_fallback_badge": "Snapshot-Fallback",
       "snapshot_fallback_reason_generic": "Videoclip war nicht verfügbar",
@@ -1504,7 +1537,10 @@
         "clip_invalid": "Videoclip war beschädigt oder konnte nicht gelesen werden.",
         "clip_decode_failed": "Videoclip konnte nicht dekodiert werden.",
         "clip_fetch_failed": "Videoclip konnte nicht von Frigate geladen werden.",
-        "event_not_found": "Frigate kennt dieses Ereignis nicht mehr; kein zwischengespeicherter Clip verfügbar."
+        "event_not_found": "Frigate kennt dieses Ereignis nicht mehr; kein zwischengespeicherter Clip verfügbar.",
+        "video_no_results": "Die Videoframes ergaben keinen sicheren Artenkonsens.",
+        "below_threshold": "Das Video ergab einen Kandidaten, dessen Sicherheit aber unter dem konfigurierten Grenzwert lag.",
+        "video_no_usable_result": "Das Videoergebnis erfüllte die konfigurierten Übernahmeregeln nicht."
       },
       "snapshot_scanning": "Snapshot-Scan"
     },
@@ -2345,6 +2381,7 @@
     "about": "Version, Changelog, Mitwirkende und Support-Links.",
     "dashboard": "Live-Erkennungen, jüngste Aktivität und Futterstellen-Status auf einen Blick.",
     "events": "Jeden klassifizierten Besuch durchsuchen, filtern und verwalten.",
+    "add_observation": "Ein eigenes Foto oder Video klassifizieren, die Hinweise prüfen und zum Verlauf hinzufügen.",
     "notifications": "Benachrichtigungen, Erinnerungen und aktive Hintergrundaufgaben.",
     "settings": "Verbindungen, Klassifizierung, Integrationen und Personalisierung.",
     "species": "Bestenliste, Gesamtzahlen und Taxonomie-Details für die gesehenen Vögel."

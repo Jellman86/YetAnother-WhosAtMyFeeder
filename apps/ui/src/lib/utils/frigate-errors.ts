@@ -274,14 +274,14 @@ export function getVideoFailureInsight(detection: Detection, t: Translate): Vide
         return {
             errorCode: code,
             summary: t('detection.video_analysis.errors.no_results', {
-                default: 'Video analysis returned no results.'
+                default: 'No species had enough consistent evidence across the video.'
             }),
             causes: [
                 t('detection.video_analysis.error_details.causes.no_results_frames', {
-                    default: 'Sampled frames did not contain usable bird features.'
+                    default: 'One or more image sources did not produce enough confident, matching frame predictions.'
                 }),
                 t('detection.video_analysis.error_details.causes.no_results_quality', {
-                    default: 'Motion blur, occlusion, or low light prevented confident classification.'
+                    default: 'The bird may be visible while wet plumage, motion, distance, occlusion, or crop instability still makes species evidence inconsistent.'
                 })
             ],
             checks: [

@@ -326,6 +326,8 @@ class FullVisitClipService:
             )
         )
         for detection in candidates:
+            if detection.frigate_event.startswith("manual_"):
+                continue
             if detection.frigate_event in self._queued_ids or detection.frigate_event in self._active_ids:
                 continue
             if media_cache.get_recording_clip_path(

@@ -50,8 +50,8 @@ async def test_event_classification_status_returns_current_video_fields(client: 
                 frigate_event, camera_name, is_hidden,
                 video_classification_status, video_classification_error, video_classification_timestamp,
                 video_classification_provider, video_classification_backend, video_classification_model_id,
-                video_classification_input_source
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)
+                video_classification_input_source, video_classification_diagnostics
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 now.isoformat(sep=" "),
@@ -68,6 +68,7 @@ async def test_event_classification_status_returns_current_video_fields(client: 
                 "openvino",
                 "convnext_large_inat21",
                 "model_crop",
+                '{"version":1,"outcome":"abstained","processed_frames":30}',
             ),
         )
         await db.commit()
@@ -84,6 +85,11 @@ async def test_event_classification_status_returns_current_video_fields(client: 
     assert payload["video_classification_model_id"] == "convnext_large_inat21"
     assert payload["video_classification_model_name"] == "ConvNeXt Large (High Accuracy)"
     assert payload["video_classification_input_source"] == "model_crop"
+    assert payload["video_classification_diagnostics"] == {
+        "version": 1,
+        "outcome": "abstained",
+        "processed_frames": 30,
+    }
 
 
 @pytest.mark.asyncio

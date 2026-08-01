@@ -28,6 +28,20 @@ def reset_settings():
     settings.maintenance.auto_delete_missing_clips = original_auto_delete_missing_clips
 
 
+@pytest.mark.parametrize("invalid_start", ["not-a-timestamp", float("nan"), float("inf"), -1.0])
+def test_video_input_context_ignores_invalid_clip_start_timestamps(invalid_start):
+    service = AutoVideoClassifierService()
+
+    context = service._build_classification_input_context(
+        event_id="evt-invalid-clip-start",
+        event_data=None,
+        is_cropped=False,
+        clip_start_timestamp=invalid_start,
+    )
+
+    assert "clip_start_timestamp" not in context
+
+
 @pytest.mark.asyncio
 async def test_auto_delete_if_missing_marks_detection_when_policy_is_mark_missing():
     service = AutoVideoClassifierService()
@@ -106,7 +120,21 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
 async def test_process_event_records_temporal_abstention_without_breaker_failure():
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()
-    service._classifier.classify_video_async = AsyncMock(return_value=[])
+    diagnostics = {
+        "version": 1,
+        "outcome": "abstained",
+        "reason": "no_source_consensus",
+        "sampled_frames": 30,
+        "processed_frames": 30,
+        "minimum_frame_score": 0.5,
+        "sources": {},
+    }
+
+    async def classify_without_consensus(*args, **kwargs):
+        kwargs["diagnostics_callback"](diagnostics)
+        return []
+
+    service._classifier.classify_video_async = AsyncMock(side_effect=classify_without_consensus)
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
@@ -121,7 +149,7 @@ async def test_process_event_records_temporal_abstention_without_breaker_failure
                 "get_event_with_error",
                 new=AsyncMock(return_value=({"has_clip": True}, None)),
             ),
-            patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+            patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()) as broadcast,
         ):
             await service._process_event("evt-video-abstention", "cam1", skip_delay=True)
 
@@ -131,8 +159,21 @@ async def test_process_event_records_temporal_abstention_without_breaker_failure
             "evt-video-abstention",
             "failed",
             error="video_no_results",
+            diagnostics=diagnostics,
             broadcast=True,
         )
+        completion = next(
+            call.args[0]
+            for call in broadcast.await_args_list
+            if call.args[0].get("type") == "reclassification_completed"
+        )
+        assert completion["data"] == {
+            "event_id": "evt-video-abstention",
+            "results": [],
+            "outcome": "no_result",
+            "reason": "video_no_results",
+            "diagnostics": diagnostics,
+        }
         diagnostic = next(
             item
             for item in error_diagnostics_history.snapshot(limit=20)["events"]
@@ -142,6 +183,113 @@ async def test_process_event_records_temporal_abstention_without_breaker_failure
         assert diagnostic["severity"] == "info"
     finally:
         error_diagnostics_history.clear()
+
+
+@pytest.mark.asyncio
+async def test_manual_video_abstention_falls_back_to_best_retained_snapshot():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    diagnostics = {
+        "version": 2,
+        "outcome": "abstained",
+        "reason": "no_source_consensus",
+        "sampled_frames": 30,
+        "processed_frames": 30,
+        "minimum_frame_score": 0.5,
+        "sources": {},
+    }
+
+    async def classify_without_consensus(*args, **kwargs):
+        kwargs["diagnostics_callback"](diagnostics)
+        return []
+
+    service._classifier.classify_video_async = AsyncMock(side_effect=classify_without_consensus)
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    service._record_success = MagicMock()  # type: ignore[method-assign]
+    service._record_failure = MagicMock()  # type: ignore[method-assign]
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()) as broadcast,
+    ):
+        await service._process_event(
+            "evt-manual-video-abstention",
+            "cam1",
+            skip_delay=True,
+            fallback_to_snapshot=True,
+            source="manual",
+        )
+
+    service._classify_from_snapshot.assert_awaited_once_with(
+        "evt-manual-video-abstention",
+        "cam1",
+        event_data={"has_clip": True},
+        manual_tagged=True,
+    )
+    service._save_results.assert_not_awaited()
+    service._record_success.assert_called_once_with("evt-manual-video-abstention", source="manual")
+    assert not any(
+        call.args[:2] == ("evt-manual-video-abstention", "failed") and call.kwargs.get("error") == "video_no_results"
+        for call in service._update_status.await_args_list
+    )
+    assert any(
+        call.args[0].get("type") == "reclassification_strategy_changed"
+        and call.args[0]["data"]["reason"] == "video_no_results"
+        for call in broadcast.await_args_list
+    )
+
+
+@pytest.mark.asyncio
+async def test_manual_video_result_below_promotion_threshold_uses_snapshot_instead_of_overwriting():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(
+        return_value=[{"label": "Thamnophis proximus", "score": 0.657, "index": 42}]
+    )
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    service._record_success = MagicMock()  # type: ignore[method-assign]
+    service._record_failure = MagicMock()  # type: ignore[method-assign]
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()) as broadcast,
+        patch("app.services.detection_service.DetectionService") as detection_service,
+    ):
+        detection_service.return_value.select_manual_reclassification.return_value = (None, "below_threshold")
+        await service._process_event(
+            "evt-manual-video-below-threshold",
+            "cam1",
+            skip_delay=True,
+            fallback_to_snapshot=True,
+            source="manual",
+        )
+
+    service._save_results.assert_not_awaited()
+    service._classify_from_snapshot.assert_awaited_once_with(
+        "evt-manual-video-below-threshold",
+        "cam1",
+        event_data={"has_clip": True},
+        manual_tagged=True,
+    )
+    assert any(
+        call.args[0].get("type") == "reclassification_strategy_changed"
+        and call.args[0]["data"]["reason"] == "below_threshold"
+        for call in broadcast.await_args_list
+    )
 
 
 @pytest.mark.asyncio
@@ -197,9 +345,11 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
                 return_value=(
                     {
                         "has_clip": True,
+                        "start_time": 100.0,
                         "data": {
                             "box": [0.2, 0.3, 0.4, 0.5],
                             "region": [0.1, 0.2, 0.8, 0.9],
+                            "path_data": [[[0.4, 0.8], 100.5]],
                         },
                     },
                     None,
@@ -232,6 +382,48 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
     service._save_results.assert_awaited_once_with(
         "evt-batch-fallback",
         {"label": "Robin", "score": 0.88, "index": 1, "input_source": "frigate_snapshot"},
+        manual_tagged=False,
+    )
+
+
+@pytest.mark.asyncio
+async def test_manual_reclassification_falls_back_for_any_unavailable_video_error():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._load_preferred_clip = AsyncMock(  # type: ignore[method-assign]
+        return_value=(None, "clip_fetch_failed", "event", None)
+    )
+    service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()) as broadcast,
+        patch.object(auto_video_classifier_module.random, "uniform", return_value=0.0),
+    ):
+        await service._process_event(
+            "evt-manual-video-unavailable",
+            "cam1",
+            skip_delay=True,
+            source="manual",
+        )
+
+    service._classify_from_snapshot.assert_awaited_once_with(
+        "evt-manual-video-unavailable",
+        "cam1",
+        event_data={"has_clip": True},
+        manual_tagged=True,
+    )
+    service._auto_delete_if_missing.assert_not_awaited()
+    assert any(
+        call.args[0].get("type") == "reclassification_strategy_changed"
+        and call.args[0]["data"]["reason"] == "clip_fetch_failed"
+        for call in broadcast.await_args_list
     )
     service._auto_delete_if_missing.assert_not_awaited()
 
@@ -278,6 +470,7 @@ async def test_process_event_snapshot_fallback_retries_background_overload_then_
     service._save_results.assert_awaited_once_with(
         "evt-batch-fallback-retry",
         {"label": "Robin", "score": 0.88, "index": 1, "input_source": "frigate_snapshot"},
+        manual_tagged=False,
     )
     service._record_success.assert_called_once_with("evt-batch-fallback-retry", source="maintenance")
     service._record_failure.assert_not_called()
@@ -384,9 +577,11 @@ async def test_process_event_passes_event_id_into_video_classification_context()
                 return_value=(
                     {
                         "has_clip": True,
+                        "start_time": 100.0,
                         "data": {
                             "box": [0.2, 0.3, 0.4, 0.5],
                             "region": [0.1, 0.2, 0.8, 0.9],
+                            "path_data": [[[0.4, 0.8], 100.5]],
                         },
                     },
                     None,
@@ -402,8 +597,11 @@ async def test_process_event_passes_event_id_into_video_classification_context()
         "is_cropped": False,
         "event_id": "evt-batch-video-context",
         "clip_variant": "event",
+        "include_video_diagnostics": True,
+        "clip_start_timestamp": 100.0,
         "frigate_box": [0.2, 0.3, 0.4, 0.5],
         "frigate_region": [0.1, 0.2, 0.8, 0.9],
+        "frigate_path_data": [[[0.4, 0.8], 100.5]],
     }
 
 
@@ -448,6 +646,8 @@ async def test_process_event_prefers_cached_recording_clip_when_available():
         "is_cropped": False,
         "event_id": "evt-recording-preferred",
         "clip_variant": "recording",
+        "include_video_diagnostics": True,
+        "clip_start_timestamp": 1.0,
     }
 
 
@@ -490,6 +690,7 @@ async def test_process_event_falls_back_to_event_clip_when_cached_recording_is_i
         "is_cropped": False,
         "event_id": "evt-recording-invalid",
         "clip_variant": "event",
+        "include_video_diagnostics": True,
     }
 
 
@@ -706,6 +907,7 @@ async def test_process_event_maintenance_timeout_falls_back_to_snapshot_without_
             "evt-video-timeout-fallback",
             "cam1",
             event_data={"has_clip": True},
+            manual_tagged=False,
         )
         service._record_success.assert_called_once_with("evt-video-timeout-fallback", source="maintenance")
         service._record_failure.assert_not_called()

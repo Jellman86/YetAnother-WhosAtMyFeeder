@@ -1,4 +1,9 @@
-import { type Detection, fetchEvents, fetchEventsCount } from '../api';
+import {
+    type Detection,
+    type VideoClassificationDiagnostics,
+    fetchEvents,
+    fetchEventsCount
+} from '../api';
 import { logger } from '../utils/logger';
 import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
 import { toLocalYMD } from '../utils/date-only';
@@ -27,6 +32,9 @@ export interface ReclassificationProgress {
     lastUpdateAt: number;
     completedAt?: number | null;
     results?: unknown; // Final results from backend
+    outcome?: 'success' | 'no_result' | 'failed' | null;
+    reason?: string | null;
+    diagnostics?: VideoClassificationDiagnostics | null;
     // Set when the backend downgrades a video run to snapshot mid-flight (e.g.
     // clip_not_retained, event_not_found with no cached clip).  The UI uses
     // this to swap the film-reel "video analysis" framing for a "snapshot
@@ -323,7 +331,13 @@ export class DetectionsStore {
         }
     }
 
-    completeReclassification(eventId: string, results: unknown) {
+    completeReclassification(
+        eventId: string,
+        results: unknown,
+        outcome: ReclassificationProgress['outcome'] = null,
+        reason: string | null = null,
+        diagnostics: VideoClassificationDiagnostics | null = null
+    ) {
         const now = Date.now();
         const newMap = new Map(this.progressMap);
         const existing = newMap.get(eventId);
@@ -333,7 +347,10 @@ export class DetectionsStore {
                 status: 'completed',
                 lastUpdateAt: now,
                 completedAt: now,
-                results
+                results,
+                outcome,
+                reason,
+                diagnostics
             });
             this.progressMap = newMap;
         }

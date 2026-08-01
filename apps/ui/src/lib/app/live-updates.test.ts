@@ -11,6 +11,27 @@ describe('toDetection', () => {
             camera_name: ''
         });
     });
+
+    it('retains video abstention diagnostics in detection updates', () => {
+        const diagnostics = {
+            version: 1,
+            outcome: 'abstained' as const,
+            reason: 'no_source_consensus',
+            sampled_frames: 30,
+            processed_frames: 30,
+            minimum_frame_score: 0.5,
+            sources: {}
+        };
+
+        expect(toDetection({
+            frigate_event: 'event-2',
+            video_classification_error: 'video_no_results',
+            video_classification_diagnostics: diagnostics
+        })).toMatchObject({
+            video_classification_error: 'video_no_results',
+            video_classification_diagnostics: diagnostics
+        });
+    });
 });
 
 function buildCoordinator(options?: {
@@ -559,14 +580,77 @@ describe('LiveUpdateCoordinator reclassify fallback', () => {
         });
         coordinator.handlePayload({
             type: 'reclassification_completed',
-            data: { event_id: 'evt-no-result', results: [], outcome: 'no_result' }
+            data: {
+                event_id: 'evt-no-result',
+                results: [],
+                outcome: 'no_result',
+                reason: 'video_no_results',
+                diagnostics: {
+                    version: 1,
+                    outcome: 'abstained',
+                    reason: 'no_source_consensus',
+                    sampled_frames: 30,
+                    processed_frames: 30,
+                    minimum_frame_score: 0.5,
+                    sources: {}
+                }
+            }
         });
 
         expect(calls.markCompleted).toHaveLength(1);
         expect(calls.markCompleted[0].message).toBe('notifications.reclassify_no_result');
         expect(calls.markFailed).toHaveLength(0);
-        expect(calls.completeReclassification).toEqual([['evt-no-result', []]]);
+        expect(calls.completeReclassification).toEqual([[
+            'evt-no-result',
+            [],
+            'no_result',
+            'video_no_results',
+            expect.objectContaining({ reason: 'no_source_consensus' })
+        ]]);
         expect(calls.notificationUpserts.at(-1)?.message).toBe('notifications.reclassify_no_result');
+    });
+
+    it('treats an empty legacy completion as no result instead of generic success', () => {
+        const { coordinator, calls } = buildCoordinator();
+
+        coordinator.handlePayload({
+            type: 'reclassification_started',
+            data: { event_id: 'evt-legacy-empty', total_frames: 12, strategy: 'video' }
+        });
+        coordinator.handlePayload({
+            type: 'reclassification_completed',
+            data: { event_id: 'evt-legacy-empty', results: [] }
+        });
+
+        expect(calls.completeReclassification).toEqual([
+            ['evt-legacy-empty', [], 'no_result', null, null]
+        ]);
+        expect(calls.markCompleted[0].message).toBe('notifications.reclassify_no_result');
+    });
+
+    it('keeps a terminal technical failure visible with its reason', () => {
+        const { coordinator, calls } = buildCoordinator();
+
+        coordinator.handlePayload({
+            type: 'reclassification_started',
+            data: { event_id: 'evt-terminal-failure', total_frames: 12, strategy: 'video' }
+        });
+        coordinator.handlePayload({
+            type: 'reclassification_completed',
+            data: {
+                event_id: 'evt-terminal-failure',
+                results: [],
+                outcome: 'failed',
+                reason: 'video_timeout'
+            }
+        });
+
+        expect(calls.markFailed).toHaveLength(1);
+        expect(calls.markCompleted).toHaveLength(0);
+        expect(calls.completeReclassification).toEqual([
+            ['evt-terminal-failure', [], 'failed', 'video_timeout', null]
+        ]);
+        expect(calls.dismissReclassification).toHaveLength(0);
     });
 
     it('settles an explicit reclassification failure and dismisses its overlay', () => {

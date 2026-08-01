@@ -680,8 +680,14 @@ class BirdCropService:
             return self.provider_override
         try:
             from app.services.model_validation import activation_provider_recommendation
+            from app.services.model_manager import model_manager
 
-            recommendation = activation_provider_recommendation(self._registry_model_id_for_tier(tier))
+            model_id = self._registry_model_id_for_tier(tier)
+            metadata = model_manager._get_registry_model_meta(model_id) or {}
+            recommendation = activation_provider_recommendation(
+                model_id,
+                artifact_sha256=str(metadata.get("sha256") or "").strip().lower() or None,
+            )
         except Exception:
             recommendation = None
         return str(recommendation or "cpu").strip().lower()
