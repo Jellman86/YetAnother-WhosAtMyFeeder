@@ -8033,7 +8033,14 @@
           "reason": {
             "anyOf": [
               {
-                "const": "no_confident_result",
+                "enum": [
+                  "no_confident_result",
+                  "below_threshold",
+                  "low_confidence",
+                  "blocked_label",
+                  "abstention_label",
+                  "invalid_score"
+                ],
                 "type": "string"
               },
               {

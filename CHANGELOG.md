@@ -32,6 +32,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Video consensus now pools sparse, independent moments.** A fleeting bird no longer needs to
+  occupy a fixed fraction of an entire retained visit. Observations less than 250 ms apart collapse
+  into one moment; each source needs three independent evaluations, at least two confident votes,
+  and a 60% winner among those votes. Accepted confidence is the median of at most the five
+  strongest supporting moments, while cross-source disagreement still causes an abstention.
 - **Accelerator selection is now ordered per model and installation.** A compatibility sweep keeps
   per-provider latency and numerical-agreement evidence; `Auto`, Settings, Model Manager, and the
   setup wizard use that measured order. The UI exposes only the image-packaged, host-visible,
@@ -68,12 +73,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Manual reclassification no longer rejects good fleeting sightings or applies unsafe weak
+  replacements.** Retained recordings use Frigate boxes only at timestamps backed by `path_data`,
+  so one stale box cannot repeatedly classify background after the bird has moved. A video
+  abstention or below-threshold candidate falls back to the best retained snapshot, while an
+  explicit click no longer bypasses the configured threshold or downgrades an existing identity.
+- **Reclassification evidence now describes the actual vote.** Version 3 diagnostics separate
+  decoded frames, independent moments, confident candidates, and all-score observations; the UI
+  reports leading-species support and the actual matching requirement in all nine language
+  catalogs. Historical version 1 and 2 summaries remain readable.
 - **Deep video analysis now uses sparse crops and tracked motion honestly.** Dynamic crop consensus
-  counts only frames where the detector produced a usable crop, while still requiring coverage of
-  at least 30% of the sampled clip. Frigate path coordinates are aligned to cached recording and
-  event-clip timestamps so the guided crop follows the bird instead of reusing one final box. The
-  centre-weighted sampler no longer fills overlapping targets with adjacent opening frames, and
-  conservative cross-source agreement still rejects confidently wrong outliers.
+  counts only moments where the detector produced a usable crop and can win from three separated
+  moments without requiring the bird to fill a percentage of a long visit. Frigate path coordinates
+  are aligned to cached recording and event-clip timestamps so the guided crop follows the bird
+  instead of reusing one final box. The centre-weighted sampler no longer fills overlapping targets
+  with adjacent opening frames, and conservative cross-source agreement still rejects confidently
+  wrong outliers.
 - **A video abstention now explains the evidence it rejected.** YA-WAMF stores a bounded per-source
   summary with decoded, confident, required, and recurring-candidate frame counts. Detection details
   presents that evidence after reload or restart instead of reducing every safe abstention to the

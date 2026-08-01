@@ -186,6 +186,113 @@ async def test_process_event_records_temporal_abstention_without_breaker_failure
 
 
 @pytest.mark.asyncio
+async def test_manual_video_abstention_falls_back_to_best_retained_snapshot():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    diagnostics = {
+        "version": 2,
+        "outcome": "abstained",
+        "reason": "no_source_consensus",
+        "sampled_frames": 30,
+        "processed_frames": 30,
+        "minimum_frame_score": 0.5,
+        "sources": {},
+    }
+
+    async def classify_without_consensus(*args, **kwargs):
+        kwargs["diagnostics_callback"](diagnostics)
+        return []
+
+    service._classifier.classify_video_async = AsyncMock(side_effect=classify_without_consensus)
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    service._record_success = MagicMock()  # type: ignore[method-assign]
+    service._record_failure = MagicMock()  # type: ignore[method-assign]
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()) as broadcast,
+    ):
+        await service._process_event(
+            "evt-manual-video-abstention",
+            "cam1",
+            skip_delay=True,
+            fallback_to_snapshot=True,
+            source="manual",
+        )
+
+    service._classify_from_snapshot.assert_awaited_once_with(
+        "evt-manual-video-abstention",
+        "cam1",
+        event_data={"has_clip": True},
+        manual_tagged=True,
+    )
+    service._save_results.assert_not_awaited()
+    service._record_success.assert_called_once_with("evt-manual-video-abstention", source="manual")
+    assert not any(
+        call.args[:2] == ("evt-manual-video-abstention", "failed") and call.kwargs.get("error") == "video_no_results"
+        for call in service._update_status.await_args_list
+    )
+    assert any(
+        call.args[0].get("type") == "reclassification_strategy_changed"
+        and call.args[0]["data"]["reason"] == "video_no_results"
+        for call in broadcast.await_args_list
+    )
+
+
+@pytest.mark.asyncio
+async def test_manual_video_result_below_promotion_threshold_uses_snapshot_instead_of_overwriting():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(
+        return_value=[{"label": "Thamnophis proximus", "score": 0.657, "index": 42}]
+    )
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    service._record_success = MagicMock()  # type: ignore[method-assign]
+    service._record_failure = MagicMock()  # type: ignore[method-assign]
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()) as broadcast,
+        patch("app.services.detection_service.DetectionService") as detection_service,
+    ):
+        detection_service.return_value.select_manual_reclassification.return_value = (None, "below_threshold")
+        await service._process_event(
+            "evt-manual-video-below-threshold",
+            "cam1",
+            skip_delay=True,
+            fallback_to_snapshot=True,
+            source="manual",
+        )
+
+    service._save_results.assert_not_awaited()
+    service._classify_from_snapshot.assert_awaited_once_with(
+        "evt-manual-video-below-threshold",
+        "cam1",
+        event_data={"has_clip": True},
+        manual_tagged=True,
+    )
+    assert any(
+        call.args[0].get("type") == "reclassification_strategy_changed"
+        and call.args[0]["data"]["reason"] == "below_threshold"
+        for call in broadcast.await_args_list
+    )
+
+
+@pytest.mark.asyncio
 async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()

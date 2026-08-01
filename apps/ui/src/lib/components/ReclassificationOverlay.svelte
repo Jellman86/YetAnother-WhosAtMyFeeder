@@ -69,13 +69,15 @@
         if (!diagnostics) return null;
         const sources = Object.values(diagnostics.sources).filter(isSourceEvidence);
         return sources.sort((left, right) => {
+            const leftWinner = left.top_candidates?.[0]?.supporting_frames ?? 0;
+            const rightWinner = right.top_candidates?.[0]?.supporting_frames ?? 0;
             const leftProgress = left.required_supporting_frames > 0
-                ? left.confident_frames / left.required_supporting_frames
+                ? leftWinner / left.required_supporting_frames
                 : 0;
             const rightProgress = right.required_supporting_frames > 0
-                ? right.confident_frames / right.required_supporting_frames
+                ? rightWinner / right.required_supporting_frames
                 : 0;
-            return rightProgress - leftProgress;
+            return (rightProgress - leftProgress) || (right.confident_frames - left.confident_frames);
         })[0] ?? null;
     });
 
@@ -295,10 +297,11 @@
                                         {#if strongestEvidence}
                                             <p class="mt-2 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                                                 {$_('detection.reclassification.unchanged_evidence', {
-                                                    default: 'Best evidence: {confident} of {evaluated} frames were confident; {required} matching frames were needed.',
+                                                    default: 'Best evidence: {confident} of {independent} independent moments could vote; the leading species matched {supporting} and needed {required}.',
                                                     values: {
                                                         confident: strongestEvidence.confident_frames,
-                                                        evaluated: strongestEvidence.evaluated_frames,
+                                                        independent: strongestEvidence.independent_frames ?? strongestEvidence.evaluated_frames,
+                                                        supporting: strongestEvidence.top_candidates?.[0]?.supporting_frames ?? 0,
                                                         required: strongestEvidence.required_supporting_frames
                                                     }
                                                 })}

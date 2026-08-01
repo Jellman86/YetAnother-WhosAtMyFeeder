@@ -147,31 +147,46 @@ edge coverage. Rounding collisions are repaired beside their intended timestamp,
 silently turn into adjacent frames at the beginning of the clip.
 
 Each representation is evaluated independently: unchanged full frame, Frigate-guided crop, and
-detector-generated crop. Low-confidence predictions from a representation remain abstaining votes,
-but a missing dynamic crop is not an evaluated crop. The dynamic crop source must still exist on at
-least three frames and 30% of all decoded samples before it can win. Within an eligible source, one
-exact class needs at least two votes and 60% of that source's evaluated frames. If independently
-trustworthy sources select different species, YA-WAMF abstains instead of choosing the most
-confident transformation.
+detector-generated crop. Low-confidence predictions prove that a representation was evaluated but
+do not vote against a fleeting subject; a missing dynamic crop is not an evaluated crop. Samples
+less than 250 ms apart are correlated and collapse into one moment, retaining the strongest
+observation. A source needs three independent evaluated moments before it can win, but it does not
+need to occupy a fixed percentage of a long clip. Within an eligible source, one exact class needs
+at least two votes and 60% of that source's **confident** votes. Its aggregate score is the median of
+up to the five strongest independent supporting moments. If independently trustworthy sources
+select different species, YA-WAMF abstains instead of choosing the most confident transformation.
+
+This is a sparse multiple-instance decision rather than majority voting over every decoded frame:
+brief recurring evidence should survive a long visit containing empty frames, while near-duplicate
+decodes must not manufacture support. The design follows the sparse-evidence motivation in
+[attention-based multiple-instance learning](https://proceedings.mlr.press/v80/ilse18a.html) and
+[sparse temporal pooling](https://openaccess.thecvf.com/content_cvpr_2018/html/Nguyen_Weakly_Supervised_Action_CVPR_2018_paper.html).
+YA-WAMF deliberately does not call raw model scores calibrated probabilities. The model's reviewed
+admission floor and the user's configured promotion threshold remain safety gates; probability
+calibration and formal risk/coverage selection require a representative labelled clip set, as
+described by [Guo et al.](https://proceedings.mlr.press/v70/guo17a.html) and
+[Geifman and El-Yaniv](https://papers.nips.cc/paper/2017/hash/4a8423d5e91fda00bb7e46540e2b0cf1-Abstract.html).
 
 Frigate `path_data` now guides video crops as well as HQ snapshots. YA-WAMF aligns each absolute
 bottom-centre path point with the actual event-clip or retained recording start timestamp, restores
-the tracked box at that sampled moment, and ignores a path point more than 0.75 seconds away. When
-timeline metadata is absent or stale, it retains the static Frigate box, model crop, and full frame
-rather than applying a guessed track.
+the tracked box at that sampled moment, and ignores a path point more than 0.75 seconds away. A
+retained recording never reuses the event's one static box outside those aligned moments; when
+tracking metadata is absent or stale, full-frame and detector-crop evidence remain available.
 
 When no source clears the policy, YA-WAMF stores a bounded diagnostic summary on the detection:
-decoded and confident frame counts, the support required for each source, and up to three recurring
-candidates with median confidence. **Detection details → Show technical details** presents this
-evidence. The summary explains the decision; it never promotes a rejected candidate or replaces the
-raw media needed for later reclassification.
+decoded frames, independent moments, confident votes, the support required for each source, up to
+three confident candidates, and separate all-score observation context. **Detection details → Show
+technical details** presents the voting evidence. The summary explains the decision; it never
+promotes a rejected candidate or replaces the raw media needed for later reclassification.
 
-Manual reclassification uses the same safety rule. Its progress view finishes with one explicit
-outcome: a new identification, **Identification unchanged** when the available evidence abstains,
-or a technical failure with its reason. An unchanged result includes the strongest confident-frame
-count and the matching-frame requirement, then keeps the previous identification intact. The
-detection details notice remains visible after the progress view closes, with the full per-source
-evidence available under **Show technical details**.
+Manual reclassification uses the same safety and configured confidence rules; clicking Reclassify
+does not bypass the promotion threshold. A video abstention or below-threshold candidate triggers
+the best retained snapshot before the run finishes. Its progress view ends with one explicit
+outcome: a new identification, **Identification unchanged** when both routes abstain, or a technical
+failure with its reason. An unchanged result includes the confident-frame count, leading-species
+support, and matching requirement, then keeps the previous identification intact. The detection
+details notice remains visible after the progress view closes, with the full per-source evidence
+available under **Show technical details**.
 
 ---
 

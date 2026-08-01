@@ -7,6 +7,12 @@ describe('ReclassificationOverlay terminal outcome', () => {
         expect(overlaySource).toContain('detection.reclassification.unchanged_title');
         expect(overlaySource).toContain('detection.reclassification.unchanged_description');
         expect(overlaySource).toContain('detection.reclassification.unchanged_evidence');
+        expect(overlaySource).toContain(
+            'supporting: strongestEvidence.top_candidates?.[0]?.supporting_frames ?? 0'
+        );
+        expect(overlaySource).toContain(
+            'independent: strongestEvidence.independent_frames ?? strongestEvidence.evaluated_frames'
+        );
     });
 
     it('does not present an abstention as a final species result', () => {

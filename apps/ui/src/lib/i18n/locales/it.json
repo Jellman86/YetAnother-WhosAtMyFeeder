@@ -1503,7 +1503,7 @@
         "title": "Evidenze di questa analisi",
         "summary": "Sono stati decodificati {processed} dei {sampled} fotogrammi campionati. Per votare, un fotogramma richiedeva almeno il {threshold}% di confidenza.",
         "confident_short": "affidabili",
-        "required": "Erano necessari {required} fotogrammi concordanti da questa fonte.",
+        "required": "Erano necessari {required} momenti affidabili e concordanti da questa fonte.",
         "top_candidates": "Candidati più ricorrenti",
         "full_frame": "Fotogramma intero",
         "frigate_hint_crop": "Ritaglio guidato da Frigate",
@@ -1534,7 +1534,7 @@
       "unchanged_title": "Identificazione invariata",
       "unchanged_description": "Nessun risultato ha superato le regole di affidabilità, quindi l’identificazione esistente è stata mantenuta.",
       "unchanged_reason_no_source_consensus": "I fotogrammi campionati non concordavano abbastanza chiaramente su una sola specie.",
-      "unchanged_evidence": "Migliore evidenza: {confident} fotogrammi affidabili su {evaluated}; ne servivano {required} concordanti.",
+      "unchanged_evidence": "Migliore evidenza: {confident} dei {independent} momenti indipendenti potevano votare; la specie principale coincideva in {supporting}, mentre ne servivano {required}.",
       "failed_title": "Impossibile completare la riclassificazione",
       "failed_description": "L’analisi è terminata senza un risultato utilizzabile. Motivo tecnico: {reason}.",
       "snapshot_fallback_title": "Classificazione da snapshot",
@@ -1546,7 +1546,10 @@
         "clip_invalid": "Il clip video era corrotto o illeggibile.",
         "clip_decode_failed": "Impossibile decodificare il clip video.",
         "clip_fetch_failed": "Impossibile recuperare il clip video da Frigate.",
-        "event_not_found": "Frigate non ha più questo evento; nessun clip in cache era disponibile."
+        "event_not_found": "Frigate non ha più questo evento; nessun clip in cache era disponibile.",
+        "video_no_results": "I fotogrammi del video non hanno formato un consenso affidabile sulla specie.",
+        "below_threshold": "Il video ha concordato su un candidato, ma la confidenza era sotto la soglia configurata.",
+        "video_no_usable_result": "Il risultato del video non ha superato le regole di promozione configurate."
       },
       "snapshot_scanning": "Scansione snapshot"
     },
