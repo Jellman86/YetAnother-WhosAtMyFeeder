@@ -1494,7 +1494,7 @@
         "title": "Indices de cette analyse",
         "summary": "{processed} images sur {sampled} échantillonnées ont été décodées. Une image devait atteindre au moins {threshold} % de confiance pour voter.",
         "confident_short": "fiables",
-        "required": "Il fallait {required} images concordantes pour cette source.",
+        "required": "Il fallait {required} instants fiables et concordants pour cette source.",
         "top_candidates": "Candidats les plus récurrents",
         "full_frame": "Image complète",
         "frigate_hint_crop": "Recadrage guidé par Frigate",
@@ -1525,7 +1525,7 @@
       "unchanged_title": "Identification inchangée",
       "unchanged_description": "Aucun résultat n’a satisfait aux règles de confiance. L’identification existante a donc été conservée.",
       "unchanged_reason_no_source_consensus": "Les images échantillonnées ne concordaient pas assez nettement sur une seule espèce.",
-      "unchanged_evidence": "Meilleure preuve : {confident} images fiables sur {evaluated} ; {required} images concordantes étaient nécessaires.",
+      "unchanged_evidence": "Meilleure preuve : {confident} des {independent} instants indépendants pouvaient voter ; l’espèce en tête concordait sur {supporting}, contre {required} requis.",
       "failed_title": "La reclassification n’a pas pu aboutir",
       "failed_description": "L’analyse s’est terminée sans résultat exploitable. Motif technique : {reason}.",
       "snapshot_fallback_title": "Classification à partir d'une capture",
@@ -1537,7 +1537,10 @@
         "clip_invalid": "Le clip vidéo était corrompu ou illisible.",
         "clip_decode_failed": "Le clip vidéo n'a pas pu être décodé.",
         "clip_fetch_failed": "Impossible de récupérer le clip vidéo depuis Frigate.",
-        "event_not_found": "Frigate n'a plus cet événement et aucun clip en cache n'était disponible."
+        "event_not_found": "Frigate n'a plus cet événement et aucun clip en cache n'était disponible.",
+        "video_no_results": "Les images vidéo n’ont pas permis d’établir un consensus fiable sur l’espèce.",
+        "below_threshold": "La vidéo a convergé vers un candidat, mais sa confiance restait sous le seuil configuré.",
+        "video_no_usable_result": "Le résultat vidéo n’a pas satisfait les règles de promotion configurées."
       },
       "snapshot_scanning": "Analyse de la capture"
     },

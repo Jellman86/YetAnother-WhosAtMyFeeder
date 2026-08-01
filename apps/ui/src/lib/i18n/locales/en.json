@@ -1530,7 +1530,7 @@
         "title": "Evidence from this run",
         "summary": "{processed} of {sampled} sampled frames were decoded. A frame needed at least {threshold}% confidence to vote.",
         "confident_short": "confident",
-        "required": "Needed {required} matching frames from this source.",
+        "required": "Needed {required} matching confident moments from this source.",
         "top_candidates": "Top recurring candidates",
         "full_frame": "Full frame",
         "frigate_hint_crop": "Frigate-guided crop",
@@ -1616,7 +1616,7 @@
       "unchanged_title": "Identification unchanged",
       "unchanged_description": "No result cleared the confidence rules, so the existing identification was kept.",
       "unchanged_reason_no_source_consensus": "The sampled frames did not agree on one species strongly enough.",
-      "unchanged_evidence": "Best evidence: {confident} of {evaluated} frames were confident; {required} matching frames were needed.",
+      "unchanged_evidence": "Best evidence: {confident} of {independent} independent moments could vote; the leading species matched {supporting} and needed {required}.",
       "failed_title": "Reclassification could not finish",
       "failed_description": "The analysis ended before a usable result was produced. Technical reason: {reason}.",
       "frame_grid": "Frame Grid",
@@ -1635,7 +1635,10 @@
         "clip_invalid": "Video clip was corrupt or could not be read.",
         "clip_decode_failed": "Video clip failed to decode.",
         "clip_fetch_failed": "Could not fetch the video clip from Frigate.",
-        "event_not_found": "Frigate no longer has this event; no cached clip was available."
+        "event_not_found": "Frigate no longer has this event; no cached clip was available.",
+        "video_no_results": "The video frames could not form a confident species consensus.",
+        "below_threshold": "The video agreed on a candidate, but its confidence was below your configured threshold.",
+        "video_no_usable_result": "The video result did not clear the configured promotion rules."
       },
       "snapshot_scanning": "Snapshot scan"
     },

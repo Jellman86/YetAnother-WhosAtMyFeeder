@@ -236,6 +236,39 @@ class DetectionService:
             }, "frigate_fallback"
         return None, last_reason
 
+    def select_manual_reclassification(
+        self,
+        classifications: list[dict],
+        frigate_event: str,
+        frigate_sub_label: str = None,
+        frigate_score: float = None,
+        frigate_sub_label_score: float = None,
+    ) -> tuple[dict | None, str | None]:
+        """Select a concrete result that is safe to apply on explicit reanalysis.
+
+        A click on "reclassify" authorizes a new model run, not a confidence-
+        threshold bypass. The normal live path may retain a mid-confidence result
+        as ``Unknown Bird``; applying that catch-all during a manual run would
+        silently downgrade a known identification. Manual reanalysis therefore
+        requires the same concrete, above-threshold species evidence as a normal
+        promotion.
+        """
+        selected, reason = self.select_usable_classification(
+            classifications,
+            frigate_event,
+            frigate_sub_label,
+            frigate_score,
+            frigate_sub_label_score,
+        )
+        if selected is None:
+            return None, reason
+        if should_hide_species_label(
+            selected.get("label"),
+            extra_unknown_labels=unknown_species_labels(),
+        ):
+            return None, "below_threshold" if reason == "unknown_catchall" else (reason or "abstention_label")
+        return selected, reason
+
     async def _is_blocked_with_taxonomy(
         self,
         *,

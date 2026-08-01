@@ -257,11 +257,15 @@ the local prediction does not clear policy. Frigate's sublabel confidence is kep
 bird-object detector score, and YA-WAMF does not echo a fallback label straight back to Frigate.
 
 Deep video uses temporal consensus rather than a single maximum frame. YA-WAMF keeps the unchanged
-full frame, then adds a valid Frigate tracked-object crop and detector crop when available. These
-are alternate views of each sampled frame, not extra votes: each input source must reach its own
-three-frame/60% consensus, and conflicting source winners cause the analysis to abstain. When the
-sources agree, YA-WAMF keeps the strongest consensus and records whether it came from full video
-frames, cropped video frames, a full snapshot fallback, or a cropped snapshot fallback. Detection
+full frame, then adds a time-aligned Frigate tracked-object crop and detector crop when available.
+These are alternate views of each sampled frame, not extra votes: each input source needs at least
+three independent evaluated moments and two confident votes, one species must own 60% of that
+source's confident votes, and conflicting source winners cause the analysis to abstain. Samples
+less than 250 ms apart collapse into one moment. Low-confidence decoded frames count as coverage,
+not votes against a fleeting visitor; accepted confidence is the median of at most the five
+strongest supporting moments. When the sources agree, YA-WAMF keeps the strongest consensus and
+records whether it came from full video frames, cropped video frames, a full snapshot fallback, or
+a cropped snapshot fallback. Detection
 details show that source next to the result. Historical cached snapshots without trustworthy source
 metadata remain usable but are conservatively treated as uncropped instead of being guessed from
 dimensions. If local image evidence does not clear policy and a trusted Frigate sublabel wins, the

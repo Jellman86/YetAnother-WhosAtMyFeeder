@@ -1494,7 +1494,7 @@
         "title": "今回の解析根拠",
         "summary": "サンプリングした{sampled}フレームのうち{processed}フレームをデコードしました。投票には各フレームで{threshold}%以上の信頼度が必要でした。",
         "confident_short": "高信頼",
-        "required": "この入力では一致するフレームが{required}件必要でした。",
+        "required": "この入力では、信頼度を満たして一致する独立時点が {required} 件必要でした。",
         "top_candidates": "繰り返し現れた上位候補",
         "full_frame": "フルフレーム",
         "frigate_hint_crop": "Frigateガイド切り抜き",
@@ -1525,7 +1525,7 @@
       "unchanged_title": "識別結果は変更されませんでした",
       "unchanged_description": "信頼度の基準を満たす結果がなかったため、既存の識別結果を維持しました。",
       "unchanged_reason_no_source_consensus": "抽出したフレームで、1つの種に十分強く一致しませんでした。",
-      "unchanged_evidence": "最良の根拠：{evaluated} フレーム中 {confident} フレームが高信頼。必要な一致数は {required} フレームでした。",
+      "unchanged_evidence": "最良の根拠：{independent} 件の独立時点中 {confident} 件が投票可能で、最有力種は {supporting} 件で一致しました（必要数 {required}）。",
       "failed_title": "再分類を完了できませんでした",
       "failed_description": "使用可能な結果が得られる前に解析が終了しました。技術的な理由：{reason}。",
       "snapshot_fallback_title": "スナップショットから分類中",
@@ -1537,7 +1537,10 @@
         "clip_invalid": "動画クリップが破損しているか読み取れませんでした。",
         "clip_decode_failed": "動画クリップをデコードできませんでした。",
         "clip_fetch_failed": "Frigate から動画クリップを取得できませんでした。",
-        "event_not_found": "Frigate はこのイベントを保持しておらず、キャッシュされたクリップもありません。"
+        "event_not_found": "Frigate はこのイベントを保持しておらず、キャッシュされたクリップもありません。",
+        "video_no_results": "動画フレームから信頼できる種の合意を得られませんでした。",
+        "below_threshold": "動画では候補が一致しましたが、信頼度が設定済みのしきい値を下回りました。",
+        "video_no_usable_result": "動画結果は設定済みの昇格ルールを満たしませんでした。"
       },
       "snapshot_scanning": "スナップショットをスキャン中"
     },

@@ -60,14 +60,18 @@ export interface VideoClassificationCandidateEvidence {
     supporting_frames: number;
     support_ratio: number;
     median_score: number;
+    pooled_frames?: number;
 }
 
 export interface VideoClassificationSourceEvidence {
     reason: string;
     evaluated_frames: number;
+    independent_frames?: number;
     confident_frames: number;
     required_supporting_frames: number;
+    confident_coverage_ratio?: number;
     top_candidates: VideoClassificationCandidateEvidence[];
+    top_observations?: VideoClassificationCandidateEvidence[];
 }
 
 export interface VideoClassificationDiagnostics {
@@ -77,6 +81,9 @@ export interface VideoClassificationDiagnostics {
     sampled_frames: number;
     processed_frames: number;
     minimum_frame_score: number;
+    aggregation?: string;
+    maximum_pooled_frames?: number;
+    minimum_frame_separation_seconds?: number;
     sources: Record<string, VideoClassificationSourceEvidence>;
 }
 

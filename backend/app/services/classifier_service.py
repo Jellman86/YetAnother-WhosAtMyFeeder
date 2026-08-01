@@ -150,6 +150,8 @@ from app.services.classifier_supervisor import (  # noqa: E402
 from app.services.personalization_service import personalization_service  # noqa: E402
 from app.services.video_classification_policy import (  # noqa: E402
     SourceTemporalConsensus,
+    VIDEO_MIN_FRAME_SEPARATION_SECONDS,
+    VIDEO_SPARSE_POOL_MAX_FRAMES,
     assess_temporal_consensus,
     select_temporal_source_consensus,
 )
@@ -4690,6 +4692,35 @@ class ClassifierService:
         top = max(0.0, min(1.0 - height, bottom_y - height))
         return [left, top, width, height]
 
+    def _video_frame_input_context(
+        self,
+        input_context: ClassificationInputContext,
+        *,
+        frame_offset_seconds: float | None,
+    ) -> ClassificationInputContext:
+        """Return crop hints that are valid at this frame's clip timestamp.
+
+        A Frigate event's top-level box describes one tracked instant. Reusing it
+        across a full-visit recording repeatedly classifies the same background
+        patch after a fleeting bird has moved away. Recording clips therefore use
+        a Frigate hint only when ``path_data`` can align it to this frame. Event
+        clips retain the static fallback when no tracking path was supplied.
+        """
+        frame_context_payload = dict(input_context.model_dump())
+        clip_variant = str(self._input_context_extra(input_context, "clip_variant") or "event").strip().lower()
+        raw_path_data = self._input_context_extra(input_context, "frigate_path_data")
+        requires_time_aligned_hint = clip_variant == "recording" or bool(raw_path_data)
+        if requires_time_aligned_hint:
+            frame_context_payload.pop("frigate_box", None)
+            frame_context_payload.pop("frigate_region", None)
+            tracked_box = self._tracked_frigate_box_for_frame(
+                input_context,
+                frame_offset_seconds=frame_offset_seconds,
+            )
+            if tracked_box is not None:
+                frame_context_payload["frigate_box"] = tracked_box
+        return _normalize_classification_input_context(frame_context_payload)
+
     @staticmethod
     def _frigate_snapshot_crop_box(
         box: tuple[int, int, int, int],
@@ -5838,6 +5869,7 @@ class ClassifierService:
                     expected_input_sources.append("model_crop")
 
             scores_by_input_source: dict[str, list[np.ndarray]] = {source: [] for source in expected_input_sources}
+            offsets_by_input_source: dict[str, list[float | None]] = {source: [] for source in expected_input_sources}
             processed_frame_count = 0
             any_valid_scores = False
             skipped_unknown_frame_count = 0
@@ -5888,14 +5920,10 @@ class ClassifierService:
                 image = Image.fromarray(frame_rgb)
                 processed_frame_count += 1
 
-                frame_context_payload = dict(normalized_input_context.model_dump())
-                tracked_box = self._tracked_frigate_box_for_frame(
+                frame_input_context = self._video_frame_input_context(
                     normalized_input_context,
                     frame_offset_seconds=frame_offset_sec,
                 )
-                if tracked_box is not None:
-                    frame_context_payload["frigate_box"] = tracked_box
-                frame_input_context = _normalize_classification_input_context(frame_context_payload)
 
                 candidate_scores: dict[str, np.ndarray] = {}
                 candidate_images: dict[str, Image.Image] = {}
@@ -5906,6 +5934,7 @@ class ClassifierService:
                     if input_source not in scores_by_input_source:
                         expected_input_sources.append(input_source)
                         scores_by_input_source[input_source] = []
+                        offsets_by_input_source[input_source] = []
                     candidate_context = dict(frame_input_context.model_dump())
                     candidate_context.update(
                         {
@@ -5930,6 +5959,7 @@ class ClassifierService:
                 for input_source, scores in candidate_scores.items():
                     if len(scores) == class_count:
                         scores_by_input_source[input_source].append(scores)
+                        offsets_by_input_source[input_source].append(frame_offset_sec)
 
                 strongest_frame_candidate: tuple[float, int, str, Image.Image] | None = None
                 for input_source, scores in candidate_scores.items():
@@ -5998,13 +6028,13 @@ class ClassifierService:
                 float(getattr(settings.classification, "min_confidence", 0.0) or 0.0),
                 recommended_threshold,
             )
-            minimum_dynamic_crop_frames = max(3, math.ceil(processed_frame_count * 0.30))
             source_assessments = {
                 input_source: assess_temporal_consensus(
                     source_scores,
                     minimum_frame_score=minimum_frame_score,
                     excluded_class_indices=excluded_class_indices,
-                    minimum_evaluated_frames=(minimum_dynamic_crop_frames if input_source == "model_crop" else 3),
+                    minimum_evaluated_frames=3,
+                    frame_offsets_seconds=offsets_by_input_source.get(input_source),
                 )
                 for input_source, source_scores in scores_by_input_source.items()
             }
@@ -6017,8 +6047,13 @@ class ClassifierService:
                 input_source: {
                     "reason": assessment.reason,
                     "evaluated_frames": assessment.evaluated_frame_count,
+                    "independent_frames": assessment.independent_frame_count,
                     "confident_frames": assessment.confident_frame_count,
                     "required_supporting_frames": assessment.required_supporting_frames,
+                    "confident_coverage_ratio": round(
+                        assessment.confident_frame_count / max(1, assessment.independent_frame_count),
+                        4,
+                    ),
                     "top_candidates": [
                         {
                             "label": (
@@ -6029,6 +6064,21 @@ class ClassifierService:
                             "supporting_frames": evidence.supporting_frame_count,
                             "support_ratio": round(evidence.support_ratio, 4),
                             "median_score": round(evidence.score, 4),
+                            "pooled_frames": evidence.pooled_frame_count,
+                        }
+                        for evidence in assessment.ranked_classes[:3]
+                    ],
+                    "top_observations": [
+                        {
+                            "label": (
+                                normalize_classifier_label(labels[evidence.class_index])
+                                if evidence.class_index < len(labels)
+                                else f"Class {evidence.class_index}"
+                            ),
+                            "supporting_frames": evidence.supporting_frame_count,
+                            "support_ratio": round(evidence.support_ratio, 4),
+                            "median_score": round(evidence.score, 4),
+                            "pooled_frames": evidence.pooled_frame_count,
                         }
                         for evidence in assessment.ranked_observations[:3]
                     ],
@@ -6036,8 +6086,11 @@ class ClassifierService:
                 for input_source, assessment in source_assessments.items()
             }
             diagnostic_payload = {
-                "version": 1,
+                "version": 3,
                 "outcome": "accepted" if selected_source_consensus is not None else "abstained",
+                "aggregation": "sparse_top_k_median",
+                "maximum_pooled_frames": VIDEO_SPARSE_POOL_MAX_FRAMES,
+                "minimum_frame_separation_seconds": VIDEO_MIN_FRAME_SEPARATION_SECONDS,
                 "sampled_frames": len(frame_indices),
                 "processed_frames": processed_frame_count,
                 "minimum_frame_score": round(minimum_frame_score, 4),
@@ -6088,6 +6141,7 @@ class ClassifierService:
                         "input_is_cropped": input_source != "full_frame",
                         "temporal_supporting_frames": evidence.supporting_frame_count,
                         "temporal_evaluated_frames": consensus.evaluated_frame_count,
+                        "temporal_independent_frames": consensus.independent_frame_count,
                         "temporal_required_frames": consensus.required_supporting_frames,
                     }
                 )
@@ -6117,6 +6171,7 @@ class ClassifierService:
                 input_source=input_source,
                 supporting_frames=consensus.supporting_frame_count,
                 evaluated_frames=consensus.evaluated_frame_count,
+                independent_frames=consensus.independent_frame_count,
                 required_frames=consensus.required_supporting_frames,
                 skipped_unknown_frames=skipped_unknown_frame_count,
                 input_consensus=consensus_diagnostics,

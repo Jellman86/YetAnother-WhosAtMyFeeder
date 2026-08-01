@@ -1694,7 +1694,7 @@ async def test_classify_video_normalizes_birder_taxonomy_labels(mock_tflite, moc
             if prop == classifier_service_module.cv2.CAP_PROP_FRAME_COUNT:
                 return 3
             if prop == classifier_service_module.cv2.CAP_PROP_FPS:
-                return 30
+                return 2
             return 0
 
         def set(self, *_args):
@@ -1801,7 +1801,7 @@ async def test_classify_video_ignores_unknown_frames_when_known_evidence_exists(
             if prop == cv2.CAP_PROP_FRAME_COUNT:
                 return len(frames)
             if prop == cv2.CAP_PROP_FPS:
-                return 10
+                return 2
             return 0
 
         def set(self, _prop, value):
@@ -1830,10 +1830,30 @@ async def test_classify_video_ignores_unknown_frames_when_known_evidence_exists(
         monkeypatch.setattr("cv2.VideoCapture", _FakeCapture)
         monkeypatch.setattr(service, "_classify_raw_with_runtime_recovery", _fake_classify_raw)
 
-        results = service.classify_video("/tmp/demo.mp4", max_frames=3)
+        results = service.classify_video(
+            "/tmp/demo.mp4",
+            max_frames=3,
+            input_context={"include_video_diagnostics": True},
+        )
 
         assert results[0]["label"] == "Robin"
-        assert all(result["label"] != "Unknown" for result in results)
+        assert all(result.get("label") != "Unknown" for result in results)
+        diagnostics = results[-1]["_video_diagnostics"]
+        assert diagnostics["version"] == 3
+        assert diagnostics["aggregation"] == "sparse_top_k_median"
+        assert diagnostics["minimum_frame_separation_seconds"] == 0.25
+        assert diagnostics["sources"]["full_frame"]["top_candidates"] == [
+            {
+                "label": "Robin",
+                "supporting_frames": 2,
+                "support_ratio": 1.0,
+                "median_score": pytest.approx(0.665),
+                "pooled_frames": 2,
+            }
+        ]
+        assert diagnostics["sources"]["full_frame"]["independent_frames"] == 3
+        assert diagnostics["sources"]["full_frame"]["confident_coverage_ratio"] == pytest.approx(2 / 3, abs=1e-4)
+        assert diagnostics["sources"]["full_frame"]["top_observations"][0]["label"] == "Robin"
         await service.shutdown()
 
 
@@ -3632,7 +3652,7 @@ def test_video_consensus_counts_only_frames_where_dynamic_crop_exists(mock_tflit
 
         def generate_classification_candidate_crop(self, image):
             self.calls += 1
-            if self.calls > 3:
+            if self.calls not in {1, 5, 9}:
                 return {"crop_image": None, "reason": "no_candidate"}
             return {
                 "crop_image": image.crop((20, 20, 80, 80)),
@@ -3754,7 +3774,7 @@ class _ThreeFrameCapture:
         if prop == classifier_service_module.cv2.CAP_PROP_FRAME_COUNT:
             return 3
         if prop == classifier_service_module.cv2.CAP_PROP_FPS:
-            return 10
+            return 2
         return 0
 
     def set(self, _prop, value):
@@ -3938,6 +3958,86 @@ async def test_classify_video_uses_dynamic_model_crop_when_no_frigate_hint_exist
 
 
 @pytest.mark.asyncio
+async def test_classify_video_accepts_three_sparse_independent_model_crops_in_a_long_visit(
+    mock_tflite, mock_os_path_exists, monkeypatch
+):
+    class _FrameAwareBirdModel:
+        loaded = True
+        labels = ["Wood Pigeon", "Sparrowhawk"]
+
+        def classify_raw(self, image):
+            if image.size == (60, 60):
+                return np.array([0.88, 0.12], dtype=np.float32)
+            return np.array([0.35, 0.34], dtype=np.float32)
+
+    class _SparseCropService:
+        def __init__(self):
+            self.calls = 0
+
+        def get_status(self):
+            return {"installed": True, "enabled_for_runtime": True}
+
+        def generate_classification_candidate_crop(self, image):
+            self.calls += 1
+            if self.calls not in {5, 15, 25}:
+                return {"crop_image": None, "reason": "no_detection"}
+            return {
+                "crop_image": image.crop((20, 20, 80, 80)),
+                "box": (20, 20, 80, 80),
+                "confidence": 0.82,
+                "reason": "selected",
+            }
+
+    class _ThirtyFrameCapture:
+        def __init__(self, _path):
+            self._index = 0
+
+        def isOpened(self):
+            return True
+
+        def get(self, prop):
+            if prop == classifier_service_module.cv2.CAP_PROP_FRAME_COUNT:
+                return 30
+            if prop == classifier_service_module.cv2.CAP_PROP_FPS:
+                return 1
+            return 0
+
+        def set(self, _prop, value):
+            self._index = int(value)
+
+        def read(self):
+            if not 0 <= self._index < 30:
+                return False, None
+            self._index += 1
+            return True, np.zeros((100, 100, 3), dtype=np.uint8)
+
+        def release(self):
+            return None
+
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        service._models["bird"] = _FrameAwareBirdModel()
+        service._bird_crop_service = _SparseCropService()
+        monkeypatch.setattr(classifier_service_module.cv2, "VideoCapture", _ThirtyFrameCapture)
+        monkeypatch.setattr(classifier_service_module.cv2, "cvtColor", lambda frame, _code: frame)
+        monkeypatch.setattr(settings.classification, "min_confidence", 0.45)
+
+        results = service.classify_video(
+            "/tmp/sparse-visit.mp4",
+            max_frames=30,
+            input_context={"is_cropped": False, "include_video_diagnostics": True},
+        )
+
+        assert results[0]["label"] == "Wood Pigeon"
+        assert results[0]["input_source"] == "model_crop"
+        diagnostics = results[-1]["_video_diagnostics"]
+        assert diagnostics["sources"]["model_crop"]["evaluated_frames"] == 3
+        assert diagnostics["sources"]["model_crop"]["independent_frames"] == 3
+        assert diagnostics["sources"]["model_crop"]["top_candidates"][0]["supporting_frames"] == 3
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
 async def test_video_model_crop_uses_frigate_hint_as_guided_search_region(
     mock_tflite, mock_os_path_exists, monkeypatch
 ):
@@ -4002,6 +4102,33 @@ async def test_video_frigate_hint_follows_time_aligned_tracking_path(mock_tflite
         assert first_box == pytest.approx([0.1, 0.1, 0.2, 0.2])
         assert last_box == pytest.approx([0.7, 0.7, 0.2, 0.2])
         assert unaligned_box is None
+        await service.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_recording_frames_never_reuse_a_static_frigate_box_outside_its_tracking_time(
+    mock_tflite, mock_os_path_exists
+):
+    with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        service = ClassifierService()
+        context = classifier_service_module._normalize_classification_input_context(
+            {
+                "is_cropped": False,
+                "clip_variant": "recording",
+                "frigate_box": [0.1, 0.1, 0.2, 0.2],
+                "frigate_region": [0.05, 0.05, 0.4, 0.4],
+                "frigate_path_data": [[[0.8, 0.9], 102.0]],
+                "clip_start_timestamp": 100.0,
+            }
+        )
+
+        aligned = service._video_frame_input_context(context, frame_offset_seconds=2.0)
+        unaligned = service._video_frame_input_context(context, frame_offset_seconds=8.0)
+
+        assert service._input_context_extra(aligned, "frigate_box") == pytest.approx([0.7, 0.7, 0.2, 0.2])
+        assert service._input_context_extra(aligned, "frigate_region") is None
+        assert service._input_context_extra(unaligned, "frigate_box") is None
+        assert service._input_context_extra(unaligned, "frigate_region") is None
         await service.shutdown()
 
 
@@ -4829,7 +4956,7 @@ async def test_classifier_service_video_progress_callback_failure_does_not_drop_
             if prop == classifier_service_module.cv2.CAP_PROP_FRAME_COUNT:
                 return 3
             if prop == classifier_service_module.cv2.CAP_PROP_FPS:
-                return 30
+                return 2
             return 0
 
         def set(self, *_args):

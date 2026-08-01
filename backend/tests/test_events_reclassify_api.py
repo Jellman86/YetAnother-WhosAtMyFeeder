@@ -12,6 +12,7 @@ from app.config import settings
 from app.database import close_db, get_db, init_db
 from app.main import app
 from app.routers import classifier as classifier_router
+from app.services.detection_service import DetectionService
 
 
 @pytest_asyncio.fixture
@@ -223,6 +224,44 @@ async def test_reclassify_completed_snapshot_does_not_assume_crop_query_was_appl
     finally:
         await _delete_detection(event_id)
         app.dependency_overrides.pop(require_owner, None)
+
+
+@pytest.mark.asyncio
+async def test_reclassify_snapshot_preserves_identification_when_result_is_below_threshold(
+    client: httpx.AsyncClient,
+):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    event_id = "evt-reclassify-snapshot-below-threshold"
+    await _insert_detection(event_id, "Eurasian Blackbird", "cam1")
+    classifier = MagicMock()
+    classifier.classify_async = AsyncMock(return_value=[{"label": "Thamnophis proximus", "score": 0.657, "index": 42}])
+
+    try:
+        with (
+            patch.object(settings.classification, "threshold", 0.7),
+            patch.object(settings.classification, "min_confidence", 0.5),
+            patch("app.routers.events.get_classifier", return_value=classifier),
+            patch("app.routers.events.frigate_client") as mock_frigate,
+            patch.object(DetectionService, "apply_video_result", new=AsyncMock()) as apply_result,
+            patch("app.routers.events.broadcaster.broadcast", new_callable=AsyncMock),
+        ):
+            mock_frigate.get_event_with_error = AsyncMock(return_value=({"has_clip": False}, None))
+            mock_frigate.get_snapshot = AsyncMock(return_value=_image_bytes())
+
+            response = await client.post(
+                f"/api/events/{event_id}/reclassify",
+                params={"strategy": "snapshot"},
+            )
+
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "no_result"
+        assert response.json()["reason"] == "below_threshold"
+        assert response.json()["updated"] is False
+        assert response.json()["new_species"] == "Eurasian Blackbird"
+        apply_result.assert_not_awaited()
+    finally:
+        await _delete_detection(event_id)
 
 
 @pytest.mark.asyncio

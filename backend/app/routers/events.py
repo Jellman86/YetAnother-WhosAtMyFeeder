@@ -1027,7 +1027,17 @@ class ReclassifyResponse(BaseModel):
     """Response from reclassification."""
 
     status: Literal["queued", "success", "no_result"]
-    reason: Literal["no_confident_result"] | None = None
+    reason: (
+        Literal[
+            "no_confident_result",
+            "below_threshold",
+            "low_confidence",
+            "blocked_label",
+            "abstention_label",
+            "invalid_score",
+        ]
+        | None
+    ) = None
     queue_state: Literal["queued", "duplicate"] | None = None
     event_id: str
     old_species: str
@@ -1424,7 +1434,7 @@ async def reclassify_event(
             from app.services.detection_service import DetectionService
 
             svc = DetectionService(classifier)
-            selection = svc.select_usable_classification(results, event_id)
+            selection = svc.select_manual_reclassification(results, event_id)
             _reason = None
             if isinstance(selection, tuple) and len(selection) == 2:
                 top, _reason = selection
@@ -1437,14 +1447,15 @@ async def reclassify_event(
                     strategy=effective_strategy,
                     reason=_reason,
                 )
+                terminal_reason = _reason or "no_confident_result"
                 await broadcast_reclassification_completed(
                     [],
                     "no_result",
-                    _reason or "no_confident_result",
+                    terminal_reason,
                 )
                 return ReclassifyResponse(
                     status="no_result",
-                    reason="no_confident_result",
+                    reason=terminal_reason,
                     event_id=event_id,
                     old_species=old_species,
                     new_species=detection.display_name,

@@ -1503,7 +1503,7 @@
         "title": "Evidências desta análise",
         "summary": "Foram descodificados {processed} de {sampled} fotogramas amostrados. Cada fotograma precisava de pelo menos {threshold}% de confiança para votar.",
         "confident_short": "confiáveis",
-        "required": "Eram necessários {required} fotogramas concordantes desta fonte.",
+        "required": "Eram necessários {required} momentos confiáveis e concordantes desta fonte.",
         "top_candidates": "Candidatos mais recorrentes",
         "full_frame": "Fotograma completo",
         "frigate_hint_crop": "Recorte guiado pelo Frigate",
@@ -1534,7 +1534,7 @@
       "unchanged_title": "Identificação inalterada",
       "unchanged_description": "Nenhum resultado cumpriu as regras de confiança, por isso a identificação existente foi mantida.",
       "unchanged_reason_no_source_consensus": "Os fotogramas analisados não concordaram com força suficiente numa única espécie.",
-      "unchanged_evidence": "Melhor evidência: {confident} de {evaluated} fotogramas foram confiáveis; eram necessários {required} fotogramas concordantes.",
+      "unchanged_evidence": "Melhor evidência: {confident} de {independent} momentos independentes puderam votar; a espécie principal coincidiu em {supporting} e precisava de {required}.",
       "failed_title": "Não foi possível concluir a reclassificação",
       "failed_description": "A análise terminou sem produzir um resultado utilizável. Motivo técnico: {reason}.",
       "snapshot_fallback_title": "A classificar a partir de captura",
@@ -1546,7 +1546,10 @@
         "clip_invalid": "O clipe de vídeo estava corrompido ou não foi possível lê-lo.",
         "clip_decode_failed": "Não foi possível descodificar o clipe de vídeo.",
         "clip_fetch_failed": "Não foi possível obter o clipe de vídeo do Frigate.",
-        "event_not_found": "O Frigate já não tem este evento; nenhum clipe em cache estava disponível."
+        "event_not_found": "O Frigate já não tem este evento; nenhum clipe em cache estava disponível.",
+        "video_no_results": "Os fotogramas do vídeo não formaram um consenso confiável sobre a espécie.",
+        "below_threshold": "O vídeo concordou num candidato, mas a confiança ficou abaixo do limite configurado.",
+        "video_no_usable_result": "O resultado do vídeo não passou as regras de promoção configuradas."
       },
       "snapshot_scanning": "Análise da captura"
     },

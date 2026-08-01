@@ -652,6 +652,46 @@ def test_select_usable_classification_reports_last_rejection_when_all_abstain():
     assert reason == "abstention_label"
 
 
+def test_manual_reclassification_does_not_turn_a_below_threshold_species_into_unknown():
+    service = DetectionService(MagicMock())
+
+    with patch("app.services.detection_service.settings") as mock_settings:
+        mock_settings.classification.unknown_bird_labels = ["Unknown Bird"]
+        mock_settings.classification.blocked_labels = []
+        mock_settings.classification.blocked_species = []
+        mock_settings.classification.threshold = 0.7
+        mock_settings.classification.min_confidence = 0.5
+        mock_settings.classification.trust_frigate_sublabel = False
+
+        result, reason = service.select_manual_reclassification(
+            [{"label": "Thamnophis proximus", "score": 0.657, "index": 42}],
+            "evt-manual-below-threshold",
+        )
+
+    assert result is None
+    assert reason == "below_threshold"
+
+
+def test_manual_reclassification_accepts_a_concrete_species_above_threshold():
+    service = DetectionService(MagicMock())
+
+    with patch("app.services.detection_service.settings") as mock_settings:
+        mock_settings.classification.unknown_bird_labels = ["Unknown Bird"]
+        mock_settings.classification.blocked_labels = []
+        mock_settings.classification.blocked_species = []
+        mock_settings.classification.threshold = 0.7
+        mock_settings.classification.min_confidence = 0.5
+        mock_settings.classification.trust_frigate_sublabel = False
+
+        result, reason = service.select_manual_reclassification(
+            [{"label": "Quiscalus quiscula", "score": 0.813, "index": 17}],
+            "evt-manual-above-threshold",
+        )
+
+    assert result == {"label": "Quiscalus quiscula", "score": 0.813, "index": 17}
+    assert reason == "threshold_passed"
+
+
 def test_select_usable_classification_uses_trusted_frigate_sublabel_when_all_abstain():
     service = DetectionService(MagicMock())
 

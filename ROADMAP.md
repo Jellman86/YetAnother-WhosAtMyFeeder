@@ -563,21 +563,22 @@ Condensed — see [`CHANGELOG.md`](CHANGELOG.md) and git history for detail. Eve
 shipped.
 
 **Classification & models:** multi-model support (TFLite/ONNX: MobileNetV2, ConvNeXt, EVA-02),
-fast-path mode, manual reclassification with confidence override, canonical species-identity
-normalization, blocked-species picker with reliable taxonomy matching, manual-tag common-name
+fast-path mode, manual reclassification with the configured confidence guard, canonical
+species-identity normalization, blocked-species picker with reliable taxonomy matching, manual-tag common-name
 resolution, the classifier inference-health refactor (`v2.11`, issue #33 resolved), the labeled
 feeder + auto-fetch model-evaluation harnesses, and the **accurate bird-crop detector tier**
 (optional YOLOX-Tiny with fast→original fallback, model-manager UI, and adapter/eval tests), plus
 **automatic per-model crop policy** validated on Quark and synchronized between the runtime registry
 and downloadable model sidecars. The classification pipeline now also separates Frigate object and
 sublabel confidence, runs local inference before trusted fallback, recovers missed MQTT `new` events
-from `update`, protects manual identity atomically, uses three-frame/60% deep-video consensus, and
+from `update`, protects manual identity atomically, uses sparse independent-moment deep-video
+consensus (three separated evaluations, at least two confident votes, and a 60% winner), and
 compares full-frame and cropped video evidence without double-counting frames, persists the winning
 input provenance, aligns Frigate path coordinates to event and retained-recording timelines, and
 surfaces provider failures for recovery instead of silently treating them as empty predictions.
-Sparse dynamic crops use their own evaluated-frame denominator plus a 30% clip-coverage floor;
-centre-weighted sampling stays distributed, and safe abstentions retain owner-visible per-source
-evidence instead of a generic no-result code.
+Sparse dynamic crops use their own independent-moment denominator without requiring a fleeting
+subject to occupy a fixed percentage of a long clip; centre-weighted sampling stays distributed,
+and safe abstentions retain owner-visible per-source evidence instead of a generic no-result code.
 
 **Acceleration:** Intel iGPU (OpenVINO), **Intel NPU** (`intel_npu` provider, capability probe,
 device picker, validated per-model), and NVIDIA CUDA — all with empirical per-model validation and

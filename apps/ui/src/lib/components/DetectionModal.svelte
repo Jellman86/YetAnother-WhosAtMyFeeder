@@ -2345,13 +2345,13 @@
                                                                 {videoEvidenceSourceLabel(source)}
                                                             </dt>
                                                             <dd class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
-                                                                {evidence.confident_frames}/{evidence.evaluated_frames}
+                                                                {evidence.confident_frames}/{evidence.independent_frames ?? evidence.evaluated_frames}
                                                                 {$_('detection.video_analysis.evidence.confident_short', { default: 'confident' })}
                                                             </dd>
                                                         </div>
                                                         <p class="mt-0.5 text-slate-600 dark:text-slate-400">
                                                             {$_('detection.video_analysis.evidence.required', {
-                                                                default: 'Needed {required} matching frames from this source.',
+                                                                default: 'Needed {required} matching confident moments from this source.',
                                                                 values: { required: evidence.required_supporting_frames }
                                                             })}
                                                         </p>

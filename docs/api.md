@@ -123,26 +123,34 @@ from image dimensions. A trusted upstream label that won because local image evi
 clear policy is reported as `frigate_sublabel` rather than as snapshot or video inference.
 
 For current video runs, event rows and the classification-status endpoint can also expose
-`video_classification_diagnostics`. This bounded object records sampled/decoded frame counts,
-minimum per-frame confidence, final outcome/reason, and per-source evaluated, confident, required,
-and recurring-candidate evidence. It is `null` while work is pending, after a successful result,
-and for historical runs that predate retained diagnostics. Candidate evidence explains an
-abstention; clients must not present it as an accepted identification.
+`video_classification_diagnostics`. Version 3 records sampled/decoded frame counts, the number of
+temporally independent moments, minimum per-frame confidence, final outcome/reason, and per-source
+evaluated/confident counts, `confident_coverage_ratio`, `required_supporting_frames`, confident
+`top_candidates`, and separate all-score `top_observations`. It also identifies the sparse top-k
+median aggregation, five-moment pool limit, and 250 ms de-correlation interval. The matching
+requirement is calculated from confident independent votes, not every decoded frame. It is `null`
+while work is pending, after a successful result, and for historical runs that predate retained
+diagnostics. Candidate evidence explains an abstention; clients must not present it as an accepted
+identification. Clients should continue to tolerate version 1 and 2 summaries already stored in the
+detections database.
 
 An HQ baseline built from Frigate's regular ended-event snapshot because the clean copy was absent
 uses `hq_candidate_frigate_snapshot_fallback`. It is treated conservatively as already cropped: the
 ended-event API ignores crop query overrides, so YA-WAMF must not run localisation a second time.
 
 `POST /api/events/{event_id}/reclassify` returns `status: "success"` and `updated: true` only after
-the selected result has been persisted. If all video and snapshot candidates are unusable, it
-returns HTTP 200 with `status: "no_result"`, `reason: "no_confident_result"`, and `updated: false`;
-the existing species and score are returned unchanged. Media-fetch, decode, and inference faults
-remain non-2xx errors.
+the selected result has been persisted. A snapshot strategy with no promotable species returns HTTP
+200 with `status: "no_result"`, `updated: false`, and a bounded reason such as
+`no_confident_result`, `below_threshold`, `low_confidence`, `blocked_label`, `abstention_label`, or
+`invalid_score`; the existing species and score are returned unchanged. Media-fetch, decode, and
+inference faults remain non-2xx errors.
 
 With `strategy=video`, the request performs temporal analysis whenever a usable video exists. The
 source order is complete cached recording, decodable partial cached recording, cached event clip,
-then the live Frigate event clip. A snapshot is used only after those sources are absent or fail
-validation; a confident snapshot does not short-circuit an available cached video.
+then the live Frigate event clip. A snapshot does not short-circuit an available video, but becomes
+the final evidence route when video is unavailable, temporal sources abstain, or the consensus
+candidate does not clear the configured promotion threshold. The SSE stream emits
+`reclassification_strategy_changed` before that fallback.
 
 ### Manual observations
 
@@ -204,8 +212,9 @@ explicit or automatic generation clears the failure state.
 Snapshot-candidate `frame_offset_seconds` values are temporal evidence, not presentation metadata.
 Automatic crop selection/refinement requires supporting offsets to be at least 250 ms apart;
 neighbouring decode fallbacks never become additional votes. Event-clip Frigate boxes are translated
-to the nearest timestamped path point. Recording clips do not reuse a static event box when their
-timeline start cannot be proven.
+to the nearest timestamped path point. Recording clips never reuse one static event box across
+sampled frames; a Frigate crop is available only when `path_data` aligns it within the 0.75-second
+tolerance. Full-frame and detector-crop evidence remain available when tracking data is absent.
 
 Notes:
 - `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted full-visit clip exists for the event, this route serves that full-visit file before falling back to the shorter Frigate event clip.

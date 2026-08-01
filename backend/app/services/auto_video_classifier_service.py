@@ -1353,6 +1353,9 @@ class AutoVideoClassifierService:
                 # already-running live/maintenance owner after this task starts.
                 return bool(fallback_to_snapshot) or source == "manual" or frigate_event in self._manual_requested_ids
 
+            def manual_reclassification_requested() -> bool:
+                return source == "manual" or frigate_event in self._manual_requested_ids
+
             # 1. Update status in DB to 'pending'
             await self._update_status(frigate_event, "pending", error=None, broadcast=False)
 
@@ -1795,6 +1798,49 @@ class AutoVideoClassifierService:
                     )
                     return
 
+                if results and manual_reclassification_requested():
+                    from app.services.detection_service import DetectionService
+
+                    manual_result, rejection_reason = DetectionService(self._classifier).select_manual_reclassification(
+                        results, frigate_event
+                    )
+                    if manual_result is None:
+                        fallback_reason = rejection_reason or "video_no_usable_result"
+                        log.info(
+                            "Manual video result did not clear promotion rules; trying retained snapshot",
+                            event_id=frigate_event,
+                            reason=fallback_reason,
+                        )
+                        self._record_diagnostic(
+                            frigate_event,
+                            reason_code="video_result_not_promotable",
+                            message=(
+                                "Video frames reached temporal consensus but the result did not clear the "
+                                "configured promotion rules; retained snapshot fallback was requested"
+                            ),
+                            severity="info",
+                            context={
+                                "reason": fallback_reason,
+                                "video_diagnostics": video_diagnostics,
+                            },
+                        )
+                        await self._broadcast_snapshot_fallback(
+                            frigate_event,
+                            reason=fallback_reason,
+                        )
+                        snapshot_error = await self._classify_from_snapshot(
+                            frigate_event,
+                            camera,
+                            event_data=event_data,
+                            manual_tagged=True,
+                        )
+                        if snapshot_error is None:
+                            self._record_success(frigate_event, source=source)
+                        else:
+                            self._record_failure(frigate_event, snapshot_error, source=source)
+                        return
+                    results = [manual_result]
+
                 if results:
                     top = results[0]
                     # 5. Save results to DB
@@ -1864,6 +1910,23 @@ class AutoVideoClassifierService:
                         severity="info",
                         context=video_diagnostics,
                     )
+                    if snapshot_fallback_requested():
+                        await self._broadcast_snapshot_fallback(
+                            frigate_event,
+                            reason="video_no_results",
+                            jitter=not manual_reclassification_requested(),
+                        )
+                        snapshot_error = await self._classify_from_snapshot(
+                            frigate_event,
+                            camera,
+                            event_data=event_data,
+                            manual_tagged=manual_reclassification_requested(),
+                        )
+                        if snapshot_error is None:
+                            self._record_success(frigate_event, source=source)
+                        else:
+                            self._record_failure(frigate_event, snapshot_error, source=source)
+                        return
                     await self._update_status(
                         frigate_event,
                         "failed",
@@ -2552,7 +2615,12 @@ class AutoVideoClassifierService:
         from app.services.detection_service import DetectionService
 
         svc = DetectionService(self._classifier)
-        top, reason = svc.select_usable_classification(results, frigate_event)
+        selection = (
+            svc.select_manual_reclassification(results, frigate_event)
+            if manual_tagged
+            else svc.select_usable_classification(results, frigate_event)
+        )
+        top, reason = selection
         if not top:
             await self._update_status(
                 frigate_event, "failed", error=reason or "snapshot_no_usable_result", broadcast=True

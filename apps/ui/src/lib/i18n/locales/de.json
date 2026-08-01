@@ -1494,7 +1494,7 @@
         "title": "Belege aus diesem Durchlauf",
         "summary": "{processed} von {sampled} ausgewählten Frames wurden dekodiert. Ein Frame benötigte mindestens {threshold} % Konfidenz, um abzustimmen.",
         "confident_short": "sicher",
-        "required": "Für diese Quelle waren {required} übereinstimmende Frames erforderlich.",
+        "required": "Für diese Quelle waren {required} übereinstimmende, ausreichend sichere Zeitpunkte erforderlich.",
         "top_candidates": "Häufigste Kandidaten",
         "full_frame": "Vollbild",
         "frigate_hint_crop": "Frigate-geführter Ausschnitt",
@@ -1525,7 +1525,7 @@
       "unchanged_title": "Bestimmung unverändert",
       "unchanged_description": "Kein Ergebnis erfüllte die Konfidenzregeln. Die bestehende Bestimmung wurde beibehalten.",
       "unchanged_reason_no_source_consensus": "Die ausgewählten Bilder stimmten nicht eindeutig genug für eine Art überein.",
-      "unchanged_evidence": "Bester Nachweis: {confident} von {evaluated} Bildern waren sicher; {required} übereinstimmende Bilder waren erforderlich.",
+      "unchanged_evidence": "Bester Nachweis: {confident} von {independent} unabhängigen Zeitpunkten konnten abstimmen; die führende Art stimmte in {supporting} überein, erforderlich waren {required}.",
       "failed_title": "Neubestimmung konnte nicht abgeschlossen werden",
       "failed_description": "Die Analyse endete ohne verwertbares Ergebnis. Technischer Grund: {reason}.",
       "snapshot_fallback_title": "Klassifiziere aus Snapshot",
@@ -1537,7 +1537,10 @@
         "clip_invalid": "Videoclip war beschädigt oder konnte nicht gelesen werden.",
         "clip_decode_failed": "Videoclip konnte nicht dekodiert werden.",
         "clip_fetch_failed": "Videoclip konnte nicht von Frigate geladen werden.",
-        "event_not_found": "Frigate kennt dieses Ereignis nicht mehr; kein zwischengespeicherter Clip verfügbar."
+        "event_not_found": "Frigate kennt dieses Ereignis nicht mehr; kein zwischengespeicherter Clip verfügbar.",
+        "video_no_results": "Die Videoframes ergaben keinen sicheren Artenkonsens.",
+        "below_threshold": "Das Video ergab einen Kandidaten, dessen Sicherheit aber unter dem konfigurierten Grenzwert lag.",
+        "video_no_usable_result": "Das Videoergebnis erfüllte die konfigurierten Übernahmeregeln nicht."
       },
       "snapshot_scanning": "Snapshot-Scan"
     },
