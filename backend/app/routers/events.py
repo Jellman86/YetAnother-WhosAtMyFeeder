@@ -333,7 +333,7 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "video_classification_label": detection.video_classification_label,
         "video_classification_status": detection.video_classification_status,
         "video_classification_error": detection.video_classification_error,
-        "video_classification_diagnostics": detection.video_classification_diagnostics,
+        "video_classification_diagnostics": getattr(detection, "video_classification_diagnostics", None),
         "video_classification_provider": detection.video_classification_provider,
         "video_classification_backend": detection.video_classification_backend,
         "video_classification_model_id": detection.video_classification_model_id,
