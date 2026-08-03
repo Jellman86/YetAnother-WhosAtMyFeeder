@@ -73,6 +73,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The weekly secret scan now acknowledges six reviewed historical findings.** Five exact
+  fingerprints belong to documentation-only authorization examples, while the sixth belongs to
+  an MQTT credential removed in February 2026 and subsequently rotated. New or changed findings
+  continue to fail Gitleaks.
 - **Manual reclassification no longer rejects good fleeting sightings or applies unsafe weak
   replacements.** Retained recordings use Frigate boxes only at timestamps backed by `path_data`,
   so one stale box cannot repeatedly classify background after the bird has moved. A video
