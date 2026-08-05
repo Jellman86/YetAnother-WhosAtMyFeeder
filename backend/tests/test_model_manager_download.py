@@ -893,6 +893,37 @@ def test_exact_crop_detector_spec_never_falls_back_to_fast(monkeypatch, tmp_path
     assert exact_spec["reason"] == "not_installed"
 
 
+def test_crop_detector_spec_reports_missing_fallback_rather_than_masking_it(monkeypatch, tmp_path):
+    """A fallback that is itself uninstalled must not be reported as a healthy fallback.
+
+    Selecting the accurate tier falls back to the fast detector. When neither is
+    installed, cropping is off entirely, and the reason has to say so instead of
+    reporting ``fallback_fast`` as though the fallback had succeeded.
+    """
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+
+    spec = ModelManager().get_crop_detector_spec("accurate")
+
+    assert spec["model_id"] == "bird_crop_detector"
+    assert spec["resolved_tier"] == "fast"
+    assert spec["installed"] is False
+    assert spec["enabled_for_runtime"] is False
+    assert spec["reason"] == "not_installed"
+
+
+def test_crop_detector_spec_reports_incomplete_fallback_install(monkeypatch, tmp_path):
+    monkeypatch.setattr("app.services.model_manager.MODELS_DIR", str(tmp_path))
+    fast_dir = tmp_path / "bird_crop_detector"
+    fast_dir.mkdir(parents=True)
+    (fast_dir / "model.onnx").write_bytes(b"fast")
+
+    spec = ModelManager().get_crop_detector_spec("accurate")
+
+    assert spec["installed"] is True
+    assert spec["enabled_for_runtime"] is False
+    assert spec["reason"] == "config_missing"
+
+
 def test_exact_crop_detector_spec_rejects_classifier():
     with pytest.raises(ValueError, match="Unknown crop detector"):
         ModelManager().get_crop_detector_spec_by_model_id("mobilenet_v2_birds")

@@ -79,6 +79,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   page reported zero events for a species that plainly had some. The filter now offers a value the
   events query can actually match.
 
+- **Diagnostics no longer report a crop-detector fallback that did not happen.** Choosing the
+  accurate detector tier falls back to the fast detector, but the reported reason stayed
+  `fallback_fast` even when that fallback was itself missing, contradicting the `installed`,
+  `healthy`, and `enabled_for_runtime` fields reported beside it. The reason now reports
+  `not_installed` or `config_missing` whenever the resolved detector cannot run. Per-model crop
+  policy is unchanged.
+
 - **Short visits no longer produce a second, futile classification attempt when the event ends.**
   An event whose classification ran and was deliberately rejected by the confidence or label filter
   is now remembered as decided, so the terminal `end` recovery no longer mistakes "no detection was
