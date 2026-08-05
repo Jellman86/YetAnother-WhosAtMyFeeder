@@ -73,11 +73,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
-- **Diagnostics now admit when no bird crop detector is installed.** Choosing the accurate detector
-  tier falls back to the fast detector, but the reported reason was `fallback_fast` even when that
-  fallback was itself missing — so health output and diagnostics bundles described a working
-  fallback while cropping was off entirely and full frames were being classified. The reason now
-  reports `not_installed` or `config_missing` whenever the resolved detector cannot run.
+- **Diagnostics no longer report a crop-detector fallback that did not happen.** Choosing the
+  accurate detector tier falls back to the fast detector, but the reported reason stayed
+  `fallback_fast` even when that fallback was itself missing, contradicting the `installed`,
+  `healthy`, and `enabled_for_runtime` fields reported beside it. The reason now reports
+  `not_installed` or `config_missing` whenever the resolved detector cannot run. Per-model crop
+  policy is unchanged.
 
 - **Manual reclassification no longer rejects good fleeting sightings or applies unsafe weak
   replacements.** Retained recordings use Frigate boxes only at timestamps backed by `path_data`,
