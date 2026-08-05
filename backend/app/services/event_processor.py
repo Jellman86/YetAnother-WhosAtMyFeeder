@@ -583,7 +583,7 @@ class EventProcessor:
                 event_id=event.frigate_event,
                 stage="classify_snapshot",
                 timeout_seconds=EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS,
-                coro=self._classify_snapshot(event),
+                coro=self._classify_snapshot(event, terminal_recovery=recovering_terminal_event),
                 fallback=None,
             )
         finally:

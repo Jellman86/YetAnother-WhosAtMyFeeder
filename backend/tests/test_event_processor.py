@@ -672,7 +672,7 @@ async def test_process_mqtt_message_logs_stage_timeout_for_classification():
     processor = EventProcessor(classifier)
     processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
 
-    async def _slow_classify(_event):
+    async def _slow_classify(_event, terminal_recovery=False):
         await asyncio.sleep(0.05)
         return ([{"label": "Sparrow", "score": 0.82, "index": 1}], b"img", "frigate_snapshot_cropped")
 
@@ -704,7 +704,7 @@ async def test_process_mqtt_message_records_distinct_overload_drop_reason():
     processor = EventProcessor(classifier)
     processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
 
-    async def _overloaded_classify(_event):
+    async def _overloaded_classify(_event, terminal_recovery=False):
         raise RuntimeError("classify_snapshot_overloaded")
 
     processor._classify_snapshot = _overloaded_classify  # type: ignore[method-assign]
@@ -1008,7 +1008,7 @@ async def test_process_mqtt_message_coalesces_duplicate_live_event_while_active(
     classify_started = asyncio.Event()
     release_classify = asyncio.Event()
 
-    async def _blocked_classify(_event):
+    async def _blocked_classify(_event, terminal_recovery=False):
         classify_started.set()
         await release_classify.wait()
         return ([{"label": "Sparrow", "score": 0.95, "index": 1}], b"img", "frigate_snapshot_cropped")
@@ -1061,7 +1061,7 @@ async def test_process_mqtt_message_allows_retry_after_classification_when_first
     classify_calls = 0
     save_calls = 0
 
-    async def _classify(_event):
+    async def _classify(_event, terminal_recovery=False):
         nonlocal classify_calls
         classify_calls += 1
         return ([{"label": "Sparrow", "score": 0.95, "index": 1}], b"img", "frigate_snapshot_cropped")
@@ -1847,6 +1847,73 @@ async def test_classify_snapshot_terminal_recovery_ignores_freshness_gating():
     assert snapshot_data == b"old-but-recovered"
     assert mock_frigate.get_snapshot_with_error.await_count == 3
     assert mock_sleep.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_end_event_recovery_calls_classify_with_terminal_recovery_flag():
+    processor = EventProcessor(MagicMock())
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=None)
+    processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
+        return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img", "frigate_snapshot")
+    )
+    processor._gather_context_data = AsyncMock(return_value={"audio_match": None, "weather_data": {}})  # type: ignore[method-assign]
+    processor._correlate_audio = AsyncMock(
+        return_value={  # type: ignore[method-assign]
+            "label": "Cardinal",
+            "score": 0.9,
+            "index": 1,
+            "audio_confirmed": False,
+            "audio_species": None,
+            "audio_score": None,
+        }
+    )
+    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._handle_terminal_event_enrichment = AsyncMock()  # type: ignore[method-assign]
+    processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
+        return_value=({"label": "Cardinal", "score": 0.9, "index": 1}, None)
+    )
+
+    payload = (
+        b'{"type":"end","after":{"id":"evt-end-flag","label":"bird","camera":"cam1",'
+        b'"start_time":1699999000,"end_time":1700000000}}'
+    )
+    await processor.process_mqtt_message(payload)
+
+    assert processor._classify_snapshot.call_count == 1
+    _, kwargs = processor._classify_snapshot.call_args
+    assert kwargs == {"terminal_recovery": True}
+    processor._handle_detection_save_and_notify.assert_awaited_once()
+    processor._handle_terminal_event_enrichment.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_new_event_calls_classify_without_terminal_recovery():
+    processor = EventProcessor(MagicMock())
+    processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
+        return_value=([{"label": "Cardinal", "score": 0.9, "index": 1}], b"img", "frigate_snapshot_cropped")
+    )
+    processor._gather_context_data = AsyncMock(return_value={"audio_match": None, "weather_data": {}})  # type: ignore[method-assign]
+    processor._correlate_audio = AsyncMock(
+        return_value={  # type: ignore[method-assign]
+            "label": "Cardinal",
+            "score": 0.9,
+            "index": 1,
+            "audio_confirmed": False,
+            "audio_species": None,
+            "audio_score": None,
+        }
+    )
+    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor.detection_service.filter_and_label = MagicMock(  # type: ignore[attr-defined]
+        return_value=({"label": "Cardinal", "score": 0.9, "index": 1}, None)
+    )
+
+    payload = b'{"type":"new","after":{"id":"evt-new-flag","label":"bird","camera":"cam1","start_time":1700000000}}'
+    await processor.process_mqtt_message(payload)
+
+    assert processor._classify_snapshot.call_count == 1
+    _, kwargs = processor._classify_snapshot.call_args
+    assert kwargs == {"terminal_recovery": False}
 
 
 @pytest.mark.asyncio
