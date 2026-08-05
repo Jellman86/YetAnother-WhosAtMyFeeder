@@ -890,6 +890,10 @@ class ModelManager:
         config_path = os.path.join(model_dir, "model_config.json")
         installed = os.path.exists(model_path)
         healthy = installed and os.path.exists(config_path)
+        # A tier fallback is only worth reporting when the artifact it fell back to
+        # can actually run. Letting the override win over an unhealthy artifact
+        # reports a working fallback while cropping is in fact off entirely.
+        resolved_reason = "ready" if healthy else ("config_missing" if installed else "not_installed")
         return {
             "model_id": model_id,
             "artifact_kind": str(meta.get("artifact_kind") or "crop_detector"),
@@ -898,7 +902,7 @@ class ModelManager:
             "installed": installed,
             "healthy": healthy,
             "enabled_for_runtime": healthy,
-            "reason": reason_override or ("ready" if healthy else ("config_missing" if installed else "not_installed")),
+            "reason": reason_override if (reason_override and healthy) else resolved_reason,
             "model_path": model_path,
             "labels_path": labels_path,
             "model_config_path": config_path,
