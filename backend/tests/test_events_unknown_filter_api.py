@@ -413,9 +413,14 @@ async def test_events_filters_only_offer_species_that_match_events(client: httpx
 
     resolved = {"scientific_name": "Rattus rattus", "common_name": "Old World Rats", "taxa_id": 4816}
 
+    async def fake_get_names(name: str):
+        # Only this row resolves. Resolving every label would give unrelated rows
+        # left by other tests the same taxa id, collapsing them into one option.
+        return dict(resolved) if name == display_name else {}
+
     try:
         with (
-            patch("app.routers.events.taxonomy_service.get_names", AsyncMock(return_value=resolved)),
+            patch("app.routers.events.taxonomy_service.get_names", AsyncMock(side_effect=fake_get_names)),
             patch(
                 "app.routers.events.taxonomy_service.get_canonical_english_name",
                 AsyncMock(return_value="Old World Rats"),
