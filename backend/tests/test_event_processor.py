@@ -1675,6 +1675,181 @@ async def test_try_obtain_snapshot_input_returns_unavailable_when_chain_empty():
 
 
 @pytest.mark.asyncio
+async def test_classify_snapshot_terminal_recovery_retries_until_snapshot_materializes():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Sparrow", "score": 0.95, "index": 1}])
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-term-snapshot",
+        camera="cam1",
+        start_time_ts=1700000000.0,
+        sub_label=None,
+        sub_label_score=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+        end_time_known=True,
+        end_time_ts=1700000000.5,
+        data={},
+    )
+
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.Image.open", return_value=MagicMock()),
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+        patch.object(
+            EventProcessor,
+            "_load_snapshot_classification_fallback",
+            new=AsyncMock(return_value=(None, "unavailable")),
+        ),
+        patch("app.services.event_processor.EVENT_SNAPSHOT_TERMINAL_RETRY_BUDGET", 4),
+    ):
+        mock_frigate.get_snapshot_with_error = AsyncMock(
+            side_effect=[
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+                (b"term-snapshot", None),
+            ]
+        )
+
+        result = await processor._classify_snapshot(event, terminal_recovery=True)
+
+    assert result is not None
+    results, snapshot_data, snapshot_source = result
+    assert results[0]["label"] == "Sparrow"
+    assert snapshot_data == b"term-snapshot"
+    assert snapshot_source == "frigate_snapshot"
+    assert mock_frigate.get_snapshot_with_error.await_count == 3
+    assert mock_sleep.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_classify_snapshot_terminal_recovery_uses_recording_frame_fallback():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Sparrow", "score": 0.95, "index": 1}])
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-term-frame",
+        camera="cam1",
+        start_time_ts=1700000000.0,
+        sub_label=None,
+        sub_label_score=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.Image.open", return_value=MagicMock()),
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+        patch.object(
+            EventProcessor,
+            "_load_snapshot_classification_fallback",
+            new=AsyncMock(
+                side_effect=[
+                    (None, "unavailable"),
+                    (None, "unavailable"),
+                    (b"recording-frame", "frigate_recording_frame"),
+                ]
+            ),
+        ),
+        patch("app.services.event_processor.EVENT_SNAPSHOT_TERMINAL_RETRY_BUDGET", 4),
+    ):
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(None, "snapshot_not_found"))
+
+        result = await processor._classify_snapshot(event, terminal_recovery=True)
+
+    assert result is not None
+    _, snapshot_data, snapshot_source = result
+    assert snapshot_data == b"recording-frame"
+    assert snapshot_source == "frigate_recording_frame"
+    assert mock_sleep.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_classify_snapshot_terminal_recovery_returns_none_when_horizon_exhausted():
+    classifier = MagicMock()
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-term-exhausted",
+        camera="cam1",
+        start_time_ts=1700000000.0,
+        sub_label=None,
+        sub_label_score=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+        patch.object(
+            EventProcessor,
+            "_load_snapshot_classification_fallback",
+            new=AsyncMock(return_value=(None, "unavailable")),
+        ),
+        patch("app.services.event_processor.EVENT_SNAPSHOT_TERMINAL_RETRY_BUDGET", 2),
+    ):
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(None, "snapshot_not_found"))
+
+        result = await processor._classify_snapshot(event, terminal_recovery=True)
+
+    assert result is None
+    assert mock_frigate.get_snapshot_with_error.await_count == 3
+    assert mock_sleep.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_classify_snapshot_terminal_recovery_ignores_freshness_gating():
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Sparrow", "score": 0.95, "index": 1}])
+    processor = EventProcessor(classifier)
+    event = SimpleNamespace(
+        frigate_event="evt-term-freshness",
+        camera="cam1",
+        start_time_ts=1700000000.0,
+        sub_label=None,
+        sub_label_score=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+        end_time_known=True,
+        end_time_ts=1700000000.5,
+        data={},
+    )
+
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch("app.services.event_processor.Image.open", return_value=MagicMock()),
+        patch("app.services.event_processor.asyncio.sleep", new=AsyncMock()) as mock_sleep,
+        patch("app.services.event_processor.time.time", return_value=1700000100.0),
+        patch.object(
+            EventProcessor,
+            "_load_snapshot_classification_fallback",
+            new=AsyncMock(return_value=(None, "unavailable")),
+        ),
+        patch("app.services.event_processor.EVENT_SNAPSHOT_TERMINAL_RETRY_BUDGET", 2),
+    ):
+        mock_frigate.get_snapshot_with_error = AsyncMock(
+            side_effect=[
+                (None, "snapshot_not_found"),
+                (None, "snapshot_not_found"),
+                (b"old-but-recovered", None),
+            ]
+        )
+
+        result = await processor._classify_snapshot(event, terminal_recovery=True)
+
+    assert result is not None
+    _, snapshot_data, _ = result
+    assert snapshot_data == b"old-but-recovered"
+    assert mock_frigate.get_snapshot_with_error.await_count == 3
+    assert mock_sleep.await_count == 2
+
+
+@pytest.mark.asyncio
 async def test_recording_frame_fallback_extracts_frame_from_recording_window():
     processor = EventProcessor(MagicMock())
     with (

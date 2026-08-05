@@ -1024,16 +1024,27 @@ class EventProcessor:
         )
         return snapshot_data, snapshot_source
 
-    async def _classify_snapshot(self, event: EventData) -> Optional[Tuple[list, Optional[bytes], str]]:
+    async def _classify_snapshot(
+        self,
+        event: EventData,
+        *,
+        terminal_recovery: bool = False,
+    ) -> Optional[Tuple[list, Optional[bytes], str]]:
         """Classify snapshot or use Frigate sublabel if trusted.
+
+        Args:
+            event: Parsed Frigate MQTT event.
+            terminal_recovery: True when the event is being reclassified from its
+                final ``end`` state because the initial ingest never produced a
+                detection. Uses an extended, freshness-free snapshot retry horizon
+                so Frigate can materialize the snapshot or flush the recording
+                segment used by the frame fallback.
 
         Returns:
             Tuple of (classification_results, snapshot_data, snapshot_source) if successful, None otherwise
         """
         # Normal classification path
         try:
-            retry_budget = self._snapshot_unavailable_retry_budget(event)
-            snapshot_data: bytes | None = None
             # This is the live MQTT path: an absent/unknown end marker is an
             # active event, while a known non-null end marker is completed.
             # Keeping that distinction aligned with the requested Frigate
@@ -1044,43 +1055,63 @@ class EventProcessor:
                 ),
                 "data": getattr(event, "data", {}),
             }
-            snapshot_provenance = frigate_snapshot_input_provenance(event_snapshot_state)
-            snapshot_source = snapshot_provenance.input_source
+            snapshot_data: bytes | None = None
+            snapshot_source = "unavailable"
             last_snapshot_error: str | None = None
-            for retry_index in range(retry_budget + 1):
-                snapshot_data, last_snapshot_error = await frigate_client.get_snapshot_with_error(
-                    event.frigate_event,
-                    crop=snapshot_provenance.is_cropped,
-                    quality=95,
-                )
-                if snapshot_data:
-                    break
 
-                if retry_index >= retry_budget:
-                    break
-
-                if retry_budget > 1:
-                    log.info(
-                        "Snapshot unavailable during Frigate recovery, retrying",
-                        event_id=event.frigate_event,
-                        retry_attempt=retry_index + 1,
-                        retry_budget=retry_budget,
-                        retry_delay_seconds=EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS,
-                    )
-                else:
-                    log.info("Snapshot unavailable, retrying once", event_id=event.frigate_event)
-
-                remaining_freshness = max(0.0, LIVE_EVENT_STALE_SECONDS - self._live_event_age_seconds(event))
-                if remaining_freshness <= 0.0:
-                    break
-                await asyncio.sleep(min(EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS, remaining_freshness))
-            if not snapshot_data:
-                snapshot_data, snapshot_source = await self._load_snapshot_classification_fallback(
-                    event.frigate_event,
-                    camera=getattr(event, "camera", None),
-                    start_time_ts=getattr(event, "start_time_ts", None),
-                )
+            if terminal_recovery:
+                snapshot_data, snapshot_source = await self._try_obtain_snapshot_input(event)
+                if not snapshot_data:
+                    for retry_index in range(self._snapshot_unavailable_retry_budget(event, terminal=True)):
+                        await asyncio.sleep(EVENT_SNAPSHOT_TERMINAL_RETRY_DELAY_SECONDS)
+                        snapshot_data, snapshot_source = await self._try_obtain_snapshot_input(event)
+                        if snapshot_data:
+                            log.info(
+                                "Snapshot materialized during terminal recovery",
+                                event_id=event.frigate_event,
+                                retry_attempt=retry_index + 1,
+                                snapshot_source=snapshot_source,
+                            )
+                            break
                 snapshot_provenance = cached_snapshot_input_provenance({"source": snapshot_source})
+            else:
+                snapshot_provenance = frigate_snapshot_input_provenance(event_snapshot_state)
+                snapshot_source = snapshot_provenance.input_source
+                retry_budget = self._snapshot_unavailable_retry_budget(event)
+                for retry_index in range(retry_budget + 1):
+                    snapshot_data, last_snapshot_error = await frigate_client.get_snapshot_with_error(
+                        event.frigate_event,
+                        crop=snapshot_provenance.is_cropped,
+                        quality=95,
+                    )
+                    if snapshot_data:
+                        break
+
+                    if retry_index >= retry_budget:
+                        break
+
+                    if retry_budget > 1:
+                        log.info(
+                            "Snapshot unavailable during Frigate recovery, retrying",
+                            event_id=event.frigate_event,
+                            retry_attempt=retry_index + 1,
+                            retry_budget=retry_budget,
+                            retry_delay_seconds=EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS,
+                        )
+                    else:
+                        log.info("Snapshot unavailable, retrying once", event_id=event.frigate_event)
+
+                    remaining_freshness = max(0.0, LIVE_EVENT_STALE_SECONDS - self._live_event_age_seconds(event))
+                    if remaining_freshness <= 0.0:
+                        break
+                    await asyncio.sleep(min(EVENT_SNAPSHOT_UNAVAILABLE_RETRY_DELAY_SECONDS, remaining_freshness))
+                if not snapshot_data:
+                    snapshot_data, snapshot_source = await self._load_snapshot_classification_fallback(
+                        event.frigate_event,
+                        camera=getattr(event, "camera", None),
+                        start_time_ts=getattr(event, "start_time_ts", None),
+                    )
+                    snapshot_provenance = cached_snapshot_input_provenance({"source": snapshot_source})
             if not snapshot_data:
                 if settings.classification.trust_frigate_sublabel and event.sub_label:
                     log.info(
