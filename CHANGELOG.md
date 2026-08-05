@@ -73,6 +73,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Species in the Events filter no longer show "No events yet".** When a detection stored a
+  scientific name but no taxonomy id, the filter list resolved an id live and offered it as the
+  filter value. No stored row carried that id, so selecting the species matched nothing and the
+  page reported zero events for a species that plainly had some. The filter now offers a value the
+  events query can actually match.
+
 - **Manual reclassification no longer rejects good fleeting sightings or applies unsafe weak
   replacements.** Retained recordings use Frigate boxes only at timestamps backed by `path_data`,
   so one stale box cannot repeatedly classify background after the bird has moved. A video
