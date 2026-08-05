@@ -1314,6 +1314,26 @@ def test_snapshot_retry_budget_does_not_stay_elevated_after_frigate_traffic_resu
     assert retry_budget == 1
 
 
+def test_snapshot_unavailable_retry_budget_terminal_ignores_freshness():
+    processor = EventProcessor(MagicMock())
+    event = SimpleNamespace(
+        frigate_event="evt-term-budget",
+        camera="cam1",
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    with (
+        patch("app.services.event_processor.time.time", return_value=1700000100.0),
+        patch("app.services.event_processor.EVENT_SNAPSHOT_TERMINAL_RETRY_BUDGET", 7),
+    ):
+        budget = processor._snapshot_unavailable_retry_budget(event, terminal=True)
+
+    assert budget == 7
+
+
 @pytest.mark.asyncio
 async def test_classify_snapshot_caps_retry_sleep_to_remaining_freshness():
     classifier = MagicMock()

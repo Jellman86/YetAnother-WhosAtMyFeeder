@@ -90,6 +90,17 @@ EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES = max(
     0,
     int(os.getenv("EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES", "5")),
 )
+# Terminal MQTT recovery re-runs the classification-input chain for a bounded
+# horizon once the detection has ended, so Frigate can materialize the event
+# snapshot or flush the recording segment used by the frame fallback.
+EVENT_SNAPSHOT_TERMINAL_RETRY_BUDGET = max(
+    1,
+    int(os.getenv("EVENT_SNAPSHOT_TERMINAL_RETRY_BUDGET", "8")),
+)
+EVENT_SNAPSHOT_TERMINAL_RETRY_DELAY_SECONDS = max(
+    0.5,
+    float(os.getenv("EVENT_SNAPSHOT_TERMINAL_RETRY_DELAY_SECONDS", "2.0")),
+)
 # Short window around the detection start used to pull a classification frame from
 # Frigate's continuous recording when no snapshot/thumbnail is available.
 RECORDING_FRAME_FALLBACK_BEFORE_SECONDS = max(0, int(os.getenv("RECORDING_FRAME_FALLBACK_BEFORE_SECONDS", "2")))
@@ -942,7 +953,10 @@ class EventProcessor:
         except (TypeError, ValueError):
             return False
 
-    def _snapshot_unavailable_retry_budget(self, event: EventData) -> int:
+    def _snapshot_unavailable_retry_budget(self, event: EventData, *, terminal: bool = False) -> int:
+        if terminal:
+            return EVENT_SNAPSHOT_TERMINAL_RETRY_BUDGET
+
         retries = 1
         if self._mqtt_snapshot_recovery_active():
             retries += EVENT_SNAPSHOT_RECOVERY_EXTRA_RETRIES
