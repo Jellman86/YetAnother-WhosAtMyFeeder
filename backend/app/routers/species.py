@@ -247,12 +247,16 @@ async def _lookup_species_search_taxonomy(
 
 
 def _species_search_result_key(result: dict) -> str:
-    taxa_id = result.get("taxa_id")
-    if taxa_id is not None:
-        return f"taxa:{taxa_id}"
+    # Scientific name is the stable identity across the sources this endpoint
+    # searches. Keying on taxa id first split one species into two rows whenever
+    # the id resolved for the classifier label but not the stored detection label,
+    # or the reverse.
     scientific_name = str(result.get("scientific_name") or "").strip()
     if scientific_name:
         return f"sci:{scientific_name.casefold()}"
+    taxa_id = result.get("taxa_id")
+    if taxa_id is not None:
+        return f"taxa:{taxa_id}"
     common_name = str(result.get("common_name") or "").strip()
     if common_name:
         return f"common:{common_name.casefold()}"

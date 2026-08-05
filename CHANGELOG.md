@@ -73,6 +73,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The species picker no longer lists the same species twice.** Blocking a species could show two
+  identical rows, both marked as already added, when a taxonomy id resolved for the classifier
+  label but not the stored detection label. Matching species are now merged on their scientific
+  name, keeping whichever record carries the richer taxonomy.
+
 - **Manual reclassification no longer rejects good fleeting sightings or applies unsafe weak
   replacements.** Retained recordings use Frigate boxes only at timestamps backed by `path_data`,
   so one stale box cannot repeatedly classify background after the bird has moved. A video
