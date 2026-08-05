@@ -73,6 +73,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Species in the Events filter no longer show "No events yet".** When a detection stored a
+  scientific name but no taxonomy id, the filter list resolved an id live and offered it as the
+  filter value. No stored row carried that id, so selecting the species matched nothing and the
+  page reported zero events for a species that plainly had some. The filter now offers a value the
+  events query can actually match.
+
 - **Diagnostics no longer report a crop-detector fallback that did not happen.** Choosing the
   accurate detector tier falls back to the fast detector, but the reported reason stayed
   `fallback_fast` even when that fallback was itself missing, contradicting the `installed`,
