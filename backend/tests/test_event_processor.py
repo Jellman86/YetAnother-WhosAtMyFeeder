@@ -2,7 +2,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from types import SimpleNamespace
-from app.services.event_processor import EventProcessor
+from app.services.event_processor import CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS, EventProcessor
 from app.services.classification_admission import ClassificationLeaseExpiredError
 from app.services.classifier_service import LiveImageClassificationOverloadedError
 
@@ -363,6 +363,73 @@ async def test_end_event_recovers_detection_when_initial_ingest_created_no_row()
     processor._classify_snapshot.assert_awaited_once()
     processor._handle_detection_save_and_notify.assert_awaited_once()
     processor._handle_terminal_event_enrichment.assert_awaited_once()
+
+
+def _filtered_event_processor() -> EventProcessor:
+    """Processor whose classifier succeeds but whose filter rejects the result."""
+    processor = EventProcessor(MagicMock())
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=None)
+    processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
+        return_value=(
+            [{"label": "Pontederia crassipes", "score": 0.05, "index": 1}],
+            b"img",
+            "frigate_snapshot_cropped",
+        )
+    )
+    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._handle_terminal_event_enrichment = AsyncMock()  # type: ignore[method-assign]
+    processor.detection_service.filter_and_label = MagicMock(return_value=(None, "low_confidence"))
+    return processor
+
+
+@pytest.mark.asyncio
+async def test_end_event_skips_terminal_recovery_when_classification_was_already_rejected():
+    processor = _filtered_event_processor()
+
+    new_payload = (
+        b'{"type":"new","after":{"id":"evt-filtered-end","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
+    await processor.process_mqtt_message(new_payload)
+    assert processor._classify_snapshot.await_count == 1
+
+    end_payload = (
+        b'{"type":"end","after":{"id":"evt-filtered-end","label":"bird","camera":"cam1",'
+        b'"start_time":1700000000,"end_time":1700000004}}'
+    )
+    await processor.process_mqtt_message(end_payload)
+
+    assert processor._classify_snapshot.await_count == 1
+    processor._handle_detection_save_and_notify.assert_not_awaited()
+    processor._handle_terminal_event_enrichment.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_event_still_reclassifies_after_classification_filter_rejection():
+    processor = _filtered_event_processor()
+
+    new_payload = (
+        b'{"type":"new","after":{"id":"evt-filtered-update","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
+    await processor.process_mqtt_message(new_payload)
+
+    update_payload = (
+        b'{"type":"update","after":{"id":"evt-filtered-update","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
+    await processor.process_mqtt_message(update_payload)
+
+    assert processor._classify_snapshot.await_count == 2
+
+
+def test_classification_decided_tombstone_expires_after_ttl():
+    processor = EventProcessor(MagicMock())
+
+    with patch("app.services.event_processor.time.monotonic", return_value=1000.0):
+        processor._mark_classification_decided_tombstone("evt-ttl")
+        assert processor._is_classification_decided_tombstone_active("evt-ttl") is True
+
+    expired_at = 1000.0 + CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS + 1.0
+    with patch("app.services.event_processor.time.monotonic", return_value=expired_at):
+        assert processor._is_classification_decided_tombstone_active("evt-ttl") is False
 
 
 @pytest.mark.asyncio

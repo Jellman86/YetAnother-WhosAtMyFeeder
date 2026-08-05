@@ -53,6 +53,10 @@ def decode_image_bytes(contents: bytes) -> Image.Image:
 
 
 FALSE_POSITIVE_TOMBSTONE_TTL_SECONDS = 600.0
+# A classification that reached the filter and was rejected is a decision, not a
+# failed ingest. Remembering that decision keeps the terminal `end` recovery from
+# reclassifying an event whose snapshot Frigate has already discarded.
+CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS = 600.0
 EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS = max(1.0, float(os.getenv("EVENT_STAGE_TIMEOUT_CLASSIFY_SECONDS", "60")))
 EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS = max(0.5, float(os.getenv("EVENT_STAGE_TIMEOUT_CONTEXT_SECONDS", "6")))
 EVENT_STAGE_TIMEOUT_AUDIO_CORRELATE_SECONDS = max(
@@ -137,6 +141,7 @@ class EventProcessor:
         self.detection_service = DetectionService(self.classifier)
         self.notification_orchestrator = NotificationOrchestrator()
         self._false_positive_tombstones: dict[str, float] = {}
+        self._classification_decided_tombstones: dict[str, float] = {}
         self._started_events = 0
         self._completed_events = 0
         self._dropped_events = 0
@@ -508,6 +513,16 @@ class EventProcessor:
                     auto_full_visit_enabled=self._auto_full_visit_enabled(),
                 )
                 return
+            if self._is_classification_decided_tombstone_active(event.frigate_event):
+                log.info(
+                    "Skipping terminal recovery - classification already rejected this event",
+                    event_id=event.frigate_event,
+                    camera=event.camera,
+                )
+                duration_ms = (time.monotonic() - started) * 1000.0
+                self._record_completed(event.frigate_event, duration_ms)
+                self._record_recent_outcome(event.frigate_event, "end_event_classification_already_decided")
+                return
             recovering_terminal_event = True
             log.info(
                 "Retrying missing initial detection from final Frigate event state",
@@ -625,6 +640,7 @@ class EventProcessor:
                 label=top_candidate.get("label"),
                 score=top_candidate.get("score"),
             )
+            self._mark_classification_decided_tombstone(event.frigate_event)
             return
 
         context_ok, context_result = await self._run_stage(
@@ -728,6 +744,27 @@ class EventProcessor:
             return False
         self._prune_false_positive_tombstones()
         expiry = self._false_positive_tombstones.get(event_id)
+        return bool(expiry and expiry > time.monotonic())
+
+    def _prune_classification_decided_tombstones(self) -> None:
+        now = time.monotonic()
+        expired = [event_id for event_id, expiry in self._classification_decided_tombstones.items() if expiry <= now]
+        for event_id in expired:
+            self._classification_decided_tombstones.pop(event_id, None)
+
+    def _mark_classification_decided_tombstone(self, event_id: str) -> None:
+        if not event_id:
+            return
+        self._prune_classification_decided_tombstones()
+        self._classification_decided_tombstones[event_id] = (
+            time.monotonic() + CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS
+        )
+
+    def _is_classification_decided_tombstone_active(self, event_id: str) -> bool:
+        if not event_id:
+            return False
+        self._prune_classification_decided_tombstones()
+        expiry = self._classification_decided_tombstones.get(event_id)
         return bool(expiry and expiry > time.monotonic())
 
     def _select_usable_classification(
