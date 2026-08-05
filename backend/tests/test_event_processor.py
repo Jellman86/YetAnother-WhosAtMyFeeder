@@ -1591,6 +1591,90 @@ async def test_classify_snapshot_does_not_claim_crop_for_ended_frigate_event():
 
 
 @pytest.mark.asyncio
+async def test_try_obtain_snapshot_input_prefers_crop_aware_snapshot():
+    processor = EventProcessor(MagicMock())
+    event = SimpleNamespace(
+        frigate_event="evt-obtain-snapshot",
+        camera="cam1",
+        start_time_ts=1700000000.0,
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+        end_time_known=True,
+        end_time_ts=1700000000.5,
+        data={},
+    )
+
+    with patch("app.services.event_processor.frigate_client") as mock_frigate:
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(b"snapshot-bytes", None))
+
+        data, source = await processor._try_obtain_snapshot_input(event)
+
+    assert data == b"snapshot-bytes"
+    assert source == "frigate_snapshot"
+    mock_frigate.get_snapshot_with_error.assert_awaited_once_with("evt-obtain-snapshot", crop=False, quality=95)
+
+
+@pytest.mark.asyncio
+async def test_try_obtain_snapshot_input_runs_full_fallback_chain():
+    processor = EventProcessor(MagicMock())
+    event = SimpleNamespace(
+        frigate_event="evt-obtain-fallback",
+        camera="cam1",
+        start_time_ts=1700000000.0,
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch.object(
+            EventProcessor,
+            "_load_snapshot_classification_fallback",
+            new=AsyncMock(return_value=(b"recording-frame", "frigate_recording_frame")),
+        ),
+    ):
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(None, "snapshot_not_found"))
+
+        data, source = await processor._try_obtain_snapshot_input(event)
+
+    assert data == b"recording-frame"
+    assert source == "frigate_recording_frame"
+
+
+@pytest.mark.asyncio
+async def test_try_obtain_snapshot_input_returns_unavailable_when_chain_empty():
+    processor = EventProcessor(MagicMock())
+    event = SimpleNamespace(
+        frigate_event="evt-obtain-none",
+        camera="cam1",
+        start_time_ts=1700000000.0,
+        sub_label=None,
+        frigate_score=None,
+        is_false_positive=False,
+        received_at_ts=1700000001.0,
+    )
+
+    with (
+        patch("app.services.event_processor.frigate_client") as mock_frigate,
+        patch.object(
+            EventProcessor,
+            "_load_snapshot_classification_fallback",
+            new=AsyncMock(return_value=(None, "unavailable")),
+        ),
+    ):
+        mock_frigate.get_snapshot_with_error = AsyncMock(return_value=(None, "snapshot_not_found"))
+
+        data, source = await processor._try_obtain_snapshot_input(event)
+
+    assert data is None
+    assert source == "unavailable"
+
+
+@pytest.mark.asyncio
 async def test_recording_frame_fallback_extracts_frame_from_recording_window():
     processor = EventProcessor(MagicMock())
     with (

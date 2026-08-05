@@ -995,6 +995,35 @@ class EventProcessor:
             lang="en",
         )
 
+    async def _try_obtain_snapshot_input(self, event: EventData) -> tuple[Optional[bytes], str]:
+        """One bounded attempt at obtaining a classification image for an event.
+
+        Prefers the crop-aware Frigate snapshot and otherwise runs the full
+        fallback chain (uncropped snapshot, thumbnail, media cache, recording
+        frame). Returns (image_bytes, source) or (None, "unavailable").
+        """
+        event_snapshot_state = {
+            "end_time": (
+                getattr(event, "end_time_ts", None) if bool(getattr(event, "end_time_known", False)) else None
+            ),
+            "data": getattr(event, "data", {}),
+        }
+        snapshot_provenance = frigate_snapshot_input_provenance(event_snapshot_state)
+        snapshot_data, _ = await frigate_client.get_snapshot_with_error(
+            event.frigate_event,
+            crop=snapshot_provenance.is_cropped,
+            quality=95,
+        )
+        if snapshot_data:
+            return snapshot_data, snapshot_provenance.input_source
+
+        snapshot_data, snapshot_source = await self._load_snapshot_classification_fallback(
+            event.frigate_event,
+            camera=getattr(event, "camera", None),
+            start_time_ts=getattr(event, "start_time_ts", None),
+        )
+        return snapshot_data, snapshot_source
+
     async def _classify_snapshot(self, event: EventData) -> Optional[Tuple[list, Optional[bytes], str]]:
         """Classify snapshot or use Frigate sublabel if trusted.
 
