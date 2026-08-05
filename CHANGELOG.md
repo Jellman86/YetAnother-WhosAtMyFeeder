@@ -80,6 +80,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   `not_installed` or `config_missing` whenever the resolved detector cannot run. Per-model crop
   policy is unchanged.
 
+- **Short visits no longer produce a second, futile classification attempt when the event ends.**
+  An event whose classification ran and was deliberately rejected by the confidence or label filter
+  is now remembered as decided, so the terminal `end` recovery no longer mistakes "no detection was
+  saved" for "the initial ingest failed". Previously such events were reclassified against a
+  snapshot Frigate had already discarded, which always failed and logged a misleading
+  "snapshot unavailable after retry" drop. Recovery of genuinely un-ingested events is unchanged.
+
 - **Manual reclassification no longer rejects good fleeting sightings or applies unsafe weak
   replacements.** Retained recordings use Frigate boxes only at timestamps backed by `path_data`,
   so one stale box cannot repeatedly classify background after the bird has moved. A video
