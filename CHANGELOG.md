@@ -73,6 +73,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The species picker no longer lists the same species twice.** Blocking a species could show two
+  identical rows, both marked as already added, when a taxonomy id resolved for the classifier
+  label but not the stored detection label. Matching species are now merged on their scientific
+  name, keeping whichever record carries the richer taxonomy.
+
 - **Species in the Events filter no longer show "No events yet".** When a detection stored a
   scientific name but no taxonomy id, the filter list resolved an id live and offered it as the
   filter value. No stored row carried that id, so selecting the species matched nothing and the
