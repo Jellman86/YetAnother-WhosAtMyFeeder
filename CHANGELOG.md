@@ -121,6 +121,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   usable video, the same job visibly downgrades to the best available snapshot instead of failing
   without attempting the remaining evidence.
 
+### Fixed
+
+- **Short bird detections are no longer silently dropped when the snapshot appears late.**
+  When a `new` event could not be classified and the matching `end` event finds no persisted
+  detection, the terminal recovery now re-runs the full snapshot/recording-frame retrieval chain
+  for its own bounded, freshness-free horizon (default 8 attempts, 2 s apart), so a snapshot or
+  recording segment that Frigate materializes just after `end` still gets classified
+  (`EVENT_SNAPSHOT_TERMINAL_RETRY_BUDGET`, `EVENT_SNAPSHOT_TERMINAL_RETRY_DELAY_SECONDS`).
+
 ## [2.16.0] - 2026-07-25
 
 ### Added
