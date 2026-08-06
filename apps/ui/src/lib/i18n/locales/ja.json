@@ -1353,6 +1353,7 @@
     "audio_context": "音声コンテキスト",
     "audio_context_loading": "音声コンテキストを読み込み中…",
     "audio_context_empty": "近くの音声検出はありません",
+    "audio_context_suppressed": "近くで音声が検出されましたが、このカメラに割り当てられていないマイクによるものです。設定でセンサーの割り当てを変更して含めてください。",
     "weather_title": "天気",
     "weather_details": "詳細",
     "weather_unknown": "天気",

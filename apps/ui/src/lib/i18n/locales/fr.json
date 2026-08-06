@@ -1353,6 +1353,7 @@
     "audio_context": "Contexte audio",
     "audio_context_loading": "Chargement du contexte audio…",
     "audio_context_empty": "Aucune détection audio à proximité",
+    "audio_context_suppressed": "Un son a été détecté à proximité, mais sur un microphone qui n'est pas associé à cette caméra. Modifiez l'association des capteurs dans les Paramètres pour l'inclure.",
     "weather_title": "Météo",
     "weather_details": "Détails",
     "weather_unknown": "Météo",

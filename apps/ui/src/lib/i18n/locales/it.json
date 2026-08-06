@@ -1362,6 +1362,7 @@
     "audio_context": "Contesto audio",
     "audio_context_loading": "Caricamento contesto audio…",
     "audio_context_empty": "Nessuna rilevazione audio vicina",
+    "audio_context_suppressed": "È stato rilevato audio nelle vicinanze, ma su un microfono non associato a questa telecamera. Modifica l'associazione dei sensori nelle Impostazioni per includerlo.",
     "weather_title": "Meteo",
     "weather_details": "Dettagli",
     "weather_unknown": "Meteo",

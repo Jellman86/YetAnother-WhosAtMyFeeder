@@ -1362,6 +1362,7 @@
     "audio_context": "Contexto de áudio",
     "audio_context_loading": "Carregando contexto de áudio…",
     "audio_context_empty": "Nenhuma detecção de áudio próxima",
+    "audio_context_suppressed": "Foi detectado áudio próximo, mas em um microfone que não está associado a esta câmera. Altere o mapeamento de sensores nas Configurações para incluí-lo.",
     "weather_title": "Tempo",
     "weather_details": "Detalhes",
     "weather_unknown": "Tempo",

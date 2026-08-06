@@ -164,6 +164,7 @@
     let audioContextLoading = $state(false);
     let audioContextLoaded = $state(false);
     let audioContext = $state<AudioContextDetection[]>([]);
+    let audioContextSuppressed = $state(0);
     let audioContextError = $state<string | null>(null);
     let weatherDetailsOpen = $state(false);
     let inatPanelOpen = $state(false);
@@ -504,6 +505,7 @@
         if (detection.observation_source === 'manual_upload') {
             untrack(() => {
                 audioContext = [];
+                audioContextSuppressed = 0;
                 audioContextLoaded = true;
                 audioContextLoading = false;
                 audioContextError = null;
@@ -514,6 +516,7 @@
         const controller = new AbortController();
         untrack(() => {
             audioContext = [];
+            audioContextSuppressed = 0;
             audioContextLoaded = false;
             audioContextLoading = true;
             audioContextError = null;
@@ -523,7 +526,8 @@
             try {
                 const context = await fetchEventAudioContext(eventId, controller.signal);
                 if (controller.signal.aborted || detection.frigate_event !== eventId) return;
-                audioContext = context;
+                audioContext = context.detections;
+                audioContextSuppressed = context.suppressed_by_mapping ?? 0;
                 audioContextLoaded = true;
             } catch (error) {
                 if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) return;
@@ -2694,6 +2698,14 @@
                                 <p class="text-[10px] font-semibold text-slate-400">{$_('detection.audio_context_loading')}</p>
                             {:else if audioContextError}
                                 <p class="text-[10px] font-semibold text-rose-500">{audioContextError}</p>
+                            {:else if audioContext.length === 0 && audioContextSuppressed > 0}
+                                <p class="text-[10px] font-semibold text-slate-400">
+                                    {$_('detection.audio_context_suppressed', {
+                                        values: { count: audioContextSuppressed },
+                                        default:
+                                            'Nearby audio was heard, but on a microphone this camera is not mapped to. Change the sensor mapping in Settings to include it.'
+                                    })}
+                                </p>
                             {:else if audioContext.length === 0}
                                 <p class="text-[10px] font-semibold text-slate-400">{$_('detection.audio_context_empty')}</p>
                             {:else}

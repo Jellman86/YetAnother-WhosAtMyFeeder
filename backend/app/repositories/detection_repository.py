@@ -3901,7 +3901,13 @@ class DetectionRepository:
 
     async def get_audio_context(
         self, target_time: datetime, window_seconds: int, mapping_value: Optional[str], limit: int
-    ) -> list[dict]:
+    ) -> tuple[list[dict], int]:
+        """Return audio near ``target_time`` plus how many rows the mapping excluded.
+
+        The count lets a caller distinguish a silent window from one where audio was
+        heard on a microphone this camera is not mapped to; both otherwise present as
+        an empty list.
+        """
         if target_time.tzinfo is None:
             target_time = target_time.replace(tzinfo=timezone.utc)
 
@@ -3924,10 +3930,12 @@ class DetectionRepository:
 
         wildcard_mapping, mapping_keys = _parse_mapping_filter_values(mapping_value)
         results: list[dict] = []
+        suppressed_by_mapping = 0
         for row in rows:
             if not wildcard_mapping:
                 row_keys = _extract_audio_mapping_keys(row[3], row[5])
                 if not row_keys.intersection(mapping_keys):
+                    suppressed_by_mapping += 1
                     continue
             det_time = _parse_datetime(row[0])
             if det_time.tzinfo is None:
@@ -3959,7 +3967,7 @@ class DetectionRepository:
             )
 
         results.sort(key=lambda item: (abs(item["offset_seconds"]), -item["confidence"]))
-        return results[:limit]
+        return results[:limit], suppressed_by_mapping
 
     def _build_audio_history_filter(
         self,

@@ -1353,6 +1353,7 @@
     "audio_context": "Contexto de audio",
     "audio_context_loading": "Cargando contexto de audio…",
     "audio_context_empty": "No hay detecciones de audio cercanas",
+    "audio_context_suppressed": "Se detectó audio cercano, pero en un micrófono que no está asignado a esta cámara. Cambia la asignación de sensores en Ajustes para incluirlo.",
     "weather_title": "Clima",
     "weather_details": "Detalles",
     "weather_unknown": "Clima",

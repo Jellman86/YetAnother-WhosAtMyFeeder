@@ -1353,6 +1353,7 @@
     "audio_context": "Audio-Kontext",
     "audio_context_loading": "Audio-Kontext wird geladen…",
     "audio_context_empty": "Keine Audio-Detektionen in der Nähe",
+    "audio_context_suppressed": "In der Nähe wurde Audio erkannt, aber über ein Mikrofon, das dieser Kamera nicht zugeordnet ist. Ändern Sie die Sensorzuordnung in den Einstellungen, um es einzubeziehen.",
     "weather_title": "Wetter",
     "weather_details": "Details",
     "weather_unknown": "Wetter",
