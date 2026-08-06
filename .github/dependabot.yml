@@ -35,18 +35,33 @@ updates:
     schedule:
       interval: weekly
     target-branch: "dev"
+    ignore:
+      # Node ships odd-numbered majors as Current only; they never become LTS.
+      # Node 25 reached end of life on 2026-03-31. Track LTS lines deliberately.
+      - dependency-name: "node"
+        versions: ["23.x", "25.x", "27.x", "29.x"]
 
   - package-ecosystem: docker
     directory: "/backend"
     schedule:
       interval: weekly
     target-branch: "dev"
+    ignore:
+      # Node ships odd-numbered majors as Current only; they never become LTS.
+      # Node 25 reached end of life on 2026-03-31. Track LTS lines deliberately.
+      - dependency-name: "node"
+        versions: ["23.x", "25.x", "27.x", "29.x"]
 
   - package-ecosystem: docker
     directory: "/apps/ui"
     schedule:
       interval: weekly
     target-branch: "dev"
+    ignore:
+      # Node ships odd-numbered majors as Current only; they never become LTS.
+      # Node 25 reached end of life on 2026-03-31. Track LTS lines deliberately.
+      - dependency-name: "node"
+        versions: ["23.x", "25.x", "27.x", "29.x"]
 
   - package-ecosystem: github-actions
     directory: "/"
