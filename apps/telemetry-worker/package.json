@@ -14,11 +14,11 @@
     "db:migrate:health": "wrangler d1 execute yawamf-health-issues --remote --yes --file=./migrations/health/0001_report_batches.sql"
   },
   "dependencies": {
-    "hono": "4.12.31"
+    "hono": "4.12.32"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260724.1",
-    "miniflare": "4.20260722.0",
-    "wrangler": "4.114.0"
+    "@cloudflare/workers-types": "5.20260730.1",
+    "miniflare": "4.20260730.0",
+    "wrangler": "4.116.0"
   }
 }
