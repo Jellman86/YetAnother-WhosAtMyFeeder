@@ -1,8 +1,9 @@
 import httpx
+import os
 import structlog
 import asyncio
 import aiosqlite
-from typing import Optional, Dict
+from typing import Any, Optional, Dict
 from datetime import datetime
 from app.database import get_db
 from app.config import settings
@@ -10,6 +11,47 @@ from app.services.ebird_service import ebird_service
 from app.utils.enrichment import get_effective_enrichment_settings
 
 log = structlog.get_logger()
+
+
+# A cached "not found" records that one lookup found nothing, which is a weaker
+# claim than the species not existing. Re-test it periodically so a wrong negative
+# cannot withhold a name indefinitely.
+TAXONOMY_NOT_FOUND_RETRY_SECONDS = max(
+    3600.0,
+    float(os.getenv("TAXONOMY_NOT_FOUND_RETRY_SECONDS", str(7 * 24 * 3600))),
+)
+
+
+def _negative_entry_expired(last_updated: Any, *, now: Optional[datetime] = None) -> bool:
+    """Whether a cached not-found result is old enough to re-test.
+
+    An unreadable or missing timestamp counts as expired: the cost of one extra
+    lookup is smaller than withholding a species name forever.
+    """
+    if not last_updated:
+        return True
+
+    reference = now or datetime.now()
+    if isinstance(last_updated, datetime):
+        recorded = last_updated
+    else:
+        text = str(last_updated).strip()
+        recorded = None
+        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+            try:
+                recorded = datetime.strptime(text, fmt)
+                break
+            except ValueError:
+                continue
+        if recorded is None:
+            try:
+                recorded = datetime.fromisoformat(text)
+            except ValueError:
+                return True
+
+    if recorded.tzinfo is not None:
+        recorded = recorded.replace(tzinfo=None)
+    return (reference - recorded).total_seconds() > TAXONOMY_NOT_FOUND_RETRY_SECONDS
 
 
 def _parenthetical_aliases(value: str) -> tuple[Optional[str], Optional[str]]:
@@ -150,11 +192,14 @@ class TaxonomyService:
 
     async def _query_cache(self, db: aiosqlite.Connection, name: str) -> Optional[Dict]:
         async with db.execute(
-            "SELECT scientific_name, common_name, taxa_id, is_not_found, thumbnail_url FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
+            "SELECT scientific_name, common_name, taxa_id, is_not_found, thumbnail_url, last_updated FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
             (name, name),
         ) as cursor:
             row = await cursor.fetchone()
             if row:
+                if bool(row[3]) and _negative_entry_expired(row[5]):
+                    # Report a miss so the caller looks the species up again.
+                    return None
                 return {
                     "scientific_name": row[0],
                     "common_name": row[1],
