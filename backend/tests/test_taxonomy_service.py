@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 from app.services.taxonomy.taxonomy_service import (
     TAXONOMY_NOT_FOUND_RETRY_SECONDS,
+    TaxonomyLookupUnavailable,
     TaxonomyService,
     _negative_entry_expired,
     _parenthetical_aliases,
@@ -238,3 +239,49 @@ async def test_query_cache_treats_an_expired_negative_entry_as_a_miss(taxonomy_s
         # A resolved row is unaffected by age.
         parus = await taxonomy_service._query_cache(db, "Parus major")
         assert parus is not None and parus["common_name"] == "Great Tit"
+
+
+@pytest.mark.asyncio
+async def test_get_names_does_not_cache_not_found_when_the_lookup_is_unavailable(taxonomy_service):
+    """A provider that cannot answer must not be recorded as "no such species".
+
+    An unreachable or rate-limited provider is unrelated to whether the taxon
+    exists. Caching that as not-found leaves a species without its common name
+    until something else repairs the row.
+    """
+    with (
+        patch.object(taxonomy_service, "_get_from_cache", AsyncMock(return_value=None)),
+        patch.object(
+            taxonomy_service,
+            "_lookup_inaturalist",
+            AsyncMock(side_effect=TaxonomyLookupUnavailable("timeout")),
+        ),
+        patch.object(taxonomy_service, "_save_to_cache", AsyncMock()) as mock_save,
+    ):
+        result = await taxonomy_service.get_names("Dryobates pubescens")
+
+    assert result["scientific_name"] == "Dryobates pubescens"
+    assert result["common_name"] is None
+    mock_save.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_lookup_inaturalist_raises_when_the_request_fails(taxonomy_service):
+    failing_client = AsyncMock()
+    failing_client.get = AsyncMock(side_effect=RuntimeError("connection reset"))
+
+    with patch.object(taxonomy_service, "_get_client", AsyncMock(return_value=failing_client)):
+        with pytest.raises(TaxonomyLookupUnavailable):
+            await taxonomy_service._lookup_inaturalist("Dryobates pubescens")
+
+
+@pytest.mark.asyncio
+async def test_lookup_inaturalist_returns_none_when_the_provider_reports_no_match(taxonomy_service):
+    response = AsyncMock()
+    response.raise_for_status = lambda: None
+    response.json = lambda: {"total_results": 0, "results": []}
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=response)
+
+    with patch.object(taxonomy_service, "_get_client", AsyncMock(return_value=client)):
+        assert await taxonomy_service._lookup_inaturalist("Nonexistent species") is None
