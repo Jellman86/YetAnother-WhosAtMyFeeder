@@ -73,6 +73,42 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A species recorded as unknown to iNaturalist is checked again instead of staying unknown
+  forever.** A single lookup that found nothing was trusted permanently, so a species that was
+  temporarily unresolvable never regained its common name. Those entries are now re-tested after a
+  week (`TAXONOMY_NOT_FOUND_RETRY_SECONDS`), which also repairs installations already carrying one.
+  Species that resolved successfully are unaffected, however old the entry.
+
+- **A species no longer loses its common name because a taxonomy lookup failed once.** A timeout,
+  rate limit, or other failure reaching iNaturalist was recorded as "no such species" and cached,
+  so the species kept showing its scientific name alone. Only an answer from iNaturalist that
+  genuinely holds no match is cached now; a failed request is left for the next attempt.
+
+- **The species picker no longer lists the same species twice.** Blocking a species could show two
+  identical rows, both marked as already added, when a taxonomy id resolved for the classifier
+  label but not the stored detection label. Matching species are now merged on their scientific
+  name, keeping whichever record carries the richer taxonomy.
+
+- **Species in the Events filter no longer show "No events yet".** When a detection stored a
+  scientific name but no taxonomy id, the filter list resolved an id live and offered it as the
+  filter value. No stored row carried that id, so selecting the species matched nothing and the
+  page reported zero events for a species that plainly had some. The filter now offers a value the
+  events query can actually match.
+
+- **Diagnostics no longer report a crop-detector fallback that did not happen.** Choosing the
+  accurate detector tier falls back to the fast detector, but the reported reason stayed
+  `fallback_fast` even when that fallback was itself missing, contradicting the `installed`,
+  `healthy`, and `enabled_for_runtime` fields reported beside it. The reason now reports
+  `not_installed` or `config_missing` whenever the resolved detector cannot run. Per-model crop
+  policy is unchanged.
+
+- **Short visits no longer produce a second, futile classification attempt when the event ends.**
+  An event whose classification ran and was deliberately rejected by the confidence or label filter
+  is now remembered as decided, so the terminal `end` recovery no longer mistakes "no detection was
+  saved" for "the initial ingest failed". Previously such events were reclassified against a
+  snapshot Frigate had already discarded, which always failed and logged a misleading
+  "snapshot unavailable after retry" drop. Recovery of genuinely un-ingested events is unchanged.
+
 - **Manual reclassification no longer rejects good fleeting sightings or applies unsafe weak
   replacements.** Retained recordings use Frigate boxes only at timestamps backed by `path_data`,
   so one stale box cannot repeatedly classify background after the bird has moved. A video

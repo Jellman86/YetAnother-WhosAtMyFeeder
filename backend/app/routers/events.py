@@ -442,7 +442,11 @@ async def get_event_filters(
                         canonical = await taxonomy_service.get_canonical_english_name(t_id, db=db)
                         if canonical:
                             com_name = canonical
-                value = f"taxa:{t_id}" if t_id else display_name
+                # The filter value has to be something the events query can match. A
+                # taxa id resolved live from taxonomy is fine for naming and
+                # localisation, but only the stored id is guaranteed to exist on a
+                # row, so an unstored id would offer a species that returns nothing.
+                value = f"taxa:{taxa_id}" if taxa_id else display_name
                 return EventFilterSpecies(
                     value=value,
                     display_name=sci_name or display_name,
