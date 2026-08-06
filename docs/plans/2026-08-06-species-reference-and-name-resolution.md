@@ -98,6 +98,27 @@ Retain the current design with the fix that a failed request is no longer cached
   bundled reference will always resolve lazily.
 - Leaves a fresh install with an empty cache and a network dependency during event processing.
 
+### D. Pre-resolve the active model's labels in the background
+
+Walk the active model's label set after startup and resolve each species, so the cache is populated
+before a species is first seen. Attractive because it needs no redistributed data at all.
+
+- **Rejected on API load.** iNaturalist asks for under 10,000 requests per day, requests 60 requests
+  per minute or fewer against a 100 per minute ceiling, returns HTTP 429 beyond that, and states that
+  multiple IP addresses used in coordination to bypass the limits may be blocked. Pre-resolving one
+  10,000-label model consumes an entire day's allowance for a single installation, and every
+  installation would repeat it on each model change. The plausible outcome is throttling that denies
+  names to everyone, which is the opposite of the intent.
+- The problem it solves is also smaller than it appears. The lookup on the event path is wrapped in
+  `asyncio.wait_for(..., EVENT_TAXONOMY_LOOKUP_TIMEOUT_SECONDS)`, two seconds by default, with a
+  logged fallback. It costs one bounded delay the first time a species is seen, not a stall.
+
+This changes how option A should be read. Measured against a background pre-resolve, a bundled
+reference is the *considerate* design rather than the risky one: it moves the cost to a single
+build-time extraction instead of recurring requests from every installation against a free
+community service. The licensing question in the next section still governs whether it is available,
+but load is now an argument in its favour rather than a neutral factor.
+
 ## Open decisions
 
 Both must be resolved before implementation starts.
@@ -119,6 +140,19 @@ Both must be resolved before implementation starts.
 - A species identity independent of the active model becomes available to history and statistics.
 - A release step must regenerate the reference, and taxonomic revisions need a refresh policy.
 - Localized common names continue to depend on enrichment and are unaffected.
+
+## Already delivered
+
+Two fixes from this investigation are merged and stand on their own, whichever option is chosen:
+
+- A request that fails to reach iNaturalist is no longer recorded as "no such species", so an outage
+  or rate limit cannot withhold a name.
+- A cached not-found entry is re-tested after a retry window, which repairs installations already
+  carrying a wrong negative. Nothing repaired them before: the only routine that force-refreshed
+  such rows was never called, and has since been removed.
+
+Between them, the permanent damage is fixed. What remains is one bounded delay the first time a
+species is seen, which is what makes option D's cost impossible to justify.
 
 ## Validation
 
