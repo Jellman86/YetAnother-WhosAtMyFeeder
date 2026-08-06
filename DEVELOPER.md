@@ -347,9 +347,11 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
+
 class ExampleResponse(BaseModel):
     message: str
     count: int
+
 
 @router.get("/example", response_model=ExampleResponse)
 async def get_example():
@@ -372,6 +374,7 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
+
 
 def test_get_example():
     response = client.get("/api/example")
@@ -428,6 +431,7 @@ Authentication is optional and "secure by configuration". It is handled via a gl
 ```python
 # main.py
 api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
 
 async def verify_api_key(key: str = Security(api_key_header)):
     if settings.api_key and key != settings.api_key:
@@ -711,11 +715,13 @@ from app.config import settings
 
 client = TestClient(app)
 
+
 def test_endpoint_success():
     """Test successful response."""
     response = client.get("/api/example")
     assert response.status_code == 200
     assert "expected_key" in response.json()
+
 
 def test_endpoint_with_mock():
     """Test with mocked external service."""
@@ -913,7 +919,9 @@ docker compose up -d
 
 ```python
 import structlog
+
 log = structlog.get_logger()
+
 
 async def process_event(event_id: str) -> Detection:
     """Process a Frigate event and return the detection.

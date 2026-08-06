@@ -30,12 +30,13 @@ async def test_should_notify_none_mode_ignores_stale_structured_lists(notificati
     mock_settings.notifications.filters.species_whitelist_structured = [{"taxa_id": 1, "common_name": "Robin"}]
     mock_settings.notifications.filters.species_blacklist_structured = [{"taxa_id": 2, "common_name": "Blue Jay"}]
 
-    assert await notification_service._should_notify(
-        "Robin", 0.9, False, "front", taxa_id=1, common_name="Robin"
-    ) is True
-    assert await notification_service._should_notify(
-        "Blue Jay", 0.9, False, "front", taxa_id=2, common_name="Blue Jay"
-    ) is True
+    assert (
+        await notification_service._should_notify("Robin", 0.9, False, "front", taxa_id=1, common_name="Robin") is True
+    )
+    assert (
+        await notification_service._should_notify("Blue Jay", 0.9, False, "front", taxa_id=2, common_name="Blue Jay")
+        is True
+    )
 ```
 
 ```python
@@ -44,12 +45,13 @@ async def test_should_notify_blacklist_mode_ignores_stale_whitelist(notification
     mock_settings.notifications.filters.species_whitelist_structured = [{"taxa_id": 1, "common_name": "Robin"}]
     mock_settings.notifications.filters.species_blacklist_structured = [{"taxa_id": 2, "common_name": "Blue Jay"}]
 
-    assert await notification_service._should_notify(
-        "Robin", 0.9, False, "front", taxa_id=1, common_name="Robin"
-    ) is True
-    assert await notification_service._should_notify(
-        "Blue Jay", 0.9, False, "front", taxa_id=2, common_name="Blue Jay"
-    ) is False
+    assert (
+        await notification_service._should_notify("Robin", 0.9, False, "front", taxa_id=1, common_name="Robin") is True
+    )
+    assert (
+        await notification_service._should_notify("Blue Jay", 0.9, False, "front", taxa_id=2, common_name="Blue Jay")
+        is False
+    )
 ```
 
 ```python
@@ -58,12 +60,13 @@ async def test_should_notify_whitelist_mode_ignores_stale_blacklist(notification
     mock_settings.notifications.filters.species_whitelist_structured = [{"taxa_id": 1, "common_name": "Robin"}]
     mock_settings.notifications.filters.species_blacklist_structured = [{"taxa_id": 2, "common_name": "Blue Jay"}]
 
-    assert await notification_service._should_notify(
-        "Robin", 0.9, False, "front", taxa_id=1, common_name="Robin"
-    ) is True
-    assert await notification_service._should_notify(
-        "Blue Jay", 0.9, False, "front", taxa_id=2, common_name="Blue Jay"
-    ) is False
+    assert (
+        await notification_service._should_notify("Robin", 0.9, False, "front", taxa_id=1, common_name="Robin") is True
+    )
+    assert (
+        await notification_service._should_notify("Blue Jay", 0.9, False, "front", taxa_id=2, common_name="Blue Jay")
+        is False
+    )
 ```
 
 Keep the existing legacy whitelist test passing when `species_mode` is absent or defaulted from legacy data.
