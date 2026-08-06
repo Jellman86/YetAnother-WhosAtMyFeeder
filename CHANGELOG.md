@@ -73,6 +73,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A species recorded as unknown to iNaturalist is checked again instead of staying unknown
+  forever.** A single lookup that found nothing was trusted permanently, so a species that was
+  temporarily unresolvable never regained its common name. Those entries are now re-tested after a
+  week (`TAXONOMY_NOT_FOUND_RETRY_SECONDS`), which also repairs installations already carrying one.
+  Species that resolved successfully are unaffected, however old the entry.
+
+- **A species no longer loses its common name because a taxonomy lookup failed once.** A timeout,
+  rate limit, or other failure reaching iNaturalist was recorded as "no such species" and cached,
+  so the species kept showing its scientific name alone. Only an answer from iNaturalist that
+  genuinely holds no match is cached now; a failed request is left for the next attempt.
+
 - **The species picker no longer lists the same species twice.** Blocking a species could show two
   identical rows, both marked as already added, when a taxonomy id resolved for the classifier
   label but not the stored detection label. Matching species are now merged on their scientific
