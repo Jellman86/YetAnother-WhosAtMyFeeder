@@ -182,12 +182,15 @@ async def test_species_search_deduplicates_classifier_alias_labels_to_one_canoni
 
         assert response.status_code == 200, response.text
         payload = response.json()
-        assert len(payload) == 1
-        assert payload[0]["id"] == "Parus major"
-        assert payload[0]["scientific_name"] == "Parus major"
-        assert payload[0]["common_name"] == "Great Tit"
-        assert payload[0]["display_name"] == "Parus major"
-        assert payload[0]["taxa_id"] == taxa_id
+        # Assert about the species under test rather than the size of the whole
+        # payload: taxonomy cached by earlier tests can also match this query.
+        matches = [item for item in payload if item["scientific_name"] == "Parus major"]
+        assert len(matches) == 1, f"aliases did not collapse to one species: {payload}"
+        assert matches[0]["id"] == "Parus major"
+        assert matches[0]["common_name"] == "Great Tit"
+        assert matches[0]["display_name"] == "Parus major"
+        assert matches[0]["taxa_id"] == taxa_id
+        assert not [item for item in payload if item["id"] in set(labels)]
     finally:
         async with get_db() as db:
             await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (taxa_id,))
@@ -210,9 +213,12 @@ async def test_species_search_hides_noncanonical_model_labels(client: httpx.Asyn
 
     assert response.status_code == 200, response.text
     payload = response.json()
-    assert len(payload) == 1
-    assert payload[0]["id"] == "Great Tit"
-    assert payload[0]["display_name"] == "Great Tit"
+    # Assert about these labels rather than the size of the whole payload:
+    # taxonomy cached by earlier tests can also match this query.
+    ids = [item["id"] for item in payload]
+    assert "Great Tit" in ids
+    assert "Great tit and allies" not in ids
+    assert "Life (life)" not in ids
 
 
 @pytest.mark.asyncio
