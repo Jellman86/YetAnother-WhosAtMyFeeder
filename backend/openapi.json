@@ -773,6 +773,28 @@
         "title": "AudioContextDetectionResponse",
         "type": "object"
       },
+      "AudioContextResponse": {
+        "description": "Nearby audio plus why the list may be empty.\n\n``suppressed_by_mapping`` counts detections inside the window that were heard on a\nmicrophone this camera is not mapped to, so an empty list can be reported honestly\nas filtered rather than silent.",
+        "properties": {
+          "detections": {
+            "items": {
+              "$ref": "#/components/schemas/AudioContextDetectionResponse"
+            },
+            "title": "Detections",
+            "type": "array"
+          },
+          "suppressed_by_mapping": {
+            "default": 0,
+            "title": "Suppressed By Mapping",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "detections"
+        ],
+        "title": "AudioContextResponse",
+        "type": "object"
+      },
       "AudioDailyCountResponse": {
         "properties": {
           "count": {
@@ -14256,11 +14278,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AudioContextDetectionResponse"
-                  },
-                  "title": "Response Get Audio Context Api Audio Context Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/AudioContextResponse"
                 }
               }
             },
@@ -14317,11 +14335,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "items": {
-                    "$ref": "#/components/schemas/AudioContextDetectionResponse"
-                  },
-                  "title": "Response Get Event Audio Context Api Audio Context Event  Event Id  Get",
-                  "type": "array"
+                  "$ref": "#/components/schemas/AudioContextResponse"
                 }
               }
             },

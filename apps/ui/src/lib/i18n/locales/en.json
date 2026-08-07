@@ -1431,6 +1431,7 @@
     "audio_context": "Audio Context",
     "audio_context_loading": "Loading audio context…",
     "audio_context_empty": "No nearby audio detections",
+    "audio_context_suppressed": "Nearby audio was heard, but on a microphone this camera is not mapped to. Change the sensor mapping in Settings to include it.",
     "weather_title": "Weather",
     "weather_details": "Details",
     "weather_unknown": "Weather",

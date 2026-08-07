@@ -109,6 +109,18 @@ class AudioContextDetectionResponse(AudioDetectionResponse):
     offset_seconds: int
 
 
+class AudioContextResponse(BaseModel):
+    """Nearby audio plus why the list may be empty.
+
+    ``suppressed_by_mapping`` counts detections inside the window that were heard on a
+    microphone this camera is not mapped to, so an empty list can be reported honestly
+    as filtered rather than silent.
+    """
+
+    detections: list[AudioContextDetectionResponse]
+    suppressed_by_mapping: int = 0
+
+
 class AudioHistoryQuery(BaseModel):
     start_date: datetime | None
     end_date: datetime | None
@@ -464,7 +476,7 @@ async def get_audio_clip(
     )
 
 
-@router.get("/context", response_model=list[AudioContextDetectionResponse])
+@router.get("/context", response_model=AudioContextResponse)
 @guest_rate_limit()
 async def get_audio_context(
     request: Request,
@@ -486,7 +498,7 @@ async def get_audio_context(
     lang = get_user_language(request) or "en"
     async with get_db() as db:
         repo = DetectionRepository(db)
-        detections = await repo.get_audio_context(
+        detections, suppressed_by_mapping = await repo.get_audio_context(
             target_time=target_time, window_seconds=window_seconds, mapping_value=mapping_value, limit=limit
         )
         await localize_audio_detections(detections, lang, db)
@@ -494,10 +506,10 @@ async def get_audio_context(
     if hide_sensor:
         for detection in detections:
             detection["sensor_id"] = None
-    return detections
+    return {"detections": detections, "suppressed_by_mapping": suppressed_by_mapping}
 
 
-@router.get("/context/event/{event_id}", response_model=list[AudioContextDetectionResponse])
+@router.get("/context/event/{event_id}", response_model=AudioContextResponse)
 @guest_rate_limit()
 async def get_event_audio_context(
     request: Request,
@@ -529,7 +541,7 @@ async def get_event_audio_context(
         if settings.frigate.camera_audio_mapping:
             mapping_value = settings.frigate.camera_audio_mapping.get(event.camera_name)
 
-        detections = await repo.get_audio_context(
+        detections, suppressed_by_mapping = await repo.get_audio_context(
             target_time=event.detection_time,
             window_seconds=settings.frigate.audio_correlation_window_seconds,
             mapping_value=mapping_value,
@@ -541,7 +553,7 @@ async def get_event_audio_context(
     if hide_sensor:
         for detection in detections:
             detection["sensor_id"] = None
-    return detections
+    return {"detections": detections, "suppressed_by_mapping": suppressed_by_mapping}
 
 
 @router.get("/sources", response_model=list[AudioSourceResponse])

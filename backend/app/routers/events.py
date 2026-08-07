@@ -669,7 +669,9 @@ async def get_events(
             if settings.frigate.camera_audio_mapping:
                 mapping_value = settings.frigate.camera_audio_mapping.get(event.camera_name)
 
-            nearby_audio = await repo.get_audio_context(
+            # The suppressed count is for the detail view, which explains an empty
+            # result; the event list only needs the species it can show.
+            nearby_audio, _ = await repo.get_audio_context(
                 target_time=event.detection_time,
                 window_seconds=settings.frigate.audio_correlation_window_seconds,
                 mapping_value=mapping_value,

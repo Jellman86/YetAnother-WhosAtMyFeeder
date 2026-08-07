@@ -73,6 +73,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A detection no longer claims nothing was heard when audio was heard on an unmapped
+  microphone.** The audio panel showed the same "No nearby audio detections" message whether
+  BirdNET-Go genuinely heard nothing or heard something the camera-to-audio-source mapping
+  excluded, which read as a broken integration rather than a configuration choice. The context
+  endpoints now report how many nearby detections the mapping suppressed, and the panel says so
+  and points at the sensor mapping in Settings.
+
 - **A species recorded as unknown to iNaturalist is checked again instead of staying unknown
   forever.** A single lookup that found nothing was trusted permanently, so a species that was
   temporarily unresolvable never regained its common name. Those entries are now re-tested after a

@@ -70,19 +70,20 @@ export async function fetchAudioSpeciesLeaderboard(
     return handleResponse<AudioSpeciesLeaderboardResponse>(response);
 }
 
-export type AudioContextDetection = paths['/api/audio/context']['get']['response'][number];
+export type AudioContextResponse = paths['/api/audio/context']['get']['response'];
+export type AudioContextDetection = AudioContextResponse['detections'][number];
 
 export type AudioSourceOption = paths['/api/audio/sources']['get']['response'][number];
 
 export async function fetchEventAudioContext(
     eventId: string,
     signal?: AbortSignal
-): Promise<AudioContextDetection[]> {
+): Promise<AudioContextResponse> {
     const response = await apiFetch(`${API_BASE}/audio/context/event/${encodeURIComponent(eventId)}`, {
         signal,
         timeoutMs: 10_000
     });
-    return handleResponse<AudioContextDetection[]>(response);
+    return handleResponse<AudioContextResponse>(response);
 }
 
 export async function fetchAudioSources(limit: number = 20): Promise<AudioSourceOption[]> {
