@@ -2113,6 +2113,14 @@ class DetectionRepository:
 
         return result
 
+    async def update_common_name_for_scientific_name(self, scientific_name: str, common_name: str | None) -> None:
+        """Apply one effective taxonomy name to existing detections."""
+        await self.db.execute(
+            """UPDATE detections SET common_name = ?
+               WHERE LOWER(scientific_name) = LOWER(?)""",
+            (common_name, scientific_name),
+        )
+
     async def resolve_species_aliases(self, species_name: str, language: str | None = None) -> dict:
         """Resolve a species identifier into taxonomy metadata and matching display labels.
 

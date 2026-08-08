@@ -64,12 +64,7 @@ export async function fetchSpeciesInfo(speciesName: string, signal?: AbortSignal
     return handleResponse<SpeciesInfo>(response);
 }
 
-export interface CommonNameOverride {
-    scientific_name: string;
-    provider_common_name: string | null;
-    manual_common_name: string | null;
-    effective_common_name: string | null;
-}
+export type CommonNameOverride = paths['/api/species/common-name-override']['get']['response'];
 
 export async function fetchCommonNameOverride(scientificName: string): Promise<CommonNameOverride> {
     const params = new URLSearchParams({ scientific_name: scientificName });

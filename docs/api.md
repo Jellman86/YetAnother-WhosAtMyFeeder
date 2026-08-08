@@ -228,6 +228,9 @@ Notes:
 - `GET /api/species/{species_name}/stats`
 - `GET /api/species/{species_name}/info`
 - `GET /api/species/{species_name}/range`
+- `GET /api/species/common-name-override?scientific_name=...` (owner)
+- `PUT /api/species/common-name-override` (owner; preserves the provider name separately)
+- `DELETE /api/species/common-name-override?scientific_name=...` (owner; restores the provider name)
 - `DELETE /api/species/{species_name}/cache` (owner)
 - `GET /api/leaderboard/species`
 
@@ -404,7 +407,9 @@ snapshot, not a destructive queue-control API.
     their established array response. The `X-YAWAMF-Audio-Suppressed-By-Mapping` response header
     counts detections that fell inside the correlation window but were excluded by the mapping, so
     clients can distinguish "nothing was heard" from "something was heard on an unmapped microphone"
-    without breaking consumers of the response body.
+    without breaking consumers of the response body. Event-scoped rows expose `scientific_name` and
+    `matches_visual`; the latter is true when the row independently confirms the persisted visual
+    species, including audio that arrived after initial event processing.
   - `GET /api/audio/sources`
 
 `GET /api/events` accepts `event_id` for an exact Frigate event lookup. It retains the same guest

@@ -1320,14 +1320,6 @@ class CommonNameOverrideResponse(BaseModel):
     effective_common_name: str | None = None
 
 
-async def _sync_detection_common_names(db, scientific_name: str, effective_common_name: str | None) -> None:
-    await db.execute(
-        """UPDATE detections SET common_name = ?
-           WHERE LOWER(scientific_name) = LOWER(?)""",
-        (effective_common_name, scientific_name),
-    )
-
-
 @router.get("/species/common-name-override", response_model=CommonNameOverrideResponse)
 async def get_common_name_override(
     scientific_name: str = Query(min_length=1, max_length=200),
@@ -1355,7 +1347,9 @@ async def set_common_name_override(
         result = await taxonomy_service.set_common_name_override(scientific_name, common_name, db)
         if not result:
             raise HTTPException(status_code=404, detail="Species not found in taxonomy cache")
-        await _sync_detection_common_names(db, scientific_name, result["effective_common_name"])
+        await DetectionRepository(db).update_common_name_for_scientific_name(
+            scientific_name, result["effective_common_name"]
+        )
         await db.commit()
     log.info("Set manual common name", scientific_name=scientific_name)
     return CommonNameOverrideResponse(**result)
@@ -1372,7 +1366,9 @@ async def clear_common_name_override(
         result = await taxonomy_service.clear_common_name_override(normalized_name, db)
         if not result:
             raise HTTPException(status_code=404, detail="Species not found in taxonomy cache")
-        await _sync_detection_common_names(db, normalized_name, result["effective_common_name"])
+        await DetectionRepository(db).update_common_name_for_scientific_name(
+            normalized_name, result["effective_common_name"]
+        )
         await db.commit()
     log.info("Cleared manual common name", scientific_name=normalized_name)
     return CommonNameOverrideResponse(**result)

@@ -874,7 +874,7 @@
         try {
             const result = await fetchCommonNameOverride(scientificName);
             if (commonNameOverrideLoadedFor !== scientificName) return;
-            commonNameOverride = result.manual_common_name;
+            commonNameOverride = result.manual_common_name ?? null;
             commonNameOverrideInput = result.manual_common_name ?? result.effective_common_name ?? '';
         } catch {
             if (commonNameOverrideLoadedFor !== scientificName) return;
@@ -890,7 +890,7 @@
         commonNameOverrideSaving = true;
         try {
             const result = await setCommonNameOverride(scientificName, commonName);
-            commonNameOverride = result.manual_common_name;
+            commonNameOverride = result.manual_common_name ?? null;
             commonNameOverrideInput = result.effective_common_name ?? commonName;
             detection.common_name = result.effective_common_name ?? undefined;
             detectionsStore.updateDetection({ ...detection });

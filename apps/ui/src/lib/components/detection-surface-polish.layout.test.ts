@@ -46,7 +46,8 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('for (const audio of audioContext)');
         expect(detectionModalSource).not.toContain('if (!hasAudioContext) return;');
         expect(detectionModalSource).toContain('if (detection.observation_source === \'manual_upload\')');
-        expect(detectionModalSource).toContain('!isManualObservation && (detection.audio_confirmed');
+        expect(detectionModalSource).toContain('audioContext.filter((audio) => audio.matches_visual)');
+        expect(detectionModalSource).toContain('!isManualObservation && (effectiveAudioConfirmed');
     });
 
     it('shows retained upload coordinates without BirdNET context', () => {
