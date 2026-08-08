@@ -115,6 +115,7 @@ does not rewrite **Inference Provider**, `/config`, or `/data`.
 
 ## Data Management
 - **Retention Policy:** Choose how long to keep sightings in your history (`maintenance.retention_days`; `0` keeps everything). Scheduled cleanup permanently deletes both visual detections and BirdNET-Go audio detections older than this window — purged history cannot be recovered. Favourited detections are preserved.
+- **Migration backups:** Before applying database migrations, YA-WAMF creates a timestamped restore point beside `speciesid.db`. It keeps the newest 10 automatic backups by default and removes older automatic backups only after a new backup succeeds. Set `DB_PRE_MIGRATION_BACKUP_RETENTION` to retain more; at least one restore point is always kept, and manual backups are never matched or removed.
 - **Media Cache:** Toggle local caching of snapshots and video clips to reduce load on Frigate and speed up the UI.
 - **Best available event snapshots:** When enabled under **Settings → Data → Snapshot quality**, YA-WAMF starts with Frigate's completed-event clean best frame and tracked-object crop, then samples high-quality clip frames. A clip frame replaces that protected baseline only after a compatible species result improves classifier confidence by at least two points. JPEG quality remains configurable; crop source selection is automatic.
 - **Taxonomy Repair:** Manually trigger a sync to normalize all species names using iNaturalist data.

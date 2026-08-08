@@ -22,6 +22,10 @@ DB_POOL_SLOW_ACQUIRE_WARN_MS = float(os.environ.get("DB_POOL_SLOW_ACQUIRE_WARN_M
 DB_POOL_WAIT_WINDOW_SECONDS = float(os.environ.get("DB_POOL_WAIT_WINDOW_SECONDS", "300"))
 # Hard cap on in-memory samples to bound memory under sustained load.
 DB_POOL_WAIT_SAMPLE_CAP = int(os.environ.get("DB_POOL_WAIT_SAMPLE_CAP", "4096"))
+DEFAULT_PRE_MIGRATION_BACKUP_RETENTION = max(
+    1,
+    int(os.environ.get("DB_PRE_MIGRATION_BACKUP_RETENTION", "10")),
+)
 
 
 def _is_testing() -> bool:
@@ -119,14 +123,44 @@ REQUIRED_COLUMNS = {
 }
 
 
-def _backup_db(db_path: str) -> Optional[str]:
+def _prune_pre_migration_backups(database: Path, retention: int) -> None:
+    backups = sorted(
+        database.parent.glob(f"{database.stem}.pre-migration-*{database.suffix}"),
+        key=lambda path: path.name,
+        reverse=True,
+    )
+    removed = 0
+    for stale_backup in backups[max(1, retention) :]:
+        try:
+            stale_backup.unlink()
+            removed += 1
+        except OSError as error:
+            log.warning(
+                "Could not remove stale pre-migration database backup",
+                backup_path=str(stale_backup),
+                error=str(error),
+            )
+    if removed:
+        log.info(
+            "Stale pre-migration database backups removed",
+            removed_count=removed,
+            retained_count=min(len(backups), max(1, retention)),
+        )
+
+
+def _backup_db(
+    db_path: str,
+    *,
+    retention: int = DEFAULT_PRE_MIGRATION_BACKUP_RETENTION,
+) -> Optional[str]:
     """
     Copy the database to a timestamped backup file in the same directory.
 
     Called before running migrations so users have a restore point when
-    switching between image versions (e.g. live ↔ dev).  Returns the
-    backup path on success, None if the DB does not exist yet or the copy
-    fails (non-fatal — a missing backup is better than blocking startup).
+    switching between image versions (e.g. live ↔ dev).  Successful backups
+    are pruned to the configured retention count.  Returns the backup path on
+    success, None if the DB does not exist yet or the copy fails (non-fatal —
+    a missing backup is better than blocking startup).
     """
     src = Path(db_path)
     if not src.exists():
@@ -136,6 +170,7 @@ def _backup_db(db_path: str) -> Optional[str]:
     try:
         shutil.copy2(src, dst)
         log.info("Pre-migration database backup created", backup_path=str(dst))
+        _prune_pre_migration_backups(src, retention)
         return str(dst)
     except Exception as e:
         log.warning("Could not create pre-migration database backup", error=str(e))

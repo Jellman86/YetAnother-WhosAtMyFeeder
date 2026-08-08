@@ -23,6 +23,9 @@ name: YetAnother-WhosAtMyFeeder-Monolith
 #   MQTT_PASSWORD          - MQTT password (if auth enabled)
 #   CLASSIFIER_IMAGE_MAX_CONCURRENT - Maximum concurrent image classifications (default: 2)
 #   CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS - Queue wait before rejecting background work (default: 0.5)
+#   DB_PRE_MIGRATION_BACKUP_RETENTION - Newest automatic migration backups to retain (default: 10)
+#   CONTAINER_LOG_MAX_SIZE - Rotate each container log file at this size (default: 10m)
+#   CONTAINER_LOG_MAX_FILES - Number of rotated container log files to retain (default: 3)
 #   FRIGATE__CLIPS_ENABLED - Enable Frigate clip workflows (default: true)
 #   TZ                     - Timezone (default: UTC)
 #   DOCKER_NETWORK         - External Docker network to join (required for MQTT/Frigate connectivity)
@@ -32,6 +35,11 @@ services:
     image: ${YAWAMF_MONALITHIC_IMAGE:-ghcr.io/jellman86/yawamf-monalithic}:${YAWAMF_MONALITHIC_TAG:-latest}
     container_name: yawamf-monalithic
     restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "${CONTAINER_LOG_MAX_SIZE:-10m}"
+        max-file: "${CONTAINER_LOG_MAX_FILES:-3}"
     user: "${PUID:-1000}:${PGID:-1000}"
     networks:
       - yawamf_network
@@ -71,6 +79,7 @@ services:
       - FRIGATE__CLIPS_ENABLED=${FRIGATE__CLIPS_ENABLED:-true}
       - CLASSIFIER_IMAGE_MAX_CONCURRENT=${CLASSIFIER_IMAGE_MAX_CONCURRENT:-2}
       - CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS=${CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS:-0.5}
+      - DB_PRE_MIGRATION_BACKUP_RETENTION=${DB_PRE_MIGRATION_BACKUP_RETENTION:-10}
       - SYSTEM__DEBUG_UI_ENABLED=${DEBUG_UI_ENABLED:-false}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]

@@ -42,7 +42,7 @@ mkdir -p \
 
 write_startup_status "starting" "launching" 5
 
-uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --no-access-log &
 backend_pid=$!
 
 nginx -g 'daemon off;' &
