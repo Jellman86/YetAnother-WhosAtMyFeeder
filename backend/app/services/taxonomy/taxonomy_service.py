@@ -171,7 +171,7 @@ class TaxonomyService:
                 log.warning("Failed to lookup eBird common name", error=str(e))
 
         # 4. Save Success to Cache
-        await self._save_to_cache(result, db=db)
+        await self._save_to_cache(result, db=db, replace_negative_name=query_name)
         return result
 
     async def _get_from_cache(self, name: str, db: Optional[aiosqlite.Connection] = None) -> Optional[Dict]:
@@ -188,7 +188,11 @@ class TaxonomyService:
 
     async def _query_cache(self, db: aiosqlite.Connection, name: str) -> Optional[Dict]:
         async with db.execute(
-            "SELECT scientific_name, common_name, taxa_id, is_not_found, thumbnail_url, last_updated FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
+            """SELECT scientific_name, common_name, taxa_id, is_not_found, thumbnail_url, last_updated
+               FROM taxonomy_cache
+               WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)
+               ORDER BY is_not_found ASC, last_updated DESC
+               LIMIT 1""",
             (name, name),
         ) as cursor:
             row = await cursor.fetchone()
@@ -205,14 +209,32 @@ class TaxonomyService:
                 }
         return None
 
-    async def _save_to_cache(self, data: Dict, db: Optional[aiosqlite.Connection] = None):
+    async def _save_to_cache(
+        self,
+        data: Dict,
+        db: Optional[aiosqlite.Connection] = None,
+        replace_negative_name: Optional[str] = None,
+    ):
         """Save a lookup result to the local cache."""
         if db:
+            if replace_negative_name:
+                await self._delete_negative_cache_match(db, replace_negative_name)
             await self._insert_cache(db, data)
         else:
             async with get_db() as db:
+                if replace_negative_name:
+                    await self._delete_negative_cache_match(db, replace_negative_name)
                 await self._insert_cache(db, data)
                 await db.commit()
+
+    async def _delete_negative_cache_match(self, db: aiosqlite.Connection, name: str) -> None:
+        """Remove an obsolete negative row before storing a successful alias lookup."""
+        await db.execute(
+            """DELETE FROM taxonomy_cache
+               WHERE is_not_found = 1
+                 AND (LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?))""",
+            (name, name),
+        )
 
     async def _insert_cache(self, db: aiosqlite.Connection, data: Dict):
         await db.execute(
@@ -243,22 +265,46 @@ class TaxonomyService:
             resp = await client.get(self.API_URL, params=params)
             resp.raise_for_status()
             data = resp.json()
+
+            if not isinstance(data, dict):
+                raise ValueError("iNaturalist response is not an object")
+
+            total_results = data.get("total_results")
+            if not isinstance(total_results, int) or isinstance(total_results, bool):
+                raise ValueError("iNaturalist response has an invalid total_results value")
+            if total_results == 0:
+                return None
+
+            results = data.get("results")
+            if not isinstance(results, list) or not results or not isinstance(results[0], dict):
+                raise ValueError("iNaturalist response has no usable result")
+
+            taxon = results[0]
+            scientific_name = taxon.get("name")
+            taxa_id = taxon.get("id")
+            if not isinstance(scientific_name, str) or not scientific_name.strip():
+                raise ValueError("iNaturalist result has no scientific name")
+            if not isinstance(taxa_id, int) or isinstance(taxa_id, bool):
+                raise ValueError("iNaturalist result has no numeric taxon id")
+
+            common_name = taxon.get("preferred_common_name")
+            if not isinstance(common_name, str):
+                common_name = None
+            photo = taxon.get("default_photo")
+            photo = photo if isinstance(photo, dict) else {}
+            thumbnail_url = photo.get("square_url")
+            if not isinstance(thumbnail_url, str):
+                thumbnail_url = None
+
+            return {
+                "scientific_name": scientific_name,
+                "common_name": common_name,
+                "taxa_id": taxa_id,
+                "thumbnail_url": thumbnail_url,
+            }
         except Exception as e:
             log.warning("iNaturalist lookup failed", query=name, error=str(e))
             raise TaxonomyLookupUnavailable(str(e)) from e
-
-        if data.get("total_results", 0) > 0:
-            taxon = data["results"][0]
-            photo = taxon.get("default_photo")
-            thumb = photo.get("square_url") if photo else None
-            return {
-                "scientific_name": taxon.get("name"),
-                "common_name": taxon.get("preferred_common_name"),
-                "taxa_id": taxon.get("id"),
-                "thumbnail_url": thumb,
-            }
-
-        return None
 
     async def get_canonical_english_name(
         self, taxa_id: int, db: Optional[aiosqlite.Connection] = None

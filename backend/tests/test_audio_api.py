@@ -8,6 +8,7 @@ import pytest_asyncio
 from app.main import app
 from app.database import get_db, init_db, close_db
 from app.config import settings
+from app.routers.audio import AUDIO_SUPPRESSED_BY_MAPPING_HEADER
 
 
 @pytest_asyncio.fixture
@@ -563,7 +564,7 @@ async def test_audio_context_supports_multi_source_camera_mapping(client: httpx.
         },
     )
     assert response.status_code == 200, response.text
-    payload = response.json()["detections"]
+    payload = response.json()
     species = [item["species"] for item in payload]
     assert "Dunnock" in species
     assert "Blue Tit" in species
@@ -605,7 +606,7 @@ async def test_audio_context_matches_birdnet_source_name(client: httpx.AsyncClie
         },
     )
     assert response.status_code == 200, response.text
-    payload = response.json()["detections"]
+    payload = response.json()
     assert [item["species"] for item in payload] == ["Dunnock"]
 
 
@@ -677,22 +678,20 @@ async def test_event_audio_context_finds_late_audio_without_stored_audio_hint(cl
     response = await client.get(f"/api/audio/context/event/{event_id}")
 
     assert response.status_code == 200, response.text
-    assert response.json() == {
-        "detections": [
-            {
-                "timestamp": (target - timedelta(seconds=30)).isoformat(),
-                "species": "Common Kingfisher",
-                "confidence": 0.86,
-                "sensor_id": "BirdCam",
-                "source_name": None,
-                "birdnet_id": 26588,
-                "offset_seconds": -30,
-            }
-        ],
-        # The fixture also seeds an "Other Mic" row, which this camera's mapping
-        # excludes — so the caller is told the empty slot was filtered, not silent.
-        "suppressed_by_mapping": 1,
-    }
+    assert response.json() == [
+        {
+            "timestamp": (target - timedelta(seconds=30)).isoformat(),
+            "species": "Common Kingfisher",
+            "confidence": 0.86,
+            "sensor_id": "BirdCam",
+            "source_name": None,
+            "birdnet_id": 26588,
+            "offset_seconds": -30,
+        }
+    ]
+    # The fixture also seeds an "Other Mic" row, which this camera's mapping
+    # excludes — the header reports that without breaking the established body.
+    assert response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] == "1"
 
 
 @pytest.mark.asyncio

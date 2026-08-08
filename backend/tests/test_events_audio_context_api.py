@@ -9,6 +9,7 @@ from app.main import app
 from app.database import get_db, init_db, close_db
 from app.config import settings
 from app.repositories.detection_repository import DetectionRepository
+from app.routers.audio import AUDIO_SUPPRESSED_BY_MAPPING_HEADER
 
 
 def assert_audio_species_matches(actual: list[str], expected: list[str | set[str]]) -> None:
@@ -241,7 +242,7 @@ async def test_events_normalize_non_utc_audio_offsets_before_context_filtering(c
     response = await client.get(f"/api/audio/context/event/{event_id}")
     assert response.status_code == 200, response.text
     assert_audio_species_matches(
-        [item["species"] for item in response.json()["detections"]],
+        [item["species"] for item in response.json()],
         [{"Passer domesticus", "House Sparrow"}],
     )
 
@@ -288,10 +289,8 @@ async def test_audio_context_reports_detections_suppressed_by_camera_mapping(cli
         params={"timestamp": target.isoformat(), "camera": "feeder-cam", "window_seconds": 300},
     )
     assert response.status_code == 200, response.text
-    payload = response.json()
-
-    assert payload["detections"] == []
-    assert payload["suppressed_by_mapping"] == 1
+    assert response.json() == []
+    assert response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] == "1"
 
 
 @pytest.mark.asyncio
@@ -317,7 +316,5 @@ async def test_audio_context_reports_no_suppression_for_a_genuinely_silent_windo
         params={"timestamp": target.isoformat(), "camera": "feeder-cam", "window_seconds": 300},
     )
     assert response.status_code == 200, response.text
-    payload = response.json()
-
-    assert payload["detections"] == []
-    assert payload["suppressed_by_mapping"] == 0
+    assert response.json() == []
+    assert response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] == "0"

@@ -107,10 +107,6 @@ export interface components {
     species: string;
     timestamp: string;
 };
-    AudioContextResponse: {
-    detections: Array<components['schemas']['AudioContextDetectionResponse']>;
-    suppressed_by_mapping?: number;
-};
     AudioDailyCountResponse: {
     count: number;
     date: string;
@@ -1900,7 +1896,7 @@ export interface paths {
     window_seconds?: number;
 };
       requestBody: unknown;
-      response: components['schemas']['AudioContextResponse'];
+      response: Array<components['schemas']['AudioContextDetectionResponse']>;
     };
   };
   "/api/audio/context/event/{event_id}": {
@@ -1911,7 +1907,7 @@ export interface paths {
 };
       query: never;
       requestBody: unknown;
-      response: components['schemas']['AudioContextResponse'];
+      response: Array<components['schemas']['AudioContextDetectionResponse']>;
     };
   };
   "/api/audio/history": {

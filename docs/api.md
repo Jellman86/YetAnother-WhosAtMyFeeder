@@ -400,10 +400,11 @@ snapshot, not a destructive queue-control API.
   - `GET /api/audio/species`
   - `GET /api/audio/context`
   - `GET /api/audio/context/event/{event_id}` — nearby BirdNET detections for one persisted visual
-    event, using the configured correlation window and camera-to-audio-source mapping. Both return
-    `{ detections, suppressed_by_mapping }`, where `suppressed_by_mapping` counts detections that
-    fell inside the correlation window but were excluded by the camera-to-audio-source mapping, so
-    the UI can distinguish "nothing was heard" from "something was heard on an unmapped microphone"
+    event, using the configured correlation window and camera-to-audio-source mapping. Both retain
+    their established array response. The `X-YAWAMF-Audio-Suppressed-By-Mapping` response header
+    counts detections that fell inside the correlation window but were excluded by the mapping, so
+    clients can distinguish "nothing was heard" from "something was heard on an unmapped microphone"
+    without breaking consumers of the response body.
   - `GET /api/audio/sources`
 
 `GET /api/events` accepts `event_id` for an exact Frigate event lookup. It retains the same guest

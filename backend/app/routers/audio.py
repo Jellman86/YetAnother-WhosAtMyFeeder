@@ -21,6 +21,17 @@ from app.utils.public_access import effective_public_events_days
 
 router = APIRouter(prefix="/audio", tags=["audio"])
 log = structlog.get_logger()
+AUDIO_SUPPRESSED_BY_MAPPING_HEADER = "X-YAWAMF-Audio-Suppressed-By-Mapping"
+AUDIO_CONTEXT_RESPONSE_METADATA = {
+    200: {
+        "headers": {
+            AUDIO_SUPPRESSED_BY_MAPPING_HEADER: {
+                "description": "Audio detections in the window excluded by the camera mapping.",
+                "schema": {"type": "integer", "minimum": 0},
+            }
+        }
+    }
+}
 
 
 class AudioSourceResponse(BaseModel):
@@ -107,18 +118,6 @@ class AudioSpeciesLeaderboardResponse(BaseModel):
 
 class AudioContextDetectionResponse(AudioDetectionResponse):
     offset_seconds: int
-
-
-class AudioContextResponse(BaseModel):
-    """Nearby audio plus why the list may be empty.
-
-    ``suppressed_by_mapping`` counts detections inside the window that were heard on a
-    microphone this camera is not mapped to, so an empty list can be reported honestly
-    as filtered rather than silent.
-    """
-
-    detections: list[AudioContextDetectionResponse]
-    suppressed_by_mapping: int = 0
 
 
 class AudioHistoryQuery(BaseModel):
@@ -476,10 +475,15 @@ async def get_audio_clip(
     )
 
 
-@router.get("/context", response_model=AudioContextResponse)
+@router.get(
+    "/context",
+    response_model=list[AudioContextDetectionResponse],
+    responses=AUDIO_CONTEXT_RESPONSE_METADATA,
+)
 @guest_rate_limit()
 async def get_audio_context(
     request: Request,
+    response: Response,
     timestamp: datetime = Query(..., description="ISO timestamp for the visual detection"),
     camera: str | None = Query(default=None, description="Camera name for sensor mapping"),
     window_seconds: int = Query(default=300, ge=5, le=3600),
@@ -506,13 +510,19 @@ async def get_audio_context(
     if hide_sensor:
         for detection in detections:
             detection["sensor_id"] = None
-    return {"detections": detections, "suppressed_by_mapping": suppressed_by_mapping}
+    response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] = str(suppressed_by_mapping)
+    return detections
 
 
-@router.get("/context/event/{event_id}", response_model=AudioContextResponse)
+@router.get(
+    "/context/event/{event_id}",
+    response_model=list[AudioContextDetectionResponse],
+    responses=AUDIO_CONTEXT_RESPONSE_METADATA,
+)
 @guest_rate_limit()
 async def get_event_audio_context(
     request: Request,
+    response: Response,
     event_id: str = ApiPath(..., min_length=1, max_length=255),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
@@ -553,7 +563,8 @@ async def get_event_audio_context(
     if hide_sensor:
         for detection in detections:
             detection["sensor_id"] = None
-    return {"detections": detections, "suppressed_by_mapping": suppressed_by_mapping}
+    response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] = str(suppressed_by_mapping)
+    return detections
 
 
 @router.get("/sources", response_model=list[AudioSourceResponse])

@@ -118,6 +118,49 @@ async def test_query_cache_treats_an_expired_negative_entry_as_a_miss(taxonomy_s
 
 
 @pytest.mark.asyncio
+async def test_successful_alias_retry_replaces_the_expired_negative_entry(taxonomy_service):
+    stale = (datetime.now() - timedelta(seconds=TAXONOMY_NOT_FOUND_RETRY_SECONDS + 60)).isoformat(sep=" ")
+    resolved = {
+        "scientific_name": "Cyanistes caeruleus",
+        "common_name": "Blue Tit",
+        "taxa_id": 303,
+        "thumbnail_url": None,
+    }
+    taxonomy_service._lookup_inaturalist = AsyncMock(return_value=resolved)
+
+    async with aiosqlite.connect(":memory:") as db:
+        await db.execute(
+            """CREATE TABLE taxonomy_cache (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   scientific_name TEXT NOT NULL UNIQUE,
+                   common_name TEXT, taxa_id INTEGER, is_not_found INTEGER,
+                   thumbnail_url TEXT, last_updated TEXT)"""
+        )
+        await db.execute(
+            """INSERT INTO taxonomy_cache
+               (scientific_name, common_name, taxa_id, is_not_found, thumbnail_url, last_updated)
+               VALUES (?, NULL, NULL, 1, NULL, ?)""",
+            ("Blue Tit", stale),
+        )
+        await db.commit()
+
+        assert await taxonomy_service.get_names("Blue Tit", db=db) == resolved
+        await db.commit()
+        assert await taxonomy_service.get_names("Blue Tit", db=db) == {
+            **resolved,
+            "is_not_found": False,
+        }
+
+        async with db.execute(
+            "SELECT scientific_name, common_name, is_not_found FROM taxonomy_cache ORDER BY id"
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+    taxonomy_service._lookup_inaturalist.assert_awaited_once_with("Blue Tit")
+    assert rows == [("Cyanistes caeruleus", "Blue Tit", 0)]
+
+
+@pytest.mark.asyncio
 async def test_get_names_does_not_cache_not_found_when_the_lookup_is_unavailable(taxonomy_service):
     """A provider that cannot answer must not be recorded as "no such species".
 
@@ -161,3 +204,16 @@ async def test_lookup_inaturalist_returns_none_when_the_provider_reports_no_matc
 
     with patch.object(taxonomy_service, "_get_client", AsyncMock(return_value=client)):
         assert await taxonomy_service._lookup_inaturalist("Nonexistent species") is None
+
+
+@pytest.mark.asyncio
+async def test_lookup_inaturalist_rejects_an_inconsistent_success_payload(taxonomy_service):
+    response = AsyncMock()
+    response.raise_for_status = lambda: None
+    response.json = lambda: {"total_results": 1, "results": []}
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=response)
+
+    with patch.object(taxonomy_service, "_get_client", AsyncMock(return_value=client)):
+        with pytest.raises(TaxonomyLookupUnavailable):
+            await taxonomy_service._lookup_inaturalist("Blue Tit")
