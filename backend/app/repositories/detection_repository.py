@@ -131,10 +131,10 @@ def _normalize_mapping_key(value: str | None) -> str:
 
 def _parse_mapping_filter_values(mapping_value: str | None) -> tuple[bool, set[str]]:
     if not isinstance(mapping_value, str):
-        return True, set()
+        return False, set()
     tokens = {_normalize_mapping_key(token) for token in re.split(r"[,\n;|]+", mapping_value)}
     tokens.discard("")
-    if not tokens or "*" in tokens:
+    if "*" in tokens:
         return True, set()
     return False, tokens
 
@@ -1602,16 +1602,18 @@ class DetectionRepository:
         frigate_event: str | None = None,
     ) -> list[Detection]:
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
+        needs_taxonomy_cache = bool(has_taxonomy_cache and (species or species_any or taxa_id is not None))
         query = (
             """
             SELECT """
+            + ("DISTINCT " if needs_taxonomy_cache else "")
             + DETECTION_SELECT_COLUMNS
             + """
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
         )
-        if has_taxonomy_cache:
+        if needs_taxonomy_cache:
             query += """
             LEFT JOIN taxonomy_cache tc_filter
                 ON ((d.scientific_name IS NOT NULL AND LOWER(tc_filter.scientific_name) = LOWER(d.scientific_name))
@@ -1635,7 +1637,7 @@ class DetectionRepository:
             species_condition, species_params = await self._build_canonical_species_condition(
                 detection_alias="d",
                 species_name=species,
-                has_taxonomy_cache=has_taxonomy_cache,
+                has_taxonomy_cache=needs_taxonomy_cache,
             )
             conditions.append(species_condition)
             params.extend(species_params)
@@ -1646,7 +1648,7 @@ class DetectionRepository:
                 clause, clause_params = await self._build_canonical_species_condition(
                     detection_alias="d",
                     species_name=species_name,
-                    has_taxonomy_cache=has_taxonomy_cache,
+                    has_taxonomy_cache=needs_taxonomy_cache,
                 )
                 any_clauses.append(clause)
                 any_params.extend(clause_params)
@@ -1654,7 +1656,7 @@ class DetectionRepository:
                 conditions.append("(" + " OR ".join(any_clauses) + ")")
                 params.extend(any_params)
         if taxa_id is not None:
-            if has_taxonomy_cache:
+            if needs_taxonomy_cache:
                 conditions.append("COALESCE(d.taxa_id, tc_filter.taxa_id) = ?")
             else:
                 conditions.append("d.taxa_id = ?")
@@ -1703,12 +1705,13 @@ class DetectionRepository:
     ) -> int:
         """Get total count of detections, optionally filtered."""
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
-        query = """
-            SELECT COUNT(*)
+        needs_taxonomy_cache = bool(has_taxonomy_cache and (species or species_any or taxa_id is not None))
+        query = f"""
+            SELECT {"COUNT(DISTINCT d.id)" if needs_taxonomy_cache else "COUNT(*)"}
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
-        if has_taxonomy_cache:
+        if needs_taxonomy_cache:
             query += """
             LEFT JOIN taxonomy_cache tc_filter
                 ON ((d.scientific_name IS NOT NULL AND LOWER(tc_filter.scientific_name) = LOWER(d.scientific_name))
@@ -1732,7 +1735,7 @@ class DetectionRepository:
             species_condition, species_params = await self._build_canonical_species_condition(
                 detection_alias="d",
                 species_name=species,
-                has_taxonomy_cache=has_taxonomy_cache,
+                has_taxonomy_cache=needs_taxonomy_cache,
             )
             conditions.append(species_condition)
             params.extend(species_params)
@@ -1743,7 +1746,7 @@ class DetectionRepository:
                 clause, clause_params = await self._build_canonical_species_condition(
                     detection_alias="d",
                     species_name=species_name,
-                    has_taxonomy_cache=has_taxonomy_cache,
+                    has_taxonomy_cache=needs_taxonomy_cache,
                 )
                 any_clauses.append(clause)
                 any_params.extend(clause_params)
@@ -1751,7 +1754,7 @@ class DetectionRepository:
                 conditions.append("(" + " OR ".join(any_clauses) + ")")
                 params.extend(any_params)
         if taxa_id is not None:
-            if has_taxonomy_cache:
+            if needs_taxonomy_cache:
                 conditions.append("COALESCE(d.taxa_id, tc_filter.taxa_id) = ?")
             else:
                 conditions.append("d.taxa_id = ?")
@@ -1990,12 +1993,20 @@ class DetectionRepository:
         normalized_lookup = _normalize_species_lookup_name(name)
 
         async with self.db.execute(
-            "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
-            (name, name),
+            """SELECT scientific_name, COALESCE(manual_common_name, common_name), taxa_id,
+                      manual_common_name
+               FROM taxonomy_cache
+               WHERE LOWER(scientific_name) = LOWER(?)
+                  OR LOWER(common_name) = LOWER(?)
+                  OR LOWER(manual_common_name) = LOWER(?)""",
+            (name, name, name),
         ) as cursor:
             row = await cursor.fetchone()
             if row:
                 result = {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
+                has_manual_override = bool(row[3])
+            else:
+                has_manual_override = False
 
         if (
             result["taxa_id"] is None
@@ -2004,7 +2015,8 @@ class DetectionRepository:
             and await self._table_exists("taxonomy_translations")
         ):
             async with self.db.execute(
-                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                """SELECT tc.scientific_name, COALESCE(tc.manual_common_name, tc.common_name),
+                          tc.taxa_id, tt.common_name, tc.manual_common_name
                    FROM taxonomy_translations tt
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
                    WHERE tt.language_code = ?
@@ -2014,7 +2026,11 @@ class DetectionRepository:
             ) as cursor:
                 row = await cursor.fetchone()
                 if row:
-                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    result = {
+                        "scientific_name": row[0],
+                        "common_name": row[1] if row[4] else (row[3] or row[1]),
+                        "taxa_id": row[2],
+                    }
                     return result
 
         # Accent-insensitive fallback for localized names (e.g. "comun" vs "común").
@@ -2027,7 +2043,8 @@ class DetectionRepository:
             and await self._table_exists("taxonomy_translations")
         ):
             async with self.db.execute(
-                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                """SELECT tc.scientific_name, COALESCE(tc.manual_common_name, tc.common_name),
+                          tc.taxa_id, tt.common_name, tc.manual_common_name
                    FROM taxonomy_translations tt
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
                    WHERE tt.language_code = ?""",
@@ -2036,25 +2053,37 @@ class DetectionRepository:
                 rows = await cursor.fetchall()
             for row in rows:
                 if _normalize_species_lookup_name(row[3]) == normalized_lookup:
-                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    result = {
+                        "scientific_name": row[0],
+                        "common_name": row[1] if row[4] else (row[3] or row[1]),
+                        "taxa_id": row[2],
+                    }
                     return result
 
         # Language-agnostic localized fallback for repair/maintenance paths that
         # do not know the source language of the stored display name.
         if result["taxa_id"] is None and normalized_lookup and await self._table_exists("taxonomy_translations"):
             async with self.db.execute(
-                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                """SELECT tc.scientific_name, COALESCE(tc.manual_common_name, tc.common_name),
+                          tc.taxa_id, tt.common_name, tc.manual_common_name
                    FROM taxonomy_translations tt
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id"""
             ) as cursor:
                 rows = await cursor.fetchall()
             for row in rows:
                 if _normalize_species_lookup_name(row[3]) == normalized_lookup:
-                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    result = {
+                        "scientific_name": row[0],
+                        "common_name": row[1] if row[4] else (row[3] or row[1]),
+                        "taxa_id": row[2],
+                    }
                     return result
 
         if result["taxa_id"] is None and normalized_lookup:
-            async with self.db.execute("SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache") as cursor:
+            async with self.db.execute(
+                """SELECT scientific_name, COALESCE(manual_common_name, common_name),
+                          taxa_id, manual_common_name FROM taxonomy_cache"""
+            ) as cursor:
                 rows = await cursor.fetchall()
             for row in rows:
                 if (
@@ -2062,10 +2091,12 @@ class DetectionRepository:
                     or _normalize_species_lookup_name(row[1]) == normalized_lookup
                 ):
                     result = {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
+                    has_manual_override = bool(row[3])
                     break
 
         if (
             result["taxa_id"] is not None
+            and not has_manual_override
             and language
             and language != "en"
             and await self._table_exists("taxonomy_translations")
@@ -2081,6 +2112,14 @@ class DetectionRepository:
                     result["common_name"] = row[0]
 
         return result
+
+    async def update_common_name_for_scientific_name(self, scientific_name: str, common_name: str | None) -> None:
+        """Apply one effective taxonomy name to existing detections."""
+        await self.db.execute(
+            """UPDATE detections SET common_name = ?
+               WHERE LOWER(scientific_name) = LOWER(?)""",
+            (common_name, scientific_name),
+        )
 
     async def resolve_species_aliases(self, species_name: str, language: str | None = None) -> dict:
         """Resolve a species identifier into taxonomy metadata and matching display labels.

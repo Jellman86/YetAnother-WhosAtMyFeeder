@@ -107,13 +107,25 @@ class AudioService:
     @classmethod
     def _parse_expected_mapping_keys(cls, expected_sensor_id: Optional[str]) -> tuple[bool, set[str]]:
         if not isinstance(expected_sensor_id, str):
-            return True, set()
+            return False, set()
 
         tokens = [cls._normalize_mapping_key(token) for token in re.split(r"[,\n;|]+", expected_sensor_id)]
         normalized_keys = {token for token in tokens if token}
-        if not normalized_keys or "*" in normalized_keys:
+        if "*" in normalized_keys:
             return True, set()
         return False, normalized_keys
+
+    @staticmethod
+    def _expected_sensor_mapping(camera_name: Optional[str]) -> Optional[str]:
+        """Resolve mapping semantics without treating a missing camera mapping as global.
+
+        A lookup with no camera is intentionally global. A named camera must be
+        explicitly mapped, with ``*`` remaining the only wildcard value.
+        """
+        if not camera_name:
+            return "*"
+        mapping = settings.frigate.camera_audio_mapping or {}
+        return mapping.get(camera_name)
 
     @classmethod
     def _extract_birdnet_source_keys(cls, data: dict | None) -> set[str]:
@@ -329,9 +341,7 @@ class AudioService:
             self._cleanup_buffer()  # Clean before matching
 
             # Determine which sensor ID we are looking for based on camera mapping
-            expected_sensor_id = None
-            if camera_name and settings.frigate.camera_audio_mapping:
-                expected_sensor_id = settings.frigate.camera_audio_mapping.get(camera_name)
+            expected_sensor_id = self._expected_sensor_mapping(camera_name)
 
             best_match = None
             highest_score = 0.0
@@ -400,9 +410,7 @@ class AudioService:
             self._cleanup_buffer()
 
             # Determine which sensor ID we are looking for based on camera mapping
-            expected_sensor_id = None
-            if camera_name and settings.frigate.camera_audio_mapping:
-                expected_sensor_id = settings.frigate.camera_audio_mapping.get(camera_name)
+            expected_sensor_id = self._expected_sensor_mapping(camera_name)
 
             # Ensure target_time is timezone-aware (assume UTC if naive)
             if target_time.tzinfo is None:

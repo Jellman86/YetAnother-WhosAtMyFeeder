@@ -6,7 +6,8 @@ YA-WAMF features deep integration with [BirdNET-Go](https://github.com/tphakala/
 1. **BirdNET-Go** identifies a bird song and publishes the detection to MQTT.
 2. **YA-WAMF** stores these audio detections in its recent in-memory correlation buffer and persists them to the audio detection history.
 3. When **Frigate** detects a bird visually, YA-WAMF checks its buffer inside the configured
-   audio-correlation window (five minutes by default).
+   audio-correlation window (five minutes by default), looking for the visual species before
+   treating a stronger different call as nearby context.
 4. If a match is found, the detection is marked as **"Verified"** in the UI with an audio badge.
 
 ## Setup
@@ -16,7 +17,9 @@ In **Settings > Integrations**, ensure the MQTT topic matches your BirdNET-Go co
 - **Modern BirdNET-Go:** Use the base topic (e.g., `birdnet`). 
 - **Legacy / Custom:** Use the specific text topic (e.g., `birdnet/text`).
 
-> ℹ️ **Note:** YA-WAMF will automatically reconnect to your MQTT broker if you change the topic in the UI.
+> ℹ️ **Note:** YA-WAMF automatically reconnects if you change the topic or enable/disable BirdNET
+> in the UI. When disabled, YA-WAMF does not subscribe to the BirdNET topic and does not ingest its
+> messages.
 
 ### 2. Sensor Mapping
 For correlation to work, YA-WAMF needs to know which audio sensor belongs to which camera.
@@ -24,6 +27,10 @@ For correlation to work, YA-WAMF needs to know which audio sensor belongs to whi
 2. Note the **Sensor ID** displayed in the top-right of the audio entries (e.g., `rtsp_42182153`).
 3. Go to **Settings > Integrations > Sensor Mapping**.
 4. Type that ID next to the corresponding Frigate camera name.
+
+A named camera without a mapping does not receive audio from another source. Use `*` only when you
+deliberately want any source to correlate with that camera; a blank or missing mapping is not a
+wildcard.
 
 For cameras with microphones, BirdNET-Go supports multiple named RTSP audio sources. Enable audio
 in each camera (AAC is the most interoperable choice), add and test each RTSP stream in BirdNET-Go,
@@ -86,7 +93,8 @@ event-history window.
 
 Detection details also look up persisted BirdNET history when you open them. This catches audio
 that reached YA-WAMF after the visual event's initial correlation attempt. A matching species is
-still labelled as confirmed only when the correlation rules agree; other sounds inside the same
+labelled as confirmed with its confidence and available BirdNET-Go media when the correlation rules
+agree, even if the original visual row predates the audio message. Other sounds inside the same
 configured time and source window appear as nearby audio context instead.
 
 YA-WAMF normalizes incoming BirdNET timestamps to UTC before storing them. This keeps correlation,

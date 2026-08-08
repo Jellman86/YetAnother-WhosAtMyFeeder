@@ -663,7 +663,13 @@ class EventProcessor:
             event_id=event.frigate_event,
             stage="correlate_audio",
             timeout_seconds=EVENT_STAGE_TIMEOUT_AUDIO_CORRELATE_SECONDS,
-            coro=self._correlate_audio(top, context.get("audio_match"), event.frigate_event),
+            coro=self._correlate_audio(
+                top,
+                context.get("audio_match"),
+                event.frigate_event,
+                target_time=event.detection_dt,
+                camera_name=event.camera,
+            ),
             fallback=top,
         )
         if not isinstance(top_with_audio, dict):
@@ -1252,6 +1258,9 @@ class EventProcessor:
         classification: Dict[str, Any],
         audio_match,
         event_id: str | None = None,
+        *,
+        target_time: datetime | None = None,
+        camera_name: str | None = None,
     ) -> Dict[str, Any]:
         """Correlate audio detection with visual classification.
 
@@ -1265,12 +1274,39 @@ class EventProcessor:
         classification["audio_species"] = None
         classification["audio_score"] = None
 
+        visual_label = classification["label"]
+        if target_time is not None:
+            try:
+                confirmed, matched_species, matched_score = await audio_service.correlate_species(
+                    target_time=target_time,
+                    species_name=visual_label,
+                    camera_name=camera_name,
+                    window_seconds=settings.frigate.audio_correlation_window_seconds,
+                )
+                if confirmed:
+                    classification["audio_confirmed"] = True
+                    classification["audio_species"] = matched_species
+                    classification["audio_score"] = matched_score
+                    log.info(
+                        "Audio confirmed visual detection with species-first correlation",
+                        species=visual_label,
+                        visual_score=classification["score"],
+                        audio_score=matched_score,
+                    )
+                    return classification
+            except Exception as exc:
+                log.warning(
+                    "Species-first audio correlation failed; falling back to nearby context",
+                    event_id=event_id,
+                    species=visual_label,
+                    error=str(exc),
+                )
+
         if not audio_match:
             return classification
 
         audio_species = audio_match.species
         audio_score = audio_match.confidence
-        visual_label = classification["label"]
         visual_label_normalized = str(visual_label or "").strip().lower()
         audio_species_normalized = str(audio_species or "").strip().lower()
         audio_scientific_normalized = str(getattr(audio_match, "scientific_name", "") or "").strip().lower()

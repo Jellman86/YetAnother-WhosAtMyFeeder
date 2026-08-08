@@ -94,15 +94,15 @@ async def test_query_cache_treats_an_expired_negative_entry_as_a_miss(taxonomy_s
     async with aiosqlite.connect(":memory:") as db:
         await db.execute(
             """CREATE TABLE taxonomy_cache (
-                   scientific_name TEXT, common_name TEXT, taxa_id INTEGER,
+                   scientific_name TEXT, common_name TEXT, manual_common_name TEXT, taxa_id INTEGER,
                    is_not_found INTEGER, thumbnail_url TEXT, last_updated TEXT)"""
         )
         await db.executemany(
-            "INSERT INTO taxonomy_cache VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO taxonomy_cache VALUES (?, ?, ?, ?, ?, ?, ?)",
             [
-                ("Dryobates villosus", None, None, 1, None, stale),
-                ("Chloris chloris", None, None, 1, None, fresh),
-                ("Parus major", "Great Tit", 145252, 0, None, stale),
+                ("Dryobates villosus", None, None, None, 1, None, stale),
+                ("Chloris chloris", None, None, None, 1, None, fresh),
+                ("Parus major", "Great Tit", None, 145252, 0, None, stale),
             ],
         )
         await db.commit()
@@ -133,7 +133,7 @@ async def test_successful_alias_retry_replaces_the_expired_negative_entry(taxono
             """CREATE TABLE taxonomy_cache (
                    id INTEGER PRIMARY KEY AUTOINCREMENT,
                    scientific_name TEXT NOT NULL UNIQUE,
-                   common_name TEXT, taxa_id INTEGER, is_not_found INTEGER,
+                   common_name TEXT, manual_common_name TEXT, taxa_id INTEGER, is_not_found INTEGER,
                    thumbnail_url TEXT, last_updated TEXT)"""
         )
         await db.execute(

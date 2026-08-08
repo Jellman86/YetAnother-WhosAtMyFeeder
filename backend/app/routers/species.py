@@ -7,7 +7,7 @@ import structlog
 import re
 import unicodedata
 from typing import Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
@@ -1306,6 +1306,72 @@ async def get_species_stats(
 class SpeciesCacheClearResponse(BaseModel):
     status: str
     species: str
+
+
+class CommonNameOverrideRequest(BaseModel):
+    scientific_name: str = Field(min_length=1, max_length=200)
+    common_name: str = Field(min_length=1, max_length=120)
+
+
+class CommonNameOverrideResponse(BaseModel):
+    scientific_name: str
+    provider_common_name: str | None = None
+    manual_common_name: str | None = None
+    effective_common_name: str | None = None
+
+
+@router.get("/species/common-name-override", response_model=CommonNameOverrideResponse)
+async def get_common_name_override(
+    scientific_name: str = Query(min_length=1, max_length=200),
+    _auth: AuthContext = Depends(require_owner),
+) -> CommonNameOverrideResponse:
+    """Read the manual common-name override for one cached taxon."""
+    async with get_db() as db:
+        result = await taxonomy_service.get_common_name_override(scientific_name.strip(), db)
+    if not result:
+        raise HTTPException(status_code=404, detail="Species not found in taxonomy cache")
+    return CommonNameOverrideResponse(**result)
+
+
+@router.put("/species/common-name-override", response_model=CommonNameOverrideResponse)
+async def set_common_name_override(
+    payload: CommonNameOverrideRequest,
+    _auth: AuthContext = Depends(require_owner),
+) -> CommonNameOverrideResponse:
+    """Set a durable common-name override while retaining provider data."""
+    scientific_name = payload.scientific_name.strip()
+    common_name = payload.common_name.strip()
+    if not scientific_name or not common_name:
+        raise HTTPException(status_code=422, detail="Names cannot be blank")
+    async with get_db() as db:
+        result = await taxonomy_service.set_common_name_override(scientific_name, common_name, db)
+        if not result:
+            raise HTTPException(status_code=404, detail="Species not found in taxonomy cache")
+        await DetectionRepository(db).update_common_name_for_scientific_name(
+            scientific_name, result["effective_common_name"]
+        )
+        await db.commit()
+    log.info("Set manual common name", scientific_name=scientific_name)
+    return CommonNameOverrideResponse(**result)
+
+
+@router.delete("/species/common-name-override", response_model=CommonNameOverrideResponse)
+async def clear_common_name_override(
+    scientific_name: str = Query(min_length=1, max_length=200),
+    _auth: AuthContext = Depends(require_owner),
+) -> CommonNameOverrideResponse:
+    """Clear a common-name override and restore the cached provider value."""
+    normalized_name = scientific_name.strip()
+    async with get_db() as db:
+        result = await taxonomy_service.clear_common_name_override(normalized_name, db)
+        if not result:
+            raise HTTPException(status_code=404, detail="Species not found in taxonomy cache")
+        await DetectionRepository(db).update_common_name_for_scientific_name(
+            normalized_name, result["effective_common_name"]
+        )
+        await db.commit()
+    log.info("Cleared manual common name", scientific_name=normalized_name)
+    return CommonNameOverrideResponse(**result)
 
 
 @router.delete("/species/{species_name}/cache", response_model=SpeciesCacheClearResponse)

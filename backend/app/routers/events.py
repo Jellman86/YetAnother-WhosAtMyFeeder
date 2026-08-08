@@ -96,7 +96,8 @@ def _build_event_classification_input_context(
 log = structlog.get_logger()
 
 
-CLIP_CHECK_CONCURRENCY = 10
+CLIP_CHECK_CONCURRENCY = 24
+CLIP_CHECK_TIMEOUT_SECONDS = 2.0
 LOCALIZED_NAME_CONCURRENCY = 5
 EVENT_FILTERS_CACHE_TTL_SECONDS = 60
 UNKNOWN_BIRD_FILTER_ALIAS = "alias:unknown_bird"
@@ -265,7 +266,10 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                     "has_snapshot": bool(snapshot),
                 }
             try:
-                event_data = await frigate_client.get_event(event_id)
+                event_data, _error = await frigate_client.get_event_with_error(
+                    event_id,
+                    timeout=CLIP_CHECK_TIMEOUT_SECONDS,
+                )
                 cached_flags = cached_media_flags(event_id)
                 if not event_data:
                     return event_id, {

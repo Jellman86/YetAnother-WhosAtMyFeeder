@@ -8,6 +8,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The Events page no longer lets taxonomy aliases or slow Frigate media checks hold up a page.**
+  Unfiltered reads avoid the taxonomy join, filtered reads deduplicate detections that have more
+  than one cached alias, and clip availability checks use a bounded two-second request window with
+  controlled concurrency instead of allowing one page to wait on repeated long timeouts.
+
+- **Owners can set a durable common name without losing the provider's taxonomy value.** Detection
+  details now offer an owner-only common-name editor and reset action. The override applies to
+  existing sightings immediately, remains authoritative across taxonomy refreshes and localized
+  lookups, and can be cleared to restore the latest provider name.
+
+- **BirdNET enablement, source mapping, and species confirmation now use strict runtime semantics.**
+  Disabling BirdNET removes its MQTT subscription and a live toggle reconnects before another audio
+  message is ingested. A named camera with no source mapping matches nothing; only an explicit `*`
+  is a wildcard. Initial correlation searches for the visually classified species before retaining
+  a higher-confidence different call as context, and same-species audio that arrives later is
+  presented as confirmed in detection details with its score, spectrogram, and clip.
+
 - **Authentication tokens no longer appear in monolithic container access logs.** Nginx now logs
   the request path without its query string, the duplicate Uvicorn access log is disabled, and the
   recommended Compose deployment rotates JSON logs at 10 MB while retaining three files.

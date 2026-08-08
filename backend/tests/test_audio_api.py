@@ -687,6 +687,8 @@ async def test_event_audio_context_finds_late_audio_without_stored_audio_hint(cl
             "source_name": None,
             "birdnet_id": 26588,
             "offset_seconds": -30,
+            "scientific_name": "Alcedo atthis",
+            "matches_visual": False,
         }
     ]
     # The fixture also seeds an "Other Mic" row, which this camera's mapping

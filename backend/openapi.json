@@ -729,9 +729,25 @@
             "title": "Confidence",
             "type": "number"
           },
+          "matches_visual": {
+            "default": false,
+            "title": "Matches Visual",
+            "type": "boolean"
+          },
           "offset_seconds": {
             "title": "Offset Seconds",
             "type": "integer"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
           },
           "sensor_id": {
             "anyOf": [
@@ -2767,6 +2783,74 @@
           "deleted_count"
         ],
         "title": "ClearFeedbackResponse",
+        "type": "object"
+      },
+      "CommonNameOverrideRequest": {
+        "properties": {
+          "common_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Common Name",
+            "type": "string"
+          },
+          "scientific_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Scientific Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scientific_name",
+          "common_name"
+        ],
+        "title": "CommonNameOverrideRequest",
+        "type": "object"
+      },
+      "CommonNameOverrideResponse": {
+        "properties": {
+          "effective_common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Common Name"
+          },
+          "manual_common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual Common Name"
+          },
+          "provider_common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Common Name"
+          },
+          "scientific_name": {
+            "title": "Scientific Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scientific_name"
+        ],
+        "title": "CommonNameOverrideResponse",
         "type": "object"
       },
       "ConnectivityResponse": {
@@ -21941,6 +22025,158 @@
           }
         ],
         "summary": "Get Species List"
+      }
+    },
+    "/api/species/common-name-override": {
+      "delete": {
+        "description": "Clear a common-name override and restore the cached provider value.",
+        "operationId": "clear_common_name_override_api_species_common_name_override_delete",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scientific_name",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Scientific Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonNameOverrideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Clear Common Name Override"
+      },
+      "get": {
+        "description": "Read the manual common-name override for one cached taxon.",
+        "operationId": "get_common_name_override_api_species_common_name_override_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scientific_name",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Scientific Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonNameOverrideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Common Name Override"
+      },
+      "put": {
+        "description": "Set a durable common-name override while retaining provider data.",
+        "operationId": "set_common_name_override_api_species_common_name_override_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommonNameOverrideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonNameOverrideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Set Common Name Override"
       }
     },
     "/api/species/search": {

@@ -188,12 +188,15 @@ class TaxonomyService:
 
     async def _query_cache(self, db: aiosqlite.Connection, name: str) -> Optional[Dict]:
         async with db.execute(
-            """SELECT scientific_name, common_name, taxa_id, is_not_found, thumbnail_url, last_updated
+            """SELECT scientific_name, COALESCE(manual_common_name, common_name), taxa_id,
+                      is_not_found, thumbnail_url, last_updated
                FROM taxonomy_cache
-               WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)
+               WHERE LOWER(scientific_name) = LOWER(?)
+                  OR LOWER(common_name) = LOWER(?)
+                  OR LOWER(manual_common_name) = LOWER(?)
                ORDER BY is_not_found ASC, last_updated DESC
                LIMIT 1""",
-            (name, name),
+            (name, name, name),
         ) as cursor:
             row = await cursor.fetchone()
             if row:
@@ -238,9 +241,15 @@ class TaxonomyService:
 
     async def _insert_cache(self, db: aiosqlite.Connection, data: Dict):
         await db.execute(
-            """INSERT OR REPLACE INTO taxonomy_cache 
+            """INSERT INTO taxonomy_cache
                (scientific_name, common_name, taxa_id, is_not_found, thumbnail_url, last_updated) 
-               VALUES (?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(scientific_name) DO UPDATE SET
+                   common_name = excluded.common_name,
+                   taxa_id = excluded.taxa_id,
+                   is_not_found = excluded.is_not_found,
+                   thumbnail_url = excluded.thumbnail_url,
+                   last_updated = excluded.last_updated""",
             (
                 data["scientific_name"],
                 data["common_name"],
@@ -328,11 +337,68 @@ class TaxonomyService:
 
     async def _query_canonical_english(self, db: aiosqlite.Connection, taxa_id: int) -> Optional[str]:
         async with db.execute(
-            "SELECT common_name FROM taxonomy_cache WHERE taxa_id = ? AND is_not_found = 0 LIMIT 1",
+            """SELECT COALESCE(manual_common_name, common_name)
+               FROM taxonomy_cache WHERE taxa_id = ? AND is_not_found = 0 LIMIT 1""",
             (taxa_id,),
         ) as cursor:
             row = await cursor.fetchone()
         return row[0] if row and row[0] else None
+
+    async def get_common_name_override(
+        self, scientific_name: str, db: aiosqlite.Connection
+    ) -> Optional[Dict[str, Optional[str]]]:
+        """Return provider, manual, and effective names for a cached taxon."""
+        async with db.execute(
+            """SELECT scientific_name, common_name, manual_common_name
+               FROM taxonomy_cache
+               WHERE LOWER(scientific_name) = LOWER(?) AND is_not_found = 0
+               LIMIT 1""",
+            (scientific_name,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "scientific_name": row[0],
+            "provider_common_name": row[1],
+            "manual_common_name": row[2],
+            "effective_common_name": row[2] or row[1],
+        }
+
+    async def set_common_name_override(
+        self,
+        scientific_name: str,
+        common_name: str,
+        db: aiosqlite.Connection,
+    ) -> Optional[Dict[str, Optional[str]]]:
+        """Set a manual name without replacing provider-owned taxonomy data."""
+        cursor = await db.execute(
+            """UPDATE taxonomy_cache SET manual_common_name = ?
+               WHERE LOWER(scientific_name) = LOWER(?) AND is_not_found = 0""",
+            (common_name, scientific_name),
+        )
+        try:
+            if cursor.rowcount == 0:
+                return None
+        finally:
+            await cursor.close()
+        return await self.get_common_name_override(scientific_name, db)
+
+    async def clear_common_name_override(
+        self, scientific_name: str, db: aiosqlite.Connection
+    ) -> Optional[Dict[str, Optional[str]]]:
+        """Clear a manual name and expose the provider value again."""
+        cursor = await db.execute(
+            """UPDATE taxonomy_cache SET manual_common_name = NULL
+               WHERE LOWER(scientific_name) = LOWER(?) AND is_not_found = 0""",
+            (scientific_name,),
+        )
+        try:
+            if cursor.rowcount == 0:
+                return None
+        finally:
+            await cursor.close()
+        return await self.get_common_name_override(scientific_name, db)
 
     async def get_localized_common_name(
         self, taxa_id: int, lang: str, db: Optional[aiosqlite.Connection] = None
