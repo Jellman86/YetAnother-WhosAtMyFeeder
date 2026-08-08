@@ -131,10 +131,10 @@ def _normalize_mapping_key(value: str | None) -> str:
 
 def _parse_mapping_filter_values(mapping_value: str | None) -> tuple[bool, set[str]]:
     if not isinstance(mapping_value, str):
-        return True, set()
+        return False, set()
     tokens = {_normalize_mapping_key(token) for token in re.split(r"[,\n;|]+", mapping_value)}
     tokens.discard("")
-    if not tokens or "*" in tokens:
+    if "*" in tokens:
         return True, set()
     return False, tokens
 

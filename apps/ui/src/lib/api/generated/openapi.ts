@@ -101,7 +101,9 @@ export interface components {
     AudioContextDetectionResponse: {
     birdnet_id?: number | null;
     confidence: number;
+    matches_visual?: boolean;
     offset_seconds: number;
+    scientific_name?: string | null;
     sensor_id?: string | null;
     source_name?: string | null;
     species: string;

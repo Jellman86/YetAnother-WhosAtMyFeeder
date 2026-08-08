@@ -406,6 +406,20 @@
     const naming = $derived(getBirdNames(namingDetection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
+    const lateAudioMatch = $derived.by(() => {
+        const matches = audioContext.filter((audio) => audio.matches_visual);
+        if (!matches.length) return null;
+        return [...matches].sort(
+            (a, b) => b.confidence - a.confidence || Math.abs(a.offset_seconds) - Math.abs(b.offset_seconds)
+        )[0];
+    });
+    const effectiveAudioConfirmed = $derived(Boolean(detection.audio_confirmed || lateAudioMatch));
+    const effectiveAudioSpecies = $derived(
+        detection.audio_confirmed ? detection.audio_species : (lateAudioMatch?.species ?? detection.audio_species)
+    );
+    const effectiveAudioScore = $derived(
+        detection.audio_confirmed ? detection.audio_score : (lateAudioMatch?.confidence ?? detection.audio_score)
+    );
     const audioContextSpecies = $derived.by(() => {
         const seen = new Set<string>();
         const values: string[] = [];
@@ -418,7 +432,7 @@
             seen.add(key);
             values.push(normalized);
         };
-        add(detection.audio_species);
+        add(effectiveAudioSpecies);
         for (const species of detection.audio_context_species ?? []) {
             add(species);
         }
@@ -427,7 +441,7 @@
         }
         return values;
     });
-    const hasAudioContext = $derived(!isManualObservation && (detection.audio_confirmed || audioContextSpecies.length > 0));
+    const hasAudioContext = $derived(!isManualObservation && (effectiveAudioConfirmed || audioContextSpecies.length > 0));
     const audioNearbySummary = $derived(audioContextSpecies.join(', '));
 
     // Pick the best audioContext entry to render its BirdNET-Go spectrogram
@@ -436,7 +450,8 @@
     // Otherwise fall back to whichever context entry is closest in time.
     const matchedAudioEntry = $derived.by(() => {
         if (!audioContext.length) return null;
-        const target = (detection.audio_species || '').trim().toLowerCase();
+        if (lateAudioMatch?.birdnet_id != null) return lateAudioMatch;
+        const target = (effectiveAudioSpecies || '').trim().toLowerCase();
         if (target) {
             const match = audioContext.find(
                 (a) => (a.species || '').trim().toLowerCase() === target && a.birdnet_id != null
@@ -2643,18 +2658,18 @@
                         </div>
                         <div class="min-w-0">
                             <p class="text-[10px] font-semibold text-brand-600/70 dark:text-brand-400/70">
-                                {detection.audio_confirmed
+                                {effectiveAudioConfirmed
                                     ? $_('detection.audio_match')
                                     : $_('detection.audio_context')}
                             </p>
                             <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
-                                {detection.audio_confirmed
-                                    ? (detection.audio_species || $_('detection.birdnet_confirmed'))
+                                {effectiveAudioConfirmed
+                                    ? (effectiveAudioSpecies || $_('detection.birdnet_confirmed'))
                                     : (audioNearbySummary
                                         ? $_('detection.audio_nearby', { values: { species: audioNearbySummary }, default: 'Nearby audio: {species}' })
                                         : $_('detection.audio_no_match_desc', { default: 'No nearby BirdNET species in the matching window' }))}
-                                {#if detection.audio_score && detection.audio_confirmed}
-                                    <span class="ml-1 opacity-60">({(detection.audio_score * 100).toFixed(0)}%)</span>
+                                {#if effectiveAudioScore && effectiveAudioConfirmed}
+                                    <span class="ml-1 opacity-60">({(effectiveAudioScore * 100).toFixed(0)}%)</span>
                                 {/if}
                             </p>
                         </div>
@@ -2752,7 +2767,7 @@
                                 </figcaption>
                             {/if}
                         </figure>
-                    {:else if detection.audio_confirmed && audioContextLoaded && audioContext.length > 0}
+                    {:else if effectiveAudioConfirmed && audioContextLoaded && audioContext.length > 0}
                         <p class="px-3 py-2 rounded-xl bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-[10px] font-semibold text-slate-500">
                             {$_('detection.audio_spectrogram_unavailable', { default: 'Spectrogram unavailable for this match' })}
                         </p>

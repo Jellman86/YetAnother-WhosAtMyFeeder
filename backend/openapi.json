@@ -729,9 +729,25 @@
             "title": "Confidence",
             "type": "number"
           },
+          "matches_visual": {
+            "default": false,
+            "title": "Matches Visual",
+            "type": "boolean"
+          },
           "offset_seconds": {
             "title": "Offset Seconds",
             "type": "integer"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
           },
           "sensor_id": {
             "anyOf": [

@@ -118,6 +118,12 @@ class AudioSpeciesLeaderboardResponse(BaseModel):
 
 class AudioContextDetectionResponse(AudioDetectionResponse):
     offset_seconds: int
+    scientific_name: str | None = None
+    matches_visual: bool = False
+
+
+def _normalized_species_aliases(*values: str | None) -> set[str]:
+    return {value.strip().casefold() for value in values if isinstance(value, str) and value.strip()}
 
 
 class AudioHistoryQuery(BaseModel):
@@ -495,9 +501,7 @@ async def get_audio_context(
     if target_time.tzinfo is None:
         target_time = target_time.replace(tzinfo=timezone.utc)
 
-    mapping_value = None
-    if camera and settings.frigate.camera_audio_mapping:
-        mapping_value = settings.frigate.camera_audio_mapping.get(camera)
+    mapping_value = "*" if not camera else (settings.frigate.camera_audio_mapping or {}).get(camera)
 
     lang = get_user_language(request) or "en"
     async with get_db() as db:
@@ -557,6 +561,18 @@ async def get_event_audio_context(
             mapping_value=mapping_value,
             limit=8,
         )
+        visual_aliases = _normalized_species_aliases(
+            event.display_name,
+            event.category_name,
+            event.scientific_name,
+            event.common_name,
+        )
+        for detection in detections:
+            audio_aliases = _normalized_species_aliases(
+                detection.get("species"),
+                detection.get("scientific_name"),
+            )
+            detection["matches_visual"] = bool(visual_aliases.intersection(audio_aliases))
         await localize_audio_detections(detections, lang, db)
 
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
