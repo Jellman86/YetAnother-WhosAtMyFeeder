@@ -13,15 +13,17 @@ class SpeciesRepository:
 
     async def lookup_taxonomy(self, candidate: str, language: str) -> tuple[str | None, str | None, int | None] | None:
         async with self.db.execute(
-            """SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache
-               WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?) LIMIT 1""",
-            (candidate, candidate),
+            """SELECT scientific_name, COALESCE(manual_common_name, common_name), taxa_id,
+                      manual_common_name FROM taxonomy_cache
+               WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)
+                  OR LOWER(manual_common_name) = LOWER(?) LIMIT 1""",
+            (candidate, candidate, candidate),
         ) as cursor:
             row = await cursor.fetchone()
         if not row:
             return None
-        scientific_name, common_name, taxa_id = row
-        if language != "en" and taxa_id:
+        scientific_name, common_name, taxa_id, manual_common_name = row
+        if language != "en" and taxa_id and not manual_common_name:
             async with self.db.execute(
                 "SELECT common_name FROM taxonomy_translations WHERE taxa_id = ? AND language_code = ?",
                 (taxa_id, language),
@@ -119,14 +121,17 @@ class SpeciesRepository:
         pattern = f"%{query.casefold()}%"
         labels: list[str] = []
         async with self.db.execute(
-            "SELECT scientific_name, common_name FROM taxonomy_cache WHERE LOWER(scientific_name) LIKE ? OR LOWER(common_name) LIKE ?",
-            (pattern, pattern),
+            """SELECT scientific_name, COALESCE(manual_common_name, common_name)
+               FROM taxonomy_cache WHERE LOWER(scientific_name) LIKE ?
+                  OR LOWER(common_name) LIKE ? OR LOWER(manual_common_name) LIKE ?""",
+            (pattern, pattern, pattern),
         ) as cursor:
             for row in await cursor.fetchall():
                 labels.extend(value for value in row if value)
         if language != "en":
             async with self.db.execute(
-                """SELECT tc.scientific_name, tc.common_name FROM taxonomy_translations tt
+                """SELECT tc.scientific_name, COALESCE(tc.manual_common_name, tc.common_name)
+                   FROM taxonomy_translations tt
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
                    WHERE tt.language_code = ? AND LOWER(tt.common_name) LIKE ?""",
                 (language, pattern),

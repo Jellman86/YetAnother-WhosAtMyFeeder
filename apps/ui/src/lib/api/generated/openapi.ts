@@ -430,6 +430,16 @@ export interface components {
     message: string;
     status: string;
 };
+    CommonNameOverrideRequest: {
+    common_name: string;
+    scientific_name: string;
+};
+    CommonNameOverrideResponse: {
+    effective_common_name?: string | null;
+    manual_common_name?: string | null;
+    provider_common_name?: string | null;
+    scientific_name: string;
+};
     ConnectivityResponse: {
     frigate: components['schemas']['ConnectivityResult'];
     inaturalist: components['schemas']['ConnectivityResult'];
@@ -3372,6 +3382,33 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: Array<components['schemas']['SpeciesCountItem']>;
+    };
+  };
+  "/api/species/common-name-override": {
+    get: {
+      operationId: "get_common_name_override_api_species_common_name_override_get";
+      path: never;
+      query: {
+    scientific_name: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['CommonNameOverrideResponse'];
+    };
+    put: {
+      operationId: "set_common_name_override_api_species_common_name_override_put";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['CommonNameOverrideRequest'];
+      response: components['schemas']['CommonNameOverrideResponse'];
+    };
+    delete: {
+      operationId: "clear_common_name_override_api_species_common_name_override_delete";
+      path: never;
+      query: {
+    scientific_name: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['CommonNameOverrideResponse'];
     };
   };
   "/api/species/search": {

@@ -64,6 +64,39 @@ export async function fetchSpeciesInfo(speciesName: string, signal?: AbortSignal
     return handleResponse<SpeciesInfo>(response);
 }
 
+export interface CommonNameOverride {
+    scientific_name: string;
+    provider_common_name: string | null;
+    manual_common_name: string | null;
+    effective_common_name: string | null;
+}
+
+export async function fetchCommonNameOverride(scientificName: string): Promise<CommonNameOverride> {
+    const params = new URLSearchParams({ scientific_name: scientificName });
+    const response = await apiFetch(`${API_BASE}/species/common-name-override?${params.toString()}`);
+    return handleResponse<CommonNameOverride>(response);
+}
+
+export async function setCommonNameOverride(
+    scientificName: string,
+    commonName: string
+): Promise<CommonNameOverride> {
+    const response = await apiFetch(`${API_BASE}/species/common-name-override`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scientific_name: scientificName, common_name: commonName })
+    });
+    return handleResponse<CommonNameOverride>(response);
+}
+
+export async function clearCommonNameOverride(scientificName: string): Promise<CommonNameOverride> {
+    const params = new URLSearchParams({ scientific_name: scientificName });
+    const response = await apiFetch(`${API_BASE}/species/common-name-override?${params.toString()}`, {
+        method: 'DELETE'
+    });
+    return handleResponse<CommonNameOverride>(response);
+}
+
 export type EbirdNearbyResult = paths['/api/ebird/nearby']['get']['response'];
 export type EbirdNotableResult = paths['/api/ebird/notable']['get']['response'];
 export type EbirdObservation = EbirdNearbyResult['results'][number];

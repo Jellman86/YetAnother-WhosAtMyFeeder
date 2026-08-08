@@ -18,6 +18,9 @@
         createInaturalistDraft,
         submitInaturalistObservation,
         fetchSpeciesInfo,
+        fetchCommonNameOverride,
+        setCommonNameOverride,
+        clearCommonNameOverride,
         fetchEbirdNearby,
         fetchEbirdNotable,
         fetchClassifierStatus,
@@ -187,6 +190,11 @@
     let ebirdNotableLoading = $state(false);
     let ebirdNotableError = $state<string | null>(null);
     let lastEnrichmentKey = $state<string | null>(null);
+    let commonNameEditorOpen = $state(false);
+    let commonNameOverride = $state<string | null>(null);
+    let commonNameOverrideInput = $state('');
+    let commonNameOverrideSaving = $state(false);
+    let commonNameOverrideLoadedFor = $state<string | null>(null);
 
     $effect(() => {
         if (modalElement) {
@@ -391,7 +399,11 @@
     // Naming logic
     const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
     const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
-    const naming = $derived(getBirdNames(detection, showCommon, preferSci));
+    const namingDetection = $derived({
+        ...detection,
+        common_name: commonNameOverride ?? detection.common_name
+    });
+    const naming = $derived(getBirdNames(namingDetection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
     const audioContextSpecies = $derived.by(() => {
@@ -840,6 +852,73 @@
             speciesInfoLoading = false;
         }
     }
+
+    async function loadCommonNameOverride(scientificName: string) {
+        commonNameOverrideLoadedFor = scientificName;
+        commonNameEditorOpen = false;
+        try {
+            const result = await fetchCommonNameOverride(scientificName);
+            if (commonNameOverrideLoadedFor !== scientificName) return;
+            commonNameOverride = result.manual_common_name;
+            commonNameOverrideInput = result.manual_common_name ?? result.effective_common_name ?? '';
+        } catch {
+            if (commonNameOverrideLoadedFor !== scientificName) return;
+            commonNameOverride = null;
+            commonNameOverrideInput = detection.common_name ?? '';
+        }
+    }
+
+    async function saveCommonNameOverride() {
+        const scientificName = detection.scientific_name?.trim();
+        const commonName = commonNameOverrideInput.trim();
+        if (!scientificName || !commonName || commonNameOverrideSaving) return;
+        commonNameOverrideSaving = true;
+        try {
+            const result = await setCommonNameOverride(scientificName, commonName);
+            commonNameOverride = result.manual_common_name;
+            commonNameOverrideInput = result.effective_common_name ?? commonName;
+            detection.common_name = result.effective_common_name ?? undefined;
+            detectionsStore.updateDetection({ ...detection });
+            commonNameEditorOpen = false;
+            toastStore.success($_('detection.common_name_override_saved', { default: 'Common name updated' }));
+        } catch (error) {
+            toastStore.error(getErrorMessage(error) || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            commonNameOverrideSaving = false;
+        }
+    }
+
+    async function resetCommonNameOverride() {
+        const scientificName = detection.scientific_name?.trim();
+        if (!scientificName || commonNameOverrideSaving) return;
+        commonNameOverrideSaving = true;
+        try {
+            const result = await clearCommonNameOverride(scientificName);
+            commonNameOverride = null;
+            commonNameOverrideInput = result.effective_common_name ?? '';
+            detection.common_name = result.effective_common_name ?? undefined;
+            detectionsStore.updateDetection({ ...detection });
+            commonNameEditorOpen = false;
+            toastStore.success($_('detection.common_name_override_cleared', { default: 'Provider common name restored' }));
+        } catch (error) {
+            toastStore.error(getErrorMessage(error) || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            commonNameOverrideSaving = false;
+        }
+    }
+
+    $effect(() => {
+        const scientificName = detection.scientific_name?.trim();
+        if (!hasOwnerDetectionActions || !scientificName) {
+            commonNameOverrideLoadedFor = null;
+            commonNameOverride = null;
+            commonNameEditorOpen = false;
+            return;
+        }
+        if (commonNameOverrideLoadedFor !== scientificName) {
+            void loadCommonNameOverride(scientificName);
+        }
+    });
 
     async function loadEbirdNearby(speciesName: string, scientificName?: string) {
         ebirdNearbyLoading = true;
@@ -3279,6 +3358,61 @@
             {/if}
 
             <!-- Actions -->
+            {#if hasOwnerDetectionActions && detection.scientific_name}
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                {$_('detection.common_name_override', { default: 'Common name' })}
+                            </p>
+                            <p class="truncate text-sm font-bold text-slate-800 dark:text-slate-100">
+                                {commonNameOverride ?? detection.common_name ?? $_('common.unknown_species')}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onclick={() => {
+                                commonNameOverrideInput = commonNameOverride ?? detection.common_name ?? '';
+                                commonNameEditorOpen = !commonNameEditorOpen;
+                            }}
+                            class="shrink-0 rounded-lg bg-white dark:bg-slate-700 px-3 py-2 text-xs font-semibold text-brand-600 dark:text-brand-300 shadow-sm"
+                        >
+                            {$_('detection.common_name_override_edit', { default: 'Edit name' })}
+                        </button>
+                    </div>
+                    {#if commonNameEditorOpen}
+                        <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                            <input
+                                type="text"
+                                maxlength="120"
+                                bind:value={commonNameOverrideInput}
+                                disabled={commonNameOverrideSaving}
+                                aria-label={$_('detection.common_name_override', { default: 'Common name' })}
+                                class="min-w-0 flex-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            />
+                            <button
+                                type="button"
+                                onclick={saveCommonNameOverride}
+                                disabled={!commonNameOverrideInput.trim() || commonNameOverrideSaving}
+                                class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                            >
+                                {commonNameOverrideSaving ? $_('common.saving') : $_('common.save')}
+                            </button>
+                            {#if commonNameOverride}
+                                <button
+                                    type="button"
+                                    onclick={resetCommonNameOverride}
+                                    disabled={commonNameOverrideSaving}
+                                    class="rounded-lg bg-slate-200 dark:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 disabled:opacity-50"
+                                >
+                                    {$_('detection.common_name_override_reset', { default: 'Use provider name' })}
+                                </button>
+                            {/if}
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
             {#if hasOwnerDetectionActions}
                 <div class="flex gap-2">
                     {#if !isManualObservation}

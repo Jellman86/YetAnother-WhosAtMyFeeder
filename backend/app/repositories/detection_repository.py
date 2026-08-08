@@ -1993,12 +1993,20 @@ class DetectionRepository:
         normalized_lookup = _normalize_species_lookup_name(name)
 
         async with self.db.execute(
-            "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
-            (name, name),
+            """SELECT scientific_name, COALESCE(manual_common_name, common_name), taxa_id,
+                      manual_common_name
+               FROM taxonomy_cache
+               WHERE LOWER(scientific_name) = LOWER(?)
+                  OR LOWER(common_name) = LOWER(?)
+                  OR LOWER(manual_common_name) = LOWER(?)""",
+            (name, name, name),
         ) as cursor:
             row = await cursor.fetchone()
             if row:
                 result = {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
+                has_manual_override = bool(row[3])
+            else:
+                has_manual_override = False
 
         if (
             result["taxa_id"] is None
@@ -2007,7 +2015,8 @@ class DetectionRepository:
             and await self._table_exists("taxonomy_translations")
         ):
             async with self.db.execute(
-                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                """SELECT tc.scientific_name, COALESCE(tc.manual_common_name, tc.common_name),
+                          tc.taxa_id, tt.common_name, tc.manual_common_name
                    FROM taxonomy_translations tt
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
                    WHERE tt.language_code = ?
@@ -2017,7 +2026,11 @@ class DetectionRepository:
             ) as cursor:
                 row = await cursor.fetchone()
                 if row:
-                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    result = {
+                        "scientific_name": row[0],
+                        "common_name": row[1] if row[4] else (row[3] or row[1]),
+                        "taxa_id": row[2],
+                    }
                     return result
 
         # Accent-insensitive fallback for localized names (e.g. "comun" vs "común").
@@ -2030,7 +2043,8 @@ class DetectionRepository:
             and await self._table_exists("taxonomy_translations")
         ):
             async with self.db.execute(
-                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                """SELECT tc.scientific_name, COALESCE(tc.manual_common_name, tc.common_name),
+                          tc.taxa_id, tt.common_name, tc.manual_common_name
                    FROM taxonomy_translations tt
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
                    WHERE tt.language_code = ?""",
@@ -2039,25 +2053,37 @@ class DetectionRepository:
                 rows = await cursor.fetchall()
             for row in rows:
                 if _normalize_species_lookup_name(row[3]) == normalized_lookup:
-                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    result = {
+                        "scientific_name": row[0],
+                        "common_name": row[1] if row[4] else (row[3] or row[1]),
+                        "taxa_id": row[2],
+                    }
                     return result
 
         # Language-agnostic localized fallback for repair/maintenance paths that
         # do not know the source language of the stored display name.
         if result["taxa_id"] is None and normalized_lookup and await self._table_exists("taxonomy_translations"):
             async with self.db.execute(
-                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                """SELECT tc.scientific_name, COALESCE(tc.manual_common_name, tc.common_name),
+                          tc.taxa_id, tt.common_name, tc.manual_common_name
                    FROM taxonomy_translations tt
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id"""
             ) as cursor:
                 rows = await cursor.fetchall()
             for row in rows:
                 if _normalize_species_lookup_name(row[3]) == normalized_lookup:
-                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    result = {
+                        "scientific_name": row[0],
+                        "common_name": row[1] if row[4] else (row[3] or row[1]),
+                        "taxa_id": row[2],
+                    }
                     return result
 
         if result["taxa_id"] is None and normalized_lookup:
-            async with self.db.execute("SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache") as cursor:
+            async with self.db.execute(
+                """SELECT scientific_name, COALESCE(manual_common_name, common_name),
+                          taxa_id, manual_common_name FROM taxonomy_cache"""
+            ) as cursor:
                 rows = await cursor.fetchall()
             for row in rows:
                 if (
@@ -2065,10 +2091,12 @@ class DetectionRepository:
                     or _normalize_species_lookup_name(row[1]) == normalized_lookup
                 ):
                     result = {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
+                    has_manual_override = bool(row[3])
                     break
 
         if (
             result["taxa_id"] is not None
+            and not has_manual_override
             and language
             and language != "en"
             and await self._table_exists("taxonomy_translations")
