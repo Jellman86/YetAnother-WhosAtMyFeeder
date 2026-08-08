@@ -50,3 +50,25 @@ def test_monolith_serves_live_startup_status_without_caching() -> None:
     assert 'add_header Cache-Control "no-store, max-age=0" always;' in config
     assert "YA_WAMF_STARTUP_STATUS_PATH" in entrypoint
     assert 'write_startup_status "starting" "launching" 5' in entrypoint
+
+
+def test_monolith_access_logs_omit_query_strings() -> None:
+    main_config = (REPOSITORY_ROOT / "docker/monolith/nginx-main.conf").read_text(encoding="utf-8")
+    entrypoint = (REPOSITORY_ROOT / "docker/monolith/entrypoint.sh").read_text(encoding="utf-8")
+
+    assert '"$request_method $uri $server_protocol"' in main_config
+    assert "access_log /dev/stdout safe_access;" in main_config
+    assert "access_log /dev/stdout;" not in main_config
+    assert "$args" not in main_config
+    assert "$request_uri" not in main_config
+    assert "$http_referer" not in main_config
+    assert "--no-access-log" in entrypoint
+
+
+def test_monolith_compose_rotates_container_logs() -> None:
+    compose = (REPOSITORY_ROOT / "docker-compose.monolith.yml").read_text(encoding="utf-8")
+
+    assert "logging:" in compose
+    assert 'max-size: "${CONTAINER_LOG_MAX_SIZE:-10m}"' in compose
+    assert 'max-file: "${CONTAINER_LOG_MAX_FILES:-3}"' in compose
+    assert "DB_PRE_MIGRATION_BACKUP_RETENTION=${DB_PRE_MIGRATION_BACKUP_RETENTION:-10}" in compose

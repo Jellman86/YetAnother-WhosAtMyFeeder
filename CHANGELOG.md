@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Authentication tokens no longer appear in monolithic container access logs.** Nginx now logs
+  the request path without its query string, the duplicate Uvicorn access log is disabled, and the
+  recommended Compose deployment rotates JSON logs at 10 MB while retaining three files.
+
+- **Automatic database migration backups no longer grow without a limit.** YA-WAMF keeps the 10
+  newest timestamped restore points by default and removes older automatic backups only after a
+  new backup succeeds. `DB_PRE_MIGRATION_BACKUP_RETENTION` can raise that limit, at least one
+  restore point is always kept, and manual backups are unaffected.
+
 - **A detection no longer claims nothing was heard when audio was heard on an unmapped
   microphone.** The audio panel distinguishes a silent window from audio excluded by the
   camera-to-audio-source mapping. The established array response remains compatible with existing
