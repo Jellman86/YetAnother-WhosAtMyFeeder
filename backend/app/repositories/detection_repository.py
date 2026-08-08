@@ -1602,16 +1602,18 @@ class DetectionRepository:
         frigate_event: str | None = None,
     ) -> list[Detection]:
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
+        needs_taxonomy_cache = bool(has_taxonomy_cache and (species or species_any or taxa_id is not None))
         query = (
             """
             SELECT """
+            + ("DISTINCT " if needs_taxonomy_cache else "")
             + DETECTION_SELECT_COLUMNS
             + """
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
         )
-        if has_taxonomy_cache:
+        if needs_taxonomy_cache:
             query += """
             LEFT JOIN taxonomy_cache tc_filter
                 ON ((d.scientific_name IS NOT NULL AND LOWER(tc_filter.scientific_name) = LOWER(d.scientific_name))
@@ -1635,7 +1637,7 @@ class DetectionRepository:
             species_condition, species_params = await self._build_canonical_species_condition(
                 detection_alias="d",
                 species_name=species,
-                has_taxonomy_cache=has_taxonomy_cache,
+                has_taxonomy_cache=needs_taxonomy_cache,
             )
             conditions.append(species_condition)
             params.extend(species_params)
@@ -1646,7 +1648,7 @@ class DetectionRepository:
                 clause, clause_params = await self._build_canonical_species_condition(
                     detection_alias="d",
                     species_name=species_name,
-                    has_taxonomy_cache=has_taxonomy_cache,
+                    has_taxonomy_cache=needs_taxonomy_cache,
                 )
                 any_clauses.append(clause)
                 any_params.extend(clause_params)
@@ -1654,7 +1656,7 @@ class DetectionRepository:
                 conditions.append("(" + " OR ".join(any_clauses) + ")")
                 params.extend(any_params)
         if taxa_id is not None:
-            if has_taxonomy_cache:
+            if needs_taxonomy_cache:
                 conditions.append("COALESCE(d.taxa_id, tc_filter.taxa_id) = ?")
             else:
                 conditions.append("d.taxa_id = ?")
@@ -1703,12 +1705,13 @@ class DetectionRepository:
     ) -> int:
         """Get total count of detections, optionally filtered."""
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
-        query = """
-            SELECT COUNT(*)
+        needs_taxonomy_cache = bool(has_taxonomy_cache and (species or species_any or taxa_id is not None))
+        query = f"""
+            SELECT {"COUNT(DISTINCT d.id)" if needs_taxonomy_cache else "COUNT(*)"}
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
-        if has_taxonomy_cache:
+        if needs_taxonomy_cache:
             query += """
             LEFT JOIN taxonomy_cache tc_filter
                 ON ((d.scientific_name IS NOT NULL AND LOWER(tc_filter.scientific_name) = LOWER(d.scientific_name))
@@ -1732,7 +1735,7 @@ class DetectionRepository:
             species_condition, species_params = await self._build_canonical_species_condition(
                 detection_alias="d",
                 species_name=species,
-                has_taxonomy_cache=has_taxonomy_cache,
+                has_taxonomy_cache=needs_taxonomy_cache,
             )
             conditions.append(species_condition)
             params.extend(species_params)
@@ -1743,7 +1746,7 @@ class DetectionRepository:
                 clause, clause_params = await self._build_canonical_species_condition(
                     detection_alias="d",
                     species_name=species_name,
-                    has_taxonomy_cache=has_taxonomy_cache,
+                    has_taxonomy_cache=needs_taxonomy_cache,
                 )
                 any_clauses.append(clause)
                 any_params.extend(clause_params)
@@ -1751,7 +1754,7 @@ class DetectionRepository:
                 conditions.append("(" + " OR ".join(any_clauses) + ")")
                 params.extend(any_params)
         if taxa_id is not None:
-            if has_taxonomy_cache:
+            if needs_taxonomy_cache:
                 conditions.append("COALESCE(d.taxa_id, tc_filter.taxa_id) = ?")
             else:
                 conditions.append("d.taxa_id = ?")
