@@ -31,7 +31,7 @@
         "apexcharts": "^6.6.1",
         "flatpickr": "^4.6.13",
         "leaflet": "^1.9.4",
-        "markdown-it": "^14.1.0",
+        "markdown-it": "^15.0.0",
         "svelte-i18n": "^4.0.1"
     }
 }
