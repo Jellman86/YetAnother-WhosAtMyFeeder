@@ -28,7 +28,7 @@ slowapi==0.1.10
 
 # Authentication
 pyjwt==2.13.0
-cryptography==49.0.0
+cryptography==50.0.0
 bcrypt==5.0.0
 
 # SMTP and OAuth notifications
