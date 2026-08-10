@@ -1160,6 +1160,13 @@ export interface components {
     missing: number;
     status: string;
 };
+    ReadinessResponse: {
+    db_pool_initialized: boolean;
+    ready: boolean;
+    startup_instance_id: string;
+    startup_started_at: string | null;
+    startup_warnings: Array<Record<string, unknown>>;
+};
     ReclassifyResponse: {
     actual_strategy: "snapshot" | "video";
     event_id: string;
@@ -3636,7 +3643,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, unknown>;
     };
   };
   "/metrics": {
@@ -3654,7 +3661,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ReadinessResponse'];
     };
   };
 }

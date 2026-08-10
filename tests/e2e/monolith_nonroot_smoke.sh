@@ -38,5 +38,6 @@ fi
 docker inspect "$CID" --format '{{range (index .NetworkSettings.Ports "8080/tcp")}}{{println .HostPort}}{{end}}' | grep -qx '19854'
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/ >/dev/null
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/health >/dev/null
+docker exec "$CID" curl -fsS http://127.0.0.1:8080/ready >/dev/null
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/api/version >/dev/null
 docker exec "$CID" sh -lc 'test "$YAWAMF_IMAGE_FLAVOR" = "full"'

@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Public readiness checks now report backend readiness instead of returning the web app.** Both
+  monolithic and split frontend proxies route the exact `/ready` path to the backend without
+  caching it. Container health and image smoke tests now exercise that public route, so a future
+  proxy regression cannot be hidden by checking the backend port directly.
+
 - **Full-visit clips no longer become permanently short when Frigate is still finalizing a recording.**
   Automatic generation waits for the requested window to settle, measures the downloaded duration,
   and makes bounded attempts to upgrade a partial result. Recording files are staged and replaced

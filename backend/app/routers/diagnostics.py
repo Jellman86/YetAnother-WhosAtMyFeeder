@@ -228,12 +228,12 @@ def _build_backfill_focus(backend_snapshot: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _collect_workspace_payload(limit: int) -> dict[str, Any]:
-    from app.main import health_check
+    from app.main import build_health_payload
     from app.routers.classifier import classifier_service
     from app.routers.settings import canonical_identity_repair_service
     from app.services.maintenance_coordinator import maintenance_coordinator
 
-    health = await health_check()
+    health = build_health_payload()
     backend_diagnostics = error_diagnostics_history.snapshot(limit=limit)
     taxonomy_repair = canonical_identity_repair_service.get_status()
     maintenance_status = await maintenance_coordinator.get_status()

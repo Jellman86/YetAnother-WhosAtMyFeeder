@@ -8072,6 +8072,50 @@
         "title": "PurgeMissingMediaResponse",
         "type": "object"
       },
+      "ReadinessResponse": {
+        "properties": {
+          "db_pool_initialized": {
+            "title": "Db Pool Initialized",
+            "type": "boolean"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "startup_instance_id": {
+            "title": "Startup Instance Id",
+            "type": "string"
+          },
+          "startup_started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startup Started At"
+          },
+          "startup_warnings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Startup Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ready",
+          "db_pool_initialized",
+          "startup_warnings",
+          "startup_instance_id",
+          "startup_started_at"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
       "ReclassifyResponse": {
         "description": "Response from reclassification.",
         "properties": {
@@ -23254,7 +23298,11 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health Check Health Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -23288,7 +23336,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
               }
             },
             "description": "Successful Response"

@@ -66,8 +66,9 @@ curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
 
 ## Health, Readiness, Version, Streaming
 
-- `GET /health`: process + classifier health.
-- `GET /ready`: startup readiness (returns `503` until ready).
+- `GET /health`: process + classifier health. The response is not cacheable.
+- `GET /ready`: startup readiness (returns `503` until ready). This exact public path is proxied
+  through both monolithic and split frontend deployments and is not cacheable.
 - `GET /api/version`: app version metadata.
 - `GET /api/sse`: Server-Sent Events stream.
   - Supports bearer token or `?token=<jwt>` for EventSource compatibility.

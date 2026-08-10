@@ -8,6 +8,10 @@ FRONTEND_NGINX_CONFIGS = (
     REPOSITORY_ROOT / "docker/monolith/nginx.conf",
     REPOSITORY_ROOT / "apps/ui/nginx.conf",
 )
+FRONTEND_NGINX_UPSTREAMS = (
+    (REPOSITORY_ROOT / "docker/monolith/nginx.conf", "http://127.0.0.1:8000"),
+    (REPOSITORY_ROOT / "apps/ui/nginx.conf", "http://yawamf-backend:8000"),
+)
 
 
 @pytest.mark.parametrize("config_path", FRONTEND_NGINX_CONFIGS)
@@ -39,6 +43,34 @@ def test_frontend_document_is_revalidated_without_weakening_api_cache_headers(
     assert "expires -1;" in document_block
     assert "add_header Cache-Control" not in root_and_static_blocks
     assert "location /api/" in config
+
+
+@pytest.mark.parametrize(("config_path", "backend_upstream"), FRONTEND_NGINX_UPSTREAMS)
+def test_operational_probes_are_exact_public_backend_routes(
+    config_path: Path,
+    backend_upstream: str,
+) -> None:
+    config = config_path.read_text(encoding="utf-8")
+
+    for endpoint in ("health", "ready"):
+        location = f"location = /{endpoint} {{"
+        block_start = config.index(location)
+        block_end = config.index("\n    }", block_start)
+        block = config[block_start:block_end]
+
+        assert f"proxy_pass {backend_upstream}/{endpoint};" in block
+        assert "add_header " not in block
+
+    assert "location /health {" not in config
+    assert "location /ready {" not in config
+
+
+def test_monolith_healthcheck_exercises_public_readiness_route() -> None:
+    healthcheck = (REPOSITORY_ROOT / "docker/monolith/healthcheck.sh").read_text(encoding="utf-8")
+
+    assert "http://127.0.0.1:8080/health" in healthcheck
+    assert "http://127.0.0.1:8080/ready" in healthcheck
+    assert "http://127.0.0.1:8000/ready" not in healthcheck
 
 
 def test_monolith_serves_live_startup_status_without_caching() -> None:

@@ -152,6 +152,14 @@ class VersionResponse(BaseModel):
     base_version: str
 
 
+class ReadinessResponse(BaseModel):
+    ready: bool
+    db_pool_initialized: bool
+    startup_warnings: list[dict[str, object]]
+    startup_instance_id: str
+    startup_started_at: str | None
+
+
 # Metrics
 EVENTS_PROCESSED = Counter("events_processed_total", "Total number of events processed")
 DETECTIONS_TOTAL = Counter("detections_total", "Total number of bird detections")
@@ -787,8 +795,7 @@ async def count_requests(request, call_next):
     return response
 
 
-@app.get("/health")
-async def health_check():
+def build_health_payload() -> dict[str, object]:
     startup_warnings = getattr(app.state, "startup_warnings", [])
     startup_instance_id = getattr(app.state, "startup_instance_id", "unknown")
     startup_started_at = getattr(app.state, "startup_started_at", None)
@@ -854,8 +861,14 @@ async def health_check():
     return health
 
 
-@app.get("/ready")
-async def readiness_check():
+@app.get("/health")
+async def health_check(response: Response) -> dict[str, object]:
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return build_health_payload()
+
+
+@app.get("/ready", response_model=ReadinessResponse)
+async def readiness_check(response: Response) -> ReadinessResponse | JSONResponse:
     """Kubernetes/Compose readiness probe endpoint.
 
     Ready requires:
@@ -866,16 +879,21 @@ async def readiness_check():
     db_ready = is_db_pool_initialized() or _is_testing()
     ready = db_ready and not startup_warnings
 
-    payload = {
-        "ready": ready,
-        "db_pool_initialized": db_ready,
-        "startup_warnings": startup_warnings,
-        "startup_instance_id": getattr(app.state, "startup_instance_id", "unknown"),
-        "startup_started_at": getattr(app.state, "startup_started_at", None),
-    }
+    payload = ReadinessResponse(
+        ready=ready,
+        db_pool_initialized=db_ready,
+        startup_warnings=startup_warnings,
+        startup_instance_id=getattr(app.state, "startup_instance_id", "unknown"),
+        startup_started_at=getattr(app.state, "startup_started_at", None),
+    )
     if ready:
+        response.headers["Cache-Control"] = "no-store, max-age=0"
         return payload
-    return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=payload)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=payload.model_dump(),
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @app.get("/api/sse")
