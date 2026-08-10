@@ -8,6 +8,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Full-visit clips no longer become permanently short when Frigate is still finalizing a recording.**
+  Automatic generation waits for the requested window to settle, measures the downloaded duration,
+  and makes bounded attempts to upgrade a partial result. Recording files are staged and replaced
+  atomically only when the candidate is longer, while the player labels a retained usable fallback
+  as a **Partial visit** instead of presenting it as complete.
+
 - **The Events page no longer lets taxonomy aliases or slow Frigate media checks hold up a page.**
   Unfiltered reads avoid the taxonomy join, filtered reads deduplicate detections that have more
   than one cached alias, and clip availability checks use a bounded two-second request window with

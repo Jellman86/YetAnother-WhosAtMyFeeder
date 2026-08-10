@@ -1183,7 +1183,8 @@ export interface components {
     cached: boolean;
     clip_variant?: "recording";
     event_id: string;
-    status: "ready";
+    recording_state: "complete" | "partial";
+    status: "ready" | "partial";
 };
     ReverseGeocodeResponse: {
     country?: string | null;

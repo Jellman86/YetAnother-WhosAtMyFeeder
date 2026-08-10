@@ -1843,6 +1843,7 @@ async def test_process_event_falls_back_to_hq_frame_when_bird_crop_unavailable(t
 async def test_process_event_falls_back_to_cached_recording_clip_when_event_clip_missing(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_recording_fallback", b"frigate-bytes")
+    monkeypatch.setattr(media_cache_module, "_clip_duration_seconds", lambda _path: 30.0)
     await cache_service.cache_recording_clip("evt_recording_fallback", b"r" * 1024)
     settings.media_cache.high_quality_event_snapshots = True
     settings.frigate.recording_clip_enabled = True

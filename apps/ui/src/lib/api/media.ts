@@ -22,6 +22,9 @@ export function getRecordingClipUrl(frigateEvent: string): string {
 }
 
 export const RECORDING_CLIP_READY_HEADER = 'X-YAWAMF-Recording-Clip-Ready';
+export const RECORDING_CLIP_STATE_HEADER = 'X-YAWAMF-Recording-Clip-State';
+export const RECORDING_CLIP_DURATION_HEADER = 'X-YAWAMF-Recording-Clip-Duration';
+export type RecordingClipState = 'complete' | 'partial';
 
 export type RecordingClipFetchResponse =
     paths['/api/frigate/{event_id}/recording-clip/fetch']['post']['response'];
@@ -29,6 +32,8 @@ export type RecordingClipFetchResponse =
 export interface RecordingClipAvailabilityResponse {
     available: boolean;
     fetched: boolean;
+    state: RecordingClipState | null;
+    durationSeconds: number | null;
 }
 
 export type SnapshotStatusResponse = paths['/api/frigate/{event_id}/snapshot/status']['get']['response'];
@@ -154,12 +159,19 @@ export async function checkRecordingClipAvailable(frigateEvent: string): Promise
             method: 'HEAD',
             timeoutMs: 10_000
         });
+        const rawState = response.headers.get(RECORDING_CLIP_STATE_HEADER)?.toLowerCase();
+        const state: RecordingClipState | null = rawState === 'complete' || rawState === 'partial' ? rawState : null;
+        const rawDuration = Number.parseFloat(response.headers.get(RECORDING_CLIP_DURATION_HEADER) ?? '');
         return {
             available: response.ok,
-            fetched: response.headers.get(RECORDING_CLIP_READY_HEADER)?.toLowerCase() === 'cached'
+            fetched: state === 'complete' || (
+                state === null && response.headers.get(RECORDING_CLIP_READY_HEADER)?.toLowerCase() === 'cached'
+            ),
+            state,
+            durationSeconds: Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : null
         };
     } catch {
-        return { available: false, fetched: false };
+        return { available: false, fetched: false, state: null, durationSeconds: null };
     }
 }
 

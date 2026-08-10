@@ -84,7 +84,7 @@
         readOnly?: boolean;
         fullVisitAvailable?: boolean;
         fullVisitFetched?: boolean;
-        fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'failed';
+        fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'partial' | 'failed';
     }
 
     let {
@@ -356,12 +356,12 @@
         detectionsStore.progressMap.get(detection.frigate_event) || null
     );
     let canPlayVideo = $derived(showVideoButton && !!onPlayVideo && (detection.has_clip || fullVisitFetched) && !reclassifyProgress);
-    let showFetchFullVisitAction = $derived(!!onFetchFullVisit && fullVisitAvailable && !fullVisitFetched && fullVisitFetchState === 'failed' && !reclassifyProgress);
+    let showFetchFullVisitAction = $derived(!!onFetchFullVisit && fullVisitAvailable && !fullVisitFetched && (fullVisitFetchState === 'partial' || fullVisitFetchState === 'failed') && !reclassifyProgress);
     let fullVisitFetchLabel = $derived.by(() => {
         if (fullVisitFetchState === 'fetching') {
             return $_('video_player.fetching_full_visit', { default: 'Fetching...' });
         }
-        if (fullVisitFetchState === 'failed') {
+        if (fullVisitFetchState === 'partial' || fullVisitFetchState === 'failed') {
             return $_('video_player.fetch_full_visit_retry', { default: 'Retry full clip' });
         }
         return $_('video_player.fetch_full_visit', { default: 'Fetch full clip' });

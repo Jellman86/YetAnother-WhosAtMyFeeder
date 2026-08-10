@@ -8251,8 +8251,19 @@
             "title": "Event Id",
             "type": "string"
           },
+          "recording_state": {
+            "enum": [
+              "complete",
+              "partial"
+            ],
+            "title": "Recording State",
+            "type": "string"
+          },
           "status": {
-            "const": "ready",
+            "enum": [
+              "ready",
+              "partial"
+            ],
             "title": "Status",
             "type": "string"
           }
@@ -8260,6 +8271,7 @@
         "required": [
           "event_id",
           "status",
+          "recording_state",
           "cached"
         ],
         "title": "RecordingClipFetchResponse",

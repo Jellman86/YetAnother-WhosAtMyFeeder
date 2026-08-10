@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from pathlib import Path
 
 import pytest
@@ -174,6 +175,7 @@ async def test_snapshot_metadata_tracks_source_and_is_removed_with_snapshot(tmp_
 async def test_recording_clip_cache_uses_distinct_key_from_event_clip(tmp_path, monkeypatch):
     service, _snapshots = _make_service(tmp_path, monkeypatch)
     event_id = "evt_recording"
+    monkeypatch.setattr(media_cache_module, "_clip_duration_seconds", lambda _path: 30.0)
 
     clip_path = await service.cache_clip(event_id, b"a" * 600)
     recording_path = await service.cache_recording_clip(event_id, b"b" * 700)
@@ -191,6 +193,7 @@ async def test_recording_clip_cache_uses_distinct_key_from_event_clip(tmp_path, 
 async def test_cache_recording_clip_emits_listener_on_success(tmp_path, monkeypatch):
     service, _snapshots = _make_service(tmp_path, monkeypatch)
     calls: list[str] = []
+    monkeypatch.setattr(media_cache_module, "_clip_duration_seconds", lambda _path: 30.0)
 
     async def listener(event_id: str) -> None:
         calls.append(event_id)
@@ -243,6 +246,97 @@ async def test_cache_recording_clip_streaming_emits_only_on_validated_size(tmp_p
 
     assert recording_path is None
     assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_recording_stream_keeps_longer_existing_clip_when_candidate_is_shorter(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_keep_longer"
+    recording_path = service._recording_clip_path(event_id)
+    recording_path.write_bytes(b"a" * 2048)
+
+    monkeypatch.setattr(
+        media_cache_module,
+        "_clip_duration_seconds",
+        lambda path: 30.0 if path.read_bytes().startswith(b"a") else 20.0,
+    )
+
+    async def chunks():
+        yield b"b" * 2048
+
+    resolved = await service.cache_recording_clip_streaming(event_id, chunks())
+
+    assert resolved == recording_path
+    assert recording_path.read_bytes() == b"a" * 2048
+    assert list(recording_path.parent.glob("*.tmp.mp4")) == []
+
+
+@pytest.mark.asyncio
+async def test_recording_stream_preserves_existing_clip_when_atomic_swap_fails(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_atomic_failure"
+    recording_path = service._recording_clip_path(event_id)
+    recording_path.write_bytes(b"a" * 2048)
+    monkeypatch.setattr(
+        media_cache_module,
+        "_clip_duration_seconds",
+        lambda path: 20.0 if path.read_bytes().startswith(b"a") else 30.0,
+    )
+
+    def fail_replace(self, target):
+        raise OSError("swap failed")
+
+    monkeypatch.setattr(Path, "replace", fail_replace)
+
+    async def chunks():
+        yield b"b" * 2048
+
+    resolved = await service.cache_recording_clip_streaming(event_id, chunks())
+
+    assert resolved is None
+    assert recording_path.read_bytes() == b"a" * 2048
+    assert list(recording_path.parent.glob("*.tmp.mp4")) == []
+
+
+@pytest.mark.asyncio
+async def test_concurrent_recording_commits_cannot_replace_a_longer_clip_with_a_shorter_one(tmp_path, monkeypatch):
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    event_id = "evt_concurrent_upgrade"
+    recording_path = service._recording_clip_path(event_id)
+    short_replace_started = threading.Event()
+    release_short_replace = threading.Event()
+    original_replace = Path.replace
+
+    monkeypatch.setattr(
+        media_cache_module,
+        "_clip_duration_seconds",
+        lambda path: 30.0 if path.read_bytes().startswith(b"a") else 20.0,
+    )
+
+    def controlled_replace(self: Path, target: Path):
+        if self.read_bytes().startswith(b"b"):
+            short_replace_started.set()
+            assert release_short_replace.wait(timeout=2.0)
+        return original_replace(self, target)
+
+    monkeypatch.setattr(Path, "replace", controlled_replace)
+
+    async def long_chunks():
+        yield b"a" * 2048
+
+    async def short_chunks():
+        yield b"b" * 2048
+
+    short_task = asyncio.create_task(service.cache_recording_clip_streaming(event_id, short_chunks()))
+    assert await asyncio.to_thread(short_replace_started.wait, 2.0)
+    long_task = asyncio.create_task(service.cache_recording_clip_streaming(event_id, long_chunks()))
+    await asyncio.sleep(0.05)
+    assert long_task.done() is False
+
+    release_short_replace.set()
+    await asyncio.gather(short_task, long_task)
+
+    assert recording_path.read_bytes() == b"a" * 2048
 
 
 def test_get_recording_clip_path_retains_usable_partial_recording_and_preview_assets(tmp_path, monkeypatch):

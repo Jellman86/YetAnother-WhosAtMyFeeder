@@ -217,9 +217,9 @@ sampled frames; a Frigate crop is available only when `path_data` aligns it with
 tolerance. Full-frame and detector-crop evidence remain available when tracking data is absent.
 
 Notes:
-- `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted full-visit clip exists for the event, this route serves that full-visit file before falling back to the shorter Frigate event clip.
-- `GET /api/frigate/{event_id}/recording-clip.mp4` remains available as an explicit full-visit route and uses the same persisted `{event_id}_recording.mp4` cache file when ready.
-- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint, but with recording clips and the media cache enabled YA-WAMF also generates full-visit clips automatically for eligible completed detections.
+- `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted recording exists for the event, this route serves it before falling back to the shorter Frigate event clip. Recording responses expose `X-YAWAMF-Clip-Variant: recording`, `X-YAWAMF-Recording-Clip-State: complete|partial`, and the measured `X-YAWAMF-Recording-Clip-Duration` when available.
+- `GET` and `HEAD /api/frigate/{event_id}/recording-clip.mp4` remain available as explicit full-visit routes and use the same persisted `{event_id}_recording.mp4` cache file. `X-YAWAMF-Recording-Clip-Ready` is `cached` for a complete file and `partial` for a usable shorter file.
+- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint. Its response reports `status: ready|partial` and `recording_state: complete|partial`; with recording clips and the media cache enabled YA-WAMF also generates and upgrades full-visit clips automatically for eligible completed detections.
 
 ### Species and Leaderboard
 
