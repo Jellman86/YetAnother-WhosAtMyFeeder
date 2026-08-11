@@ -27,21 +27,112 @@
     "species": "Specie"
   },
   "manual_observation": {
-    "eyebrow": "Osservazione sul campo", "intro_title": "Trasforma una foto o un video in un’osservazione verificata",
-    "intro_body": "YA-WAMF usa lo stesso modello, la stessa selezione del ritaglio e lo stesso consenso video dei rilevamenti in tempo reale. Nulla viene aggiunto prima della tua verifica.", "progress_label": "Avanzamento dell’osservazione",
-    "steps": { "upload": "Carica", "upload_detail": "Scegli il file originale", "analyse": "Analizza", "analyse_detail": "Trova la prova migliore", "review": "Verifica", "review_detail": "Conferma la specie", "save": "Salva", "save_detail": "Aggiungi alle osservazioni" },
-    "evidence": { "full_frame": "Fotogramma intero", "crop": "Ritaglio migliore", "model": "Modello", "provider": "Motore", "original": "Come caricato", "compare": "Confronta le prove", "scored_help": "Questo è esattamente l’input valutato dal classificatore.", "original_help": "Il tuo file originale, conservato così com’è.", "input": "Input valutato", "file": "File" },
-    "errors": { "load": "Impossibile caricare lo stato dell’analisi.", "type": "Scegli un file JPEG, PNG, WebP, MP4, MOV o WebM.", "image_size": "Scegli un’immagine di dimensioni non superiori a 25 MB.", "video_size": "Scegli un video di dimensioni non superiori a 250 MB.", "upload": "Impossibile caricare il file.", "retry": "Impossibile riavviare l’analisi.", "save": "Impossibile salvare l’osservazione." },
-    "upload": { "title": "Scegli una foto o un video", "help": "Usa il file originale quando possibile. YA-WAMF lo conserverà e sceglierà l’input migliore per la classificazione.", "change": "Scegli un altro file", "drop": "Trascina qui il file o scegline uno", "formats": "JPEG, PNG, WebP fino a 25 MB · MP4, MOV, WebM fino a 250 MB / 3 minuti", "uploading": "Salvataggio dell’originale…", "analyse": "Carica e analizza" },
-    "analysis": { "preview_alt": "Anteprima del file caricato", "video": "Filmato", "image": "Foto", "title": "Ricerca della prova migliore", "body": "Il classificatore di produzione confronta fotogrammi e ritagli. Puoi lasciare questa pagina; la bozza verrà ripristinata al tuo ritorno.", "progress": "Avanzamento dell’analisi", "failed_title": "Analisi interrotta in sicurezza", "failed_body": "Il file originale è ancora conservato. Riprova quando il modello sarà disponibile.", "retry": "Riprova l’analisi" },
-    "review": { "preview_alt": "Anteprima dell’osservazione", "title": "Verifica prima di salvare", "body": "Conferma la specie suggerita, correggila se necessario e aggiungi il contesto che vuoi conservare.", "candidates": "Suggerimenti del modello", "species": "Specie", "when": "Osservata il", "location": "Fotocamera o nome del luogo", "notes": "Note", "saving": "Salvataggio dell’osservazione…", "save": "Salva osservazione", "save_species": "Aggiungi {species}" },
-    "location": { "title": "Luogo dell’avvistamento", "extracted": "La posizione è stata trovata nei metadati dell’immagine. Controlla il segnaposto e spostalo se necessario.", "missing": "Non è stata trovata una posizione incorporata. Inserisci un segnaposto se conosci il luogo dell’avvistamento.", "manual": "Questo segnaposto è stato inserito o spostato manualmente. Controllalo prima di salvare.", "from_image": "Dai metadati dell’immagine", "map_label": "Mappa per inserire il segnaposto dell’avvistamento", "map_help": "Fai clic o tocca la mappa per inserire il segnaposto. Trascinalo per regolarlo con precisione.", "latitude": "Latitudine", "longitude": "Longitudine", "clear": "Cancella posizione", "incomplete": "Inserisci latitudine e longitudine oppure cancella la posizione.", "invalid": "La latitudine deve essere compresa tra −90 e 90 e la longitudine tra −180 e 180.", "selected": "Segnaposto inserito a {latitude}, {longitude}", "unselected": "Nessun luogo di avvistamento selezionato", "pin_label": "Segnaposto dell’avvistamento; trascinalo per regolarlo" },
-    "saved": { "toast": "Osservazione aggiunta", "eyebrow": "Scheda completata", "title": "Osservazione salvata", "body": "La scheda verificata ora fa parte della cronologia e dei totali per specie.", "view": "Visualizza rilevamento", "another": "Aggiungine un’altra" },
-    "start_over": "Ricomincia"
+    "eyebrow": "Osservazione sul campo",
+    "intro_title": "Trasforma una foto o un video in un’osservazione verificata",
+    "intro_body": "YA-WAMF usa lo stesso modello, la stessa selezione del ritaglio e lo stesso consenso video dei rilevamenti in tempo reale. Nulla viene aggiunto prima della tua verifica.",
+    "progress_label": "Avanzamento dell’osservazione",
+    "steps": {
+      "upload": "Carica",
+      "upload_detail": "Scegli il file originale",
+      "analyse": "Analizza",
+      "analyse_detail": "Trova la prova migliore",
+      "review": "Verifica",
+      "review_detail": "Conferma la specie",
+      "save": "Salva",
+      "save_detail": "Aggiungi alle osservazioni"
+    },
+    "evidence": {
+      "full_frame": "Fotogramma intero",
+      "crop": "Ritaglio migliore",
+      "model": "Modello",
+      "provider": "Motore",
+      "original": "Come caricato",
+      "compare": "Confronta le prove",
+      "scored_help": "Questo è esattamente l’input valutato dal classificatore.",
+      "original_help": "Il tuo file originale, conservato così com’è.",
+      "input": "Input valutato",
+      "file": "File"
+    },
+    "errors": {
+      "load": "Impossibile caricare lo stato dell’analisi.",
+      "type": "Scegli un file JPEG, PNG, WebP, MP4, MOV o WebM.",
+      "image_size": "Scegli un’immagine di dimensioni non superiori a 25 MB.",
+      "video_size": "Scegli un video di dimensioni non superiori a 250 MB.",
+      "upload": "Impossibile caricare il file.",
+      "retry": "Impossibile riavviare l’analisi.",
+      "save": "Impossibile salvare l’osservazione."
+    },
+    "upload": {
+      "title": "Scegli una foto o un video",
+      "help": "Usa il file originale quando possibile. YA-WAMF lo conserverà e sceglierà l’input migliore per la classificazione.",
+      "change": "Scegli un altro file",
+      "drop": "Trascina qui il file o scegline uno",
+      "formats": "JPEG, PNG, WebP fino a 25 MB · MP4, MOV, WebM fino a 250 MB / 3 minuti",
+      "uploading": "Salvataggio dell’originale…",
+      "analyse": "Carica e analizza"
+    },
+    "analysis": {
+      "preview_alt": "Anteprima del file caricato",
+      "video": "Filmato",
+      "image": "Foto",
+      "title": "Ricerca della prova migliore",
+      "body": "Il classificatore di produzione confronta fotogrammi e ritagli. Puoi lasciare questa pagina; la bozza verrà ripristinata al tuo ritorno.",
+      "progress": "Avanzamento dell’analisi",
+      "failed_title": "Analisi interrotta in sicurezza",
+      "failed_body": "Il file originale è ancora conservato. Riprova quando il modello sarà disponibile.",
+      "retry": "Riprova l’analisi"
+    },
+    "review": {
+      "preview_alt": "Anteprima dell’osservazione",
+      "title": "Verifica prima di salvare",
+      "body": "Conferma la specie suggerita, correggila se necessario e aggiungi il contesto che vuoi conservare.",
+      "candidates": "Suggerimenti del modello",
+      "species": "Specie",
+      "when": "Osservata il",
+      "location": "Fotocamera o nome del luogo",
+      "notes": "Note",
+      "saving": "Salvataggio dell’osservazione…",
+      "save": "Salva osservazione",
+      "save_species": "Aggiungi {species}"
+    },
+    "location": {
+      "title": "Luogo dell’avvistamento",
+      "extracted": "La posizione è stata trovata nei metadati dell’immagine. Controlla il segnaposto e spostalo se necessario.",
+      "missing": "Non è stata trovata una posizione incorporata. Inserisci un segnaposto se conosci il luogo dell’avvistamento.",
+      "manual": "Questo segnaposto è stato inserito o spostato manualmente. Controllalo prima di salvare.",
+      "from_image": "Dai metadati dell’immagine",
+      "map_label": "Mappa per inserire il segnaposto dell’avvistamento",
+      "map_help": "Fai clic o tocca la mappa per inserire il segnaposto. Trascinalo per regolarlo con precisione.",
+      "latitude": "Latitudine",
+      "longitude": "Longitudine",
+      "clear": "Cancella posizione",
+      "incomplete": "Inserisci latitudine e longitudine oppure cancella la posizione.",
+      "invalid": "La latitudine deve essere compresa tra −90 e 90 e la longitudine tra −180 e 180.",
+      "selected": "Segnaposto inserito a {latitude}, {longitude}",
+      "unselected": "Nessun luogo di avvistamento selezionato",
+      "pin_label": "Segnaposto dell’avvistamento; trascinalo per regolarlo"
+    },
+    "saved": {
+      "toast": "Osservazione aggiunta",
+      "eyebrow": "Scheda completata",
+      "title": "Osservazione salvata",
+      "body": "La scheda verificata ora fa parte della cronologia e dei totali per specie.",
+      "view": "Visualizza rilevamento",
+      "another": "Aggiungine un’altra"
+    },
+    "start_over": "Ricomincia",
+    "bar": {
+      "kept": "Conservato così come caricato",
+      "hint": "Non viene aggiunto nulla finché non lo esamini"
+    }
   },
   "setup": {
     "action_failed": "Non è stato possibile salvare la modifica. Controlla i dati e riprova.",
-    "load": { "loading": "Caricamento delle impostazioni salvate…", "failed": "Impossibile caricare le impostazioni salvate. Non è stato modificato nulla.", "retry": "Riprova il caricamento" },
+    "load": {
+      "loading": "Caricamento delle impostazioni salvate…",
+      "failed": "Impossibile caricare le impostazioni salvate. Non è stato modificato nulla.",
+      "retry": "Riprova il caricamento"
+    },
     "status": {
       "ok": "Configurato",
       "attention": "Richiede attenzione",
@@ -53,7 +144,11 @@
     "connection": {
       "title": "Connessione Frigate e MQTT",
       "save_failed": "Non è stato possibile salvare le impostazioni di connessione. Controlla i valori e riprova.",
-      "mqtt_auth": "Autenticazione MQTT", "mqtt_auth_hint": "Attivala solo se il broker richiede nome utente e password.", "mqtt_username": "Nome utente", "mqtt_password": "Parola d’accesso", "mqtt_password_saved": "La password salvata verrà mantenuta finché non ne inserisci una nuova."
+      "mqtt_auth": "Autenticazione MQTT",
+      "mqtt_auth_hint": "Attivala solo se il broker richiede nome utente e password.",
+      "mqtt_username": "Nome utente",
+      "mqtt_password": "Parola d’accesso",
+      "mqtt_password_saved": "La password salvata verrà mantenuta finché non ne inserisci una nuova."
     },
     "cameras": {
       "title": "Telecamere e rilevamento",
@@ -73,13 +168,43 @@
       "title": "Integrazioni",
       "birdnet_test_subtitle": "Il test a fasi usa questo URL, poi verifica il broker MQTT salvato e l’archiviazione locale dei rilevamenti."
     },
-    "history": { "title": "Importa rilevamenti esistenti", "description": "Classifica facoltativamente gli eventi di uccelli ancora conservati da Frigate. L’importazione viene eseguita in background.", "enable": "Importa gli eventi conservati da Frigate", "enable_help": "I rilevamenti vengono aggiornati solo se la classificazione migliora; audio e meteo salvati restano intatti.", "range": "Intervallo cronologia", "import_continue": "Importa e continua", "continue_without": "Continua senza importare", "job_title": "Importazione cronologia", "job_starting": "Analisi della cronologia Frigate", "audio_note": "La cronologia Frigate ripristina rilevamenti visivi e istantanee, ma non può ricreare l’audio BirdNET-Go non salvato." },
+    "history": {
+      "title": "Importa rilevamenti esistenti",
+      "description": "Classifica facoltativamente gli eventi di uccelli ancora conservati da Frigate. L’importazione viene eseguita in background.",
+      "enable": "Importa gli eventi conservati da Frigate",
+      "enable_help": "I rilevamenti vengono aggiornati solo se la classificazione migliora; audio e meteo salvati restano intatti.",
+      "range": "Intervallo cronologia",
+      "import_continue": "Importa e continua",
+      "continue_without": "Continua senza importare",
+      "job_title": "Importazione cronologia",
+      "job_starting": "Analisi della cronologia Frigate",
+      "audio_note": "La cronologia Frigate ripristina rilevamenti visivi e istantanee, ma non può ricreare l’audio BirdNET-Go non salvato."
+    },
     "review": {
       "loading": "Controllo della configurazione salvata…",
       "load_failed": "Impossibile caricare il riepilogo della configurazione. Le impostazioni salvate non sono state modificate.",
       "retry": "Riprova riepilogo",
       "stale": "Viene mostrato l’ultimo riepilogo perché l’aggiornamento più recente non è riuscito.",
-      "detail": { "account_password_protected": "Protetto da password", "account_auth_disabled": "Autenticazione disattivata", "account_not_configured": "Non configurato", "frigate_url": "URL Frigate", "mqtt_broker": "Broker MQTT", "mqtt_username": "Nome utente MQTT", "mqtt_password": "Password MQTT", "connection_missing": "Imposta {items}", "cameras_count": "{count} telecamere", "cameras_all": "Tutte le telecamere", "model_wrong_kind": "È selezionato un rilevatore di ritaglio come classificatore", "model_retired": "Il classificatore salvato è stato ritirato", "model_fallback": "Alternativa inclusa", "quality_best": "Migliori istantanee disponibili", "quality_standard": "Istantanee standard", "integrations_needs": "Da configurare: {integrations}", "integrations_configured": "Configurato: {integrations}", "integrations_none": "Nessuna attivata" }
+      "detail": {
+        "account_password_protected": "Protetto da password",
+        "account_auth_disabled": "Autenticazione disattivata",
+        "account_not_configured": "Non configurato",
+        "frigate_url": "URL Frigate",
+        "mqtt_broker": "Broker MQTT",
+        "mqtt_username": "Nome utente MQTT",
+        "mqtt_password": "Password MQTT",
+        "connection_missing": "Imposta {items}",
+        "cameras_count": "{count} telecamere",
+        "cameras_all": "Tutte le telecamere",
+        "model_wrong_kind": "È selezionato un rilevatore di ritaglio come classificatore",
+        "model_retired": "Il classificatore salvato è stato ritirato",
+        "model_fallback": "Alternativa inclusa",
+        "quality_best": "Migliori istantanee disponibili",
+        "quality_standard": "Istantanee standard",
+        "integrations_needs": "Da configurare: {integrations}",
+        "integrations_configured": "Configurato: {integrations}",
+        "integrations_none": "Nessuna attivata"
+      }
     }
   },
   "theme": {
@@ -1717,23 +1842,41 @@
   },
   "audio": {
     "chart": {
-      "heard": "Ascoltate", "daily_title": "Attività nel tempo",
-      "daily_sub": "Rilevamenti BirdNET-Go ascoltati al giorno", "hourly_title": "Ora del giorno",
-      "species_title": "Distribuzione delle specie", "empty": "Nessuna attività in questo periodo."
+      "heard": "Ascoltate",
+      "daily_title": "Attività nel tempo",
+      "daily_sub": "Rilevamenti BirdNET-Go ascoltati al giorno",
+      "hourly_title": "Ora del giorno",
+      "species_title": "Distribuzione delle specie",
+      "empty": "Nessuna attività in questo periodo."
     },
     "stat": {
-      "heard": "Ascoltate", "heard_sub": "Rilevamenti BirdNET visualizzati", "species": "Specie",
-      "species_sub": "Specie identificate dall'audio", "peak_hour": "Ora di punta",
-      "peak_hour_sub": "{count} rilevamenti", "no_activity": "Nessuna attività per ora",
-      "sources": "Fonti", "sources_sub": "Microfoni o flussi"
+      "heard": "Ascoltate",
+      "heard_sub": "Rilevamenti BirdNET visualizzati",
+      "species": "Specie",
+      "species_sub": "Specie identificate dall'audio",
+      "peak_hour": "Ora di punta",
+      "peak_hour_sub": "{count} rilevamenti",
+      "no_activity": "Nessuna attività per ora",
+      "sources": "Fonti",
+      "sources_sub": "Microfoni o flussi"
     },
     "filter": {
-      "window": "Periodo", "24h": "24 ore", "7d": "7 giorni", "30d": "30 giorni",
-      "90d": "90 giorni", "1y": "1 anno", "species": "Specie", "source": "Fonte",
+      "window": "Periodo",
+      "24h": "24 ore",
+      "7d": "7 giorni",
+      "30d": "30 giorni",
+      "90d": "90 giorni",
+      "1y": "1 anno",
+      "species": "Specie",
+      "source": "Fonte",
       "min_confidence": "Confidenza minima"
     },
     "top_species": "Specie più ascoltate",
-    "card": { "last_heard": "Ultimo ascolto", "avg": "media", "max": "max" },
+    "card": {
+      "last_heard": "Ultimo ascolto",
+      "avg": "media",
+      "max": "max"
+    },
     "history": {
       "title": "Cronologia rilevamenti",
       "sub": "Rilevamenti BirdNET-Go salvati, separati dalle visite visive.",
@@ -1741,16 +1884,26 @@
       "showing": "Visualizzati {from}-{to} di {total}"
     },
     "table": {
-      "sound": "Suono", "time": "Ora", "species": "Specie", "source": "Fonte",
-      "confidence": "Confidenza", "open_birdnet": "Apri in BirdNET-Go",
+      "sound": "Suono",
+      "time": "Ora",
+      "species": "Specie",
+      "source": "Fonte",
+      "confidence": "Confidenza",
+      "open_birdnet": "Apri in BirdNET-Go",
       "open_visual_match": "Apri il rilevamento visivo corrispondente",
       "unknown_source": "Fonte sconosciuta"
     },
-    "sources": { "title": "Fonti", "empty": "Ancora nessuna fonte." }
+    "sources": {
+      "title": "Fonti",
+      "empty": "Ancora nessuna fonte."
+    }
   },
   "leaderboard": {
-    "source_toggle": "Fonte del rilevamento", "source_seen": "Viste", "source_heard": "Ascoltate",
-    "source_both": "Entrambe", "audio_only": "Solo audio",
+    "source_toggle": "Fonte del rilevamento",
+    "source_seen": "Viste",
+    "source_heard": "Ascoltate",
+    "source_both": "Entrambe",
+    "audio_only": "Solo audio",
     "audio_only_desc": "Ascoltata su BirdNET-Go, non vista dalla telecamera",
     "title": "Classifica Specie",
     "species_count": "{count} specie",
@@ -1850,145 +2003,20 @@
     "other_species": "Altre"
   },
   "about": {
-    "title": "Informazioni su questo Progetto",
     "how_it_works": "Come Funziona",
-    "features": "Funzionalità",
-    "tech_stack": "Stack Tecnologico",
-    "docs_resources": "Documentazione e Risorse",
     "credits": "Crediti e Ringraziamenti",
-    "jump_to": "Vai a",
     "view_changelog": "Visualizza changelog",
     "flaticon_credit": "Icone di uccelli create da Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Concesso in licenza con {license}",
     "built_with_ai": "Costruito con assistenza IA per amore del birdwatching 🐦",
     "project_desc_1": "YA-WAMF è un progetto personale iniziato per sperimentare con la programmazione assistita da IA. Quando il progetto originale {link} non è stato più mantenuto, questo è nato come opportunità di apprendimento e strumento utile per gli appassionati di uccelli.",
     "project_desc_2": "L'applicazione è stata sviluppata con l'aiuto dell'IA ed è diventata una piattaforma completa di identificazione degli uccelli — dalla semplice telecamera per mangiatoie alla correlazione multi-sensore, modelli con accelerazione GPU e integrazione in tempo reale con Home Assistant.",
-    "steps": {
-      "1": {
-        "title": "Frigate Rileva",
-        "desc": "La tua telecamera rileva movimento, Frigate lo identifica come un uccello"
-      },
-      "2": {
-        "title": "Messaggio MQTT",
-        "desc": "Frigate pubblica un evento al tuo broker MQTT"
-      },
-      "3": {
-        "title": "YA-WAMF Elabora",
-        "desc": "Il backend sottoscrive MQTT e preleva l'evento"
-      },
-      "4": {
-        "title": "Classificazione",
-        "desc": "L'immagine passa attraverso il modello ML (o usa sub-label Frigate)"
-      },
-      "5": {
-        "title": "Correlazione Audio",
-        "desc": "Incrocia con identificazioni audio BirdNET-Go se disponibili"
-      },
-      "6": {
-        "title": "Salva e Notifica",
-        "desc": "Rilevamento salvato nel database, notifiche inviate"
-      },
-      "7": {
-        "title": "Analisi Video",
-        "desc": "Opzionale: Scansiona frame clip video per accuratezza raffinata"
-      },
-      "8": {
-        "title": "Aggiornamenti Live",
-        "desc": "La dashboard riceve aggiornamenti in tempo reale via Server-Sent Events"
-      }
-    },
-    "feature_list": {
-      "ai_models": {
-        "title": "Modelli IA Avanzati",
-        "desc": "Scegli tra MobileNetV2 (veloce), ConvNeXt (alta precisione) o EVA-02 (elite ~91% precisione)"
-      },
-      "multi_sensor": {
-        "title": "Correlazione Multi-Sensore",
-        "desc": "Incrocia rilevamenti visivi con identificazioni audio BirdNET-Go per avvistamenti verificati"
-      },
-      "video_analysis": {
-        "title": "Auto Analisi Video",
-        "desc": "Scansiona automaticamente 15+ frame da clip video per maggiore accuratezza usando logica insieme temporale"
-      },
-      "notifications": {
-        "title": "Notifiche Ricche",
-        "desc": "Supporto Discord, Telegram e Pushover con filtri personalizzabili e avvisi specifici per specie"
-      },
-      "ai_insights": {
-        "title": "Insight Naturalista IA",
-        "desc": "Ottieni analisi comportamentale dei tuoi visitatori usando modelli di linguaggio Gemini, OpenAI o Claude"
-      },
-      "taxonomy": {
-        "title": "Normalizzazione Tassonomia",
-        "desc": "Mappatura automatica nomi scientifici ↔ comuni usando dati iNaturalist"
-      },
-      "inaturalist_submissions": {
-        "title": "Invii a iNaturalist",
-        "desc": "Invii revisionati dal proprietario con foto, posizione e note",
-        "badge": "Tester richiesti"
-      },
-      "weather": {
-        "title": "Arricchimento Meteo",
-        "desc": "Traccia rilevamenti con condizioni meteo locali e dati temperatura"
-      },
-      "home_assistant": {
-        "title": "Integrazione Home Assistant",
-        "desc": "Sensori nativi per tracciare l'ultimo uccello rilevato e conteggi giornalieri visitatori"
-      },
-      "birdweather": {
-        "title": "Reporting BirdWeather",
-        "desc": "Opzionale: Contribuisci con i tuoi rilevamenti alla piattaforma di scienza cittadina BirdWeather"
-      },
-      "observability": {
-        "title": "Osservabilità",
-        "desc": "Metriche Prometheus integrate, telemetria opzionale e diagnostica MQTT in tempo reale"
-      },
-      "wildlife": {
-        "title": "Classificatore Fauna Selvatica",
-        "desc": "Identifica scoiattoli, volpi e altri visitatori non uccelli alla tua mangiatoia"
-      },
-      "fast_path": {
-        "title": "Efficienza Fast Path",
-        "desc": "Salta elaborazione IA locale e usa direttamente sub-label Frigate per risparmiare risorse CPU"
-      },
-      "guest_mode": {
-        "title": "Vista Pubblica (Modalità Ospite)",
-        "desc": "Condividi dashboard sola lettura con limiti frequenza e occultamento opzionale nomi telecamere"
-      },
-      "gpu_acceleration": {
-        "title": "Accelerazione GPU",
-        "desc": "Selezione automatica tra NVIDIA CUDA e Intel OpenVINO per inferenza ONNX rapida, con fallback in runtime e diagnostica del provider in tempo reale nell'interfaccia"
-      },
-      "personalized_reranking": {
-        "title": "Riclassificazione personalizzata",
-        "desc": "Apprende dalle correzioni manuali delle specie per telecamera e modello, riclassificando le previsioni per adattarsi agli uccelli locali nel tempo. Si attiva dopo 20 correzioni."
-      },
-      "ebird_export": {
-        "title": "Esportazione eBird",
-        "desc": "Esporta i rilevamenti come CSV in formato standard eBird Record — pronto per l'invio diretto al tuo account eBird"
-      },
-      "full_visit_clip": {
-        "title": "Clip visita completa",
-        "desc": "Genera un clip più lungo dalle registrazioni Frigate così da poter vedere l’intera visita alla mangiatoia dopo la fine del rilevamento."
-      }
-    },
-    "tech": {
-      "backend": "Backend",
-      "frontend": "Frontend",
-      "ml": "Motore ML",
-      "messaging": "Messaggistica",
-      "deployment": "Deploy"
-    },
     "links": {
       "repo": "Repository GitHub",
-      "repo_desc": "Codice sorgente, issues e release",
       "docs": "Documentazione",
-      "docs_desc": "Guide configurazione, riferimento API e risoluzione problemi",
       "issues": "Segnala problema",
       "frigate": "Frigate NVR",
-      "frigate_desc": "Richiesto: NVR open-source con rilevamento oggetti",
-      "birdnet": "BirdNET-Go",
-      "birdnet_desc": "Opzionale: Identificazione audio uccelli"
+      "birdnet": "BirdNET-Go"
     },
     "credits_list": {
       "preamble": "Questo progetto non sarebbe possibile senza:",
@@ -1998,8 +2026,6 @@
       "benjordan": "{link} su YouTube per i contenuti ispiratori sul rilevamento uccelli",
       "ai_assistants": "Assistenti IA che hanno aiutato a costruire questa applicazione"
     },
-    "star_github": "Aggiungi stella su GitHub",
-    "star_github_label": "Aggiungi stella a YA-WAMF su GitHub",
     "pipeline": {
       "subtitle": "La pipeline standard, con quello che sta facendo questa istanza.",
       "frigate": "Frigate",

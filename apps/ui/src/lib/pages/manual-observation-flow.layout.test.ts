@@ -5,12 +5,15 @@ import sidebar from '../components/Sidebar.svelte?raw';
 import locationPicker from '../components/LocationPicker.svelte?raw';
 
 describe('manual observation flow layout', () => {
-    it('uses a full-page connected four-step workflow instead of a dialog', () => {
+    it('keeps the four steps visible without spending a sidebar on them', () => {
         expect(page).toContain("steps.upload");
         expect(page).toContain("steps.analyse");
         expect(page).toContain("steps.review");
         expect(page).toContain("steps.save");
-        expect(page).toContain('lg:grid-cols-[16rem_minmax(0,1fr)]');
+        // The evidence needs the room, so progress lives in a slim bar, not a 16rem rail.
+        expect(page).toContain('data-manual-observation-bar');
+        expect(page).toContain("aria-current={stage === item.number ? 'step' : undefined}");
+        expect(page).not.toContain('lg:grid-cols-[16rem_minmax(0,1fr)]');
         expect(page).not.toContain('role="dialog"');
     });
 

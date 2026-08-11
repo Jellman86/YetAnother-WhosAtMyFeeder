@@ -27,21 +27,112 @@
     "species": "種"
   },
   "manual_observation": {
-    "eyebrow": "フィールド記録", "intro_title": "写真や動画を確認済みの観察記録にする",
-    "intro_body": "YA-WAMF はライブ検出と同じモデル、クロップ選択、動画合意判定を使用します。確認するまで記録には追加されません。", "progress_label": "観察記録の進行状況",
-    "steps": { "upload": "アップロード", "upload_detail": "元のメディアを選択", "analyse": "解析", "analyse_detail": "最も強い根拠を探す", "review": "確認", "review_detail": "種を確定", "save": "保存", "save_detail": "観察記録に追加" },
-    "evidence": { "full_frame": "フルフレーム", "crop": "最適なクロップ", "model": "モデル", "provider": "プロバイダー", "original": "アップロード時のまま", "compare": "根拠を比較", "scored_help": "分類器が実際に評価した入力そのものです。", "original_help": "アップロードされた元のファイルをそのまま保存しています。", "input": "評価した入力", "file": "ファイル" },
-    "errors": { "load": "解析状況を読み込めませんでした。", "type": "JPEG、PNG、WebP、MP4、MOV、WebM のいずれかを選択してください。", "image_size": "25 MB以下の画像を選択してください。", "video_size": "250 MB以下の動画を選択してください。", "upload": "メディアをアップロードできませんでした。", "retry": "解析を再開できませんでした。", "save": "観察記録を保存できませんでした。" },
-    "upload": { "title": "写真または動画を選択", "help": "可能な限り元のファイルを使用してください。YA-WAMF が保存し、分類に最適な入力を選びます。", "change": "別のファイルを選択", "drop": "ここにメディアをドロップするかファイルを選択", "formats": "JPEG、PNG、WebP は25 MBまで · MP4、MOV、WebM は250 MB／3分まで", "uploading": "元ファイルを安全に保存中…", "analyse": "アップロードして解析" },
-    "analysis": { "preview_alt": "アップロードしたメディアのプレビュー", "video": "動画", "image": "写真", "title": "最も強い根拠を探索中", "body": "本番用分類器がフレームとクロップ候補を比較しています。このページを離れても、戻ったときに下書きが復元されます。", "progress": "解析の進行状況", "failed_title": "解析を安全に停止しました", "failed_body": "元のメディアは保存されています。モデルが利用可能になったら再試行してください。", "retry": "解析を再試行" },
-    "review": { "preview_alt": "観察記録のプレビュー", "title": "保存前に確認", "body": "提案された種を確認し、必要に応じて修正して、残したいフィールド情報を追加してください。", "candidates": "モデルの候補", "species": "種", "when": "観察日時", "location": "カメラまたは場所の名前", "notes": "メモ", "saving": "観察記録を保存中…", "save": "観察記録を保存", "save_species": "{species} を追加" },
-    "location": { "title": "目撃場所", "extracted": "画像のメタデータから場所が見つかりました。ピンを確認し、必要に応じて調整してください。", "missing": "画像に場所情報がありませんでした。目撃場所が分かる場合はピンを置いてください。", "manual": "このピンは手動で配置または調整されています。保存前に確認してください。", "from_image": "画像メタデータから取得", "map_label": "目撃場所のピンを置く地図", "map_help": "地図をクリックまたはタップしてピンを置きます。ドラッグして正確に調整できます。", "latitude": "緯度", "longitude": "経度", "clear": "場所を消去", "incomplete": "緯度と経度の両方を入力するか、場所を消去してください。", "invalid": "緯度は−90～90、経度は−180～180の範囲で入力してください。", "selected": "{latitude}, {longitude} にピンを設定", "unselected": "目撃場所が選択されていません", "pin_label": "目撃場所のピン。ドラッグして調整できます" },
-    "saved": { "toast": "観察記録を追加しました", "eyebrow": "記録完了", "title": "観察記録を保存しました", "body": "確認済みの記録が検出履歴と種別集計に追加されました。", "view": "検出を表示", "another": "別の記録を追加" },
-    "start_over": "最初からやり直す"
+    "eyebrow": "フィールド記録",
+    "intro_title": "写真や動画を確認済みの観察記録にする",
+    "intro_body": "YA-WAMF はライブ検出と同じモデル、クロップ選択、動画合意判定を使用します。確認するまで記録には追加されません。",
+    "progress_label": "観察記録の進行状況",
+    "steps": {
+      "upload": "アップロード",
+      "upload_detail": "元のメディアを選択",
+      "analyse": "解析",
+      "analyse_detail": "最も強い根拠を探す",
+      "review": "確認",
+      "review_detail": "種を確定",
+      "save": "保存",
+      "save_detail": "観察記録に追加"
+    },
+    "evidence": {
+      "full_frame": "フルフレーム",
+      "crop": "最適なクロップ",
+      "model": "モデル",
+      "provider": "プロバイダー",
+      "original": "アップロード時のまま",
+      "compare": "根拠を比較",
+      "scored_help": "分類器が実際に評価した入力そのものです。",
+      "original_help": "アップロードされた元のファイルをそのまま保存しています。",
+      "input": "評価した入力",
+      "file": "ファイル"
+    },
+    "errors": {
+      "load": "解析状況を読み込めませんでした。",
+      "type": "JPEG、PNG、WebP、MP4、MOV、WebM のいずれかを選択してください。",
+      "image_size": "25 MB以下の画像を選択してください。",
+      "video_size": "250 MB以下の動画を選択してください。",
+      "upload": "メディアをアップロードできませんでした。",
+      "retry": "解析を再開できませんでした。",
+      "save": "観察記録を保存できませんでした。"
+    },
+    "upload": {
+      "title": "写真または動画を選択",
+      "help": "可能な限り元のファイルを使用してください。YA-WAMF が保存し、分類に最適な入力を選びます。",
+      "change": "別のファイルを選択",
+      "drop": "ここにメディアをドロップするかファイルを選択",
+      "formats": "JPEG、PNG、WebP は25 MBまで · MP4、MOV、WebM は250 MB／3分まで",
+      "uploading": "元ファイルを安全に保存中…",
+      "analyse": "アップロードして解析"
+    },
+    "analysis": {
+      "preview_alt": "アップロードしたメディアのプレビュー",
+      "video": "動画",
+      "image": "写真",
+      "title": "最も強い根拠を探索中",
+      "body": "本番用分類器がフレームとクロップ候補を比較しています。このページを離れても、戻ったときに下書きが復元されます。",
+      "progress": "解析の進行状況",
+      "failed_title": "解析を安全に停止しました",
+      "failed_body": "元のメディアは保存されています。モデルが利用可能になったら再試行してください。",
+      "retry": "解析を再試行"
+    },
+    "review": {
+      "preview_alt": "観察記録のプレビュー",
+      "title": "保存前に確認",
+      "body": "提案された種を確認し、必要に応じて修正して、残したいフィールド情報を追加してください。",
+      "candidates": "モデルの候補",
+      "species": "種",
+      "when": "観察日時",
+      "location": "カメラまたは場所の名前",
+      "notes": "メモ",
+      "saving": "観察記録を保存中…",
+      "save": "観察記録を保存",
+      "save_species": "{species} を追加"
+    },
+    "location": {
+      "title": "目撃場所",
+      "extracted": "画像のメタデータから場所が見つかりました。ピンを確認し、必要に応じて調整してください。",
+      "missing": "画像に場所情報がありませんでした。目撃場所が分かる場合はピンを置いてください。",
+      "manual": "このピンは手動で配置または調整されています。保存前に確認してください。",
+      "from_image": "画像メタデータから取得",
+      "map_label": "目撃場所のピンを置く地図",
+      "map_help": "地図をクリックまたはタップしてピンを置きます。ドラッグして正確に調整できます。",
+      "latitude": "緯度",
+      "longitude": "経度",
+      "clear": "場所を消去",
+      "incomplete": "緯度と経度の両方を入力するか、場所を消去してください。",
+      "invalid": "緯度は−90～90、経度は−180～180の範囲で入力してください。",
+      "selected": "{latitude}, {longitude} にピンを設定",
+      "unselected": "目撃場所が選択されていません",
+      "pin_label": "目撃場所のピン。ドラッグして調整できます"
+    },
+    "saved": {
+      "toast": "観察記録を追加しました",
+      "eyebrow": "記録完了",
+      "title": "観察記録を保存しました",
+      "body": "確認済みの記録が検出履歴と種別集計に追加されました。",
+      "view": "検出を表示",
+      "another": "別の記録を追加"
+    },
+    "start_over": "最初からやり直す",
+    "bar": {
+      "kept": "アップロードされたまま保存しています",
+      "hint": "確認するまで何も追加されません"
+    }
   },
   "setup": {
     "action_failed": "変更を保存できませんでした。内容を確認して、もう一度お試しください。",
-    "load": { "loading": "保存済み設定を読み込んでいます…", "failed": "保存済み設定を読み込めませんでした。変更は行われていません。", "retry": "設定を再読み込み" },
+    "load": {
+      "loading": "保存済み設定を読み込んでいます…",
+      "failed": "保存済み設定を読み込めませんでした。変更は行われていません。",
+      "retry": "設定を再読み込み"
+    },
     "status": {
       "ok": "設定済み",
       "attention": "確認が必要",
@@ -53,7 +144,11 @@
     "connection": {
       "title": "Frigate と MQTT の接続",
       "save_failed": "接続設定を保存できませんでした。値を確認して、もう一度お試しください。",
-      "mqtt_auth": "MQTT 認証", "mqtt_auth_hint": "ブローカーがユーザー名とパスワードを要求する場合のみ有効にしてください。", "mqtt_username": "ユーザー名", "mqtt_password": "パスワード", "mqtt_password_saved": "新しい値を入力しない限り、保存済みパスワードが保持されます。"
+      "mqtt_auth": "MQTT 認証",
+      "mqtt_auth_hint": "ブローカーがユーザー名とパスワードを要求する場合のみ有効にしてください。",
+      "mqtt_username": "ユーザー名",
+      "mqtt_password": "パスワード",
+      "mqtt_password_saved": "新しい値を入力しない限り、保存済みパスワードが保持されます。"
     },
     "cameras": {
       "title": "カメラと検出",
@@ -73,13 +168,43 @@
       "title": "連携",
       "birdnet_test_subtitle": "段階テストではこの URL を使用し、保存済みの MQTT ブローカーとローカル検出ストレージを確認します。"
     },
-    "history": { "title": "既存の検出をインポート", "description": "Frigate に残っている鳥イベントを必要に応じて分類します。インポートはバックグラウンドで安全に実行されます。", "enable": "Frigate に保存された鳥イベントをインポート", "enable_help": "分類品質が向上した場合のみ更新し、保存済みの音声と天気情報は保持します。", "range": "履歴の範囲", "import_continue": "インポートして続行", "continue_without": "インポートせず続行", "job_title": "検出履歴のインポート", "job_starting": "Frigate のイベント履歴を確認中", "audio_note": "Frigate の履歴から視覚検出とスナップショットは復元できますが、保存されていない BirdNET-Go 音声は再作成できません。" },
+    "history": {
+      "title": "既存の検出をインポート",
+      "description": "Frigate に残っている鳥イベントを必要に応じて分類します。インポートはバックグラウンドで安全に実行されます。",
+      "enable": "Frigate に保存された鳥イベントをインポート",
+      "enable_help": "分類品質が向上した場合のみ更新し、保存済みの音声と天気情報は保持します。",
+      "range": "履歴の範囲",
+      "import_continue": "インポートして続行",
+      "continue_without": "インポートせず続行",
+      "job_title": "検出履歴のインポート",
+      "job_starting": "Frigate のイベント履歴を確認中",
+      "audio_note": "Frigate の履歴から視覚検出とスナップショットは復元できますが、保存されていない BirdNET-Go 音声は再作成できません。"
+    },
     "review": {
       "loading": "保存済み設定を確認しています…",
       "load_failed": "設定の概要を読み込めませんでした。保存済みの設定は変更されていません。",
       "retry": "概要を再読み込み",
       "stale": "最新の更新に失敗したため、前回の設定概要を表示しています。",
-      "detail": { "account_password_protected": "パスワード保護あり", "account_auth_disabled": "認証無効", "account_not_configured": "未設定", "frigate_url": "Frigate の URL", "mqtt_broker": "MQTT ブローカー", "mqtt_username": "MQTT ユーザー名", "mqtt_password": "MQTT パスワード", "connection_missing": "{items} を設定", "cameras_count": "{count} 台のカメラ", "cameras_all": "すべてのカメラ", "model_wrong_kind": "クロップ検出器が分類器として選択されています", "model_retired": "保存済みの分類モデルは廃止されました", "model_fallback": "同梱フォールバック", "quality_best": "利用可能な最良のスナップショット", "quality_standard": "標準スナップショット", "integrations_needs": "設定が必要: {integrations}", "integrations_configured": "設定済み: {integrations}", "integrations_none": "有効な連携なし" }
+      "detail": {
+        "account_password_protected": "パスワード保護あり",
+        "account_auth_disabled": "認証無効",
+        "account_not_configured": "未設定",
+        "frigate_url": "Frigate の URL",
+        "mqtt_broker": "MQTT ブローカー",
+        "mqtt_username": "MQTT ユーザー名",
+        "mqtt_password": "MQTT パスワード",
+        "connection_missing": "{items} を設定",
+        "cameras_count": "{count} 台のカメラ",
+        "cameras_all": "すべてのカメラ",
+        "model_wrong_kind": "クロップ検出器が分類器として選択されています",
+        "model_retired": "保存済みの分類モデルは廃止されました",
+        "model_fallback": "同梱フォールバック",
+        "quality_best": "利用可能な最良のスナップショット",
+        "quality_standard": "標準スナップショット",
+        "integrations_needs": "設定が必要: {integrations}",
+        "integrations_configured": "設定済み: {integrations}",
+        "integrations_none": "有効な連携なし"
+      }
     }
   },
   "theme": {
@@ -1708,36 +1833,68 @@
   },
   "audio": {
     "chart": {
-      "heard": "検出数", "daily_title": "時間ごとのアクティビティ",
-      "daily_sub": "1日ごとの BirdNET-Go 音声検出数", "hourly_title": "時間帯",
-      "species_title": "種の構成", "empty": "この期間にアクティビティはありません。"
+      "heard": "検出数",
+      "daily_title": "時間ごとのアクティビティ",
+      "daily_sub": "1日ごとの BirdNET-Go 音声検出数",
+      "hourly_title": "時間帯",
+      "species_title": "種の構成",
+      "empty": "この期間にアクティビティはありません。"
     },
     "stat": {
-      "heard": "検出数", "heard_sub": "表示中の BirdNET 検出", "species": "種",
-      "species_sub": "音声から特定された種", "peak_hour": "ピーク時間",
-      "peak_hour_sub": "{count} 件の検出", "no_activity": "まだアクティビティはありません",
-      "sources": "音源", "sources_sub": "マイクまたはストリーム"
+      "heard": "検出数",
+      "heard_sub": "表示中の BirdNET 検出",
+      "species": "種",
+      "species_sub": "音声から特定された種",
+      "peak_hour": "ピーク時間",
+      "peak_hour_sub": "{count} 件の検出",
+      "no_activity": "まだアクティビティはありません",
+      "sources": "音源",
+      "sources_sub": "マイクまたはストリーム"
     },
     "filter": {
-      "window": "期間", "24h": "24時間", "7d": "7日", "30d": "30日", "90d": "90日",
-      "1y": "1年", "species": "種", "source": "音源", "min_confidence": "最低信頼度"
+      "window": "期間",
+      "24h": "24時間",
+      "7d": "7日",
+      "30d": "30日",
+      "90d": "90日",
+      "1y": "1年",
+      "species": "種",
+      "source": "音源",
+      "min_confidence": "最低信頼度"
     },
     "top_species": "最も多く聞かれた種",
-    "card": { "last_heard": "最終検出", "avg": "平均", "max": "最大" },
+    "card": {
+      "last_heard": "最終検出",
+      "avg": "平均",
+      "max": "最大"
+    },
     "history": {
-      "title": "検出履歴", "sub": "映像による訪問とは別に保存された BirdNET-Go の検出です。",
+      "title": "検出履歴",
+      "sub": "映像による訪問とは別に保存された BirdNET-Go の検出です。",
       "empty": "このフィルターに一致する BirdNET 検出はありません。",
       "showing": "{total} 件中 {from}～{to} 件を表示"
     },
     "table": {
-      "sound": "音声", "time": "時刻", "species": "種", "source": "音源", "confidence": "信頼度",
-      "open_birdnet": "BirdNET-Go で開く", "open_visual_match": "一致する映像検出を開く", "unknown_source": "不明な音源"
+      "sound": "音声",
+      "time": "時刻",
+      "species": "種",
+      "source": "音源",
+      "confidence": "信頼度",
+      "open_birdnet": "BirdNET-Go で開く",
+      "open_visual_match": "一致する映像検出を開く",
+      "unknown_source": "不明な音源"
     },
-    "sources": { "title": "音源", "empty": "音源はまだありません。" }
+    "sources": {
+      "title": "音源",
+      "empty": "音源はまだありません。"
+    }
   },
   "leaderboard": {
-    "source_toggle": "検出元", "source_seen": "映像", "source_heard": "音声",
-    "source_both": "両方", "audio_only": "音声のみ",
+    "source_toggle": "検出元",
+    "source_seen": "映像",
+    "source_heard": "音声",
+    "source_both": "両方",
+    "audio_only": "音声のみ",
     "audio_only_desc": "BirdNET-Go では検出されたが、カメラには映っていない種",
     "title": "種のリーダーボード",
     "species_count": "{count} 種",
@@ -1837,145 +1994,20 @@
     "other_species": "その他"
   },
   "about": {
-    "title": "このプロジェクトについて",
     "how_it_works": "仕組み",
-    "features": "機能",
-    "tech_stack": "テクノロジースタック",
-    "docs_resources": "ドキュメントとリソース",
     "credits": "クレジットと謝辞",
-    "jump_to": "移動先",
     "view_changelog": "変更履歴を見る",
     "flaticon_credit": "鳥アイコンは Freepik が作成 - Flaticon",
     "license_notice": "© {year} Jellman86 • {license} の下で公開",
     "built_with_ai": "バードウォッチングへの愛を込めて、AIの助けを借りて構築されました 🐦",
     "project_desc_1": "YA-WAMFは、AI支援によるコーディングを実験するために開始された個人プロジェクトです。元の {link} プロジェクトがメンテナンスされなくなったため、学習の機会として、また鳥愛好家のための便利なツールとして誕生しました。",
     "project_desc_2": "このアプリはAIコーディング支援で構築され、シンプルな給餌カメラから始まり、マルチセンサー相関、GPU高速モデル、リアルタイムHome Assistant連携を備えた本格的な野鳥識別プラットフォームへと成長しました。",
-    "steps": {
-      "1": {
-        "title": "Frigateが検知",
-        "desc": "カメラが動きを捉え、Frigateがそれを鳥として識別します"
-      },
-      "2": {
-        "title": "MQTTメッセージ",
-        "desc": "FrigateがMQTTブローカーにイベントを発行します"
-      },
-      "3": {
-        "title": "YA-WAMFが処理",
-        "desc": "バックエンドがMQTTをサブスクライブし、イベントを受け取ります"
-      },
-      "4": {
-        "title": "分類",
-        "desc": "画像がMLモデルを実行（またはFrigateのサブラベルを使用）します"
-      },
-      "5": {
-        "title": "オーディオ相関",
-        "desc": "利用可能な場合、BirdNET-Goのオーディオ検知とクロスリファレンスします"
-      },
-      "6": {
-        "title": "保存と通知",
-        "desc": "検知内容がデータベースに保存され、通知が送信されます"
-      },
-      "7": {
-        "title": "ビデオ分析",
-        "desc": "オプション：ビデオクリップのフレームをスキャンして精度を高めます"
-      },
-      "8": {
-        "title": "ライブ更新",
-      "desc": "ダッシュボードが Server-Sent Events を介してリアルタイムで更新されます"
-      }
-    },
-    "feature_list": {
-      "ai_models": {
-        "title": "高度なAIモデル",
-        "desc": "MobileNetV2（高速）、ConvNeXt（高精度）、またはEVA-02（エリート ~91% 精度）から選択可能"
-      },
-      "multi_sensor": {
-        "title": "マルチセンサー相関",
-        "desc": "視覚的検知をBirdNET-Goのオーディオ識別とクロスリファレンスします"
-      },
-      "video_analysis": {
-        "title": "自動ビデオ分析",
-        "desc": "ビデオクリップから15枚以上のフレームを自動スキャンして精度を向上させます"
-      },
-      "notifications": {
-        "title": "豊富な通知機能",
-        "desc": "Discord、Telegram、Pushoverをサポート。カスタマイズ可能なフィルタ付き"
-      },
-      "ai_insights": {
-        "title": "AIナチュラリストの洞察",
-        "desc": "Gemini、OpenAI、またはClaudeを使用して、訪問者の行動分析を取得します"
-      },
-      "taxonomy": {
-        "title": "分類の正規化",
-        "desc": "iNaturalistデータを使用して学名 ↔ 一般名を自動マッピングします"
-      },
-      "inaturalist_submissions": {
-        "title": "iNaturalist 送信",
-        "desc": "写真・場所・メモ付きの送信をオーナーが確認して投稿",
-        "badge": "テスター募集"
-      },
-      "weather": {
-        "title": "気象情報の付加",
-        "desc": "地域の気象条件や気温データとともに検知を追跡します"
-      },
-      "home_assistant": {
-        "title": "Home Assistant 連携",
-        "desc": "最後に検知された鳥や毎日の訪問者数を追跡するネイティブセンサー"
-      },
-      "birdweather": {
-        "title": "BirdWeather レポート",
-        "desc": "オプション：検知内容をBirdWeatherコミュニティサイエンスプラットフォームに提供"
-      },
-      "observability": {
-        "title": "オブザーバビリティ",
-        "desc": "組み込みのPrometheusメトリクス、オプションのテレメトリ、リアルタイムMQTT診断"
-      },
-      "wildlife": {
-        "title": "野生動物分類器",
-        "desc": "リス、キツネ、その他の鳥以外の訪問者を識別します"
-      },
-      "fast_path": {
-        "title": "ファストパス効率化",
-        "desc": "ローカルAI処理をスキップし、Frigateのサブラベルを直接使用してCPUを節約します"
-      },
-      "guest_mode": {
-        "title": "公開ビュー（ゲストモード）",
-        "desc": "読み取り専用のダッシュボードを共有。レート制限とカメラ名の非表示に対応"
-      },
-      "gpu_acceleration": {
-        "title": "GPU高速化",
-        "desc": "NVIDIA CUDAとIntel OpenVINOの自動切替によるONNX高速推論、ランタイムフォールバックとUIでのプロバイダー診断をサポート"
-      },
-      "personalized_reranking": {
-        "title": "パーソナライズド再ランキング",
-        "desc": "カメラとモデルごとの手動種修正から学習し、時間の経過とともに地元の野鳥に合わせた予測に再ランク付けします。20回の修正後に有効化されます。"
-      },
-      "ebird_export": {
-        "title": "eBirdエクスポート",
-        "desc": "検出データを標準eBirdレコード形式のCSVとしてエクスポート — eBirdアカウントへの直接提出に対応"
-      },
-      "full_visit_clip": {
-        "title": "フル訪問クリップ",
-        "desc": "Frigate の録画からより長いクリップを生成し、検出終了後に餌台への訪問全体を確認できるようにします。"
-      }
-    },
-    "tech": {
-      "backend": "バックエンド",
-      "frontend": "フロントエンド",
-      "ml": "MLエンジン",
-      "messaging": "メッセージング",
-      "deployment": "デプロイメント"
-    },
     "links": {
       "repo": "GitHub リポジトリ",
-      "repo_desc": "ソースコード、問題、およびリリース",
       "docs": "ドキュメント",
-      "docs_desc": "セットアップガイド、APIリファレンス、およびトラブルシューティング",
       "issues": "問題を報告",
       "frigate": "Frigate NVR",
-      "frigate_desc": "必須：オブジェクト検知機能を備えたオープンソースNVR",
-      "birdnet": "BirdNET-Go",
-      "birdnet_desc": "オプション：オーディオによる鳥の識別"
+      "birdnet": "BirdNET-Go"
     },
     "credits_list": {
       "preamble": "このプロジェクトは以下なしでは実現できませんでした：",
@@ -1985,8 +2017,6 @@
       "benjordan": "鳥検知コンテンツで刺激を与えてくれたYouTubeの {link}",
       "ai_assistants": "このアプリケーションの構築を支援してくれたAIアシスタント"
     },
-    "star_github": "GitHubでスターを付ける",
-    "star_github_label": "GitHubでYA-WAMFにスターを付ける",
     "pipeline": {
       "subtitle": "標準的な処理の流れと、このインスタンスの現在の状態です。",
       "frigate": "Frigate",

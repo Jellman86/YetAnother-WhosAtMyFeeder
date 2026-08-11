@@ -41,6 +41,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   stored in each table and which outbound calls are enabled, so the privacy answer lives on the
   page rather than across three documents.
 
+- **The About page is now the page, not a brochure.** The eighteen-item feature grid, the
+  technology-stack card, the jump-to nav and the separate resources card are gone. What remains is
+  what the page is for: what this is, how it works with live state on every step, what it stores
+  and sends, the build detail to quote in an issue report, and the credits. The feature list stays
+  documented in the readme and docs.
+
+- **Adding an observation gives the evidence the room.** The gradient intro banner and the 16rem
+  step rail are replaced by a slim bar carrying the filename, the flow status and Start over, so
+  the frame and the candidate list get the width instead of the chrome.
+
 ### Fixed
 
 - **Manual observation uploads now pass through the bundled Nginx proxies at their documented

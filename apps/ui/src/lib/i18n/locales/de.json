@@ -27,21 +27,112 @@
     "species": "Arten"
   },
   "manual_observation": {
-    "eyebrow": "Feldbeobachtung", "intro_title": "Foto oder Clip in eine bestätigte Beobachtung verwandeln",
-    "intro_body": "YA-WAMF nutzt dasselbe Modell, dieselbe Ausschnittwahl und denselben Videokonsens wie Live-Erkennungen. Gespeichert wird erst nach deiner Prüfung.", "progress_label": "Fortschritt der Beobachtung",
-    "steps": { "upload": "Hochladen", "upload_detail": "Originalmedium auswählen", "analyse": "Analysieren", "analyse_detail": "Stärksten Nachweis finden", "review": "Prüfen", "review_detail": "Art bestätigen", "save": "Speichern", "save_detail": "Zu Beobachtungen hinzufügen" },
-    "evidence": { "full_frame": "Vollbild", "crop": "Bester Ausschnitt", "model": "Modell", "provider": "Anbieter" , "original": "Wie hochgeladen", "compare": "Belege vergleichen", "scored_help": "Genau diese Eingabe hat der Klassifikator bewertet.", "original_help": "Ihre Originaldatei, unverändert gespeichert.", "input": "Bewertete Eingabe", "file": "Datei" },
-    "errors": { "load": "Der Analysestatus konnte nicht geladen werden.", "type": "Wähle eine JPEG-, PNG-, WebP-, MP4-, MOV- oder WebM-Datei.", "image_size": "Wähle ein Bild mit höchstens 25 MB.", "video_size": "Wähle ein Video mit höchstens 250 MB.", "upload": "Das Medium konnte nicht hochgeladen werden.", "retry": "Die Analyse konnte nicht neu gestartet werden.", "save": "Die Beobachtung konnte nicht gespeichert werden." },
-    "upload": { "title": "Foto oder Video auswählen", "help": "Verwende möglichst die Originaldatei. YA-WAMF bewahrt sie auf und wählt die beste Eingabe für die Klassifizierung.", "change": "Andere Datei auswählen", "drop": "Medium hier ablegen oder Datei auswählen", "formats": "JPEG, PNG, WebP bis 25 MB · MP4, MOV, WebM bis 250 MB / 3 Minuten", "uploading": "Original wird gesichert…", "analyse": "Hochladen und analysieren" },
-    "analysis": { "preview_alt": "Vorschau des hochgeladenen Mediums", "video": "Videodatei", "image": "Foto", "title": "Stärkster Nachweis wird gesucht", "body": "Der Produktiv-Klassifikator vergleicht Einzelbilder und Ausschnitte. Du kannst die Seite verlassen; der Entwurf wird bei deiner Rückkehr wiederhergestellt.", "progress": "Analysefortschritt", "failed_title": "Analyse sicher angehalten", "failed_body": "Dein Originalmedium bleibt gespeichert. Wiederhole den Vorgang, sobald das Modell verfügbar ist.", "retry": "Analyse wiederholen" },
-    "review": { "preview_alt": "Vorschau der Beobachtung", "title": "Vor dem Speichern prüfen", "body": "Bestätige die vorgeschlagene Art, korrigiere sie bei Bedarf und ergänze den gewünschten Kontext.", "candidates": "Modellvorschläge", "species": "Art", "when": "Beobachtet am", "location": "Kamera oder Ortsname", "notes": "Notizen", "saving": "Beobachtung wird gespeichert…", "save": "Beobachtung speichern", "save_species": "{species} hinzufügen" },
-    "location": { "title": "Sichtungsort", "extracted": "Der Ort wurde in den Bildmetadaten gefunden. Prüfe den Pin und passe ihn bei Bedarf an.", "missing": "Es wurde kein eingebetteter Ort gefunden. Setze einen Pin, wenn du den Sichtungsort kennst.", "manual": "Dieser Pin wurde manuell gesetzt oder angepasst. Prüfe ihn vor dem Speichern.", "from_image": "Aus Bildmetadaten", "map_label": "Karte zum Setzen des Sichtungspins", "map_help": "Klicke oder tippe auf die Karte, um den Pin zu setzen. Ziehe ihn für eine genaue Anpassung.", "latitude": "Breitengrad", "longitude": "Längengrad", "clear": "Ort entfernen", "incomplete": "Gib Breiten- und Längengrad ein oder entferne den Ort.", "invalid": "Der Breitengrad muss zwischen −90 und 90 und der Längengrad zwischen −180 und 180 liegen.", "selected": "Pin bei {latitude}, {longitude} gesetzt", "unselected": "Kein Sichtungsort ausgewählt", "pin_label": "Sichtungsort-Pin; zum Anpassen ziehen" },
-    "saved": { "toast": "Beobachtung hinzugefügt", "eyebrow": "Eintrag abgeschlossen", "title": "Beobachtung gespeichert", "body": "Der bestätigte Eintrag gehört nun zu deinem Erkennungsverlauf und den Artensummen.", "view": "Erkennung anzeigen", "another": "Weitere hinzufügen" },
-    "start_over": "Neu beginnen"
+    "eyebrow": "Feldbeobachtung",
+    "intro_title": "Foto oder Clip in eine bestätigte Beobachtung verwandeln",
+    "intro_body": "YA-WAMF nutzt dasselbe Modell, dieselbe Ausschnittwahl und denselben Videokonsens wie Live-Erkennungen. Gespeichert wird erst nach deiner Prüfung.",
+    "progress_label": "Fortschritt der Beobachtung",
+    "steps": {
+      "upload": "Hochladen",
+      "upload_detail": "Originalmedium auswählen",
+      "analyse": "Analysieren",
+      "analyse_detail": "Stärksten Nachweis finden",
+      "review": "Prüfen",
+      "review_detail": "Art bestätigen",
+      "save": "Speichern",
+      "save_detail": "Zu Beobachtungen hinzufügen"
+    },
+    "evidence": {
+      "full_frame": "Vollbild",
+      "crop": "Bester Ausschnitt",
+      "model": "Modell",
+      "provider": "Anbieter",
+      "original": "Wie hochgeladen",
+      "compare": "Belege vergleichen",
+      "scored_help": "Genau diese Eingabe hat der Klassifikator bewertet.",
+      "original_help": "Ihre Originaldatei, unverändert gespeichert.",
+      "input": "Bewertete Eingabe",
+      "file": "Datei"
+    },
+    "errors": {
+      "load": "Der Analysestatus konnte nicht geladen werden.",
+      "type": "Wähle eine JPEG-, PNG-, WebP-, MP4-, MOV- oder WebM-Datei.",
+      "image_size": "Wähle ein Bild mit höchstens 25 MB.",
+      "video_size": "Wähle ein Video mit höchstens 250 MB.",
+      "upload": "Das Medium konnte nicht hochgeladen werden.",
+      "retry": "Die Analyse konnte nicht neu gestartet werden.",
+      "save": "Die Beobachtung konnte nicht gespeichert werden."
+    },
+    "upload": {
+      "title": "Foto oder Video auswählen",
+      "help": "Verwende möglichst die Originaldatei. YA-WAMF bewahrt sie auf und wählt die beste Eingabe für die Klassifizierung.",
+      "change": "Andere Datei auswählen",
+      "drop": "Medium hier ablegen oder Datei auswählen",
+      "formats": "JPEG, PNG, WebP bis 25 MB · MP4, MOV, WebM bis 250 MB / 3 Minuten",
+      "uploading": "Original wird gesichert…",
+      "analyse": "Hochladen und analysieren"
+    },
+    "analysis": {
+      "preview_alt": "Vorschau des hochgeladenen Mediums",
+      "video": "Videodatei",
+      "image": "Foto",
+      "title": "Stärkster Nachweis wird gesucht",
+      "body": "Der Produktiv-Klassifikator vergleicht Einzelbilder und Ausschnitte. Du kannst die Seite verlassen; der Entwurf wird bei deiner Rückkehr wiederhergestellt.",
+      "progress": "Analysefortschritt",
+      "failed_title": "Analyse sicher angehalten",
+      "failed_body": "Dein Originalmedium bleibt gespeichert. Wiederhole den Vorgang, sobald das Modell verfügbar ist.",
+      "retry": "Analyse wiederholen"
+    },
+    "review": {
+      "preview_alt": "Vorschau der Beobachtung",
+      "title": "Vor dem Speichern prüfen",
+      "body": "Bestätige die vorgeschlagene Art, korrigiere sie bei Bedarf und ergänze den gewünschten Kontext.",
+      "candidates": "Modellvorschläge",
+      "species": "Art",
+      "when": "Beobachtet am",
+      "location": "Kamera oder Ortsname",
+      "notes": "Notizen",
+      "saving": "Beobachtung wird gespeichert…",
+      "save": "Beobachtung speichern",
+      "save_species": "{species} hinzufügen"
+    },
+    "location": {
+      "title": "Sichtungsort",
+      "extracted": "Der Ort wurde in den Bildmetadaten gefunden. Prüfe den Pin und passe ihn bei Bedarf an.",
+      "missing": "Es wurde kein eingebetteter Ort gefunden. Setze einen Pin, wenn du den Sichtungsort kennst.",
+      "manual": "Dieser Pin wurde manuell gesetzt oder angepasst. Prüfe ihn vor dem Speichern.",
+      "from_image": "Aus Bildmetadaten",
+      "map_label": "Karte zum Setzen des Sichtungspins",
+      "map_help": "Klicke oder tippe auf die Karte, um den Pin zu setzen. Ziehe ihn für eine genaue Anpassung.",
+      "latitude": "Breitengrad",
+      "longitude": "Längengrad",
+      "clear": "Ort entfernen",
+      "incomplete": "Gib Breiten- und Längengrad ein oder entferne den Ort.",
+      "invalid": "Der Breitengrad muss zwischen −90 und 90 und der Längengrad zwischen −180 und 180 liegen.",
+      "selected": "Pin bei {latitude}, {longitude} gesetzt",
+      "unselected": "Kein Sichtungsort ausgewählt",
+      "pin_label": "Sichtungsort-Pin; zum Anpassen ziehen"
+    },
+    "saved": {
+      "toast": "Beobachtung hinzugefügt",
+      "eyebrow": "Eintrag abgeschlossen",
+      "title": "Beobachtung gespeichert",
+      "body": "Der bestätigte Eintrag gehört nun zu deinem Erkennungsverlauf und den Artensummen.",
+      "view": "Erkennung anzeigen",
+      "another": "Weitere hinzufügen"
+    },
+    "start_over": "Neu beginnen",
+    "bar": {
+      "kept": "Genau so gespeichert wie hochgeladen",
+      "hint": "Es wird nichts hinzugefügt, bevor Sie es geprüft haben"
+    }
   },
   "setup": {
     "action_failed": "Die Änderung konnte nicht gespeichert werden. Prüfe die Angaben und versuche es erneut.",
-    "load": { "loading": "Gespeicherte Einstellungen werden geladen…", "failed": "Die gespeicherten Einstellungen konnten nicht geladen werden. Es wurde nichts geändert.", "retry": "Einstellungen erneut laden" },
+    "load": {
+      "loading": "Gespeicherte Einstellungen werden geladen…",
+      "failed": "Die gespeicherten Einstellungen konnten nicht geladen werden. Es wurde nichts geändert.",
+      "retry": "Einstellungen erneut laden"
+    },
     "status": {
       "ok": "Konfiguriert",
       "attention": "Aktion erforderlich",
@@ -53,7 +144,11 @@
     "connection": {
       "title": "Frigate- & MQTT-Verbindung",
       "save_failed": "Die Verbindungseinstellungen konnten nicht gespeichert werden. Prüfe die Werte und versuche es erneut.",
-      "mqtt_auth": "MQTT-Authentifizierung", "mqtt_auth_hint": "Nur aktivieren, wenn der Broker Benutzername und Passwort verlangt.", "mqtt_username": "Benutzername", "mqtt_password": "Passwort", "mqtt_password_saved": "Das gespeicherte Passwort bleibt erhalten, solange kein Ersatz eingegeben wird."
+      "mqtt_auth": "MQTT-Authentifizierung",
+      "mqtt_auth_hint": "Nur aktivieren, wenn der Broker Benutzername und Passwort verlangt.",
+      "mqtt_username": "Benutzername",
+      "mqtt_password": "Passwort",
+      "mqtt_password_saved": "Das gespeicherte Passwort bleibt erhalten, solange kein Ersatz eingegeben wird."
     },
     "cameras": {
       "title": "Kameras & Erkennung",
@@ -73,13 +168,43 @@
       "title": "Integrationen",
       "birdnet_test_subtitle": "Der Stufentest verwendet diese URL und prüft danach den gespeicherten MQTT-Broker sowie den lokalen Erkennungsspeicher."
     },
-    "history": { "title": "Vorhandene Erkennungen importieren", "description": "Optional noch in Frigate vorhandene Vogelereignisse klassifizieren. Der Import läuft sicher im Hintergrund.", "enable": "Gespeicherte Frigate-Vogelereignisse importieren", "enable_help": "Vorhandene Erkennungen werden nur bei besserer Klassifizierung aktualisiert; Audio- und Wetterdaten bleiben erhalten.", "range": "Zeitraum", "import_continue": "Importieren & weiter", "continue_without": "Ohne Import fortfahren", "job_title": "Import des Erkennungsverlaufs", "job_starting": "Frigate-Ereignisverlauf wird durchsucht", "audio_note": "Der Frigate-Verlauf kann visuelle Erkennungen und Schnappschüsse wiederherstellen, aber nicht bereits fehlendes BirdNET-Go-Audio." },
+    "history": {
+      "title": "Vorhandene Erkennungen importieren",
+      "description": "Optional noch in Frigate vorhandene Vogelereignisse klassifizieren. Der Import läuft sicher im Hintergrund.",
+      "enable": "Gespeicherte Frigate-Vogelereignisse importieren",
+      "enable_help": "Vorhandene Erkennungen werden nur bei besserer Klassifizierung aktualisiert; Audio- und Wetterdaten bleiben erhalten.",
+      "range": "Zeitraum",
+      "import_continue": "Importieren & weiter",
+      "continue_without": "Ohne Import fortfahren",
+      "job_title": "Import des Erkennungsverlaufs",
+      "job_starting": "Frigate-Ereignisverlauf wird durchsucht",
+      "audio_note": "Der Frigate-Verlauf kann visuelle Erkennungen und Schnappschüsse wiederherstellen, aber nicht bereits fehlendes BirdNET-Go-Audio."
+    },
     "review": {
       "loading": "Gespeicherte Einrichtung wird geprüft…",
       "load_failed": "Die Einrichtungsübersicht konnte nicht geladen werden. Deine gespeicherten Einstellungen wurden nicht verändert.",
       "retry": "Übersicht erneut laden",
       "stale": "Die letzte Einrichtungsübersicht wird angezeigt, weil die Aktualisierung fehlgeschlagen ist.",
-      "detail": { "account_password_protected": "Passwortgeschützt", "account_auth_disabled": "Authentifizierung deaktiviert", "account_not_configured": "Nicht konfiguriert", "frigate_url": "Frigate-URL", "mqtt_broker": "MQTT-Broker", "mqtt_username": "MQTT-Benutzername", "mqtt_password": "MQTT-Passwort", "connection_missing": "{items} festlegen", "cameras_count": "{count} Kameras", "cameras_all": "Alle Kameras", "model_wrong_kind": "Ein Zuschneidemodell ist als Klassifizierer ausgewählt", "model_retired": "Das gespeicherte Klassifizierungsmodell wurde eingestellt", "model_fallback": "Mitgelieferter Ersatz", "quality_best": "Bestmögliche Schnappschüsse", "quality_standard": "Standard-Schnappschüsse", "integrations_needs": "Einrichtung nötig: {integrations}", "integrations_configured": "Konfiguriert: {integrations}", "integrations_none": "Keine aktiviert" }
+      "detail": {
+        "account_password_protected": "Passwortgeschützt",
+        "account_auth_disabled": "Authentifizierung deaktiviert",
+        "account_not_configured": "Nicht konfiguriert",
+        "frigate_url": "Frigate-URL",
+        "mqtt_broker": "MQTT-Broker",
+        "mqtt_username": "MQTT-Benutzername",
+        "mqtt_password": "MQTT-Passwort",
+        "connection_missing": "{items} festlegen",
+        "cameras_count": "{count} Kameras",
+        "cameras_all": "Alle Kameras",
+        "model_wrong_kind": "Ein Zuschneidemodell ist als Klassifizierer ausgewählt",
+        "model_retired": "Das gespeicherte Klassifizierungsmodell wurde eingestellt",
+        "model_fallback": "Mitgelieferter Ersatz",
+        "quality_best": "Bestmögliche Schnappschüsse",
+        "quality_standard": "Standard-Schnappschüsse",
+        "integrations_needs": "Einrichtung nötig: {integrations}",
+        "integrations_configured": "Konfiguriert: {integrations}",
+        "integrations_none": "Keine aktiviert"
+      }
     }
   },
   "theme": {
@@ -1738,7 +1863,11 @@
       "min_confidence": "Mindestkonfidenz"
     },
     "top_species": "Am häufigsten gehörte Arten",
-    "card": { "last_heard": "Zuletzt gehört", "avg": "Ø", "max": "Max." },
+    "card": {
+      "last_heard": "Zuletzt gehört",
+      "avg": "Ø",
+      "max": "Max."
+    },
     "history": {
       "title": "Erkennungsverlauf",
       "sub": "Gespeicherte BirdNET-Go-Erkennungen, getrennt von visuellen Besuchen.",
@@ -1746,12 +1875,19 @@
       "showing": "{from}–{to} von {total} werden angezeigt"
     },
     "table": {
-      "sound": "Ton", "time": "Zeit", "species": "Art", "source": "Quelle",
-      "confidence": "Konfidenz", "open_birdnet": "In BirdNET-Go öffnen",
+      "sound": "Ton",
+      "time": "Zeit",
+      "species": "Art",
+      "source": "Quelle",
+      "confidence": "Konfidenz",
+      "open_birdnet": "In BirdNET-Go öffnen",
       "open_visual_match": "Passende visuelle Erkennung öffnen",
       "unknown_source": "Unbekannte Quelle"
     },
-    "sources": { "title": "Quellen", "empty": "Noch keine Quellen." }
+    "sources": {
+      "title": "Quellen",
+      "empty": "Noch keine Quellen."
+    }
   },
   "leaderboard": {
     "source_toggle": "Erkennungsquelle",
@@ -1858,145 +1994,20 @@
     "other_species": "Andere"
   },
   "about": {
-    "title": "Über dieses Projekt",
     "how_it_works": "Wie es funktioniert",
-    "features": "Funktionen",
-    "tech_stack": "Technologie-Stack",
-    "docs_resources": "Dokumentation & Ressourcen",
     "credits": "Credits & Dank",
-    "jump_to": "Springe zu",
     "view_changelog": "Changelog anzeigen",
     "flaticon_credit": "Vogel-Icons erstellt von Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Lizenziert unter der {license}",
     "built_with_ai": "Mit KI-Unterstützung für die Liebe zur Vogelbeobachtung gebaut 🐦",
     "project_desc_1": "YA-WAMF ist ein persönliches Projekt, das gestartet wurde, um mit KI-unterstützter Programmierung zu experimentieren. Als das ursprüngliche {link}-Projekt nicht mehr gepflegt wurde, entstand dieses Projekt sowohl als Lernmöglichkeit als auch als nützliches Werkzeug für Vogelliebhaber.",
     "project_desc_2": "Die Anwendung wurde mit KI-Unterstützung entwickelt und ist zu einer voll ausgestatteten Vogelidentifikationsplattform herangewachsen — von einer einfachen Futterkamera über Multi-Sensor-Korrelation und GPU-beschleunigten Modellen bis hin zur Echtzeit-Home-Assistant-Integration.",
-    "steps": {
-      "1": {
-        "title": "Frigate Erkennt",
-        "desc": "Ihre Kamera erkennt eine Bewegung, Frigate identifiziert sie als Vogel"
-      },
-      "2": {
-        "title": "MQTT-Nachricht",
-        "desc": "Frigate veröffentlicht ein Ereignis an Ihren MQTT-Broker"
-      },
-      "3": {
-        "title": "YA-WAMF Verarbeitet",
-        "desc": "Das Backend abonniert MQTT und nimmt das Ereignis auf"
-      },
-      "4": {
-        "title": "Klassifizierung",
-        "desc": "Das Bild durchläuft ein ML-Modell (oder verwendet das Sublabel von Frigate)"
-      },
-      "5": {
-        "title": "Audio-Korrelation",
-        "desc": "Abgleich mit BirdNET-Go Audio-Erkennungen, falls verfügbar"
-      },
-      "6": {
-        "title": "Speichern & Benachrichtigen",
-        "desc": "Erkennung wird in der Datenbank gespeichert, Benachrichtigungen werden gesendet"
-      },
-      "7": {
-        "title": "Video-Analyse",
-        "desc": "Optional: Scannt Videoclip-Frames für verfeinerte Genauigkeit"
-      },
-      "8": {
-        "title": "Live-Updates",
-        "desc": "Das Dashboard erhält Echtzeit-Updates über Server-Sent Events"
-      }
-    },
-    "feature_list": {
-      "ai_models": {
-        "title": "Fortgeschrittene KI-Modelle",
-        "desc": "Wählen Sie zwischen MobileNetV2 (schnell), ConvNeXt (hohe Genauigkeit) oder EVA-02 (Elite ~91% Genauigkeit)"
-      },
-      "multi_sensor": {
-        "title": "Multi-Sensor-Korrelation",
-        "desc": "Verknüpfen Sie visuelle Erkennungen mit BirdNET-Go Audio-Identifikationen"
-      },
-      "video_analysis": {
-        "title": "Auto-Video-Analyse",
-        "desc": "Automatisches Scannen von 15+ Frames aus Videoclips für höhere Genauigkeit"
-      },
-      "notifications": {
-        "title": "Umfangreiche Benachrichtigungen",
-        "desc": "Discord, Telegram und Pushover Unterstützung mit anpassbaren Filtern"
-      },
-      "ai_insights": {
-        "title": "KI-Naturalist Einblicke",
-        "desc": "Erhalten Sie Verhaltensanalysen Ihrer Besucher mit Gemini, OpenAI oder Claude"
-      },
-      "taxonomy": {
-        "title": "Taxonomie-Normalisierung",
-        "desc": "Automatische Zuordnung wissenschaftlicher ↔ gebräuchlicher Namen via iNaturalist-Daten"
-      },
-      "inaturalist_submissions": {
-        "title": "iNaturalist-Übermittlungen",
-        "desc": "Vom Besitzer geprüfte Übermittlungen mit Foto, Ort und Notizen",
-        "badge": "Tester gesucht"
-      },
-      "weather": {
-        "title": "Wetter-Anreicherung",
-        "desc": "Verfolgen Sie Erkennungen mit lokalen Wetterbedingungen und temperaturdaten"
-      },
-      "home_assistant": {
-        "title": "Home Assistant-Integration",
-        "desc": "Native Sensoren zur Verfolgung des letzten erkannten Vogels und täglicher Besucherzahlen"
-      },
-      "birdweather": {
-        "title": "BirdWeather Berichterstattung",
-        "desc": "Optional: Tragen Sie Ihre Erkennungen zur BirdWeather Community-Plattform bei"
-      },
-      "observability": {
-        "title": "Beobachtbarkeit",
-        "desc": "Integrierte Prometheus-Metriken, optionale Telemetrie und Echtzeit-MQTT-Diagnose"
-      },
-      "wildlife": {
-        "title": "Wildtier-Klassifizierer",
-        "desc": "Identifizieren Sie Eichhörnchen, Füchse und andere Nicht-Vogel-Besucher"
-      },
-      "fast_path": {
-        "title": "Fast-Path Effizienz",
-        "desc": "Überspringen Sie lokale KI-Verarbeitung und nutzen Sie Frigates Sublabels direkt"
-      },
-      "guest_mode": {
-        "title": "Öffentliche Ansicht (Gastmodus)",
-        "desc": "Teilen Sie ein schreibgeschütztes Dashboard mit Ratenlimits und optional ausgeblendeten Kameranamen"
-      },
-      "gpu_acceleration": {
-        "title": "GPU-Beschleunigung",
-        "desc": "Automatische Auswahl zwischen NVIDIA CUDA und Intel OpenVINO für schnelle ONNX-Inferenz, mit Laufzeit-Fallback und Live-Anbieterdiagnose in der Benutzeroberfläche"
-      },
-      "personalized_reranking": {
-        "title": "Personalisiertes Re-Ranking",
-        "desc": "Lernt aus manuellen Artenkorrekturen pro Kamera und Modell und ordnet Vorhersagen über Zeit neu ein, um lokale Vögel besser zu erkennen. Aktiviert nach 20 Korrekturen."
-      },
-      "ebird_export": {
-        "title": "eBird-Export",
-        "desc": "Erkennungen als Standard-eBird-Rekordformat-CSV exportieren — bereit zur direkten Einreichung bei Ihrem eBird-Konto"
-      },
-      "full_visit_clip": {
-        "title": "Vollbesuch-Clips",
-        "desc": "Erstellt einen längeren Clip aus Frigate-Aufzeichnungen, damit ein vollständiger Futterbesuch nach Abschluss der Erkennung angesehen werden kann."
-      }
-    },
-    "tech": {
-      "backend": "Backend",
-      "frontend": "Frontend",
-      "ml": "ML-Engine",
-      "messaging": "Messaging",
-      "deployment": "Bereitstellung"
-    },
     "links": {
       "repo": "GitHub-Repository",
-      "repo_desc": "Quellcode, Probleme und Releases",
       "docs": "Dokumentation",
-      "docs_desc": "Einrichtungsanleitungen, API-Referenz und Fehlerbehebung",
       "issues": "Problem melden",
       "frigate": "Frigate NVR",
-      "frigate_desc": "Erforderlich: Open-Source-NVR mit Objekterkennung",
-      "birdnet": "BirdNET-Go",
-      "birdnet_desc": "Optional: Audio-Vogelidentifikation"
+      "birdnet": "BirdNET-Go"
     },
     "credits_list": {
       "preamble": "Dieses Projekt wäre nicht möglich ohne:",
@@ -2006,8 +2017,6 @@
       "benjordan": "{link} auf YouTube für inspirierende Inhalte zur Vogelerkennung",
       "ai_assistants": "KI-Assistenten, die beim Aufbau dieser Anwendung geholfen haben"
     },
-    "star_github": "Auf GitHub markieren",
-    "star_github_label": "YA-WAMF auf GitHub markieren",
     "pipeline": {
       "subtitle": "Die übliche Verarbeitungskette und was diese Instanz gerade tut.",
       "frigate": "Frigate",

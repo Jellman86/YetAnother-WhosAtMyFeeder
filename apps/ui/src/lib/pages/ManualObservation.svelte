@@ -295,41 +295,46 @@
 </script>
 
 <section class="overflow-hidden rounded-[1.75rem] border border-slate-200/80 bg-white/80 shadow-sm dark:border-slate-700/60 dark:bg-slate-900/55">
-    <div class="relative border-b border-slate-200/80 bg-gradient-to-r from-brand-50 via-white to-accent-50 px-5 py-5 dark:border-slate-700/60 dark:from-brand-950/40 dark:via-slate-900 dark:to-accent-950/30 sm:px-7">
-        <div class="absolute inset-y-0 right-0 w-2/5 bg-[radial-gradient(circle_at_70%_30%,rgba(20,184,166,0.14),transparent_62%)]" aria-hidden="true"></div>
-        <div class="relative flex items-start gap-4">
-            <div class="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-500 to-accent-600 text-white shadow-sm">
-                <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
-            </div>
-            <div class="min-w-0">
-                <p class="text-xs font-bold uppercase tracking-[0.16em] text-brand-700 dark:text-brand-300">{$_('manual_observation.eyebrow', { default: 'Field record' })}</p>
-                <h2 class="mt-1 text-lg font-bold text-slate-900 dark:text-white">{$_('manual_observation.intro_title', { default: 'Turn a photo or clip into a verified observation' })}</h2>
-                <p class="mt-1 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.intro_body', { default: 'YA-WAMF uses the same model, crop selection, and video consensus as live detections. Nothing is added until you review it.' })}</p>
-            </div>
+    <!-- Slim bar: the media gets the room, the flow keeps its status. -->
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-slate-200/80 px-5 py-3 dark:border-slate-700/60 sm:px-6" data-manual-observation-bar>
+        <div class="min-w-0">
+            <h2 class="truncate font-display text-base font-bold text-slate-900 dark:text-white">
+                {draft?.original_filename ?? $_('manual_observation.intro_title', { default: 'Add an observation' })}
+            </h2>
+            <p class="truncate text-xs text-slate-500 dark:text-slate-400">
+                {draft
+                    ? $_('manual_observation.bar.kept', { default: 'Kept exactly as uploaded' })
+                    : $_('manual_observation.bar.hint', { default: 'Nothing is added until you review it' })}
+            </p>
         </div>
-    </div>
 
-    <div class="grid lg:grid-cols-[16rem_minmax(0,1fr)]">
-        <nav aria-label={$_('manual_observation.progress_label', { default: 'Observation progress' })} class="border-b border-slate-200/80 bg-slate-50/70 px-5 py-5 dark:border-slate-700/60 dark:bg-slate-950/25 lg:border-b-0 lg:border-r lg:px-6 lg:py-7">
-            <ol class="grid grid-cols-4 lg:block">
-                {#each steps as item, index}
-                    <li class="relative min-w-0 lg:pb-8 last:lg:pb-0">
-                        {#if index < steps.length - 1}
-                            <div class="absolute left-[calc(50%+1.25rem)] right-[calc(-50%+1.25rem)] top-4 h-px bg-slate-200 dark:bg-slate-700 lg:left-4 lg:right-auto lg:top-9 lg:h-[calc(100%-1rem)] lg:w-px" class:bg-brand-400={stage > item.number} aria-hidden="true"></div>
-                        {/if}
-                        <div class="relative flex flex-col items-center gap-2 text-center lg:flex-row lg:items-start lg:gap-3 lg:text-left">
-                            <div class="grid h-8 w-8 shrink-0 place-items-center rounded-full border text-xs font-bold transition-colors {stage > item.number ? 'border-brand-500 bg-brand-500 text-white' : stage === item.number ? 'border-brand-500 bg-white text-brand-700 ring-4 ring-brand-100 dark:bg-slate-900 dark:text-brand-300 dark:ring-brand-900/50' : 'border-slate-300 bg-white text-slate-400 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-500'}">
-                                {#if stage > item.number}<svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 10 3 3 7-7" /></svg>{:else}{item.number}{/if}
-                            </div>
-                            <div class="min-w-0 pt-0.5">
-                                <div class="truncate text-xs font-bold sm:text-sm {stage === item.number ? 'text-brand-800 dark:text-brand-200' : 'text-slate-700 dark:text-slate-300'}">{item.title}</div>
-                                <div class="mt-0.5 hidden text-xs leading-5 text-slate-500 dark:text-slate-400 lg:block">{item.detail}</div>
-                            </div>
-                        </div>
-                    </li>
-                {/each}
-            </ol>
-        </nav>
+        <ol class="ml-auto flex items-center gap-1.5" aria-label={$_('manual_observation.progress_label', { default: 'Observation progress' })}>
+            {#each steps as item}
+                <li
+                    class="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold {stage === item.number
+                        ? 'bg-brand-50 text-brand-800 dark:bg-brand-950/40 dark:text-brand-200'
+                        : stage > item.number
+                          ? 'text-emerald-700 dark:text-emerald-300'
+                          : 'text-slate-400 dark:text-slate-500'}"
+                    aria-current={stage === item.number ? 'step' : undefined}
+                >
+                    {#if stage > item.number}
+                        <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m5 10 3 3 7-7" />
+                        </svg>
+                    {/if}
+                    <span class="hidden sm:inline">{item.title}</span>
+                    <span class="sm:hidden">{item.number}</span>
+                </li>
+            {/each}
+        </ol>
+
+        {#if draft && draft.status !== 'saved'}
+            <button class="btn btn-ghost min-h-11 px-3 py-1.5 text-xs" onclick={startOver}>
+                {$_('manual_observation.start_over', { default: 'Start over' })}
+            </button>
+        {/if}
+    </div>
 
         <div class="min-h-[34rem] px-5 py-6 sm:px-7 sm:py-8">
             {#if errorMessage}
@@ -462,5 +467,4 @@
                 <div class="mx-auto flex max-w-xl flex-col items-center py-10 text-center"><div class="grid h-16 w-16 place-items-center rounded-full bg-accent-100 text-accent-700 ring-8 ring-accent-50 dark:bg-accent-900/50 dark:text-accent-300 dark:ring-accent-950/40"><svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12 4 4L19 6" /></svg></div><p class="mt-6 text-xs font-bold uppercase tracking-[0.16em] text-accent-700 dark:text-accent-300">{$_('manual_observation.saved.eyebrow', { default: 'Field record complete' })}</p><h3 class="mt-2 text-2xl font-bold text-slate-900 dark:text-white">{$_('manual_observation.saved.title', { default: 'Observation added' })}</h3><p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.saved.body', { default: 'The original media, classification evidence, and your confirmed species are now safely linked.' })}</p><div class="mt-7 flex flex-wrap justify-center gap-3"><button class="btn btn-primary px-5 py-2.5" onclick={() => onNavigate(`/events?event=${encodeURIComponent(draft?.saved_event_id ?? '')}`)}>{$_('manual_observation.saved.view', { default: 'View detection' })}</button><button class="btn btn-secondary px-5 py-2.5" onclick={startOver}>{$_('manual_observation.saved.another', { default: 'Add another' })}</button></div></div>
             {/if}
         </div>
-    </div>
 </section>
