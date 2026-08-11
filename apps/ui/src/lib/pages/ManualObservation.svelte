@@ -60,6 +60,33 @@
             ? [configuredLatitude, configuredLongitude]
             : [20, 0];
     });
+    // Name the action by what it does, not by the verb (CLAUDE.md §5).
+    const confirmLabel = $derived.by(() => {
+        const chosen = (selectedLabel || '').trim();
+        return chosen
+            ? $_('manual_observation.review.save_species', {
+                  values: { species: chosen },
+                  default: 'Add {species}'
+              })
+            : $_('manual_observation.review.save', { default: 'Add observation' });
+    });
+
+    // The evidence panel can show either the exact input the model scored or the original
+    // upload; comparing the two is how you tell a bad crop from a bad classification.
+    let evidenceView = $state<'scored' | 'original'>('scored');
+    const originalImageUrl = $derived(
+        draft && draft.media_type === 'image' ? withAuthParams(draft.media_url) : null
+    );
+    const canCompareEvidence = $derived(
+        Boolean(originalImageUrl) && (topPrediction?.input_is_cropped ?? false)
+    );
+
+    $effect(() => {
+        // A new draft starts on the scored input again.
+        void draft?.id;
+        evidenceView = 'scored';
+    });
+
     const sourceLabel = $derived.by(() => {
         const source = topPrediction?.input_source;
         if (!source) return $_('manual_observation.evidence.full_frame', { default: 'Full frame' });
@@ -354,8 +381,57 @@
                     </div>
                 </div>
             {:else if stage === 3}
-                <div class="grid gap-7 xl:grid-cols-[minmax(17rem,.8fr)_minmax(0,1.2fr)]">
-                    <div><div class="relative overflow-hidden rounded-2xl bg-slate-950 aspect-[4/3]"><img src={previewUrl ?? ''} alt={$_('manual_observation.review.preview_alt', { default: 'Evidence selected for review' })} class="h-full w-full object-contain" /><div class="absolute left-3 top-3 rounded-full border border-white/20 bg-black/55 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">{sourceLabel}</div></div><div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs"><div><span class="text-slate-500 dark:text-slate-400">{$_('manual_observation.evidence.model', { default: 'Model' })}</span><div class="mt-0.5 truncate font-semibold text-slate-800 dark:text-slate-100">{topPrediction?.model_name ?? topPrediction?.model_id ?? '—'}</div></div><div><span class="text-slate-500 dark:text-slate-400">{$_('manual_observation.evidence.provider', { default: 'Provider' })}</span><div class="mt-0.5 truncate font-semibold text-slate-800 dark:text-slate-100">{topPrediction?.inference_provider ?? topPrediction?.inference_backend ?? '—'}</div></div></div></div>
+                <div class="grid gap-7 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,.85fr)]">
+                    <div data-manual-observation-evidence>
+                        <div class="relative overflow-hidden rounded-2xl bg-slate-950 aspect-[4/3] xl:aspect-[3/2]">
+                            <img
+                                src={evidenceView === 'original' ? (originalImageUrl ?? previewUrl ?? '') : (previewUrl ?? '')}
+                                alt={$_('manual_observation.review.preview_alt', { default: 'Evidence selected for review' })}
+                                class="h-full w-full object-contain"
+                            />
+                            {#if canCompareEvidence}
+                                <div class="absolute right-3 top-3 flex gap-1 rounded-full border border-white/15 bg-black/60 p-1 backdrop-blur" role="group" aria-label={$_('manual_observation.evidence.compare', { default: 'Compare evidence' })}>
+                                    <button
+                                        type="button"
+                                        class="min-h-11 rounded-full px-3 text-xs font-bold transition-colors focus-ring {evidenceView === 'scored' ? 'bg-white/90 text-slate-900' : 'text-white/80 hover:text-white'}"
+                                        aria-pressed={evidenceView === 'scored'}
+                                        onclick={() => (evidenceView = 'scored')}
+                                    >{sourceLabel}</button>
+                                    <button
+                                        type="button"
+                                        class="min-h-11 rounded-full px-3 text-xs font-bold transition-colors focus-ring {evidenceView === 'original' ? 'bg-white/90 text-slate-900' : 'text-white/80 hover:text-white'}"
+                                        aria-pressed={evidenceView === 'original'}
+                                        onclick={() => (evidenceView = 'original')}
+                                    >{$_('manual_observation.evidence.original', { default: 'As uploaded' })}</button>
+                                </div>
+                            {:else}
+                                <div class="absolute left-3 top-3 rounded-full border border-white/20 bg-black/55 px-3 py-1.5 text-xs font-bold text-white backdrop-blur">{sourceLabel}</div>
+                            {/if}
+                        </div>
+                        <p class="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                            {evidenceView === 'scored'
+                                ? $_('manual_observation.evidence.scored_help', { default: 'This is the exact input the classifier scored.' })
+                                : $_('manual_observation.evidence.original_help', { default: 'Your original file, kept exactly as uploaded.' })}
+                        </p>
+                        <dl class="mt-3 grid grid-cols-2 gap-x-4 gap-y-2.5 border-t border-slate-200 pt-3 text-xs dark:border-slate-700">
+                            <div>
+                                <dt class="text-slate-500 dark:text-slate-400">{$_('manual_observation.evidence.model', { default: 'Model' })}</dt>
+                                <dd class="mt-0.5 truncate font-semibold text-slate-800 dark:text-slate-100">{topPrediction?.model_name ?? topPrediction?.model_id ?? '—'}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-slate-500 dark:text-slate-400">{$_('manual_observation.evidence.provider', { default: 'Provider' })}</dt>
+                                <dd class="mt-0.5 truncate font-semibold text-slate-800 dark:text-slate-100">{topPrediction?.inference_provider ?? topPrediction?.inference_backend ?? '—'}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-slate-500 dark:text-slate-400">{$_('manual_observation.evidence.input', { default: 'Scored input' })}</dt>
+                                <dd class="mt-0.5 truncate font-semibold text-slate-800 dark:text-slate-100">{sourceLabel}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-slate-500 dark:text-slate-400">{$_('manual_observation.evidence.file', { default: 'File' })}</dt>
+                                <dd class="mt-0.5 truncate font-semibold text-slate-800 dark:text-slate-100" title={draft?.original_filename}>{draft?.original_filename ?? '—'}</dd>
+                            </div>
+                        </dl>
+                    </div>
                     <div>
                         <h3 class="text-xl font-bold text-slate-900 dark:text-white">{$_('manual_observation.review.title', { default: 'Does this look right?' })}</h3>
                         <p class="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">{$_('manual_observation.review.body', { default: 'Choose a suggestion or correct it before this becomes part of your observation history.' })}</p>
@@ -379,7 +455,7 @@
                             {#if hasLocation}<button type="button" class="btn btn-ghost mt-2 min-h-11 px-3 py-2" onclick={clearLocation}>{$_('manual_observation.location.clear', { default: 'Clear location' })}</button>{/if}
                         </section>
                         <label class="mt-4 block"><span class="text-xs font-bold text-slate-600 dark:text-slate-300">{$_('manual_observation.review.notes', { default: 'Notes (optional)' })}</span><textarea class="input-base mt-1.5 min-h-20 resize-y" bind:value={notes} maxlength="1000"></textarea></label>
-                        <div class="mt-6 flex flex-wrap items-center justify-between gap-3"><button class="btn btn-ghost min-h-11 px-3 py-2.5" onclick={startOver}>{$_('manual_observation.start_over', { default: 'Start over' })}</button><button class="btn btn-primary min-h-11 px-5 py-2.5" disabled={!selectedLabel.trim() || saving || locationIncomplete || locationOutOfRange} onclick={saveObservation}>{saving ? $_('manual_observation.review.saving', { default: 'Saving…' }) : $_('manual_observation.review.save', { default: 'Add observation' })}</button></div>
+                        <div class="mt-6 flex flex-wrap items-center justify-between gap-3"><button class="btn btn-ghost min-h-11 px-3 py-2.5" onclick={startOver}>{$_('manual_observation.start_over', { default: 'Start over' })}</button><button class="btn btn-primary min-h-11 px-5 py-2.5" disabled={!selectedLabel.trim() || saving || locationIncomplete || locationOutOfRange} onclick={saveObservation}>{saving ? $_('manual_observation.review.saving', { default: 'Saving…' }) : confirmLabel}</button></div>
                     </div>
                 </div>
             {:else}

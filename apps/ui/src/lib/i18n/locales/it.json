@@ -30,11 +30,11 @@
     "eyebrow": "Osservazione sul campo", "intro_title": "Trasforma una foto o un video in un’osservazione verificata",
     "intro_body": "YA-WAMF usa lo stesso modello, la stessa selezione del ritaglio e lo stesso consenso video dei rilevamenti in tempo reale. Nulla viene aggiunto prima della tua verifica.", "progress_label": "Avanzamento dell’osservazione",
     "steps": { "upload": "Carica", "upload_detail": "Scegli il file originale", "analyse": "Analizza", "analyse_detail": "Trova la prova migliore", "review": "Verifica", "review_detail": "Conferma la specie", "save": "Salva", "save_detail": "Aggiungi alle osservazioni" },
-    "evidence": { "full_frame": "Fotogramma intero", "crop": "Ritaglio migliore", "model": "Modello", "provider": "Motore" },
+    "evidence": { "full_frame": "Fotogramma intero", "crop": "Ritaglio migliore", "model": "Modello", "provider": "Motore", "original": "Come caricato", "compare": "Confronta le prove", "scored_help": "Questo è esattamente l’input valutato dal classificatore.", "original_help": "Il tuo file originale, conservato così com’è.", "input": "Input valutato", "file": "File" },
     "errors": { "load": "Impossibile caricare lo stato dell’analisi.", "type": "Scegli un file JPEG, PNG, WebP, MP4, MOV o WebM.", "image_size": "Scegli un’immagine di dimensioni non superiori a 25 MB.", "video_size": "Scegli un video di dimensioni non superiori a 250 MB.", "upload": "Impossibile caricare il file.", "retry": "Impossibile riavviare l’analisi.", "save": "Impossibile salvare l’osservazione." },
     "upload": { "title": "Scegli una foto o un video", "help": "Usa il file originale quando possibile. YA-WAMF lo conserverà e sceglierà l’input migliore per la classificazione.", "change": "Scegli un altro file", "drop": "Trascina qui il file o scegline uno", "formats": "JPEG, PNG, WebP fino a 25 MB · MP4, MOV, WebM fino a 250 MB / 3 minuti", "uploading": "Salvataggio dell’originale…", "analyse": "Carica e analizza" },
     "analysis": { "preview_alt": "Anteprima del file caricato", "video": "Filmato", "image": "Foto", "title": "Ricerca della prova migliore", "body": "Il classificatore di produzione confronta fotogrammi e ritagli. Puoi lasciare questa pagina; la bozza verrà ripristinata al tuo ritorno.", "progress": "Avanzamento dell’analisi", "failed_title": "Analisi interrotta in sicurezza", "failed_body": "Il file originale è ancora conservato. Riprova quando il modello sarà disponibile.", "retry": "Riprova l’analisi" },
-    "review": { "preview_alt": "Anteprima dell’osservazione", "title": "Verifica prima di salvare", "body": "Conferma la specie suggerita, correggila se necessario e aggiungi il contesto che vuoi conservare.", "candidates": "Suggerimenti del modello", "species": "Specie", "when": "Osservata il", "location": "Fotocamera o nome del luogo", "notes": "Note", "saving": "Salvataggio dell’osservazione…", "save": "Salva osservazione" },
+    "review": { "preview_alt": "Anteprima dell’osservazione", "title": "Verifica prima di salvare", "body": "Conferma la specie suggerita, correggila se necessario e aggiungi il contesto che vuoi conservare.", "candidates": "Suggerimenti del modello", "species": "Specie", "when": "Osservata il", "location": "Fotocamera o nome del luogo", "notes": "Note", "saving": "Salvataggio dell’osservazione…", "save": "Salva osservazione", "save_species": "Aggiungi {species}" },
     "location": { "title": "Luogo dell’avvistamento", "extracted": "La posizione è stata trovata nei metadati dell’immagine. Controlla il segnaposto e spostalo se necessario.", "missing": "Non è stata trovata una posizione incorporata. Inserisci un segnaposto se conosci il luogo dell’avvistamento.", "manual": "Questo segnaposto è stato inserito o spostato manualmente. Controllalo prima di salvare.", "from_image": "Dai metadati dell’immagine", "map_label": "Mappa per inserire il segnaposto dell’avvistamento", "map_help": "Fai clic o tocca la mappa per inserire il segnaposto. Trascinalo per regolarlo con precisione.", "latitude": "Latitudine", "longitude": "Longitudine", "clear": "Cancella posizione", "incomplete": "Inserisci latitudine e longitudine oppure cancella la posizione.", "invalid": "La latitudine deve essere compresa tra −90 e 90 e la longitudine tra −180 e 180.", "selected": "Segnaposto inserito a {latitude}, {longitude}", "unselected": "Nessun luogo di avvistamento selezionato", "pin_label": "Segnaposto dell’avvistamento; trascinalo per regolarlo" },
     "saved": { "toast": "Osservazione aggiunta", "eyebrow": "Scheda completata", "title": "Osservazione salvata", "body": "La scheda verificata ora fa parte della cronologia e dei totali per specie.", "view": "Visualizza rilevamento", "another": "Aggiungine un’altra" },
     "start_over": "Ricomincia"
@@ -163,7 +163,43 @@
     },
     "top_visitors_title": "Visitatori frequenti",
     "top_visitors_empty": "Nessun visitatore registrato oggi.",
-    "top_visitors_count": "{count} visite"
+    "top_visitors_count": "{count} visite",
+    "field_log": {
+      "title": "Diario di campo",
+      "subtitle": "I fotogrammi ripetuti dello stesso uccello vengono raggruppati in un’unica visita",
+      "needs_name": "Sotto la soglia di identificazione",
+      "identify": "Identifica",
+      "open": "Apri",
+      "preview_trigger": "Anteprima di {species}",
+      "preview_alt": "{species} su {camera}",
+      "preview_frames": "{count} fotogrammi in questa visita, viene mostrato il più nitido"
+    },
+    "day_bar": {
+      "today": "Oggi",
+      "visits": "visite",
+      "unresolved": "non risolte",
+      "calls_heard": "richiami uditi",
+      "cross_confirmed": "confermati da entrambi",
+      "reconnecting": "Riconnessione…"
+    },
+    "desk": {
+      "cameras": "Telecamere",
+      "cameras_empty": "Nessuna telecamera segnalata. Aggiungile in Impostazioni → Connessione.",
+      "camera_no_visits": "nessuna visita",
+      "sensors": "Audio e telecamera",
+      "heard": "uditi",
+      "seen": "visti",
+      "both": "entrambi",
+      "no_cross_confirmation": "Sono stati uditi {count} richiami, ma nessuno coincide con una visita ripresa. Microfono e telecamere potrebbero coprire zone diverse.",
+      "conditions": "Condizioni",
+      "temperature_span": "Visite tra {low} e {high}"
+    },
+    "review_queue": {
+      "title": "Richiede una tua decisione",
+      "empty": "Ogni visita di oggi ha una specie. Non c’è nulla in sospeso.",
+      "remaining": "Altri {count} in attesa",
+      "work_through": "Smaltisci la coda"
+    }
   },
   "common": {
     "loading": "Caricamento…",

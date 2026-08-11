@@ -1,19 +1,20 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import DetectionCard from '../components/DetectionCard.svelte';
     import DetectionModal from '../components/DetectionModal.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import VideoPlayer from '../components/VideoPlayer.svelte';
     import DailyHistogram from '../components/DailyHistogram.svelte';
     import TopVisitors from '../components/TopVisitors.svelte';
-    import LatestDetectionHero from '../components/LatestDetectionHero.svelte';
-    import StatsRibbon from '../components/StatsRibbon.svelte';
+    import FieldLog from '../components/FieldLog.svelte';
+    import ReviewQueueCard from '../components/ReviewQueueCard.svelte';
+    import DayBar from '../components/DayBar.svelte';
+    import DeskContextCards from '../components/DeskContextCards.svelte';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
     import RecentAudio from '../components/RecentAudio.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
-    import type { Detection, DailySummary, SpeciesInfo } from '../api';
-    import { deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchDailySummary, fetchClassifierLabels, reclassifyDetection, fetchSpeciesInfo } from '../api';
+    import type { AudioSummaryResponse, Detection, DailySummary, SpeciesInfo } from '../api';
+    import { deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchAudioSummary, fetchDailySummary, fetchClassifierLabels, reclassifyDetection, fetchSpeciesInfo } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
@@ -24,12 +25,17 @@
     import { selectReclassificationStrategy } from '../utils/reclassification';
 
     import { getBirdNames } from '../naming';
+    import { groupDetectionsIntoVisits, withinDeskWindow } from '../utils/visit-grouping';
+    import { buildReviewQueue } from '../utils/review-queue';
 
     interface Props {
         onnavigate?: (path: string) => void;
     }
 
     let { onnavigate }: Props = $props();
+
+    /** The dashboard shows the recent slice of the day; Explorer holds the full history. */
+    const VISIT_ROW_LIMIT = 12;
 
     let summary = $state<DailySummary | null>(null);
     let summaryLoading = $state(true);
@@ -86,9 +92,14 @@
         ).slice(0, 50)
     );
 
-    // Derive the hero detection (latest one)
-    let heroDetection = $derived(detectionsStore.detections[0] || summary?.latest_detection || null);
-    let visibleFeedDetections = $derived(detectionsStore.detections.slice(1, 10));
+    // One window for the whole desk, so the day bar, the log and the context cards agree.
+    let deskDetections = $derived(withinDeskWindow(detectionsStore.detections));
+
+    // The day reads as visits, not frames: repeat frames of one bird fold into one row.
+    let visits = $derived(groupDetectionsIntoVisits(deskDetections).slice(0, VISIT_ROW_LIMIT));
+
+    // Detections still waiting on a person, oldest first.
+    let reviewQueue = $derived(buildReviewQueue(deskDetections));
 
     // Derive reclassification progress for the modal
     let modalReclassifyProgress = $derived(
@@ -108,8 +119,8 @@
 
     $effect(() => {
         if (!recordingClipFetchEnabled) return;
-        for (const detection of visibleFeedDetections) {
-            void fullVisitStore.ensureAvailability(detection.frigate_event);
+        for (const visit of visits) {
+            void fullVisitStore.ensureAvailability(visit.best.frigate_event);
         }
     });
 
@@ -213,6 +224,30 @@
 
     onMount(async () => {
         await loadSummary(true);
+    });
+
+    // One audio summary for the whole desk: the day bar and the sensor card share it.
+    let audioSummary = $state<AudioSummaryResponse | null>(null);
+
+    $effect(() => {
+        if (!birdnetEnabled) {
+            audioSummary = null;
+            return;
+        }
+        const controller = new AbortController();
+        void (async () => {
+            try {
+                audioSummary = await fetchAudioSummary({ days: 1 }, controller.signal);
+            } catch (e) {
+                if (controller.signal.aborted) return;
+                if (isTransientRequestError(e)) {
+                    logger.warn('Audio summary unavailable (transient)', { message: getErrorMessage(e) });
+                } else {
+                    logger.error('Failed to fetch audio summary', e);
+                }
+            }
+        })();
+        return () => controller.abort();
     });
 
     $effect(() => {
@@ -371,126 +406,63 @@
     }
 </script>
 
-<div class="space-y-10">
-    <!-- Live overview -->
-    {#if summary || detectionsStore.totalToday > 0}
-        <StatsRibbon
-            todayCount={last24hCount}
-            uniqueSpecies={last24hSpecies}
-            mostSeenSpecies={mostSeenName}
-            mostSeenCount={summary?.top_species[0]?.count ?? 0}
-            {audioConfirmations}
-            topVisitorImageUrl={topSpeciesInfo?.thumbnail_url ?? null}
-        />
-    {:else if summaryLoading}
-        <div class="h-40 animate-pulse rounded-3xl border border-slate-200/60 bg-slate-100/80 dark:border-slate-700/60 dark:bg-slate-800/60"></div>
-    {/if}
+<div class="space-y-6">
+    <DayBar
+        visitCount={last24hCount}
+        speciesCount={last24hSpecies}
+        unresolvedCount={reviewQueue.total}
+        audioCalls={audioSummary?.total ?? null}
+        {audioConfirmations}
+        connected={detectionsStore.connected}
+    />
 
-    <!-- Observation desk: the latest camera visitor is the anchor; supporting telemetry stays compact. -->
+    <!-- Field desk: the day reads as one chronological log, with the outstanding work docked beside it. -->
     <section
-        data-dashboard-observation-desk
-        class="grid grid-cols-1 items-stretch gap-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]"
+        data-dashboard-field-desk
+        class="grid grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.7fr)]"
     >
-        <div class="min-h-[420px] xl:min-h-[610px]">
-            {#if heroDetection}
-                {#key heroDetection.frigate_event}
-                    <div class="h-full">
-                        <LatestDetectionHero
-                            detection={heroDetection}
-                            onclick={() => selectedEvent = heroDetection}
-                            hideProgress={selectedEvent?.frigate_event === heroDetection.frigate_event}
-                        />
-                    </div>
-                {/key}
-            {:else}
-                <div class="flex h-full min-h-[420px] items-center justify-center rounded-3xl border-2 border-dashed border-slate-200/80 bg-white/35 px-6 text-center dark:border-slate-700/60 dark:bg-slate-900/20">
-                    <div>
-                        <svg class="mx-auto mb-3 h-9 w-9 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
-                        <p class="font-medium text-slate-500 dark:text-slate-400">{$_('dashboard.waiting_first_visitor')}</p>
-                    </div>
-                </div>
-            {/if}
-        </div>
-        <aside class="flex h-full flex-col gap-8 xl:border-l xl:border-slate-200 xl:pl-8 dark:xl:border-slate-700">
+        <FieldLog
+            visits={visits}
+            loading={detectionsStore.isLoading}
+            onselect={(detection) => selectedEvent = detection}
+            onidentify={(detection) => selectedEvent = detection}
+            onseeall={() => onnavigate?.('/events')}
+        />
+
+        <aside class="flex flex-col gap-7 xl:border-l xl:border-slate-200 xl:pl-8 dark:xl:border-slate-700">
+            <ReviewQueueCard
+                queue={reviewQueue}
+                onreview={(detection) => selectedEvent = detection}
+                onreviewall={() => onnavigate?.('/events')}
+            />
+
+            <DeskContextCards
+                detections={deskDetections}
+                {birdnetEnabled}
+                {audioSummary}
+            />
+
             {#if summary}
                 <DailyHistogram data={summary.hourly_distribution} />
             {:else if summaryLoading}
                 <div class="min-h-[210px] animate-pulse border-y border-slate-200/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-800/40"></div>
             {/if}
+
             {#if birdnetEnabled}
-                <div class="min-h-[320px] flex-1">
-                    <RecentAudio onNavigate={onnavigate} />
-                </div>
+                <RecentAudio onNavigate={onnavigate} />
             {/if}
-        </aside>
-    </section>
 
-    <section data-dashboard-top-visitors>
-        {#if summary && summary.top_species.length > 0}
-            <TopVisitors
-                species={summary.top_species}
-                onSpeciesClick={handleSpeciesSummaryClick}
-            />
-        {:else if summaryLoading}
-            <div class="min-h-[150px] animate-pulse border-y border-slate-200/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-800/40"></div>
-        {/if}
-    </section>
-
-    <!-- Discovery cards remain separate because each detection is an interactive object. -->
-    <section data-dashboard-discovery-feed class="space-y-6">
-        <header class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200/70 pb-4 dark:border-slate-700/50">
-            <div class="flex items-center gap-3">
-                <span class="flex h-9 w-9 items-center justify-center rounded-xl border border-accent-200 bg-accent-50 text-accent-700 dark:border-accent-800 dark:bg-accent-950/40 dark:text-accent-300" aria-hidden="true">
-                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h10" /></svg>
-                </span>
-                <div>
-                    <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">{$_('dashboard.discovery_feed')}</h2>
-                    <p class="text-sm text-slate-500 dark:text-slate-400">{$_('dashboard.showing_last_3_days')}</p>
-                </div>
+            <div data-dashboard-top-visitors>
+                {#if summary && summary.top_species.length > 0}
+                    <TopVisitors
+                        species={summary.top_species}
+                        onSpeciesClick={handleSpeciesSummaryClick}
+                    />
+                {:else if summaryLoading}
+                    <div class="min-h-[150px] animate-pulse border-y border-slate-200/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-800/40"></div>
+                {/if}
             </div>
-            <button onclick={() => onnavigate?.('/events')} class="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300 dark:hover:bg-brand-950/40">
-                {$_('dashboard.see_full_history')}
-                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
-            </button>
-        </header>
-
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {#if detectionsStore.detections.length > 0}
-                {#each visibleFeedDetections as detection, index (detection.frigate_event || detection.id)}
-                    <div>
-                        <DetectionCard
-                            {detection}
-                            {index}
-                            onclick={() => selectedEvent = detection}
-                            onPlay={() => {
-                                videoEventId = detection.frigate_event;
-                                videoPlayIntent = 'user';
-                                showVideo = true;
-                                selectedEvent = null;
-                            }}
-                            onFetchFullVisit={recordingClipFetchEnabled ? () => handleFetchFullVisit(detection) : undefined}
-                            fullVisitAvailable={fullVisitAvailability[detection.frigate_event] === 'available'}
-                            fullVisitFetched={fullVisitFetchState[detection.frigate_event] === 'ready'}
-                            fullVisitFetchState={fullVisitFetchState[detection.frigate_event] ?? 'idle'}
-                            hideProgress={selectedEvent?.frigate_event === detection.frigate_event}
-                        />
-                    </div>
-                {/each}
-            {:else if detectionsStore.isLoading}
-                {#each Array(4) as _, index (index)}
-                    <div class="min-h-[220px] rounded-3xl bg-slate-100/80 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 animate-pulse"></div>
-                {/each}
-            {:else}
-                <div class="col-span-full flex flex-col items-center justify-center border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700/50">
-                    <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800/50 dark:text-slate-500">
-                        <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </div>
-                    <p class="font-medium text-slate-500 dark:text-slate-400">{$_('dashboard.no_detections')}</p>
-                </div>
-            {/if}
-        </div>
+        </aside>
     </section>
 </div>
 

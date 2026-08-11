@@ -30,11 +30,11 @@
     "eyebrow": "フィールド記録", "intro_title": "写真や動画を確認済みの観察記録にする",
     "intro_body": "YA-WAMF はライブ検出と同じモデル、クロップ選択、動画合意判定を使用します。確認するまで記録には追加されません。", "progress_label": "観察記録の進行状況",
     "steps": { "upload": "アップロード", "upload_detail": "元のメディアを選択", "analyse": "解析", "analyse_detail": "最も強い根拠を探す", "review": "確認", "review_detail": "種を確定", "save": "保存", "save_detail": "観察記録に追加" },
-    "evidence": { "full_frame": "フルフレーム", "crop": "最適なクロップ", "model": "モデル", "provider": "プロバイダー" },
+    "evidence": { "full_frame": "フルフレーム", "crop": "最適なクロップ", "model": "モデル", "provider": "プロバイダー", "original": "アップロード時のまま", "compare": "根拠を比較", "scored_help": "分類器が実際に評価した入力そのものです。", "original_help": "アップロードされた元のファイルをそのまま保存しています。", "input": "評価した入力", "file": "ファイル" },
     "errors": { "load": "解析状況を読み込めませんでした。", "type": "JPEG、PNG、WebP、MP4、MOV、WebM のいずれかを選択してください。", "image_size": "25 MB以下の画像を選択してください。", "video_size": "250 MB以下の動画を選択してください。", "upload": "メディアをアップロードできませんでした。", "retry": "解析を再開できませんでした。", "save": "観察記録を保存できませんでした。" },
     "upload": { "title": "写真または動画を選択", "help": "可能な限り元のファイルを使用してください。YA-WAMF が保存し、分類に最適な入力を選びます。", "change": "別のファイルを選択", "drop": "ここにメディアをドロップするかファイルを選択", "formats": "JPEG、PNG、WebP は25 MBまで · MP4、MOV、WebM は250 MB／3分まで", "uploading": "元ファイルを安全に保存中…", "analyse": "アップロードして解析" },
     "analysis": { "preview_alt": "アップロードしたメディアのプレビュー", "video": "動画", "image": "写真", "title": "最も強い根拠を探索中", "body": "本番用分類器がフレームとクロップ候補を比較しています。このページを離れても、戻ったときに下書きが復元されます。", "progress": "解析の進行状況", "failed_title": "解析を安全に停止しました", "failed_body": "元のメディアは保存されています。モデルが利用可能になったら再試行してください。", "retry": "解析を再試行" },
-    "review": { "preview_alt": "観察記録のプレビュー", "title": "保存前に確認", "body": "提案された種を確認し、必要に応じて修正して、残したいフィールド情報を追加してください。", "candidates": "モデルの候補", "species": "種", "when": "観察日時", "location": "カメラまたは場所の名前", "notes": "メモ", "saving": "観察記録を保存中…", "save": "観察記録を保存" },
+    "review": { "preview_alt": "観察記録のプレビュー", "title": "保存前に確認", "body": "提案された種を確認し、必要に応じて修正して、残したいフィールド情報を追加してください。", "candidates": "モデルの候補", "species": "種", "when": "観察日時", "location": "カメラまたは場所の名前", "notes": "メモ", "saving": "観察記録を保存中…", "save": "観察記録を保存", "save_species": "{species} を追加" },
     "location": { "title": "目撃場所", "extracted": "画像のメタデータから場所が見つかりました。ピンを確認し、必要に応じて調整してください。", "missing": "画像に場所情報がありませんでした。目撃場所が分かる場合はピンを置いてください。", "manual": "このピンは手動で配置または調整されています。保存前に確認してください。", "from_image": "画像メタデータから取得", "map_label": "目撃場所のピンを置く地図", "map_help": "地図をクリックまたはタップしてピンを置きます。ドラッグして正確に調整できます。", "latitude": "緯度", "longitude": "経度", "clear": "場所を消去", "incomplete": "緯度と経度の両方を入力するか、場所を消去してください。", "invalid": "緯度は−90～90、経度は−180～180の範囲で入力してください。", "selected": "{latitude}, {longitude} にピンを設定", "unselected": "目撃場所が選択されていません", "pin_label": "目撃場所のピン。ドラッグして調整できます" },
     "saved": { "toast": "観察記録を追加しました", "eyebrow": "記録完了", "title": "観察記録を保存しました", "body": "確認済みの記録が検出履歴と種別集計に追加されました。", "view": "検出を表示", "another": "別の記録を追加" },
     "start_over": "最初からやり直す"
@@ -163,7 +163,43 @@
     },
     "top_visitors_title": "よく来る訪問者",
     "top_visitors_empty": "今日はまだ訪問者が記録されていません。",
-    "top_visitors_count": "{count} 回の訪問"
+    "top_visitors_count": "{count} 回の訪問",
+    "field_log": {
+      "title": "フィールドログ",
+      "subtitle": "同じ鳥の連続したフレームは 1 回の訪問にまとめられます",
+      "needs_name": "識別のしきい値を下回っています",
+      "identify": "識別する",
+      "open": "開く",
+      "preview_trigger": "{species} をプレビュー",
+      "preview_alt": "{camera} の {species}",
+      "preview_frames": "この訪問の {count} フレームのうち、最も鮮明なものを表示しています"
+    },
+    "day_bar": {
+      "today": "今日",
+      "visits": "回の訪問",
+      "unresolved": "未確定",
+      "calls_heard": "件の鳴き声",
+      "cross_confirmed": "件が相互確認済み",
+      "reconnecting": "再接続中…"
+    },
+    "desk": {
+      "cameras": "カメラ",
+      "cameras_empty": "まだカメラが応答していません。設定 → 接続 で追加してください。",
+      "camera_no_visits": "訪問なし",
+      "sensors": "音声とカメラ",
+      "heard": "聞こえた",
+      "seen": "見えた",
+      "both": "両方",
+      "no_cross_confirmation": "{count} 件の鳴き声が聞こえましたが、カメラの訪問と一致するものはありませんでした。マイクとカメラの対象範囲が異なる可能性があります。",
+      "conditions": "気象条件",
+      "temperature_span": "訪問時の気温は {low} 〜 {high}"
+    },
+    "review_queue": {
+      "title": "確認が必要です",
+      "empty": "今日の訪問にはすべて種名が付いています。保留中の項目はありません。",
+      "remaining": "他に {count} 件が保留中",
+      "work_through": "キューを処理する"
+    }
   },
   "common": {
     "loading": "読み込み中…",

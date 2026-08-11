@@ -6,6 +6,32 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **The dashboard is now a field desk: one chronological log of the day with the outstanding work
+  docked beside it.** Repeat frames of the same bird on the same camera within ten minutes fold
+  into a single visit row showing the clearest frame and the best score, so one blackbird landing
+  once no longer prints four cards. The full-height latest-detection hero and the four-metric
+  overview ribbon are replaced by a compact day bar (visits, species, unresolved, calls heard,
+  cross-confirmed) and a **Needs your call** queue listing detections that fell below the naming
+  threshold, oldest first, with Identify available inline on the row. New context cards cover
+  per-camera visit counts with online status, an audio-versus-camera reconciliation that is honest
+  when the two sensors never corroborate each other, and the temperature range visits happened in.
+  The day bar, log, queue and cards all describe the same 24-hour window, so the numbers cannot
+  contradict one another.
+
+- **Small captures now open on hover and on keyboard focus.** Any thumbnail in the log expands to
+  a preview panel with the full frame, score, camera, time and conditions, modelled on the existing
+  header camera popover: it stays open while the pointer travels into it, dismisses with Escape,
+  reuses the thumbnail already fetched rather than a second request, and honours reduced-motion.
+
+- **Adding an observation now shows the evidence at the size you need to judge it.** The review
+  step is media-led: the frame takes the larger half of the screen, and when the classifier scored
+  a crop you can switch between that exact input and your original upload to tell a bad crop from
+  a bad classification. The model, provider, scored input and original filename are listed as
+  evidence rather than left implied by a single badge, and the confirm button names the species
+  it is about to add instead of saying "Add observation".
+
 ### Fixed
 
 - **Manual observation uploads now pass through the bundled Nginx proxies at their documented

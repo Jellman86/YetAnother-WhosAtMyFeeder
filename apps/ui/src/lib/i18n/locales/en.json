@@ -37,7 +37,7 @@
       "review": "Review", "review_detail": "Confirm the species",
       "save": "Save", "save_detail": "Add to observations"
     },
-    "evidence": { "full_frame": "Full frame", "crop": "Best crop", "model": "Model", "provider": "Provider" },
+    "evidence": { "full_frame": "Full frame", "crop": "Best crop", "model": "Model", "provider": "Provider" , "original": "As uploaded", "compare": "Compare evidence", "scored_help": "This is the exact input the classifier scored.", "original_help": "Your original file, kept exactly as uploaded.", "input": "Scored input", "file": "File" },
     "errors": {
       "load": "The analysis status could not be loaded.", "type": "Choose a JPEG, PNG, WebP, MP4, MOV, or WebM file.",
       "image_size": "Choose an image no larger than 25 MB.", "video_size": "Choose a video no larger than 250 MB.",
@@ -56,7 +56,8 @@
     "review": {
       "preview_alt": "Observation preview", "title": "Review before saving", "body": "Confirm the suggested species, correct it if needed, and add the field context you want to keep.",
       "candidates": "Model suggestions", "species": "Species", "when": "Observed at", "location": "Camera or place name", "notes": "Notes",
-      "saving": "Saving observation…", "save": "Save observation"
+      "saving": "Saving observation…", "save": "Save observation",
+      "save_species": "Add {species}"
     },
     "location": {
       "title": "Sighting location", "extracted": "Location found in the image metadata. Check the pin and adjust it if needed.",
@@ -233,7 +234,43 @@
     },
     "top_visitors_title": "Top Visitors",
     "top_visitors_empty": "No visitors recorded yet today.",
-    "top_visitors_count": "{count} visits"
+    "top_visitors_count": "{count} visits",
+    "field_log": {
+      "title": "Field log",
+      "subtitle": "Repeat frames of the same bird are folded into one visit",
+      "needs_name": "Below the naming threshold",
+      "identify": "Identify",
+      "open": "Open",
+      "preview_trigger": "Preview {species}",
+      "preview_alt": "{species} on {camera}",
+      "preview_frames": "{count} frames in this visit, clearest shown"
+    },
+    "day_bar": {
+      "today": "Today",
+      "visits": "visits",
+      "unresolved": "unresolved",
+      "calls_heard": "calls heard",
+      "cross_confirmed": "cross-confirmed",
+      "reconnecting": "Reconnecting…"
+    },
+    "desk": {
+      "cameras": "Cameras",
+      "cameras_empty": "No cameras reporting yet. Add them in Settings → Connection.",
+      "camera_no_visits": "no visits",
+      "sensors": "Audio vs camera",
+      "heard": "heard",
+      "seen": "seen",
+      "both": "both",
+      "no_cross_confirmation": "{count} calls were heard but none lined up with a camera visit. The microphone and the cameras may be covering different ground.",
+      "conditions": "Conditions",
+      "temperature_span": "Visits ranged {low} to {high}"
+    },
+    "review_queue": {
+      "title": "Needs your call",
+      "empty": "Every visit today has a species. Nothing waiting on you.",
+      "remaining": "{count} more waiting",
+      "work_through": "Work through the queue"
+    }
   },
   "common": {
     "loading": "Loading…",

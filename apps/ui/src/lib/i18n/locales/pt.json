@@ -30,11 +30,11 @@
     "eyebrow": "Registo de campo", "intro_title": "Transforme uma foto ou vídeo numa observação verificada",
     "intro_body": "O YA-WAMF usa o mesmo modelo, seleção de recorte e consenso de vídeo das deteções em direto. Nada é adicionado antes da sua revisão.", "progress_label": "Progresso da observação",
     "steps": { "upload": "Carregar", "upload_detail": "Escolher o ficheiro original", "analyse": "Analisar", "analyse_detail": "Encontrar a melhor evidência", "review": "Rever", "review_detail": "Confirmar a espécie", "save": "Guardar", "save_detail": "Adicionar às observações" },
-    "evidence": { "full_frame": "Imagem completa", "crop": "Melhor recorte", "model": "Modelo", "provider": "Fornecedor" },
+    "evidence": { "full_frame": "Imagem completa", "crop": "Melhor recorte", "model": "Modelo", "provider": "Fornecedor", "original": "Como foi carregado", "compare": "Comparar evidências", "scored_help": "Esta é exatamente a entrada avaliada pelo classificador.", "original_help": "O seu ficheiro original, guardado tal como está.", "input": "Entrada avaliada", "file": "Ficheiro" },
     "errors": { "load": "Não foi possível carregar o estado da análise.", "type": "Escolha um ficheiro JPEG, PNG, WebP, MP4, MOV ou WebM.", "image_size": "Escolha uma imagem com no máximo 25 MB.", "video_size": "Escolha um vídeo com no máximo 250 MB.", "upload": "Não foi possível carregar o ficheiro.", "retry": "Não foi possível reiniciar a análise.", "save": "Não foi possível guardar a observação." },
     "upload": { "title": "Escolha uma foto ou vídeo", "help": "Use o ficheiro original sempre que possível. O YA-WAMF irá preservá-lo e escolher a melhor entrada para classificação.", "change": "Escolher outro ficheiro", "drop": "Largue o ficheiro aqui ou escolha um", "formats": "JPEG, PNG, WebP até 25 MB · MP4, MOV, WebM até 250 MB / 3 minutos", "uploading": "A proteger o original…", "analyse": "Carregar e analisar" },
     "analysis": { "preview_alt": "Pré-visualização do ficheiro carregado", "video": "Vídeo", "image": "Foto", "title": "A encontrar a melhor evidência", "body": "O classificador de produção compara fotogramas e recortes. Pode sair desta página; o rascunho será restaurado quando voltar.", "progress": "Progresso da análise", "failed_title": "Análise interrompida em segurança", "failed_body": "O ficheiro original continua guardado. Tente novamente quando o modelo estiver disponível.", "retry": "Repetir análise" },
-    "review": { "preview_alt": "Pré-visualização da observação", "title": "Reveja antes de guardar", "body": "Confirme a espécie sugerida, corrija-a se necessário e adicione o contexto que pretende manter.", "candidates": "Sugestões do modelo", "species": "Espécie", "when": "Observada em", "location": "Câmara ou nome do local", "notes": "Notas", "saving": "A guardar observação…", "save": "Guardar observação" },
+    "review": { "preview_alt": "Pré-visualização da observação", "title": "Reveja antes de guardar", "body": "Confirme a espécie sugerida, corrija-a se necessário e adicione o contexto que pretende manter.", "candidates": "Sugestões do modelo", "species": "Espécie", "when": "Observada em", "location": "Câmara ou nome do local", "notes": "Notas", "saving": "A guardar observação…", "save": "Guardar observação", "save_species": "Adicionar {species}" },
     "location": { "title": "Local do avistamento", "extracted": "Foi encontrado um local nos metadados da imagem. Verifique o marcador e ajuste-o se necessário.", "missing": "Não foi encontrado um local incorporado. Coloque um marcador se souber onde ocorreu o avistamento.", "manual": "Este marcador foi colocado ou ajustado manualmente. Verifique-o antes de guardar.", "from_image": "Dos metadados da imagem", "map_label": "Mapa para colocar o marcador do avistamento", "map_help": "Clique ou toque no mapa para colocar o marcador. Arraste-o para fazer um ajuste preciso.", "latitude": "Latitude", "longitude": "Longitude", "clear": "Limpar local", "incomplete": "Introduza a latitude e a longitude, ou limpe o local.", "invalid": "A latitude deve estar entre −90 e 90 e a longitude entre −180 e 180.", "selected": "Marcador colocado em {latitude}, {longitude}", "unselected": "Nenhum local de avistamento selecionado", "pin_label": "Marcador do avistamento; arraste para ajustar" },
     "saved": { "toast": "Observação adicionada", "eyebrow": "Registo concluído", "title": "Observação guardada", "body": "O registo verificado faz agora parte do histórico e dos totais por espécie.", "view": "Ver deteção", "another": "Adicionar outra" },
     "start_over": "Recomeçar"
@@ -163,7 +163,43 @@
     },
     "top_visitors_title": "Visitantes frequentes",
     "top_visitors_empty": "Ainda não há visitantes registrados hoje.",
-    "top_visitors_count": "{count} visitas"
+    "top_visitors_count": "{count} visitas",
+    "field_log": {
+      "title": "Diário de campo",
+      "subtitle": "Os fotogramas repetidos da mesma ave são agrupados numa única visita",
+      "needs_name": "Abaixo do limiar de identificação",
+      "identify": "Identificar",
+      "open": "Abrir",
+      "preview_trigger": "Pré-visualizar {species}",
+      "preview_alt": "{species} em {camera}",
+      "preview_frames": "{count} fotogramas nesta visita, é mostrado o mais nítido"
+    },
+    "day_bar": {
+      "today": "Hoje",
+      "visits": "visitas",
+      "unresolved": "por resolver",
+      "calls_heard": "cantos ouvidos",
+      "cross_confirmed": "confirmados por ambos",
+      "reconnecting": "A reconectar…"
+    },
+    "desk": {
+      "cameras": "Câmaras",
+      "cameras_empty": "Ainda não há câmaras a responder. Adicione-as em Definições → Ligação.",
+      "camera_no_visits": "sem visitas",
+      "sensors": "Áudio e câmara",
+      "heard": "ouvidos",
+      "seen": "vistos",
+      "both": "ambos",
+      "no_cross_confirmation": "Foram ouvidos {count} cantos, mas nenhum coincidiu com uma visita de câmara. O microfone e as câmaras podem cobrir áreas diferentes.",
+      "conditions": "Condições",
+      "temperature_span": "As visitas variaram entre {low} e {high}"
+    },
+    "review_queue": {
+      "title": "Precisa da sua decisão",
+      "empty": "Todas as visitas de hoje têm espécie. Não há nada pendente.",
+      "remaining": "Mais {count} em espera",
+      "work_through": "Tratar da fila"
+    }
   },
   "common": {
     "loading": "Carregando…",

@@ -30,11 +30,11 @@
     "eyebrow": "Observation de terrain", "intro_title": "Transformer une photo ou une vidéo en observation vérifiée",
     "intro_body": "YA-WAMF utilise le même modèle, la même sélection de recadrage et le même consensus vidéo que les détections en direct. Rien n’est ajouté avant votre validation.", "progress_label": "Progression de l’observation",
     "steps": { "upload": "Importer", "upload_detail": "Choisir le média original", "analyse": "Analyser", "analyse_detail": "Trouver la meilleure preuve", "review": "Vérifier", "review_detail": "Confirmer l’espèce", "save": "Enregistrer", "save_detail": "Ajouter aux observations" },
-    "evidence": { "full_frame": "Image entière", "crop": "Meilleur recadrage", "model": "Modèle", "provider": "Fournisseur" },
+    "evidence": { "full_frame": "Image entière", "crop": "Meilleur recadrage", "model": "Modèle", "provider": "Fournisseur", "original": "Tel qu’importé", "compare": "Comparer les éléments", "scored_help": "Voici exactement l’entrée évaluée par le classificateur.", "original_help": "Votre fichier d’origine, conservé tel quel.", "input": "Entrée évaluée", "file": "Fichier" },
     "errors": { "load": "L’état de l’analyse n’a pas pu être chargé.", "type": "Choisissez un fichier JPEG, PNG, WebP, MP4, MOV ou WebM.", "image_size": "Choisissez une image de 25 Mo maximum.", "video_size": "Choisissez une vidéo de 250 Mo maximum.", "upload": "Le média n’a pas pu être importé.", "retry": "L’analyse n’a pas pu être relancée.", "save": "L’observation n’a pas pu être enregistrée." },
     "upload": { "title": "Choisir une photo ou une vidéo", "help": "Utilisez si possible le fichier original. YA-WAMF le conservera et choisira la meilleure entrée pour la classification.", "change": "Choisir un autre fichier", "drop": "Déposez le média ici ou choisissez un fichier", "formats": "JPEG, PNG, WebP jusqu’à 25 Mo · MP4, MOV, WebM jusqu’à 250 Mo / 3 minutes", "uploading": "Conservation de l’original…", "analyse": "Importer et analyser" },
     "analysis": { "preview_alt": "Aperçu du média importé", "video": "Vidéo", "image": "Photographie", "title": "Recherche de la meilleure preuve", "body": "Le classificateur de production compare les images et les recadrages. Vous pouvez quitter cette page ; le brouillon sera restauré à votre retour.", "progress": "Progression de l’analyse", "failed_title": "Analyse arrêtée en toute sécurité", "failed_body": "Votre média original reste conservé. Réessayez lorsque le modèle sera disponible.", "retry": "Relancer l’analyse" },
-    "review": { "preview_alt": "Aperçu de l’observation", "title": "Vérifier avant d’enregistrer", "body": "Confirmez l’espèce suggérée, corrigez-la si nécessaire et ajoutez le contexte à conserver.", "candidates": "Suggestions du modèle", "species": "Espèce", "when": "Observé le", "location": "Caméra ou nom du lieu", "notes": "Remarques", "saving": "Enregistrement de l’observation…", "save": "Enregistrer l’observation" },
+    "review": { "preview_alt": "Aperçu de l’observation", "title": "Vérifier avant d’enregistrer", "body": "Confirmez l’espèce suggérée, corrigez-la si nécessaire et ajoutez le contexte à conserver.", "candidates": "Suggestions du modèle", "species": "Espèce", "when": "Observé le", "location": "Caméra ou nom du lieu", "notes": "Remarques", "saving": "Enregistrement de l’observation…", "save": "Enregistrer l’observation", "save_species": "Ajouter {species}" },
     "location": { "title": "Lieu de l’observation", "extracted": "Un lieu a été trouvé dans les métadonnées de l’image. Vérifiez le repère et ajustez-le si nécessaire.", "missing": "Aucun lieu intégré n’a été trouvé. Placez un repère si vous connaissez le lieu de l’observation.", "manual": "Ce repère a été placé ou ajusté manuellement. Vérifiez-le avant d’enregistrer.", "from_image": "Métadonnées de l’image", "map_label": "Carte pour placer le repère de l’observation", "map_help": "Cliquez ou touchez la carte pour placer le repère. Faites-le glisser pour l’ajuster précisément.", "latitude": "Latitude", "longitude": "Longitude", "clear": "Effacer le lieu", "incomplete": "Saisissez la latitude et la longitude, ou effacez le lieu.", "invalid": "La latitude doit être comprise entre −90 et 90 et la longitude entre −180 et 180.", "selected": "Repère placé à {latitude}, {longitude}", "unselected": "Aucun lieu d’observation sélectionné", "pin_label": "Repère du lieu d’observation ; faites-le glisser pour l’ajuster" },
     "saved": { "toast": "Observation ajoutée", "eyebrow": "Fiche terminée", "title": "Observation enregistrée", "body": "La fiche vérifiée fait maintenant partie de votre historique et des totaux par espèce.", "view": "Voir la détection", "another": "En ajouter une autre" },
     "start_over": "Recommencer"
@@ -163,7 +163,43 @@
     },
     "top_visitors_title": "Visiteurs fréquents",
     "top_visitors_empty": "Aucun visiteur enregistré aujourd’hui.",
-    "top_visitors_count": "{count} visites"
+    "top_visitors_count": "{count} visites",
+    "field_log": {
+      "title": "Journal de terrain",
+      "subtitle": "Les images répétées du même oiseau sont regroupées en une seule visite",
+      "needs_name": "Sous le seuil d’identification",
+      "identify": "Identifier",
+      "open": "Ouvrir",
+      "preview_trigger": "Aperçu de {species}",
+      "preview_alt": "{species} sur {camera}",
+      "preview_frames": "{count} images dans cette visite, la plus nette est affichée"
+    },
+    "day_bar": {
+      "today": "Aujourd’hui",
+      "visits": "visites",
+      "unresolved": "non résolues",
+      "calls_heard": "chants entendus",
+      "cross_confirmed": "confirmés par les deux",
+      "reconnecting": "Reconnexion…"
+    },
+    "desk": {
+      "cameras": "Caméras",
+      "cameras_empty": "Aucune caméra ne répond encore. Ajoutez-les dans Réglages → Connexion.",
+      "camera_no_visits": "aucune visite",
+      "sensors": "Audio et caméra",
+      "heard": "entendus",
+      "seen": "vus",
+      "both": "les deux",
+      "no_cross_confirmation": "{count} chants ont été entendus, mais aucun ne correspond à une visite filmée. Le microphone et les caméras ne couvrent peut-être pas la même zone.",
+      "conditions": "Conditions",
+      "temperature_span": "Visites entre {low} et {high}"
+    },
+    "review_queue": {
+      "title": "Nécessite votre décision",
+      "empty": "Chaque visite d’aujourd’hui a une espèce. Rien ne vous attend.",
+      "remaining": "{count} autres en attente",
+      "work_through": "Traiter la file"
+    }
   },
   "common": {
     "loading": "Chargement…",
