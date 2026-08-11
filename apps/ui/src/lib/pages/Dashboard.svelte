@@ -451,18 +451,19 @@
             {#if birdnetEnabled}
                 <RecentAudio onNavigate={onnavigate} />
             {/if}
-
-            <div data-dashboard-top-visitors>
-                {#if summary && summary.top_species.length > 0}
-                    <TopVisitors
-                        species={summary.top_species}
-                        onSpeciesClick={handleSpeciesSummaryClick}
-                    />
-                {:else if summaryLoading}
-                    <div class="min-h-[150px] animate-pulse border-y border-slate-200/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-800/40"></div>
-                {/if}
-            </div>
         </aside>
+    </section>
+
+    <!-- Top visitors needs the full width; it does not compress into the rail. -->
+    <section data-dashboard-top-visitors>
+        {#if summary && summary.top_species.length > 0}
+            <TopVisitors
+                species={summary.top_species}
+                onSpeciesClick={handleSpeciesSummaryClick}
+            />
+        {:else if summaryLoading}
+            <div class="min-h-[150px] animate-pulse border-y border-slate-200/60 bg-slate-100/60 dark:border-slate-700/60 dark:bg-slate-800/40"></div>
+        {/if}
     </section>
 </div>
 

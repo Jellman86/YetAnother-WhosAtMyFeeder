@@ -21,6 +21,16 @@ describe('dashboard field desk layout', () => {
         expect(topVisitors).toBeGreaterThan(reviewQueue);
     });
 
+    it('keeps top visitors at full width instead of compressing it into the rail', () => {
+        const aside = dashboardSource.indexOf('<aside');
+        const asideEnd = dashboardSource.indexOf('</aside>');
+        const topVisitors = dashboardSource.indexOf('data-dashboard-top-visitors');
+
+        expect(topVisitors).toBeGreaterThan(-1);
+        // The component lays out horizontally; an 18rem rail breaks it.
+        expect(topVisitors > aside && topVisitors < asideEnd).toBe(false);
+    });
+
     it('folds repeat frames into visits instead of printing one card per frame', () => {
         expect(dashboardSource).toContain('groupDetectionsIntoVisits(deskDetections)');
         expect(dashboardSource).toContain('buildReviewQueue(deskDetections)');

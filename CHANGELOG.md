@@ -53,6 +53,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Top Visitors is readable on the dashboard again.** It lays out horizontally and was being
+  compressed into the context rail on desktop. It now sits full width below the desk, where it
+  was before, with a layout test to keep it there.
+
 - **Manual observation uploads now pass through the bundled Nginx proxies at their documented
   limits.** The exact upload route accepts a bounded 256 MiB multipart request and streams it to
   the backend, which continues to enforce the 25 MiB image and 250 MiB video file limits. The
