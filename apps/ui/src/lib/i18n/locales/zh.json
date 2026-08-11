@@ -31,7 +31,7 @@
     "intro_body": "YA-WAMF 使用与实时检测相同的模型、裁剪选择和视频共识流程。在您审核前不会添加任何记录。", "progress_label": "观察记录进度",
     "steps": { "upload": "上传", "upload_detail": "选择原始媒体", "analyse": "分析", "analyse_detail": "寻找最有力的证据", "review": "审核", "review_detail": "确认物种", "save": "保存", "save_detail": "添加到观察记录" },
     "evidence": { "full_frame": "完整画面", "crop": "最佳裁剪", "model": "模型", "provider": "提供程序" },
-    "errors": { "load": "无法加载分析状态。", "type": "请选择 JPEG、PNG、WebP、MP4、MOV 或 WebM 文件。", "upload": "无法上传媒体。", "retry": "无法重新启动分析。", "save": "无法保存观察记录。" },
+    "errors": { "load": "无法加载分析状态。", "type": "请选择 JPEG、PNG、WebP、MP4、MOV 或 WebM 文件。", "image_size": "请选择不超过 25 MB 的图片。", "video_size": "请选择不超过 250 MB 的视频。", "upload": "无法上传媒体。", "retry": "无法重新启动分析。", "save": "无法保存观察记录。" },
     "upload": { "title": "选择照片或视频", "help": "请尽量使用原始文件。YA-WAMF 会保留原文件，并选择最适合分类的输入。", "change": "选择其他文件", "drop": "将媒体拖放到此处或选择文件", "formats": "JPEG、PNG、WebP 最大 25 MB · MP4、MOV、WebM 最大 250 MB／3 分钟", "uploading": "正在安全保存原文件…", "analyse": "上传并分析" },
     "analysis": { "preview_alt": "已上传媒体预览", "video": "视频", "image": "照片", "title": "正在寻找最有力的证据", "body": "生产分类器正在比较帧和裁剪候选。您可以离开此页面，返回时会恢复草稿。", "progress": "分析进度", "failed_title": "分析已安全停止", "failed_body": "原始媒体仍已保存。模型可用后请重试。", "retry": "重试分析" },
     "review": { "preview_alt": "观察记录预览", "title": "保存前审核", "body": "确认建议的物种，必要时进行更正，并添加您希望保留的现场信息。", "candidates": "模型建议", "species": "物种", "when": "观察时间", "location": "相机或地点名称", "notes": "备注", "saving": "正在保存观察记录…", "save": "保存观察记录" },

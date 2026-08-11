@@ -155,7 +155,8 @@ candidate does not clear the configured promotion threshold. The SSE stream emit
 
 ### Manual observations
 
-- `POST /api/manual-observations` (owner; multipart `media`, returns `202`)
+- `POST /api/manual-observations` (owner; multipart `media`; images up to 25 MiB, videos up to
+  250 MiB; returns `202`)
 - `GET /api/manual-observations/{draft_id}` (owner)
 - `POST /api/manual-observations/{draft_id}/retry` (owner; returns `202`)
 - `POST /api/manual-observations/{draft_id}/confirm` (owner)
@@ -173,6 +174,10 @@ from the retained top classifier result. Detection responses expose confirmed lo
 `observation_latitude`, `observation_longitude`, and `observation_location_source`. Manual media is
 served through the canonical snapshot, thumbnail, and clip routes but is excluded from Frigate
 reconciliation and BirdNET-Go context lookup.
+
+Reverse proxies must permit a 256 MiB request envelope on the exact upload route to accommodate
+multipart overhead and should stream the request body. The backend remains authoritative for the
+per-file limits above.
 
 ### Media Proxy and Share Links
 

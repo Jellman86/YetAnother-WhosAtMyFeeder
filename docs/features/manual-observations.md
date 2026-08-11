@@ -28,6 +28,9 @@ refer to thumbnail generation.
 ## Reliability and privacy
 
 - Uploads are owner-only and use the existing authentication boundary.
+- The browser rejects files above the documented limits before upload. The bundled monolithic and
+  split Nginx configurations allow a bounded 256 MiB multipart request on the exact upload route
+  and stream its body to the backend rather than buffering another full copy.
 - Files are streamed to disk with explicit size limits, decoded before classification, and rejected
   when the declared format is unsupported or the media cannot be decoded safely.
 - GPS is read only from valid image EXIF metadata. Partial, malformed, or out-of-range coordinates
@@ -60,6 +63,12 @@ path.
 If analysis fails, read the inline message and select **Retry analysis**. The original file remains
 safe. If the container stopped during analysis, the job becomes retryable rather than silently
 creating a partial detection. Use **Start over** to discard an unsaved draft and its media.
+
+An HTTP `413 Request Entity Too Large` before analysis usually means an external reverse proxy is
+still applying its default request limit. Allow up to 256 MiB specifically for
+`POST /api/manual-observations` and disable request buffering for that route. Keep the backend's
+25 MiB image and 250 MiB video limits unchanged; the extra proxy headroom covers multipart fields
+and headers. See [Reverse proxy configuration](../setup/reverse-proxy.md) for Nginx examples.
 
 For classifier or provider problems, use **Settings → Detection → Runtime diagnostics**. For model
 comparison and hardware validation, see [Model evaluation](model-evaluation.md).

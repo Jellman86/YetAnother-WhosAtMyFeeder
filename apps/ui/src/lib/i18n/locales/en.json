@@ -40,6 +40,7 @@
     "evidence": { "full_frame": "Full frame", "crop": "Best crop", "model": "Model", "provider": "Provider" },
     "errors": {
       "load": "The analysis status could not be loaded.", "type": "Choose a JPEG, PNG, WebP, MP4, MOV, or WebM file.",
+      "image_size": "Choose an image no larger than 25 MB.", "video_size": "Choose a video no larger than 250 MB.",
       "upload": "The media could not be uploaded.", "retry": "The analysis could not be restarted.", "save": "The observation could not be saved."
     },
     "upload": {

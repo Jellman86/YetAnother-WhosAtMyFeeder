@@ -15,6 +15,7 @@
     import LocationPicker from '../components/LocationPicker.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { toastStore } from '../stores/toast.svelte';
+    import { validateManualObservationUpload } from '../utils/manual-observation-upload';
 
     let { onNavigate } = $props<{ onNavigate: (path: string) => void }>();
 
@@ -141,15 +142,31 @@
         }
     }
 
+    function clearSelectedFile(): void {
+        if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+        localPreviewUrl = null;
+        selectedFile = null;
+    }
+
     function setFile(file: File | null): void {
         errorMessage = null;
-        if (!file) return;
-        const supported = ['image/jpeg', 'image/png', 'image/webp', 'video/mp4', 'video/quicktime', 'video/webm'];
-        if (!supported.includes(file.type)) {
-            errorMessage = $_('manual_observation.errors.type', { default: 'Choose a JPEG, PNG, WebP, MP4, MOV, or WebM file.' });
+        if (!file) {
+            clearSelectedFile();
             return;
         }
-        if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl);
+        const validation = validateManualObservationUpload(file);
+        if (!validation.ok) {
+            clearSelectedFile();
+            if (validation.reason === 'image_too_large') {
+                errorMessage = $_('manual_observation.errors.image_size', { default: 'Choose an image no larger than 25 MB.' });
+            } else if (validation.reason === 'video_too_large') {
+                errorMessage = $_('manual_observation.errors.video_size', { default: 'Choose a video no larger than 250 MB.' });
+            } else {
+                errorMessage = $_('manual_observation.errors.type', { default: 'Choose a JPEG, PNG, WebP, MP4, MOV, or WebM file.' });
+            }
+            return;
+        }
+        clearSelectedFile();
         selectedFile = file;
         localPreviewUrl = URL.createObjectURL(file);
     }
