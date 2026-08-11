@@ -8,6 +8,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Manual observation uploads now pass through the bundled Nginx proxies at their documented
+  limits.** The exact upload route accepts a bounded 256 MiB multipart request and streams it to
+  the backend, which continues to enforce the 25 MiB image and 250 MiB video file limits. The
+  browser rejects oversized files before upload, and container smoke tests cover requests larger
+  than Nginx's former 1 MiB default.
+
 - **Public readiness checks now report backend readiness instead of returning the web app.** Both
   monolithic and split frontend proxies route the exact `/ready` path to the backend without
   caching it. Container health and image smoke tests now exercise that public route, so a future

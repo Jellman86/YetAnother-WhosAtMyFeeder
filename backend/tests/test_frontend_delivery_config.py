@@ -65,6 +65,23 @@ def test_operational_probes_are_exact_public_backend_routes(
     assert "location /ready {" not in config
 
 
+@pytest.mark.parametrize(("config_path", "backend_upstream"), FRONTEND_NGINX_UPSTREAMS)
+def test_manual_observation_upload_has_bounded_streaming_route(
+    config_path: Path,
+    backend_upstream: str,
+) -> None:
+    config = config_path.read_text(encoding="utf-8")
+    location = "location = /api/manual-observations {"
+    block_start = config.index(location)
+    block_end = config.index("\n    }", block_start)
+    block = config[block_start:block_end]
+
+    assert f"proxy_pass {backend_upstream}/api/manual-observations;" in block
+    assert "client_max_body_size 256m;" in block
+    assert "proxy_request_buffering off;" in block
+    assert "client_max_body_size 0;" not in block
+
+
 def test_monolith_healthcheck_exercises_public_readiness_route() -> None:
     healthcheck = (REPOSITORY_ROOT / "docker/monolith/healthcheck.sh").read_text(encoding="utf-8")
 

@@ -31,7 +31,7 @@
     "intro_body": "YA-WAMF はライブ検出と同じモデル、クロップ選択、動画合意判定を使用します。確認するまで記録には追加されません。", "progress_label": "観察記録の進行状況",
     "steps": { "upload": "アップロード", "upload_detail": "元のメディアを選択", "analyse": "解析", "analyse_detail": "最も強い根拠を探す", "review": "確認", "review_detail": "種を確定", "save": "保存", "save_detail": "観察記録に追加" },
     "evidence": { "full_frame": "フルフレーム", "crop": "最適なクロップ", "model": "モデル", "provider": "プロバイダー" },
-    "errors": { "load": "解析状況を読み込めませんでした。", "type": "JPEG、PNG、WebP、MP4、MOV、WebM のいずれかを選択してください。", "upload": "メディアをアップロードできませんでした。", "retry": "解析を再開できませんでした。", "save": "観察記録を保存できませんでした。" },
+    "errors": { "load": "解析状況を読み込めませんでした。", "type": "JPEG、PNG、WebP、MP4、MOV、WebM のいずれかを選択してください。", "image_size": "25 MB以下の画像を選択してください。", "video_size": "250 MB以下の動画を選択してください。", "upload": "メディアをアップロードできませんでした。", "retry": "解析を再開できませんでした。", "save": "観察記録を保存できませんでした。" },
     "upload": { "title": "写真または動画を選択", "help": "可能な限り元のファイルを使用してください。YA-WAMF が保存し、分類に最適な入力を選びます。", "change": "別のファイルを選択", "drop": "ここにメディアをドロップするかファイルを選択", "formats": "JPEG、PNG、WebP は25 MBまで · MP4、MOV、WebM は250 MB／3分まで", "uploading": "元ファイルを安全に保存中…", "analyse": "アップロードして解析" },
     "analysis": { "preview_alt": "アップロードしたメディアのプレビュー", "video": "動画", "image": "写真", "title": "最も強い根拠を探索中", "body": "本番用分類器がフレームとクロップ候補を比較しています。このページを離れても、戻ったときに下書きが復元されます。", "progress": "解析の進行状況", "failed_title": "解析を安全に停止しました", "failed_body": "元のメディアは保存されています。モデルが利用可能になったら再試行してください。", "retry": "解析を再試行" },
     "review": { "preview_alt": "観察記録のプレビュー", "title": "保存前に確認", "body": "提案された種を確認し、必要に応じて修正して、残したいフィールド情報を追加してください。", "candidates": "モデルの候補", "species": "種", "when": "観察日時", "location": "カメラまたは場所の名前", "notes": "メモ", "saving": "観察記録を保存中…", "save": "観察記録を保存" },
