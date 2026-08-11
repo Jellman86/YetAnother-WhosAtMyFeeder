@@ -2007,7 +2007,55 @@
       "ai_assistants": "KI-Assistenten, die beim Aufbau dieser Anwendung geholfen haben"
     },
     "star_github": "Auf GitHub markieren",
-    "star_github_label": "YA-WAMF auf GitHub markieren"
+    "star_github_label": "YA-WAMF auf GitHub markieren",
+    "pipeline": {
+      "subtitle": "Die übliche Verarbeitungskette und was diese Instanz gerade tut.",
+      "frigate": "Frigate",
+      "mqtt": "MQTT",
+      "classifier": "Klassifikator",
+      "audio": "BirdNET-Go",
+      "store": "Datenbank",
+      "notify": "Benachrichtigungen",
+      "browser": "Ihr Browser",
+      "unknown": "unbekannt",
+      "online": "online",
+      "degraded": "prüfen",
+      "loaded": "geladen",
+      "not_loaded": "nicht geladen",
+      "enabled": "aktiv",
+      "off": "aus",
+      "streaming": "überträgt",
+      "offline": "offline",
+      "cameras_count": "{online} von {total} Kameras online",
+      "mqtt_detail": "frigate/events",
+      "audio_detail": "BirdNET-Go-Abgleich",
+      "store_detail": "SQLite unter /data",
+      "notify_on": "mindestens ein Kanal eingerichtet",
+      "notify_off": "nichts eingerichtet",
+      "browser_detail": "Live-Updates über SSE",
+      "legend_local": "läuft auf Ihrer Hardware",
+      "legend_optional": "optional",
+      "legend_external": "Ihr Broker und Browser"
+    },
+    "storage": {
+      "title": "Was gespeichert wird",
+      "detections_desc": "Art, Score, Kamera, Wetter, Audioabgleich",
+      "audio_desc": "BirdNET-Verlauf",
+      "taxonomy_desc": "iNaturalist-Abfragen",
+      "note": "SQLite unter /data. Schemaänderungen bringen umkehrbare Migrationen mit."
+    },
+    "outbound": {
+      "title": "Was Ihr Netzwerk verlässt",
+      "inat": "iNaturalist",
+      "inat_desc": "Namensabfragen",
+      "weather": "Wetter-API",
+      "weather_desc": "Bedingungen je Erkennung",
+      "llm": "LLM-Analyse",
+      "llm_desc": "Ihr Schlüssel, Ihr Anbieter",
+      "telemetry": "Telemetrie",
+      "telemetry_desc": "anonyme Zählwerte",
+      "guest_note": "Zur Transparenz angezeigt. Nur der Betreiber kann das ändern."
+    }
   },
   "species_detail": {
     "no_wiki": "Keine Wikipedia-Informationen für diese Art verfügbar.",

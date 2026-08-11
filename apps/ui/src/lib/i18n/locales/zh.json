@@ -1986,7 +1986,55 @@
       "ai_assistants": "帮助构建此应用程序的 AI 助手"
     },
     "star_github": "在GitHub上加星",
-    "star_github_label": "在GitHub上为YA-WAMF加星"
+    "star_github_label": "在GitHub上为YA-WAMF加星",
+    "pipeline": {
+      "subtitle": "标准处理流程，以及这个实例当前的状态。",
+      "frigate": "Frigate",
+      "mqtt": "MQTT",
+      "classifier": "分类器",
+      "audio": "BirdNET-Go",
+      "store": "数据库",
+      "notify": "通知",
+      "browser": "你的浏览器",
+      "unknown": "未知",
+      "online": "在线",
+      "degraded": "需检查",
+      "loaded": "已加载",
+      "not_loaded": "未加载",
+      "enabled": "已启用",
+      "off": "关闭",
+      "streaming": "推送中",
+      "offline": "离线",
+      "cameras_count": "{total} 个摄像头中 {online} 个在线",
+      "mqtt_detail": "frigate/events",
+      "audio_detail": "与 BirdNET-Go 比对",
+      "store_detail": "/data 下的 SQLite",
+      "notify_on": "至少配置了一个渠道",
+      "notify_off": "尚未配置",
+      "browser_detail": "通过 SSE 实时更新",
+      "legend_local": "在你的硬件上运行",
+      "legend_optional": "可选",
+      "legend_external": "你的 broker 和浏览器"
+    },
+    "storage": {
+      "title": "存储了什么",
+      "detections_desc": "物种、置信度、摄像头、天气、音频匹配",
+      "audio_desc": "BirdNET 历史记录",
+      "taxonomy_desc": "iNaturalist 查询缓存",
+      "note": "/data 下的 SQLite。架构变更都附带可回滚的迁移。"
+    },
+    "outbound": {
+      "title": "哪些数据会离开你的网络",
+      "inat": "iNaturalist",
+      "inat_desc": "名称查询",
+      "weather": "天气 API",
+      "weather_desc": "每次检测的天气",
+      "llm": "LLM 解读",
+      "llm_desc": "你的密钥，你的服务商",
+      "telemetry": "遥测",
+      "telemetry_desc": "匿名计数",
+      "guest_note": "出于透明公开。只有所有者可以更改。"
+    }
   },
   "species_detail": {
     "no_wiki": "此物种暂无维基百科信息。",

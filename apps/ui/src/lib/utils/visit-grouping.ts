@@ -12,9 +12,9 @@ export interface DetectionVisit {
     camera: string;
     /** Newest frame first, matching the order the store hands detections out. */
     frames: Detection[];
-    /** The newest frame — what the row is titled by. */
+    /** The newest frame, which titles the row. */
     lead: Detection;
-    /** The highest-scoring frame — the one worth showing a picture of. */
+    /** The highest-scoring frame, the one worth showing a picture of. */
     best: Detection;
     startTime: string;
     endTime: string;
@@ -78,8 +78,8 @@ function toVisit(frames: Detection[]): DetectionVisit {
 }
 
 /**
- * The slice of a detection list the desk describes. Everything on the dashboard — the log,
- * the queue, the camera counts, the sensor comparison — must agree on one window, or the
+ * The slice of a detection list the desk describes. Everything on the dashboard (the log,
+ * the queue, the camera counts, the sensor comparison) must agree on one window, or the
  * numbers contradict each other.
  */
 export function withinDeskWindow(

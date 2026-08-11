@@ -2098,7 +2098,55 @@
       "ai_assistants": "AI assistants that helped build this application"
     },
     "star_github": "Star on GitHub",
-    "star_github_label": "Star YA-WAMF on GitHub"
+    "star_github_label": "Star YA-WAMF on GitHub",
+    "pipeline": {
+      "subtitle": "The standard pipeline, showing what this instance is doing.",
+      "frigate": "Frigate",
+      "mqtt": "MQTT",
+      "classifier": "Classifier",
+      "audio": "BirdNET-Go",
+      "store": "Database",
+      "notify": "Notifications",
+      "browser": "Your browser",
+      "unknown": "unknown",
+      "online": "online",
+      "degraded": "check",
+      "loaded": "loaded",
+      "not_loaded": "not loaded",
+      "enabled": "enabled",
+      "off": "off",
+      "streaming": "streaming",
+      "offline": "offline",
+      "cameras_count": "{online} of {total} cameras online",
+      "mqtt_detail": "frigate/events",
+      "audio_detail": "BirdNET-Go correlation",
+      "store_detail": "SQLite under /data",
+      "notify_on": "at least one channel configured",
+      "notify_off": "nothing configured",
+      "browser_detail": "live updates over SSE",
+      "legend_local": "runs on your hardware",
+      "legend_optional": "optional",
+      "legend_external": "your broker and browser"
+    },
+    "storage": {
+      "title": "What it stores",
+      "detections_desc": "species, score, camera, weather, audio match",
+      "audio_desc": "BirdNET history",
+      "taxonomy_desc": "iNaturalist lookups",
+      "note": "SQLite under /data. Schema changes ship reversible migrations."
+    },
+    "outbound": {
+      "title": "What leaves your network",
+      "inat": "iNaturalist",
+      "inat_desc": "name lookups",
+      "weather": "Weather API",
+      "weather_desc": "conditions per detection",
+      "llm": "LLM insight",
+      "llm_desc": "your key, your provider",
+      "telemetry": "Telemetry",
+      "telemetry_desc": "anonymous counts",
+      "guest_note": "Shown for transparency. Only the owner can change these."
+    }
   },
   "species_detail": {
     "no_wiki": "No Wikipedia information available for this species.",

@@ -1999,7 +1999,55 @@
       "ai_assistants": "ИИ ассистентов, которые помогли создать это приложение"
     },
     "star_github": "Добавить звезду на GitHub",
-    "star_github_label": "Добавить YA-WAMF в избранное на GitHub"
+    "star_github_label": "Добавить YA-WAMF в избранное на GitHub",
+    "pipeline": {
+      "subtitle": "Стандартная цепочка обработки и то, что делает этот экземпляр.",
+      "frigate": "Frigate",
+      "mqtt": "MQTT",
+      "classifier": "Классификатор",
+      "audio": "BirdNET-Go",
+      "store": "База данных",
+      "notify": "Уведомления",
+      "browser": "Ваш браузер",
+      "unknown": "неизвестно",
+      "online": "в сети",
+      "degraded": "проверьте",
+      "loaded": "загружена",
+      "not_loaded": "не загружена",
+      "enabled": "включено",
+      "off": "выключено",
+      "streaming": "передаёт",
+      "offline": "не в сети",
+      "cameras_count": "{online} из {total} камер в сети",
+      "mqtt_detail": "frigate/events",
+      "audio_detail": "Сверка с BirdNET-Go",
+      "store_detail": "SQLite в /data",
+      "notify_on": "настроен хотя бы один канал",
+      "notify_off": "ничего не настроено",
+      "browser_detail": "живые обновления по SSE",
+      "legend_local": "работает на вашем оборудовании",
+      "legend_optional": "необязательно",
+      "legend_external": "ваш брокер и браузер"
+    },
+    "storage": {
+      "title": "Что хранится",
+      "detections_desc": "вид, оценка, камера, погода, совпадение по звуку",
+      "audio_desc": "история BirdNET",
+      "taxonomy_desc": "запросы к iNaturalist",
+      "note": "SQLite в /data. Изменения схемы идут с обратимыми миграциями."
+    },
+    "outbound": {
+      "title": "Что уходит из вашей сети",
+      "inat": "iNaturalist",
+      "inat_desc": "запросы названий",
+      "weather": "API погоды",
+      "weather_desc": "условия по каждому событию",
+      "llm": "Анализ через LLM",
+      "llm_desc": "ваш ключ, ваш провайдер",
+      "telemetry": "Телеметрия",
+      "telemetry_desc": "анонимные счётчики",
+      "guest_note": "Показано для прозрачности. Изменить может только владелец."
+    }
   },
   "species_detail": {
     "no_wiki": "Для этого вида нет информации в Википедии.",

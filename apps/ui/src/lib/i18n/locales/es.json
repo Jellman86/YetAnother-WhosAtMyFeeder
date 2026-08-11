@@ -1990,7 +1990,55 @@
       "ai_assistants": "Asistentes de IA que ayudaron a construir esta aplicación"
     },
     "star_github": "Marcar en GitHub",
-    "star_github_label": "Marcar YA-WAMF en GitHub"
+    "star_github_label": "Marcar YA-WAMF en GitHub",
+    "pipeline": {
+      "subtitle": "El flujo estándar, mostrando lo que hace esta instancia.",
+      "frigate": "Frigate",
+      "mqtt": "MQTT",
+      "classifier": "Clasificador",
+      "audio": "BirdNET-Go",
+      "store": "Base de datos",
+      "notify": "Notificaciones",
+      "browser": "Tu navegador",
+      "unknown": "desconocido",
+      "online": "en línea",
+      "degraded": "revisar",
+      "loaded": "cargado",
+      "not_loaded": "no cargado",
+      "enabled": "activo",
+      "off": "desactivado",
+      "streaming": "transmitiendo",
+      "offline": "sin conexión",
+      "cameras_count": "{online} de {total} cámaras en línea",
+      "mqtt_detail": "frigate/events",
+      "audio_detail": "Correlación con BirdNET-Go",
+      "store_detail": "SQLite en /data",
+      "notify_on": "al menos un canal configurado",
+      "notify_off": "nada configurado",
+      "browser_detail": "actualizaciones en vivo por SSE",
+      "legend_local": "se ejecuta en tu hardware",
+      "legend_optional": "opcional",
+      "legend_external": "tu broker y navegador"
+    },
+    "storage": {
+      "title": "Qué almacena",
+      "detections_desc": "especie, puntuación, cámara, clima, coincidencia de audio",
+      "audio_desc": "historial de BirdNET",
+      "taxonomy_desc": "consultas a iNaturalist",
+      "note": "SQLite en /data. Los cambios de esquema incluyen migraciones reversibles."
+    },
+    "outbound": {
+      "title": "Qué sale de tu red",
+      "inat": "iNaturalist",
+      "inat_desc": "consultas de nombres",
+      "weather": "API del tiempo",
+      "weather_desc": "condiciones por detección",
+      "llm": "Análisis con LLM",
+      "llm_desc": "tu clave, tu proveedor",
+      "telemetry": "Telemetría",
+      "telemetry_desc": "recuentos anónimos",
+      "guest_note": "Se muestra por transparencia. Solo el propietario puede cambiarlo."
+    }
   },
   "species_detail": {
     "no_wiki": "No hay información de Wikipedia disponible para esta especie.",

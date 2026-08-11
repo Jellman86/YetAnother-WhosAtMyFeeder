@@ -32,6 +32,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   evidence rather than left implied by a single badge, and the confirm button names the species
   it is about to add instead of saying "Add observation".
 
+- **The About page now shows what this instance is actually doing.** The eight-step description
+  of the pipeline is replaced by the same seven steps annotated with live state: cameras online,
+  which classifier is loaded and on which provider, whether BirdNET-Go correlation and
+  notifications are configured, and whether the browser is receiving live updates. A step whose
+  status cannot be read says "unknown" rather than claiming to be healthy, and steps with no
+  status source (the broker, the database) carry no state at all. Two new columns state what is
+  stored in each table and which outbound calls are enabled, so the privacy answer lives on the
+  page rather than across three documents.
+
 ### Fixed
 
 - **Manual observation uploads now pass through the bundled Nginx proxies at their documented

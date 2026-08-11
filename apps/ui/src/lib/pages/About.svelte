@@ -1,6 +1,7 @@
 <script lang="ts">
     import { fetchVersion, type VersionInfo } from '../api';
     import { APP_ICON_192_URL } from '../assets';
+    import InstancePipeline from '../components/InstancePipeline.svelte';
     import { _ } from 'svelte-i18n';
 
     type FeatureDefinition = {
@@ -163,9 +164,6 @@
     let docsRefBranch = $derived(
         versionInfo.branch && versionInfo.branch !== 'unknown' ? versionInfo.branch : 'main'
     );
-
-    const steps = [1, 2, 3, 4, 5, 6, 7, 8];
-    const stepColumns = [steps.slice(0, Math.ceil(steps.length / 2)), steps.slice(Math.ceil(steps.length / 2))];
 
     const linkToken = '{link}';
     const splitLinkTemplate = (text: string): LinkParts => {
@@ -362,26 +360,15 @@
         </div>
     </section>
 
-    <!-- How It Works -->
+    <!-- How it works, annotated with what this instance is doing -->
     <section id="about-workflow" aria-labelledby="about-workflow-heading" class="card-base p-6 space-y-4">
         {@render sectionHead('about-workflow-heading', sectionIcon.workflow, $_('about.how_it_works'))}
-        <div class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {#each stepColumns as column}
-                    <div class="space-y-3">
-                        {#each column as step}
-                            <div class="flex items-start gap-3">
-                                <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-brand-200 bg-brand-50 font-bold text-brand-700 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300">{step}</div>
-                                <div>
-                                    <h3 class="font-semibold text-slate-900 dark:text-white">{$_(`about.steps.${step}.title`)}</h3>
-                                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_(`about.steps.${step}.desc`)}</p>
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                {/each}
-            </div>
-        </div>
+        <p class="text-sm text-slate-600 dark:text-slate-400">
+            {$_('about.pipeline.subtitle', {
+                default: 'The standard pipeline, showing what this instance is doing.'
+            })}
+        </p>
+        <InstancePipeline />
     </section>
 
     <!-- Features Grid -->

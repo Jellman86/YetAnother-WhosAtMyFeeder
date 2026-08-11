@@ -1986,7 +1986,55 @@
       "ai_assistants": "このアプリケーションの構築を支援してくれたAIアシスタント"
     },
     "star_github": "GitHubでスターを付ける",
-    "star_github_label": "GitHubでYA-WAMFにスターを付ける"
+    "star_github_label": "GitHubでYA-WAMFにスターを付ける",
+    "pipeline": {
+      "subtitle": "標準的な処理の流れと、このインスタンスの現在の状態です。",
+      "frigate": "Frigate",
+      "mqtt": "MQTT",
+      "classifier": "分類器",
+      "audio": "BirdNET-Go",
+      "store": "データベース",
+      "notify": "通知",
+      "browser": "ブラウザ",
+      "unknown": "不明",
+      "online": "オンライン",
+      "degraded": "要確認",
+      "loaded": "読み込み済み",
+      "not_loaded": "未読み込み",
+      "enabled": "有効",
+      "off": "オフ",
+      "streaming": "配信中",
+      "offline": "オフライン",
+      "cameras_count": "カメラ {total} 台中 {online} 台がオンライン",
+      "mqtt_detail": "frigate/events",
+      "audio_detail": "BirdNET-Go との照合",
+      "store_detail": "/data の SQLite",
+      "notify_on": "1 つ以上のチャンネルを設定済み",
+      "notify_off": "未設定",
+      "browser_detail": "SSE によるライブ更新",
+      "legend_local": "自分のハードウェアで動作",
+      "legend_optional": "任意",
+      "legend_external": "ブローカーとブラウザ"
+    },
+    "storage": {
+      "title": "保存される内容",
+      "detections_desc": "種名、スコア、カメラ、天候、音声との一致",
+      "audio_desc": "BirdNET の履歴",
+      "taxonomy_desc": "iNaturalist の照会結果",
+      "note": "/data の SQLite。スキーマ変更には元に戻せるマイグレーションが付きます。"
+    },
+    "outbound": {
+      "title": "ネットワークの外に出る通信",
+      "inat": "iNaturalist",
+      "inat_desc": "名前の照会",
+      "weather": "天気 API",
+      "weather_desc": "検出ごとの気象情報",
+      "llm": "LLM による解説",
+      "llm_desc": "あなたの鍵、あなたのプロバイダー",
+      "telemetry": "テレメトリー",
+      "telemetry_desc": "匿名の集計値",
+      "guest_note": "透明性のために表示しています。変更できるのは所有者だけです。"
+    }
   },
   "species_detail": {
     "no_wiki": "この種に関するウィキペディア情報はありません。",

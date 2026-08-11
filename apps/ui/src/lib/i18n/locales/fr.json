@@ -1990,7 +1990,55 @@
       "ai_assistants": "Les assistants IA qui ont aidé à construire cette application"
     },
     "star_github": "Étoiler sur GitHub",
-    "star_github_label": "Étoiler YA-WAMF sur GitHub"
+    "star_github_label": "Étoiler YA-WAMF sur GitHub",
+    "pipeline": {
+      "subtitle": "Le pipeline standard, avec ce que fait cette instance.",
+      "frigate": "Frigate",
+      "mqtt": "MQTT",
+      "classifier": "Classificateur",
+      "audio": "BirdNET-Go",
+      "store": "Base de données",
+      "notify": "Notifications",
+      "browser": "Votre navigateur",
+      "unknown": "inconnu",
+      "online": "en ligne",
+      "degraded": "à vérifier",
+      "loaded": "chargé",
+      "not_loaded": "non chargé",
+      "enabled": "activé",
+      "off": "désactivé",
+      "streaming": "en flux",
+      "offline": "hors ligne",
+      "cameras_count": "{online} caméras en ligne sur {total}",
+      "mqtt_detail": "frigate/events",
+      "audio_detail": "Corrélation BirdNET-Go",
+      "store_detail": "SQLite dans /data",
+      "notify_on": "au moins un canal configuré",
+      "notify_off": "rien de configuré",
+      "browser_detail": "mises à jour en direct via SSE",
+      "legend_local": "tourne sur votre matériel",
+      "legend_optional": "optionnel",
+      "legend_external": "votre broker et votre navigateur"
+    },
+    "storage": {
+      "title": "Ce qui est stocké",
+      "detections_desc": "espèce, score, caméra, météo, correspondance audio",
+      "audio_desc": "historique BirdNET",
+      "taxonomy_desc": "recherches iNaturalist",
+      "note": "SQLite dans /data. Les changements de schéma livrent des migrations réversibles."
+    },
+    "outbound": {
+      "title": "Ce qui sort de votre réseau",
+      "inat": "iNaturalist",
+      "inat_desc": "recherches de noms",
+      "weather": "API météo",
+      "weather_desc": "conditions par détection",
+      "llm": "Analyse LLM",
+      "llm_desc": "votre clé, votre fournisseur",
+      "telemetry": "Télémétrie",
+      "telemetry_desc": "comptages anonymes",
+      "guest_note": "Affiché par transparence. Seul le propriétaire peut le modifier."
+    }
   },
   "species_detail": {
     "no_wiki": "Aucune information Wikipédia disponible pour cette espèce.",

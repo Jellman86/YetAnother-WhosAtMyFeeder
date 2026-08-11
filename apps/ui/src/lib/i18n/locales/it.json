@@ -1999,7 +1999,55 @@
       "ai_assistants": "Assistenti IA che hanno aiutato a costruire questa applicazione"
     },
     "star_github": "Aggiungi stella su GitHub",
-    "star_github_label": "Aggiungi stella a YA-WAMF su GitHub"
+    "star_github_label": "Aggiungi stella a YA-WAMF su GitHub",
+    "pipeline": {
+      "subtitle": "La pipeline standard, con quello che sta facendo questa istanza.",
+      "frigate": "Frigate",
+      "mqtt": "MQTT",
+      "classifier": "Classificatore",
+      "audio": "BirdNET-Go",
+      "store": "Database",
+      "notify": "Notifiche",
+      "browser": "Il tuo browser",
+      "unknown": "sconosciuto",
+      "online": "online",
+      "degraded": "da controllare",
+      "loaded": "caricato",
+      "not_loaded": "non caricato",
+      "enabled": "attivo",
+      "off": "disattivo",
+      "streaming": "in streaming",
+      "offline": "offline",
+      "cameras_count": "{online} di {total} telecamere online",
+      "mqtt_detail": "frigate/events",
+      "audio_detail": "Correlazione BirdNET-Go",
+      "store_detail": "SQLite in /data",
+      "notify_on": "almeno un canale configurato",
+      "notify_off": "niente configurato",
+      "browser_detail": "aggiornamenti live via SSE",
+      "legend_local": "gira sul tuo hardware",
+      "legend_optional": "opzionale",
+      "legend_external": "il tuo broker e browser"
+    },
+    "storage": {
+      "title": "Cosa memorizza",
+      "detections_desc": "specie, punteggio, telecamera, meteo, riscontro audio",
+      "audio_desc": "cronologia BirdNET",
+      "taxonomy_desc": "ricerche iNaturalist",
+      "note": "SQLite in /data. Le modifiche allo schema includono migrazioni reversibili."
+    },
+    "outbound": {
+      "title": "Cosa esce dalla tua rete",
+      "inat": "iNaturalist",
+      "inat_desc": "ricerche di nomi",
+      "weather": "API meteo",
+      "weather_desc": "condizioni per rilevamento",
+      "llm": "Analisi LLM",
+      "llm_desc": "la tua chiave, il tuo fornitore",
+      "telemetry": "Telemetria",
+      "telemetry_desc": "conteggi anonimi",
+      "guest_note": "Mostrato per trasparenza. Solo il proprietario può modificarlo."
+    }
   },
   "species_detail": {
     "no_wiki": "Nessuna informazione Wikipedia disponibile per questa specie.",
