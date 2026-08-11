@@ -46,5 +46,8 @@ upload_status="$(
     -F 'media=@/tmp/manual-upload-smoke.jpg;type=image/jpeg' \
     http://127.0.0.1:8080/api/manual-observations
 )"
-test "$upload_status" = "422"
+if [ "$upload_status" != "202" ]; then
+  echo "manual observation upload did not reach the backend: expected 202, got $upload_status" >&2
+  exit 1
+fi
 docker exec "$CID" sh -lc 'test "$YAWAMF_IMAGE_FLAVOR" = "full"'
