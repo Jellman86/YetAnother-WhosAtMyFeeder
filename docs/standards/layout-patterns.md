@@ -120,11 +120,14 @@ readme and `docs/` hold the feature list.
 | `InstancePipeline` | Deployment state as a flow | Use it as a settings surface |
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
 
-Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (grouping, the desk window, the
-review threshold) and `review-queue.ts` (queue selection and ordering). New decision rules go
-there, with unit tests, and never inside a component.
+Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (grouping, the desk window and
+threshold-aware review decisions), `review-queue.ts` (queue selection and ordering), and
+`dashboard-cameras.ts` (configured-camera scope and visit counts). New decision rules go there,
+with unit tests, and never inside a component.
 
-`REVIEW_CONFIDENCE_THRESHOLD` is 0.6 and matches the backend naming floor. If one moves, both move.
+The review threshold comes from the saved `classification_threshold` setting. Do not copy its
+current value into frontend code. Until owner settings load, explicitly unknown detections still
+need review, but a named detection is not flagged against an invented threshold.
 
 **Pickers open on what is likely, not on what is first.** The classifier knows eleven thousand
 labels and sorts them alphabetically, so an unfiltered list opens on earthworms and spiders. Any

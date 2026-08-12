@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Detection } from '../api';
-import { buildReviewQueue } from './review-queue';
+import { buildReviewQueue as buildQueue } from './review-queue';
 
 function detection(overrides: Partial<Detection> & { frigate_event: string }): Detection {
     return {
@@ -12,7 +12,23 @@ function detection(overrides: Partial<Detection> & { frigate_event: string }): D
     } as Detection;
 }
 
+function buildReviewQueue(detections: readonly Detection[], limit: number = 4) {
+    return buildQueue(detections, { reviewThreshold: 0.6, limit });
+}
+
 describe('buildReviewQueue', () => {
+    it('uses the configured naming threshold when deciding what needs a person', () => {
+        const queue = buildQueue(
+            [
+                detection({ frigate_event: 'accepted', score: 0.52 }),
+                detection({ frigate_event: 'weak', score: 0.22 })
+            ],
+            { reviewThreshold: 0.3 }
+        );
+
+        expect(queue.items.map((item) => item.frigate_event)).toEqual(['weak']);
+    });
+
     it('collects unnamed and low-confidence detections and leaves confident ones alone', () => {
         const queue = buildReviewQueue([
             detection({ frigate_event: 'named', score: 0.98 }),

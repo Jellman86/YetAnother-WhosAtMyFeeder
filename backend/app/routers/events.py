@@ -66,9 +66,11 @@ class ManualTagResponse(BaseModel):
     new_species: str
     species: str | None = None
     old_species: str | None = None
+    category_name: str | None = None
     scientific_name: str | None = None
     common_name: str | None = None
     taxa_id: int | None = None
+    manual_tagged: bool
 
 
 def _build_event_classification_input_context(
@@ -1148,13 +1150,36 @@ async def _apply_manual_tag_update(
         frigate_event=detection.frigate_event,
     )
 
-    if _normalize_species_name(old_species) == _normalize_species_name(new_species):
+    async def confirm_existing_species() -> dict:
+        await repo.confirm_manual_species_tag(frigate_event=event_id)
+        await db.commit()
+
+        refreshed_detection = await repo.get_by_frigate_event(event_id)
+        payload_source = refreshed_detection or detection
+        await broadcaster.broadcast(
+            {
+                "type": "detection_updated",
+                "data": _detection_updated_payload(
+                    payload_source,
+                    overrides={"manual_tagged": True},
+                ),
+            }
+        )
         return {
             "status": "unchanged",
             "event_id": event_id,
             "species": old_species or new_species,
+            "old_species": old_species,
             "new_species": old_species or new_species,
+            "category_name": detection.category_name,
+            "scientific_name": detection.scientific_name,
+            "common_name": detection.common_name,
+            "taxa_id": detection.taxa_id,
+            "manual_tagged": True,
         }
+
+    if _normalize_species_name(old_species) == _normalize_species_name(new_species):
+        return await confirm_existing_species()
 
     unknown_labels = {
         *(label.lower() for label in settings.classification.unknown_bird_labels),
@@ -1177,12 +1202,7 @@ async def _apply_manual_tag_update(
             scientific_name=resolved_aliases.get("scientific_name"),
             taxa_id=resolved_aliases.get("taxa_id"),
         )
-        return {
-            "status": "unchanged",
-            "event_id": event_id,
-            "species": old_species or new_species,
-            "new_species": old_species or new_species,
-        }
+        return await confirm_existing_species()
 
     taxonomy_lookup_name = (
         resolved_aliases.get("scientific_name") or resolved_aliases.get("common_name") or normalized_label
@@ -1317,9 +1337,11 @@ async def _apply_manual_tag_update(
         "event_id": event_id,
         "old_species": old_species,
         "new_species": stored_display_name,
+        "category_name": stored_category_name,
         "scientific_name": sci_name,
         "common_name": com_name,
         "taxa_id": t_id,
+        "manual_tagged": True,
     }
 
 

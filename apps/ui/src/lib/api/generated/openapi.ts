@@ -1061,8 +1061,10 @@ export interface components {
     status: "saved";
 };
     ManualTagResponse: {
+    category_name?: string | null;
     common_name?: string | null;
     event_id: string;
+    manual_tagged: boolean;
     new_species: string;
     old_species?: string | null;
     scientific_name?: string | null;

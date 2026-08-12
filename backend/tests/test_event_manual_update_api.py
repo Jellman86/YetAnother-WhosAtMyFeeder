@@ -108,10 +108,12 @@ async def test_manual_update_treats_localized_alias_of_same_species_as_unchanged
         assert response.status_code == 200, response.text
         payload = response.json()
         assert payload["status"] == "unchanged"
+        assert payload["manual_tagged"] is True
 
         mock_get_names.assert_not_awaited()
         mock_audio.assert_not_awaited()
-        mock_broadcast.assert_not_awaited()
+        mock_broadcast.assert_awaited_once()
+        assert mock_broadcast.await_args.args[0]["data"]["manual_tagged"] is True
 
         async with get_db() as db:
             async with db.execute(
@@ -126,7 +128,65 @@ async def test_manual_update_treats_localized_alias_of_same_species_as_unchanged
         assert row[2] == "Cyanistes caeruleus"
         assert row[3] == "Blue Tit"
         assert row[4] == taxa_id
-        assert row[5] == 0
+        assert row[5] == 1
+    finally:
+        await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+
+
+@pytest.mark.asyncio
+async def test_manual_update_confirms_exact_existing_species_without_rewriting_taxonomy(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    event_id = f"manual-{uuid.uuid4().hex[:10]}"
+    taxa_id = 915000 + int(uuid.uuid4().hex[:4], 16)
+    await _seed_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
+
+    try:
+        with (
+            patch("app.routers.events.taxonomy_service.get_names", new=AsyncMock()) as mock_get_names,
+            patch("app.routers.events.audio_service.correlate_species", new=AsyncMock()) as mock_audio,
+            patch("app.routers.events.broadcaster.broadcast", new=AsyncMock()) as mock_broadcast,
+        ):
+            response = await client.patch(
+                f"/api/events/{event_id}",
+                json={"display_name": "Blue Tit"},
+            )
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {
+            "status": "unchanged",
+            "event_id": event_id,
+            "new_species": "Blue Tit",
+            "species": "Blue Tit",
+            "old_species": "Blue Tit",
+            "category_name": "Blue Tit",
+            "scientific_name": "Cyanistes caeruleus",
+            "common_name": "Blue Tit",
+            "taxa_id": taxa_id,
+            "manual_tagged": True,
+        }
+        mock_get_names.assert_not_awaited()
+        mock_audio.assert_not_awaited()
+        mock_broadcast.assert_awaited_once()
+
+        async with get_db() as db:
+            async with db.execute(
+                """
+                SELECT display_name, category_name, scientific_name, common_name, taxa_id, manual_tagged
+                FROM detections WHERE frigate_event = ?
+                """,
+                (event_id,),
+            ) as cursor:
+                row = await cursor.fetchone()
+            async with db.execute(
+                "SELECT COUNT(*) FROM classification_feedback WHERE frigate_event = ?",
+                (event_id,),
+            ) as cursor:
+                feedback_count = (await cursor.fetchone())[0]
+
+        assert tuple(row) == ("Blue Tit", "Blue Tit", "Cyanistes caeruleus", "Blue Tit", taxa_id, 1)
+        assert feedback_count == 0
     finally:
         await _cleanup_detection_and_taxonomy(event_id=event_id, taxa_id=taxa_id)
 

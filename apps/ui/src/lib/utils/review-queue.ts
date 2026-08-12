@@ -13,11 +13,16 @@ export interface ReviewQueue {
 
 export const REVIEW_QUEUE_PREVIEW_LIMIT = 4;
 
-function isOpen(detection: Detection): boolean {
+export interface ReviewQueueOptions {
+    reviewThreshold: number | null;
+    limit?: number;
+}
+
+function isOpen(detection: Detection, reviewThreshold: number | null): boolean {
     if (detection.is_hidden) return false;
     // A manual tag is the human decision this queue is asking for.
     if (detection.manual_tagged) return false;
-    return needsReview(detection);
+    return needsReview(detection, reviewThreshold);
 }
 
 function oldestFirst(left: Detection, right: Detection): number {
@@ -34,9 +39,9 @@ function oldestFirst(left: Detection, right: Detection): number {
  */
 export function buildReviewQueue(
     detections: readonly Detection[],
-    limit: number = REVIEW_QUEUE_PREVIEW_LIMIT
+    { reviewThreshold, limit = REVIEW_QUEUE_PREVIEW_LIMIT }: ReviewQueueOptions
 ): ReviewQueue {
-    const open = detections.filter(isOpen).sort(oldestFirst);
+    const open = detections.filter((detection) => isOpen(detection, reviewThreshold)).sort(oldestFirst);
 
     return {
         items: open.slice(0, limit),
