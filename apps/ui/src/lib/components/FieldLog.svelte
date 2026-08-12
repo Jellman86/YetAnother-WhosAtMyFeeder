@@ -11,13 +11,23 @@
         visits: DetectionVisit[];
         /** Visits in the window beyond the ones shown, so truncation is stated. */
         hiddenCount?: number;
+        /** Identifying requires owner access, so guests get a read-only row. */
+        canIdentify?: boolean;
         loading?: boolean;
         onselect?: (detection: Detection) => void;
         onidentify?: (detection: Detection) => void;
         onseeall?: () => void;
     }
 
-    let { visits, hiddenCount = 0, loading = false, onselect, onidentify, onseeall }: Props = $props();
+    let {
+        visits,
+        hiddenCount = 0,
+        canIdentify = false,
+        loading = false,
+        onselect,
+        onidentify,
+        onseeall
+    }: Props = $props();
 
     function names(detection: Detection): { primary: string; secondary: string | null } {
         return getBirdNames(
@@ -167,7 +177,7 @@
                     </span>
 
                     <span class="col-span-full flex justify-end sm:col-span-1">
-                        {#if visit.needsReview}
+                        {#if visit.needsReview && canIdentify}
                             <button
                                 class="btn btn-primary min-h-11 px-3 py-1.5 text-xs"
                                 onclick={() => onidentify?.(visit.best)}
