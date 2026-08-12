@@ -57,12 +57,12 @@
 </script>
 
 <section class="space-y-4" data-dashboard-field-log>
-    <header class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200/70 pb-3 dark:border-slate-700/50">
-        <div>
+    <header class="flex items-end justify-between gap-3 border-b border-slate-200/70 pb-3 dark:border-slate-700/50">
+        <div class="min-w-0">
             <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">
                 {$_('dashboard.field_log.title', { default: 'Field log' })}
             </h2>
-            <p class="text-sm text-slate-500 dark:text-slate-400">
+            <p class="hidden text-sm text-slate-500 sm:block dark:text-slate-400">
                 {$_('dashboard.field_log.subtitle', {
                     default: 'Repeat frames of the same bird are folded into one visit'
                 })}
@@ -70,7 +70,7 @@
         </div>
         <button
             onclick={() => onseeall?.()}
-            class="inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-ring dark:text-brand-300 dark:hover:bg-brand-950/40"
+            class="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-xl px-2 py-2 text-sm font-semibold text-brand-700 transition-colors hover:bg-brand-50 focus-ring sm:px-3 dark:text-brand-300 dark:hover:bg-brand-950/40"
         >
             {$_('dashboard.see_full_history')}
             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -102,7 +102,7 @@
                 {@const naming = names(visit.lead)}
                 {@const score = visit.best.score ?? 0}
                 <li
-                    class="grid grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)] items-stretch sm:items-center gap-x-3 gap-y-2 rounded-xl border-b border-slate-200/60 px-2 py-2.5 last:border-b-0 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_auto_auto_5rem] dark:border-slate-700/40"
+                    class="grid grid-cols-[3.4rem_0.6rem_auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_auto_auto_5rem] sm:gap-x-3 sm:py-2.5 dark:border-slate-700/40"
                     class:bg-gradient-to-r={visit.needsReview}
                     class:from-accent-50={visit.needsReview}
                     class:dark:from-accent-950={visit.needsReview}
@@ -143,6 +143,9 @@
                                 </span>
                             {/if}
                         </p>
+                        <p class="text-[11px] tabular-nums text-slate-500 sm:hidden dark:text-slate-400">
+                            {Math.round(score * 100)}% &middot; {visit.camera}
+                        </p>
                         {#if visit.needsReview}
                             <p class="truncate text-[11px] font-medium text-accent-700 dark:text-accent-300">
                                 {$_('dashboard.field_log.needs_name', {
@@ -176,17 +179,17 @@
                         </span>
                     </span>
 
-                    <span class="col-span-full flex justify-end sm:col-span-1">
+                    <span class="flex justify-end">
                         {#if visit.needsReview && canIdentify}
                             <button
-                                class="btn btn-primary min-h-11 px-3 py-1.5 text-xs"
+                                class="btn btn-primary min-h-11 px-2.5 py-1.5 text-xs sm:px-3"
                                 onclick={() => onidentify?.(visit.best)}
                             >
                                 {$_('dashboard.field_log.identify', { default: 'Identify' })}
                             </button>
                         {:else}
                             <button
-                                class="btn btn-ghost min-h-11 px-3 py-1.5 text-xs"
+                                class="btn btn-ghost min-h-11 px-2.5 py-1.5 text-xs sm:px-3"
                                 onclick={() => onselect?.(visit.best)}
                             >
                                 {$_('dashboard.field_log.open', { default: 'Open' })}

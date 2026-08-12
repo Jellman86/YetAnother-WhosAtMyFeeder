@@ -139,7 +139,7 @@
     });
 </script>
 
-<section class="border-y border-slate-200 py-3 dark:border-slate-700" data-events-filter-bar>
+<section class="border-y border-slate-200 py-3 lg:border-0 lg:py-0" data-events-filter-bar>
     <div class="flex flex-wrap items-center gap-2">
         <p class="text-sm font-semibold text-slate-900 dark:text-white">
             {$_('events.filters.result_count', {
@@ -161,7 +161,7 @@
         {/each}
 
         <button
-            class="btn btn-secondary ml-auto min-h-11 px-3 py-2 text-xs"
+            class="btn btn-secondary ml-auto min-h-11 px-3 py-2 text-xs lg:hidden"
             aria-expanded={panelOpen}
             onclick={() => (panelOpen = !panelOpen)}
             data-explorer-filter-toggle
@@ -176,8 +176,12 @@
         {/if}
     </div>
 
-    {#if panelOpen}
-        <div class="mt-3 grid gap-5 border-t border-slate-200 pt-3 sm:grid-cols-3 dark:border-slate-700" data-explorer-facets>
+    <div
+        class="mt-3 gap-5 border-t border-slate-200 pt-3 lg:!block dark:border-slate-700 {panelOpen
+            ? 'grid grid-cols-1 sm:grid-cols-3'
+            : 'hidden'} lg:mt-0 lg:space-y-5 lg:border-t-0 lg:pt-0"
+        data-explorer-facets
+    >
             <div>
                 <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                     {$_('events.filters.when', { default: 'When' })}
@@ -327,6 +331,5 @@
                     {/each}
                 </div>
             </div>
-        </div>
-    {/if}
+    </div>
 </section>

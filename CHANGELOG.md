@@ -103,6 +103,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Every frame in a visit previews itself.** Hovering any thumbnail in a folded group showed the
+  same clearest frame. Each thumbnail is now its own trigger with its own preview, stating which
+  frame it is, and clicking one opens that frame rather than the visit's best.
+
+- **Explorer puts the facets beside the results.** They were hidden behind a Filters button and
+  opened full width above the grid, which is not the layout that was chosen: the facet rail is now
+  persistent alongside the photographs on desktop, and collapses behind the button only where there
+  is no room for it.
+
+- **The field log fits a phone.** Rows were around 225 pixels tall because the action button sat on
+  its own line with nothing beside it, so four visits filled a screen. The action now shares the row,
+  the score and camera appear under the species name instead of being hidden, and the thumbnail
+  stack shows one frame rather than three, which stops long species names truncating. Eight visits
+  now fit where four did. The day bar keeps its live indicator inline, and "See full history" stays
+  on the heading row.
+
 - **The review queue is owner only.** "Needs your call", its walk-through, and the Identify action
   on a flagged row were visible on an unauthenticated dashboard, where the identify and hide calls
   they offer are refused. They are now gated on owner access, so a guest sees the day without being

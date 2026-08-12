@@ -299,7 +299,8 @@
       "preview_trigger": "Предпросмотр: {species}",
       "preview_alt": "{species} на камере {camera}",
       "preview_frames": "Кадров в этом визите: {count}, показан самый чёткий",
-      "earlier": "Ещё {count} визитов сегодня"
+      "earlier": "Ещё {count} визитов сегодня",
+      "preview_frame_position": "Кадр {position} из {count} в этом визите"
     },
     "day_bar": {
       "today": "Сегодня",

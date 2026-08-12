@@ -299,7 +299,8 @@
       "preview_trigger": "Aperçu de {species}",
       "preview_alt": "{species} sur {camera}",
       "preview_frames": "{count} images dans cette visite, la plus nette est affichée",
-      "earlier": "{count} visites plus tôt aujourd’hui"
+      "earlier": "{count} visites plus tôt aujourd’hui",
+      "preview_frame_position": "Image {position} sur {count} de cette visite"
     },
     "day_bar": {
       "today": "Aujourd’hui",

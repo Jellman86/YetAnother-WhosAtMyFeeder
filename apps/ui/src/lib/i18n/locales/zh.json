@@ -299,7 +299,8 @@
       "preview_trigger": "预览 {species}",
       "preview_alt": "{camera} 上的 {species}",
       "preview_frames": "本次到访共 {count} 帧，显示最清晰的一帧",
-      "earlier": "今天更早的 {count} 次到访"
+      "earlier": "今天更早的 {count} 次到访",
+      "preview_frame_position": "本次到访的第 {position} 帧，共 {count} 帧"
     },
     "day_bar": {
       "today": "今天",

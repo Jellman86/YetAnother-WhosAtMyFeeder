@@ -299,7 +299,8 @@
       "preview_trigger": "{species} をプレビュー",
       "preview_alt": "{camera} の {species}",
       "preview_frames": "この訪問の {count} フレームのうち、最も鮮明なものを表示しています",
-      "earlier": "今日はほかに {count} 件の訪問"
+      "earlier": "今日はほかに {count} 件の訪問",
+      "preview_frame_position": "この訪問の {count} フレーム中 {position} 枚目"
     },
     "day_bar": {
       "today": "今日",
