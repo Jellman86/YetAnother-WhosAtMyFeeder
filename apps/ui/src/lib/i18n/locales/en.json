@@ -2004,7 +2004,7 @@
     "chart_line": "Line",
     "metric_detections": "Detections",
     "metric_smooth": "Smoothed trend",
-    "total": "Total",
+    "total": "total",
     "metric_peak": "Peak",
     "metric_avg": "Avg",
     "weather_overlays": "Weather overlays",
@@ -2027,7 +2027,16 @@
     "weekday_sun": "Sun",
     "detection_breakdown_subtitle": "Species composition",
     "detection_breakdown_title": "Detection Breakdown",
-    "other_species": "Other"
+    "other_species": "Other",
+    "podium_title": "Top of the period",
+    "podium_total": "{count} visits",
+    "no_species_assigned": "No species assigned",
+    "seen": "seen",
+    "heard": "heard",
+    "seen_count": "{count} seen",
+    "not_seen": "not seen",
+    "heard_count": "{count} heard",
+    "not_heard": "not heard"
   },
   "about": {
     "how_it_works": "How It Works",

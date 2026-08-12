@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The leaderboard opens with a podium instead of a featured card.** The top three species share
+  the space one species used to fill, on hairline rows rather than in a large rounded panel, each
+  showing what was seen and what was heard so a bird that is loud but rarely on camera is visible.
+  The podium follows the Seen, Heard and Both toggle, so it ranks by whichever source is selected.
+  The Wikipedia extract moves to the species detail view, where it was already available, and the
+  Most active tile is gone because it repeated the podium's first row word for word. The rankings
+  table now starts roughly 200px higher up the page.
+
 - **The dashboard is now a field desk: one chronological log of the day with the outstanding work
   docked beside it.** Repeat frames of the same bird on the same camera within ten minutes fold
   into a single visit row showing the clearest frame and the best score, so one blackbird landing
