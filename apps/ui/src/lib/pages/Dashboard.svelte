@@ -101,8 +101,16 @@
     let visits = $derived(allVisits.slice(0, VISIT_ROW_LIMIT));
     let hiddenVisitCount = $derived(Math.max(allVisits.length - visits.length, 0));
 
+    // Reviewing is an owner capability: the identify and hide calls require it, so a guest
+    // must not be shown the queue, the walk-through, or an Identify button that would 403.
+    let canReview = $derived(authStore.hasOwnerAccess);
+
     // The walk-through flow: a captured queue worked one at a time.
     let reviewSessionOpen = $state(false);
+
+    $effect(() => {
+        if (!canReview) reviewSessionOpen = false;
+    });
 
     // The picker opens on species this feeder actually sees, most frequent first,
     // rather than the head of an 11,000-label alphabetical list.
@@ -470,17 +478,20 @@
             visits={visits}
             hiddenCount={hiddenVisitCount}
             loading={detectionsStore.isLoading}
+            canIdentify={canReview}
             onselect={(detection) => selectedEvent = detection}
             onidentify={(detection) => selectedEvent = detection}
             onseeall={() => onnavigate?.('/events')}
         />
 
         <aside class="flex flex-col gap-7 xl:border-l xl:border-slate-200 xl:pl-8 dark:xl:border-slate-700">
-            <ReviewQueueCard
-                queue={reviewQueue}
-                onreview={(detection) => selectedEvent = detection}
-                onreviewall={() => (reviewSessionOpen = true)}
-            />
+            {#if canReview}
+                <ReviewQueueCard
+                    queue={reviewQueue}
+                    onreview={(detection) => selectedEvent = detection}
+                    onreviewall={() => (reviewSessionOpen = true)}
+                />
+            {/if}
 
             <DeskContextCards
                 detections={deskDetections}
@@ -513,7 +524,7 @@
     </section>
 </div>
 
-{#if reviewSessionOpen}
+{#if reviewSessionOpen && canReview}
     <ReviewQueueModal
         queue={buildReviewQueue(deskDetections, Number.MAX_SAFE_INTEGER).items}
         labels={classifierLabels}

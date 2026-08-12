@@ -31,6 +31,15 @@ describe('dashboard field desk layout', () => {
         expect(topVisitors > aside && topVisitors < asideEnd).toBe(false);
     });
 
+    it('keeps the review queue and its actions to owners', () => {
+        // Identify and hide are owner-only calls, so a guest must not be offered them.
+        expect(dashboardSource).toContain('let canReview = $derived(authStore.hasOwnerAccess)');
+        expect(dashboardSource).toContain('{#if canReview}');
+        expect(dashboardSource).toContain('{#if reviewSessionOpen && canReview}');
+        expect(dashboardSource).toContain('canIdentify={canReview}');
+        expect(fieldLogSource).toContain('{#if visit.needsReview && canIdentify}');
+    });
+
     it('folds repeat frames into visits instead of printing one card per frame', () => {
         expect(dashboardSource).toContain('groupDetectionsIntoVisits(deskDetections)');
         expect(dashboardSource).toContain('buildReviewQueue(deskDetections)');

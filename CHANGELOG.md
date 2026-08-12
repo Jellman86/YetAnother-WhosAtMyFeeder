@@ -83,6 +83,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The review queue is owner only.** "Needs your call", its walk-through, and the Identify action
+  on a flagged row were visible on an unauthenticated dashboard, where the identify and hide calls
+  they offer are refused. They are now gated on owner access, so a guest sees the day without being
+  offered work it cannot do.
+
 - **Top Visitors is readable on the dashboard again.** It lays out horizontally and was being
   compressed into the context rail on desktop. It now sits full width below the desk, where it
   was before, with a layout test to keep it there.
