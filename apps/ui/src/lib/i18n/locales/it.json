@@ -1830,7 +1830,8 @@
     "audio_spectrogram_alt": "Spettrogramma BirdNET-Go del rilevamento audio corrispondente",
     "snapshot_regenerate": "Rigenera snapshot",
     "snapshot_regenerate_no_candidates": "Snapshot rigenerati, ma non è stato prodotto alcun candidato selezionabile.",
-    "snapshot_source_unknown": "Origine sconosciuta"
+    "snapshot_source_unknown": "Origine sconosciuta",
+    "reference_disclosure": "Informazioni su {species} e avvistamenti vicini"
   },
   "events": {
     "title": "Eventi",

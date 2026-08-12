@@ -1821,7 +1821,8 @@
     "audio_spectrogram_alt": "BirdNET-Go-Spektrogramm der zugehörigen Audio-Erkennung",
     "snapshot_regenerate": "Snapshots neu erzeugen",
     "snapshot_regenerate_no_candidates": "Snapshots neu erzeugt, aber keine auswählbaren Kandidaten gefunden.",
-    "snapshot_source_unknown": "Unbekannte Quelle"
+    "snapshot_source_unknown": "Unbekannte Quelle",
+    "reference_disclosure": "Über {species} und Sichtungen in der Nähe"
   },
   "events": {
     "title": "Ereignisse",

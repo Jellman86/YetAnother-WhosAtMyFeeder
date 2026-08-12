@@ -1821,7 +1821,8 @@
     "audio_spectrogram_alt": "Espectrograma de BirdNET-Go de la detección de audio coincidente",
     "snapshot_regenerate": "Regenerar instantáneas",
     "snapshot_regenerate_no_candidates": "Instantáneas regeneradas, pero no se obtuvieron candidatos seleccionables.",
-    "snapshot_source_unknown": "Origen desconocido"
+    "snapshot_source_unknown": "Origen desconocido",
+    "reference_disclosure": "Sobre {species} y avistamientos cercanos"
   },
   "events": {
     "title": "Eventos",

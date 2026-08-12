@@ -1830,7 +1830,8 @@
     "audio_spectrogram_alt": "Спектрограмма BirdNET-Go для соответствующего аудио-обнаружения",
     "snapshot_regenerate": "Пересоздать снимки",
     "snapshot_regenerate_no_candidates": "Снимки пересозданы, но не получено ни одного пригодного кандидата.",
-    "snapshot_source_unknown": "Неизвестный источник"
+    "snapshot_source_unknown": "Неизвестный источник",
+    "reference_disclosure": "О виде {species} и наблюдения поблизости"
   },
   "events": {
     "title": "События",

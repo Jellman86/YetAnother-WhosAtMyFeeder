@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Detection details leads with the detection.** The species text, the eBird map and the notable
+  nearby list, which together were the largest thing on the panel and were about other people's
+  sightings, now sit behind one disclosure. The media panel fills its column instead of leaving a
+  void under a fixed four-by-three box.
+
 - **Explorer replaces five rows of controls with a filter bar and counted facets.** Three stacked
   selects, three buttons, a page-size picker and a pagination row above the grid are now a single
   line stating the result count, with applied filters shown as removable tokens and the rest behind

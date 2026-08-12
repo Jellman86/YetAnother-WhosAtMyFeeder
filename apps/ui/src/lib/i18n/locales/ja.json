@@ -1821,7 +1821,8 @@
     "audio_spectrogram_alt": "一致した音声検出の BirdNET-Go スペクトログラム",
     "snapshot_regenerate": "スナップショットを再生成",
     "snapshot_regenerate_no_candidates": "スナップショットを再生成しましたが、選択可能な候補は得られませんでした。",
-    "snapshot_source_unknown": "不明なソース"
+    "snapshot_source_unknown": "不明なソース",
+    "reference_disclosure": "{species} の情報と近隣の記録"
   },
   "events": {
     "title": "イベント",

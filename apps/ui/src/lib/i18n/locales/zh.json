@@ -1821,7 +1821,8 @@
     "audio_spectrogram_alt": "匹配音频检测的 BirdNET-Go 频谱图",
     "snapshot_regenerate": "重新生成快照",
     "snapshot_regenerate_no_candidates": "已重新生成快照,但未产生可供选择的候选。",
-    "snapshot_source_unknown": "未知来源"
+    "snapshot_source_unknown": "未知来源",
+    "reference_disclosure": "关于 {species} 以及附近的记录"
   },
   "events": {
     "title": "事件",
