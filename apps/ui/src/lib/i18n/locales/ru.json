@@ -1831,7 +1831,19 @@
     "snapshot_regenerate": "Пересоздать снимки",
     "snapshot_regenerate_no_candidates": "Снимки пересозданы, но не получено ни одного пригодного кандидата.",
     "snapshot_source_unknown": "Неизвестный источник",
-    "reference_disclosure": "О виде {species} и наблюдения поблизости"
+    "reference_disclosure": "О виде {species} и наблюдения поблизости",
+    "identified_as": "Определено как",
+    "identified_by_you": "Определено вами",
+    "confidence_high": "уверенно",
+    "confidence_mid": "вероятно",
+    "confidence_low": "неточно",
+    "fact_seen": "Снято",
+    "fact_conditions": "Условия",
+    "fact_frigate": "Frigate согласен",
+    "fact_heard": "Слышно поблизости",
+    "fact_heard_yes": "совпадающий голос",
+    "fact_heard_no": "совпадений нет",
+    "weather_breakdown": "Облачность, ветер и осадки в тот момент"
   },
   "events": {
     "title": "События",

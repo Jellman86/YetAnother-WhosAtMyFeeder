@@ -1822,7 +1822,19 @@
     "snapshot_regenerate": "Snapshots neu erzeugen",
     "snapshot_regenerate_no_candidates": "Snapshots neu erzeugt, aber keine auswählbaren Kandidaten gefunden.",
     "snapshot_source_unknown": "Unbekannte Quelle",
-    "reference_disclosure": "Über {species} und Sichtungen in der Nähe"
+    "reference_disclosure": "Über {species} und Sichtungen in der Nähe",
+    "identified_as": "Bestimmt als",
+    "identified_by_you": "Von Ihnen bestimmt",
+    "confidence_high": "sicher",
+    "confidence_mid": "wahrscheinlich",
+    "confidence_low": "unsicher",
+    "fact_seen": "Gesehen",
+    "fact_conditions": "Bedingungen",
+    "fact_frigate": "Frigate stimmt zu",
+    "fact_heard": "In der Nähe gehört",
+    "fact_heard_yes": "passender Ruf",
+    "fact_heard_no": "kein passender Ruf",
+    "weather_breakdown": "Wolken, Wind und Regen zu dieser Zeit"
   },
   "events": {
     "title": "Ereignisse",

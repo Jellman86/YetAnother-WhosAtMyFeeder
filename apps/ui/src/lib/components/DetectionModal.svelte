@@ -2332,23 +2332,43 @@
                     </div>
                 </div>
             {/if}
-            <!-- Confidence Bar -->
-            {#if currentClassificationSource !== 'manual'}
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-bold text-slate-500">{$_('detection.confidence')}</span>
-                        <span class="text-sm font-bold text-slate-900 dark:text-white">
-                            {((detection.score || 0) * 100).toFixed(1)}%
+            <!-- Identification: what it is, and how sure, in one place -->
+            <div data-detection-identity>
+                <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                    {currentClassificationSource === 'manual'
+                        ? $_('detection.identified_by_you', { default: 'Identified by you' })
+                        : $_('detection.identified_as', { default: 'Identified as' })}
+                </p>
+                <h3 class="mt-0.5 font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>
+                {#if subName && subName !== primaryName}
+                    <p class="text-xs italic text-slate-500 dark:text-slate-400">{subName}</p>
+                {/if}
+
+                {#if currentClassificationSource !== 'manual'}
+                    <div class="mt-2 flex items-center gap-2.5">
+                        <span class="text-sm font-bold tabular-nums text-slate-900 dark:text-white">
+                            {Math.round((detection.score || 0) * 100)}%
+                        </span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">
+                            {(detection.score || 0) >= 0.85
+                                ? $_('detection.confidence_high', { default: 'confident' })
+                                : (detection.score || 0) >= 0.6
+                                  ? $_('detection.confidence_mid', { default: 'likely' })
+                                  : $_('detection.confidence_low', { default: 'uncertain' })}
+                        </span>
+                        <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                            <span
+                                class="block h-full rounded-full {(detection.score || 0) >= 0.85
+                                    ? 'bg-emerald-500'
+                                    : (detection.score || 0) >= 0.6
+                                      ? 'bg-brand-500'
+                                      : 'bg-accent-500'}"
+                                style="width: {(detection.score || 0) * 100}%"
+                            ></span>
                         </span>
                     </div>
-                    <div class="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                        <div
-                            class="h-full rounded-full transition-all duration-700 {(detection.score || 0) >= 0.8 ? 'bg-accent-500' : 'bg-brand-500'}"
-                            style="width: {(detection.score || 0) * 100}%"
-                        ></div>
-                    </div>
-                </div>
-            {/if}
+                {/if}
+            </div>
 
             <!-- Snapshot fallback notice: video analysis failed, result came from a single frame -->
             <!-- Consolidated video-status notice. Single survivor for the three
@@ -2618,35 +2638,41 @@
             <!-- The standalone "Video Analysis Failed" red card has been folded
                  into the consolidated video-status notice above. -->
 
-            <!-- Metadata -->
-            <div class="grid grid-cols-2 divide-x divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700">
-                <div class="flex items-center gap-3 px-2 py-3">
-                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    <span class="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{detection.camera_name}</span>
+            <!-- The facts, as rows rather than four separate boxes -->
+            <dl class="divide-y divide-slate-200/70 border-y border-slate-200/70 text-xs dark:divide-slate-700/50 dark:border-slate-700/50" data-detection-facts>
+                <div class="flex items-baseline justify-between gap-3 py-2">
+                    <dt class="text-slate-500 dark:text-slate-400">{$_('detection.fact_seen', { default: 'Seen' })}</dt>
+                    <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                        {formatDateTime(detection.detection_time)} &middot; {detection.camera_name}
+                    </dd>
                 </div>
-                {#if detection.temperature !== undefined && detection.temperature !== null}
-                    <div class="flex items-center gap-3 px-3 py-3">
-                        <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                        <span class="text-sm font-bold text-slate-700 dark:text-slate-300">
-                            {formatTemperature(detection.temperature, temperatureUnit)}
-                        </span>
+                {#if detection.weather_condition || detection.temperature !== undefined && detection.temperature !== null}
+                    <div class="flex items-baseline justify-between gap-3 py-2">
+                        <dt class="text-slate-500 dark:text-slate-400">{$_('detection.fact_conditions', { default: 'Conditions' })}</dt>
+                        <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                            {detection.weather_condition ?? ''}{detection.temperature !== undefined && detection.temperature !== null
+                                ? ` ${formatTemperature(detection.temperature, temperatureUnit)}`
+                                : ''}
+                        </dd>
                     </div>
                 {/if}
                 {#if detection.frigate_score != null}
-                    <div class="flex items-center gap-3 border-l-0 border-t border-slate-200 px-2 py-3 dark:border-slate-700">
-                        <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                        <span class="text-sm font-bold text-slate-700 dark:text-slate-300">
-                            {$_('detection.frigate_score', { values: { score: Math.round(detection.frigate_score * 100) } })}
-                        </span>
+                    <div class="flex items-baseline justify-between gap-3 py-2">
+                        <dt class="text-slate-500 dark:text-slate-400">{$_('detection.fact_frigate', { default: 'Frigate agreed' })}</dt>
+                        <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                            {Math.round((detection.frigate_score || 0) * 100)}%
+                        </dd>
                     </div>
                 {/if}
-            </div>
+                <div class="flex items-baseline justify-between gap-3 py-2">
+                    <dt class="text-slate-500 dark:text-slate-400">{$_('detection.fact_heard', { default: 'Heard nearby' })}</dt>
+                    <dd class="text-right font-medium {detection.audio_confirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}">
+                        {detection.audio_confirmed
+                            ? (detection.audio_species ?? $_('detection.fact_heard_yes', { default: 'matching call' }))
+                            : $_('detection.fact_heard_no', { default: 'no matching call' })}
+                    </dd>
+                </div>
+            </dl>
 
             {#if hasAudioContext}
                 <section data-detection-audio-section class="space-y-3 border-t border-slate-200 pt-5 dark:border-slate-700">
@@ -2838,16 +2864,13 @@
                                 <p class="text-[10px] font-semibold text-sky-600/70 dark:text-sky-300/70 mb-0.5">
                                     {$_('detection.weather_title')}
                                 </p>
-                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
-                                    {detection.weather_condition || $_('detection.weather_unknown')}
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    {$_('detection.weather_breakdown', {
+                                        default: 'Cloud, wind and rain at the time'
+                                    })}
                                 </p>
                             </div>
                         </div>
-                        {#if detection.temperature !== undefined && detection.temperature !== null}
-                            <div class="text-sm font-bold text-slate-800 dark:text-slate-100">
-                                {formatTemperature(detection.temperature, temperatureUnit)}
-                            </div>
-                        {/if}
                     </div>
                     <button
                         type="button"

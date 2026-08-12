@@ -1822,7 +1822,19 @@
     "snapshot_regenerate": "Régénérer les captures",
     "snapshot_regenerate_no_candidates": "Captures régénérées, mais aucun candidat sélectionnable n'a été produit.",
     "snapshot_source_unknown": "Source inconnue",
-    "reference_disclosure": "À propos de {species} et observations à proximité"
+    "reference_disclosure": "À propos de {species} et observations à proximité",
+    "identified_as": "Identifié comme",
+    "identified_by_you": "Identifié par vous",
+    "confidence_high": "sûr",
+    "confidence_mid": "probable",
+    "confidence_low": "incertain",
+    "fact_seen": "Vu",
+    "fact_conditions": "Conditions",
+    "fact_frigate": "Frigate est d’accord",
+    "fact_heard": "Entendu à proximité",
+    "fact_heard_yes": "chant correspondant",
+    "fact_heard_no": "aucun chant correspondant",
+    "weather_breakdown": "Nuages, vent et pluie à ce moment-là"
   },
   "events": {
     "title": "Événements",
