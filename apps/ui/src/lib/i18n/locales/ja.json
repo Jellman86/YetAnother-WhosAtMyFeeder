@@ -2064,6 +2064,23 @@
       "telemetry": "テレメトリー",
       "telemetry_desc": "匿名の集計値",
       "guest_note": "透明性のために表示しています。変更できるのは所有者だけです。"
+    },
+    "stats": {
+      "detections": "件の検出を保存",
+      "species": "種を識別",
+      "week": "今週の訪問"
+    },
+    "instance": {
+      "title": "このインスタンス",
+      "acceleration": "アクセラレーション",
+      "for_issue": "不具合報告用",
+      "copy": "コピー",
+      "copied": "コピーしました",
+      "copy_failed": "コピーが拒否されました。テキストを選択してください。",
+      "no_secrets": "鍵、URL、カメラ名は含まれません。"
+    },
+    "close": {
+      "title": "データ、プライバシー、クレジット"
     }
   },
   "species_detail": {

@@ -2073,6 +2073,23 @@
       "telemetry": "Telemetria",
       "telemetry_desc": "conteggi anonimi",
       "guest_note": "Mostrato per trasparenza. Solo il proprietario può modificarlo."
+    },
+    "stats": {
+      "detections": "rilevamenti salvati",
+      "species": "specie identificate",
+      "week": "visite questa settimana"
+    },
+    "instance": {
+      "title": "Questa istanza",
+      "acceleration": "Accelerazione",
+      "for_issue": "Per una segnalazione",
+      "copy": "Copia",
+      "copied": "Copiato",
+      "copy_failed": "Copia rifiutata, seleziona il testo.",
+      "no_secrets": "Non contiene chiavi, URL o nomi di telecamere."
+    },
+    "close": {
+      "title": "Dati, privacy e ringraziamenti"
     }
   },
   "species_detail": {

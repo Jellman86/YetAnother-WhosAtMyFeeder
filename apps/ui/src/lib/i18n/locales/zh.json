@@ -2064,6 +2064,23 @@
       "telemetry": "遥测",
       "telemetry_desc": "匿名计数",
       "guest_note": "出于透明公开。只有所有者可以更改。"
+    },
+    "stats": {
+      "detections": "条检测已保存",
+      "species": "个物种已识别",
+      "week": "本周到访"
+    },
+    "instance": {
+      "title": "本实例",
+      "acceleration": "加速方式",
+      "for_issue": "用于问题反馈",
+      "copy": "复制",
+      "copied": "已复制",
+      "copy_failed": "复制被拒绝，请手动选择文本。",
+      "no_secrets": "不包含密钥、网址或摄像头名称。"
+    },
+    "close": {
+      "title": "数据、隐私与致谢"
     }
   },
   "species_detail": {

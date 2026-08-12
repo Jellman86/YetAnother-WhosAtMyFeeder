@@ -2064,6 +2064,23 @@
       "telemetry": "Telemetrie",
       "telemetry_desc": "anonyme Zählwerte",
       "guest_note": "Zur Transparenz angezeigt. Nur der Betreiber kann das ändern."
+    },
+    "stats": {
+      "detections": "Erkennungen gespeichert",
+      "species": "Arten bestimmt",
+      "week": "Besuche diese Woche"
+    },
+    "instance": {
+      "title": "Diese Instanz",
+      "acceleration": "Beschleunigung",
+      "for_issue": "Für eine Fehlermeldung",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "copy_failed": "Kopieren wurde abgelehnt, markieren Sie den Text stattdessen.",
+      "no_secrets": "Enthält keine Schlüssel, URLs oder Kameranamen."
+    },
+    "close": {
+      "title": "Daten, Datenschutz und Danksagungen"
     }
   },
   "species_detail": {

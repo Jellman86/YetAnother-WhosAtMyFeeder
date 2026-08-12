@@ -2,6 +2,14 @@
     import { fetchVersion, type VersionInfo } from '../api';
     import { APP_ICON_192_URL } from '../assets';
     import InstancePipeline from '../components/InstancePipeline.svelte';
+    import InstanceSummary from '../components/InstanceSummary.svelte';
+    import PrivacySummary from '../components/PrivacySummary.svelte';
+    import { onMount } from 'svelte';
+    import { fetchEvents, fetchEventFilters, fetchEventsCount, getThumbnailUrl } from '../api';
+    import type { Detection } from '../api';
+    import { fetchDetectionsActivityHeatmapSpan } from '../api/leaderboard';
+    import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
+    import { logger } from '../utils/logger';
     import { _ } from 'svelte-i18n';
 
     type LinkParts = {
@@ -27,6 +35,40 @@
                 // Fall back to build-time version info when runtime fetch fails.
             }
         })();
+    });
+
+    // The colophon states what this feeder has recorded, not what the software can do.
+    let totalDetections = $state<number | null>(null);
+    let speciesCount = $state<number | null>(null);
+    let weekCount = $state<number | null>(null);
+    let recentPhotos = $state<Detection[]>([]);
+
+    onMount(() => {
+        const controller = new AbortController();
+        void (async () => {
+            try {
+                const [count, filters, heatmap, recent] = await Promise.all([
+                    fetchEventsCount(),
+                    fetchEventFilters(),
+                    fetchDetectionsActivityHeatmapSpan('week'),
+                    fetchEvents({ limit: 4 })
+                ]);
+                if (controller.signal.aborted) return;
+                totalDetections = count.count ?? null;
+                speciesCount = filters.species?.length ?? null;
+                weekCount = heatmap.total_count ?? null;
+                recentPhotos = recent.slice(0, 4);
+            } catch (error) {
+                if (controller.signal.aborted) return;
+                // The colophon degrades to prose; the page is still worth reading.
+                if (isTransientRequestError(error)) {
+                    logger.warn('About summary unavailable', { message: getErrorMessage(error) });
+                } else {
+                    logger.error('Failed to load About summary', error);
+                }
+            }
+        })();
+        return () => controller.abort();
     });
 
     const repoUrl = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder';
@@ -115,6 +157,53 @@
             <p>{$_('about.project_desc_2')}</p>
         </div>
 
+        {#if totalDetections !== null || recentPhotos.length > 0}
+            <div class="grid gap-5 border-t border-slate-200/70 pt-4 sm:grid-cols-[minmax(0,1fr)_auto] dark:border-slate-700/50">
+                <dl class="flex flex-wrap gap-x-8 gap-y-3" data-about-stats>
+                    <div>
+                        <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
+                            {totalDetections?.toLocaleString() ?? '—'}
+                        </dd>
+                        <dt class="text-xs text-slate-500 dark:text-slate-400">
+                            {$_('about.stats.detections', { default: 'detections stored' })}
+                        </dt>
+                    </div>
+                    <div>
+                        <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
+                            {speciesCount ?? '—'}
+                        </dd>
+                        <dt class="text-xs text-slate-500 dark:text-slate-400">
+                            {$_('about.stats.species', { default: 'species identified' })}
+                        </dt>
+                    </div>
+                    <div>
+                        <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
+                            {weekCount ?? '—'}
+                        </dd>
+                        <dt class="text-xs text-slate-500 dark:text-slate-400">
+                            {$_('about.stats.week', { default: 'visits this week' })}
+                        </dt>
+                    </div>
+                </dl>
+
+                {#if recentPhotos.length > 0}
+                    <div class="flex gap-2" data-about-photos>
+                        {#each recentPhotos as photo (photo.frigate_event)}
+                            <img
+                                src={getThumbnailUrl(photo.frigate_event)}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                width="64"
+                                height="64"
+                                class="h-16 w-16 rounded-xl object-cover"
+                            />
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+        {/if}
+
         <div class="flex flex-wrap gap-2 pt-1">
             {#each quickActions as action}
                 <a
@@ -144,53 +233,33 @@
         <InstancePipeline />
     </section>
 
-    <!-- Build detail, for issue reports -->
-    <section id="about-build" aria-labelledby="about-build-heading" class="card-base space-y-3 p-6">
-        <h2 id="about-build-heading" class="font-display text-xl font-bold text-slate-900 dark:text-white">
-            {$_('about.build.title', { default: 'This build' })}
-        </h2>
-        <dl class="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
-            <div>
-                <dt class="text-xs text-slate-500 dark:text-slate-400">{$_('about.build.version', { default: 'Version' })}</dt>
-                <dd class="font-mono text-slate-900 dark:text-white">v{versionInfo.base_version}</dd>
-            </div>
-            <div>
-                <dt class="text-xs text-slate-500 dark:text-slate-400">{$_('about.build.branch', { default: 'Branch' })}</dt>
-                <dd class="font-mono text-slate-900 dark:text-white">{versionInfo.branch}</dd>
-            </div>
-            <div>
-                <dt class="text-xs text-slate-500 dark:text-slate-400">{$_('about.build.commit', { default: 'Commit' })}</dt>
-                <dd class="font-mono text-slate-900 dark:text-white">{versionInfo.git_hash}</dd>
-            </div>
-            <div>
-                <dt class="text-xs text-slate-500 dark:text-slate-400">{$_('about.build.licence', { default: 'Licence' })}</dt>
-                <dd class="text-slate-900 dark:text-white">{$_('common.mit_license')}</dd>
-            </div>
-        </dl>
-        <p class="text-xs text-slate-500 dark:text-slate-400">
-            {$_('about.build.note', {
-                default: 'Include these when reporting an issue. They contain no keys, URLs or camera names.'
-            })}
-        </p>
-    </section>
+    <InstanceSummary {versionInfo} />
 
-    <!-- Credits -->
-    <section id="about-credits" aria-labelledby="about-credits-heading" class="card-base space-y-3 p-6">
-        <h2 id="about-credits-heading" class="font-display text-xl font-bold text-slate-900 dark:text-white">
-            {$_('about.credits')}
+    <!-- What it keeps, what it sends, who to thank: one closing row -->
+    <section class="card-base p-6" aria-labelledby="about-close-heading">
+        <h2 id="about-close-heading" class="sr-only">
+            {$_('about.close.title', { default: 'Data, privacy and credits' })}
         </h2>
-        <p class="text-sm text-slate-700 dark:text-slate-300">{$_('about.credits_list.preamble')}</p>
-        <ul class="space-y-1.5 text-sm text-slate-700 dark:text-slate-300">
-            {#each creditsLinks as credit}
-                <li>
-                    {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline dark:text-brand-400">{credit.label}</a>{credit.parts.after}
-                </li>
-            {/each}
-            <li>{$_('about.credits_list.ai_assistants')}</li>
-            <li>{$_('about.flaticon_credit')}</li>
-        </ul>
-        <p class="pt-1 text-xs text-slate-500 dark:text-slate-400">
-            {$_('about.license_notice', { values: { year: new Date().getFullYear(), license: $_('common.mit_license') } })}
-        </p>
+        <div class="grid gap-8 md:grid-cols-3">
+            <PrivacySummary />
+
+            <section aria-labelledby="about-credits-heading">
+                <h3 id="about-credits-heading" class="text-sm font-bold text-slate-900 dark:text-white">
+                    {$_('about.credits')}
+                </h3>
+                <ul class="mt-2 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                    {#each creditsLinks as credit}
+                        <li>
+                            {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline dark:text-brand-400">{credit.label}</a>{credit.parts.after}
+                        </li>
+                    {/each}
+                    <li>{$_('about.credits_list.ai_assistants')}</li>
+                    <li>{$_('about.flaticon_credit')}</li>
+                </ul>
+                <p class="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
+                    {$_('about.license_notice', { values: { year: new Date().getFullYear(), license: $_('common.mit_license') } })}
+                </p>
+            </section>
+        </div>
     </section>
 </div>

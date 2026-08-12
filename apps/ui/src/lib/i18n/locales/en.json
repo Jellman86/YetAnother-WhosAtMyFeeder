@@ -2073,6 +2073,23 @@
       "telemetry": "Telemetry",
       "telemetry_desc": "anonymous counts",
       "guest_note": "Shown for transparency. Only the owner can change these."
+    },
+    "stats": {
+      "detections": "detections stored",
+      "species": "species identified",
+      "week": "visits this week"
+    },
+    "instance": {
+      "title": "This instance",
+      "acceleration": "Acceleration",
+      "for_issue": "For an issue report",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copy_failed": "Copying was refused, select the text instead.",
+      "no_secrets": "Contains no keys, URLs or camera names."
+    },
+    "close": {
+      "title": "Data, privacy and credits"
     }
   },
   "species_detail": {
