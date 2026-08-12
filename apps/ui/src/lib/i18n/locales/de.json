@@ -345,7 +345,11 @@
       "image_alt": "Unbestimmte Erkennung auf {camera}",
       "all_species": "Alle Arten",
       "seen_here": "An dieser Futterstelle gesehen",
-      "no_suggestions": "Noch keine Arten erfasst. Suchen Sie oben in der vollständigen Liste."
+      "no_suggestions": "Noch keine Arten erfasst. Suchen Sie oben in der vollständigen Liste.",
+      "crop": "Bester Ausschnitt",
+      "full_frame": "Vollbild",
+      "view_label": "Welches Bild gezeigt wird",
+      "no_crop": "Für diese Erkennung ist kein Ausschnitt gespeichert. Öffnen Sie den vollständigen Eintrag, um einen zu suchen."
     }
   },
   "common": {

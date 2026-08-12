@@ -57,7 +57,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   actually sees, most frequent first, rather than the alphabetical head of an eleven thousand label
   list. Each item can be identified, hidden as not a bird, skipped for later, or opened in full. It
   states position and what is left throughout, and closes on an honest summary of what was decided
-  and what was skipped.
+  and what was skipped. Where a snapshot scan has already found the crop the classifier scored,
+  the walk-through opens on that crop with a Best crop / Full frame toggle, since a wide feeder
+  shot rarely settles what a low-confidence blur is. Detections without a stored crop say so
+  instead of pretending the full frame is one.
 
 ### Fixed
 

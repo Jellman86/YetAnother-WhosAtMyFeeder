@@ -345,7 +345,11 @@
       "image_alt": "Rilevamento non identificato su {camera}",
       "all_species": "Tutte le specie",
       "seen_here": "Viste a questa mangiatoia",
-      "no_suggestions": "Nessuna specie registrata. Cerca nell'elenco completo sopra."
+      "no_suggestions": "Nessuna specie registrata. Cerca nell'elenco completo sopra.",
+      "crop": "Ritaglio migliore",
+      "full_frame": "Fotogramma intero",
+      "view_label": "Quale immagine mostrare",
+      "no_crop": "Nessun ritaglio salvato per questo rilevamento. Apri la scheda completa per cercarne uno."
     }
   },
   "common": {

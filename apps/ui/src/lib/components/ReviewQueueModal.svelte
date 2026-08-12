@@ -1,6 +1,6 @@
 <script lang="ts">
-    import { getThumbnailUrl } from '../api';
-    import type { Detection } from '../api';
+    import { fetchSnapshotCandidates, getThumbnailUrl } from '../api';
+    import type { Detection, SnapshotCandidate } from '../api';
     import { advance, createReviewSession, remaining, type ReviewSession } from '../utils/review-session';
     import { formatDate, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
@@ -22,6 +22,12 @@
     let { queue, labels = [], suggestions = [], onidentify, onhide, onopen, onclose }: Props = $props();
 
     let session = $state<ReviewSession>(createReviewSession(queue));
+    // A wide feeder shot does not settle what a 56% blur is; the crop the classifier
+    // scored does. Crops exist only for events that have been scanned, so this is a
+    // best-effort enrichment rather than something the flow depends on.
+    let crop = $state<SnapshotCandidate | null>(null);
+    let cropLoading = $state(false);
+    let view = $state<'crop' | 'full'>('crop');
     let search = $state('');
     let busy = $state(false);
     let imageFailed = $state(false);
@@ -44,6 +50,46 @@
         search = '';
         imageFailed = false;
     });
+
+    $effect(() => {
+        const eventId = session.current?.frigate_event;
+        crop = null;
+        view = 'crop';
+        if (!eventId) return;
+
+        let cancelled = false;
+        cropLoading = true;
+        void (async () => {
+            try {
+                const response = await fetchSnapshotCandidates(eventId);
+                if (cancelled) return;
+                const cropped = (response.candidates ?? []).filter(
+                    (candidate) => candidate.crop_box && candidate.thumbnail_url
+                );
+                crop =
+                    cropped.find((candidate) => candidate.selected) ??
+                    cropped.sort((left, right) => right.ranking_score - left.ranking_score)[0] ??
+                    null;
+            } catch {
+                // No scan has been run for this event, so there is no crop to show.
+                if (!cancelled) crop = null;
+            } finally {
+                if (!cancelled) cropLoading = false;
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    });
+
+    const imageUrl = $derived(
+        view === 'crop' && crop?.thumbnail_url
+            ? crop.thumbnail_url
+            : session.current
+              ? getThumbnailUrl(session.current.frigate_event)
+              : ''
+    );
 
     $effect(() => {
         if (!dialogEl) return;
@@ -176,7 +222,7 @@
                         </div>
                     {:else}
                         <img
-                            src={getThumbnailUrl(current.frigate_event)}
+                            src={imageUrl}
                             alt={$_('dashboard.review_session.image_alt', {
                                 values: { camera: current.camera_name },
                                 default: 'Unidentified detection on {camera}'
@@ -185,6 +231,34 @@
                             onerror={() => (imageFailed = true)}
                         />
                     {/if}
+                    {#if crop?.thumbnail_url}
+                        <div class="flex gap-1 px-4 pt-2" role="group" aria-label={$_('dashboard.review_session.view_label', { default: 'Which frame to show' })}>
+                            <button
+                                class="min-h-11 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors focus-ring {view === 'crop' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-slate-200'}"
+                                aria-pressed={view === 'crop'}
+                                onclick={() => (view = 'crop')}
+                            >
+                                {$_('dashboard.review_session.crop', { default: 'Best crop' })}
+                            </button>
+                            <button
+                                class="min-h-11 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors focus-ring {view === 'full' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-slate-200'}"
+                                aria-pressed={view === 'full'}
+                                onclick={() => (view = 'full')}
+                            >
+                                {$_('dashboard.review_session.full_frame', { default: 'Full frame' })}
+                            </button>
+                            {#if crop.crop_strategy}
+                                <span class="ml-auto self-center text-[10px] text-slate-500">{crop.crop_strategy}</span>
+                            {/if}
+                        </div>
+                    {:else if !cropLoading}
+                        <p class="px-4 pt-2 text-[10px] text-slate-500">
+                            {$_('dashboard.review_session.no_crop', {
+                                default: 'No crop stored for this detection. Open the full record to scan for one.'
+                            })}
+                        </p>
+                    {/if}
+
                     <p class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-[11px] text-slate-400">
                         <span>{formatDate(current.detection_time)} {formatTime(current.detection_time)}</span>
                         <span>{current.camera_name}</span>

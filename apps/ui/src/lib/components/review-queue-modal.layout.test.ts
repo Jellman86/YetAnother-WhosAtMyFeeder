@@ -33,6 +33,15 @@ describe('review queue walk-through', () => {
         expect(modalSource).not.toContain('labels.slice(0, 8)');
     });
 
+    it('shows the crop the classifier scored when one exists, and says so when it does not', () => {
+        expect(modalSource).toContain('fetchSnapshotCandidates');
+        expect(modalSource).toContain('dashboard.review_session.crop');
+        expect(modalSource).toContain('dashboard.review_session.full_frame');
+        expect(modalSource).toContain('aria-pressed={view === \'crop\'}');
+        // Crops only exist for scanned events, so their absence is stated, not hidden.
+        expect(modalSource).toContain('dashboard.review_session.no_crop');
+    });
+
     it('offers a way out of every item, including one that is not a bird', () => {
         expect(modalSource).toContain('dashboard.review_session.skip');
         expect(modalSource).toContain('dashboard.review_session.not_a_bird');

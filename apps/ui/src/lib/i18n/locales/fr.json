@@ -345,7 +345,11 @@
       "image_alt": "Détection non identifiée sur {camera}",
       "all_species": "Toutes les espèces",
       "seen_here": "Vues à cette mangeoire",
-      "no_suggestions": "Aucune espèce enregistrée. Cherchez dans la liste complète ci-dessus."
+      "no_suggestions": "Aucune espèce enregistrée. Cherchez dans la liste complète ci-dessus.",
+      "crop": "Meilleur recadrage",
+      "full_frame": "Image entière",
+      "view_label": "Quelle image afficher",
+      "no_crop": "Aucun recadrage enregistré pour cette détection. Ouvrez la fiche complète pour en chercher un."
     }
   },
   "common": {

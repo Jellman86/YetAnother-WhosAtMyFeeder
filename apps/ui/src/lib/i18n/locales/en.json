@@ -345,7 +345,11 @@
       "image_alt": "Unidentified detection on {camera}",
       "all_species": "All species",
       "seen_here": "Seen at this feeder",
-      "no_suggestions": "No species recorded yet. Search the full list above."
+      "no_suggestions": "No species recorded yet. Search the full list above.",
+      "crop": "Best crop",
+      "full_frame": "Full frame",
+      "view_label": "Which frame to show",
+      "no_crop": "No crop stored for this detection. Open the full record to scan for one."
     }
   },
   "common": {

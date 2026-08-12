@@ -345,7 +345,11 @@
       "image_alt": "Deteção não identificada em {camera}",
       "all_species": "Todas as espécies",
       "seen_here": "Vistas neste comedouro",
-      "no_suggestions": "Ainda não há espécies registadas. Procure na lista completa acima."
+      "no_suggestions": "Ainda não há espécies registadas. Procure na lista completa acima.",
+      "crop": "Melhor recorte",
+      "full_frame": "Imagem completa",
+      "view_label": "Que imagem mostrar",
+      "no_crop": "Não há recorte guardado para esta deteção. Abra o registo completo para procurar um."
     }
   },
   "common": {

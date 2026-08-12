@@ -345,7 +345,11 @@
       "image_alt": "{camera} 上未识别的检测",
       "all_species": "全部物种",
       "seen_here": "在这个喂食器见过",
-      "no_suggestions": "还没有记录。请在上方的完整列表中搜索。"
+      "no_suggestions": "还没有记录。请在上方的完整列表中搜索。",
+      "crop": "最佳裁剪",
+      "full_frame": "完整画面",
+      "view_label": "显示哪张图",
+      "no_crop": "这条检测没有保存裁剪图。打开完整记录以查找。"
     }
   },
   "common": {
