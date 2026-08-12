@@ -2018,7 +2018,16 @@
     "weather_overlays": "天気オーバーレイ",
     "detection_breakdown_subtitle": "種の構成",
     "detection_breakdown_title": "検出の内訳",
-    "other_species": "その他"
+    "other_species": "その他",
+    "podium_title": "期間の上位",
+    "podium_total": "{count} 回の訪問",
+    "no_species_assigned": "種が未確定",
+    "seen": "目視",
+    "heard": "鳴き声",
+    "seen_count": "目視 {count} 件",
+    "not_seen": "目視なし",
+    "heard_count": "鳴き声 {count} 件",
+    "not_heard": "鳴き声なし"
   },
   "about": {
     "how_it_works": "仕組み",

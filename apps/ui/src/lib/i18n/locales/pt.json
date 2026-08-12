@@ -2018,7 +2018,7 @@
     "metric_detections": "Detecções",
     "metric_smooth": "Tendência suavizada",
     "top_performers": "Principais espécies",
-    "total": "Total",
+    "total": "total",
     "trend_both": "Ambos",
     "trend_off": "Desativado",
     "trend_smooth": "Só suavizada",
@@ -2027,7 +2027,16 @@
     "weather_overlays": "Sobreposições meteorológicas",
     "detection_breakdown_subtitle": "Composição das espécies",
     "detection_breakdown_title": "Detalhe das deteções",
-    "other_species": "Outras"
+    "other_species": "Outras",
+    "podium_title": "Topo do período",
+    "podium_total": "{count} visitas",
+    "no_species_assigned": "Sem espécie atribuída",
+    "seen": "vistas",
+    "heard": "ouvidas",
+    "seen_count": "{count} vistas",
+    "not_seen": "não vista",
+    "heard_count": "{count} ouvidas",
+    "not_heard": "não ouvida"
   },
   "about": {
     "how_it_works": "Como Funciona",

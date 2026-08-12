@@ -2009,7 +2009,7 @@
     "metric_detections": "检测数",
     "metric_smooth": "平滑趋势",
     "top_performers": "热门物种",
-    "total": "总计",
+    "total": "合计",
     "trend_both": "两者",
     "trend_off": "关闭",
     "trend_smooth": "仅平滑",
@@ -2018,7 +2018,16 @@
     "weather_overlays": "天气叠加",
     "detection_breakdown_subtitle": "物种构成",
     "detection_breakdown_title": "检测细分",
-    "other_species": "其他"
+    "other_species": "其他",
+    "podium_title": "本期榜首",
+    "podium_total": "{count} 次到访",
+    "no_species_assigned": "未指定物种",
+    "seen": "看到",
+    "heard": "听到",
+    "seen_count": "看到 {count}",
+    "not_seen": "未看到",
+    "heard_count": "听到 {count}",
+    "not_heard": "未听到"
   },
   "about": {
     "how_it_works": "工作原理",
