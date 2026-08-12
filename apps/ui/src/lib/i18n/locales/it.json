@@ -1843,7 +1843,8 @@
     "fact_heard": "Udito nelle vicinanze",
     "fact_heard_yes": "richiamo corrispondente",
     "fact_heard_no": "nessun richiamo corrispondente",
-    "weather_breakdown": "Nuvole, vento e pioggia in quel momento"
+    "weather_breakdown": "Nuvole, vento e pioggia in quel momento",
+    "frames_scanned": "{count} fotogrammi analizzati"
   },
   "events": {
     "title": "Eventi",

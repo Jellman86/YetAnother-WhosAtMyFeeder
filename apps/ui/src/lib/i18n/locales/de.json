@@ -1834,7 +1834,8 @@
     "fact_heard": "In der Nähe gehört",
     "fact_heard_yes": "passender Ruf",
     "fact_heard_no": "kein passender Ruf",
-    "weather_breakdown": "Wolken, Wind und Regen zu dieser Zeit"
+    "weather_breakdown": "Wolken, Wind und Regen zu dieser Zeit",
+    "frames_scanned": "{count} Aufnahmen geprüft"
   },
   "events": {
     "title": "Ereignisse",

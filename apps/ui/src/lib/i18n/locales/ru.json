@@ -1843,7 +1843,8 @@
     "fact_heard": "Слышно поблизости",
     "fact_heard_yes": "совпадающий голос",
     "fact_heard_no": "совпадений нет",
-    "weather_breakdown": "Облачность, ветер и осадки в тот момент"
+    "weather_breakdown": "Облачность, ветер и осадки в тот момент",
+    "frames_scanned": "Проверено кадров: {count}"
   },
   "events": {
     "title": "События",

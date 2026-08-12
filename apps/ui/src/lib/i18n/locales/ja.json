@@ -1834,7 +1834,8 @@
     "fact_heard": "近くで聞こえた",
     "fact_heard_yes": "一致する鳴き声",
     "fact_heard_no": "一致する鳴き声なし",
-    "weather_breakdown": "そのときの雲量、風、降水"
+    "weather_breakdown": "そのときの雲量、風、降水",
+    "frames_scanned": "{count} フレームを解析"
   },
   "events": {
     "title": "イベント",

@@ -1834,7 +1834,8 @@
     "fact_heard": "Oído cerca",
     "fact_heard_yes": "canto coincidente",
     "fact_heard_no": "sin canto coincidente",
-    "weather_breakdown": "Nubes, viento y lluvia en ese momento"
+    "weather_breakdown": "Nubes, viento y lluvia en ese momento",
+    "frames_scanned": "{count} fotogramas analizados"
   },
   "events": {
     "title": "Eventos",

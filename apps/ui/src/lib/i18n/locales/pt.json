@@ -1843,7 +1843,8 @@
     "fact_heard": "Ouvido por perto",
     "fact_heard_yes": "canto correspondente",
     "fact_heard_no": "sem canto correspondente",
-    "weather_breakdown": "Nuvens, vento e chuva na altura"
+    "weather_breakdown": "Nuvens, vento e chuva na altura",
+    "frames_scanned": "{count} fotogramas analisados"
   },
   "events": {
     "title": "Eventos",

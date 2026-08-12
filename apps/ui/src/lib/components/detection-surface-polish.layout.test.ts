@@ -40,6 +40,16 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toMatch(/data-detection-weather-section[^>]+border-t/);
     });
 
+    it('shows the scored frames and keeps integration rows to instances that have them', () => {
+        expect(detectionModalSource).toContain('data-detection-frame-strip');
+        // Candidates are owner-gated, so a guest gets no strip rather than an empty one.
+        expect(detectionModalSource).toContain('authStore.hasOwnerAccess ? snapshotCandidates.filter');
+        // "no matching call" from a disabled BirdNET would report a measurement never taken.
+        expect(detectionModalSource).toContain('{#if birdnetEnabled}');
+        expect(detectionModalSource).toContain('data-detection-facts');
+        expect(detectionModalSource).toContain('data-detection-identity');
+    });
+
     it('discovers late BirdNET context independently of stored audio hints', () => {
         expect(detectionModalSource).toContain('fetchEventAudioContext');
         expect(detectionModalSource).toContain('controller.abort()');

@@ -1834,7 +1834,8 @@
     "fact_heard": "Entendu à proximité",
     "fact_heard_yes": "chant correspondant",
     "fact_heard_no": "aucun chant correspondant",
-    "weather_breakdown": "Nuages, vent et pluie à ce moment-là"
+    "weather_breakdown": "Nuages, vent et pluie à ce moment-là",
+    "frames_scanned": "{count} images analysées"
   },
   "events": {
     "title": "Événements",

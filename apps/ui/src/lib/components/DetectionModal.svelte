@@ -332,6 +332,10 @@
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotStatusLoading = $state(false);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
+    // Candidates are owner-gated, so the strip simply does not exist for a guest.
+    const scoredFrameStrip = $derived(
+        authStore.hasOwnerAccess ? snapshotCandidates.filter((item) => item.thumbnail_url) : []
+    );
     let snapshotCandidatesLoading = $state(false);
     let modelCropMissReason = $state<string | null>(null);
     let snapshotRepairOpen = $state(false);
@@ -582,6 +586,11 @@
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
     const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && !!inatConnectedUser);
     const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);
+    // Rows that come from an integration only appear when that integration is on:
+    // "no matching call" from a disabled BirdNET would be a measurement we never took.
+    const birdnetEnabled = $derived(
+        settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false
+    );
     const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
     const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
     const hasSnapshotRepairCandidates = $derived(snapshotCandidates.length > 0);
@@ -2289,7 +2298,41 @@
             </button>
         {/if}
 
-            </div>
+            
+                {#if scoredFrameStrip.length > 1}
+                    <!-- The frames the classifier actually scored, so the panel shows its working. -->
+                    <div class="absolute inset-x-0 bottom-0 z-20 flex items-center gap-1.5 bg-gradient-to-t from-slate-950/85 to-transparent px-3 pb-3 pt-6" data-detection-frame-strip>
+                        <span class="shrink-0 text-[10px] font-semibold text-white/60">
+                            {$_('detection.frames_scanned', {
+                                values: { count: scoredFrameStrip.length },
+                                default: '{count} frames scanned'
+                            })}
+                        </span>
+                        <div class="flex min-w-0 gap-1.5 overflow-x-auto">
+                            {#each scoredFrameStrip as candidate (candidate.candidate_id)}
+                                <button
+                                    type="button"
+                                    class="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {candidate.selected
+                                        ? 'ring-2 ring-brand-400'
+                                        : 'opacity-70 hover:opacity-100'}"
+                                    title={candidate.classifier_label ?? undefined}
+                                    onclick={(event) => {
+                                        event.stopPropagation();
+                                        snapshotRepairOpen = true;
+                                    }}
+                                >
+                                    <img
+                                        src={candidate.thumbnail_url ?? undefined}
+                                        alt=""
+                                        loading="lazy"
+                                        class="h-9 w-12 rounded-md object-cover"
+                                    />
+                                </button>
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
+</div>
 
             <div class="flex flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
             <!-- Detection ID -->
@@ -2334,10 +2377,18 @@
             {/if}
             <!-- Identification: what it is, and how sure, in one place -->
             <div data-detection-identity>
-                <p class="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                    {currentClassificationSource === 'manual'
-                        ? $_('detection.identified_by_you', { default: 'Identified by you' })
-                        : $_('detection.identified_as', { default: 'Identified as' })}
+                <p class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                    {#if currentClassificationSource === 'manual'}
+                        <svg class="h-3.5 w-3.5 text-accent-600 dark:text-accent-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
+                        </svg>
+                        {$_('detection.identified_by_you', { default: 'Identified by you' })}
+                    {:else}
+                        <svg class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V7a4 4 0 0 1 4-4ZM5 20a7 7 0 0 1 14 0" />
+                        </svg>
+                        {$_('detection.identified_as', { default: 'Identified as' })}
+                    {/if}
                 </p>
                 <h3 class="mt-0.5 font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>
                 {#if subName && subName !== primaryName}
@@ -2641,14 +2692,20 @@
             <!-- The facts, as rows rather than four separate boxes -->
             <dl class="divide-y divide-slate-200/70 border-y border-slate-200/70 text-xs dark:divide-slate-700/50 dark:border-slate-700/50" data-detection-facts>
                 <div class="flex items-baseline justify-between gap-3 py-2">
-                    <dt class="text-slate-500 dark:text-slate-400">{$_('detection.fact_seen', { default: 'Seen' })}</dt>
+                    <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                        <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h11v8H4z" /><path stroke-linecap="round" stroke-linejoin="round" d="m15 12 5-3v6l-5-3z" /></svg>
+                        {$_('detection.fact_seen', { default: 'Seen' })}
+                    </dt>
                     <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
                         {formatDateTime(detection.detection_time)} &middot; {detection.camera_name}
                     </dd>
                 </div>
                 {#if detection.weather_condition || detection.temperature !== undefined && detection.temperature !== null}
                     <div class="flex items-baseline justify-between gap-3 py-2">
-                        <dt class="text-slate-500 dark:text-slate-400">{$_('detection.fact_conditions', { default: 'Conditions' })}</dt>
+                        <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                            <svg class="h-3.5 w-3.5 shrink-0 text-sky-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" /></svg>
+                            {$_('detection.fact_conditions', { default: 'Conditions' })}
+                        </dt>
                         <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
                             {detection.weather_condition ?? ''}{detection.temperature !== undefined && detection.temperature !== null
                                 ? ` ${formatTemperature(detection.temperature, temperatureUnit)}`
@@ -2658,20 +2715,28 @@
                 {/if}
                 {#if detection.frigate_score != null}
                     <div class="flex items-baseline justify-between gap-3 py-2">
-                        <dt class="text-slate-500 dark:text-slate-400">{$_('detection.fact_frigate', { default: 'Frigate agreed' })}</dt>
+                        <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                            <svg class="h-3.5 w-3.5 shrink-0 text-indigo-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2" /></svg>
+                            {$_('detection.fact_frigate', { default: 'Frigate agreed' })}
+                        </dt>
                         <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
                             {Math.round((detection.frigate_score || 0) * 100)}%
                         </dd>
                     </div>
                 {/if}
+                {#if birdnetEnabled}
                 <div class="flex items-baseline justify-between gap-3 py-2">
-                    <dt class="text-slate-500 dark:text-slate-400">{$_('detection.fact_heard', { default: 'Heard nearby' })}</dt>
+                    <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                        <svg class="h-3.5 w-3.5 shrink-0 text-emerald-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6v11a3 3 0 01-6 0zM5 11a7 7 0 0014 0M12 18v3" /></svg>
+                        {$_('detection.fact_heard', { default: 'Heard nearby' })}
+                    </dt>
                     <dd class="text-right font-medium {detection.audio_confirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}">
                         {detection.audio_confirmed
                             ? (detection.audio_species ?? $_('detection.fact_heard_yes', { default: 'matching call' }))
                             : $_('detection.fact_heard_no', { default: 'no matching call' })}
                     </dd>
                 </div>
+                {/if}
             </dl>
 
             {#if hasAudioContext}
@@ -2953,7 +3018,7 @@
             {/if}
 
             {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby || showEbirdNotable)}
-                <details class="group rounded-2xl border border-slate-200/60 dark:border-slate-700/50" data-detection-reference>
+                <details class="group rounded-2xl border border-slate-200/60 transition-colors hover:border-brand-300/60 dark:border-slate-700/50 dark:hover:border-brand-700/60" data-detection-reference>
                     <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 [&::-webkit-details-marker]:hidden">
                         {$_('detection.reference_disclosure', {
                             values: { species: primaryName },

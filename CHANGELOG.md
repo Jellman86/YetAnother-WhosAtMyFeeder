@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The detection view shows its working, and only what this install actually has.** The frames the
+  classifier scored now run along the bottom of the photograph, so the panel shows what it looked at
+  rather than only what it concluded. Each fact row carries an icon, and the identification header
+  states whether the name came from the model or from you. Rows that depend on an integration appear
+  only when that integration is on: a disabled BirdNET no longer reports "no matching call", which
+  was a measurement that was never taken, and the frame strip is absent for guests because the
+  candidates behind it are owner-only.
+
 - **Detection details leads with the detection.** The species text, the eBird map and the notable
   nearby list, which together were the largest thing on the panel and were about other people's
   sightings, now sit behind one disclosure. The media panel fills its column instead of leaving a

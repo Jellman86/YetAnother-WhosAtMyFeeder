@@ -1843,7 +1843,8 @@
     "fact_heard": "Heard nearby",
     "fact_heard_yes": "matching call",
     "fact_heard_no": "no matching call",
-    "weather_breakdown": "Cloud, wind and rain at the time"
+    "weather_breakdown": "Cloud, wind and rain at the time",
+    "frames_scanned": "{count} frames scanned"
   },
   "events": {
     "title": "Events",
