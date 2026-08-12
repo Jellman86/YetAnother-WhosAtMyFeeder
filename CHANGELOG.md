@@ -81,6 +81,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   compressed into the context rail on desktop. It now sits full width below the desk, where it
   was before, with a layout test to keep it there.
 
+- **Leaderboard rows now recover common names already present in the taxonomy cache.** Historic
+  detections that predated successful taxonomy enrichment no longer remain scientific-name-only in
+  the rolling or all-time rankings. Cached taxonomy identifiers, provider names, and durable manual
+  overrides are applied locally without adding external requests to the leaderboard path.
+
 - **Manual observation uploads now pass through the bundled Nginx proxies at their documented
   limits.** The exact upload route accepts a bounded 256 MiB multipart request and streams it to
   the backend, which continues to enforce the 25 MiB image and 250 MiB video file limits. The

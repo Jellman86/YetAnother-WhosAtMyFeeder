@@ -2870,14 +2870,16 @@ class DetectionRepository:
 
     async def get_species_leaderboard_base(self) -> list[dict]:
         """Get leaderboard base stats per species with taxonomy and time bounds."""
-        query = """
+        canonical_key = self._canonical_key_sql()
+        taxonomy_join = self._taxonomy_join_sql()
+        query = f"""
             SELECT 
-                COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
+                {canonical_key} as unified_id,
                 COUNT(*) as total_count, 
-                MAX(d.scientific_name) as scientific_name, 
-                MAX(d.common_name) as common_name,
+                COALESCE(MAX(tc.scientific_name), MAX(d.scientific_name)) as scientific_name,
+                COALESCE(MAX(tc.manual_common_name), MAX(d.common_name), MAX(tc.common_name)) as common_name,
                 MAX(d.display_name) as display_name,
-                MAX(d.taxa_id) as taxa_id,
+                COALESCE(MAX(d.taxa_id), MAX(tc.taxa_id)) as taxa_id,
                 MIN(d.detection_time) as first_seen,
                 MAX(d.detection_time) as last_seen,
                 AVG(d.score) as avg_confidence,
@@ -2885,8 +2887,9 @@ class DetectionRepository:
                 MIN(d.score) as min_confidence,
                 COUNT(DISTINCT d.camera_name) as camera_count
             FROM detections d
+            {taxonomy_join}
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
-            GROUP BY unified_id
+            GROUP BY {canonical_key}
             ORDER BY total_count DESC
         """
         async with self.db.execute(query) as cursor:
@@ -2921,13 +2924,15 @@ class DetectionRepository:
         - Uses detection_time timestamps (not rollups) so it supports 24h windows.
         - Returns rows for any species that appears in either window; caller can filter to window_count > 0.
         """
-        query = """
+        canonical_key = self._canonical_key_sql()
+        taxonomy_join = self._taxonomy_join_sql()
+        query = f"""
             SELECT
-                COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
-                MAX(d.scientific_name) as scientific_name,
-                MAX(d.common_name) as common_name,
+                {canonical_key} as unified_id,
+                COALESCE(MAX(tc.scientific_name), MAX(d.scientific_name)) as scientific_name,
+                COALESCE(MAX(tc.manual_common_name), MAX(d.common_name), MAX(tc.common_name)) as common_name,
                 MAX(d.display_name) as display_name,
-                MAX(d.taxa_id) as taxa_id,
+                COALESCE(MAX(d.taxa_id), MAX(tc.taxa_id)) as taxa_id,
 
                 SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as window_count,
                 SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as prev_count,
@@ -2938,10 +2943,11 @@ class DetectionRepository:
                 AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
                 COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count
             FROM detections d
+            {taxonomy_join}
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
               AND d.detection_time >= ?
               AND d.detection_time < ?
-            GROUP BY unified_id
+            GROUP BY {canonical_key}
         """
         params = (
             window_start,
