@@ -298,7 +298,8 @@
       "open": "Apri",
       "preview_trigger": "Anteprima di {species}",
       "preview_alt": "{species} su {camera}",
-      "preview_frames": "{count} fotogrammi in questa visita, viene mostrato il più nitido"
+      "preview_frames": "{count} fotogrammi in questa visita, viene mostrato il più nitido",
+      "earlier": "{count} visite precedenti oggi"
     },
     "day_bar": {
       "today": "Oggi",
@@ -2122,7 +2123,10 @@
       "strip_label": "Disponibilità nelle ultime {hours} ore",
       "gap": "Mancano {minutes} minuti alle {when}",
       "no_history": "Nessuno storico registrato per questo periodo.",
-      "no_gaps": "Nessuna interruzione nelle ultime 24 ore."
+      "no_gaps": "Nessuna interruzione nelle ultime 24 ore.",
+      "up_to_date": "Aggiornato",
+      "update_available": "v{version} è disponibile",
+      "checked": "controllato {when}"
     },
     "close": {
       "title": "Dati, privacy e ringraziamenti"

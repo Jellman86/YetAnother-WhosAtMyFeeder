@@ -75,6 +75,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   outage, so a fresh install does not claim a day of downtime. Heartbeats are pruned after seven
   days.
 
+- **Dashboard and About polish against the agreed designs.** The field log now draws a spine
+  behind the state dots, so the day reads as one thread rather than a stack of unrelated rows, and
+  it says how many earlier visits are not shown instead of stopping silently at twelve. Camera rows
+  keep the count and its unit together and carry the last visit time, so a quiet camera is visibly
+  quiet. About states whether the build is up to date, using the update check that already exists.
+
 ### Fixed
 
 - **Top Visitors is readable on the dashboard again.** It lays out horizontally and was being

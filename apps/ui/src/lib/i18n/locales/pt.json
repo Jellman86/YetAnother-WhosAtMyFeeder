@@ -298,7 +298,8 @@
       "open": "Abrir",
       "preview_trigger": "Pré-visualizar {species}",
       "preview_alt": "{species} em {camera}",
-      "preview_frames": "{count} fotogramas nesta visita, é mostrado o mais nítido"
+      "preview_frames": "{count} fotogramas nesta visita, é mostrado o mais nítido",
+      "earlier": "{count} visitas anteriores hoje"
     },
     "day_bar": {
       "today": "Hoje",
@@ -2122,7 +2123,10 @@
       "strip_label": "Disponibilidade nas últimas {hours} horas",
       "gap": "Faltam {minutes} minutos às {when}",
       "no_history": "Ainda não há histórico para este período.",
-      "no_gaps": "Sem falhas nas últimas 24 horas."
+      "no_gaps": "Sem falhas nas últimas 24 horas.",
+      "up_to_date": "Atualizado",
+      "update_available": "v{version} está disponível",
+      "checked": "verificado {when}"
     },
     "close": {
       "title": "Dados, privacidade e créditos"

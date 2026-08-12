@@ -55,6 +55,14 @@ describe('dashboard field desk layout', () => {
         expect(fieldLogSource).toContain('min-h-11');
     });
 
+    it('draws the day as one thread and says when it is only showing part of it', () => {
+        // The spine runs behind the nodes; without it the rows read as unrelated cards.
+        expect(fieldLogSource).toContain('The spine runs behind the nodes');
+        expect(fieldLogSource).toContain('data-field-log-more');
+        expect(fieldLogSource).toContain('dashboard.field_log.earlier');
+        expect(dashboardSource).toContain('hiddenCount={hiddenVisitCount}');
+    });
+
     it('states both empty and loading states rather than rendering nothing', () => {
         expect(fieldLogSource).toContain('data-field-log-loading');
         expect(fieldLogSource).toContain('dashboard.waiting_first_visitor');

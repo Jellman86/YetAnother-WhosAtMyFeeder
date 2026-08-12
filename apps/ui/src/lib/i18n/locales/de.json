@@ -298,7 +298,8 @@
       "open": "Öffnen",
       "preview_trigger": "Vorschau für {species}",
       "preview_alt": "{species} auf {camera}",
-      "preview_frames": "{count} Aufnahmen in diesem Besuch, die klarste wird gezeigt"
+      "preview_frames": "{count} Aufnahmen in diesem Besuch, die klarste wird gezeigt",
+      "earlier": "{count} frühere Besuche heute"
     },
     "day_bar": {
       "today": "Heute",
@@ -2113,7 +2114,10 @@
       "strip_label": "Verfügbarkeit der letzten {hours} Stunden",
       "gap": "{minutes} Minuten fehlen um {when}",
       "no_history": "Für diesen Zeitraum ist noch nichts aufgezeichnet.",
-      "no_gaps": "Keine Lücken in den letzten 24 Stunden."
+      "no_gaps": "Keine Lücken in den letzten 24 Stunden.",
+      "up_to_date": "Aktuell",
+      "update_available": "v{version} ist verfügbar",
+      "checked": "geprüft {when}"
     },
     "close": {
       "title": "Daten, Datenschutz und Danksagungen"

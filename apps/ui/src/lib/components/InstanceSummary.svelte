@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
-    import { fetchClassifierStatus, fetchReadiness } from '../api';
+    import { fetchClassifierStatus, fetchReadiness, fetchUpdateStatus } from '../api';
+    import type { UpdateStatus } from '../api';
     import { fetchUptimeWindow, type UptimeWindowResponse } from '../api/leaderboard';
     import type { ClassifierStatus, VersionInfo } from '../api';
     import { authStore } from '../stores/auth.svelte';
@@ -18,6 +19,7 @@
     let classifier = $state<ClassifierStatus | null>(null);
     let startedAt = $state<string | null>(null);
     let uptimeWindow = $state<UptimeWindowResponse | null>(null);
+    let updateStatus = $state<UpdateStatus | null>(null);
     let copied = $state(false);
     let copyFailed = $state(false);
 
@@ -35,6 +37,11 @@
                 uptimeWindow = await fetchUptimeWindow(24);
             } catch {
                 // No heartbeat history yet, so the strip stays out.
+            }
+            try {
+                updateStatus = await fetchUpdateStatus();
+            } catch {
+                // Update checking is optional and may be disabled.
             }
         })();
 
@@ -109,9 +116,43 @@
 
 {#if isOwner}
     <section class="card-base space-y-4 p-6" data-about-instance aria-labelledby="about-instance-heading">
-        <h2 id="about-instance-heading" class="font-display text-xl font-bold text-slate-900 dark:text-white">
-            {$_('about.instance.title', { default: 'This instance' })}
-        </h2>
+        <div class="flex flex-wrap items-center gap-3">
+            <h2 id="about-instance-heading" class="font-display text-xl font-bold text-slate-900 dark:text-white">
+                {$_('about.instance.title', { default: 'This instance' })}
+            </h2>
+
+            {#if updateStatus?.enabled}
+                <span
+                    class="ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold {updateStatus.update_available
+                        ? 'border-accent-300 text-accent-800 dark:border-accent-800 dark:text-accent-200'
+                        : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}"
+                    data-instance-update
+                >
+                    <span
+                        class="h-1.5 w-1.5 rounded-full {updateStatus.update_available
+                            ? 'bg-accent-500'
+                            : 'bg-emerald-500'}"
+                        aria-hidden="true"
+                    ></span>
+                    {#if updateStatus.update_available}
+                        {$_('about.instance.update_available', {
+                            values: { version: updateStatus.latest_version ?? '' },
+                            default: 'v{version} is available'
+                        })}
+                    {:else}
+                        {$_('about.instance.up_to_date', { default: 'Up to date' })}
+                    {/if}
+                    {#if updateStatus.checked_at}
+                        <span class="font-normal text-slate-500 dark:text-slate-400">
+                            {$_('about.instance.checked', {
+                                values: { when: formatTime(updateStatus.checked_at) },
+                                default: 'checked {when}'
+                            })}
+                        </span>
+                    {/if}
+                </span>
+            {/if}
+        </div>
 
         <div class="grid gap-6 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.6fr)]">
             <div>

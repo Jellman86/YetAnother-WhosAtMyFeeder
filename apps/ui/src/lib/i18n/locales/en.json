@@ -298,7 +298,8 @@
       "open": "Open",
       "preview_trigger": "Preview {species}",
       "preview_alt": "{species} on {camera}",
-      "preview_frames": "{count} frames in this visit, clearest shown"
+      "preview_frames": "{count} frames in this visit, clearest shown",
+      "earlier": "{count} earlier visits today"
     },
     "day_bar": {
       "today": "Today",
@@ -2122,7 +2123,10 @@
       "strip_label": "Availability over the last {hours} hours",
       "gap": "{minutes} minutes missing at {when}",
       "no_history": "No history recorded yet for this window.",
-      "no_gaps": "No gaps in the last 24 hours."
+      "no_gaps": "No gaps in the last 24 hours.",
+      "up_to_date": "Up to date",
+      "update_available": "v{version} is available",
+      "checked": "checked {when}"
     },
     "close": {
       "title": "Data, privacy and credits"

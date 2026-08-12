@@ -298,7 +298,8 @@
       "open": "打开",
       "preview_trigger": "预览 {species}",
       "preview_alt": "{camera} 上的 {species}",
-      "preview_frames": "本次到访共 {count} 帧，显示最清晰的一帧"
+      "preview_frames": "本次到访共 {count} 帧，显示最清晰的一帧",
+      "earlier": "今天更早的 {count} 次到访"
     },
     "day_bar": {
       "today": "今天",
@@ -2113,7 +2114,10 @@
       "strip_label": "最近 {hours} 小时的可用性",
       "gap": "{when} 缺失 {minutes} 分钟",
       "no_history": "这个时间段还没有记录。",
-      "no_gaps": "最近 24 小时没有中断。"
+      "no_gaps": "最近 24 小时没有中断。",
+      "up_to_date": "已是最新",
+      "update_available": "v{version} 可用",
+      "checked": "检查于 {when}"
     },
     "close": {
       "title": "数据、隐私与致谢"

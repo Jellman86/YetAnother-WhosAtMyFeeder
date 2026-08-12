@@ -9,13 +9,15 @@
 
     interface Props {
         visits: DetectionVisit[];
+        /** Visits in the window beyond the ones shown, so truncation is stated. */
+        hiddenCount?: number;
         loading?: boolean;
         onselect?: (detection: Detection) => void;
         onidentify?: (detection: Detection) => void;
         onseeall?: () => void;
     }
 
-    let { visits, loading = false, onselect, onidentify, onseeall }: Props = $props();
+    let { visits, hiddenCount = 0, loading = false, onselect, onidentify, onseeall }: Props = $props();
 
     function names(detection: Detection): { primary: string; secondary: string | null } {
         return getBirdNames(
@@ -90,7 +92,7 @@
                 {@const naming = names(visit.lead)}
                 {@const score = visit.best.score ?? 0}
                 <li
-                    class="grid grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 rounded-xl border-b border-slate-200/60 px-2 py-2.5 last:border-b-0 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_auto_auto_5rem] dark:border-slate-700/40"
+                    class="grid grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)] items-stretch sm:items-center gap-x-3 gap-y-2 rounded-xl border-b border-slate-200/60 px-2 py-2.5 last:border-b-0 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_auto_auto_5rem] dark:border-slate-700/40"
                     class:bg-gradient-to-r={visit.needsReview}
                     class:from-accent-50={visit.needsReview}
                     class:dark:from-accent-950={visit.needsReview}
@@ -101,9 +103,11 @@
                         {span(visit)}
                     </span>
 
-                    <span class="flex justify-center" aria-hidden="true">
+                    <span class="relative flex h-full justify-center" aria-hidden="true">
+                        <!-- The spine runs behind the nodes so the day reads as one thread. -->
+                        <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
                         <span
-                            class="h-1.5 w-1.5 rounded-full {visit.needsReview
+                            class="relative mt-[0.4rem] h-1.5 w-1.5 shrink-0 self-start rounded-full ring-2 ring-white dark:ring-slate-900 {visit.needsReview
                                 ? 'bg-accent-500'
                                 : 'bg-brand-500'}"
                         ></span>
@@ -182,5 +186,21 @@
                 </li>
             {/each}
         </ol>
+
+        {#if hiddenCount > 0}
+            <button
+                class="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl text-xs font-semibold text-slate-500 transition-colors hover:bg-slate-100 focus-ring dark:text-slate-400 dark:hover:bg-slate-800/60"
+                onclick={() => onseeall?.()}
+                data-field-log-more
+            >
+                {$_('dashboard.field_log.earlier', {
+                    values: { count: hiddenCount },
+                    default: '{count} earlier visits today'
+                })}
+                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 5v10m0 0-4-4m4 4 4-4" />
+                </svg>
+            </button>
+        {/if}
     {/if}
 </section>

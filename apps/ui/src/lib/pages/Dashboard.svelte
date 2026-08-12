@@ -97,7 +97,9 @@
     let deskDetections = $derived(withinDeskWindow(detectionsStore.detections));
 
     // The day reads as visits, not frames: repeat frames of one bird fold into one row.
-    let visits = $derived(groupDetectionsIntoVisits(deskDetections).slice(0, VISIT_ROW_LIMIT));
+    let allVisits = $derived(groupDetectionsIntoVisits(deskDetections));
+    let visits = $derived(allVisits.slice(0, VISIT_ROW_LIMIT));
+    let hiddenVisitCount = $derived(Math.max(allVisits.length - visits.length, 0));
 
     // The walk-through flow: a captured queue worked one at a time.
     let reviewSessionOpen = $state(false);
@@ -466,6 +468,7 @@
     >
         <FieldLog
             visits={visits}
+            hiddenCount={hiddenVisitCount}
             loading={detectionsStore.isLoading}
             onselect={(detection) => selectedEvent = detection}
             onidentify={(detection) => selectedEvent = detection}

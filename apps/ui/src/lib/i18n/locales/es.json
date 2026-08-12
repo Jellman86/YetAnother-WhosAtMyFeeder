@@ -298,7 +298,8 @@
       "open": "Abrir",
       "preview_trigger": "Vista previa de {species}",
       "preview_alt": "{species} en {camera}",
-      "preview_frames": "{count} fotogramas en esta visita, se muestra el más nítido"
+      "preview_frames": "{count} fotogramas en esta visita, se muestra el más nítido",
+      "earlier": "{count} visitas anteriores hoy"
     },
     "day_bar": {
       "today": "Hoy",
@@ -2113,7 +2114,10 @@
       "strip_label": "Disponibilidad de las últimas {hours} horas",
       "gap": "Faltan {minutes} minutos a las {when}",
       "no_history": "Aún no hay historial para este periodo.",
-      "no_gaps": "Sin interrupciones en las últimas 24 horas."
+      "no_gaps": "Sin interrupciones en las últimas 24 horas.",
+      "up_to_date": "Actualizado",
+      "update_available": "v{version} está disponible",
+      "checked": "comprobado {when}"
     },
     "close": {
       "title": "Datos, privacidad y créditos"

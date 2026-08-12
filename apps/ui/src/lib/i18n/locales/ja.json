@@ -298,7 +298,8 @@
       "open": "開く",
       "preview_trigger": "{species} をプレビュー",
       "preview_alt": "{camera} の {species}",
-      "preview_frames": "この訪問の {count} フレームのうち、最も鮮明なものを表示しています"
+      "preview_frames": "この訪問の {count} フレームのうち、最も鮮明なものを表示しています",
+      "earlier": "今日はほかに {count} 件の訪問"
     },
     "day_bar": {
       "today": "今日",
@@ -2113,7 +2114,10 @@
       "strip_label": "直近 {hours} 時間の稼働状況",
       "gap": "{when} に {minutes} 分の欠落",
       "no_history": "この期間の記録はまだありません。",
-      "no_gaps": "直近 24 時間に欠落はありません。"
+      "no_gaps": "直近 24 時間に欠落はありません。",
+      "up_to_date": "最新です",
+      "update_available": "v{version} が利用できます",
+      "checked": "{when} に確認"
     },
     "close": {
       "title": "データ、プライバシー、クレジット"

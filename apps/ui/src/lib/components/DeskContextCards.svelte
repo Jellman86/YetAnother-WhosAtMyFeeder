@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { fetchCameraStatuses } from '../api';
     import type { AudioSummaryResponse, CameraStatusResponse, Detection } from '../api';
+    import { formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import { getTemperatureUnitForSystem, resolveWeatherUnitSystem } from '../utils/weather-units';
     import { settingsStore } from '../stores/settings.svelte';
@@ -46,27 +47,40 @@
         name: string;
         visits: number;
         status: 'online' | 'offline' | 'unknown';
+        /** The most recent visit, so a quiet camera is visibly quiet. */
+        lastSeen: string | null;
     }
 
     const cameraRows = $derived.by<CameraRow[]>(() => {
         const visitsByCamera = new Map<string, number>();
+        const lastSeenByCamera = new Map<string, string>();
         for (const detection of detections) {
             const camera = detection.camera_name;
             if (!camera) continue;
             visitsByCamera.set(camera, (visitsByCamera.get(camera) ?? 0) + 1);
+            const seen = lastSeenByCamera.get(camera);
+            if (!seen || detection.detection_time > seen) {
+                lastSeenByCamera.set(camera, detection.detection_time);
+            }
         }
 
         const known = cameraStatus?.cameras ?? [];
         const rows: CameraRow[] = known.map((camera) => ({
             name: camera.camera,
             visits: visitsByCamera.get(camera.camera) ?? 0,
-            status: camera.status
+            status: camera.status,
+            lastSeen: lastSeenByCamera.get(camera.camera) ?? null
         }));
 
         // A camera that produced detections but is missing from the status list still belongs here.
         for (const [name, visits] of visitsByCamera) {
             if (!rows.some((row) => row.name === name)) {
-                rows.push({ name, visits, status: 'unknown' });
+                rows.push({
+                    name,
+                    visits,
+                    status: 'unknown',
+                    lastSeen: lastSeenByCamera.get(name) ?? null
+                });
             }
         }
 
@@ -131,11 +145,18 @@
                         aria-hidden="true"
                     ></span>
                     <span class="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">{camera.name}</span>
-                    <span class="tabular-nums text-slate-900 dark:text-white">{camera.visits}</span>
-                    <span class="w-16 shrink-0 text-right text-[11px] text-slate-500 dark:text-slate-400">
-                        {camera.visits === 0
-                            ? $_('dashboard.desk.camera_no_visits', { default: 'no visits' })
-                            : $_('dashboard.day_bar.visits', { default: 'visits' })}
+                    {#if camera.lastSeen}
+                        <span class="shrink-0 text-[11px] text-slate-500 dark:text-slate-400">
+                            {formatTime(camera.lastSeen)}
+                        </span>
+                    {/if}
+                    <span class="shrink-0 tabular-nums text-slate-900 dark:text-white">
+                        {camera.visits}
+                        <span class="text-[11px] font-normal text-slate-500 dark:text-slate-400">
+                            {camera.visits === 0
+                                ? $_('dashboard.desk.camera_no_visits', { default: 'no visits' })
+                                : $_('dashboard.day_bar.visits', { default: 'visits' })}
+                        </span>
                     </span>
                 </li>
             {/each}
