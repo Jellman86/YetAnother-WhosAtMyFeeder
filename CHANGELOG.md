@@ -8,6 +8,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Explorer replaces five rows of controls with a filter bar and counted facets.** Three stacked
+  selects, three buttons, a page-size picker and a pagination row above the grid are now a single
+  line stating the result count, with applied filters shown as removable tokens and the rest behind
+  a Filters button that opens only when wanted. On a phone this removed roughly 1,290 pixels of
+  chrome that sat between opening the page and seeing the first photograph.
+
+- **Every Explorer filter states how many results it would return.** `GET /api/events/filters` now
+  reports a detection count per species, per camera, and for favourites, audio matches and video
+  analysed, so an option that would return nothing says so before it is chosen. Species counts are
+  taken over the same canonical grouping the options are built from, so name variants of one species
+  count once.
+
 - **The leaderboard opens with a podium instead of a featured card.** The top three species share
   the space one species used to fill, on hairline rows rather than in a large rounded panel, each
   showing what was seen and what was heard so a bird that is loud but rarely on camera is visible.
