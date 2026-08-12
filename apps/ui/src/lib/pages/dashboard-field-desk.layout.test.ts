@@ -79,14 +79,17 @@ describe('dashboard field desk layout', () => {
     });
 
     it('opens the capture preview on hover and on keyboard focus, and dismisses it', () => {
-        expect(previewSource).toContain('onmouseenter={show}');
-        expect(previewSource).toContain('onfocusin={show}');
+        // Every frame in a visit previews itself, so the handlers take the frame index.
+        expect(previewSource).toContain('onmouseenter={() => show(index)}');
+        expect(previewSource).toContain('onfocusin={() => show(index)}');
+        expect(previewSource).toContain('let openIndex = $state<number | null>(null)');
+        expect(previewSource).toContain('dashboard.field_log.preview_frame_position');
         expect(previewSource).toContain('onfocusout={handleFocusOut}');
         expect(previewSource).toContain("event.key === 'Escape'");
         // The pointer must be able to travel into the panel (WCAG 2.2 SC 1.4.13).
         expect(previewSource).toContain('CLOSE_GRACE_MS');
         expect(previewSource).toContain('motion-reduce:animate-none');
-        expect(previewSource).toContain('aria-expanded={open}');
+        expect(previewSource).toContain('aria-expanded={openIndex === index}');
         expect(previewSource).toContain('focus-ring');
     });
 
@@ -94,6 +97,7 @@ describe('dashboard field desk layout', () => {
         expect(previewSource).toContain("import { getThumbnailUrl } from '../api'");
         expect(previewSource).toContain('loading="lazy"');
         expect(previewSource.match(/getThumbnailUrl/g) ?? []).toHaveLength(3);
+        expect(previewSource).toContain('onopen?.(frame)');
     });
 
 

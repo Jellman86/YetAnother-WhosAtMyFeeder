@@ -299,7 +299,8 @@
       "preview_trigger": "Preview {species}",
       "preview_alt": "{species} on {camera}",
       "preview_frames": "{count} frames in this visit, clearest shown",
-      "earlier": "{count} earlier visits today"
+      "earlier": "{count} earlier visits today",
+      "preview_frame_position": "Frame {position} of {count} in this visit"
     },
     "day_bar": {
       "today": "Today",
