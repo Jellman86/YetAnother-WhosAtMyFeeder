@@ -1848,7 +1848,8 @@
     "weather_breakdown": "Nuvens, vento e chuva na altura",
     "frames_scanned": "{count} fotogramas analisados",
     "media_stored": "Melhor recorte",
-    "media_full_frame": "Imagem completa"
+    "media_full_frame": "Imagem completa",
+    "species_reference_alt": "Fotografia de referência de {species}"
   },
   "events": {
     "title": "Eventos",

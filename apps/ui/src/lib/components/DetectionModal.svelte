@@ -2436,10 +2436,28 @@
                         {$_('detection.identified_as', { default: 'Identified as' })}
                     {/if}
                 </p>
-                <h3 class="mt-0.5 font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>
-                {#if subName && subName !== primaryName}
-                    <p class="text-xs italic text-slate-500 dark:text-slate-400">{subName}</p>
-                {/if}
+                <div class="mt-0.5 flex items-start gap-3">
+                    {#if speciesInfo?.thumbnail_url}
+                        <!-- A reference photograph of the species, so the camera frame has something
+                             to be compared against without leaving the view. -->
+                        <img
+                            src={speciesInfo.thumbnail_url}
+                            alt={$_('detection.species_reference_alt', {
+                                values: { species: primaryName },
+                                default: 'Reference photograph of {species}'
+                            })}
+                            loading="lazy"
+                            class="h-12 w-12 shrink-0 rounded-full border border-slate-200 object-cover dark:border-slate-700"
+                            data-detection-species-reference
+                        />
+                    {/if}
+                    <div class="min-w-0">
+                        <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>
+                        {#if subName && subName !== primaryName}
+                            <p class="text-xs italic text-slate-500 dark:text-slate-400">{subName}</p>
+                        {/if}
+                    </div>
+                </div>
 
                 {#if currentClassificationSource !== 'manual'}
                     <div class="mt-2 flex items-center gap-2.5">

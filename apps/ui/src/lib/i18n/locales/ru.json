@@ -1848,7 +1848,8 @@
     "weather_breakdown": "Облачность, ветер и осадки в тот момент",
     "frames_scanned": "Проверено кадров: {count}",
     "media_stored": "Лучший кроп",
-    "media_full_frame": "Полный кадр"
+    "media_full_frame": "Полный кадр",
+    "species_reference_alt": "Эталонное фото вида {species}"
   },
   "events": {
     "title": "События",

@@ -1839,7 +1839,8 @@
     "weather_breakdown": "当时的云量、风力与降水",
     "frames_scanned": "已分析 {count} 帧",
     "media_stored": "最佳裁剪",
-    "media_full_frame": "完整画面"
+    "media_full_frame": "完整画面",
+    "species_reference_alt": "{species} 的参考照片"
   },
   "events": {
     "title": "事件",

@@ -1839,7 +1839,8 @@
     "weather_breakdown": "そのときの雲量、風、降水",
     "frames_scanned": "{count} フレームを解析",
     "media_stored": "最適な切り抜き",
-    "media_full_frame": "フル画像"
+    "media_full_frame": "フル画像",
+    "species_reference_alt": "{species} の参考写真"
   },
   "events": {
     "title": "イベント",

@@ -1839,7 +1839,8 @@
     "weather_breakdown": "Wolken, Wind und Regen zu dieser Zeit",
     "frames_scanned": "{count} Aufnahmen geprüft",
     "media_stored": "Bester Ausschnitt",
-    "media_full_frame": "Vollbild"
+    "media_full_frame": "Vollbild",
+    "species_reference_alt": "Referenzfoto von {species}"
   },
   "events": {
     "title": "Ereignisse",

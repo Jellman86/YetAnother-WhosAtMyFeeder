@@ -1839,7 +1839,8 @@
     "weather_breakdown": "Nubes, viento y lluvia en ese momento",
     "frames_scanned": "{count} fotogramas analizados",
     "media_stored": "Mejor recorte",
-    "media_full_frame": "Fotograma completo"
+    "media_full_frame": "Fotograma completo",
+    "species_reference_alt": "Fotografía de referencia de {species}"
   },
   "events": {
     "title": "Eventos",

@@ -1848,7 +1848,8 @@
     "weather_breakdown": "Cloud, wind and rain at the time",
     "frames_scanned": "{count} frames scanned",
     "media_stored": "Best crop",
-    "media_full_frame": "Full frame"
+    "media_full_frame": "Full frame",
+    "species_reference_alt": "Reference photograph of {species}"
   },
   "events": {
     "title": "Events",
