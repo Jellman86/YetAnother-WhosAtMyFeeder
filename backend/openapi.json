@@ -13702,6 +13702,97 @@
         "title": "UpdateStatusResponse",
         "type": "object"
       },
+      "UptimeBucketResponse": {
+        "properties": {
+          "samples": {
+            "title": "Samples",
+            "type": "integer"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "up",
+              "down",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "state",
+          "samples"
+        ],
+        "title": "UptimeBucketResponse",
+        "type": "object"
+      },
+      "UptimeWindowResponse": {
+        "properties": {
+          "bucket_minutes": {
+            "title": "Bucket Minutes",
+            "type": "integer"
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/UptimeBucketResponse"
+            },
+            "title": "Buckets",
+            "type": "array"
+          },
+          "heartbeat_interval_minutes": {
+            "title": "Heartbeat Interval Minutes",
+            "type": "integer"
+          },
+          "longest_gap_minutes": {
+            "title": "Longest Gap Minutes",
+            "type": "integer"
+          },
+          "longest_gap_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longest Gap Start"
+          },
+          "uptime_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime Ratio"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "window_start",
+          "window_end",
+          "bucket_minutes",
+          "heartbeat_interval_minutes",
+          "buckets",
+          "longest_gap_minutes"
+        ],
+        "title": "UptimeWindowResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -22914,6 +23005,75 @@
           }
         ],
         "summary": "Get Detection Timeline Span",
+        "tags": [
+          "stats"
+        ]
+      }
+    },
+    "/api/stats/uptime": {
+      "get": {
+        "description": "Availability over a recent window, derived from heartbeat rows.\n\nA bucket with no heartbeat is reported as down; a bucket from before the first\nheartbeat ever recorded is reported as unknown, because a fresh install has no\nhistory and that is not an outage.",
+        "operationId": "get_uptime_api_stats_uptime_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 168,
+              "minimum": 1,
+              "title": "Hours",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bucket_minutes",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 240,
+              "minimum": 5,
+              "title": "Bucket Minutes",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UptimeWindowResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Uptime",
         "tags": [
           "stats"
         ]

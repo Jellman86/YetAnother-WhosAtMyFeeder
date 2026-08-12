@@ -2109,7 +2109,11 @@
       "since": "{when} から",
       "uptime_minutes": "{count} 分",
       "uptime_hours": "{count} 時間",
-      "uptime_days": "{count} 日"
+      "uptime_days": "{count} 日",
+      "strip_label": "直近 {hours} 時間の稼働状況",
+      "gap": "{when} に {minutes} 分の欠落",
+      "no_history": "この期間の記録はまだありません。",
+      "no_gaps": "直近 24 時間に欠落はありません。"
     },
     "close": {
       "title": "データ、プライバシー、クレジット"

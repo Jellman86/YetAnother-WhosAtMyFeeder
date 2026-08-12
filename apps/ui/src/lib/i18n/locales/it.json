@@ -2118,7 +2118,11 @@
       "since": "dal {when}",
       "uptime_minutes": "{count} min",
       "uptime_hours": "{count} h",
-      "uptime_days": "{count} giorni"
+      "uptime_days": "{count} giorni",
+      "strip_label": "Disponibilità nelle ultime {hours} ore",
+      "gap": "Mancano {minutes} minuti alle {when}",
+      "no_history": "Nessuno storico registrato per questo periodo.",
+      "no_gaps": "Nessuna interruzione nelle ultime 24 ore."
     },
     "close": {
       "title": "Dati, privacy e ringraziamenti"

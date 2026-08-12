@@ -2109,7 +2109,11 @@
       "since": "seit {when}",
       "uptime_minutes": "{count} Min",
       "uptime_hours": "{count} Std",
-      "uptime_days": "{count} Tage"
+      "uptime_days": "{count} Tage",
+      "strip_label": "Verfügbarkeit der letzten {hours} Stunden",
+      "gap": "{minutes} Minuten fehlen um {when}",
+      "no_history": "Für diesen Zeitraum ist noch nichts aufgezeichnet.",
+      "no_gaps": "Keine Lücken in den letzten 24 Stunden."
     },
     "close": {
       "title": "Daten, Datenschutz und Danksagungen"

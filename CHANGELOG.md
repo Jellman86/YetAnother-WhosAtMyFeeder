@@ -67,6 +67,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   new endpoint. The colophon is no longer boxed in a card, since it reads as the page opening
   rather than as one panel among several.
 
+- **Uptime is now recorded, so About can show it honestly.** The application writes a heartbeat
+  every five minutes to a new `health_samples` table, and `GET /api/stats/uptime` turns those rows
+  into an availability window. About draws the last 24 hours as a strip and names the longest gap,
+  for example "47 minutes missing at 05:40". A bucket with no heartbeat is reported as down, and a
+  bucket from before the first heartbeat ever recorded is reported as unknown rather than as an
+  outage, so a fresh install does not claim a day of downtime. Heartbeats are pruned after seven
+  days.
+
 ### Fixed
 
 - **Top Visitors is readable on the dashboard again.** It lays out horizontally and was being

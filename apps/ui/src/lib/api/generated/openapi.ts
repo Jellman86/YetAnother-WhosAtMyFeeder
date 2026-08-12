@@ -1794,6 +1794,21 @@ export interface components {
     release_url: string;
     update_available: boolean;
 };
+    UptimeBucketResponse: {
+    samples: number;
+    start: string;
+    state: "up" | "down" | "unknown";
+};
+    UptimeWindowResponse: {
+    bucket_minutes: number;
+    buckets: Array<components['schemas']['UptimeBucketResponse']>;
+    heartbeat_interval_minutes: number;
+    longest_gap_minutes: number;
+    longest_gap_start?: string | null;
+    uptime_ratio?: number | null;
+    window_end: string;
+    window_start: string;
+};
     ValidationError: {
     ctx?: Record<string, unknown>;
     input?: unknown;
@@ -3553,6 +3568,18 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['DetectionsTimelineSpanResponse'];
+    };
+  };
+  "/api/stats/uptime": {
+    get: {
+      operationId: "get_uptime_api_stats_uptime_get";
+      path: never;
+      query: {
+    bucket_minutes?: number;
+    hours?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['UptimeWindowResponse'];
     };
   };
   "/api/system-telemetry": {

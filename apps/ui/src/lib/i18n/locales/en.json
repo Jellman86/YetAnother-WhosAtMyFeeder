@@ -2118,7 +2118,11 @@
       "since": "since {when}",
       "uptime_minutes": "{count} min",
       "uptime_hours": "{count} h",
-      "uptime_days": "{count} days"
+      "uptime_days": "{count} days",
+      "strip_label": "Availability over the last {hours} hours",
+      "gap": "{minutes} minutes missing at {when}",
+      "no_history": "No history recorded yet for this window.",
+      "no_gaps": "No gaps in the last 24 hours."
     },
     "close": {
       "title": "Data, privacy and credits"

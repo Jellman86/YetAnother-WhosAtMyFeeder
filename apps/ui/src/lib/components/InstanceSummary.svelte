@@ -1,6 +1,7 @@
 <script lang="ts">
     import { onMount } from 'svelte';
     import { fetchClassifierStatus, fetchReadiness } from '../api';
+    import { fetchUptimeWindow, type UptimeWindowResponse } from '../api/leaderboard';
     import type { ClassifierStatus, VersionInfo } from '../api';
     import { authStore } from '../stores/auth.svelte';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
@@ -16,6 +17,7 @@
 
     let classifier = $state<ClassifierStatus | null>(null);
     let startedAt = $state<string | null>(null);
+    let uptimeWindow = $state<UptimeWindowResponse | null>(null);
     let copied = $state(false);
     let copyFailed = $state(false);
 
@@ -28,6 +30,11 @@
                 startedAt = readiness.startup_started_at ?? null;
             } catch {
                 // Uptime is supporting detail; the card stands without it.
+            }
+            try {
+                uptimeWindow = await fetchUptimeWindow(24);
+            } catch {
+                // No heartbeat history yet, so the strip stays out.
             }
         })();
 
@@ -126,6 +133,46 @@
                 <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">
                     {uptime ?? $_('about.pipeline.unknown', { default: 'unknown' })}
                 </p>
+
+                {#if uptimeWindow}
+                    <div
+                        class="mt-2 flex gap-[2px]"
+                        role="img"
+                        aria-label={$_('about.instance.strip_label', {
+                            values: { hours: 24 },
+                            default: 'Availability over the last {hours} hours'
+                        })}
+                        data-uptime-strip
+                    >
+                        {#each uptimeWindow.buckets as bucket (bucket.start)}
+                            <span
+                                class="h-4 flex-1 rounded-[2px] {bucket.state === 'up'
+                                    ? 'bg-emerald-500/80'
+                                    : bucket.state === 'down'
+                                      ? 'bg-accent-500'
+                                      : 'bg-slate-200 dark:bg-slate-700'}"
+                                title={`${formatTime(bucket.start)} · ${bucket.state}`}
+                            ></span>
+                        {/each}
+                    </div>
+                    <p class="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                        {#if uptimeWindow.longest_gap_minutes > 0 && uptimeWindow.longest_gap_start}
+                            {$_('about.instance.gap', {
+                                values: {
+                                    minutes: uptimeWindow.longest_gap_minutes,
+                                    when: formatTime(uptimeWindow.longest_gap_start)
+                                },
+                                default: '{minutes} minutes missing at {when}'
+                            })}
+                        {:else if uptimeWindow.uptime_ratio === null}
+                            {$_('about.instance.no_history', {
+                                default: 'No history recorded yet for this window.'
+                            })}
+                        {:else}
+                            {$_('about.instance.no_gaps', { default: 'No gaps in the last 24 hours.' })}
+                        {/if}
+                    </p>
+                {/if}
                 {#if startedAt}
                     <p class="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
                         {$_('about.instance.since', {

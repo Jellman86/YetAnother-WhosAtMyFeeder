@@ -2109,7 +2109,11 @@
       "since": "自 {when}",
       "uptime_minutes": "{count} 分钟",
       "uptime_hours": "{count} 小时",
-      "uptime_days": "{count} 天"
+      "uptime_days": "{count} 天",
+      "strip_label": "最近 {hours} 小时的可用性",
+      "gap": "{when} 缺失 {minutes} 分钟",
+      "no_history": "这个时间段还没有记录。",
+      "no_gaps": "最近 24 小时没有中断。"
     },
     "close": {
       "title": "数据、隐私与致谢"

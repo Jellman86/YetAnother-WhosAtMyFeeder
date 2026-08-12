@@ -2118,7 +2118,11 @@
       "since": "с {when}",
       "uptime_minutes": "{count} мин",
       "uptime_hours": "{count} ч",
-      "uptime_days": "{count} дн."
+      "uptime_days": "{count} дн.",
+      "strip_label": "Доступность за последние {hours} ч",
+      "gap": "Пропущено {minutes} мин в {when}",
+      "no_history": "За этот период записей пока нет.",
+      "no_gaps": "За последние 24 часа пропусков нет."
     },
     "close": {
       "title": "Данные, приватность и благодарности"
