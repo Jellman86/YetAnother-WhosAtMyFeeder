@@ -619,6 +619,23 @@
     );
     const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available !== false);
     const fullFrameSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'full_frame') ?? null);
+
+    // The stored snapshot is often a crop, so filling the panel with it would hide the rest
+    // of the frame. The toggle is what makes filling safe: nothing is lost, it is one tap away.
+    let mediaView = $state<'stored' | 'full'>('stored');
+    const canShowFullFrame = $derived(
+        authStore.hasOwnerAccess && !!fullFrameSnapshotCandidate?.thumbnail_url
+    );
+    const mediaImageUrl = $derived(
+        mediaView === 'full' && fullFrameSnapshotCandidate?.thumbnail_url
+            ? fullFrameSnapshotCandidate.thumbnail_url
+            : snapshotImageUrl
+    );
+    $effect(() => {
+        // A new detection starts on its own stored frame.
+        void detection.frigate_event;
+        mediaView = 'stored';
+    });
     const frigateHintSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'frigate_hint_crop') ?? null);
     const modelSnapshotCandidates = $derived(snapshotCandidates.filter((candidate) => candidate.source_mode === 'model_crop'));
     const allSnapshotFrameCandidates = $derived(snapshotCandidates);
@@ -2149,7 +2166,11 @@
                     {:else}
                         <img data-detection-media-ambient src={snapshotImageUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
                         <div class="absolute inset-0 bg-slate-950/55" aria-hidden="true"></div>
-                        <img src={snapshotImageUrl} alt={detection.display_name} class="relative h-full w-full object-contain" />
+                        <img
+                            src={mediaImageUrl}
+                            alt={detection.display_name}
+                            class="relative h-full w-full {mediaView === 'full' ? 'object-contain' : 'object-cover lg:object-cover'}"
+                        />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
                         {#if canShowFavoriteAction}
                             <button
@@ -2299,6 +2320,31 @@
         {/if}
 
             
+                {#if canShowFullFrame}
+                    <div class="absolute left-3 top-3 z-20 flex gap-1 rounded-lg bg-slate-950/55 p-1 backdrop-blur-sm" data-detection-media-toggle>
+                        <button
+                            type="button"
+                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'stored'
+                                ? 'bg-white/15 text-white'
+                                : 'text-white/60 hover:text-white'}"
+                            aria-pressed={mediaView === 'stored'}
+                            onclick={(event) => { event.stopPropagation(); mediaView = 'stored'; }}
+                        >
+                            {$_('detection.media_stored', { default: 'Best crop' })}
+                        </button>
+                        <button
+                            type="button"
+                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'full'
+                                ? 'bg-white/15 text-white'
+                                : 'text-white/60 hover:text-white'}"
+                            aria-pressed={mediaView === 'full'}
+                            onclick={(event) => { event.stopPropagation(); mediaView = 'full'; }}
+                        >
+                            {$_('detection.media_full_frame', { default: 'Full frame' })}
+                        </button>
+                    </div>
+                {/if}
+
                 {#if scoredFrameStrip.length > 1}
                     <!-- The frames the classifier actually scored, so the panel shows its working. -->
                     <div class="absolute inset-x-0 bottom-0 z-20 flex items-center gap-1.5 bg-gradient-to-t from-slate-950/85 to-transparent px-3 pb-3 pt-6" data-detection-frame-strip>

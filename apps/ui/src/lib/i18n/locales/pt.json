@@ -1844,7 +1844,9 @@
     "fact_heard_yes": "canto correspondente",
     "fact_heard_no": "sem canto correspondente",
     "weather_breakdown": "Nuvens, vento e chuva na altura",
-    "frames_scanned": "{count} fotogramas analisados"
+    "frames_scanned": "{count} fotogramas analisados",
+    "media_stored": "Melhor recorte",
+    "media_full_frame": "Imagem completa"
   },
   "events": {
     "title": "Eventos",

@@ -1844,7 +1844,9 @@
     "fact_heard_yes": "совпадающий голос",
     "fact_heard_no": "совпадений нет",
     "weather_breakdown": "Облачность, ветер и осадки в тот момент",
-    "frames_scanned": "Проверено кадров: {count}"
+    "frames_scanned": "Проверено кадров: {count}",
+    "media_stored": "Лучший кроп",
+    "media_full_frame": "Полный кадр"
   },
   "events": {
     "title": "События",

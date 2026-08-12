@@ -1835,7 +1835,9 @@
     "fact_heard_yes": "匹配的鸣声",
     "fact_heard_no": "没有匹配的鸣声",
     "weather_breakdown": "当时的云量、风力与降水",
-    "frames_scanned": "已分析 {count} 帧"
+    "frames_scanned": "已分析 {count} 帧",
+    "media_stored": "最佳裁剪",
+    "media_full_frame": "完整画面"
   },
   "events": {
     "title": "事件",

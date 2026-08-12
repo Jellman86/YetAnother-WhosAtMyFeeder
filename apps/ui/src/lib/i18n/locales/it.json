@@ -1844,7 +1844,9 @@
     "fact_heard_yes": "richiamo corrispondente",
     "fact_heard_no": "nessun richiamo corrispondente",
     "weather_breakdown": "Nuvole, vento e pioggia in quel momento",
-    "frames_scanned": "{count} fotogrammi analizzati"
+    "frames_scanned": "{count} fotogrammi analizzati",
+    "media_stored": "Ritaglio migliore",
+    "media_full_frame": "Fotogramma intero"
   },
   "events": {
     "title": "Eventi",

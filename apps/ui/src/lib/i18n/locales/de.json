@@ -1835,7 +1835,9 @@
     "fact_heard_yes": "passender Ruf",
     "fact_heard_no": "kein passender Ruf",
     "weather_breakdown": "Wolken, Wind und Regen zu dieser Zeit",
-    "frames_scanned": "{count} Aufnahmen geprüft"
+    "frames_scanned": "{count} Aufnahmen geprüft",
+    "media_stored": "Bester Ausschnitt",
+    "media_full_frame": "Vollbild"
   },
   "events": {
     "title": "Ereignisse",

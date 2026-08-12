@@ -1844,7 +1844,9 @@
     "fact_heard_yes": "matching call",
     "fact_heard_no": "no matching call",
     "weather_breakdown": "Cloud, wind and rain at the time",
-    "frames_scanned": "{count} frames scanned"
+    "frames_scanned": "{count} frames scanned",
+    "media_stored": "Best crop",
+    "media_full_frame": "Full frame"
   },
   "events": {
     "title": "Events",
