@@ -279,3 +279,16 @@ detection_favorites = Table(
 
 Index("idx_detection_favorites_detection_id", detection_favorites.c.detection_id)
 Index("idx_detection_favorites_created_at", detection_favorites.c.created_at)
+
+# Heartbeats written on a fixed interval. A stretch with no rows is a stretch where
+# the application was not running, which is how the About page reports availability.
+health_samples = Table(
+    "health_samples",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("sampled_at", TIMESTAMP, nullable=False),
+    Column("instance_id", String, nullable=False),
+    Column("created_at", TIMESTAMP, server_default=func.now()),
+)
+
+Index("idx_health_samples_sampled_at", health_samples.c.sampled_at)

@@ -86,3 +86,14 @@ export async function analyzeLeaderboardGraph(
     });
     return handleResponse<LeaderboardAnalysisResponse>(response);
 }
+
+export type UptimeWindowResponse = paths['/api/stats/uptime']['get']['response'];
+
+export async function fetchUptimeWindow(
+    hours: number = 24,
+    signal?: AbortSignal
+): Promise<UptimeWindowResponse> {
+    const params = new URLSearchParams({ hours: String(hours) });
+    const response = await apiFetch(`${API_BASE}/stats/uptime?${params.toString()}`, { signal });
+    return handleResponse<UptimeWindowResponse>(response);
+}

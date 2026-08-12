@@ -1,21 +1,16 @@
 <script lang="ts">
     import { fetchVersion, type VersionInfo } from '../api';
     import { APP_ICON_192_URL } from '../assets';
+    import InstancePipeline from '../components/InstancePipeline.svelte';
+    import InstanceSummary from '../components/InstanceSummary.svelte';
+    import PrivacySummary from '../components/PrivacySummary.svelte';
+    import { onMount } from 'svelte';
+    import { fetchEvents, fetchEventFilters, fetchEventsCount, getThumbnailUrl } from '../api';
+    import type { Detection } from '../api';
+    import { fetchDetectionsActivityHeatmapSpan } from '../api/leaderboard';
+    import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
+    import { logger } from '../utils/logger';
     import { _ } from 'svelte-i18n';
-
-    type FeatureDefinition = {
-        icon: string;
-        titleKey: string;
-        descriptionKey: string;
-        badgeKey?: string;
-    };
-
-    type ResourceLinkDefinition = {
-        href: string | '__docs__';
-        labelKey: string;
-        descriptionKey: string;
-        iconPath: string;
-    };
 
     type LinkParts = {
         before: string;
@@ -42,130 +37,44 @@
         })();
     });
 
-    const featureDefinitions: FeatureDefinition[] = [
-        {
-            icon: '🤖',
-            titleKey: 'about.feature_list.ai_models.title',
-            descriptionKey: 'about.feature_list.ai_models.desc',
-            badgeKey: 'about.feature_list.inaturalist_submissions.badge'
-        },
-        {
-            icon: '🎵',
-            titleKey: 'about.feature_list.multi_sensor.title',
-            descriptionKey: 'about.feature_list.multi_sensor.desc'
-        },
-        {
-            icon: '🎬',
-            titleKey: 'about.feature_list.video_analysis.title',
-            descriptionKey: 'about.feature_list.video_analysis.desc'
-        },
-        {
-            icon: '🎞️',
-            titleKey: 'about.feature_list.full_visit_clip.title',
-            descriptionKey: 'about.feature_list.full_visit_clip.desc'
-        },
-        {
-            icon: '🔔',
-            titleKey: 'about.feature_list.notifications.title',
-            descriptionKey: 'about.feature_list.notifications.desc'
-        },
-        {
-            icon: '🧠',
-            titleKey: 'about.feature_list.ai_insights.title',
-            descriptionKey: 'about.feature_list.ai_insights.desc'
-        },
-        {
-            icon: '🏷️',
-            titleKey: 'about.feature_list.taxonomy.title',
-            descriptionKey: 'about.feature_list.taxonomy.desc'
-        },
-        {
-            icon: '🌿',
-            titleKey: 'about.feature_list.inaturalist_submissions.title',
-            descriptionKey: 'about.feature_list.inaturalist_submissions.desc',
-            badgeKey: 'about.feature_list.inaturalist_submissions.badge'
-        },
-        {
-            icon: '🌦️',
-            titleKey: 'about.feature_list.weather.title',
-            descriptionKey: 'about.feature_list.weather.desc'
-        },
-        {
-            icon: '🏠',
-            titleKey: 'about.feature_list.home_assistant.title',
-            descriptionKey: 'about.feature_list.home_assistant.desc'
-        },
-        {
-            icon: '🌍',
-            titleKey: 'about.feature_list.birdweather.title',
-            descriptionKey: 'about.feature_list.birdweather.desc'
-        },
-        {
-            icon: '📊',
-            titleKey: 'about.feature_list.observability.title',
-            descriptionKey: 'about.feature_list.observability.desc'
-        },
-        {
-            icon: '⚡',
-            titleKey: 'about.feature_list.fast_path.title',
-            descriptionKey: 'about.feature_list.fast_path.desc'
-        },
-        {
-            icon: '🔓',
-            titleKey: 'about.feature_list.guest_mode.title',
-            descriptionKey: 'about.feature_list.guest_mode.desc'
-        },
-        {
-            icon: '🖥️',
-            titleKey: 'about.feature_list.gpu_acceleration.title',
-            descriptionKey: 'about.feature_list.gpu_acceleration.desc'
-        },
-        {
-            icon: '🎯',
-            titleKey: 'about.feature_list.personalized_reranking.title',
-            descriptionKey: 'about.feature_list.personalized_reranking.desc'
-        },
-        {
-            icon: '📋',
-            titleKey: 'about.feature_list.ebird_export.title',
-            descriptionKey: 'about.feature_list.ebird_export.desc'
-        }
-    ];
+    // The colophon states what this feeder has recorded, not what the software can do.
+    let totalDetections = $state<number | null>(null);
+    let speciesCount = $state<number | null>(null);
+    let weekCount = $state<number | null>(null);
+    let recentPhotos = $state<Detection[]>([]);
 
-    let features = $derived(
-        featureDefinitions.map((feature) => ({
-            icon: feature.icon,
-            title: $_(feature.titleKey),
-            description: $_(feature.descriptionKey),
-            badge: feature.badgeKey ? $_(feature.badgeKey) : undefined
-        }))
-    );
-
-    let techStack = $derived([
-        { category: $_('about.tech.backend'), items: ['Python 3.12', 'FastAPI', 'SQLite', 'Alembic'] },
-        { category: $_('about.tech.frontend'), items: ['Svelte 5', 'TypeScript', 'Tailwind CSS', 'Vite'] },
-        { category: $_('about.tech.ml'), items: ['ONNX Runtime', 'OpenVINO', 'TensorFlow Lite', 'OpenCV'] },
-        { category: $_('about.tech.messaging'), items: ['MQTT (aiomqtt)', 'Server-Sent Events'] },
-        { category: $_('about.tech.deployment'), items: ['Docker', 'Docker Compose', 'Nginx'] }
-    ]);
-
-    // Line icons for the calm section headers (match the refreshed pages' language).
-    const sectionIcon = {
-        project: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z',
-        workflow: 'M13 10V3L4 14h7v7l9-11h-7z',
-        features: 'M5 4h6v6H5zM13 4h6v6h-6zM5 12h6v8H5zM13 14h6v6h-6z',
-        stack: 'M12 3 3 7.5 12 12l9-4.5L12 3zM3 12l9 4.5L21 12M3 16.5 12 21l9-4.5',
-        docs: 'M9 13h6m-6 4h4M8 3h6l5 5v11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
-        credits: 'M12 21s-7.5-4.6-10-9.5A5 5 0 0 1 12 6a5 5 0 0 1 10 5.5C19.5 16.4 12 21 12 21z'
-    };
+    onMount(() => {
+        const controller = new AbortController();
+        void (async () => {
+            try {
+                const [count, filters, heatmap, recent] = await Promise.all([
+                    fetchEventsCount(),
+                    fetchEventFilters(),
+                    fetchDetectionsActivityHeatmapSpan('week'),
+                    fetchEvents({ limit: 4 })
+                ]);
+                if (controller.signal.aborted) return;
+                totalDetections = count.count ?? null;
+                speciesCount = filters.species?.length ?? null;
+                weekCount = heatmap.total_count ?? null;
+                recentPhotos = recent.slice(0, 4);
+            } catch (error) {
+                if (controller.signal.aborted) return;
+                // The colophon degrades to prose; the page is still worth reading.
+                if (isTransientRequestError(error)) {
+                    logger.warn('About summary unavailable', { message: getErrorMessage(error) });
+                } else {
+                    logger.error('Failed to load About summary', error);
+                }
+            }
+        })();
+        return () => controller.abort();
+    });
 
     const repoUrl = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder';
     let docsRefBranch = $derived(
         versionInfo.branch && versionInfo.branch !== 'unknown' ? versionInfo.branch : 'main'
     );
-
-    const steps = [1, 2, 3, 4, 5, 6, 7, 8];
-    const stepColumns = [steps.slice(0, Math.ceil(steps.length / 2)), steps.slice(Math.ceil(steps.length / 2))];
 
     const linkToken = '{link}';
     const splitLinkTemplate = (text: string): LinkParts => {
@@ -203,51 +112,6 @@
         }
     ]);
 
-    let sectionLinks = $derived([
-        { id: 'about-project', label: $_('about.title') },
-        { id: 'about-workflow', label: $_('about.how_it_works') },
-        { id: 'about-features', label: $_('about.features') },
-        { id: 'about-stack', label: $_('about.tech_stack') },
-        { id: 'about-docs', label: $_('about.docs_resources') },
-        { id: 'about-credits', label: $_('about.credits') }
-    ]);
-
-    const resourceLinkDefinitions: ResourceLinkDefinition[] = [
-        {
-            href: repoUrl,
-            labelKey: 'about.links.repo',
-            descriptionKey: 'about.links.repo_desc',
-            iconPath: 'M10 3.5a6.5 6.5 0 0 1 2.157 12.633c-.157.028-.214-.067-.214-.149 0-.104.004-.445.004-.806 0-.282-.09-.463-.192-.556.63-.07 1.292-.311 1.292-1.403 0-.31-.11-.565-.291-.764.029-.071.126-.357-.028-.744 0 0-.238-.077-.78.292a2.664 2.664 0 0 0-1.422 0c-.542-.369-.78-.292-.78-.292-.154.387-.057.673-.028.744-.181.2-.291.454-.291.764 0 1.09.66 1.333 1.289 1.403a.752.752 0 0 0-.18.498c0 .36.004.702.004.806 0 .082-.057.179-.215.149A6.5 6.5 0 0 1 10 3.5Z'
-        },
-        {
-            href: '__docs__',
-            labelKey: 'about.links.docs',
-            descriptionKey: 'about.links.docs_desc',
-            iconPath: 'M4.75 3.25h7.25a2.5 2.5 0 0 1 2.5 2.5v10a.5.5 0 0 1-.757.429A3.25 3.25 0 0 0 12 15.75H5.5a.75.75 0 0 1-.75-.75v-9.25a2.5 2.5 0 0 1 2.5-2.5Zm7.25 11.25c.921 0 1.812.244 2.593.706a.5.5 0 0 0 .757-.429V6.5a2.25 2.25 0 0 1 2.25-2.25h.75a.5.5 0 0 1 .5.5V15a2.75 2.75 0 0 1-2.75 2.75H12a2.75 2.75 0 0 1-2.75-2.75V14.5H12Z'
-        },
-        {
-            href: 'https://frigate.video',
-            labelKey: 'about.links.frigate',
-            descriptionKey: 'about.links.frigate_desc',
-            iconPath: 'M3.5 5.75A2.25 2.25 0 0 1 5.75 3.5h8.5a2.25 2.25 0 0 1 2.25 2.25v8.5a2.25 2.25 0 0 1-2.25 2.25h-8.5A2.25 2.25 0 0 1 3.5 14.25v-8.5Zm5 2a.75.75 0 0 0-1.125.65v3.2a.75.75 0 0 0 1.125.65l2.8-1.6a.75.75 0 0 0 0-1.3l-2.8-1.6Z'
-        },
-        {
-            href: 'https://github.com/tphakala/birdnet-go',
-            labelKey: 'about.links.birdnet',
-            descriptionKey: 'about.links.birdnet_desc',
-            iconPath: 'M9.75 3.75a.75.75 0 0 1 1.5 0V8a.75.75 0 0 1-1.5 0V3.75Zm-3 2.5a.75.75 0 0 1 1.5 0V8a.75.75 0 0 1-1.5 0V6.25Zm6 0a.75.75 0 0 1 1.5 0V8a.75.75 0 0 1-1.5 0V6.25ZM4.5 10.5a5.5 5.5 0 1 1 11 0v2.25a3.25 3.25 0 0 1-3.25 3.25h-4.5A3.25 3.25 0 0 1 4.5 12.75V10.5Z'
-        }
-    ];
-
-    let resourceLinks = $derived(
-        resourceLinkDefinitions.map((resource) => ({
-            ...resource,
-            href: resource.href === '__docs__' ? `${repoUrl}/tree/${docsRefBranch}/docs` : resource.href,
-            label: $_(resource.labelKey),
-            description: $_(resource.descriptionKey)
-        }))
-    );
-
     let quickActions = $derived([
         {
             href: `${repoUrl}/tree/${docsRefBranch}/docs`,
@@ -264,217 +128,145 @@
     ]);
 </script>
 
-<div class="max-w-7xl mx-auto space-y-8">
-    {#snippet sectionHead(id: string, iconPath: string, title: string)}
-        <div class="flex items-center gap-3">
-            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300" aria-hidden="true">
-                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d={iconPath} /></svg>
-            </span>
-            <h2 {id} class="text-2xl font-bold text-slate-900 dark:text-white">{title}</h2>
-        </div>
-    {/snippet}
-
-    <!-- Tagline + version + quick links (PageHeader supplies the page title and icon cluster) -->
-    <header class="text-center space-y-4">
-        <img
-            src={APP_ICON_192_URL}
-            alt={$_('app.title')}
-            class="mx-auto h-20 w-20 object-contain drop-shadow-md"
-        />
-        <p class="text-lg text-slate-600 dark:text-slate-400">
-            {$_('app.tagline')}
-        </p>
-        <div class="flex items-center justify-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+<div class="mx-auto max-w-5xl space-y-6">
+    <!-- Colophon: what this is, in plain sentences -->
+    <section id="about-project" aria-labelledby="about-project-heading" class="space-y-4 px-1 pt-2">
+        <div class="flex items-start gap-4">
+            <div class="min-w-0">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                    {$_('nav.about', { default: 'About' })}
+                </p>
+                <h2 id="about-project-heading" class="mt-1 font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white">
+                    {$_('app.full_title', { default: 'Yet Another WhosAtMyFeeder' })}
+                </h2>
+            </div>
             <a
                 href={`${repoUrl}/blob/${docsRefBranch}/CHANGELOG.md`}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="rounded-full border border-slate-200/80 bg-white/90 px-3 py-1 font-mono shadow-sm transition-colors hover:border-brand-300/60 hover:text-brand-700 dark:border-slate-700/60 dark:bg-slate-800/80 dark:hover:text-brand-300"
+                class="ml-auto shrink-0 rounded-full border border-slate-200/80 px-3 py-1 font-mono text-xs text-slate-600 transition-colors hover:border-brand-300/60 focus-ring dark:border-slate-700 dark:text-slate-300"
                 title={$_('about.view_changelog')}
             >
                 v{versionInfo.base_version}
             </a>
-            <a
-                href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="flex items-center gap-1.5 hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
-            >
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd" />
-                </svg>
-                {$_('common.github')}
-            </a>
-            <span class="text-slate-300 dark:text-slate-600">|</span>
-            <span>{$_('common.mit_license')}</span>
         </div>
-        <div class="flex flex-wrap items-center justify-center gap-2 pt-1">
-            {#each quickActions as action}
-                <a
-                    href={action.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="btn btn-secondary px-2.5 py-1.5 text-xs"
-                >
-                    {action.label}
-                </a>
-            {/each}
-            <a
-                href={repoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                class="btn border border-amber-400/80 bg-amber-100 px-2.5 py-1.5 text-xs text-amber-950 shadow-sm hover:border-amber-500 hover:bg-amber-200 dark:border-amber-300/70 dark:bg-amber-200 dark:text-amber-950 dark:hover:bg-amber-100"
-                aria-label={$_('about.star_github_label', { default: 'Star YA-WAMF on GitHub' })}
-                title={$_('about.star_github_label', { default: 'Star YA-WAMF on GitHub' })}
-            >
-                <span aria-hidden="true">⭐</span>
-                <span>{$_('about.star_github', { default: 'Star on GitHub' })}</span>
-            </a>
-        </div>
-    </header>
 
-    <nav aria-label={$_('about.jump_to')} class="card-base p-4">
-        <div class="flex flex-wrap items-center justify-center gap-2">
-            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                {$_('about.jump_to')}
-            </span>
-            {#each sectionLinks as section}
-                <a
-                    href={`#${section.id}`}
-                    class="rounded-full border border-slate-200/80 px-3 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-brand-300/60 hover:text-brand-700 dark:border-slate-700/60 dark:text-slate-300 dark:hover:text-brand-300"
-                >
-                    {section.label}
-                </a>
-            {/each}
-        </div>
-    </nav>
-
-    <!-- About the Project -->
-    <section id="about-project" aria-labelledby="about-project-heading" class="card-base p-6 space-y-4">
-        {@render sectionHead('about-project-heading', sectionIcon.project, $_('about.title'))}
-        <div class="space-y-3 text-slate-700 dark:text-slate-300">
+        <div class="space-y-3 text-sm leading-6 text-slate-700 dark:text-slate-300">
+            <p>{$_('about.project_desc_2')}</p>
             <p>
-                {projectDescription.before}<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">WhosAtMyFeeder</a>{projectDescription.after}
-            </p>
-            <p>
-                {$_('about.project_desc_2')}
+                {projectDescription.before}<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline dark:text-brand-400">WhosAtMyFeeder</a>{projectDescription.after}
             </p>
         </div>
-    </section>
 
-    <!-- How It Works -->
-    <section id="about-workflow" aria-labelledby="about-workflow-heading" class="card-base p-6 space-y-4">
-        {@render sectionHead('about-workflow-heading', sectionIcon.workflow, $_('about.how_it_works'))}
-        <div class="space-y-4">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {#each stepColumns as column}
-                    <div class="space-y-3">
-                        {#each column as step}
-                            <div class="flex items-start gap-3">
-                                <div class="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-brand-200 bg-brand-50 font-bold text-brand-700 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300">{step}</div>
-                                <div>
-                                    <h3 class="font-semibold text-slate-900 dark:text-white">{$_(`about.steps.${step}.title`)}</h3>
-                                    <p class="text-sm text-slate-600 dark:text-slate-400">{$_(`about.steps.${step}.desc`)}</p>
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                {/each}
-            </div>
-        </div>
-    </section>
-
-    <!-- Features Grid -->
-    <section id="about-features" aria-labelledby="about-features-heading" class="space-y-4">
-        {@render sectionHead('about-features-heading', sectionIcon.features, $_('about.features'))}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each features as feature}
-                <div class="card-base p-4">
-                    <div class="flex items-start gap-3">
-                        <span class="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-brand-200 bg-brand-50 text-base dark:border-brand-800 dark:bg-brand-950/40">
-                            {feature.icon}
-                        </span>
-                        <div class="space-y-1">
-                            <div class="flex items-center gap-2">
-                                <h3 class="font-semibold text-slate-900 dark:text-white text-sm">{feature.title}</h3>
-                                {#if feature.badge}
-                                    <span class="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-400/20 dark:text-amber-200">
-                                        {feature.badge}
-                                    </span>
-                                {/if}
-                            </div>
-                            <p class="text-xs text-slate-600 dark:text-slate-400">{feature.description}</p>
-                        </div>
-                    </div>
-                </div>
-            {/each}
-        </div>
-    </section>
-
-    <!-- Tech Stack -->
-    <section id="about-stack" aria-labelledby="about-stack-heading" class="card-base p-6 space-y-4">
-        {@render sectionHead('about-stack-heading', sectionIcon.stack, $_('about.tech_stack'))}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {#each techStack as stack}
-                <div class="space-y-2">
-                    <h3 class="font-semibold text-brand-700 dark:text-brand-400 text-sm">{stack.category}</h3>
-                    <ul class="space-y-1">
-                        {#each stack.items as item}
-                            <li class="text-sm text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                                <span class="w-1 h-1 rounded-full bg-slate-400"></span>
-                                {item}
-                            </li>
-                        {/each}
-                    </ul>
-                </div>
-            {/each}
-        </div>
-    </section>
-
-    <!-- Documentation & Links -->
-    <section id="about-docs" aria-labelledby="about-docs-heading" class="card-base p-6 space-y-4">
-        {@render sectionHead('about-docs-heading', sectionIcon.docs, $_('about.docs_resources'))}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {#each resourceLinks as resource}
-                <a
-                    href={resource.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="group flex items-center gap-3 rounded-xl border border-slate-200/80 p-3 transition-all hover:border-brand-300/60 hover:bg-slate-50/80 dark:border-slate-700/60 dark:hover:bg-slate-800/70"
-                >
-                    <span class="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-brand-200 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/40 dark:text-brand-300">
-                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                            <path d={resource.iconPath} />
-                        </svg>
-                    </span>
+        {#if totalDetections !== null || recentPhotos.length > 0}
+            <div class="grid gap-5 border-t border-slate-200/70 pt-4 sm:grid-cols-[minmax(0,1fr)_auto] dark:border-slate-700/50">
+                <dl class="flex flex-wrap gap-x-8 gap-y-3" data-about-stats>
                     <div>
-                        <div class="font-semibold text-slate-900 dark:text-white group-hover:text-brand-600 dark:group-hover:text-brand-400">{resource.label}</div>
-                        <div class="text-xs text-slate-500 dark:text-slate-400">{resource.description}</div>
+                        <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
+                            {totalDetections?.toLocaleString() ?? '—'}
+                        </dd>
+                        <dt class="text-xs text-slate-500 dark:text-slate-400">
+                            {$_('about.stats.detections', { default: 'detections stored' })}
+                        </dt>
                     </div>
-                </a>
-            {/each}
-        </div>
+                    <div>
+                        <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
+                            {speciesCount ?? '—'}
+                        </dd>
+                        <dt class="text-xs text-slate-500 dark:text-slate-400">
+                            {$_('about.stats.species', { default: 'species identified' })}
+                        </dt>
+                    </div>
+                    <div>
+                        <dd class="font-display text-2xl font-bold tabular-nums text-slate-900 dark:text-white">
+                            {weekCount ?? '—'}
+                        </dd>
+                        <dt class="text-xs text-slate-500 dark:text-slate-400">
+                            {$_('about.stats.week', { default: 'visits this week' })}
+                        </dt>
+                    </div>
+                </dl>
+
+                {#if recentPhotos.length > 0}
+                    <div class="grid grid-cols-2 gap-2" data-about-photos>
+                        {#each recentPhotos as photo (photo.frigate_event)}
+                            <img
+                                src={getThumbnailUrl(photo.frigate_event)}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                width="150"
+                                height="72"
+                                class="h-[72px] w-[150px] rounded-lg object-cover"
+                            />
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+        {/if}
+
     </section>
 
-    <!-- Credits -->
-    <section id="about-credits" aria-labelledby="about-credits-heading" class="card-base p-6 space-y-4">
-        {@render sectionHead('about-credits-heading', sectionIcon.credits, $_('about.credits'))}
-        <div class="space-y-2 text-sm text-slate-700 dark:text-slate-300">
-            <p>{$_('about.credits_list.preamble')}</p>
-            <ul class="list-disc list-inside space-y-1 ml-4">
-                {#each creditsLinks as credit}
-                    <li>
-                        {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="text-brand-600 dark:text-brand-400 hover:underline">{credit.label}</a>{credit.parts.after}
-                    </li>
-                {/each}
-                <li>{$_('about.credits_list.ai_assistants')}</li>
-            </ul>
+    <!-- How it works, annotated with what this instance is doing -->
+    <section id="about-workflow" aria-labelledby="about-workflow-heading" class="card-base space-y-4 p-6">
+        <div>
+            <h2 id="about-workflow-heading" class="font-display text-xl font-bold text-slate-900 dark:text-white">
+                {$_('about.how_it_works')}
+            </h2>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                {$_('about.pipeline.subtitle', {
+                    default: 'The standard pipeline, showing what this instance is doing.'
+                })}
+            </p>
         </div>
+        <InstancePipeline />
     </section>
 
-    <!-- License -->
-    <footer class="text-center text-sm text-slate-500 dark:text-slate-400 py-4">
-        <p>{$_('about.license_notice', { values: { year: new Date().getFullYear(), license: $_('common.mit_license') } })}</p>
-        <p class="mt-1">{$_('about.built_with_ai')}</p>
-    </footer>
+    <InstanceSummary {versionInfo} />
+
+    <!-- What it keeps, what it sends, who to thank: one closing row -->
+    <section class="card-base p-6" aria-labelledby="about-close-heading">
+        <h2 id="about-close-heading" class="sr-only">
+            {$_('about.close.title', { default: 'Data, privacy and credits' })}
+        </h2>
+        <div class="grid gap-8 md:grid-cols-3">
+            <PrivacySummary />
+
+            <section aria-labelledby="about-credits-heading">
+                <h3 id="about-credits-heading" class="text-sm font-bold text-slate-900 dark:text-white">
+                    {$_('about.reference_thanks', { default: 'Reference & thanks' })}
+                </h3>
+                <ul class="mt-2 space-y-1.5 text-xs">
+                    {#each quickActions as action}
+                        <li>
+                            <a
+                                href={action.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="text-brand-600 hover:underline focus-ring dark:text-brand-400"
+                            >
+                                {action.label} ↗
+                            </a>
+                        </li>
+                    {/each}
+                </ul>
+
+                <p class="mt-4 text-xs font-semibold text-slate-800 dark:text-slate-100">
+                    {$_('about.thanks_to', { default: 'Thanks to' })}
+                </p>
+                <ul class="mt-1 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                    {#each creditsLinks as credit}
+                        <li>
+                            {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline dark:text-brand-400">{credit.label}</a>{credit.parts.after}
+                        </li>
+                    {/each}
+                    <li>{$_('about.credits_list.ai_assistants')}</li>
+                    <li>{$_('about.flaticon_credit')}</li>
+                </ul>
+                <p class="mt-3 text-[11px] text-slate-500 dark:text-slate-400">
+                    {$_('about.license_notice', { values: { year: new Date().getFullYear(), license: $_('common.mit_license') } })}
+                </p>
+            </section>
+        </div>
+    </section>
 </div>

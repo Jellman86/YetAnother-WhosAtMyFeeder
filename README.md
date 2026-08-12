@@ -45,7 +45,7 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 - **Leaderboard AI Insights** - Analyze detection charts for trends and weather correlations
 - **Home Assistant Integration** - Sensors, automation, and dashboard cards
 - **BirdWeather Reporting** - Contribute to community science
-- **Real-time Dashboard** - Live updates, video playback, species statistics
+- **Real-time Dashboard** - A chronological field log of the day with repeat frames folded into visits, a review queue for anything the classifier could not name, live updates, video playback, and species statistics
 - **Notification Center** - Pinned progress for long-running jobs and a full notifications view
 - **Public View (Guest Mode)** - Share a read-only dashboard with rate limits and optional camera name hiding
 

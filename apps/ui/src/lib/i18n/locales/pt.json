@@ -3,7 +3,8 @@
     "title": "YA-WAMF",
     "logo_subtitle": "WhosAtMyFeeder",
     "logo_title": "Yet Another",
-    "tagline": "Classificação de pássaros com IA para seu Frigate NVR"
+    "tagline": "Classificação de pássaros com IA para seu Frigate NVR",
+    "full_title": "Yet Another WhosAtMyFeeder"
   },
   "nav": {
     "dashboard": "Painel",
@@ -27,21 +28,112 @@
     "species": "Espécies"
   },
   "manual_observation": {
-    "eyebrow": "Registo de campo", "intro_title": "Transforme uma foto ou vídeo numa observação verificada",
-    "intro_body": "O YA-WAMF usa o mesmo modelo, seleção de recorte e consenso de vídeo das deteções em direto. Nada é adicionado antes da sua revisão.", "progress_label": "Progresso da observação",
-    "steps": { "upload": "Carregar", "upload_detail": "Escolher o ficheiro original", "analyse": "Analisar", "analyse_detail": "Encontrar a melhor evidência", "review": "Rever", "review_detail": "Confirmar a espécie", "save": "Guardar", "save_detail": "Adicionar às observações" },
-    "evidence": { "full_frame": "Imagem completa", "crop": "Melhor recorte", "model": "Modelo", "provider": "Fornecedor" },
-    "errors": { "load": "Não foi possível carregar o estado da análise.", "type": "Escolha um ficheiro JPEG, PNG, WebP, MP4, MOV ou WebM.", "image_size": "Escolha uma imagem com no máximo 25 MB.", "video_size": "Escolha um vídeo com no máximo 250 MB.", "upload": "Não foi possível carregar o ficheiro.", "retry": "Não foi possível reiniciar a análise.", "save": "Não foi possível guardar a observação." },
-    "upload": { "title": "Escolha uma foto ou vídeo", "help": "Use o ficheiro original sempre que possível. O YA-WAMF irá preservá-lo e escolher a melhor entrada para classificação.", "change": "Escolher outro ficheiro", "drop": "Largue o ficheiro aqui ou escolha um", "formats": "JPEG, PNG, WebP até 25 MB · MP4, MOV, WebM até 250 MB / 3 minutos", "uploading": "A proteger o original…", "analyse": "Carregar e analisar" },
-    "analysis": { "preview_alt": "Pré-visualização do ficheiro carregado", "video": "Vídeo", "image": "Foto", "title": "A encontrar a melhor evidência", "body": "O classificador de produção compara fotogramas e recortes. Pode sair desta página; o rascunho será restaurado quando voltar.", "progress": "Progresso da análise", "failed_title": "Análise interrompida em segurança", "failed_body": "O ficheiro original continua guardado. Tente novamente quando o modelo estiver disponível.", "retry": "Repetir análise" },
-    "review": { "preview_alt": "Pré-visualização da observação", "title": "Reveja antes de guardar", "body": "Confirme a espécie sugerida, corrija-a se necessário e adicione o contexto que pretende manter.", "candidates": "Sugestões do modelo", "species": "Espécie", "when": "Observada em", "location": "Câmara ou nome do local", "notes": "Notas", "saving": "A guardar observação…", "save": "Guardar observação" },
-    "location": { "title": "Local do avistamento", "extracted": "Foi encontrado um local nos metadados da imagem. Verifique o marcador e ajuste-o se necessário.", "missing": "Não foi encontrado um local incorporado. Coloque um marcador se souber onde ocorreu o avistamento.", "manual": "Este marcador foi colocado ou ajustado manualmente. Verifique-o antes de guardar.", "from_image": "Dos metadados da imagem", "map_label": "Mapa para colocar o marcador do avistamento", "map_help": "Clique ou toque no mapa para colocar o marcador. Arraste-o para fazer um ajuste preciso.", "latitude": "Latitude", "longitude": "Longitude", "clear": "Limpar local", "incomplete": "Introduza a latitude e a longitude, ou limpe o local.", "invalid": "A latitude deve estar entre −90 e 90 e a longitude entre −180 e 180.", "selected": "Marcador colocado em {latitude}, {longitude}", "unselected": "Nenhum local de avistamento selecionado", "pin_label": "Marcador do avistamento; arraste para ajustar" },
-    "saved": { "toast": "Observação adicionada", "eyebrow": "Registo concluído", "title": "Observação guardada", "body": "O registo verificado faz agora parte do histórico e dos totais por espécie.", "view": "Ver deteção", "another": "Adicionar outra" },
-    "start_over": "Recomeçar"
+    "eyebrow": "Registo de campo",
+    "intro_title": "Transforme uma foto ou vídeo numa observação verificada",
+    "intro_body": "O YA-WAMF usa o mesmo modelo, seleção de recorte e consenso de vídeo das deteções em direto. Nada é adicionado antes da sua revisão.",
+    "progress_label": "Progresso da observação",
+    "steps": {
+      "upload": "Carregar",
+      "upload_detail": "Escolher o ficheiro original",
+      "analyse": "Analisar",
+      "analyse_detail": "Encontrar a melhor evidência",
+      "review": "Rever",
+      "review_detail": "Confirmar a espécie",
+      "save": "Guardar",
+      "save_detail": "Adicionar às observações"
+    },
+    "evidence": {
+      "full_frame": "Imagem completa",
+      "crop": "Melhor recorte",
+      "model": "Modelo",
+      "provider": "Fornecedor",
+      "original": "Como foi carregado",
+      "compare": "Comparar evidências",
+      "scored_help": "Esta é exatamente a entrada avaliada pelo classificador.",
+      "original_help": "O seu ficheiro original, guardado tal como está.",
+      "input": "Entrada avaliada",
+      "file": "Ficheiro"
+    },
+    "errors": {
+      "load": "Não foi possível carregar o estado da análise.",
+      "type": "Escolha um ficheiro JPEG, PNG, WebP, MP4, MOV ou WebM.",
+      "image_size": "Escolha uma imagem com no máximo 25 MB.",
+      "video_size": "Escolha um vídeo com no máximo 250 MB.",
+      "upload": "Não foi possível carregar o ficheiro.",
+      "retry": "Não foi possível reiniciar a análise.",
+      "save": "Não foi possível guardar a observação."
+    },
+    "upload": {
+      "title": "Escolha uma foto ou vídeo",
+      "help": "Use o ficheiro original sempre que possível. O YA-WAMF irá preservá-lo e escolher a melhor entrada para classificação.",
+      "change": "Escolher outro ficheiro",
+      "drop": "Largue o ficheiro aqui ou escolha um",
+      "formats": "JPEG, PNG, WebP até 25 MB · MP4, MOV, WebM até 250 MB / 3 minutos",
+      "uploading": "A proteger o original…",
+      "analyse": "Carregar e analisar"
+    },
+    "analysis": {
+      "preview_alt": "Pré-visualização do ficheiro carregado",
+      "video": "Vídeo",
+      "image": "Foto",
+      "title": "A encontrar a melhor evidência",
+      "body": "O classificador de produção compara fotogramas e recortes. Pode sair desta página; o rascunho será restaurado quando voltar.",
+      "progress": "Progresso da análise",
+      "failed_title": "Análise interrompida em segurança",
+      "failed_body": "O ficheiro original continua guardado. Tente novamente quando o modelo estiver disponível.",
+      "retry": "Repetir análise"
+    },
+    "review": {
+      "preview_alt": "Pré-visualização da observação",
+      "title": "Reveja antes de guardar",
+      "body": "Confirme a espécie sugerida, corrija-a se necessário e adicione o contexto que pretende manter.",
+      "candidates": "Sugestões do modelo",
+      "species": "Espécie",
+      "when": "Observada em",
+      "location": "Câmara ou nome do local",
+      "notes": "Notas",
+      "saving": "A guardar observação…",
+      "save": "Guardar observação",
+      "save_species": "Adicionar {species}"
+    },
+    "location": {
+      "title": "Local do avistamento",
+      "extracted": "Foi encontrado um local nos metadados da imagem. Verifique o marcador e ajuste-o se necessário.",
+      "missing": "Não foi encontrado um local incorporado. Coloque um marcador se souber onde ocorreu o avistamento.",
+      "manual": "Este marcador foi colocado ou ajustado manualmente. Verifique-o antes de guardar.",
+      "from_image": "Dos metadados da imagem",
+      "map_label": "Mapa para colocar o marcador do avistamento",
+      "map_help": "Clique ou toque no mapa para colocar o marcador. Arraste-o para fazer um ajuste preciso.",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "clear": "Limpar local",
+      "incomplete": "Introduza a latitude e a longitude, ou limpe o local.",
+      "invalid": "A latitude deve estar entre −90 e 90 e a longitude entre −180 e 180.",
+      "selected": "Marcador colocado em {latitude}, {longitude}",
+      "unselected": "Nenhum local de avistamento selecionado",
+      "pin_label": "Marcador do avistamento; arraste para ajustar"
+    },
+    "saved": {
+      "toast": "Observação adicionada",
+      "eyebrow": "Registo concluído",
+      "title": "Observação guardada",
+      "body": "O registo verificado faz agora parte do histórico e dos totais por espécie.",
+      "view": "Ver deteção",
+      "another": "Adicionar outra"
+    },
+    "start_over": "Recomeçar",
+    "bar": {
+      "kept": "Guardado tal como foi carregado",
+      "hint": "Nada é adicionado até que reveja"
+    }
   },
   "setup": {
     "action_failed": "Não foi possível guardar a alteração. Verifique os dados e tente novamente.",
-    "load": { "loading": "A carregar as definições guardadas…", "failed": "Não foi possível carregar as definições guardadas. Nada foi alterado.", "retry": "Repetir carregamento" },
+    "load": {
+      "loading": "A carregar as definições guardadas…",
+      "failed": "Não foi possível carregar as definições guardadas. Nada foi alterado.",
+      "retry": "Repetir carregamento"
+    },
     "status": {
       "ok": "Configurado",
       "attention": "Requer atenção",
@@ -53,7 +145,11 @@
     "connection": {
       "title": "Ligação Frigate e MQTT",
       "save_failed": "Não foi possível guardar as definições de ligação. Verifique os valores e tente novamente.",
-      "mqtt_auth": "Autenticação MQTT", "mqtt_auth_hint": "Ative apenas se o broker exigir utilizador e palavra-passe.", "mqtt_username": "Utilizador", "mqtt_password": "Palavra-passe", "mqtt_password_saved": "A palavra-passe guardada será mantida até introduzir outra."
+      "mqtt_auth": "Autenticação MQTT",
+      "mqtt_auth_hint": "Ative apenas se o broker exigir utilizador e palavra-passe.",
+      "mqtt_username": "Utilizador",
+      "mqtt_password": "Palavra-passe",
+      "mqtt_password_saved": "A palavra-passe guardada será mantida até introduzir outra."
     },
     "cameras": {
       "title": "Câmaras e deteção",
@@ -73,13 +169,43 @@
       "title": "Integrações",
       "birdnet_test_subtitle": "O teste por etapas usa este URL e depois verifica o broker MQTT guardado e o armazenamento local de deteções."
     },
-    "history": { "title": "Importar deteções existentes", "description": "Classifique opcionalmente eventos de aves ainda guardados pelo Frigate. A importação decorre em segundo plano.", "enable": "Importar eventos de aves guardados pelo Frigate", "enable_help": "As deteções só são atualizadas quando a classificação melhora; áudio e meteorologia são preservados.", "range": "Período do histórico", "import_continue": "Importar e continuar", "continue_without": "Continuar sem importar", "job_title": "Importação do histórico", "job_starting": "A pesquisar o histórico do Frigate", "audio_note": "O histórico do Frigate restaura deteções visuais e instantâneos, mas não recria áudio BirdNET-Go que não tenha sido guardado." },
+    "history": {
+      "title": "Importar deteções existentes",
+      "description": "Classifique opcionalmente eventos de aves ainda guardados pelo Frigate. A importação decorre em segundo plano.",
+      "enable": "Importar eventos de aves guardados pelo Frigate",
+      "enable_help": "As deteções só são atualizadas quando a classificação melhora; áudio e meteorologia são preservados.",
+      "range": "Período do histórico",
+      "import_continue": "Importar e continuar",
+      "continue_without": "Continuar sem importar",
+      "job_title": "Importação do histórico",
+      "job_starting": "A pesquisar o histórico do Frigate",
+      "audio_note": "O histórico do Frigate restaura deteções visuais e instantâneos, mas não recria áudio BirdNET-Go que não tenha sido guardado."
+    },
     "review": {
       "loading": "A verificar a configuração guardada…",
       "load_failed": "Não foi possível carregar o resumo da configuração. As definições guardadas não foram alteradas.",
       "retry": "Repetir resumo",
       "stale": "É apresentado o último resumo porque a atualização mais recente falhou.",
-      "detail": { "account_password_protected": "Protegido por palavra-passe", "account_auth_disabled": "Autenticação desativada", "account_not_configured": "Não configurado", "frigate_url": "URL do Frigate", "mqtt_broker": "Broker MQTT", "mqtt_username": "Nome de utilizador MQTT", "mqtt_password": "Palavra-passe MQTT", "connection_missing": "Defina {items}", "cameras_count": "{count} câmaras", "cameras_all": "Todas as câmaras", "model_wrong_kind": "Foi selecionado um detetor de recorte como classificador", "model_retired": "O classificador guardado foi descontinuado", "model_fallback": "Alternativa incluída", "quality_best": "Melhores instantâneos disponíveis", "quality_standard": "Instantâneos padrão", "integrations_needs": "Requer configuração: {integrations}", "integrations_configured": "Configurado: {integrations}", "integrations_none": "Nenhuma ativa" }
+      "detail": {
+        "account_password_protected": "Protegido por palavra-passe",
+        "account_auth_disabled": "Autenticação desativada",
+        "account_not_configured": "Não configurado",
+        "frigate_url": "URL do Frigate",
+        "mqtt_broker": "Broker MQTT",
+        "mqtt_username": "Nome de utilizador MQTT",
+        "mqtt_password": "Palavra-passe MQTT",
+        "connection_missing": "Defina {items}",
+        "cameras_count": "{count} câmaras",
+        "cameras_all": "Todas as câmaras",
+        "model_wrong_kind": "Foi selecionado um detetor de recorte como classificador",
+        "model_retired": "O classificador guardado foi descontinuado",
+        "model_fallback": "Alternativa incluída",
+        "quality_best": "Melhores instantâneos disponíveis",
+        "quality_standard": "Instantâneos padrão",
+        "integrations_needs": "Requer configuração: {integrations}",
+        "integrations_configured": "Configurado: {integrations}",
+        "integrations_none": "Nenhuma ativa"
+      }
     }
   },
   "theme": {
@@ -163,7 +289,69 @@
     },
     "top_visitors_title": "Visitantes frequentes",
     "top_visitors_empty": "Ainda não há visitantes registrados hoje.",
-    "top_visitors_count": "{count} visitas"
+    "top_visitors_count": "{count} visitas",
+    "field_log": {
+      "title": "Diário de campo",
+      "subtitle": "Os fotogramas repetidos da mesma ave são agrupados numa única visita",
+      "needs_name": "Abaixo do limiar de identificação",
+      "identify": "Identificar",
+      "open": "Abrir",
+      "preview_trigger": "Pré-visualizar {species}",
+      "preview_alt": "{species} em {camera}",
+      "preview_frames": "{count} fotogramas nesta visita, é mostrado o mais nítido",
+      "earlier": "{count} visitas anteriores hoje"
+    },
+    "day_bar": {
+      "today": "Hoje",
+      "visits": "visitas",
+      "unresolved": "por resolver",
+      "calls_heard": "cantos ouvidos",
+      "cross_confirmed": "confirmados por ambos",
+      "reconnecting": "A reconectar…"
+    },
+    "desk": {
+      "cameras": "Câmaras",
+      "cameras_empty": "Ainda não há câmaras a responder. Adicione-as em Definições → Ligação.",
+      "camera_no_visits": "sem visitas",
+      "sensors": "Áudio e câmara",
+      "heard": "ouvidos",
+      "seen": "vistos",
+      "both": "ambos",
+      "no_cross_confirmation": "Foram ouvidos {count} cantos, mas nenhum coincidiu com uma visita de câmara. O microfone e as câmaras podem cobrir áreas diferentes.",
+      "conditions": "Condições",
+      "temperature_span": "As visitas variaram entre {low} e {high}"
+    },
+    "review_queue": {
+      "title": "Precisa da sua decisão",
+      "empty": "Todas as visitas de hoje têm espécie. Não há nada pendente.",
+      "remaining": "Mais {count} em espera",
+      "work_through": "Tratar da fila"
+    },
+    "review_session": {
+      "position": "{position} de {total}",
+      "summary": "{resolved} decididas, {skipped} ignoradas",
+      "done": "Fila vazia",
+      "done_with_skips": "Fila concluída",
+      "done_note": "Todas as visitas têm espécie. As suas correções melhoram a ordenação por câmara.",
+      "skipped_note": "{count} para mais tarde. Continuam na fila.",
+      "back": "Voltar ao painel",
+      "what_is_it": "O que é?",
+      "threshold_note": "O modelo ficou abaixo do limiar de identificação.",
+      "search": "Procurar espécie…",
+      "no_matches": "Nenhuma espécie corresponde. Tente menos letras.",
+      "skip": "Ignorar por agora",
+      "not_a_bird": "Não é uma ave, ocultar",
+      "full_record": "Abrir registo completo",
+      "remaining": "Faltam {count} para ver",
+      "image_alt": "Deteção não identificada em {camera}",
+      "all_species": "Todas as espécies",
+      "seen_here": "Vistas neste comedouro",
+      "no_suggestions": "Ainda não há espécies registadas. Procure na lista completa acima.",
+      "crop": "Melhor recorte",
+      "full_frame": "Imagem completa",
+      "view_label": "Que imagem mostrar",
+      "no_crop": "Não há recorte guardado para esta deteção. Abra o registo completo para procurar um."
+    }
   },
   "common": {
     "loading": "Carregando…",
@@ -1681,23 +1869,41 @@
   },
   "audio": {
     "chart": {
-      "heard": "Ouvidas", "daily_title": "Atividade ao longo do tempo",
-      "daily_sub": "Deteções BirdNET-Go ouvidas por dia", "hourly_title": "Hora do dia",
-      "species_title": "Distribuição de espécies", "empty": "Sem atividade neste período."
+      "heard": "Ouvidas",
+      "daily_title": "Atividade ao longo do tempo",
+      "daily_sub": "Deteções BirdNET-Go ouvidas por dia",
+      "hourly_title": "Hora do dia",
+      "species_title": "Distribuição de espécies",
+      "empty": "Sem atividade neste período."
     },
     "stat": {
-      "heard": "Ouvidas", "heard_sub": "Deteções BirdNET apresentadas", "species": "Espécies",
-      "species_sub": "Espécies identificadas por áudio", "peak_hour": "Hora de pico",
-      "peak_hour_sub": "{count} deteções", "no_activity": "Ainda não há atividade",
-      "sources": "Fontes", "sources_sub": "Microfones ou transmissões"
+      "heard": "Ouvidas",
+      "heard_sub": "Deteções BirdNET apresentadas",
+      "species": "Espécies",
+      "species_sub": "Espécies identificadas por áudio",
+      "peak_hour": "Hora de pico",
+      "peak_hour_sub": "{count} deteções",
+      "no_activity": "Ainda não há atividade",
+      "sources": "Fontes",
+      "sources_sub": "Microfones ou transmissões"
     },
     "filter": {
-      "window": "Período", "24h": "24 horas", "7d": "7 dias", "30d": "30 dias",
-      "90d": "90 dias", "1y": "1 ano", "species": "Espécie", "source": "Fonte",
+      "window": "Período",
+      "24h": "24 horas",
+      "7d": "7 dias",
+      "30d": "30 dias",
+      "90d": "90 dias",
+      "1y": "1 ano",
+      "species": "Espécie",
+      "source": "Fonte",
       "min_confidence": "Confiança mínima"
     },
     "top_species": "Espécies mais ouvidas",
-    "card": { "last_heard": "Ouvida pela última vez", "avg": "média", "max": "máx." },
+    "card": {
+      "last_heard": "Ouvida pela última vez",
+      "avg": "média",
+      "max": "máx."
+    },
     "history": {
       "title": "Histórico de deteções",
       "sub": "Deteções BirdNET-Go guardadas, separadas das visitas visuais.",
@@ -1705,16 +1911,26 @@
       "showing": "A mostrar {from}-{to} de {total}"
     },
     "table": {
-      "sound": "Som", "time": "Hora", "species": "Espécie", "source": "Fonte",
-      "confidence": "Confiança", "open_birdnet": "Abrir no BirdNET-Go",
+      "sound": "Som",
+      "time": "Hora",
+      "species": "Espécie",
+      "source": "Fonte",
+      "confidence": "Confiança",
+      "open_birdnet": "Abrir no BirdNET-Go",
       "open_visual_match": "Abrir deteção visual correspondente",
       "unknown_source": "Fonte desconhecida"
     },
-    "sources": { "title": "Fontes", "empty": "Ainda não há fontes." }
+    "sources": {
+      "title": "Fontes",
+      "empty": "Ainda não há fontes."
+    }
   },
   "leaderboard": {
-    "source_toggle": "Fonte da deteção", "source_seen": "Vistas", "source_heard": "Ouvidas",
-    "source_both": "Ambas", "audio_only": "Apenas áudio",
+    "source_toggle": "Fonte da deteção",
+    "source_seen": "Vistas",
+    "source_heard": "Ouvidas",
+    "source_both": "Ambas",
+    "audio_only": "Apenas áudio",
     "audio_only_desc": "Ouvida no BirdNET-Go, não vista pela câmara",
     "title": "Ranking de Espécies",
     "species_count": "{count} espécies",
@@ -1814,145 +2030,20 @@
     "other_species": "Outras"
   },
   "about": {
-    "title": "Sobre este Projeto",
     "how_it_works": "Como Funciona",
-    "features": "Recursos",
-    "tech_stack": "Tecnologias",
-    "docs_resources": "Documentação e Recursos",
     "credits": "Créditos e Agradecimentos",
-    "jump_to": "Ir para",
     "view_changelog": "Ver changelog",
     "flaticon_credit": "Ícones de pássaros criados por Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Licenciado sob {license}",
     "built_with_ai": "Construído com assistência de IA pelo amor à observação de pássaros 🐦",
     "project_desc_1": "YA-WAMF é um projeto pessoal iniciado para experimentar com codificação assistida por IA. Quando o projeto original {link} deixou de ser mantido, este nasceu como uma oportunidade de aprendizado e uma ferramenta útil para entusiastas de pássaros.",
-    "project_desc_2": "O aplicativo foi construído com assistência de IA e cresceu para se tornar uma plataforma completa de identificação de aves — de uma simples câmera de comedouro até correlação multissensor, modelos acelerados por GPU e integração em tempo real com o Home Assistant.",
-    "steps": {
-      "1": {
-        "title": "Frigate Detecta",
-        "desc": "Sua câmera capta movimento, Frigate identifica como um pássaro"
-      },
-      "2": {
-        "title": "Mensagem MQTT",
-        "desc": "Frigate publica um evento para o seu broker MQTT"
-      },
-      "3": {
-        "title": "YA-WAMF Processa",
-        "desc": "O backend assina o MQTT e pega o evento"
-      },
-      "4": {
-        "title": "Classificação",
-        "desc": "Imagem passa pelo modelo de ML (ou usa sub-rótulo do Frigate)"
-      },
-      "5": {
-        "title": "Correlação de Áudio",
-        "desc": "Cruza referências com identificações de áudio do BirdNET-Go, se disponível"
-      },
-      "6": {
-        "title": "Salvar e Notificar",
-        "desc": "Detecção armazenada no banco de dados, notificações enviadas"
-      },
-      "7": {
-        "title": "Análise de Vídeo",
-        "desc": "Opcional: Escaneia quadros de clipes de vídeo para precisão refinada"
-      },
-      "8": {
-        "title": "Atualizações Ao Vivo",
-        "desc": "O painel recebe atualizações em tempo real via Server-Sent Events"
-      }
-    },
-    "feature_list": {
-      "ai_models": {
-        "title": "Modelos de IA Avançados",
-        "desc": "Escolha entre MobileNetV2 (rápido), ConvNeXt (alta precisão) ou EVA-02 (elite ~91% precisão)"
-      },
-      "multi_sensor": {
-        "title": "Correlação Multi-Sensor",
-        "desc": "Cruze detecções visuais com identificações de áudio BirdNET-Go para avistamentos verificados"
-      },
-      "video_analysis": {
-        "title": "Auto Análise de Vídeo",
-        "desc": "Escaneia automaticamente 15+ quadros de clipes de vídeo para maior precisão usando lógica de conjunto temporal"
-      },
-      "notifications": {
-        "title": "Notificações Ricas",
-        "desc": "Suporte a Discord, Telegram e Pushover com filtros personalizáveis e alertas específicos por espécie"
-      },
-      "ai_insights": {
-        "title": "Insights do Naturalista IA",
-        "desc": "Obtenha análise comportamental de seus visitantes usando modelos de linguagem Gemini, OpenAI ou Claude"
-      },
-      "taxonomy": {
-        "title": "Normalização de Taxonomia",
-        "desc": "Mapeamento automático de nomes científicos ↔ comuns usando dados do iNaturalist"
-      },
-      "inaturalist_submissions": {
-        "title": "Envios para iNaturalist",
-        "desc": "Envios revisados pelo proprietário com foto, local e notas",
-        "badge": "Precisam‑se testers"
-      },
-      "weather": {
-        "title": "Enriquecimento Meteorológico",
-        "desc": "Rastreie detecções com condições climáticas locais e dados de temperatura"
-      },
-      "home_assistant": {
-        "title": "Integração Home Assistant",
-        "desc": "Sensores nativos para rastrear o último pássaro detectado e contagens diárias de visitantes"
-      },
-      "birdweather": {
-        "title": "Relatórios BirdWeather",
-        "desc": "Opcional: Contribua com suas detecções para a plataforma de ciência cidadã BirdWeather"
-      },
-      "observability": {
-        "title": "Observabilidade",
-        "desc": "Métricas Prometheus integradas, telemetria opcional e diagnósticos MQTT em tempo real"
-      },
-      "wildlife": {
-        "title": "Classificador de Vida Selvagem",
-        "desc": "Identifique esquilos, raposas e outros visitantes não-pássaros em seu alimentador"
-      },
-      "fast_path": {
-        "title": "Eficiência Fast Path",
-        "desc": "Pule o processamento local de IA e use sub-rótulos do Frigate diretamente para economizar recursos de CPU"
-      },
-      "guest_mode": {
-        "title": "Visualização Pública (Modo Convidado)",
-        "desc": "Compartilhe um painel somente leitura com limites de taxa e ocultação opcional de nomes de câmeras"
-      },
-      "gpu_acceleration": {
-        "title": "Aceleração GPU",
-        "desc": "Seleção automática entre NVIDIA CUDA e Intel OpenVINO para inferência ONNX rápida, com fallback em tempo de execução e diagnóstico de provedor ao vivo na interface"
-      },
-      "personalized_reranking": {
-        "title": "Reordenação personalizada",
-        "desc": "Aprende com suas correções manuais de espécies por câmera e modelo, reordenando previsões para corresponder às aves locais ao longo do tempo. Ativa após 20 correções."
-      },
-      "ebird_export": {
-        "title": "Exportação eBird",
-        "desc": "Exporte suas detecções como CSV no formato padrão eBird Record — pronto para envio direto à sua conta do eBird"
-      },
-      "full_visit_clip": {
-        "title": "Clipes de visita completa",
-        "desc": "Gera um clipe mais longo a partir das gravações do Frigate para que toda a visita ao alimentador possa ser vista depois que a detecção terminar."
-      }
-    },
-    "tech": {
-      "backend": "Backend",
-      "frontend": "Frontend",
-      "ml": "Motor de ML",
-      "messaging": "Mensageria",
-      "deployment": "Implantação"
-    },
+    "project_desc_2": "O Frigate vigia o comedouro e assinala tudo o que pareça uma ave. O YA-WAMF classifica-a, compara com o áudio do BirdNET-Go e guarda o resultado. Todas as fotos desta página vieram dessa câmara.",
     "links": {
       "repo": "Repositório GitHub",
-      "repo_desc": "Código fonte, issues e releases",
       "docs": "Documentação",
-      "docs_desc": "Guias de configuração, referência de API e solução de problemas",
       "issues": "Reportar problema",
       "frigate": "Frigate NVR",
-      "frigate_desc": "Obrigatório: NVR open-source com detecção de objetos",
-      "birdnet": "BirdNET-Go",
-      "birdnet_desc": "Opcional: Identificação de áudio de pássaros"
+      "birdnet": "BirdNET-Go"
     },
     "credits_list": {
       "preamble": "Este projeto não seria possível sem:",
@@ -1962,8 +2053,86 @@
       "benjordan": "{link} no YouTube por conteúdo inspirador de detecção de pássaros",
       "ai_assistants": "Assistentes de IA que ajudaram a construir este aplicativo"
     },
-    "star_github": "Marcar com estrela no GitHub",
-    "star_github_label": "Marcar YA-WAMF com estrela no GitHub"
+    "pipeline": {
+      "subtitle": "O fluxo padrão, a mostrar o que esta instância está a fazer.",
+      "frigate": "Frigate",
+      "mqtt": "MQTT",
+      "classifier": "Classificador",
+      "audio": "BirdNET-Go",
+      "store": "Base de dados",
+      "notify": "Notificações",
+      "browser": "O seu navegador",
+      "unknown": "desconhecido",
+      "online": "online",
+      "degraded": "verificar",
+      "loaded": "carregado",
+      "not_loaded": "não carregado",
+      "enabled": "ativo",
+      "off": "desligado",
+      "streaming": "a transmitir",
+      "offline": "offline",
+      "cameras_count": "{online} de {total} câmaras online",
+      "mqtt_detail": "frigate/events",
+      "audio_detail": "Correlação com BirdNET-Go",
+      "store_detail": "SQLite em /data",
+      "notify_on": "pelo menos um canal configurado",
+      "notify_off": "nada configurado",
+      "browser_detail": "atualizações em direto por SSE",
+      "legend_local": "corre no seu hardware",
+      "legend_optional": "opcional",
+      "legend_external": "o seu broker e navegador",
+      "legend_note": "Nada sai da sua rede além das chamadas listadas abaixo."
+    },
+    "storage": {
+      "title": "O que é guardado",
+      "detections_desc": "espécie, pontuação, câmara, meteorologia, correspondência de áudio",
+      "audio_desc": "histórico do BirdNET",
+      "taxonomy_desc": "pesquisas no iNaturalist",
+      "note": "SQLite em /data. Alterações de esquema trazem migrações reversíveis."
+    },
+    "outbound": {
+      "title": "O que sai da sua rede",
+      "inat": "iNaturalist",
+      "inat_desc": "pesquisas de nomes",
+      "weather": "API de meteorologia",
+      "weather_desc": "condições por deteção",
+      "llm": "Análise por LLM",
+      "llm_desc": "a sua chave, o seu fornecedor",
+      "telemetry": "Telemetria",
+      "telemetry_desc": "contagens anónimas",
+      "guest_note": "Mostrado por transparência. Só o proprietário pode alterar."
+    },
+    "stats": {
+      "detections": "deteções guardadas",
+      "species": "espécies identificadas",
+      "week": "visitas esta semana"
+    },
+    "instance": {
+      "title": "Esta instância",
+      "acceleration": "Aceleração",
+      "for_issue": "Para reportar um problema",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "copy_failed": "A cópia foi recusada, selecione o texto.",
+      "no_secrets": "Não contém chaves, URLs ou nomes de câmaras.",
+      "uptime": "Em funcionamento há",
+      "since": "desde {when}",
+      "uptime_minutes": "{count} min",
+      "uptime_hours": "{count} h",
+      "uptime_days": "{count} dias",
+      "strip_label": "Disponibilidade nas últimas {hours} horas",
+      "gap": "Faltam {minutes} minutos às {when}",
+      "no_history": "Ainda não há histórico para este período.",
+      "no_gaps": "Sem falhas nas últimas 24 horas.",
+      "up_to_date": "Atualizado",
+      "update_available": "v{version} está disponível",
+      "checked": "verificado {when}"
+    },
+    "close": {
+      "title": "Dados, privacidade e créditos"
+    },
+    "reference_thanks": "Referências e agradecimentos",
+    "thanks_to": "Obrigado a"
   },
   "species_detail": {
     "no_wiki": "Nenhuma informação da Wikipedia disponível para esta espécie.",

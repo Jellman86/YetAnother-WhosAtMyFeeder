@@ -3,7 +3,8 @@
     "title": "YA-WAMF",
     "logo_subtitle": "WhosAtMyFeeder",
     "logo_title": "Yet Another",
-    "tagline": "为您的 Frigate NVR 提供 AI 驱动的鸟类分类"
+    "tagline": "为您的 Frigate NVR 提供 AI 驱动的鸟类分类",
+    "full_title": "Yet Another WhosAtMyFeeder"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -27,21 +28,112 @@
     "species": "物种"
   },
   "manual_observation": {
-    "eyebrow": "野外记录", "intro_title": "将照片或视频转为已核实的观察记录",
-    "intro_body": "YA-WAMF 使用与实时检测相同的模型、裁剪选择和视频共识流程。在您审核前不会添加任何记录。", "progress_label": "观察记录进度",
-    "steps": { "upload": "上传", "upload_detail": "选择原始媒体", "analyse": "分析", "analyse_detail": "寻找最有力的证据", "review": "审核", "review_detail": "确认物种", "save": "保存", "save_detail": "添加到观察记录" },
-    "evidence": { "full_frame": "完整画面", "crop": "最佳裁剪", "model": "模型", "provider": "提供程序" },
-    "errors": { "load": "无法加载分析状态。", "type": "请选择 JPEG、PNG、WebP、MP4、MOV 或 WebM 文件。", "image_size": "请选择不超过 25 MB 的图片。", "video_size": "请选择不超过 250 MB 的视频。", "upload": "无法上传媒体。", "retry": "无法重新启动分析。", "save": "无法保存观察记录。" },
-    "upload": { "title": "选择照片或视频", "help": "请尽量使用原始文件。YA-WAMF 会保留原文件，并选择最适合分类的输入。", "change": "选择其他文件", "drop": "将媒体拖放到此处或选择文件", "formats": "JPEG、PNG、WebP 最大 25 MB · MP4、MOV、WebM 最大 250 MB／3 分钟", "uploading": "正在安全保存原文件…", "analyse": "上传并分析" },
-    "analysis": { "preview_alt": "已上传媒体预览", "video": "视频", "image": "照片", "title": "正在寻找最有力的证据", "body": "生产分类器正在比较帧和裁剪候选。您可以离开此页面，返回时会恢复草稿。", "progress": "分析进度", "failed_title": "分析已安全停止", "failed_body": "原始媒体仍已保存。模型可用后请重试。", "retry": "重试分析" },
-    "review": { "preview_alt": "观察记录预览", "title": "保存前审核", "body": "确认建议的物种，必要时进行更正，并添加您希望保留的现场信息。", "candidates": "模型建议", "species": "物种", "when": "观察时间", "location": "相机或地点名称", "notes": "备注", "saving": "正在保存观察记录…", "save": "保存观察记录" },
-    "location": { "title": "目击地点", "extracted": "已从图像元数据中找到位置。请检查图钉，并在需要时调整。", "missing": "未找到图像内嵌的位置。如果知道目击地点，请放置图钉。", "manual": "此图钉已被手动放置或调整。保存前请检查。", "from_image": "来自图像元数据", "map_label": "用于放置目击地点图钉的地图", "map_help": "点击或轻触地图以放置图钉。拖动图钉可进行精确调整。", "latitude": "纬度", "longitude": "经度", "clear": "清除位置", "incomplete": "请输入纬度和经度，或清除位置。", "invalid": "纬度必须介于 −90 和 90 之间，经度必须介于 −180 和 180 之间。", "selected": "图钉已放置在 {latitude}, {longitude}", "unselected": "尚未选择目击地点", "pin_label": "目击地点图钉；拖动可调整" },
-    "saved": { "toast": "已添加观察记录", "eyebrow": "记录完成", "title": "观察记录已保存", "body": "已核实的记录现已计入检测历史和物种统计。", "view": "查看检测", "another": "再添加一条" },
-    "start_over": "重新开始"
+    "eyebrow": "野外记录",
+    "intro_title": "将照片或视频转为已核实的观察记录",
+    "intro_body": "YA-WAMF 使用与实时检测相同的模型、裁剪选择和视频共识流程。在您审核前不会添加任何记录。",
+    "progress_label": "观察记录进度",
+    "steps": {
+      "upload": "上传",
+      "upload_detail": "选择原始媒体",
+      "analyse": "分析",
+      "analyse_detail": "寻找最有力的证据",
+      "review": "审核",
+      "review_detail": "确认物种",
+      "save": "保存",
+      "save_detail": "添加到观察记录"
+    },
+    "evidence": {
+      "full_frame": "完整画面",
+      "crop": "最佳裁剪",
+      "model": "模型",
+      "provider": "提供程序",
+      "original": "上传时的原图",
+      "compare": "对比依据",
+      "scored_help": "这正是分类器实际评分的输入。",
+      "original_help": "你的原始文件，按原样保存。",
+      "input": "评分输入",
+      "file": "文件"
+    },
+    "errors": {
+      "load": "无法加载分析状态。",
+      "type": "请选择 JPEG、PNG、WebP、MP4、MOV 或 WebM 文件。",
+      "image_size": "请选择不超过 25 MB 的图片。",
+      "video_size": "请选择不超过 250 MB 的视频。",
+      "upload": "无法上传媒体。",
+      "retry": "无法重新启动分析。",
+      "save": "无法保存观察记录。"
+    },
+    "upload": {
+      "title": "选择照片或视频",
+      "help": "请尽量使用原始文件。YA-WAMF 会保留原文件，并选择最适合分类的输入。",
+      "change": "选择其他文件",
+      "drop": "将媒体拖放到此处或选择文件",
+      "formats": "JPEG、PNG、WebP 最大 25 MB · MP4、MOV、WebM 最大 250 MB／3 分钟",
+      "uploading": "正在安全保存原文件…",
+      "analyse": "上传并分析"
+    },
+    "analysis": {
+      "preview_alt": "已上传媒体预览",
+      "video": "视频",
+      "image": "照片",
+      "title": "正在寻找最有力的证据",
+      "body": "生产分类器正在比较帧和裁剪候选。您可以离开此页面，返回时会恢复草稿。",
+      "progress": "分析进度",
+      "failed_title": "分析已安全停止",
+      "failed_body": "原始媒体仍已保存。模型可用后请重试。",
+      "retry": "重试分析"
+    },
+    "review": {
+      "preview_alt": "观察记录预览",
+      "title": "保存前审核",
+      "body": "确认建议的物种，必要时进行更正，并添加您希望保留的现场信息。",
+      "candidates": "模型建议",
+      "species": "物种",
+      "when": "观察时间",
+      "location": "相机或地点名称",
+      "notes": "备注",
+      "saving": "正在保存观察记录…",
+      "save": "保存观察记录",
+      "save_species": "添加 {species}"
+    },
+    "location": {
+      "title": "目击地点",
+      "extracted": "已从图像元数据中找到位置。请检查图钉，并在需要时调整。",
+      "missing": "未找到图像内嵌的位置。如果知道目击地点，请放置图钉。",
+      "manual": "此图钉已被手动放置或调整。保存前请检查。",
+      "from_image": "来自图像元数据",
+      "map_label": "用于放置目击地点图钉的地图",
+      "map_help": "点击或轻触地图以放置图钉。拖动图钉可进行精确调整。",
+      "latitude": "纬度",
+      "longitude": "经度",
+      "clear": "清除位置",
+      "incomplete": "请输入纬度和经度，或清除位置。",
+      "invalid": "纬度必须介于 −90 和 90 之间，经度必须介于 −180 和 180 之间。",
+      "selected": "图钉已放置在 {latitude}, {longitude}",
+      "unselected": "尚未选择目击地点",
+      "pin_label": "目击地点图钉；拖动可调整"
+    },
+    "saved": {
+      "toast": "已添加观察记录",
+      "eyebrow": "记录完成",
+      "title": "观察记录已保存",
+      "body": "已核实的记录现已计入检测历史和物种统计。",
+      "view": "查看检测",
+      "another": "再添加一条"
+    },
+    "start_over": "重新开始",
+    "bar": {
+      "kept": "按上传时的原样保存",
+      "hint": "在你确认之前不会添加任何内容"
+    }
   },
   "setup": {
     "action_failed": "无法保存此更改。请检查内容后重试。",
-    "load": { "loading": "正在加载已保存的设置…", "failed": "无法加载已保存的设置。未进行任何更改。", "retry": "重试加载设置" },
+    "load": {
+      "loading": "正在加载已保存的设置…",
+      "failed": "无法加载已保存的设置。未进行任何更改。",
+      "retry": "重试加载设置"
+    },
     "status": {
       "ok": "已配置",
       "attention": "需要处理",
@@ -53,7 +145,11 @@
     "connection": {
       "title": "Frigate 与 MQTT 连接",
       "save_failed": "无法保存连接设置。请检查各项值后重试。",
-      "mqtt_auth": "MQTT 身份验证", "mqtt_auth_hint": "仅当代理要求用户名和密码时启用。", "mqtt_username": "用户名", "mqtt_password": "密码", "mqtt_password_saved": "除非输入新密码，否则将保留已保存的密码。"
+      "mqtt_auth": "MQTT 身份验证",
+      "mqtt_auth_hint": "仅当代理要求用户名和密码时启用。",
+      "mqtt_username": "用户名",
+      "mqtt_password": "密码",
+      "mqtt_password_saved": "除非输入新密码，否则将保留已保存的密码。"
     },
     "cameras": {
       "title": "摄像头与检测",
@@ -73,13 +169,43 @@
       "title": "集成",
       "birdnet_test_subtitle": "分阶段测试会使用此 URL，然后验证已保存的 MQTT 代理和本地检测存储。"
     },
-    "history": { "title": "导入现有检测", "description": "可选择分类 Frigate 仍保留的鸟类事件。导入会在后台安全运行。", "enable": "导入 Frigate 保留的鸟类事件", "enable_help": "仅在分类质量提高时更新检测，并保留已保存的音频与天气信息。", "range": "历史范围", "import_continue": "导入并继续", "continue_without": "不导入并继续", "job_title": "检测历史导入", "job_starting": "正在扫描 Frigate 事件历史", "audio_note": "Frigate 历史可恢复视觉检测和快照，但无法重建未保存的 BirdNET-Go 音频。" },
+    "history": {
+      "title": "导入现有检测",
+      "description": "可选择分类 Frigate 仍保留的鸟类事件。导入会在后台安全运行。",
+      "enable": "导入 Frigate 保留的鸟类事件",
+      "enable_help": "仅在分类质量提高时更新检测，并保留已保存的音频与天气信息。",
+      "range": "历史范围",
+      "import_continue": "导入并继续",
+      "continue_without": "不导入并继续",
+      "job_title": "检测历史导入",
+      "job_starting": "正在扫描 Frigate 事件历史",
+      "audio_note": "Frigate 历史可恢复视觉检测和快照，但无法重建未保存的 BirdNET-Go 音频。"
+    },
     "review": {
       "loading": "正在检查已保存的设置…",
       "load_failed": "无法加载设置摘要。已保存的设置未被更改。",
       "retry": "重试加载摘要",
       "stale": "由于最新刷新失败，当前显示上一次的设置摘要。",
-      "detail": { "account_password_protected": "密码保护", "account_auth_disabled": "身份验证已禁用", "account_not_configured": "未配置", "frigate_url": "Frigate 地址", "mqtt_broker": "MQTT 代理", "mqtt_username": "MQTT 用户名", "mqtt_password": "MQTT 密码", "connection_missing": "设置 {items}", "cameras_count": "{count} 个摄像头", "cameras_all": "所有摄像头", "model_wrong_kind": "裁剪检测器被选作分类器", "model_retired": "已停用保存的分类模型", "model_fallback": "内置后备模型", "quality_best": "最佳可用快照", "quality_standard": "标准快照", "integrations_needs": "需要设置：{integrations}", "integrations_configured": "已配置：{integrations}", "integrations_none": "均未启用" }
+      "detail": {
+        "account_password_protected": "密码保护",
+        "account_auth_disabled": "身份验证已禁用",
+        "account_not_configured": "未配置",
+        "frigate_url": "Frigate 地址",
+        "mqtt_broker": "MQTT 代理",
+        "mqtt_username": "MQTT 用户名",
+        "mqtt_password": "MQTT 密码",
+        "connection_missing": "设置 {items}",
+        "cameras_count": "{count} 个摄像头",
+        "cameras_all": "所有摄像头",
+        "model_wrong_kind": "裁剪检测器被选作分类器",
+        "model_retired": "已停用保存的分类模型",
+        "model_fallback": "内置后备模型",
+        "quality_best": "最佳可用快照",
+        "quality_standard": "标准快照",
+        "integrations_needs": "需要设置：{integrations}",
+        "integrations_configured": "已配置：{integrations}",
+        "integrations_none": "均未启用"
+      }
     }
   },
   "theme": {
@@ -163,7 +289,69 @@
     },
     "top_visitors_title": "常见访客",
     "top_visitors_empty": "今天还没有记录到访客。",
-    "top_visitors_count": "访问 {count} 次"
+    "top_visitors_count": "访问 {count} 次",
+    "field_log": {
+      "title": "野外记录",
+      "subtitle": "同一只鸟的重复画面会合并为一次到访",
+      "needs_name": "低于命名阈值",
+      "identify": "识别",
+      "open": "打开",
+      "preview_trigger": "预览 {species}",
+      "preview_alt": "{camera} 上的 {species}",
+      "preview_frames": "本次到访共 {count} 帧，显示最清晰的一帧",
+      "earlier": "今天更早的 {count} 次到访"
+    },
+    "day_bar": {
+      "today": "今天",
+      "visits": "次到访",
+      "unresolved": "未识别",
+      "calls_heard": "次鸣叫",
+      "cross_confirmed": "次交叉确认",
+      "reconnecting": "正在重新连接…"
+    },
+    "desk": {
+      "cameras": "摄像头",
+      "cameras_empty": "还没有摄像头上报。请在“设置 → 连接”中添加。",
+      "camera_no_visits": "无到访",
+      "sensors": "声音与画面",
+      "heard": "听到",
+      "seen": "看到",
+      "both": "两者",
+      "no_cross_confirmation": "共听到 {count} 次鸣叫，但没有一次与摄像头到访对应。麦克风与摄像头覆盖的范围可能不同。",
+      "conditions": "天气条件",
+      "temperature_span": "到访时气温介于 {low} 至 {high}"
+    },
+    "review_queue": {
+      "title": "需要你确认",
+      "empty": "今天的每次到访都有物种，没有待处理项。",
+      "remaining": "还有 {count} 项待处理",
+      "work_through": "处理待办队列"
+    },
+    "review_session": {
+      "position": "第 {position} 项，共 {total} 项",
+      "summary": "已处理 {resolved} 项，跳过 {skipped} 项",
+      "done": "队列已清空",
+      "done_with_skips": "队列已处理完",
+      "done_note": "每次到访都有物种。你的更正会改进每个摄像头的排序。",
+      "skipped_note": "{count} 项留待稍后，它们仍在队列中。",
+      "back": "返回仪表板",
+      "what_is_it": "这是什么？",
+      "threshold_note": "模型的判定低于命名阈值。",
+      "search": "搜索物种…",
+      "no_matches": "没有匹配的物种，试试更少的字母。",
+      "skip": "暂时跳过",
+      "not_a_bird": "不是鸟，隐藏",
+      "full_record": "打开完整记录",
+      "remaining": "还有 {count} 项待查看",
+      "image_alt": "{camera} 上未识别的检测",
+      "all_species": "全部物种",
+      "seen_here": "在这个喂食器见过",
+      "no_suggestions": "还没有记录。请在上方的完整列表中搜索。",
+      "crop": "最佳裁剪",
+      "full_frame": "完整画面",
+      "view_label": "显示哪张图",
+      "no_crop": "这条检测没有保存裁剪图。打开完整记录以查找。"
+    }
   },
   "common": {
     "loading": "加载中…",
@@ -1672,36 +1860,68 @@
   },
   "audio": {
     "chart": {
-      "heard": "听测", "daily_title": "活动趋势", "daily_sub": "每日 BirdNET-Go 听测次数",
-      "hourly_title": "时段", "species_title": "物种构成", "empty": "此时间范围内没有活动。"
+      "heard": "听测",
+      "daily_title": "活动趋势",
+      "daily_sub": "每日 BirdNET-Go 听测次数",
+      "hourly_title": "时段",
+      "species_title": "物种构成",
+      "empty": "此时间范围内没有活动。"
     },
     "stat": {
-      "heard": "听测", "heard_sub": "当前显示的 BirdNET 检测", "species": "物种",
-      "species_sub": "通过音频识别的物种", "peak_hour": "高峰时段",
-      "peak_hour_sub": "{count} 次检测", "no_activity": "尚无活动", "sources": "来源",
+      "heard": "听测",
+      "heard_sub": "当前显示的 BirdNET 检测",
+      "species": "物种",
+      "species_sub": "通过音频识别的物种",
+      "peak_hour": "高峰时段",
+      "peak_hour_sub": "{count} 次检测",
+      "no_activity": "尚无活动",
+      "sources": "来源",
       "sources_sub": "麦克风或音频流"
     },
     "filter": {
-      "window": "时间范围", "24h": "24 小时", "7d": "7 天", "30d": "30 天",
-      "90d": "90 天", "1y": "1 年", "species": "物种", "source": "来源",
+      "window": "时间范围",
+      "24h": "24 小时",
+      "7d": "7 天",
+      "30d": "30 天",
+      "90d": "90 天",
+      "1y": "1 年",
+      "species": "物种",
+      "source": "来源",
       "min_confidence": "最低置信度"
     },
     "top_species": "听测次数最多的物种",
-    "card": { "last_heard": "最近听测", "avg": "平均", "max": "最高" },
+    "card": {
+      "last_heard": "最近听测",
+      "avg": "平均",
+      "max": "最高"
+    },
     "history": {
-      "title": "检测历史", "sub": "已保存的 BirdNET-Go 检测，与视觉访问记录分开。",
+      "title": "检测历史",
+      "sub": "已保存的 BirdNET-Go 检测，与视觉访问记录分开。",
       "empty": "没有符合这些筛选条件的 BirdNET 检测。",
       "showing": "显示第 {from}-{to} 项，共 {total} 项"
     },
     "table": {
-      "sound": "声音", "time": "时间", "species": "物种", "source": "来源",
-      "confidence": "置信度", "open_birdnet": "在 BirdNET-Go 中打开", "open_visual_match": "打开匹配的视觉检测", "unknown_source": "未知来源"
+      "sound": "声音",
+      "time": "时间",
+      "species": "物种",
+      "source": "来源",
+      "confidence": "置信度",
+      "open_birdnet": "在 BirdNET-Go 中打开",
+      "open_visual_match": "打开匹配的视觉检测",
+      "unknown_source": "未知来源"
     },
-    "sources": { "title": "来源", "empty": "尚无来源。" }
+    "sources": {
+      "title": "来源",
+      "empty": "尚无来源。"
+    }
   },
   "leaderboard": {
-    "source_toggle": "检测来源", "source_seen": "看到", "source_heard": "听到",
-    "source_both": "两者", "audio_only": "仅音频",
+    "source_toggle": "检测来源",
+    "source_seen": "看到",
+    "source_heard": "听到",
+    "source_both": "两者",
+    "audio_only": "仅音频",
     "audio_only_desc": "BirdNET-Go 已听测到，但摄像头未看到",
     "title": "物种排行榜",
     "species_count": "{count} 个物种",
@@ -1801,145 +2021,20 @@
     "other_species": "其他"
   },
   "about": {
-    "title": "关于本项目",
     "how_it_works": "工作原理",
-    "features": "功能特性",
-    "tech_stack": "技术栈",
-    "docs_resources": "文档与资源",
     "credits": "致谢",
-    "jump_to": "跳转到",
     "view_changelog": "查看更新日志",
     "flaticon_credit": "鸟类图标由 Freepik 制作 - Flaticon",
     "license_notice": "© {year} Jellman86 • 采用 {license} 许可",
     "built_with_ai": "出于对观鸟的热爱，在 AI 协助下构建 🐦",
     "project_desc_1": "YA-WAMF 是一个个人项目，最初是为了尝试 AI 辅助编程。当原来的 {link} 项目停止维护时，本项目作为一个学习机会和鸟类爱好者的实用工具应运而生。",
-    "project_desc_2": "本应用在AI编程助手的帮助下构建，已发展成为一个功能完整的鸟类识别平台——从简单的喂食器摄像头，到多传感器关联、GPU加速模型以及实时Home Assistant集成。",
-    "steps": {
-      "1": {
-        "title": "Frigate 检测",
-        "desc": "您的摄像头捕捉到动作，Frigate 识别其为鸟类"
-      },
-      "2": {
-        "title": "MQTT 消息",
-        "desc": "Frigate 将事件发布到您的 MQTT 代理"
-      },
-      "3": {
-        "title": "YA-WAMF 处理",
-        "desc": "后端订阅 MQTT 并接收事件"
-      },
-      "4": {
-        "title": "分类",
-        "desc": "图像通过 ML 模型运行（或使用 Frigate 的子标签）"
-      },
-      "5": {
-        "title": "音频关联",
-        "desc": "如果有 BirdNET-Go 音频检测，则进行交叉引用"
-      },
-      "6": {
-        "title": "保存与通知",
-        "desc": "检测结果存储到数据库，发送通知"
-      },
-      "7": {
-        "title": "视频分析",
-        "desc": "可选：扫描视频片段帧以获得更精确的准确性"
-      },
-      "8": {
-        "title": "实时更新",
-        "desc": "仪表盘通过服务器发送事件 (SSE) 接收实时更新"
-      }
-    },
-    "feature_list": {
-      "ai_models": {
-        "title": "先进 AI 模型",
-        "desc": "选择 MobileNetV2（快速）、ConvNeXt（高精度）或 EVA-02（精英级 ~91% 准确率）"
-      },
-      "multi_sensor": {
-        "title": "多传感器关联",
-        "desc": "将视觉检测与 BirdNET-Go 音频识别交叉引用，以验证目击"
-      },
-      "video_analysis": {
-        "title": "自动视频分析",
-        "desc": "使用时间集成逻辑自动扫描视频片段中的 15+ 帧以获得更高准确性"
-      },
-      "notifications": {
-        "title": "丰富通知",
-        "desc": "支持 Discord、Telegram 和 Pushover，具有可自定义的过滤器和特定物种警报"
-      },
-      "ai_insights": {
-        "title": "AI 自然学家见解",
-        "desc": "使用 Gemini、OpenAI 或 Claude 语言模型获取访客的行为分析"
-      },
-      "taxonomy": {
-        "title": "分类标准化",
-        "desc": "使用 iNaturalist 数据自动进行学名 ↔ 通用名映射"
-      },
-      "inaturalist_submissions": {
-        "title": "iNaturalist 提交",
-        "desc": "由管理员审核后提交，包含照片、地点和备注",
-        "badge": "需要测试者"
-      },
-      "weather": {
-        "title": "天气丰富化",
-        "desc": "跟踪检测时的当地天气状况和温度数据"
-      },
-      "home_assistant": {
-        "title": "Home Assistant 集成",
-        "desc": "用于跟踪最后检测到的鸟类和每日访客计数的原生传感器"
-      },
-      "birdweather": {
-        "title": "BirdWeather 报告",
-        "desc": "可选：将您的检测贡献给 BirdWeather 公民科学平台"
-      },
-      "observability": {
-        "title": "可观测性",
-        "desc": "内置 Prometheus 指标、可选遥测和实时 MQTT 诊断"
-      },
-      "wildlife": {
-        "title": "野生动物分类器",
-        "desc": "识别松鼠、狐狸和其他非鸟类访客"
-      },
-      "fast_path": {
-        "title": "快速通道效率",
-        "desc": "跳过本地 AI 处理，直接使用 Frigate 的子标签以节省 CPU 资源"
-      },
-      "guest_mode": {
-        "title": "公共视图（访客模式）",
-        "desc": "分享只读仪表板，带速率限制，并可选隐藏摄像头名称"
-      },
-      "gpu_acceleration": {
-        "title": "GPU加速",
-        "desc": "自动选择NVIDIA CUDA或Intel OpenVINO进行快速ONNX推理，支持运行时回退和界面实时提供商诊断"
-      },
-      "personalized_reranking": {
-        "title": "个性化重排",
-        "desc": "通过每个摄像头和模型的手动物种校正进行学习，随时间推移重新排列预测以匹配本地鸟类。20次校正后激活。"
-      },
-      "ebird_export": {
-        "title": "eBird导出",
-        "desc": "将检测结果导出为标准eBird记录格式CSV——可直接提交到您的eBird账户"
-      },
-      "full_visit_clip": {
-        "title": "完整到访剪辑",
-        "desc": "根据 Frigate 录像生成更长的剪辑，以便在检测结束后查看完整的喂食器到访过程。"
-      }
-    },
-    "tech": {
-      "backend": "后端",
-      "frontend": "前端",
-      "ml": "ML 引擎",
-      "messaging": "消息传递",
-      "deployment": "部署"
-    },
+    "project_desc_2": "Frigate 监视喂食器，标记任何看起来像鸟的目标。YA-WAMF 进行识别，与 BirdNET-Go 的声音比对，然后保存结果。本页所有照片都来自那台摄像头。",
     "links": {
       "repo": "GitHub 仓库",
-      "repo_desc": "源代码、问题和发布",
       "docs": "文档",
-      "docs_desc": "设置指南、API 参考和故障排除",
       "issues": "报告问题",
       "frigate": "Frigate NVR",
-      "frigate_desc": "必需：具有对象检测功能的开源 NVR",
-      "birdnet": "BirdNET-Go",
-      "birdnet_desc": "可选：音频鸟类识别"
+      "birdnet": "BirdNET-Go"
     },
     "credits_list": {
       "preamble": "没有以下支持，本项目将无法实现：",
@@ -1949,8 +2044,86 @@
       "benjordan": "YouTube 上的 {link} 激发的鸟类检测内容",
       "ai_assistants": "帮助构建此应用程序的 AI 助手"
     },
-    "star_github": "在GitHub上加星",
-    "star_github_label": "在GitHub上为YA-WAMF加星"
+    "pipeline": {
+      "subtitle": "标准处理流程，以及这个实例当前的状态。",
+      "frigate": "Frigate",
+      "mqtt": "MQTT",
+      "classifier": "分类器",
+      "audio": "BirdNET-Go",
+      "store": "数据库",
+      "notify": "通知",
+      "browser": "你的浏览器",
+      "unknown": "未知",
+      "online": "在线",
+      "degraded": "需检查",
+      "loaded": "已加载",
+      "not_loaded": "未加载",
+      "enabled": "已启用",
+      "off": "关闭",
+      "streaming": "推送中",
+      "offline": "离线",
+      "cameras_count": "{total} 个摄像头中 {online} 个在线",
+      "mqtt_detail": "frigate/events",
+      "audio_detail": "与 BirdNET-Go 比对",
+      "store_detail": "/data 下的 SQLite",
+      "notify_on": "至少配置了一个渠道",
+      "notify_off": "尚未配置",
+      "browser_detail": "通过 SSE 实时更新",
+      "legend_local": "在你的硬件上运行",
+      "legend_optional": "可选",
+      "legend_external": "你的 broker 和浏览器",
+      "legend_note": "除下面列出的请求外，没有任何数据离开你的网络。"
+    },
+    "storage": {
+      "title": "存储了什么",
+      "detections_desc": "物种、置信度、摄像头、天气、音频匹配",
+      "audio_desc": "BirdNET 历史记录",
+      "taxonomy_desc": "iNaturalist 查询缓存",
+      "note": "/data 下的 SQLite。架构变更都附带可回滚的迁移。"
+    },
+    "outbound": {
+      "title": "哪些数据会离开你的网络",
+      "inat": "iNaturalist",
+      "inat_desc": "名称查询",
+      "weather": "天气 API",
+      "weather_desc": "每次检测的天气",
+      "llm": "LLM 解读",
+      "llm_desc": "你的密钥，你的服务商",
+      "telemetry": "遥测",
+      "telemetry_desc": "匿名计数",
+      "guest_note": "出于透明公开。只有所有者可以更改。"
+    },
+    "stats": {
+      "detections": "条检测已保存",
+      "species": "个物种已识别",
+      "week": "本周到访"
+    },
+    "instance": {
+      "title": "本实例",
+      "acceleration": "加速方式",
+      "for_issue": "用于问题反馈",
+      "copy": "复制",
+      "copied": "已复制",
+      "copy_failed": "复制被拒绝，请手动选择文本。",
+      "no_secrets": "不包含密钥、网址或摄像头名称。",
+      "uptime": "已运行",
+      "since": "自 {when}",
+      "uptime_minutes": "{count} 分钟",
+      "uptime_hours": "{count} 小时",
+      "uptime_days": "{count} 天",
+      "strip_label": "最近 {hours} 小时的可用性",
+      "gap": "{when} 缺失 {minutes} 分钟",
+      "no_history": "这个时间段还没有记录。",
+      "no_gaps": "最近 24 小时没有中断。",
+      "up_to_date": "已是最新",
+      "update_available": "v{version} 可用",
+      "checked": "检查于 {when}"
+    },
+    "close": {
+      "title": "数据、隐私与致谢"
+    },
+    "reference_thanks": "参考与致谢",
+    "thanks_to": "感谢"
   },
   "species_detail": {
     "no_wiki": "此物种暂无维基百科信息。",

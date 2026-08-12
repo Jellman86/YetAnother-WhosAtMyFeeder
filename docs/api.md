@@ -246,6 +246,10 @@ Notes:
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline`
 - `GET /api/stats/detections/activity-heatmap`
+- `GET /api/stats/uptime` (owner) Availability over a recent window, derived from heartbeat rows
+  written every 5 minutes. Buckets with no heartbeat report `down`; buckets from before the first
+  heartbeat ever recorded report `unknown`, because a fresh install has no history and that is not
+  an outage. Query: `hours` (1 to 168, default 24), `bucket_minutes` (5 to 240, default 60).
 
 ### Classifier and Models
 

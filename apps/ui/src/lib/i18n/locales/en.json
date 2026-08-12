@@ -3,7 +3,8 @@
     "title": "YA-WAMF",
     "logo_subtitle": "WhosAtMyFeeder",
     "logo_title": "Yet Another",
-    "tagline": "AI-powered bird classification for your Frigate NVR"
+    "tagline": "AI-powered bird classification for your Frigate NVR",
+    "full_title": "Yet Another WhosAtMyFeeder"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -32,44 +33,99 @@
     "intro_body": "YA-WAMF uses the same model, crop selection, and video consensus as live detections. Nothing is added until you review it.",
     "progress_label": "Observation progress",
     "steps": {
-      "upload": "Upload", "upload_detail": "Choose original media",
-      "analyse": "Analyse", "analyse_detail": "Find the strongest evidence",
-      "review": "Review", "review_detail": "Confirm the species",
-      "save": "Save", "save_detail": "Add to observations"
+      "upload": "Upload",
+      "upload_detail": "Choose original media",
+      "analyse": "Analyse",
+      "analyse_detail": "Find the strongest evidence",
+      "review": "Review",
+      "review_detail": "Confirm the species",
+      "save": "Save",
+      "save_detail": "Add to observations"
     },
-    "evidence": { "full_frame": "Full frame", "crop": "Best crop", "model": "Model", "provider": "Provider" },
+    "evidence": {
+      "full_frame": "Full frame",
+      "crop": "Best crop",
+      "model": "Model",
+      "provider": "Provider",
+      "original": "As uploaded",
+      "compare": "Compare evidence",
+      "scored_help": "This is the exact input the classifier scored.",
+      "original_help": "Your original file, kept exactly as uploaded.",
+      "input": "Scored input",
+      "file": "File"
+    },
     "errors": {
-      "load": "The analysis status could not be loaded.", "type": "Choose a JPEG, PNG, WebP, MP4, MOV, or WebM file.",
-      "image_size": "Choose an image no larger than 25 MB.", "video_size": "Choose a video no larger than 250 MB.",
-      "upload": "The media could not be uploaded.", "retry": "The analysis could not be restarted.", "save": "The observation could not be saved."
+      "load": "The analysis status could not be loaded.",
+      "type": "Choose a JPEG, PNG, WebP, MP4, MOV, or WebM file.",
+      "image_size": "Choose an image no larger than 25 MB.",
+      "video_size": "Choose a video no larger than 250 MB.",
+      "upload": "The media could not be uploaded.",
+      "retry": "The analysis could not be restarted.",
+      "save": "The observation could not be saved."
     },
     "upload": {
-      "title": "Choose a photo or video", "help": "Use the original file when possible. YA-WAMF will preserve it and choose the strongest input for classification.",
-      "change": "Choose a different file", "drop": "Drop media here or choose a file", "formats": "JPEG, PNG, WebP up to 25 MB · MP4, MOV, WebM up to 250 MB / 3 minutes",
-      "uploading": "Securing the original…", "analyse": "Upload and analyse"
+      "title": "Choose a photo or video",
+      "help": "Use the original file when possible. YA-WAMF will preserve it and choose the strongest input for classification.",
+      "change": "Choose a different file",
+      "drop": "Drop media here or choose a file",
+      "formats": "JPEG, PNG, WebP up to 25 MB · MP4, MOV, WebM up to 250 MB / 3 minutes",
+      "uploading": "Securing the original…",
+      "analyse": "Upload and analyse"
     },
     "analysis": {
-      "preview_alt": "Uploaded media preview", "video": "Video", "image": "Photo", "title": "Finding the strongest evidence",
+      "preview_alt": "Uploaded media preview",
+      "video": "Video",
+      "image": "Photo",
+      "title": "Finding the strongest evidence",
       "body": "The production classifier is comparing frames and crop candidates. You can leave this page; the draft will be restored when you return.",
-      "progress": "Analysis progress", "failed_title": "Analysis stopped safely", "failed_body": "Your original media is still stored. Retry when the model is available.", "retry": "Retry analysis"
+      "progress": "Analysis progress",
+      "failed_title": "Analysis stopped safely",
+      "failed_body": "Your original media is still stored. Retry when the model is available.",
+      "retry": "Retry analysis"
     },
     "review": {
-      "preview_alt": "Observation preview", "title": "Review before saving", "body": "Confirm the suggested species, correct it if needed, and add the field context you want to keep.",
-      "candidates": "Model suggestions", "species": "Species", "when": "Observed at", "location": "Camera or place name", "notes": "Notes",
-      "saving": "Saving observation…", "save": "Save observation"
+      "preview_alt": "Observation preview",
+      "title": "Review before saving",
+      "body": "Confirm the suggested species, correct it if needed, and add the field context you want to keep.",
+      "candidates": "Model suggestions",
+      "species": "Species",
+      "when": "Observed at",
+      "location": "Camera or place name",
+      "notes": "Notes",
+      "saving": "Saving observation…",
+      "save": "Save observation",
+      "save_species": "Add {species}"
     },
     "location": {
-      "title": "Sighting location", "extracted": "Location found in the image metadata. Check the pin and adjust it if needed.",
-      "missing": "No embedded location was found. Place a pin if you know where the sighting was made.", "manual": "This pin was placed or adjusted manually. Check it before saving.", "from_image": "From image metadata",
-      "map_label": "Map for placing the sighting pin", "map_help": "Click or tap the map to place the pin. Drag it to make a precise adjustment.",
-      "latitude": "Latitude", "longitude": "Longitude", "clear": "Clear location", "incomplete": "Enter both latitude and longitude, or clear the location.", "invalid": "Latitude must be −90 to 90 and longitude −180 to 180.",
-      "selected": "Pin selected at {latitude}, {longitude}", "unselected": "No sighting location selected", "pin_label": "Sighting location pin; drag to adjust"
+      "title": "Sighting location",
+      "extracted": "Location found in the image metadata. Check the pin and adjust it if needed.",
+      "missing": "No embedded location was found. Place a pin if you know where the sighting was made.",
+      "manual": "This pin was placed or adjusted manually. Check it before saving.",
+      "from_image": "From image metadata",
+      "map_label": "Map for placing the sighting pin",
+      "map_help": "Click or tap the map to place the pin. Drag it to make a precise adjustment.",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "clear": "Clear location",
+      "incomplete": "Enter both latitude and longitude, or clear the location.",
+      "invalid": "Latitude must be −90 to 90 and longitude −180 to 180.",
+      "selected": "Pin selected at {latitude}, {longitude}",
+      "unselected": "No sighting location selected",
+      "pin_label": "Sighting location pin; drag to adjust"
     },
     "saved": {
-      "toast": "Observation added", "eyebrow": "Record complete", "title": "Observation saved", "body": "The verified record is now part of your detection history and species totals.",
-      "view": "View detection", "another": "Add another"
+      "toast": "Observation added",
+      "eyebrow": "Record complete",
+      "title": "Observation saved",
+      "body": "The verified record is now part of your detection history and species totals.",
+      "view": "View detection",
+      "another": "Add another"
     },
-    "start_over": "Start over"
+    "start_over": "Start over",
+    "bar": {
+      "kept": "Kept exactly as uploaded",
+      "hint": "Nothing is added until you review it"
+    }
   },
   "setup": {
     "action_failed": "That change could not be saved. Check the details and try again.",
@@ -233,7 +289,69 @@
     },
     "top_visitors_title": "Top Visitors",
     "top_visitors_empty": "No visitors recorded yet today.",
-    "top_visitors_count": "{count} visits"
+    "top_visitors_count": "{count} visits",
+    "field_log": {
+      "title": "Field log",
+      "subtitle": "Repeat frames of the same bird are folded into one visit",
+      "needs_name": "Below the naming threshold",
+      "identify": "Identify",
+      "open": "Open",
+      "preview_trigger": "Preview {species}",
+      "preview_alt": "{species} on {camera}",
+      "preview_frames": "{count} frames in this visit, clearest shown",
+      "earlier": "{count} earlier visits today"
+    },
+    "day_bar": {
+      "today": "Today",
+      "visits": "visits",
+      "unresolved": "unresolved",
+      "calls_heard": "calls heard",
+      "cross_confirmed": "cross-confirmed",
+      "reconnecting": "Reconnecting…"
+    },
+    "desk": {
+      "cameras": "Cameras",
+      "cameras_empty": "No cameras reporting yet. Add them in Settings → Connection.",
+      "camera_no_visits": "no visits",
+      "sensors": "Audio vs camera",
+      "heard": "heard",
+      "seen": "seen",
+      "both": "both",
+      "no_cross_confirmation": "{count} calls were heard but none lined up with a camera visit. The microphone and the cameras may be covering different ground.",
+      "conditions": "Conditions",
+      "temperature_span": "Visits ranged {low} to {high}"
+    },
+    "review_queue": {
+      "title": "Needs your call",
+      "empty": "Every visit today has a species. Nothing waiting on you.",
+      "remaining": "{count} more waiting",
+      "work_through": "Work through the queue"
+    },
+    "review_session": {
+      "position": "{position} of {total}",
+      "summary": "{resolved} decided, {skipped} skipped",
+      "done": "Queue clear",
+      "done_with_skips": "Queue worked through",
+      "done_note": "Every visit has a species. Your corrections feed the per-camera ranking.",
+      "skipped_note": "{count} left for later. They stay in the queue.",
+      "back": "Back to the dashboard",
+      "what_is_it": "What is it?",
+      "threshold_note": "The model scored this below the naming threshold.",
+      "search": "Search species…",
+      "no_matches": "No species matches that. Try fewer letters.",
+      "skip": "Skip for now",
+      "not_a_bird": "Not a bird, hide it",
+      "full_record": "Open full record",
+      "remaining": "{count} still to look at",
+      "image_alt": "Unidentified detection on {camera}",
+      "all_species": "All species",
+      "seen_here": "Seen at this feeder",
+      "no_suggestions": "No species recorded yet. Search the full list above.",
+      "crop": "Best crop",
+      "full_frame": "Full frame",
+      "view_label": "Which frame to show",
+      "no_crop": "No crop stored for this detection. Open the full record to scan for one."
+    }
   },
   "common": {
     "loading": "Loading…",
@@ -1912,145 +2030,20 @@
     "other_species": "Other"
   },
   "about": {
-    "title": "About This Project",
     "how_it_works": "How It Works",
-    "features": "Features",
-    "tech_stack": "Technology Stack",
-    "docs_resources": "Documentation & Resources",
     "credits": "Credits & Thanks",
-    "jump_to": "Jump to",
     "view_changelog": "View changelog",
     "flaticon_credit": "Bird icons created by Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Licensed under the {license}",
     "built_with_ai": "Built with AI assistance for the love of bird watching 🐦",
     "project_desc_1": "YA-WAMF is a personal project started to experiment with AI-assisted coding. When the original {link} project became unmaintained, this was born as both a learning opportunity and a useful tool for bird enthusiasts.",
-    "project_desc_2": "The application is built with AI coding assistance and has grown into a fully-featured bird identification platform — from a simple feeder camera to multi-sensor correlation, GPU-accelerated models, and real-time Home Assistant integration.",
-    "steps": {
-      "1": {
-        "title": "Frigate Detects",
-        "desc": "Your camera picks up movement, Frigate identifies it as a bird"
-      },
-      "2": {
-        "title": "MQTT Message",
-        "desc": "Frigate publishes an event to your MQTT broker"
-      },
-      "3": {
-        "title": "YA-WAMF Processes",
-        "desc": "The backend subscribes to MQTT and picks up the event"
-      },
-      "4": {
-        "title": "Classification",
-        "desc": "Image runs through ML model (or uses Frigate's sublabel)"
-      },
-      "5": {
-        "title": "Audio Correlation",
-        "desc": "Cross-references with BirdNET-Go audio detections if available"
-      },
-      "6": {
-        "title": "Save & Notify",
-        "desc": "Detection stored to database, notifications sent"
-      },
-      "7": {
-        "title": "Video Analysis",
-        "desc": "Optional: Scans video clip frames for refined accuracy"
-      },
-      "8": {
-        "title": "Live Updates",
-        "desc": "Dashboard receives real-time updates via Server-Sent Events"
-      }
-    },
-    "feature_list": {
-      "ai_models": {
-        "title": "Advanced AI Models",
-        "desc": "Multiple model tiers: MobileNetV2 (fast, CPU-only), ConvNeXt Large (recommended default), or EVA-02 (elite — up to 75% top-1 / 88% top-5 across 10,000 species). Regional birds-only models also available."
-      },
-      "multi_sensor": {
-        "title": "Multi-Sensor Correlation",
-        "desc": "Cross-reference visual detections with BirdNET-Go audio identifications for verified sightings"
-      },
-      "video_analysis": {
-        "title": "Auto Video Analysis",
-        "desc": "Automatically scan 15+ frames from video clips for higher accuracy using temporal ensemble logic"
-      },
-      "full_visit_clip": {
-        "title": "Full-Visit Clips",
-        "desc": "Generate a longer clip from Frigate recordings so a full feeder visit can be viewed after the detection finishes"
-      },
-      "notifications": {
-        "title": "Rich Notifications",
-        "desc": "Discord, Telegram, and Pushover support with customizable filters and species-specific alerts"
-      },
-      "ai_insights": {
-        "title": "AI Naturalist Insights",
-        "desc": "Get behavioral analysis of your visitors using Gemini, OpenAI, or Claude language models"
-      },
-      "taxonomy": {
-        "title": "Taxonomy Normalization",
-        "desc": "Automatic scientific ↔ common name mapping using iNaturalist data"
-      },
-      "inaturalist_submissions": {
-        "title": "iNaturalist Submissions",
-        "desc": "Owner-reviewed submissions with photos, location, and notes",
-        "badge": "Testers needed"
-      },
-      "weather": {
-        "title": "Weather Enrichment",
-        "desc": "Track detections with local weather conditions and temperature data"
-      },
-      "home_assistant": {
-        "title": "Home Assistant Integration",
-        "desc": "Native sensors for tracking last detected bird and daily visitor counts"
-      },
-      "birdweather": {
-        "title": "BirdWeather Reporting",
-        "desc": "Optional: Contribute your detections to the BirdWeather community science platform"
-      },
-      "observability": {
-        "title": "Observability",
-        "desc": "Built-in Prometheus metrics, optional telemetry, and real-time MQTT diagnostics"
-      },
-      "wildlife": {
-        "title": "Wildlife Classifier",
-        "desc": "Identify squirrels, foxes, and other non-bird visitors to your feeder"
-      },
-      "fast_path": {
-        "title": "Fast Path Efficiency",
-        "desc": "Skip local AI processing and use Frigate's sublabels directly to save CPU resources"
-      },
-      "guest_mode": {
-        "title": "Public View (Guest Mode)",
-        "desc": "Share a read-only dashboard with rate limits and optional camera name hiding"
-      },
-      "gpu_acceleration": {
-        "title": "GPU Acceleration",
-        "desc": "Auto-select between NVIDIA CUDA and Intel OpenVINO for fast ONNX inference, with runtime fallback and live provider diagnostics in the UI"
-      },
-      "personalized_reranking": {
-        "title": "Personalized Re-ranking",
-        "desc": "Learns from your manual species corrections per camera and model, re-ranking predictions to match your local birds over time. Activates after 20 corrections."
-      },
-      "ebird_export": {
-        "title": "eBird Export",
-        "desc": "Export your detections as a standard eBird Record Format CSV — ready to submit directly to your eBird account"
-      }
-    },
-    "tech": {
-      "backend": "Backend",
-      "frontend": "Frontend",
-      "ml": "ML Engine",
-      "messaging": "Messaging",
-      "deployment": "Deployment"
-    },
+    "project_desc_2": "Frigate watches the feeder and flags anything that looks like a bird. YA-WAMF classifies it, checks it against BirdNET-Go audio, and stores the result. Every photo on this page came off that camera.",
     "links": {
       "repo": "GitHub Repository",
-      "repo_desc": "Source code, issues, and releases",
       "docs": "Documentation",
-      "docs_desc": "Setup guides, API reference, and troubleshooting",
       "issues": "Report Issue",
       "frigate": "Frigate NVR",
-      "frigate_desc": "Required: Open-source NVR with object detection",
-      "birdnet": "BirdNET-Go",
-      "birdnet_desc": "Optional: Audio bird identification"
+      "birdnet": "BirdNET-Go"
     },
     "credits_list": {
       "preamble": "This project wouldn't be possible without:",
@@ -2060,8 +2053,86 @@
       "benjordan": "{link} on YouTube for inspiring bird detection content",
       "ai_assistants": "AI assistants that helped build this application"
     },
-    "star_github": "Star on GitHub",
-    "star_github_label": "Star YA-WAMF on GitHub"
+    "pipeline": {
+      "subtitle": "The standard pipeline, showing what this instance is doing.",
+      "frigate": "Frigate",
+      "mqtt": "MQTT",
+      "classifier": "Classifier",
+      "audio": "BirdNET-Go",
+      "store": "Database",
+      "notify": "Notifications",
+      "browser": "Your browser",
+      "unknown": "unknown",
+      "online": "online",
+      "degraded": "check",
+      "loaded": "loaded",
+      "not_loaded": "not loaded",
+      "enabled": "enabled",
+      "off": "off",
+      "streaming": "streaming",
+      "offline": "offline",
+      "cameras_count": "{online} of {total} cameras online",
+      "mqtt_detail": "frigate/events",
+      "audio_detail": "BirdNET-Go correlation",
+      "store_detail": "SQLite under /data",
+      "notify_on": "at least one channel configured",
+      "notify_off": "nothing configured",
+      "browser_detail": "live updates over SSE",
+      "legend_local": "runs on your hardware",
+      "legend_optional": "optional",
+      "legend_external": "your broker and browser",
+      "legend_note": "Nothing leaves your network except the calls listed below."
+    },
+    "storage": {
+      "title": "What it stores",
+      "detections_desc": "species, score, camera, weather, audio match",
+      "audio_desc": "BirdNET history",
+      "taxonomy_desc": "iNaturalist lookups",
+      "note": "SQLite under /data. Schema changes ship reversible migrations."
+    },
+    "outbound": {
+      "title": "What leaves your network",
+      "inat": "iNaturalist",
+      "inat_desc": "name lookups",
+      "weather": "Weather API",
+      "weather_desc": "conditions per detection",
+      "llm": "LLM insight",
+      "llm_desc": "your key, your provider",
+      "telemetry": "Telemetry",
+      "telemetry_desc": "anonymous counts",
+      "guest_note": "Shown for transparency. Only the owner can change these."
+    },
+    "stats": {
+      "detections": "detections stored",
+      "species": "species identified",
+      "week": "visits this week"
+    },
+    "instance": {
+      "title": "This instance",
+      "acceleration": "Acceleration",
+      "for_issue": "For an issue report",
+      "copy": "Copy",
+      "copied": "Copied",
+      "copy_failed": "Copying was refused, select the text instead.",
+      "no_secrets": "Contains no keys, URLs or camera names.",
+      "uptime": "Running for",
+      "since": "since {when}",
+      "uptime_minutes": "{count} min",
+      "uptime_hours": "{count} h",
+      "uptime_days": "{count} days",
+      "strip_label": "Availability over the last {hours} hours",
+      "gap": "{minutes} minutes missing at {when}",
+      "no_history": "No history recorded yet for this window.",
+      "no_gaps": "No gaps in the last 24 hours.",
+      "up_to_date": "Up to date",
+      "update_available": "v{version} is available",
+      "checked": "checked {when}"
+    },
+    "close": {
+      "title": "Data, privacy and credits"
+    },
+    "reference_thanks": "Reference & thanks",
+    "thanks_to": "Thanks to"
   },
   "species_detail": {
     "no_wiki": "No Wikipedia information available for this species.",

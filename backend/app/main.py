@@ -39,6 +39,8 @@ from app.services.high_quality_snapshot_service import high_quality_snapshot_ser
 from app.services.notification_dispatcher import notification_dispatcher
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.health_repository import HealthRepository
+from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES
 from app.routers import (
     events,
     proxy,
@@ -181,6 +183,8 @@ event_processor: EventProcessor | None = None
 # Cleanup task control
 cleanup_task = None
 cleanup_running = True
+heartbeat_task = None
+heartbeat_running = True
 CLEANUP_INTERVAL_HOURS = 24  # Run cleanup every 24 hours
 
 
@@ -383,6 +387,41 @@ async def _start_mqtt_service_task() -> None:
     create_background_task(mqtt_service.start(event_processor), name="mqtt_service_start")
 
 
+async def heartbeat_scheduler(instance_id: str):
+    """Record that the application is alive, on a fixed interval.
+
+    Gaps between heartbeats are the only honest uptime signal available without an
+    external monitor, so this loop is deliberately dull and failure-tolerant.
+    """
+    global heartbeat_running
+
+    while heartbeat_running:
+        try:
+            async with get_db() as db:
+                repo = HealthRepository(db)
+                await repo.record_heartbeat(instance_id)
+                if (
+                    datetime.now(timezone.utc).hour == 4
+                    and datetime.now(timezone.utc).minute < HEARTBEAT_INTERVAL_MINUTES
+                ):
+                    await repo.prune()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            # A missed heartbeat reads as a short gap, which is honest enough.
+            log.warning("heartbeat_write_failed", error=str(e))
+
+        try:
+            await asyncio.sleep(HEARTBEAT_INTERVAL_MINUTES * 60)
+        except asyncio.CancelledError:
+            break
+
+
+async def _start_heartbeat_scheduler_task(instance_id: str) -> None:
+    global heartbeat_task
+    heartbeat_task = create_background_task(heartbeat_scheduler(instance_id), name="heartbeat_scheduler")
+
+
 async def _start_cleanup_scheduler_task() -> None:
     global cleanup_task
     cleanup_task = create_background_task(cleanup_scheduler(), name="cleanup_scheduler")
@@ -390,12 +429,14 @@ async def _start_cleanup_scheduler_task() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global cleanup_task, cleanup_running
+    global cleanup_task, cleanup_running, heartbeat_task, heartbeat_running
     test_mode = _is_testing()
 
     # Startup
     cleanup_running = True
     cleanup_task = None
+    heartbeat_running = not test_mode
+    heartbeat_task = None
     app.state.startup_warnings = []
     startup_started_at = datetime.now(timezone.utc)
     app.state.startup_started_at = startup_started_at.isoformat()
@@ -475,6 +516,12 @@ async def lifespan(app: FastAPI):
         )
         await _run_lifecycle_phase(
             app,
+            "heartbeat_scheduler_task_start",
+            lambda: _start_heartbeat_scheduler_task(app.state.startup_instance_id),
+            fatal=False,
+        )
+        await _run_lifecycle_phase(
+            app,
             "cleanup_scheduler_task_start",
             _start_cleanup_scheduler_task,
             fatal=False,
@@ -493,6 +540,14 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    heartbeat_running = False
+    if heartbeat_task and not test_mode:
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except asyncio.CancelledError:
+            pass
+
     cleanup_running = False
     if cleanup_task and not test_mode:
         cleanup_task.cancel()

@@ -6,7 +6,86 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **The dashboard is now a field desk: one chronological log of the day with the outstanding work
+  docked beside it.** Repeat frames of the same bird on the same camera within ten minutes fold
+  into a single visit row showing the clearest frame and the best score, so one blackbird landing
+  once no longer prints four cards. The full-height latest-detection hero and the four-metric
+  overview ribbon are replaced by a compact day bar (visits, species, unresolved, calls heard,
+  cross-confirmed) and a **Needs your call** queue listing detections that fell below the naming
+  threshold, oldest first, with Identify available inline on the row. New context cards cover
+  per-camera visit counts with online status, an audio-versus-camera reconciliation that is honest
+  when the two sensors never corroborate each other, and the temperature range visits happened in.
+  The day bar, log, queue and cards all describe the same 24-hour window, so the numbers cannot
+  contradict one another.
+
+- **Small captures now open on hover and on keyboard focus.** Any thumbnail in the log expands to
+  a preview panel with the full frame, score, camera, time and conditions, modelled on the existing
+  header camera popover: it stays open while the pointer travels into it, dismisses with Escape,
+  reuses the thumbnail already fetched rather than a second request, and honours reduced-motion.
+
+- **Adding an observation now shows the evidence at the size you need to judge it.** The review
+  step is media-led: the frame takes the larger half of the screen, and when the classifier scored
+  a crop you can switch between that exact input and your original upload to tell a bad crop from
+  a bad classification. The model, provider, scored input and original filename are listed as
+  evidence rather than left implied by a single badge, and the confirm button names the species
+  it is about to add instead of saying "Add observation".
+
+- **The About page now shows what this instance is actually doing.** The eight-step description
+  of the pipeline is replaced by the same seven steps annotated with live state: cameras online,
+  which classifier is loaded and on which provider, whether BirdNET-Go correlation and
+  notifications are configured, and whether the browser is receiving live updates. A step whose
+  status cannot be read says "unknown" rather than claiming to be healthy, and steps with no
+  status source (the broker, the database) carry no state at all. Two new columns state what is
+  stored in each table and which outbound calls are enabled, so the privacy answer lives on the
+  page rather than across three documents.
+
+- **The About page is now the page, not a brochure.** The eighteen-item feature grid, the
+  technology-stack card, the jump-to nav and the separate resources card are gone. What remains is
+  what the page is for: what this is, how it works with live state on every step, what it stores
+  and sends, the build detail to quote in an issue report, and the credits. The feature list stays
+  documented in the readme and docs.
+
+- **Adding an observation gives the evidence the room.** The gradient intro banner and the 16rem
+  step rail are replaced by a slim bar carrying the filename, the flow status and Start over, so
+  the frame and the candidate list get the width instead of the chrome.
+
+- **"Work through the queue" now opens a walk-through instead of sending you to Explorer.** A
+  distinct full-screen flow takes the unresolved detections one at a time: the frame at full size
+  with its time, camera, score and conditions, and a decision rail offering the species this feeder
+  actually sees, most frequent first, rather than the alphabetical head of an eleven thousand label
+  list. Each item can be identified, hidden as not a bird, skipped for later, or opened in full. It
+  states position and what is left throughout, and closes on an honest summary of what was decided
+  and what was skipped. Where a snapshot scan has already found the crop the classifier scored,
+  the walk-through opens on that crop with a Best crop / Full frame toggle, since a wide feeder
+  shot rarely settles what a low-confidence blur is. Detections without a stored crop say so
+  instead of pretending the full frame is one.
+
+- **About shows how long this instance has been running.** The readiness probe already records
+  when the process started, so "This instance" now states uptime and the time it started, with no
+  new endpoint. The colophon is no longer boxed in a card, since it reads as the page opening
+  rather than as one panel among several.
+
+- **Uptime is now recorded, so About can show it honestly.** The application writes a heartbeat
+  every five minutes to a new `health_samples` table, and `GET /api/stats/uptime` turns those rows
+  into an availability window. About draws the last 24 hours as a strip and names the longest gap,
+  for example "47 minutes missing at 05:40". A bucket with no heartbeat is reported as down, and a
+  bucket from before the first heartbeat ever recorded is reported as unknown rather than as an
+  outage, so a fresh install does not claim a day of downtime. Heartbeats are pruned after seven
+  days.
+
+- **Dashboard and About polish against the agreed designs.** The field log now draws a spine
+  behind the state dots, so the day reads as one thread rather than a stack of unrelated rows, and
+  it says how many earlier visits are not shown instead of stopping silently at twelve. Camera rows
+  keep the count and its unit together and carry the last visit time, so a quiet camera is visibly
+  quiet. About states whether the build is up to date, using the update check that already exists.
+
 ### Fixed
+
+- **Top Visitors is readable on the dashboard again.** It lays out horizontally and was being
+  compressed into the context rail on desktop. It now sits full width below the desk, where it
+  was before, with a layout test to keep it there.
 
 - **Leaderboard rows now recover common names already present in the taxonomy cache.** Historic
   detections that predated successful taxonomy enrichment no longer remain scientific-name-only in
