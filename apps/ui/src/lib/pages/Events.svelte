@@ -20,6 +20,7 @@
         type EventFilterSpecies,
         type SearchResult
     } from '../api';
+    import ExplorerFilters from '../components/ExplorerFilters.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
@@ -54,6 +55,7 @@
     let totalPages = $derived(Math.ceil(totalCount / pageSize));
     let availableSpecies: EventFilterSpecies[] = $state([]);
     let availableCameras: string[] = $state([]);
+    let eventFilters = $state<EventFilters | null>(null);
     type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
     let datePreset = $state<DatePreset>('all');
     let customStartDate = $state('');
@@ -252,6 +254,7 @@
             const filters = await fetchEventFilters({ forceRefresh });
             availableSpecies = (filters as EventFilters).species;
             availableCameras = (filters as EventFilters).cameras;
+            eventFilters = filters as EventFilters;
             if (includeAuxiliary) {
                 const [labels, hidden] = await Promise.all([
                     fetchClassifierLabels().catch(() => ({ labels: [] })),
@@ -1076,115 +1079,49 @@
         </div>
     {/if}
 
-    <section data-events-filter-bar class="space-y-3 border-y border-slate-200 py-4 dark:border-slate-700">
-        <div class="grid gap-3 lg:grid-cols-3">
-            <select bind:value={datePreset} onchange={loadEvents} aria-label={$_('events.filters.all_time')} class="select-base min-w-0 w-full shadow-none">
-                <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
-            </select>
-            <select bind:value={speciesFilter} onchange={loadEvents} aria-label={$_('events.filters.all_species')} class="select-base min-w-0 w-full shadow-none">
-                <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s.value}>{formatSpeciesLabel(s)}</option>{/each}
-            </select>
-            <select bind:value={cameraFilter} onchange={loadEvents} aria-label={$_('events.filters.all_cameras')} class="select-base min-w-0 w-full shadow-none">
-                <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
-            </select>
-        </div>
-        <div class="flex flex-wrap gap-3">
-            <button
-            type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors
-                {refreshingFilterOptions
-                    ? 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
-            onclick={() => void refreshEventMetadata(true, true)}
-            disabled={refreshingFilterOptions}
-            title={$_('events.filters.refresh_options', { default: 'Refresh species and camera options' })}
-        >
-            {#if refreshingFilterOptions}
-                <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 018-8m8 8a8 8 0 01-8 8"></path>
-                </svg>
-                <span>{$_('events.filters.refreshing_options', { default: 'Refreshing' })}</span>
-            {:else}
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 9A8 8 0 005.4 5.4L4 6M4 15a8 8 0 0014.6 3.6L20 18"></path>
-                </svg>
-                <span>{$_('events.filters.refresh_options', { default: 'Refresh options' })}</span>
-            {/if}
-            </button>
-            <button
-            type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
-                {favoritesOnly
-                    ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/50'
-                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
-            onclick={() => {
-                favoritesOnly = !favoritesOnly;
-                currentPage = 1;
-                void loadEvents();
-            }}
-            aria-pressed={favoritesOnly}
-            title={$_('events.filters.favorites', { default: 'Favorites only' })}
-        >
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill={favoritesOnly ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
-            </svg>
-            <span>{$_('events.filters.favorites', { default: 'Favorites' })}</span>
-            </button>
-            <button
-            type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
-                {audioConfirmedOnly
-                    ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/20 dark:text-blue-200 dark:border-blue-500/50'
-                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
-            onclick={() => {
-                audioConfirmedOnly = !audioConfirmedOnly;
-                currentPage = 1;
-                void loadEvents();
-            }}
-            aria-pressed={audioConfirmedOnly}
-            title={$_('events.filters.audio_confirmed_only', { default: 'Audio confirmed only' })}
-        >
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-            </svg>
-            <span>{$_('events.filters.audio_confirmed', { default: 'Audio Matches' })}</span>
-            </button>
-            {#if authStore.hasOwnerAccess && (hiddenCount > 0 || showHidden)}
-                <button
-                    type="button"
-                    class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
-                        {showHidden
-                            ? 'bg-slate-800 text-white border-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-200'
-                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
-                    onclick={() => {
-                        showHidden = !showHidden;
-                        currentPage = 1;
-                        void loadEvents();
-                    }}
-                    aria-pressed={showHidden}
-                    title={$_('events.filters.hidden_detections', { default: 'Show hidden detections' })}
-                >
-                    {#if showHidden}
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.457 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.543 7-1.275 4.057-5.065 7-9.543 7-4.477 0-8.268-2.943-9.543-7z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                    {:else}
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                        </svg>
-                    {/if}
-                    <span>{$_('events.filters.hidden', { default: 'Hidden' })}</span>
-                    <span class="inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none {showHidden ? 'bg-white/20 text-white dark:bg-slate-900/15 dark:text-slate-900' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}">
-                        {hiddenCount}
-                    </span>
-                </button>
-            {/if}
-        </div>
-    </section>
+    <ExplorerFilters
+        species={availableSpecies}
+        cameras={availableCameras}
+        filters={eventFilters}
+        {datePreset}
+        {speciesFilter}
+        {cameraFilter}
+        {favoritesOnly}
+        {audioConfirmedOnly}
+        {showHidden}
+        {hiddenCount}
+        {customStartDate}
+        {customEndDate}
+        canSeeHidden={authStore.hasOwnerAccess}
+        refreshing={refreshingFilterOptions}
+        resultCount={totalCount}
+        onchange={(next) => {
+            if (next.datePreset !== undefined) datePreset = next.datePreset;
+            if (next.speciesFilter !== undefined) speciesFilter = next.speciesFilter;
+            if (next.cameraFilter !== undefined) cameraFilter = next.cameraFilter;
+            if (next.favoritesOnly !== undefined) favoritesOnly = next.favoritesOnly;
+            if (next.audioConfirmedOnly !== undefined) audioConfirmedOnly = next.audioConfirmedOnly;
+            if (next.showHidden !== undefined) showHidden = next.showHidden;
+            if (next.customStartDate !== undefined) customStartDate = next.customStartDate;
+            if (next.customEndDate !== undefined) customEndDate = next.customEndDate;
+            currentPage = 1;
+            loadEvents();
+        }}
+        onclear={() => {
+            datePreset = 'all';
+            speciesFilter = '';
+            cameraFilter = '';
+            favoritesOnly = false;
+            audioConfirmedOnly = false;
+            showHidden = false;
+            customStartDate = '';
+            customEndDate = '';
+            currentPage = 1;
+            loadEvents();
+        }}
+        onrefresh={() => refreshEventMetadata(true, true)}
+    />
 
-    <Pagination {currentPage} {totalPages} totalItems={totalCount} itemsPerPage={pageSize} onPageChange={handlePageChange} onPageSizeChange={handlePageSizeChange} />
 
     {#if error}
         <div class="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
@@ -1301,7 +1238,6 @@
         itemsPerPage={pageSize}
         onPageChange={handlePageChange}
         onPageSizeChange={handlePageSizeChange}
-        showPageSize={false}
     />
 </div>
 

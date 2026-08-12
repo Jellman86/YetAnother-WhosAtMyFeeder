@@ -1838,7 +1838,14 @@
       "hidden": "Ausgeblendet",
       "hidden_detections": "Ausgeblendete Erkennungen anzeigen",
       "refresh_options": "Optionen aktualisieren",
-      "refreshing_options": "Optionen werden aktualisiert…"
+      "refreshing_options": "Optionen werden aktualisiert…",
+      "result_count": "{count} Besuche",
+      "title": "Filter",
+      "clear_all": "Alle zurücksetzen",
+      "when": "Wann",
+      "only": "Nur",
+      "search_species": "Art suchen",
+      "no_species_match": "Keine Art passt dazu."
     },
     "sort": {
       "newest": "Neueste",

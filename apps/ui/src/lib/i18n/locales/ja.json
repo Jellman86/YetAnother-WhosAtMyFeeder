@@ -1838,7 +1838,14 @@
       "hidden": "非表示",
       "hidden_detections": "非表示の検出を表示",
       "refresh_options": "オプションを更新",
-      "refreshing_options": "オプションを更新中…"
+      "refreshing_options": "オプションを更新中…",
+      "result_count": "{count} 件の訪問",
+      "title": "フィルター",
+      "clear_all": "すべて解除",
+      "when": "期間",
+      "only": "絞り込み",
+      "search_species": "種を検索",
+      "no_species_match": "一致する種がありません。"
     },
     "sort": {
       "newest": "新しい順",

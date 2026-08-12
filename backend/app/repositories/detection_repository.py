@@ -1785,7 +1785,9 @@ class DetectionRepository:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
-    async def get_unique_species_with_taxonomy(self) -> list[tuple[str, str | None, str | None, int | None]]:
+    async def get_unique_species_with_taxonomy(
+        self,
+    ) -> list[tuple[str, str | None, str | None, int | None, int]]:
         """Get unique species, pre-grouped to avoid duplicates from display_name variants.
 
         Strategy:
@@ -1804,10 +1806,10 @@ class DetectionRepository:
         """
         async with self.db.execute(
             """
-            WITH species_distinct AS (
+            WITH species_rows AS (
                 -- Enrich taxa_id from taxonomy_cache when the detection is missing it
                 -- but has a known scientific_name we can join on.
-                SELECT DISTINCT
+                SELECT
                     d.display_name,
                     d.scientific_name,
                     d.common_name,
@@ -1818,12 +1820,34 @@ class DetectionRepository:
                     AND LOWER(tc.scientific_name) = LOWER(d.scientific_name)
                 WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
             ),
+            -- The filter bar shows how many detections each option would return, so the
+            -- count has to be taken over the same grouping the options are built from.
+            group_counts AS (
+                SELECT
+                    COALESCE(
+                        CAST(taxa_id AS TEXT),
+                        LOWER(scientific_name),
+                        LOWER(display_name)
+                    ) AS species_key,
+                    COUNT(*) AS detection_count
+                FROM species_rows
+                GROUP BY species_key
+            ),
+            species_distinct AS (
+                SELECT DISTINCT display_name, scientific_name, common_name, taxa_id
+                FROM species_rows
+            ),
             ranked AS (
                 SELECT
                     display_name,
                     scientific_name,
                     common_name,
                     taxa_id,
+                    COALESCE(
+                        CAST(taxa_id AS TEXT),
+                        LOWER(scientific_name),
+                        LOWER(display_name)
+                    ) AS species_key,
                     ROW_NUMBER() OVER (
                         -- Group all name variants for the same species together:
                         -- first by taxa_id (most canonical), then by scientific_name,
@@ -1841,13 +1865,57 @@ class DetectionRepository:
                     ) AS rn
                 FROM species_distinct
             )
-            SELECT display_name, scientific_name, common_name, taxa_id
+            SELECT
+                ranked.display_name,
+                ranked.scientific_name,
+                ranked.common_name,
+                ranked.taxa_id,
+                COALESCE(group_counts.detection_count, 0) AS detection_count
             FROM ranked
-            WHERE rn = 1
-            ORDER BY display_name ASC
+            LEFT JOIN group_counts ON group_counts.species_key = ranked.species_key
+            WHERE ranked.rn = 1
+            ORDER BY ranked.display_name ASC
             """
         ) as cursor:
             return await cursor.fetchall()
+
+    async def get_camera_counts(self) -> dict[str, int]:
+        """Detections per camera, for the Explorer camera facet."""
+        async with self.db.execute(
+            """
+            SELECT camera_name, COUNT(*)
+            FROM detections
+            WHERE (is_hidden = 0 OR is_hidden IS NULL)
+            GROUP BY camera_name
+            ORDER BY camera_name ASC
+            """
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return {row[0]: row[1] for row in rows if row[0]}
+
+    async def get_facet_totals(self) -> dict[str, int]:
+        """Counts for the facets that are a flag rather than a value."""
+        async with self.db.execute(
+            """
+            SELECT
+                COUNT(*),
+                SUM(CASE WHEN f.detection_id IS NOT NULL THEN 1 ELSE 0 END),
+                SUM(CASE WHEN d.audio_confirmed = 1 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN d.video_classification_status = 'completed' THEN 1 ELSE 0 END)
+            FROM detections d
+            LEFT JOIN detection_favorites f ON f.detection_id = d.id
+            WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+            """
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return {"total": 0, "favorites": 0, "audio_matched": 0, "video_analysed": 0}
+            return {
+                "total": row[0] or 0,
+                "favorites": row[1] or 0,
+                "audio_matched": row[2] or 0,
+                "video_analysed": row[3] or 0,
+            }
 
     async def get_unique_cameras(self) -> list[str]:
         """Get list of unique camera names, sorted alphabetically."""

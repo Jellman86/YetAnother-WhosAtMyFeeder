@@ -1847,7 +1847,14 @@
       "hidden": "Hidden",
       "hidden_detections": "Show hidden detections",
       "refresh_options": "Refresh options",
-      "refreshing_options": "Refreshing options…"
+      "refreshing_options": "Refreshing options…",
+      "result_count": "{count} visits",
+      "title": "Filters",
+      "clear_all": "Clear all",
+      "when": "When",
+      "only": "Only",
+      "search_species": "Search species",
+      "no_species_match": "No species matches that."
     },
     "sort": {
       "newest": "Newest",

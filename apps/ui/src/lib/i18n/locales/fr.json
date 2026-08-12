@@ -1838,7 +1838,14 @@
       "hidden": "Masqués",
       "hidden_detections": "Afficher les détections masquées",
       "refresh_options": "Actualiser les options",
-      "refreshing_options": "Actualisation des options…"
+      "refreshing_options": "Actualisation des options…",
+      "result_count": "{count} visites",
+      "title": "Filtres",
+      "clear_all": "Tout effacer",
+      "when": "Quand",
+      "only": "Seulement",
+      "search_species": "Rechercher une espèce",
+      "no_species_match": "Aucune espèce ne correspond."
     },
     "sort": {
       "newest": "Plus récent",

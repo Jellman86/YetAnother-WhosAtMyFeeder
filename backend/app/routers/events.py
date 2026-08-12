@@ -362,6 +362,18 @@ class EventFilterSpecies(BaseModel):
     scientific_name: Optional[str] = None
     common_name: Optional[str] = None
     taxa_id: Optional[int] = None
+    #: Visible detections for this species, so a filter can state its result count
+    #: before it is applied.
+    count: int = 0
+
+
+class EventFilterTotals(BaseModel):
+    """Counts for the facets that are a flag rather than a value."""
+
+    total: int = 0
+    favorites: int = 0
+    audio_matched: int = 0
+    video_analysed: int = 0
 
 
 class EventFilters(BaseModel):
@@ -369,6 +381,9 @@ class EventFilters(BaseModel):
 
     species: List[EventFilterSpecies]
     cameras: List[str]
+    #: Detections per camera. Empty when camera names are hidden from guests.
+    camera_counts: dict[str, int] = {}
+    totals: EventFilterTotals = EventFilterTotals()
 
 
 _event_filters_cache: dict[tuple[str, bool], tuple[float, EventFilters]] = {}
@@ -417,8 +432,10 @@ async def get_event_filters(
         semaphore = asyncio.Semaphore(LOCALIZED_NAME_CONCURRENCY)
         species_options: list[EventFilterSpecies] = []
 
-        async def resolve_species(row: tuple[str, Optional[str], Optional[str], Optional[int]]) -> EventFilterSpecies:
-            display_name, scientific_name, common_name, taxa_id = row
+        async def resolve_species(
+            row: tuple[str, Optional[str], Optional[str], Optional[int], int],
+        ) -> EventFilterSpecies:
+            display_name, scientific_name, common_name, taxa_id, detection_count = row
             if (
                 _normalize_species_name(display_name) in unknown_label_keys
                 or should_hide_species_label(display_name)
@@ -431,6 +448,7 @@ async def get_event_filters(
                     scientific_name=None,
                     common_name=None,
                     taxa_id=None,
+                    count=detection_count,
                 )
             async with semaphore:
                 taxonomy = await taxonomy_service.get_names(display_name)
@@ -457,6 +475,7 @@ async def get_event_filters(
                     scientific_name=sci_name,
                     common_name=com_name,
                     taxa_id=t_id,
+                    count=detection_count,
                 )
 
         if species_rows:
@@ -469,7 +488,7 @@ async def get_event_filters(
         # resolve_species() may surface a taxa_id or scientific_name for rows that
         # the SQL could not group (e.g. parenthetical display names with no stored
         # scientific_name), so a second pass here catches any residual duplicates.
-        seen: set[str] = set()
+        seen: dict[str, EventFilterSpecies] = {}
         for item in resolved:
             if item.taxa_id:
                 key = f"taxa:{item.taxa_id}"
@@ -477,12 +496,24 @@ async def get_event_filters(
                 key = f"sci:{item.scientific_name.strip().lower()}"
             else:
                 key = item.value.lower()
-            if key in seen:
+            kept = seen.get(key)
+            if kept is not None:
+                # Merged after taxonomy resolution: the counts belong to the same species,
+                # so they add rather than the second one being discarded.
+                kept.count += item.count
                 continue
-            seen.add(key)
+            seen[key] = item
             species_options.append(item)
 
-        result = EventFilters(species=species_options, cameras=cameras)
+        camera_counts = {} if hide_camera_names else await repo.get_camera_counts()
+        totals = await repo.get_facet_totals()
+
+        result = EventFilters(
+            species=species_options,
+            cameras=cameras,
+            camera_counts=camera_counts,
+            totals=EventFilterTotals(**totals),
+        )
         _event_filters_cache[cache_key] = (now, result)
         return result
 

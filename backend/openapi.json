@@ -5363,6 +5363,11 @@
             ],
             "title": "Common Name"
           },
+          "count": {
+            "default": 0,
+            "title": "Count",
+            "type": "integer"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -5401,9 +5406,44 @@
         "title": "EventFilterSpecies",
         "type": "object"
       },
+      "EventFilterTotals": {
+        "description": "Counts for the facets that are a flag rather than a value.",
+        "properties": {
+          "audio_matched": {
+            "default": 0,
+            "title": "Audio Matched",
+            "type": "integer"
+          },
+          "favorites": {
+            "default": 0,
+            "title": "Favorites",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "video_analysed": {
+            "default": 0,
+            "title": "Video Analysed",
+            "type": "integer"
+          }
+        },
+        "title": "EventFilterTotals",
+        "type": "object"
+      },
       "EventFilters": {
         "description": "Available filter options for events.",
         "properties": {
+          "camera_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {},
+            "title": "Camera Counts",
+            "type": "object"
+          },
           "cameras": {
             "items": {
               "type": "string"
@@ -5417,6 +5457,15 @@
             },
             "title": "Species",
             "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/EventFilterTotals",
+            "default": {
+              "audio_matched": 0,
+              "favorites": 0,
+              "total": 0,
+              "video_analysed": 0
+            }
           }
         },
         "required": [

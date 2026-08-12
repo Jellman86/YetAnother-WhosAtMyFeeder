@@ -1847,7 +1847,14 @@
       "hidden": "Скрытые",
       "hidden_detections": "Показать скрытые обнаружения",
       "refresh_options": "Обновить параметры",
-      "refreshing_options": "Обновление параметров…"
+      "refreshing_options": "Обновление параметров…",
+      "result_count": "{count} визитов",
+      "title": "Фильтры",
+      "clear_all": "Сбросить всё",
+      "when": "Когда",
+      "only": "Только",
+      "search_species": "Поиск вида",
+      "no_species_match": "Ничего не найдено."
     },
     "sort": {
       "newest": "Сначала новые",

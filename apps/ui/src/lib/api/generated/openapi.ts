@@ -772,14 +772,23 @@ export interface components {
 };
     EventFilterSpecies: {
     common_name?: string | null;
+    count?: number;
     display_name: string;
     scientific_name?: string | null;
     taxa_id?: number | null;
     value: string;
 };
+    EventFilterTotals: {
+    audio_matched?: number;
+    favorites?: number;
+    total?: number;
+    video_analysed?: number;
+};
     EventFilters: {
+    camera_counts?: Record<string, number>;
     cameras: Array<string>;
     species: Array<components['schemas']['EventFilterSpecies']>;
+    totals?: components['schemas']['EventFilterTotals'];
 };
     EventsCountResponse: {
     count: number;
