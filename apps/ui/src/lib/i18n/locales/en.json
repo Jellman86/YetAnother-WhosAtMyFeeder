@@ -1538,7 +1538,9 @@
     "read_more_wikipedia": "Read more on Wikipedia",
     "read_more_source": "Read more on {source}",
     "delete_selected": "Delete Selected",
-    "reclassify_selected": "Reclassify Selected"
+    "reclassify_selected": "Reclassify Selected",
+    "confirm_species": "Confirm {species}",
+    "pick_species": "Pick a different species"
   },
   "detection": {
     "uploaded": "Uploaded",

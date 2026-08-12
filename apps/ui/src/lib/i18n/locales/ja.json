@@ -1529,7 +1529,9 @@
     "read_more_wikipedia": "ウィキペディアで続きを読む",
     "read_more_source": "{source}で続きを読む",
     "delete_selected": "選択項目を削除",
-    "reclassify_selected": "選択項目を再分類"
+    "reclassify_selected": "選択項目を再分類",
+    "confirm_species": "{species} を確定",
+    "pick_species": "別の種を選ぶ"
   },
   "detection": {
     "uploaded": "アップロード済み",

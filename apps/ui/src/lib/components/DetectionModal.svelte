@@ -3586,13 +3586,34 @@
                         </button>
                     {/if}
 
+                    {#if !detection.manual_tagged && !isUnknownSpecies}
+                        <button
+                            onclick={() => handleManualTag({
+                                id: detection.display_name,
+                                display_name: detection.display_name,
+                                scientific_name: detection.scientific_name ?? null,
+                                common_name: detection.common_name ?? null
+                            } as SearchResult)}
+                            disabled={updatingTag}
+                            class="flex-1 rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50"
+                            data-detection-confirm
+                        >
+                            {$_('actions.confirm_species', {
+                                values: { species: primaryName },
+                                default: 'Confirm {species}'
+                            })}
+                        </button>
+                    {/if}
+
                     <div class="relative flex-1">
                         <button
                             onclick={() => showTagDropdown = !showTagDropdown}
                             disabled={updatingTag}
                             class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50"
                         >
-                            {updatingTag ? $_('common.saving') : $_('actions.manual_tag')}
+                            {updatingTag
+                                ? $_('common.saving')
+                                : $_('actions.pick_species', { default: 'Pick a different species' })}
                         </button>
                     </div>
                 </div>

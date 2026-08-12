@@ -50,6 +50,14 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('data-detection-identity');
     });
 
+    it('names the actions by what they do', () => {
+        expect(detectionModalSource).toContain('data-detection-confirm');
+        expect(detectionModalSource).toContain("actions.confirm_species");
+        expect(detectionModalSource).toContain("actions.pick_species");
+        // Confirming an already-confirmed or unnamed detection is not offered.
+        expect(detectionModalSource).toContain('{#if !detection.manual_tagged && !isUnknownSpecies}');
+    });
+
     it('discovers late BirdNET context independently of stored audio hints', () => {
         expect(detectionModalSource).toContain('fetchEventAudioContext');
         expect(detectionModalSource).toContain('controller.abort()');

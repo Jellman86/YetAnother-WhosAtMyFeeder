@@ -1529,7 +1529,9 @@
     "read_more_wikipedia": "Mehr auf Wikipedia lesen",
     "read_more_source": "Mehr auf {source} lesen",
     "delete_selected": "Auswahl löschen",
-    "reclassify_selected": "Auswahl neu klassifizieren"
+    "reclassify_selected": "Auswahl neu klassifizieren",
+    "confirm_species": "{species} bestätigen",
+    "pick_species": "Andere Art wählen"
   },
   "detection": {
     "uploaded": "Hochgeladen",

@@ -8,6 +8,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The detection actions say what they do.** "Manual Tag" is now "Pick a different species", and a
+  detection the model named can be accepted outright with "Confirm Coal Tit", which marks it as
+  human-verified in one press instead of reopening a species picker to choose the name it already
+  has. The confirm action is not offered for detections you have already confirmed, or for ones with
+  no species to confirm.
+
 - **The detection view shows its working, and only what this install actually has.** The frames the
   classifier scored now run along the bottom of the photograph, so the panel shows what it looked at
   rather than only what it concluded. Each fact row carries an icon, and the identification header

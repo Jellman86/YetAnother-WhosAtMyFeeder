@@ -1529,7 +1529,9 @@
     "read_more_wikipedia": "Lire la suite sur Wikipédia",
     "read_more_source": "Lire la suite sur {source}",
     "delete_selected": "Supprimer la sélection",
-    "reclassify_selected": "Reclassifier la sélection"
+    "reclassify_selected": "Reclassifier la sélection",
+    "confirm_species": "Confirmer {species}",
+    "pick_species": "Choisir une autre espèce"
   },
   "detection": {
     "uploaded": "Importée",

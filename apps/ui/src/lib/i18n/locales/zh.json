@@ -1529,7 +1529,9 @@
     "read_more_wikipedia": "在维基百科上阅读更多",
     "read_more_source": "在 {source} 上阅读更多",
     "delete_selected": "删除所选",
-    "reclassify_selected": "重新分类所选"
+    "reclassify_selected": "重新分类所选",
+    "confirm_species": "确认为 {species}",
+    "pick_species": "选择其他物种"
   },
   "detection": {
     "uploaded": "已上传",

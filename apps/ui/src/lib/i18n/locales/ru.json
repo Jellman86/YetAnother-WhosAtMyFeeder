@@ -1538,7 +1538,9 @@
     "read_more_wikipedia": "Читать больше в Википедии",
     "read_more_source": "Читать больше на {source}",
     "delete_selected": "Удалить выбранные",
-    "reclassify_selected": "Переклассифицировать выбранные"
+    "reclassify_selected": "Переклассифицировать выбранные",
+    "confirm_species": "Подтвердить: {species}",
+    "pick_species": "Выбрать другой вид"
   },
   "detection": {
     "uploaded": "Загружено",

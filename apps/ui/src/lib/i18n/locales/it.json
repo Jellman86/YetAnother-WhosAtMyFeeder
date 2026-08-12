@@ -1538,7 +1538,9 @@
     "read_more_wikipedia": "Leggi altro su Wikipedia",
     "read_more_source": "Leggi altro su {source}",
     "delete_selected": "Elimina selezionati",
-    "reclassify_selected": "Riclassifica selezionati"
+    "reclassify_selected": "Riclassifica selezionati",
+    "confirm_species": "Conferma {species}",
+    "pick_species": "Scegli un’altra specie"
   },
   "detection": {
     "uploaded": "Caricata",
