@@ -183,6 +183,8 @@ event_processor: EventProcessor | None = None
 # Cleanup task control
 cleanup_task = None
 cleanup_running = True
+heartbeat_task = None
+heartbeat_running = True
 CLEANUP_INTERVAL_HOURS = 24  # Run cleanup every 24 hours
 
 
