@@ -186,8 +186,18 @@
 
 <div class="space-y-4" data-about-pipeline>
     <ol class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-        {#each steps as step (step.key)}
-            <li class="rounded-xl border p-3 {kindClass(step.kind)}">
+        {#each steps as step, index (step.key)}
+            <li class="relative rounded-xl border p-3 {kindClass(step.kind)}">
+                {#if index > 0}
+                    <span
+                        class="absolute -left-[9px] top-1/2 hidden -translate-y-1/2 text-slate-300 xl:block dark:text-slate-600"
+                        aria-hidden="true"
+                    >
+                        <svg class="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m4 2 4 4-4 4" />
+                        </svg>
+                    </span>
+                {/if}
                 {#if step.state}
                     <span class="block text-[10px] font-bold uppercase tracking-[0.12em] {toneClass(step.tone)}">
                         {step.state}
@@ -215,6 +225,11 @@
         <span class="flex items-center gap-1.5">
             <i class="h-2.5 w-2.5 rounded-sm border border-slate-300 dark:border-slate-600" aria-hidden="true"></i>
             {$_('about.pipeline.legend_external', { default: 'your broker and browser' })}
+        </span>
+        <span class="sm:ml-auto">
+            {$_('about.pipeline.legend_note', {
+                default: 'Nothing leaves your network except the calls listed below.'
+            })}
         </span>
     </div>
 

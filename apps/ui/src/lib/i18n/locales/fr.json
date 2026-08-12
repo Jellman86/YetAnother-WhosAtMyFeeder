@@ -3,7 +3,8 @@
     "title": "YA-WAMF",
     "logo_subtitle": "WhosAtMyFeeder",
     "logo_title": "Yet Another",
-    "tagline": "Classification d'oiseaux par IA pour votre Frigate NVR"
+    "tagline": "Classification d'oiseaux par IA pour votre Frigate NVR",
+    "full_title": "Yet Another WhosAtMyFeeder"
   },
   "nav": {
     "dashboard": "Tableau de bord",
@@ -324,6 +325,27 @@
       "empty": "Chaque visite d’aujourd’hui a une espèce. Rien ne vous attend.",
       "remaining": "{count} autres en attente",
       "work_through": "Traiter la file"
+    },
+    "review_session": {
+      "position": "{position} sur {total}",
+      "summary": "{resolved} traitées, {skipped} ignorées",
+      "done": "File vide",
+      "done_with_skips": "File traitée",
+      "done_note": "Chaque visite a une espèce. Vos corrections affinent le classement par caméra.",
+      "skipped_note": "{count} pour plus tard. Elles restent dans la file.",
+      "back": "Retour au tableau de bord",
+      "what_is_it": "Qu'est-ce que c'est ?",
+      "threshold_note": "Le modèle est resté sous le seuil d'identification.",
+      "search": "Rechercher une espèce…",
+      "no_matches": "Aucune espèce ne correspond. Essayez moins de lettres.",
+      "skip": "Ignorer pour l'instant",
+      "not_a_bird": "Pas un oiseau, masquer",
+      "full_record": "Ouvrir la fiche complète",
+      "remaining": "{count} encore à examiner",
+      "image_alt": "Détection non identifiée sur {camera}",
+      "all_species": "Toutes les espèces",
+      "seen_here": "Vues à cette mangeoire",
+      "no_suggestions": "Aucune espèce enregistrée. Cherchez dans la liste complète ci-dessus."
     }
   },
   "common": {
@@ -2001,7 +2023,7 @@
     "license_notice": "© {year} Jellman86 • Sous licence {license}",
     "built_with_ai": "Construit avec l'aide de l'IA pour l'amour de l'observation des oiseaux 🐦",
     "project_desc_1": "YA-WAMF est un projet personnel lancé pour expérimenter le codage assisté par l'IA. Lorsque le projet original {link} est devenu non maintenu, celui-ci est né à la fois comme une opportunité d'apprentissage et un outil utile pour les passionnés d'oiseaux.",
-    "project_desc_2": "L'application a été construite avec l'aide de l'IA et s'est développée en une plateforme d'identification des oiseaux complète — depuis une simple caméra de mangeoire jusqu'à la corrélation multi-capteurs, les modèles accélérés par GPU et l'intégration en temps réel avec Home Assistant.",
+    "project_desc_2": "Frigate surveille la mangeoire et signale tout ce qui ressemble à un oiseau. YA-WAMF l'identifie, le recoupe avec l'audio de BirdNET-Go et enregistre le résultat. Toutes les photos de cette page viennent de cette caméra.",
     "links": {
       "repo": "Dépôt GitHub",
       "docs": "Documentation",
@@ -2044,7 +2066,8 @@
       "browser_detail": "mises à jour en direct via SSE",
       "legend_local": "tourne sur votre matériel",
       "legend_optional": "optionnel",
-      "legend_external": "votre broker et votre navigateur"
+      "legend_external": "votre broker et votre navigateur",
+      "legend_note": "Rien ne sort de votre réseau en dehors des appels listés ci-dessous."
     },
     "storage": {
       "title": "Ce qui est stocké",
@@ -2081,7 +2104,9 @@
     },
     "close": {
       "title": "Données, confidentialité et remerciements"
-    }
+    },
+    "reference_thanks": "Références et remerciements",
+    "thanks_to": "Merci à"
   },
   "species_detail": {
     "no_wiki": "Aucune information Wikipédia disponible pour cette espèce.",

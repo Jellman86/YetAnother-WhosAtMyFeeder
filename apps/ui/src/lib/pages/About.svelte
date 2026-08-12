@@ -132,12 +132,13 @@
     <!-- Colophon: what this is, in plain sentences -->
     <section id="about-project" aria-labelledby="about-project-heading" class="card-base space-y-4 p-6">
         <div class="flex items-start gap-4">
-            <img src={APP_ICON_192_URL} alt="" class="h-14 w-14 shrink-0 object-contain" />
             <div class="min-w-0">
-                <h2 id="about-project-heading" class="font-display text-2xl font-bold text-slate-900 dark:text-white">
-                    {$_('app.title')}
+                <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+                    {$_('nav.about', { default: 'About' })}
+                </p>
+                <h2 id="about-project-heading" class="mt-1 font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white">
+                    {$_('app.full_title', { default: 'Yet Another WhosAtMyFeeder' })}
                 </h2>
-                <p class="text-sm text-slate-500 dark:text-slate-400">{$_('app.tagline')}</p>
             </div>
             <a
                 href={`${repoUrl}/blob/${docsRefBranch}/CHANGELOG.md`}
@@ -151,10 +152,10 @@
         </div>
 
         <div class="space-y-3 text-sm leading-6 text-slate-700 dark:text-slate-300">
+            <p>{$_('about.project_desc_2')}</p>
             <p>
                 {projectDescription.before}<a href="https://github.com/mmcc-xx/WhosAtMyFeeder" target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline dark:text-brand-400">WhosAtMyFeeder</a>{projectDescription.after}
             </p>
-            <p>{$_('about.project_desc_2')}</p>
         </div>
 
         {#if totalDetections !== null || recentPhotos.length > 0}
@@ -187,16 +188,16 @@
                 </dl>
 
                 {#if recentPhotos.length > 0}
-                    <div class="flex gap-2" data-about-photos>
+                    <div class="grid grid-cols-2 gap-2" data-about-photos>
                         {#each recentPhotos as photo (photo.frigate_event)}
                             <img
                                 src={getThumbnailUrl(photo.frigate_event)}
                                 alt=""
                                 loading="lazy"
                                 decoding="async"
-                                width="64"
-                                height="64"
-                                class="h-16 w-16 rounded-xl object-cover"
+                                width="150"
+                                height="72"
+                                class="h-[72px] w-[150px] rounded-lg object-cover"
                             />
                         {/each}
                     </div>
@@ -204,18 +205,6 @@
             </div>
         {/if}
 
-        <div class="flex flex-wrap gap-2 pt-1">
-            {#each quickActions as action}
-                <a
-                    href={action.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
-                >
-                    {action.label}
-                </a>
-            {/each}
-        </div>
     </section>
 
     <!-- How it works, annotated with what this instance is doing -->
@@ -245,9 +234,27 @@
 
             <section aria-labelledby="about-credits-heading">
                 <h3 id="about-credits-heading" class="text-sm font-bold text-slate-900 dark:text-white">
-                    {$_('about.credits')}
+                    {$_('about.reference_thanks', { default: 'Reference & thanks' })}
                 </h3>
-                <ul class="mt-2 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
+                <ul class="mt-2 space-y-1.5 text-xs">
+                    {#each quickActions as action}
+                        <li>
+                            <a
+                                href={action.href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="text-brand-600 hover:underline focus-ring dark:text-brand-400"
+                            >
+                                {action.label} ↗
+                            </a>
+                        </li>
+                    {/each}
+                </ul>
+
+                <p class="mt-4 text-xs font-semibold text-slate-800 dark:text-slate-100">
+                    {$_('about.thanks_to', { default: 'Thanks to' })}
+                </p>
+                <ul class="mt-1 space-y-1 text-xs text-slate-600 dark:text-slate-300">
                     {#each creditsLinks as credit}
                         <li>
                             {credit.parts.before}<a href={credit.href} target="_blank" rel="noopener noreferrer" class="text-brand-600 hover:underline dark:text-brand-400">{credit.label}</a>{credit.parts.after}

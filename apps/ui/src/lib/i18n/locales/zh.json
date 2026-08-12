@@ -3,7 +3,8 @@
     "title": "YA-WAMF",
     "logo_subtitle": "WhosAtMyFeeder",
     "logo_title": "Yet Another",
-    "tagline": "为您的 Frigate NVR 提供 AI 驱动的鸟类分类"
+    "tagline": "为您的 Frigate NVR 提供 AI 驱动的鸟类分类",
+    "full_title": "Yet Another WhosAtMyFeeder"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -324,6 +325,27 @@
       "empty": "今天的每次到访都有物种，没有待处理项。",
       "remaining": "还有 {count} 项待处理",
       "work_through": "处理待办队列"
+    },
+    "review_session": {
+      "position": "第 {position} 项，共 {total} 项",
+      "summary": "已处理 {resolved} 项，跳过 {skipped} 项",
+      "done": "队列已清空",
+      "done_with_skips": "队列已处理完",
+      "done_note": "每次到访都有物种。你的更正会改进每个摄像头的排序。",
+      "skipped_note": "{count} 项留待稍后，它们仍在队列中。",
+      "back": "返回仪表板",
+      "what_is_it": "这是什么？",
+      "threshold_note": "模型的判定低于命名阈值。",
+      "search": "搜索物种…",
+      "no_matches": "没有匹配的物种，试试更少的字母。",
+      "skip": "暂时跳过",
+      "not_a_bird": "不是鸟，隐藏",
+      "full_record": "打开完整记录",
+      "remaining": "还有 {count} 项待查看",
+      "image_alt": "{camera} 上未识别的检测",
+      "all_species": "全部物种",
+      "seen_here": "在这个喂食器见过",
+      "no_suggestions": "还没有记录。请在上方的完整列表中搜索。"
     }
   },
   "common": {
@@ -2001,7 +2023,7 @@
     "license_notice": "© {year} Jellman86 • 采用 {license} 许可",
     "built_with_ai": "出于对观鸟的热爱，在 AI 协助下构建 🐦",
     "project_desc_1": "YA-WAMF 是一个个人项目，最初是为了尝试 AI 辅助编程。当原来的 {link} 项目停止维护时，本项目作为一个学习机会和鸟类爱好者的实用工具应运而生。",
-    "project_desc_2": "本应用在AI编程助手的帮助下构建，已发展成为一个功能完整的鸟类识别平台——从简单的喂食器摄像头，到多传感器关联、GPU加速模型以及实时Home Assistant集成。",
+    "project_desc_2": "Frigate 监视喂食器，标记任何看起来像鸟的目标。YA-WAMF 进行识别，与 BirdNET-Go 的声音比对，然后保存结果。本页所有照片都来自那台摄像头。",
     "links": {
       "repo": "GitHub 仓库",
       "docs": "文档",
@@ -2044,7 +2066,8 @@
       "browser_detail": "通过 SSE 实时更新",
       "legend_local": "在你的硬件上运行",
       "legend_optional": "可选",
-      "legend_external": "你的 broker 和浏览器"
+      "legend_external": "你的 broker 和浏览器",
+      "legend_note": "除下面列出的请求外，没有任何数据离开你的网络。"
     },
     "storage": {
       "title": "存储了什么",
@@ -2081,7 +2104,9 @@
     },
     "close": {
       "title": "数据、隐私与致谢"
-    }
+    },
+    "reference_thanks": "参考与致谢",
+    "thanks_to": "感谢"
   },
   "species_detail": {
     "no_wiki": "此物种暂无维基百科信息。",

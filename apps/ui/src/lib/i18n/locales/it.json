@@ -3,7 +3,8 @@
     "title": "YA-WAMF",
     "logo_subtitle": "WhosAtMyFeeder",
     "logo_title": "Yet Another",
-    "tagline": "Classificazione uccelli potenziata da IA per il tuo Frigate NVR"
+    "tagline": "Classificazione uccelli potenziata da IA per il tuo Frigate NVR",
+    "full_title": "Yet Another WhosAtMyFeeder"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -324,6 +325,27 @@
       "empty": "Ogni visita di oggi ha una specie. Non c’è nulla in sospeso.",
       "remaining": "Altri {count} in attesa",
       "work_through": "Smaltisci la coda"
+    },
+    "review_session": {
+      "position": "{position} di {total}",
+      "summary": "{resolved} decise, {skipped} saltate",
+      "done": "Coda vuota",
+      "done_with_skips": "Coda completata",
+      "done_note": "Ogni visita ha una specie. Le tue correzioni migliorano l'ordinamento per telecamera.",
+      "skipped_note": "{count} rimandate. Restano in coda.",
+      "back": "Torna alla dashboard",
+      "what_is_it": "Che cos'è?",
+      "threshold_note": "Il modello è rimasto sotto la soglia di identificazione.",
+      "search": "Cerca specie…",
+      "no_matches": "Nessuna specie corrisponde. Prova con meno lettere.",
+      "skip": "Salta per ora",
+      "not_a_bird": "Non è un uccello, nascondi",
+      "full_record": "Apri la scheda completa",
+      "remaining": "Ne restano {count} da vedere",
+      "image_alt": "Rilevamento non identificato su {camera}",
+      "all_species": "Tutte le specie",
+      "seen_here": "Viste a questa mangiatoia",
+      "no_suggestions": "Nessuna specie registrata. Cerca nell'elenco completo sopra."
     }
   },
   "common": {
@@ -2010,7 +2032,7 @@
     "license_notice": "© {year} Jellman86 • Concesso in licenza con {license}",
     "built_with_ai": "Costruito con assistenza IA per amore del birdwatching 🐦",
     "project_desc_1": "YA-WAMF è un progetto personale iniziato per sperimentare con la programmazione assistita da IA. Quando il progetto originale {link} non è stato più mantenuto, questo è nato come opportunità di apprendimento e strumento utile per gli appassionati di uccelli.",
-    "project_desc_2": "L'applicazione è stata sviluppata con l'aiuto dell'IA ed è diventata una piattaforma completa di identificazione degli uccelli — dalla semplice telecamera per mangiatoie alla correlazione multi-sensore, modelli con accelerazione GPU e integrazione in tempo reale con Home Assistant.",
+    "project_desc_2": "Frigate sorveglia la mangiatoia e segnala tutto ciò che sembra un uccello. YA-WAMF lo classifica, lo confronta con l'audio di BirdNET-Go e salva il risultato. Ogni foto in questa pagina viene da quella telecamera.",
     "links": {
       "repo": "Repository GitHub",
       "docs": "Documentazione",
@@ -2053,7 +2075,8 @@
       "browser_detail": "aggiornamenti live via SSE",
       "legend_local": "gira sul tuo hardware",
       "legend_optional": "opzionale",
-      "legend_external": "il tuo broker e browser"
+      "legend_external": "il tuo broker e browser",
+      "legend_note": "Nulla esce dalla tua rete tranne le chiamate elencate sotto."
     },
     "storage": {
       "title": "Cosa memorizza",
@@ -2090,7 +2113,9 @@
     },
     "close": {
       "title": "Dati, privacy e ringraziamenti"
-    }
+    },
+    "reference_thanks": "Riferimenti e ringraziamenti",
+    "thanks_to": "Grazie a"
   },
   "species_detail": {
     "no_wiki": "Nessuna informazione Wikipedia disponibile per questa specie.",

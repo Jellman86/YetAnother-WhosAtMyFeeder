@@ -51,6 +51,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   step rail are replaced by a slim bar carrying the filename, the flow status and Start over, so
   the frame and the candidate list get the width instead of the chrome.
 
+- **"Work through the queue" now opens a walk-through instead of sending you to Explorer.** A
+  distinct full-screen flow takes the unresolved detections one at a time: the frame at full size
+  with its time, camera, score and conditions, and a decision rail offering the species this feeder
+  actually sees, most frequent first, rather than the alphabetical head of an eleven thousand label
+  list. Each item can be identified, hidden as not a bird, skipped for later, or opened in full. It
+  states position and what is left throughout, and closes on an honest summary of what was decided
+  and what was skipped.
+
 ### Fixed
 
 - **Top Visitors is readable on the dashboard again.** It lays out horizontally and was being

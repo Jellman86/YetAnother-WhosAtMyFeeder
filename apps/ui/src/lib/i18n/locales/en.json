@@ -3,7 +3,8 @@
     "title": "YA-WAMF",
     "logo_subtitle": "WhosAtMyFeeder",
     "logo_title": "Yet Another",
-    "tagline": "AI-powered bird classification for your Frigate NVR"
+    "tagline": "AI-powered bird classification for your Frigate NVR",
+    "full_title": "Yet Another WhosAtMyFeeder"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -324,6 +325,27 @@
       "empty": "Every visit today has a species. Nothing waiting on you.",
       "remaining": "{count} more waiting",
       "work_through": "Work through the queue"
+    },
+    "review_session": {
+      "position": "{position} of {total}",
+      "summary": "{resolved} decided, {skipped} skipped",
+      "done": "Queue clear",
+      "done_with_skips": "Queue worked through",
+      "done_note": "Every visit has a species. Your corrections feed the per-camera ranking.",
+      "skipped_note": "{count} left for later. They stay in the queue.",
+      "back": "Back to the dashboard",
+      "what_is_it": "What is it?",
+      "threshold_note": "The model scored this below the naming threshold.",
+      "search": "Search species…",
+      "no_matches": "No species matches that. Try fewer letters.",
+      "skip": "Skip for now",
+      "not_a_bird": "Not a bird, hide it",
+      "full_record": "Open full record",
+      "remaining": "{count} still to look at",
+      "image_alt": "Unidentified detection on {camera}",
+      "all_species": "All species",
+      "seen_here": "Seen at this feeder",
+      "no_suggestions": "No species recorded yet. Search the full list above."
     }
   },
   "common": {
@@ -2010,7 +2032,7 @@
     "license_notice": "© {year} Jellman86 • Licensed under the {license}",
     "built_with_ai": "Built with AI assistance for the love of bird watching 🐦",
     "project_desc_1": "YA-WAMF is a personal project started to experiment with AI-assisted coding. When the original {link} project became unmaintained, this was born as both a learning opportunity and a useful tool for bird enthusiasts.",
-    "project_desc_2": "The application is built with AI coding assistance and has grown into a fully-featured bird identification platform, from a simple feeder camera to multi-sensor correlation, GPU-accelerated models, and real-time Home Assistant integration.",
+    "project_desc_2": "Frigate watches the feeder and flags anything that looks like a bird. YA-WAMF classifies it, checks it against BirdNET-Go audio, and stores the result. Every photo on this page came off that camera.",
     "links": {
       "repo": "GitHub Repository",
       "docs": "Documentation",
@@ -2053,7 +2075,8 @@
       "browser_detail": "live updates over SSE",
       "legend_local": "runs on your hardware",
       "legend_optional": "optional",
-      "legend_external": "your broker and browser"
+      "legend_external": "your broker and browser",
+      "legend_note": "Nothing leaves your network except the calls listed below."
     },
     "storage": {
       "title": "What it stores",
@@ -2090,7 +2113,9 @@
     },
     "close": {
       "title": "Data, privacy and credits"
-    }
+    },
+    "reference_thanks": "Reference & thanks",
+    "thanks_to": "Thanks to"
   },
   "species_detail": {
     "no_wiki": "No Wikipedia information available for this species.",

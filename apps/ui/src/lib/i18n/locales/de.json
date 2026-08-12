@@ -3,7 +3,8 @@
     "title": "YA-WAMF",
     "logo_subtitle": "WhosAtMyFeeder",
     "logo_title": "Yet Another",
-    "tagline": "KI-gestützte Vogelklassifizierung für Ihren Frigate NVR"
+    "tagline": "KI-gestützte Vogelklassifizierung für Ihren Frigate NVR",
+    "full_title": "Yet Another WhosAtMyFeeder"
   },
   "nav": {
     "dashboard": "Dashboard",
@@ -324,6 +325,27 @@
       "empty": "Jeder Besuch heute hat eine Art. Es wartet nichts auf Sie.",
       "remaining": "{count} weitere warten",
       "work_through": "Warteschlange abarbeiten"
+    },
+    "review_session": {
+      "position": "{position} von {total}",
+      "summary": "{resolved} entschieden, {skipped} übersprungen",
+      "done": "Warteschlange leer",
+      "done_with_skips": "Warteschlange durchgearbeitet",
+      "done_note": "Jeder Besuch hat eine Art. Ihre Korrekturen verbessern die Rangfolge je Kamera.",
+      "skipped_note": "{count} für später übrig. Sie bleiben in der Warteschlange.",
+      "back": "Zurück zum Dashboard",
+      "what_is_it": "Was ist das?",
+      "threshold_note": "Das Modell lag unter der Benennungsschwelle.",
+      "search": "Art suchen…",
+      "no_matches": "Keine Art passt dazu. Versuchen Sie weniger Buchstaben.",
+      "skip": "Vorerst überspringen",
+      "not_a_bird": "Kein Vogel, ausblenden",
+      "full_record": "Vollständigen Eintrag öffnen",
+      "remaining": "{count} noch anzusehen",
+      "image_alt": "Unbestimmte Erkennung auf {camera}",
+      "all_species": "Alle Arten",
+      "seen_here": "An dieser Futterstelle gesehen",
+      "no_suggestions": "Noch keine Arten erfasst. Suchen Sie oben in der vollständigen Liste."
     }
   },
   "common": {
@@ -2001,7 +2023,7 @@
     "license_notice": "© {year} Jellman86 • Lizenziert unter der {license}",
     "built_with_ai": "Mit KI-Unterstützung für die Liebe zur Vogelbeobachtung gebaut 🐦",
     "project_desc_1": "YA-WAMF ist ein persönliches Projekt, das gestartet wurde, um mit KI-unterstützter Programmierung zu experimentieren. Als das ursprüngliche {link}-Projekt nicht mehr gepflegt wurde, entstand dieses Projekt sowohl als Lernmöglichkeit als auch als nützliches Werkzeug für Vogelliebhaber.",
-    "project_desc_2": "Die Anwendung wurde mit KI-Unterstützung entwickelt und ist zu einer voll ausgestatteten Vogelidentifikationsplattform herangewachsen — von einer einfachen Futterkamera über Multi-Sensor-Korrelation und GPU-beschleunigten Modellen bis hin zur Echtzeit-Home-Assistant-Integration.",
+    "project_desc_2": "Frigate überwacht die Futterstelle und meldet alles, was nach einem Vogel aussieht. YA-WAMF bestimmt es, gleicht es mit BirdNET-Go-Audio ab und speichert das Ergebnis. Jedes Foto auf dieser Seite stammt von dieser Kamera.",
     "links": {
       "repo": "GitHub-Repository",
       "docs": "Dokumentation",
@@ -2044,7 +2066,8 @@
       "browser_detail": "Live-Updates über SSE",
       "legend_local": "läuft auf Ihrer Hardware",
       "legend_optional": "optional",
-      "legend_external": "Ihr Broker und Browser"
+      "legend_external": "Ihr Broker und Browser",
+      "legend_note": "Nichts verlässt Ihr Netzwerk außer den unten aufgeführten Aufrufen."
     },
     "storage": {
       "title": "Was gespeichert wird",
@@ -2081,7 +2104,9 @@
     },
     "close": {
       "title": "Daten, Datenschutz und Danksagungen"
-    }
+    },
+    "reference_thanks": "Referenz & Dank",
+    "thanks_to": "Dank an"
   },
   "species_detail": {
     "no_wiki": "Keine Wikipedia-Informationen für diese Art verfügbar.",

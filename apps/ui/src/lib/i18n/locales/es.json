@@ -3,7 +3,8 @@
     "title": "YA-WAMF",
     "logo_subtitle": "WhosAtMyFeeder",
     "logo_title": "Yet Another",
-    "tagline": "Clasificación de aves con IA para tu Frigate NVR"
+    "tagline": "Clasificación de aves con IA para tu Frigate NVR",
+    "full_title": "Yet Another WhosAtMyFeeder"
   },
   "nav": {
     "dashboard": "Tablero",
@@ -324,6 +325,27 @@
       "empty": "Todas las visitas de hoy tienen especie. No hay nada pendiente.",
       "remaining": "{count} más en espera",
       "work_through": "Revisar la cola"
+    },
+    "review_session": {
+      "position": "{position} de {total}",
+      "summary": "{resolved} decididas, {skipped} omitidas",
+      "done": "Cola vacía",
+      "done_with_skips": "Cola completada",
+      "done_note": "Cada visita tiene especie. Tus correcciones mejoran el orden por cámara.",
+      "skipped_note": "{count} para más tarde. Siguen en la cola.",
+      "back": "Volver al panel",
+      "what_is_it": "¿Qué es?",
+      "threshold_note": "El modelo quedó por debajo del umbral de identificación.",
+      "search": "Buscar especie…",
+      "no_matches": "Ninguna especie coincide. Prueba con menos letras.",
+      "skip": "Omitir por ahora",
+      "not_a_bird": "No es un ave, ocultar",
+      "full_record": "Abrir registro completo",
+      "remaining": "Quedan {count} por revisar",
+      "image_alt": "Detección sin identificar en {camera}",
+      "all_species": "Todas las especies",
+      "seen_here": "Vistas en este comedero",
+      "no_suggestions": "Aún no hay especies registradas. Busca en la lista completa arriba."
     }
   },
   "common": {
@@ -2001,7 +2023,7 @@
     "license_notice": "© {year} Jellman86 • Con licencia {license}",
     "built_with_ai": "Construido con asistencia de IA por amor a la observación de aves 🐦",
     "project_desc_1": "YA-WAMF es un proyecto personal iniciado para experimentar con la programación asistida por IA. Cuando el proyecto original {link} dejó de mantenerse, este nació como una oportunidad de aprendizaje y una herramienta útil para los entusiastas de las aves.",
-    "project_desc_2": "La aplicación ha sido construida con asistencia de IA y se ha convertido en una plataforma completa de identificación de aves — desde una simple cámara de comedero hasta correlación multisensor, modelos acelerados por GPU e integración en tiempo real con Home Assistant.",
+    "project_desc_2": "Frigate vigila el comedero y marca todo lo que parece un ave. YA-WAMF lo clasifica, lo contrasta con el audio de BirdNET-Go y guarda el resultado. Todas las fotos de esta página salieron de esa cámara.",
     "links": {
       "repo": "Repositorio GitHub",
       "docs": "Documentación",
@@ -2044,7 +2066,8 @@
       "browser_detail": "actualizaciones en vivo por SSE",
       "legend_local": "se ejecuta en tu hardware",
       "legend_optional": "opcional",
-      "legend_external": "tu broker y navegador"
+      "legend_external": "tu broker y navegador",
+      "legend_note": "Nada sale de tu red salvo las llamadas indicadas abajo."
     },
     "storage": {
       "title": "Qué almacena",
@@ -2081,7 +2104,9 @@
     },
     "close": {
       "title": "Datos, privacidad y créditos"
-    }
+    },
+    "reference_thanks": "Referencias y agradecimientos",
+    "thanks_to": "Gracias a"
   },
   "species_detail": {
     "no_wiki": "No hay información de Wikipedia disponible para esta especie.",

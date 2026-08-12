@@ -7,6 +7,7 @@
     import TopVisitors from '../components/TopVisitors.svelte';
     import FieldLog from '../components/FieldLog.svelte';
     import ReviewQueueCard from '../components/ReviewQueueCard.svelte';
+    import ReviewQueueModal from '../components/ReviewQueueModal.svelte';
     import DayBar from '../components/DayBar.svelte';
     import DeskContextCards from '../components/DeskContextCards.svelte';
     import ReclassificationOverlay from '../components/ReclassificationOverlay.svelte';
@@ -97,6 +98,48 @@
 
     // The day reads as visits, not frames: repeat frames of one bird fold into one row.
     let visits = $derived(groupDetectionsIntoVisits(deskDetections).slice(0, VISIT_ROW_LIMIT));
+
+    // The walk-through flow: a captured queue worked one at a time.
+    let reviewSessionOpen = $state(false);
+
+    // The picker opens on species this feeder actually sees, most frequent first,
+    // rather than the head of an 11,000-label alphabetical list.
+    let recentSpecies = $derived.by(() => {
+        const counts = new Map<string, number>();
+        for (const species of summary?.top_species ?? []) {
+            counts.set(species.species, (counts.get(species.species) ?? 0) + species.count);
+        }
+        for (const detection of detectionsStore.detections) {
+            const name = detection.display_name;
+            if (!name) continue;
+            counts.set(name, (counts.get(name) ?? 0) + 1);
+        }
+        return [...counts.entries()]
+            .filter(([name]) => name.trim().toLowerCase() !== 'unknown bird')
+            .sort((left, right) => right[1] - left[1])
+            .map(([name]) => name)
+            .slice(0, 8);
+    });
+
+    async function identifyFromQueue(detection: Detection, species: string): Promise<void> {
+        try {
+            await updateDetectionSpecies(detection.frigate_event, species);
+            toastStore.show($_('detection.species_updated', { default: 'Species updated' }), 'success');
+        } catch (e) {
+            toastStore.show(getErrorMessage(e), 'error');
+            throw e;
+        }
+    }
+
+    async function hideFromQueue(detection: Detection): Promise<void> {
+        try {
+            await hideDetection(detection.frigate_event);
+            detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
+        } catch (e) {
+            toastStore.show(getErrorMessage(e), 'error');
+            throw e;
+        }
+    }
 
     // Detections still waiting on a person, oldest first.
     let reviewQueue = $derived(buildReviewQueue(deskDetections));
@@ -433,7 +476,7 @@
             <ReviewQueueCard
                 queue={reviewQueue}
                 onreview={(detection) => selectedEvent = detection}
-                onreviewall={() => onnavigate?.('/events')}
+                onreviewall={() => (reviewSessionOpen = true)}
             />
 
             <DeskContextCards
@@ -466,6 +509,18 @@
         {/if}
     </section>
 </div>
+
+{#if reviewSessionOpen}
+    <ReviewQueueModal
+        queue={buildReviewQueue(deskDetections, Number.MAX_SAFE_INTEGER).items}
+        labels={classifierLabels}
+        suggestions={recentSpecies}
+        onidentify={identifyFromQueue}
+        onhide={hideFromQueue}
+        onopen={(detection) => { reviewSessionOpen = false; selectedEvent = detection; }}
+        onclose={() => (reviewSessionOpen = false)}
+    />
+{/if}
 
 <!-- Event Detail Modal -->
 {#if selectedEvent}

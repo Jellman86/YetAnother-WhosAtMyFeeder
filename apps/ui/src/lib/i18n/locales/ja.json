@@ -3,7 +3,8 @@
     "title": "YA-WAMF",
     "logo_subtitle": "WhosAtMyFeeder",
     "logo_title": "Yet Another",
-    "tagline": "Frigate NVRのためのAI鳥類分類システム"
+    "tagline": "Frigate NVRのためのAI鳥類分類システム",
+    "full_title": "Yet Another WhosAtMyFeeder"
   },
   "nav": {
     "dashboard": "ダッシュボード",
@@ -324,6 +325,27 @@
       "empty": "今日の訪問にはすべて種名が付いています。保留中の項目はありません。",
       "remaining": "他に {count} 件が保留中",
       "work_through": "キューを処理する"
+    },
+    "review_session": {
+      "position": "{total} 件中 {position} 件目",
+      "summary": "{resolved} 件を判断、{skipped} 件をスキップ",
+      "done": "キューは空です",
+      "done_with_skips": "キューを処理しました",
+      "done_note": "すべての訪問に種名が付きました。修正はカメラごとの並び順に反映されます。",
+      "skipped_note": "{count} 件を後回しにしました。キューに残ります。",
+      "back": "ダッシュボードに戻る",
+      "what_is_it": "これは何ですか？",
+      "threshold_note": "このモデルの判定は識別のしきい値を下回りました。",
+      "search": "種を検索…",
+      "no_matches": "一致する種がありません。文字数を減らしてください。",
+      "skip": "後で確認する",
+      "not_a_bird": "鳥ではない、非表示にする",
+      "full_record": "完全な記録を開く",
+      "remaining": "残り {count} 件",
+      "image_alt": "{camera} の未識別の検出",
+      "all_species": "すべての種",
+      "seen_here": "この餌台で見られた種",
+      "no_suggestions": "まだ記録がありません。上の全体リストから検索してください。"
     }
   },
   "common": {
@@ -2001,7 +2023,7 @@
     "license_notice": "© {year} Jellman86 • {license} の下で公開",
     "built_with_ai": "バードウォッチングへの愛を込めて、AIの助けを借りて構築されました 🐦",
     "project_desc_1": "YA-WAMFは、AI支援によるコーディングを実験するために開始された個人プロジェクトです。元の {link} プロジェクトがメンテナンスされなくなったため、学習の機会として、また鳥愛好家のための便利なツールとして誕生しました。",
-    "project_desc_2": "このアプリはAIコーディング支援で構築され、シンプルな給餌カメラから始まり、マルチセンサー相関、GPU高速モデル、リアルタイムHome Assistant連携を備えた本格的な野鳥識別プラットフォームへと成長しました。",
+    "project_desc_2": "Frigate が餌台を監視し、鳥らしきものを検知します。YA-WAMF がそれを分類し、BirdNET-Go の音声と照合して結果を保存します。このページの写真はすべてそのカメラで撮影されたものです。",
     "links": {
       "repo": "GitHub リポジトリ",
       "docs": "ドキュメント",
@@ -2044,7 +2066,8 @@
       "browser_detail": "SSE によるライブ更新",
       "legend_local": "自分のハードウェアで動作",
       "legend_optional": "任意",
-      "legend_external": "ブローカーとブラウザ"
+      "legend_external": "ブローカーとブラウザ",
+      "legend_note": "下に挙げた通信以外、ネットワークの外には何も出ません。"
     },
     "storage": {
       "title": "保存される内容",
@@ -2081,7 +2104,9 @@
     },
     "close": {
       "title": "データ、プライバシー、クレジット"
-    }
+    },
+    "reference_thanks": "参考資料と謝辞",
+    "thanks_to": "謝辞"
   },
   "species_detail": {
     "no_wiki": "この種に関するウィキペディア情報はありません。",
