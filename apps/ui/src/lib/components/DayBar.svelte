@@ -28,7 +28,7 @@
         {$_('dashboard.day_bar.today', { default: 'Today' })}
     </h1>
 
-    <dl class="flex flex-wrap items-baseline gap-x-5 gap-y-2 text-xs">
+    <dl class="flex flex-wrap items-baseline gap-x-4 gap-y-1.5 text-xs sm:gap-x-5 sm:gap-y-2">
         <div class="flex items-baseline gap-1.5">
             <dd class="font-display text-base font-bold tabular-nums text-slate-900 dark:text-white">
                 {visitCount}
@@ -81,7 +81,7 @@
         {/if}
     </dl>
 
-    <p class="ml-auto flex items-center gap-1.5 text-xs font-semibold">
+    <p class="flex items-center gap-1.5 text-xs font-semibold sm:ml-auto">
         <span
             class="h-1.5 w-1.5 rounded-full {connected
                 ? 'bg-emerald-500'

@@ -131,6 +131,8 @@
                 <span
                     class="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-white bg-slate-100 text-slate-300 dark:border-slate-900 dark:bg-slate-800 dark:text-slate-600"
                     class:-ml-2={index > 0}
+                    class:hidden={index > 0}
+                    class:sm:flex={index > 0}
                     aria-hidden="true"
                 >
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -147,12 +149,19 @@
                     height="36"
                     class="h-9 w-9 rounded-lg border-2 border-white object-cover dark:border-slate-900"
                     class:-ml-2={index > 0}
+                    class:hidden={index > 0}
+                    class:sm:block={index > 0}
                     onerror={() => markFailed(frame.frigate_event)}
                 />
             {/if}
         {/each}
+        {#if frameCount > 1}
+            <span class="ml-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400 sm:hidden">
+                +{frameCount - 1}
+            </span>
+        {/if}
         {#if frameCount > 3}
-            <span class="ml-1.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            <span class="ml-1.5 hidden text-[11px] font-semibold text-slate-500 sm:inline dark:text-slate-400">
                 +{frameCount - 3}
             </span>
         {/if}
