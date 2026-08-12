@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Detection } from '../api';
-import { VISIT_GAP_MS, groupDetectionsIntoVisits, withinDeskWindow } from './visit-grouping';
+import {
+    VISIT_GAP_MS,
+    groupDetectionsIntoVisits as groupVisits,
+    needsReview,
+    withinDeskWindow
+} from './visit-grouping';
 
 function detection(overrides: Partial<Detection> & { frigate_event: string }): Detection {
     return {
@@ -12,7 +17,20 @@ function detection(overrides: Partial<Detection> & { frigate_event: string }): D
     } as Detection;
 }
 
+function groupDetectionsIntoVisits(detections: readonly Detection[], gapMs: number = VISIT_GAP_MS) {
+    return groupVisits(detections, { reviewThreshold: 0.6, gapMs });
+}
+
 describe('groupDetectionsIntoVisits', () => {
+    it('uses the saved classification threshold instead of a hard-coded review floor', () => {
+        const named = detection({ frigate_event: 'named', score: 0.52 });
+
+        expect(needsReview(named, 0.3)).toBe(false);
+        expect(needsReview(named, 0.6)).toBe(true);
+        expect(needsReview(named, null)).toBe(false);
+        expect(needsReview(detection({ frigate_event: 'unknown', display_name: 'Unknown Bird' }), null)).toBe(true);
+    });
+
     it('folds repeat frames of one species on one camera into a single visit', () => {
         const visits = groupDetectionsIntoVisits([
             detection({ frigate_event: 'b', detection_time: '2026-08-11T11:34:45Z', score: 0.72 }),

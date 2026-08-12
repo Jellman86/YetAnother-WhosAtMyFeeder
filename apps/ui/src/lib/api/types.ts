@@ -11,7 +11,7 @@ export interface Detection {
     detection_time: string;
     camera_name: string;
     detection_index?: number;
-    category_name?: string;
+    category_name?: string | null;
     has_clip?: boolean;
     has_snapshot?: boolean;
     has_frigate_event?: boolean;
@@ -36,9 +36,9 @@ export interface Detection {
     weather_precipitation?: number;
     weather_rain?: number;
     weather_snowfall?: number;
-    scientific_name?: string;
-    common_name?: string;
-    taxa_id?: number;
+    scientific_name?: string | null;
+    common_name?: string | null;
+    taxa_id?: number | null;
     video_classification_score?: number;
     video_classification_label?: string;
     video_classification_timestamp?: string;

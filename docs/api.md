@@ -114,6 +114,13 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `POST /api/events/{event_id}/reclassify` (owner)
 - `POST /api/events/{event_id}/classify-wildlife` (owner)
 
+`PATCH /api/events/{event_id}` accepts `{"display_name": "Blue Tit"}`. A successful response
+always includes `manual_tagged: true` and the retained taxonomy fields. If the requested name is
+the current species or another known name for the same taxon, `status` is `unchanged`: YA-WAMF
+records the human confirmation but preserves the stored display, scientific and common names and
+does not create correction feedback. A different species returns `status: "updated"` after the
+canonical taxonomy and manual tag have been committed.
+
 Event rows and `GET /api/events/{event_id}/classification-status` expose
 `video_classification_input_source` when YA-WAMF knows which representation produced the retained
 analysis result. Current video values are `full_frame`, `frigate_hint_crop`, `model_crop`, or

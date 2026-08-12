@@ -751,6 +751,71 @@ async def test_process_event_records_backend_diagnostic_for_worker_failure():
 
 
 @pytest.mark.asyncio
+async def test_process_event_worker_failure_falls_back_to_snapshot_for_manual_retry():
+    service = AutoVideoClassifierService()
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(
+        side_effect=VideoClassificationWorkerError("video_worker_heartbeat_timeout")
+    )
+    service._update_status = AsyncMock()  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
+    service._broadcast_snapshot_fallback = AsyncMock()  # type: ignore[method-assign]
+    service._record_success = MagicMock()  # type: ignore[method-assign]
+    service._record_failure = MagicMock()  # type: ignore[method-assign]
+    error_diagnostics_history.clear()
+
+    try:
+        with (
+            patch.object(
+                auto_video_classifier_module.frigate_client,
+                "get_event_with_error",
+                new=AsyncMock(return_value=({"has_clip": True}, None)),
+            ),
+            patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+        ):
+            await service._process_event(
+                "evt-video-worker-fallback",
+                "cam1",
+                skip_delay=True,
+                fallback_to_snapshot=True,
+                source="manual",
+            )
+
+        service._classify_from_snapshot.assert_awaited_once_with(
+            "evt-video-worker-fallback",
+            "cam1",
+            event_data={"has_clip": True},
+            manual_tagged=True,
+        )
+        service._broadcast_snapshot_fallback.assert_awaited_once_with(
+            "evt-video-worker-fallback",
+            reason="video_worker_heartbeat_timeout",
+        )
+        service._record_success.assert_called_once_with("evt-video-worker-fallback", source="manual")
+        service._record_failure.assert_not_called()
+        failed_updates = [
+            call for call in service._update_status.await_args_list if len(call.args) > 1 and call.args[1] == "failed"
+        ]
+        assert failed_updates == []
+
+        snapshot = error_diagnostics_history.snapshot(limit=20)
+        event = next(
+            item
+            for item in snapshot["events"]
+            if item["event_id"] == "evt-video-worker-fallback"
+            and item["reason_code"] == "video_worker_heartbeat_timeout"
+        )
+        assert event["severity"] == "warning"
+        assert event["context"]["snapshot_fallback_attempted"] is True
+        assert event["context"]["snapshot_fallback_recovered"] is True
+    finally:
+        error_diagnostics_history.clear()
+
+
+@pytest.mark.asyncio
 async def test_process_event_diagnostic_includes_inference_provider_context():
     service = AutoVideoClassifierService()
     service._classifier = MagicMock()

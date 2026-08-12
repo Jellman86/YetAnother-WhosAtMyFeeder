@@ -27,20 +27,24 @@ export const VISIT_GAP_MS = 10 * 60 * 1000;
 /** The dashboard is a "today" surface; Explorer holds the longer history. */
 export const DESK_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-/** Below this the classifier does not assign a species, so a human has to. */
-export const REVIEW_CONFIDENCE_THRESHOLD = 0.6;
-
 const UNRESOLVED_LABEL = 'unknown bird';
+
+export interface VisitGroupingOptions {
+    /** The saved classifier naming threshold. Null means it has not been loaded. */
+    reviewThreshold: number | null;
+    gapMs?: number;
+}
 
 function timestamp(detection: Detection): number {
     const parsed = Date.parse(detection.detection_time);
     return Number.isNaN(parsed) ? Number.NaN : parsed;
 }
 
-export function needsReview(detection: Detection): boolean {
+export function needsReview(detection: Detection, reviewThreshold: number | null): boolean {
     const label = (detection.display_name ?? '').trim().toLowerCase();
     if (!label || label === UNRESOLVED_LABEL) return true;
-    return (detection.score ?? 0) < REVIEW_CONFIDENCE_THRESHOLD;
+    if (reviewThreshold === null || !Number.isFinite(reviewThreshold)) return false;
+    return (detection.score ?? 0) < reviewThreshold;
 }
 
 function belongsToVisit(previous: Detection, candidate: Detection, gapMs: number): boolean {
@@ -56,7 +60,7 @@ function belongsToVisit(previous: Detection, candidate: Detection, gapMs: number
     return Math.abs(previousAt - candidateAt) <= gapMs;
 }
 
-function toVisit(frames: Detection[]): DetectionVisit {
+function toVisit(frames: Detection[], reviewThreshold: number | null): DetectionVisit {
     const lead = frames[0];
     const best = frames.reduce(
         (strongest, frame) => ((frame.score ?? 0) > (strongest.score ?? 0) ? frame : strongest),
@@ -73,7 +77,7 @@ function toVisit(frames: Detection[]): DetectionVisit {
         best,
         startTime: oldest.detection_time,
         endTime: lead.detection_time,
-        needsReview: frames.every(needsReview)
+        needsReview: frames.every((frame) => needsReview(frame, reviewThreshold))
     };
 }
 
@@ -100,7 +104,7 @@ export function withinDeskWindow(
  */
 export function groupDetectionsIntoVisits(
     detections: readonly Detection[],
-    gapMs: number = VISIT_GAP_MS
+    { reviewThreshold, gapMs = VISIT_GAP_MS }: VisitGroupingOptions
 ): DetectionVisit[] {
     if (detections.length === 0) return [];
 
@@ -125,5 +129,5 @@ export function groupDetectionsIntoVisits(
         }
     }
 
-    return visits.map(toVisit);
+    return visits.map((frames) => toVisit(frames, reviewThreshold));
 }

@@ -7346,6 +7346,17 @@
       "ManualTagResponse": {
         "description": "Response returned after applying or skipping a manual species tag.",
         "properties": {
+          "category_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Name"
+          },
           "common_name": {
             "anyOf": [
               {
@@ -7360,6 +7371,10 @@
           "event_id": {
             "title": "Event Id",
             "type": "string"
+          },
+          "manual_tagged": {
+            "title": "Manual Tagged",
+            "type": "boolean"
           },
           "new_species": {
             "title": "New Species",
@@ -7421,7 +7436,8 @@
         "required": [
           "status",
           "event_id",
-          "new_species"
+          "new_species",
+          "manual_tagged"
         ],
         "title": "ManualTagResponse",
         "type": "object"
