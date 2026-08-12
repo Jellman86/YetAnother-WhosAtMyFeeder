@@ -213,9 +213,9 @@
         {:else if session.current}
             {@const current = session.current}
             <div class="grid min-h-0 flex-1 gap-0 overflow-y-auto md:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] md:overflow-hidden">
-                <div class="flex min-h-0 flex-col bg-slate-950">
+                <div class="flex min-h-0 flex-col justify-center bg-slate-950">
                     {#if imageFailed}
-                        <div class="flex flex-1 items-center justify-center py-16 text-slate-600">
+                        <div class="flex items-center justify-center py-16 text-slate-600">
                             <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2 1.586-1.586a2 2 0 012.828 0L20 14M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
@@ -227,7 +227,7 @@
                                 values: { camera: current.camera_name },
                                 default: 'Unidentified detection on {camera}'
                             })}
-                            class="max-h-[52vh] w-full flex-1 object-contain"
+                            class="max-h-[52vh] w-full object-contain"
                             onerror={() => (imageFailed = true)}
                         />
                     {/if}

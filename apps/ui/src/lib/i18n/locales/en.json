@@ -2113,7 +2113,12 @@
       "copy": "Copy",
       "copied": "Copied",
       "copy_failed": "Copying was refused, select the text instead.",
-      "no_secrets": "Contains no keys, URLs or camera names."
+      "no_secrets": "Contains no keys, URLs or camera names.",
+      "uptime": "Running for",
+      "since": "since {when}",
+      "uptime_minutes": "{count} min",
+      "uptime_hours": "{count} h",
+      "uptime_days": "{count} days"
     },
     "close": {
       "title": "Data, privacy and credits"

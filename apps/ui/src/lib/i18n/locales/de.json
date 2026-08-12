@@ -2104,7 +2104,12 @@
       "copy": "Kopieren",
       "copied": "Kopiert",
       "copy_failed": "Kopieren wurde abgelehnt, markieren Sie den Text stattdessen.",
-      "no_secrets": "Enthält keine Schlüssel, URLs oder Kameranamen."
+      "no_secrets": "Enthält keine Schlüssel, URLs oder Kameranamen.",
+      "uptime": "Läuft seit",
+      "since": "seit {when}",
+      "uptime_minutes": "{count} Min",
+      "uptime_hours": "{count} Std",
+      "uptime_days": "{count} Tage"
     },
     "close": {
       "title": "Daten, Datenschutz und Danksagungen"

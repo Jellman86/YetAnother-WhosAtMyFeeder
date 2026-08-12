@@ -221,3 +221,14 @@ export async function applySnapshotCandidate(
     });
     return handleResponse<SnapshotApplyResponse>(response);
 }
+
+export type ReadinessResponse = paths['/ready']['get']['response'];
+
+/**
+ * The readiness probe carries the process start time, which is the only uptime
+ * source this application has.
+ */
+export async function fetchReadiness(signal?: AbortSignal): Promise<ReadinessResponse> {
+    const response = await apiFetch('/ready', { signal, timeoutMs: 8_000 });
+    return handleResponse<ReadinessResponse>(response);
+}

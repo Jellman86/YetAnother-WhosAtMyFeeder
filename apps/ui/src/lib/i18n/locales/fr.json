@@ -2104,7 +2104,12 @@
       "copy": "Copier",
       "copied": "Copié",
       "copy_failed": "La copie a été refusée, sélectionnez le texte.",
-      "no_secrets": "Ne contient ni clés, ni URL, ni noms de caméras."
+      "no_secrets": "Ne contient ni clés, ni URL, ni noms de caméras.",
+      "uptime": "En service depuis",
+      "since": "depuis {when}",
+      "uptime_minutes": "{count} min",
+      "uptime_hours": "{count} h",
+      "uptime_days": "{count} jours"
     },
     "close": {
       "title": "Données, confidentialité et remerciements"

@@ -2104,7 +2104,12 @@
       "copy": "复制",
       "copied": "已复制",
       "copy_failed": "复制被拒绝，请手动选择文本。",
-      "no_secrets": "不包含密钥、网址或摄像头名称。"
+      "no_secrets": "不包含密钥、网址或摄像头名称。",
+      "uptime": "已运行",
+      "since": "自 {when}",
+      "uptime_minutes": "{count} 分钟",
+      "uptime_hours": "{count} 小时",
+      "uptime_days": "{count} 天"
     },
     "close": {
       "title": "数据、隐私与致谢"

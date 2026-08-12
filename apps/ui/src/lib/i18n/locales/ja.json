@@ -2104,7 +2104,12 @@
       "copy": "コピー",
       "copied": "コピーしました",
       "copy_failed": "コピーが拒否されました。テキストを選択してください。",
-      "no_secrets": "鍵、URL、カメラ名は含まれません。"
+      "no_secrets": "鍵、URL、カメラ名は含まれません。",
+      "uptime": "稼働時間",
+      "since": "{when} から",
+      "uptime_minutes": "{count} 分",
+      "uptime_hours": "{count} 時間",
+      "uptime_days": "{count} 日"
     },
     "close": {
       "title": "データ、プライバシー、クレジット"

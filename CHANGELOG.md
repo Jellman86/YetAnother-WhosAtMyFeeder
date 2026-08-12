@@ -62,6 +62,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   shot rarely settles what a low-confidence blur is. Detections without a stored crop say so
   instead of pretending the full frame is one.
 
+- **About shows how long this instance has been running.** The readiness probe already records
+  when the process started, so "This instance" now states uptime and the time it started, with no
+  new endpoint. The colophon is no longer boxed in a card, since it reads as the page opening
+  rather than as one panel among several.
+
 ### Fixed
 
 - **Top Visitors is readable on the dashboard again.** It lays out horizontally and was being

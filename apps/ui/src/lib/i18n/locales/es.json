@@ -2104,7 +2104,12 @@
       "copy": "Copiar",
       "copied": "Copiado",
       "copy_failed": "Se denegó la copia, selecciona el texto.",
-      "no_secrets": "No contiene claves, URL ni nombres de cámaras."
+      "no_secrets": "No contiene claves, URL ni nombres de cámaras.",
+      "uptime": "En marcha desde hace",
+      "since": "desde {when}",
+      "uptime_minutes": "{count} min",
+      "uptime_hours": "{count} h",
+      "uptime_days": "{count} días"
     },
     "close": {
       "title": "Datos, privacidad y créditos"

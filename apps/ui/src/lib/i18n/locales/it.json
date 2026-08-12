@@ -2113,7 +2113,12 @@
       "copy": "Copia",
       "copied": "Copiato",
       "copy_failed": "Copia rifiutata, seleziona il testo.",
-      "no_secrets": "Non contiene chiavi, URL o nomi di telecamere."
+      "no_secrets": "Non contiene chiavi, URL o nomi di telecamere.",
+      "uptime": "In funzione da",
+      "since": "dal {when}",
+      "uptime_minutes": "{count} min",
+      "uptime_hours": "{count} h",
+      "uptime_days": "{count} giorni"
     },
     "close": {
       "title": "Dati, privacy e ringraziamenti"

@@ -130,7 +130,7 @@
 
 <div class="mx-auto max-w-5xl space-y-6">
     <!-- Colophon: what this is, in plain sentences -->
-    <section id="about-project" aria-labelledby="about-project-heading" class="card-base space-y-4 p-6">
+    <section id="about-project" aria-labelledby="about-project-heading" class="space-y-4 px-1 pt-2">
         <div class="flex items-start gap-4">
             <div class="min-w-0">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">

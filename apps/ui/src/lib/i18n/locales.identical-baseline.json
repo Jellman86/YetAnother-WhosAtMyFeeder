@@ -84,6 +84,8 @@
     "video_player.clip_badge"
   ],
   "es": [
+    "about.instance.uptime_hours",
+    "about.instance.uptime_minutes",
     "about.links.birdnet",
     "about.links.frigate",
     "about.outbound.inat",
@@ -154,6 +156,8 @@
     "video_player.clip_badge"
   ],
   "fr": [
+    "about.instance.uptime_hours",
+    "about.instance.uptime_minutes",
     "about.links.birdnet",
     "about.links.docs",
     "about.links.frigate",
@@ -252,6 +256,8 @@
     "video_player.clip_badge"
   ],
   "it": [
+    "about.instance.uptime_hours",
+    "about.instance.uptime_minutes",
     "about.links.birdnet",
     "about.links.frigate",
     "about.outbound.inat",
@@ -375,6 +381,8 @@
     "settings.telegram.bot_token_placeholder"
   ],
   "pt": [
+    "about.instance.uptime_hours",
+    "about.instance.uptime_minutes",
     "about.links.birdnet",
     "about.links.frigate",
     "about.outbound.inat",

@@ -2113,7 +2113,12 @@
       "copy": "Copiar",
       "copied": "Copiado",
       "copy_failed": "A cópia foi recusada, selecione o texto.",
-      "no_secrets": "Não contém chaves, URLs ou nomes de câmaras."
+      "no_secrets": "Não contém chaves, URLs ou nomes de câmaras.",
+      "uptime": "Em funcionamento há",
+      "since": "desde {when}",
+      "uptime_minutes": "{count} min",
+      "uptime_hours": "{count} h",
+      "uptime_days": "{count} dias"
     },
     "close": {
       "title": "Dados, privacidade e créditos"
