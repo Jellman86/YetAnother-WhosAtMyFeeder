@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The classifier's status notice stops competing with the identification.** "Identification
+  unchanged" and its error details were the second thing read on the panel, above the facts. The
+  notice is now a quieter note below them, where an explanation belongs, and the caption over the
+  photograph gained a deeper scrim so it stays legible now the image fills its panel.
+
 - **The detection actions say what they do.** "Manual Tag" is now "Pick a different species", and a
   detection the model named can be accepted outright with "Confirm Coal Tit", which marks it as
   human-verified in one press instead of reopening a species picker to choose the name it already

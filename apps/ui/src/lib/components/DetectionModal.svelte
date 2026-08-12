@@ -2171,7 +2171,7 @@
                             alt={detection.display_name}
                             class="relative h-full w-full {mediaView === 'full' ? 'object-contain' : 'object-cover lg:object-cover'}"
                         />
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
                         {#if canShowFavoriteAction}
                             <button
                                 type="button"
@@ -2206,7 +2206,7 @@
                                 </svg>
                             </button>
                         {/if}
-    	                <div class="absolute bottom-0 left-0 right-0 p-5">
+    	                <div class="absolute bottom-0 left-0 right-0 p-5 {scoredFrameStrip.length > 1 ? 'pb-16' : ''}">
                             <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
     	                    {#if subName && subName !== primaryName}
     	                        <p class="text-white/70 text-sm italic drop-shadow -mt-0.5 mb-0.5 truncate">{subName}</p>
@@ -2500,139 +2500,7 @@
                     didn't recover (rare, but actionable)
                  Folds Frigate-event-missing context, the technical details
                  expander, and the snapshot-fallback explanation together. -->
-            {#if videoStatusNoticeVisible}
-                <div
-                    class="p-3 rounded-xl border flex items-start gap-2 {videoStatusNoticeTone.container}"
-                    role="status"
-                >
-                    <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        {#if videoStatusNoticeTone.kind === 'rose'}
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="12"/>
-                            <line x1="12" y1="16" x2="12.01" y2="16"/>
-                        {:else if videoStatusNoticeTone.kind === 'amber'}
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                            <line x1="12" y1="9" x2="12" y2="13"/>
-                            <line x1="12" y1="17" x2="12.01" y2="17"/>
-                        {:else}
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="16" x2="12" y2="12"/>
-                            <line x1="12" y1="8" x2="12.01" y2="8"/>
-                        {/if}
-                    </svg>
-                    <div class="flex flex-col gap-1 min-w-0 flex-1">
-                        <span class="text-[10px] font-semibold">
-                            {videoStatusNoticeTitle}
-                        </span>
-                        <span class="text-[11px] font-semibold leading-snug">
-                            {videoStatusNoticeDescription}
-                        </span>
-                        {#if upstreamMissing && detection.frigate_last_checked_at}
-                            <span class="text-[10px] text-slate-500 dark:text-slate-400">
-                                {$_('detection.upstream_missing.last_checked', { default: 'Last checked' })}:
-                                {formatDateTime(detection.frigate_last_checked_at)}
-                                ·
-                                <a
-                                    href={FRIGATE_MISSING_DOCS_URL}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="font-semibold hover:underline {videoStatusNoticeTone.kind === 'rose' ? 'text-rose-700 dark:text-rose-300' : 'text-brand-600 dark:text-brand-400'}"
-                                >
-                                    {$_('detection.upstream_missing.learn_more', { default: 'Learn more' })}
-                                </a>
-                            </span>
-                        {/if}
-                        {#if videoStatusShowTechnicalDetails}
-                            <details class="mt-1 rounded-lg border px-3 py-2 {videoStatusNoticeTone.detailsContainer}" bind:open={videoErrorDetailsOpen}>
-                                <summary class="cursor-pointer select-none text-[11px] font-bold {videoStatusNoticeTone.detailsSummary}">
-                                    {videoErrorDetailsOpen
-                                        ? $_('detection.video_analysis.error_details.hide', { default: 'Hide technical details' })
-                                        : $_('detection.video_analysis.error_details.show', { default: 'Show technical details' })}
-                                </summary>
-                                <div class="mt-2 space-y-2 text-[11px] text-slate-700 dark:text-slate-300">
-                                    {#if videoFailureInsight.errorCode}
-                                        <p class="font-mono text-[10px] text-slate-600 dark:text-slate-400">
-                                            {$_('detection.video_analysis.error_details.error_code', { default: 'Error code: {code}', values: { code: videoFailureInsight.errorCode } })}
-                                        </p>
-                                    {/if}
-                                    {#if videoClassificationDiagnostics}
-                                        <section aria-labelledby="video-evidence-heading">
-                                            <p id="video-evidence-heading" class="font-bold text-slate-800 dark:text-slate-200">
-                                                {$_('detection.video_analysis.evidence.title', { default: 'Evidence from this run' })}
-                                            </p>
-                                            <p class="mt-0.5 text-slate-600 dark:text-slate-400">
-                                                {$_('detection.video_analysis.evidence.summary', {
-                                                    default: '{processed} of {sampled} sampled frames were decoded. A frame needed at least {threshold}% confidence to vote.',
-                                                    values: {
-                                                        processed: videoClassificationDiagnostics.processed_frames,
-                                                        sampled: videoClassificationDiagnostics.sampled_frames,
-                                                        threshold: Math.round(videoClassificationDiagnostics.minimum_frame_score * 100)
-                                                    }
-                                                })}
-                                            </p>
-                                            <dl class="mt-2 divide-y divide-slate-200/80 dark:divide-slate-700/70 border-y border-slate-200/80 dark:border-slate-700/70">
-                                                {#each videoClassificationSources as [source, evidence]}
-                                                    <div class="py-2 first:pt-0 last:pb-0">
-                                                        <div class="flex items-baseline justify-between gap-3">
-                                                            <dt class="font-bold text-slate-800 dark:text-slate-200">
-                                                                {videoEvidenceSourceLabel(source)}
-                                                            </dt>
-                                                            <dd class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
-                                                                {evidence.confident_frames}/{evidence.independent_frames ?? evidence.evaluated_frames}
-                                                                {$_('detection.video_analysis.evidence.confident_short', { default: 'confident' })}
-                                                            </dd>
-                                                        </div>
-                                                        <p class="mt-0.5 text-slate-600 dark:text-slate-400">
-                                                            {$_('detection.video_analysis.evidence.required', {
-                                                                default: 'Needed {required} matching confident moments from this source.',
-                                                                values: { required: evidence.required_supporting_frames }
-                                                            })}
-                                                        </p>
-                                                        {#if evidence.top_candidates.length > 0}
-                                                            <ul class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-600 dark:text-slate-400" aria-label={$_('detection.video_analysis.evidence.top_candidates', { default: 'Top recurring candidates' })}>
-                                                                {#each evidence.top_candidates as candidate}
-                                                                    <li>
-                                                                        <span class="font-semibold text-slate-700 dark:text-slate-300">{candidate.label}</span>
-                                                                        · {candidate.supporting_frames}× · {Math.round(candidate.median_score * 100)}%
-                                                                    </li>
-                                                                {/each}
-                                                            </ul>
-                                                        {/if}
-                                                    </div>
-                                                {/each}
-                                            </dl>
-                                        </section>
-                                    {/if}
-                                    {#if videoFailureInsight.causes.length > 0}
-                                        <div>
-                                            <p class="font-bold text-slate-800 dark:text-slate-200">
-                                                {$_('detection.video_analysis.error_details.why', { default: 'Why this can happen' })}
-                                            </p>
-                                            <ul class="mt-1 list-disc pl-5 space-y-1">
-                                                {#each videoFailureInsight.causes as cause}
-                                                    <li>{cause}</li>
-                                                {/each}
-                                            </ul>
-                                        </div>
-                                    {/if}
-                                    {#if videoFailureInsight.checks.length > 0}
-                                        <div>
-                                            <p class="font-bold text-slate-800 dark:text-slate-200">
-                                                {$_('detection.video_analysis.error_details.checks', { default: 'What to check' })}
-                                            </p>
-                                            <ul class="mt-1 list-disc pl-5 space-y-1">
-                                                {#each videoFailureInsight.checks as check}
-                                                    <li>{check}</li>
-                                                {/each}
-                                            </ul>
-                                        </div>
-                                    {/if}
-                                </div>
-                            </details>
-                        {/if}
-                    </div>
-                </div>
-            {/if}
+
 
             <!-- Auto-promotion gated notice: video analysis ran successfully but the
                  score didn't clear the auto-promotion floor, so the primary display
@@ -2802,6 +2670,140 @@
                 </div>
                 {/if}
             </dl>
+
+            {#if videoStatusNoticeVisible}
+                <div
+                    class="p-3 rounded-xl border flex items-start gap-2 {videoStatusNoticeTone.container}"
+                    role="status"
+                >
+                    <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        {#if videoStatusNoticeTone.kind === 'rose'}
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        {:else if videoStatusNoticeTone.kind === 'amber'}
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        {:else}
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="16" x2="12" y2="12"/>
+                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                        {/if}
+                    </svg>
+                    <div class="flex flex-col gap-1 min-w-0 flex-1">
+                        <span class="text-[10px] font-semibold">
+                            {videoStatusNoticeTitle}
+                        </span>
+                        <span class="text-[11px] font-semibold leading-snug">
+                            {videoStatusNoticeDescription}
+                        </span>
+                        {#if upstreamMissing && detection.frigate_last_checked_at}
+                            <span class="text-[10px] text-slate-500 dark:text-slate-400">
+                                {$_('detection.upstream_missing.last_checked', { default: 'Last checked' })}:
+                                {formatDateTime(detection.frigate_last_checked_at)}
+                                ·
+                                <a
+                                    href={FRIGATE_MISSING_DOCS_URL}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="font-semibold hover:underline {videoStatusNoticeTone.kind === 'rose' ? 'text-rose-700 dark:text-rose-300' : 'text-brand-600 dark:text-brand-400'}"
+                                >
+                                    {$_('detection.upstream_missing.learn_more', { default: 'Learn more' })}
+                                </a>
+                            </span>
+                        {/if}
+                        {#if videoStatusShowTechnicalDetails}
+                            <details class="mt-1 rounded-lg border px-3 py-2 {videoStatusNoticeTone.detailsContainer}" bind:open={videoErrorDetailsOpen}>
+                                <summary class="cursor-pointer select-none text-[11px] font-bold {videoStatusNoticeTone.detailsSummary}">
+                                    {videoErrorDetailsOpen
+                                        ? $_('detection.video_analysis.error_details.hide', { default: 'Hide technical details' })
+                                        : $_('detection.video_analysis.error_details.show', { default: 'Show technical details' })}
+                                </summary>
+                                <div class="mt-2 space-y-2 text-[11px] text-slate-700 dark:text-slate-300">
+                                    {#if videoFailureInsight.errorCode}
+                                        <p class="font-mono text-[10px] text-slate-600 dark:text-slate-400">
+                                            {$_('detection.video_analysis.error_details.error_code', { default: 'Error code: {code}', values: { code: videoFailureInsight.errorCode } })}
+                                        </p>
+                                    {/if}
+                                    {#if videoClassificationDiagnostics}
+                                        <section aria-labelledby="video-evidence-heading">
+                                            <p id="video-evidence-heading" class="font-bold text-slate-800 dark:text-slate-200">
+                                                {$_('detection.video_analysis.evidence.title', { default: 'Evidence from this run' })}
+                                            </p>
+                                            <p class="mt-0.5 text-slate-600 dark:text-slate-400">
+                                                {$_('detection.video_analysis.evidence.summary', {
+                                                    default: '{processed} of {sampled} sampled frames were decoded. A frame needed at least {threshold}% confidence to vote.',
+                                                    values: {
+                                                        processed: videoClassificationDiagnostics.processed_frames,
+                                                        sampled: videoClassificationDiagnostics.sampled_frames,
+                                                        threshold: Math.round(videoClassificationDiagnostics.minimum_frame_score * 100)
+                                                    }
+                                                })}
+                                            </p>
+                                            <dl class="mt-2 divide-y divide-slate-200/80 dark:divide-slate-700/70 border-y border-slate-200/80 dark:border-slate-700/70">
+                                                {#each videoClassificationSources as [source, evidence]}
+                                                    <div class="py-2 first:pt-0 last:pb-0">
+                                                        <div class="flex items-baseline justify-between gap-3">
+                                                            <dt class="font-bold text-slate-800 dark:text-slate-200">
+                                                                {videoEvidenceSourceLabel(source)}
+                                                            </dt>
+                                                            <dd class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
+                                                                {evidence.confident_frames}/{evidence.independent_frames ?? evidence.evaluated_frames}
+                                                                {$_('detection.video_analysis.evidence.confident_short', { default: 'confident' })}
+                                                            </dd>
+                                                        </div>
+                                                        <p class="mt-0.5 text-slate-600 dark:text-slate-400">
+                                                            {$_('detection.video_analysis.evidence.required', {
+                                                                default: 'Needed {required} matching confident moments from this source.',
+                                                                values: { required: evidence.required_supporting_frames }
+                                                            })}
+                                                        </p>
+                                                        {#if evidence.top_candidates.length > 0}
+                                                            <ul class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-600 dark:text-slate-400" aria-label={$_('detection.video_analysis.evidence.top_candidates', { default: 'Top recurring candidates' })}>
+                                                                {#each evidence.top_candidates as candidate}
+                                                                    <li>
+                                                                        <span class="font-semibold text-slate-700 dark:text-slate-300">{candidate.label}</span>
+                                                                        · {candidate.supporting_frames}× · {Math.round(candidate.median_score * 100)}%
+                                                                    </li>
+                                                                {/each}
+                                                            </ul>
+                                                        {/if}
+                                                    </div>
+                                                {/each}
+                                            </dl>
+                                        </section>
+                                    {/if}
+                                    {#if videoFailureInsight.causes.length > 0}
+                                        <div>
+                                            <p class="font-bold text-slate-800 dark:text-slate-200">
+                                                {$_('detection.video_analysis.error_details.why', { default: 'Why this can happen' })}
+                                            </p>
+                                            <ul class="mt-1 list-disc pl-5 space-y-1">
+                                                {#each videoFailureInsight.causes as cause}
+                                                    <li>{cause}</li>
+                                                {/each}
+                                            </ul>
+                                        </div>
+                                    {/if}
+                                    {#if videoFailureInsight.checks.length > 0}
+                                        <div>
+                                            <p class="font-bold text-slate-800 dark:text-slate-200">
+                                                {$_('detection.video_analysis.error_details.checks', { default: 'What to check' })}
+                                            </p>
+                                            <ul class="mt-1 list-disc pl-5 space-y-1">
+                                                {#each videoFailureInsight.checks as check}
+                                                    <li>{check}</li>
+                                                {/each}
+                                            </ul>
+                                        </div>
+                                    {/if}
+                                </div>
+                            </details>
+                        {/if}
+                    </div>
+                </div>
+            {/if}
 
             {#if hasAudioContext}
                 <section data-detection-audio-section class="space-y-3 border-t border-slate-200 pt-5 dark:border-slate-700">
