@@ -738,7 +738,11 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     log.info("iNaturalist config", enabled=inaturalist_data["enabled"])
     log.info("Enrichment config", mode=enrichment_data["mode"])
     log.info("LLM config", enabled=llm_data["enabled"], provider=llm_data["provider"])
-    log.info("Telemetry config", enabled=telemetry_data["enabled"], installation_id=telemetry_data["installation_id"])
+    log.info(
+        "Telemetry config",
+        enabled=telemetry_data["enabled"],
+        has_installation_id=bool(telemetry_data["installation_id"]),
+    )
     log.info(
         "Notification config",
         discord=notifications_data["discord"]["enabled"],

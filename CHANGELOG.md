@@ -17,6 +17,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Anonymous telemetry now has an explicit Free-tier and privacy boundary.** D1 schema updates use
+  ordered, non-destructive migrations; new heartbeats retain only a hashed installation identity;
+  exact health replays no longer spend the daily write budget; scheduled bounded retention removes
+  stale history and legacy raw identifiers; and disabling both telemetry options requests deletion
+  before rotating the local identity. Public telemetry hides cohorts below three installations and
+  computes selected-window health signals from accepted batches rather than lifetime counters.
+  Workers Logs are sampled at 10%, tracing remains off, and the 40,000-unit application write cap
+  preserves headroom beneath Cloudflare's Free-plan D1 limits.
+
 - **Detection details and dashboard:** On phones, the favourite action no longer covers the Best crop /
   Full frame switch. Location-level eBird notable reports now live beneath the dashboard Field log
   instead of appearing on every detection, with honest disabled, loading, empty, error, and scoped

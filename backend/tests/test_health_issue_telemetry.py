@@ -1,4 +1,5 @@
 import asyncio
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -40,6 +41,7 @@ def _diagnostic_snapshot(*events: dict) -> dict:
 
 class _RecordingAsyncClient:
     payloads: list[dict] = []
+    urls: list[str] = []
     statuses: list[int] = []
     delay_seconds = 0.0
 
@@ -53,6 +55,7 @@ class _RecordingAsyncClient:
         return None
 
     async def post(self, _url: str, *, json: dict):
+        self.urls.append(_url)
         self.payloads.append(json)
         await asyncio.sleep(self.delay_seconds)
         status_code = self.statuses.pop(0) if self.statuses else 200
@@ -62,12 +65,30 @@ class _RecordingAsyncClient:
 @pytest.fixture
 def health_sender(monkeypatch):
     _RecordingAsyncClient.payloads = []
+    _RecordingAsyncClient.urls = []
     _RecordingAsyncClient.statuses = []
     _RecordingAsyncClient.delay_seconds = 0.0
     monkeypatch.setattr(telemetry_module.httpx, "AsyncClient", _RecordingAsyncClient)
     monkeypatch.setattr(settings.telemetry, "installation_id", "00000000-0000-0000-0000-000000000000")
     monkeypatch.setattr(settings.telemetry, "health_url", "https://telemetry.example/health-issues")
     return TelemetryService()
+
+
+@pytest.mark.asyncio
+async def test_forget_rotates_installation_identity_only_after_remote_deletion(monkeypatch, health_sender):
+    old_id = settings.telemetry.installation_id
+    monkeypatch.setattr(settings.telemetry, "url", "https://telemetry.example/heartbeat")
+    save = AsyncMock()
+    monkeypatch.setattr(type(settings), "save", save)
+
+    forgotten = await health_sender.forget_installation(old_id)
+
+    assert forgotten is True
+    assert _RecordingAsyncClient.urls == ["https://telemetry.example/forget"]
+    assert _RecordingAsyncClient.payloads == [{"installation_id": old_id}]
+    assert settings.telemetry.installation_id != old_id
+    assert len(settings.telemetry.installation_id) == 36
+    save.assert_awaited_once()
 
 
 @pytest.mark.asyncio

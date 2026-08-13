@@ -14,6 +14,34 @@ const app = new Hono<{ Bindings: Bindings }>();
 // Enable CORS
 app.use('/*', cors());
 
+// Cache public aggregate responses in each Cloudflare data centre as well as
+// in-process. This is a read-budget control: repeated public requests should
+// not rescan D1 history. Cache API failures degrade to the normal handler.
+for (const path of ['/dashboard', '/stats/*']) {
+  app.use(path, async (c, next) => {
+    if (c.req.method !== 'GET') return next();
+    const cacheKey = new Request(c.req.url, { method: 'GET' });
+    try {
+      const cached = await caches.default.match(cacheKey);
+      if (cached) return cached;
+    } catch (error) {
+      console.warn('Aggregate cache read unavailable:', error);
+    }
+    await next();
+    if (!c.res.ok) return;
+    c.res.headers.set('Cache-Control', 'public, max-age=300');
+    try {
+      c.executionCtx.waitUntil(
+        caches.default.put(cacheKey, c.res.clone()).catch((error) => {
+          console.warn('Aggregate cache write unavailable:', error);
+        }),
+      );
+    } catch (error) {
+      console.warn('Aggregate cache write unavailable:', error);
+    }
+  });
+}
+
 interface TelemetryPayload {
   installation_id: string;
   timestamp: string;
@@ -125,6 +153,7 @@ const MAX_HEALTH_ISSUES_PER_REPORT = 25;
 const MAX_HEALTH_EVENTS_PER_REPORT = 250;
 const MAX_INGESTION_BODY_BYTES = 128 * 1024;
 const MAX_JSON_CHARS = 8192;
+const PUBLIC_COHORT_MINIMUM = 3;
 // Conservative D1 rows-written estimates include base rows plus primary/secondary
 // index maintenance. The 40k operational cap leaves 60k rows/day of Free-plan
 // headroom; update these weights whenever an ingestion-table index changes.
@@ -207,6 +236,21 @@ function safeText(value: unknown, fallback = '', limit = 160): string {
   const text = String(value ?? '').trim();
   if (!text) return fallback;
   return text.length > limit ? `${text.slice(0, limit - 3)}...` : text;
+}
+
+function safeNullableText(value: unknown, limit = 160): string | null {
+  return safeText(value, '', limit) || null;
+}
+
+function normalizeCountry(value: unknown): string {
+  const country = safeText(value, 'XX', 2).toUpperCase();
+  return /^[A-Z]{2}$/.test(country) ? country : 'XX';
+}
+
+function normalizeInstallationId(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const installationId = value.trim();
+  return /^[A-Za-z0-9._:-]{8,160}$/.test(installationId) ? installationId : null;
 }
 
 function boundedJson(value: unknown, limit = MAX_JSON_CHARS): string {
@@ -317,6 +361,11 @@ function pct(value: unknown, total: unknown): string {
   return `${Math.round((numerator / denominator) * 100)}%`;
 }
 
+function cohortCount(value: unknown): number | null {
+  const count = Number(value ?? 0);
+  return Number.isFinite(count) && count >= PUBLIC_COHORT_MINIMUM ? count : null;
+}
+
 function renderRows(rows: any[], columns: Array<[string, string | ((row: any) => unknown)]>): string {
   if (!rows.length) {
     return `<tr><td colspan="${columns.length}" class="empty">No data in this window</td></tr>`;
@@ -334,11 +383,12 @@ function renderRows(rows: any[], columns: Array<[string, string | ((row: any) =>
 function renderBars(rows: any[], labelKey: string, valueKey: string, total: unknown): string {
   if (!rows.length) return '<div class="empty panel-empty">No data in this window</div>';
   return rows.map((row) => {
+    const suppressed = row[valueKey] === null;
     const value = Number(row[valueKey] ?? 0);
     const width = pct(value, total);
     return `
       <div class="bar-row">
-        <div class="bar-label"><span>${html(row[labelKey] || 'Unknown')}</span><strong>${fmt(value)}</strong></div>
+        <div class="bar-label"><span>${html(row[labelKey] || 'Unknown')}</span><strong>${suppressed ? 'Low cohort' : fmt(value)}</strong></div>
         <div class="bar-track"><div class="bar-fill" style="width:${width}"></div></div>
       </div>
     `;
@@ -830,9 +880,8 @@ app.get('/version', async (c) => {
   }
 });
 
-// Public, read-only aggregate dashboard. A short per-isolate in-memory cache keeps
-// traffic bursts off D1 so the worker stays comfortably within Cloudflare's free
-// tier (the edge Cache API is a no-op on *.workers.dev, so we cache in-process).
+// Public, read-only aggregate dashboard. A short per-isolate cache complements
+// the data-centre Cache API and coalesces hot requests handled by one isolate.
 const DASHBOARD_CACHE = new Map<string, { html: string; expires: number }>();
 const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -850,51 +899,77 @@ app.get('/dashboard', async (c) => {
   if (view === 'health') {
     const totals = await c.env.HEALTH_DB.prepare(`
       SELECT
-        count(*) as total_issues,
+        coalesce(sum(issue_group_count), 0) as total_issues,
         count(DISTINCT installation_id_hash) as affected_installs,
-        coalesce(sum(report_count), 0) as reports,
-        coalesce(sum(occurrence_count), 0) as occurrences
-      FROM health_issue_reports
-      WHERE updated_at > ${activeThreshold}
+        count(*) as reports,
+        coalesce(sum(event_count), 0) as occurrences
+      FROM health_report_batches
+      WHERE reported_at > ${activeThreshold}
     `).first();
 
     const severity = await c.env.HEALTH_DB.prepare(`
-      SELECT severity, count(*) as issue_count, sum(report_count) as report_count, sum(occurrence_count) as occurrence_count
-      FROM health_issue_reports
-      WHERE updated_at > ${activeThreshold}
+      SELECT json_extract(event_group.value, '$.severity') AS severity,
+             count(DISTINCT json_extract(event_group.value, '$.fingerprint')) AS issue_count,
+             count(DISTINCT batch.report_id) AS report_count,
+             sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count
+      FROM health_report_batches AS batch,
+           json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
+      WHERE batch.reported_at > ${activeThreshold}
       GROUP BY severity
-      ORDER BY issue_count DESC
+      HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
+      ORDER BY occurrence_count DESC
     `).all();
 
     const components = await c.env.HEALTH_DB.prepare(`
-      SELECT issue_component, count(*) as issue_count, sum(report_count) as report_count, sum(occurrence_count) as occurrence_count
-      FROM health_issue_reports
-      WHERE updated_at > ${activeThreshold}
-      GROUP BY issue_component
-      ORDER BY issue_count DESC
+      SELECT issue.issue_component,
+             count(DISTINCT batch.installation_id_hash) AS install_count,
+             count(DISTINCT issue.issue_fingerprint) AS issue_count,
+             sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count
+      FROM health_report_batches AS batch,
+           json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
+      JOIN health_issue_reports AS issue
+        ON issue.installation_id_hash = batch.installation_id_hash
+       AND issue.issue_fingerprint = json_extract(event_group.value, '$.fingerprint')
+      WHERE batch.reported_at > ${activeThreshold}
+      GROUP BY issue.issue_component
+      HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
+      ORDER BY occurrence_count DESC
       LIMIT 10
     `).all();
 
     const topIssues = await c.env.HEALTH_DB.prepare(`
-      SELECT issue_component, issue_reason_code, severity, app_version, count(DISTINCT installation_id_hash) as install_count, sum(report_count) as report_count, sum(occurrence_count) as occurrence_count, max(updated_at) as last_seen
-      FROM health_issue_reports
-      WHERE updated_at > ${activeThreshold}
-      GROUP BY issue_component, issue_reason_code, severity, app_version
+      SELECT issue.issue_component, issue.issue_reason_code, issue.severity, batch.app_version,
+             count(DISTINCT batch.installation_id_hash) AS install_count,
+             count(DISTINCT batch.report_id) AS report_count,
+             sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count,
+             max(date(batch.reported_at)) AS last_seen
+      FROM health_report_batches AS batch,
+           json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
+      JOIN health_issue_reports AS issue
+        ON issue.installation_id_hash = batch.installation_id_hash
+       AND issue.issue_fingerprint = json_extract(event_group.value, '$.fingerprint')
+      WHERE batch.reported_at > ${activeThreshold}
+      GROUP BY issue.issue_component, issue.issue_reason_code, issue.severity, batch.app_version
+      HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
       ORDER BY install_count DESC, occurrence_count DESC
       LIMIT 12
     `).all();
 
     const countries = await c.env.HEALTH_DB.prepare(`
-      SELECT ip_country, count(DISTINCT installation_id_hash) as installs, count(*) as issue_count
-      FROM health_issue_reports
-      WHERE updated_at > ${activeThreshold}
-      GROUP BY ip_country
+      SELECT country AS ip_country, count(DISTINCT installation_id_hash) as installs,
+             sum(issue_group_count) as issue_count
+      FROM health_report_batches
+      WHERE reported_at > ${activeThreshold}
+      GROUP BY country
+      HAVING count(DISTINCT installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
       ORDER BY installs DESC, issue_count DESC
       LIMIT 18
     `).all();
 
     const dailyReports = await c.env.HEALTH_DB.prepare(`
-      SELECT report_date as day, count(*) as reports
+      SELECT report_date as day,
+             CASE WHEN count(DISTINCT installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
+                  THEN count(*) ELSE NULL END as reports
       FROM health_report_batches
       WHERE report_date >= date('now', '-${days - 1} days')
       GROUP BY report_date
@@ -907,6 +982,7 @@ app.get('/dashboard', async (c) => {
       WHERE last_seen > ${activeThreshold}
         AND inference_health_status IN ('ok', 'degraded', 'unhealthy')
       GROUP BY inference_health_status
+      HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
       ORDER BY count DESC
       LIMIT 3
     `).all();
@@ -930,16 +1006,20 @@ app.get('/dashboard', async (c) => {
         AND length(last_recovery_reason) BETWEEN 1 AND 64
         AND last_recovery_reason NOT GLOB '*[^a-z0-9_]*'
       GROUP BY last_recovery_reason, last_recovery_status
+      HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
       ORDER BY count DESC
       LIMIT 10
     `).all();
 
+    const publicTotals = Number(totals?.affected_installs ?? 0) >= PUBLIC_COHORT_MINIMUM
+      ? totals
+      : { total_issues: 0, affected_installs: 0, reports: 0, occurrences: 0 };
     const severityByName = new Map(severity.results.map((row: any) => [String(row.severity || 'unknown').toLowerCase(), row]));
     const severityCards = ['critical', 'error', 'warning'].map((name) => {
       const row: any = severityByName.get(name) ?? {};
-      return `<div class="severity-card">${severityPill(name)}<strong>${fmt(row.issue_count ?? 0)}</strong><small>${fmt(row.report_count ?? 0)} reports · ${fmt(row.occurrence_count ?? 0)} occurrences</small></div>`;
+      return `<div class="severity-card">${severityPill(name)}<strong>${fmt(row.issue_count ?? 0)}</strong><small>${fmt(row.report_count ?? 0)} batches · ${fmt(row.occurrence_count ?? 0)} new events</small></div>`;
     }).join('');
-    const totalIssues = Number(totals?.total_issues ?? 0);
+    const totalIssues = Number(publicTotals?.total_issues ?? 0);
     const issueRows = topIssues.results.length
       ? topIssues.results.map((row: any) => `<tr>
           <td>${html(row.issue_component || 'Unknown')}</td>
@@ -973,17 +1053,17 @@ app.get('/dashboard', async (c) => {
       <section class="health-command">
         <article class="panel health-signal">
           <div class="signal-state"><span class="signal-dot"></span>Operational signal board</div>
-          <div class="signal-metric">${fmt(totals?.affected_installs)}</div>
+          <div class="signal-metric">${fmt(publicTotals?.affected_installs)}</div>
           <h2>${html(signalTitle)}</h2>
           <p>Affected installations with deduplicated issue groups in the selected window.</p>
           <div class="signal-facts">
-            <div class="signal-fact"><strong>${fmt(totals?.total_issues)}</strong><span>issue groups</span></div>
-            <div class="signal-fact"><strong>${fmt(totals?.reports)}</strong><span>reports</span></div>
-            <div class="signal-fact"><strong>${fmt(totals?.occurrences)}</strong><span>occurrences</span></div>
+            <div class="signal-fact"><strong>${fmt(publicTotals?.total_issues)}</strong><span>reported groups</span></div>
+            <div class="signal-fact"><strong>${fmt(publicTotals?.reports)}</strong><span>accepted batches</span></div>
+            <div class="signal-fact"><strong>${fmt(publicTotals?.occurrences)}</strong><span>new events</span></div>
           </div>
         </article>
         <article class="panel health-severity-board">
-          <div class="panel-heading"><div><span class="eyebrow">Triage lane</span><h2>Severity distribution</h2><p>Distinct issue groups, reports, and observed occurrences.</p></div></div>
+          <div class="panel-heading"><div><span class="eyebrow">Triage lane</span><h2>Severity distribution</h2><p>Deduplicated groups, accepted batches, and new events in this window.</p></div></div>
           <div class="health-severity-lane">${severityCards}</div>
         </article>
       </section>
@@ -1053,6 +1133,7 @@ app.get('/dashboard', async (c) => {
     FROM heartbeats
     WHERE last_seen > ${activeThreshold}
     GROUP BY app_version
+    HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY count DESC
     LIMIT 12
   `).all();
@@ -1062,6 +1143,7 @@ app.get('/dashboard', async (c) => {
     FROM heartbeats
     WHERE last_seen > ${activeThreshold}
     GROUP BY model_type
+    HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY count DESC
     LIMIT 12
   `).all();
@@ -1071,6 +1153,7 @@ app.get('/dashboard', async (c) => {
     FROM heartbeats
     WHERE last_seen > ${activeThreshold}
     GROUP BY platform_machine
+    HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY count DESC
     LIMIT 12
   `).all();
@@ -1080,6 +1163,7 @@ app.get('/dashboard', async (c) => {
     FROM heartbeats
     WHERE last_seen > ${activeThreshold}
     GROUP BY ip_country
+    HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY count DESC
     LIMIT 32
   `).all();
@@ -1122,6 +1206,7 @@ app.get('/dashboard', async (c) => {
     FROM heartbeats
     WHERE last_seen > ${activeThreshold}
     GROUP BY inference_provider_configured
+    HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY count DESC
     LIMIT 12
   `).all();
@@ -1131,6 +1216,7 @@ app.get('/dashboard', async (c) => {
     FROM heartbeats
     WHERE last_seen > ${activeThreshold}
     GROUP BY inference_provider_active
+    HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY count DESC
     LIMIT 12
   `).all();
@@ -1140,6 +1226,7 @@ app.get('/dashboard', async (c) => {
     FROM heartbeats
     WHERE last_seen > ${activeThreshold}
     GROUP BY inference_backend_active
+    HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY count DESC
     LIMIT 12
   `).all();
@@ -1149,6 +1236,7 @@ app.get('/dashboard', async (c) => {
     FROM heartbeats
     WHERE last_seen > ${activeThreshold}
     GROUP BY model_runtime
+    HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY count DESC
     LIMIT 12
   `).all();
@@ -1158,12 +1246,14 @@ app.get('/dashboard', async (c) => {
     FROM heartbeats
     WHERE last_seen > ${activeThreshold}
     GROUP BY image_flavor, image_arch, deployment_mode
+    HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY count DESC
     LIMIT 16
   `).all();
 
   const dailyInstalls = await c.env.DB.prepare(`
-    SELECT report_date as day, count(*) as installs
+    SELECT report_date as day,
+           CASE WHEN count(*) >= ${PUBLIC_COHORT_MINIMUM} THEN count(*) ELSE NULL END as installs
     FROM heartbeat_daily
     WHERE report_date >= date('now', '-${days - 1} days')
     GROUP BY report_date
@@ -1172,30 +1262,30 @@ app.get('/dashboard', async (c) => {
 
   const activeInstalls = Number(totals?.active_installs ?? 0);
   const featureRows = [
-    ['BirdNET-Go', features?.birdnet],
-    ['BirdWeather', features?.birdweather],
-    ['eBird', features?.ebird],
-    ['iNaturalist', features?.inaturalist],
-    ['LLM', features?.llm],
-    ['Media cache', features?.media_cache],
-    ['Clip cache', features?.clips_cache],
-    ['Auto video', features?.auto_video],
-    ['Discord', features?.discord],
-    ['Pushover', features?.pushover],
-    ['Telegram', features?.telegram],
-    ['Email', features?.email],
-    ['Auth enabled', features?.auth_enabled],
-    ['Public access', features?.public_access]
+    ['BirdNET-Go', cohortCount(features?.birdnet)],
+    ['BirdWeather', cohortCount(features?.birdweather)],
+    ['eBird', cohortCount(features?.ebird)],
+    ['iNaturalist', cohortCount(features?.inaturalist)],
+    ['LLM', cohortCount(features?.llm)],
+    ['Media cache', cohortCount(features?.media_cache)],
+    ['Clip cache', cohortCount(features?.clips_cache)],
+    ['Auto video', cohortCount(features?.auto_video)],
+    ['Discord', cohortCount(features?.discord)],
+    ['Pushover', cohortCount(features?.pushover)],
+    ['Telegram', cohortCount(features?.telegram)],
+    ['Email', cohortCount(features?.email)],
+    ['Auth enabled', cohortCount(features?.auth_enabled)],
+    ['Public access', cohortCount(features?.public_access)]
   ].map(([name, count]) => ({ name, count }));
 
   const hardwareRows = [
-    ['CUDA available', runtimeSummary?.cuda],
-    ['NVIDIA GPU detected', runtimeSummary?.nvidia_gpu],
-    ['OpenVINO available', runtimeSummary?.openvino],
-    ['Intel GPU available', runtimeSummary?.intel_gpu],
-    ['Intel NPU available', runtimeSummary?.intel_npu],
-    ['OpenVINO GPU compile OK', runtimeSummary?.openvino_compile_ok],
-    ['GPU fallback active', runtimeSummary?.gpu_fallback]
+    ['CUDA available', cohortCount(runtimeSummary?.cuda)],
+    ['NVIDIA GPU detected', cohortCount(runtimeSummary?.nvidia_gpu)],
+    ['OpenVINO available', cohortCount(runtimeSummary?.openvino)],
+    ['Intel GPU available', cohortCount(runtimeSummary?.intel_gpu)],
+    ['Intel NPU available', cohortCount(runtimeSummary?.intel_npu)],
+    ['OpenVINO GPU compile OK', cohortCount(runtimeSummary?.openvino_compile_ok)],
+    ['GPU fallback active', cohortCount(runtimeSummary?.gpu_fallback)]
   ].map(([name, count]) => ({ name, count }));
 
   const body = `
@@ -1258,7 +1348,7 @@ app.get('/dashboard', async (c) => {
     <section class="usage-capabilities">
       <article class="panel">
         <div class="panel-heading"><div><span class="eyebrow">Compute readiness</span><h2>Hardware capabilities</h2><p>Detected accelerator and runtime capabilities across active installations.</p></div></div>
-        <div class="capability-grid">${hardwareRows.map((row: any) => `<div class="capability"><strong>${fmt(row.count)}</strong><span>${html(row.name)} · ${pct(row.count, activeInstalls)}</span></div>`).join('')}</div>
+        <div class="capability-grid">${hardwareRows.map((row: any) => `<div class="capability"><strong>${row.count === null ? 'Low cohort' : fmt(row.count)}</strong><span>${html(row.name)}${row.count === null ? '' : ` · ${pct(row.count, activeInstalls)}`}</span></div>`).join('')}</div>
       </article>
       <article class="panel">
         <div class="panel-heading"><div><span class="eyebrow">Runtime shape</span><h2>Platforms & engines</h2></div></div>
@@ -1294,15 +1384,14 @@ app.post('/heartbeat', async (c) => {
       return c.json({ error: 'JSON body must be an object' }, 400);
     }
     const payload = parsed.value as TelemetryPayload;
-    const country = c.req.raw.cf?.country || 'XX';
+    const country = normalizeCountry(c.req.raw.cf?.country);
 
-    if (!payload.installation_id) {
-      return c.json({ error: 'Missing installation_id' }, 400);
-    }
+    const installationId = normalizeInstallationId(payload.installation_id);
+    if (!installationId) return c.json({ error: 'Invalid installation_id' }, 400);
     if (!await withinIngestionRateLimit(
       c.env.HEARTBEAT_RATE_LIMITER,
       c.req.raw,
-      payload.installation_id,
+      installationId,
       c.env.ALLOW_UNLIMITED_INGESTION_FOR_TESTS === 'true',
     )) {
       return c.json({ error: 'Rate limit exceeded' }, 429, { 'Retry-After': '60' });
@@ -1318,7 +1407,7 @@ app.post('/heartbeat', async (c) => {
     if (!await acquireDailyWriteBudget(c.env.DB, heartbeatWriteUnits)) {
       return c.json({ error: 'Daily ingestion budget exhausted' }, 503, { 'Retry-After': '86400' });
     }
-    const installationHash = await sha256Hex(payload.installation_id);
+    const installationHash = await sha256Hex(installationId);
 
     const stmt = c.env.DB.prepare(`
       INSERT INTO heartbeats (
@@ -1424,21 +1513,21 @@ app.post('/heartbeat', async (c) => {
     `);
 
     // Helper for boolean to int
-    const b2i = (val?: boolean) => val ? 1 : 0;
+    const b2i = (val?: unknown) => val === true ? 1 : 0;
     const b2iNullable = (val?: boolean | null) => typeof val === 'boolean' ? (val ? 1 : 0) : null;
 
     const heartbeatStmt = stmt.bind(
-      payload.installation_id,
-      payload.version,
-      payload.platform?.system || null,
-      payload.platform?.release || null,
-      payload.platform?.machine || null,
-      payload.configuration?.model_type || null,
+      installationHash,
+      safeNullableText(payload.version, 80),
+      safeNullableText(payload.platform?.system, 80),
+      safeNullableText(payload.platform?.release, 120),
+      safeNullableText(payload.platform?.machine, 80),
+      safeNullableText(payload.configuration?.model_type, 120),
       // Handle legacy vs new location for birdnet/birdweather
       b2i(payload.integrations?.birdnet_enabled ?? payload.configuration?.birdnet_enabled),
       b2i(payload.integrations?.birdweather_enabled ?? payload.configuration?.birdweather_enabled),
       b2i(payload.configuration?.llm_enabled),
-      payload.configuration?.llm_provider || null,
+      safeNullableText(payload.configuration?.llm_provider, 80),
       b2i(payload.configuration?.media_cache_enabled),
       b2i(payload.configuration?.media_cache_clips),
       b2i(payload.configuration?.auto_video_classification),
@@ -1448,28 +1537,28 @@ app.post('/heartbeat', async (c) => {
       b2i(payload.notifications?.pushover_enabled),
       b2i(payload.notifications?.telegram_enabled),
       b2i(payload.notifications?.email_enabled),
-      payload.enrichment?.mode || null,
+      safeNullableText(payload.enrichment?.mode, 80),
       b2i(payload.access?.auth_enabled),
       b2i(payload.access?.public_access_enabled),
-      payload.runtime?.model_runtime || null,
-      payload.runtime?.inference_provider_configured || null,
-      payload.runtime?.inference_provider_active || null,
-      payload.runtime?.inference_backend_active || null,
-      payload.runtime?.image_execution_mode || null,
-      payload.runtime?.bird_crop_detector_tier || null,
+      safeNullableText(payload.runtime?.model_runtime, 120),
+      safeNullableText(payload.runtime?.inference_provider_configured, 80),
+      safeNullableText(payload.runtime?.inference_provider_active, 80),
+      safeNullableText(payload.runtime?.inference_backend_active, 80),
+      safeNullableText(payload.runtime?.image_execution_mode, 80),
+      safeNullableText(payload.runtime?.bird_crop_detector_tier, 80),
       b2i(payload.hardware?.cuda_available ?? undefined),
       b2i(payload.hardware?.nvidia_gpu_detected ?? undefined),
       b2i(payload.hardware?.openvino_available ?? undefined),
       b2i(payload.hardware?.intel_gpu_available ?? undefined),
       b2i(payload.hardware?.intel_npu_available ?? undefined),
       b2iNullable(payload.hardware?.openvino_gpu_compile_ok),
-      payload.hardware?.openvino_gpu_compile_device || null,
+      safeNullableText(payload.hardware?.openvino_gpu_compile_device, 120),
       b2i(payload.hardware?.openvino_gpu_fallback_active ?? undefined),
-      payload.deployment?.mode || null,
-      payload.deployment?.image_flavor || null,
-      payload.deployment?.image_arch || null,
-      payload.deployment?.app_branch || null,
-      payload.deployment?.git_hash || null,
+      safeNullableText(payload.deployment?.mode, 80),
+      safeNullableText(payload.deployment?.image_flavor, 120),
+      safeNullableText(payload.deployment?.image_arch, 80),
+      safeNullableText(payload.deployment?.app_branch, 80),
+      safeNullableText(payload.deployment?.git_hash, 80),
       normalizeInferenceHealthStatus(payload.runtime?.inference_health_status),
       safeRuntimeCount(payload.runtime?.inference_health_unhealthy_runtimes),
       safeRuntimeCount(payload.runtime?.inference_health_degraded_runtimes),
@@ -1513,17 +1602,17 @@ app.post('/heartbeat', async (c) => {
         feature_flags = excluded.feature_flags
     `).bind(
       installationHash,
-      payload.version,
-      payload.deployment?.app_branch || null,
-      payload.platform?.system || null,
-      payload.platform?.machine || null,
-      payload.runtime?.inference_provider_active || null,
-      payload.runtime?.inference_provider_configured || null,
-      payload.configuration?.model_type || null,
+      safeNullableText(payload.version, 80),
+      safeNullableText(payload.deployment?.app_branch, 80),
+      safeNullableText(payload.platform?.system, 80),
+      safeNullableText(payload.platform?.machine, 80),
+      safeNullableText(payload.runtime?.inference_provider_active, 80),
+      safeNullableText(payload.runtime?.inference_provider_configured, 80),
+      safeNullableText(payload.configuration?.model_type, 120),
       country,
-      payload.deployment?.image_flavor || null,
-      payload.runtime?.model_runtime || null,
-      payload.deployment?.mode || null,
+      safeNullableText(payload.deployment?.image_flavor, 120),
+      safeNullableText(payload.runtime?.model_runtime, 120),
+      safeNullableText(payload.deployment?.mode, 80),
       boundedJson({
         birdnet: payload.integrations?.birdnet_enabled ?? payload.configuration?.birdnet_enabled ?? false,
         birdweather: payload.integrations?.birdweather_enabled ?? payload.configuration?.birdweather_enabled ?? false,
@@ -1548,7 +1637,7 @@ app.post('/heartbeat', async (c) => {
     return c.json({ status: 'ok' });
   } catch (e: any) {
     console.error('Telemetry error:', e);
-    return c.json({ error: e.message }, 500);
+    return c.json({ error: 'Telemetry ingestion failed' }, 500);
   }
 });
 
@@ -1560,24 +1649,23 @@ app.post('/health-issues', async (c) => {
       return c.json({ error: 'JSON body must be an object' }, 400);
     }
     const payload = parsed.value as HealthIssuePayload;
-    const country = c.req.raw.cf?.country || 'XX';
+    const country = normalizeCountry(c.req.raw.cf?.country);
 
-    if (!payload.installation_id) {
-      return c.json({ error: 'Missing installation_id' }, 400);
-    }
+    const installationId = normalizeInstallationId(payload.installation_id);
+    if (!installationId) return c.json({ error: 'Invalid installation_id' }, 400);
     if (!Array.isArray(payload.issues)) {
       return c.json({ error: 'Missing issues' }, 400);
     }
     if (!await withinIngestionRateLimit(
       c.env.HEALTH_RATE_LIMITER,
       c.req.raw,
-      payload.installation_id,
+      installationId,
       c.env.ALLOW_UNLIMITED_INGESTION_FOR_TESTS === 'true',
     )) {
       return c.json({ error: 'Rate limit exceeded' }, 429, { 'Retry-After': '60' });
     }
 
-    const installationHash = await sha256Hex(payload.installation_id);
+    const installationHash = await sha256Hex(installationId);
     const issues = payload.issues.slice(0, MAX_HEALTH_ISSUES_PER_REPORT);
     const suppliedReportId = safeText(payload.report_id, '', 64).toLowerCase();
     const isDeltaReport = /^[a-f0-9]{64}$/.test(suppliedReportId);
@@ -1594,6 +1682,12 @@ app.post('/health-issues', async (c) => {
       ? suppliedReportId
       : await sha256Hex(JSON.stringify(legacyIdentity));
     const reportId = await sha256Hex(`${installationHash}:${clientReportId}`);
+    const existingReport = await c.env.HEALTH_DB.prepare(
+      'SELECT 1 AS found FROM health_report_batches WHERE report_id = ? LIMIT 1',
+    ).bind(reportId).first();
+    if (existingReport) {
+      return c.json({ status: 'ok', accepted: 0, duplicate: true });
+    }
     const runtime = payload.runtime ?? {};
     const integrations = payload.integrations ?? {};
     const diagnosticsWindow = payload.diagnostics_window ?? {};
@@ -1830,6 +1924,37 @@ app.post('/health-issues', async (c) => {
       return c.json({ status: 'ok', accepted: 0, duplicate: false });
     }
 
+    const eventGroupsJson = JSON.stringify(eventGroups);
+    if (isEventReport) {
+      const newEventCount = await c.env.HEALTH_DB.prepare(`
+        WITH incoming AS (
+          SELECT DISTINCT
+            CAST(json_extract(issue_group.value, '$.fingerprint') AS TEXT) AS fingerprint,
+            CAST(event_id.value AS TEXT) AS event_id
+          FROM json_each(?) AS issue_group,
+               json_each(COALESCE(json_extract(issue_group.value, '$.event_ids'), '[]')) AS event_id
+        ),
+        previous AS (
+          SELECT DISTINCT
+            CAST(json_extract(issue_group.value, '$.fingerprint') AS TEXT) AS fingerprint,
+            CAST(event_id.value AS TEXT) AS event_id
+          FROM health_report_batches AS prior,
+               json_each(COALESCE(prior.event_groups_json, '[]')) AS issue_group,
+               json_each(COALESCE(json_extract(issue_group.value, '$.event_ids'), '[]')) AS event_id
+          WHERE prior.installation_id_hash = ?
+            AND prior.report_date >= date('now', '-400 days')
+        )
+        SELECT COUNT(*) AS count FROM (
+          SELECT fingerprint, event_id FROM incoming
+          EXCEPT
+          SELECT fingerprint, event_id FROM previous
+        )
+      `).bind(eventGroupsJson, installationHash).first<number>('count') ?? 0;
+      if (newEventCount === 0) {
+        return c.json({ status: 'ok', accepted: 0, duplicate: true });
+      }
+    }
+
     const expiredRows = await c.env.HEALTH_DB.prepare(`
       SELECT
         (SELECT COUNT(*) FROM (
@@ -1853,7 +1978,6 @@ app.post('/health-issues', async (c) => {
       return c.json({ error: 'Daily ingestion budget exhausted' }, 503, { 'Retry-After': '86400' });
     }
 
-    const eventGroupsJson = JSON.stringify(eventGroups);
     const legacyBatchMarker = c.env.HEALTH_DB.prepare(`
       INSERT INTO health_report_batches (
         report_id,
@@ -1911,6 +2035,11 @@ app.post('/health-issues', async (c) => {
         SELECT incoming.fingerprint, incoming.severity, incoming.event_id
         FROM incoming
         INNER JOIN new_keys USING (fingerprint, event_id)
+      ),
+      stored_groups AS (
+        SELECT fingerprint, severity, json_group_array(event_id) AS event_ids
+        FROM new_events
+        GROUP BY fingerprint, severity
       )
       INSERT INTO health_report_batches (
         report_id,
@@ -1933,7 +2062,11 @@ app.post('/health-issues', async (c) => {
              COUNT(DISTINCT CASE WHEN severity = 'critical' THEN fingerprint END),
              COUNT(DISTINCT CASE WHEN severity = 'error' THEN fingerprint END),
              COUNT(DISTINCT CASE WHEN severity = 'warning' THEN fingerprint END),
-             ?
+             (SELECT json_group_array(json_object(
+               'fingerprint', fingerprint,
+               'severity', severity,
+               'event_ids', json(event_ids)
+             )) FROM stored_groups)
       FROM new_events
       HAVING COUNT(*) > 0
       ON CONFLICT(report_id) DO NOTHING
@@ -1945,7 +2078,6 @@ app.post('/health-issues', async (c) => {
       safeText(payload.version, 'unknown', 80),
       schemaVersion,
       country,
-      eventGroupsJson,
     );
     const issueRetentionCleanup = c.env.HEALTH_DB.prepare(`
       DELETE FROM health_issue_reports
@@ -1974,9 +2106,106 @@ app.post('/health-issues', async (c) => {
     return c.json({ status: 'ok', accepted: duplicate ? 0 : accepted, duplicate });
   } catch (e: any) {
     console.error('Health issue telemetry error:', e);
-    return c.json({ error: e.message }, 500);
+    return c.json({ error: 'Health telemetry ingestion failed' }, 500);
   }
 });
+
+app.post('/forget', async (c) => {
+  try {
+    const parsed = await readBoundedJson(c.req.raw);
+    if (!parsed.ok) return c.json({ error: parsed.error }, parsed.status);
+    if (!parsed.value || typeof parsed.value !== 'object' || Array.isArray(parsed.value)) {
+      return c.json({ error: 'JSON body must be an object' }, 400);
+    }
+    const installationId = normalizeInstallationId(
+      (parsed.value as { installation_id?: unknown }).installation_id,
+    );
+    if (!installationId) return c.json({ error: 'Invalid installation_id' }, 400);
+    if (!await withinIngestionRateLimit(
+      c.env.HEARTBEAT_RATE_LIMITER,
+      c.req.raw,
+      installationId,
+      c.env.ALLOW_UNLIMITED_INGESTION_FOR_TESTS === 'true',
+    )) {
+      return c.json({ error: 'Rate limit exceeded' }, 429, { 'Retry-After': '60' });
+    }
+
+    const installationHash = await sha256Hex(installationId);
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        'DELETE FROM heartbeat_daily WHERE installation_id_hash = ?',
+      ).bind(installationHash),
+      c.env.DB.prepare(
+        'DELETE FROM heartbeats WHERE installation_id IN (?, ?)',
+      ).bind(installationHash, installationId),
+    ]);
+    await c.env.HEALTH_DB.batch([
+      c.env.HEALTH_DB.prepare(
+        'DELETE FROM health_report_batches WHERE installation_id_hash = ?',
+      ).bind(installationHash),
+      c.env.HEALTH_DB.prepare(
+        'DELETE FROM health_issue_reports WHERE installation_id_hash = ?',
+      ).bind(installationHash),
+    ]);
+    DASHBOARD_CACHE.clear();
+    return c.json({ status: 'forgotten' });
+  } catch (error) {
+    console.error('Telemetry forget error:', error);
+    return c.json({ error: 'Telemetry deletion failed' }, 500);
+  }
+});
+
+async function runScheduledRetention(env: Bindings): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare(`
+      DELETE FROM heartbeats WHERE installation_id IN (
+        SELECT installation_id FROM heartbeats
+        WHERE length(installation_id) != 64
+        LIMIT 100
+      )
+    `),
+    env.DB.prepare(`
+      DELETE FROM heartbeats WHERE installation_id IN (
+        SELECT installation_id FROM heartbeats
+        WHERE last_seen < datetime('now', '-90 days')
+        ORDER BY last_seen LIMIT 100
+      )
+    `),
+    env.DB.prepare(`
+      DELETE FROM heartbeat_daily WHERE (report_date, installation_id_hash) IN (
+        SELECT report_date, installation_id_hash FROM heartbeat_daily
+        WHERE report_date < date('now', '-400 days')
+        ORDER BY report_date LIMIT 100
+      )
+    `),
+    env.DB.prepare(`
+      DELETE FROM ingestion_daily_budget
+      WHERE budget_date < date('now', '-32 days')
+    `),
+    env.DB.prepare(`
+      INSERT INTO telemetry_maintenance (task, last_run_at, rows_removed)
+      VALUES ('retention', datetime('now'), 0)
+      ON CONFLICT(task) DO UPDATE SET last_run_at = excluded.last_run_at
+    `),
+  ]);
+  await env.HEALTH_DB.batch([
+    env.HEALTH_DB.prepare(`
+      DELETE FROM health_issue_reports WHERE report_key IN (
+        SELECT report_key FROM health_issue_reports
+        WHERE updated_at < datetime('now', '-400 days')
+        ORDER BY updated_at LIMIT 100
+      )
+    `),
+    env.HEALTH_DB.prepare(`
+      DELETE FROM health_report_batches WHERE report_id IN (
+        SELECT report_id FROM health_report_batches
+        WHERE report_date < date('now', '-400 days')
+        ORDER BY report_date LIMIT 100
+      )
+    `),
+  ]);
+  DASHBOARD_CACHE.clear();
+}
 
 // Simple stats endpoint
 app.get('/stats/summary', async (c) => {
@@ -1990,6 +2219,7 @@ app.get('/stats/summary', async (c) => {
     FROM heartbeats 
     WHERE last_seen > ${activeThreshold} 
     GROUP BY app_version 
+    HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY count DESC
   `).all();
 
@@ -1998,6 +2228,7 @@ app.get('/stats/summary', async (c) => {
     FROM heartbeats 
     WHERE last_seen > ${activeThreshold} 
     GROUP BY model_type 
+    HAVING count(*) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY count DESC
   `).all();
 
@@ -2015,54 +2246,97 @@ app.get('/stats/summary', async (c) => {
     WHERE last_seen > ${activeThreshold}
   `).first();
 
+  const publicActive = Number(active7d ?? 0) >= PUBLIC_COHORT_MINIMUM;
+  const publicFeatures = publicActive
+    ? Object.fromEntries(Object.entries(features ?? {}).map(([key, value]) => [
+        key,
+        Number(value ?? 0) >= PUBLIC_COHORT_MINIMUM ? value : null,
+      ]))
+    : null;
   return c.json({
-    total_installs: total,
-    active_last_7_days: active7d,
+    total_installs: Number(total ?? 0) >= PUBLIC_COHORT_MINIMUM ? total : null,
+    active_last_7_days: publicActive ? active7d : null,
     versions: versions.results,
     models: models.results,
-    features: features
+    features: publicFeatures,
+    cohort_minimum: PUBLIC_COHORT_MINIMUM,
   });
 });
 
 app.get('/stats/health-issues', async (c) => {
   const activeThreshold = "datetime('now', '-30 days')";
 
-  const total = await c.env.HEALTH_DB.prepare("SELECT count(*) as count FROM health_issue_reports").first('count');
-  const active30d = await c.env.HEALTH_DB.prepare(`SELECT count(*) as count FROM health_issue_reports WHERE updated_at > ${activeThreshold}`).first('count');
+  const totals = await c.env.HEALTH_DB.prepare(`
+    SELECT count(DISTINCT installation_id_hash) AS installs,
+           count(*) AS report_count,
+           coalesce(sum(issue_group_count), 0) AS issue_count,
+           coalesce(sum(event_count), 0) AS occurrence_count
+    FROM health_report_batches
+    WHERE reported_at > ${activeThreshold}
+  `).first();
 
   const bySeverity = await c.env.HEALTH_DB.prepare(`
-    SELECT severity, count(*) as issue_count, sum(report_count) as report_count, sum(occurrence_count) as occurrence_count
-    FROM health_issue_reports
-    WHERE updated_at > ${activeThreshold}
+    SELECT json_extract(event_group.value, '$.severity') AS severity,
+           count(DISTINCT json_extract(event_group.value, '$.fingerprint')) AS issue_count,
+           count(DISTINCT batch.report_id) AS report_count,
+           sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count
+    FROM health_report_batches AS batch,
+         json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
+    WHERE batch.reported_at > ${activeThreshold}
     GROUP BY severity
-    ORDER BY issue_count DESC
+    HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
+    ORDER BY occurrence_count DESC
   `).all();
 
   const byComponent = await c.env.HEALTH_DB.prepare(`
-    SELECT issue_component, count(*) as issue_count, sum(report_count) as report_count, sum(occurrence_count) as occurrence_count
-    FROM health_issue_reports
-    WHERE updated_at > ${activeThreshold}
-    GROUP BY issue_component
-    ORDER BY issue_count DESC
+    SELECT issue.issue_component,
+           count(DISTINCT issue.issue_fingerprint) AS issue_count,
+           count(DISTINCT batch.report_id) AS report_count,
+           sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count
+    FROM health_report_batches AS batch,
+         json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
+    JOIN health_issue_reports AS issue
+      ON issue.installation_id_hash = batch.installation_id_hash
+     AND issue.issue_fingerprint = json_extract(event_group.value, '$.fingerprint')
+    WHERE batch.reported_at > ${activeThreshold}
+    GROUP BY issue.issue_component
+    HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
+    ORDER BY occurrence_count DESC
     LIMIT 20
   `).all();
 
   const topIssues = await c.env.HEALTH_DB.prepare(`
-    SELECT issue_component, issue_reason_code, severity, app_version, count(*) as install_count, sum(report_count) as report_count, sum(occurrence_count) as occurrence_count, max(updated_at) as last_seen
-    FROM health_issue_reports
-    WHERE updated_at > ${activeThreshold}
-    GROUP BY issue_component, issue_reason_code, severity, app_version
+    SELECT issue.issue_component, issue.issue_reason_code, issue.severity, batch.app_version,
+           count(DISTINCT batch.installation_id_hash) AS install_count,
+           count(DISTINCT batch.report_id) AS report_count,
+           sum(json_array_length(json_extract(event_group.value, '$.event_ids'))) AS occurrence_count,
+           max(date(batch.reported_at)) AS last_seen
+    FROM health_report_batches AS batch,
+         json_each(COALESCE(batch.event_groups_json, '[]')) AS event_group
+    JOIN health_issue_reports AS issue
+      ON issue.installation_id_hash = batch.installation_id_hash
+     AND issue.issue_fingerprint = json_extract(event_group.value, '$.fingerprint')
+    WHERE batch.reported_at > ${activeThreshold}
+    GROUP BY issue.issue_component, issue.issue_reason_code, issue.severity, batch.app_version
+    HAVING count(DISTINCT batch.installation_id_hash) >= ${PUBLIC_COHORT_MINIMUM}
     ORDER BY install_count DESC, occurrence_count DESC
     LIMIT 30
   `).all();
 
+  const publicTotals = Number(totals?.installs ?? 0) >= PUBLIC_COHORT_MINIMUM ? totals : null;
   return c.json({
-    total_issues: total,
-    active_last_30_days: active30d,
+    total_issues: publicTotals?.issue_count ?? null,
+    active_last_30_days: publicTotals,
     by_severity: bySeverity.results,
     by_component: byComponent.results,
-    top_issues: topIssues.results
+    top_issues: topIssues.results,
+    cohort_minimum: PUBLIC_COHORT_MINIMUM,
   });
 });
 
-export default app;
+export default {
+  fetch: app.fetch,
+  scheduled(_controller: ScheduledController, env: Bindings, ctx: ExecutionContext) {
+    ctx.waitUntil(runScheduledRetention(env));
+  },
+};

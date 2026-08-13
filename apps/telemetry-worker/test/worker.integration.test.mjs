@@ -29,12 +29,35 @@ before(async () => {
   usageDb = await mf.getD1Database("DB");
   healthDb = await mf.getD1Database("HEALTH_DB");
   await applySql(usageDb, "../schema.sql");
+  await usageDb.prepare(
+    "INSERT INTO heartbeats (installation_id, app_version) VALUES ('schema-sentinel', 'preserved')",
+  ).run();
+  await applySql(usageDb, "../schema.sql");
+  assert.deepEqual(
+    await usageDb.prepare("SELECT app_version FROM heartbeats WHERE installation_id = 'schema-sentinel'").first(),
+    { app_version: "preserved" },
+    "the documented schema bootstrap must never destroy an existing database",
+  );
+  await usageDb.prepare("DELETE FROM heartbeats WHERE installation_id = 'schema-sentinel'").run();
   for (let attempt = 0; attempt < 2; attempt += 1) {
     await applySql(usageDb, "../migrations/telemetry/0001_daily_heartbeats.sql");
+    await applySql(usageDb, "../migrations/telemetry/0002_free_tier_hardening.sql");
   }
   await applySql(healthDb, "../health_schema.sql");
+  await healthDb.prepare(`
+    INSERT INTO health_issue_reports (report_key, installation_id_hash, issue_fingerprint)
+    VALUES ('schema-sentinel', 'schema-sentinel', 'schema-sentinel')
+  `).run();
+  await applySql(healthDb, "../health_schema.sql");
+  assert.deepEqual(
+    await healthDb.prepare("SELECT issue_fingerprint FROM health_issue_reports WHERE report_key = 'schema-sentinel'").first(),
+    { issue_fingerprint: "schema-sentinel" },
+    "the health schema bootstrap must never destroy existing reports",
+  );
+  await healthDb.prepare("DELETE FROM health_issue_reports WHERE report_key = 'schema-sentinel'").run();
   for (let attempt = 0; attempt < 2; attempt += 1) {
     await applySql(healthDb, "../migrations/health/0001_report_batches.sql");
+    await applySql(healthDb, "../migrations/health/0002_free_tier_hardening.sql");
   }
 });
 
@@ -46,7 +69,10 @@ test("user metrics dashboard renders a bounded daily trend and distinct mode", a
   await usageDb.prepare(`
     INSERT INTO heartbeats (
       installation_id, app_version, model_type, ip_country, last_seen
-    ) VALUES ('dashboard-design-install', '2.15.0', 'model-a', 'GB', datetime('now'))
+    ) VALUES
+      ('dashboard-design-install-a', '2.15.0', 'model-a', 'GB', datetime('now')),
+      ('dashboard-design-install-b', '2.15.0', 'model-a', 'GB', datetime('now')),
+      ('dashboard-design-install-c', '2.15.0', 'model-a', 'GB', datetime('now'))
   `).run();
   await usageDb.prepare(`
     INSERT INTO heartbeat_daily (
@@ -58,7 +84,7 @@ test("user metrics dashboard renders a bounded daily trend and distinct mode", a
   `).run();
   t.after(async () => {
     await usageDb.prepare(
-      "DELETE FROM heartbeats WHERE installation_id = 'dashboard-design-install'",
+      "DELETE FROM heartbeats WHERE installation_id LIKE 'dashboard-design-install-%'",
     ).run();
     await usageDb.prepare(
       "DELETE FROM heartbeat_daily WHERE installation_id_hash IN ('install-a', 'install-b')",
@@ -87,31 +113,30 @@ test("user metrics dashboard renders a bounded daily trend and distinct mode", a
 });
 
 test("health data dashboard renders severity-led trends and concise issue details", async (t) => {
-  await healthDb.prepare(`
-    INSERT INTO health_issue_reports (
-      report_key, installation_id_hash, issue_fingerprint, issue_component,
-      issue_reason_code, severity, app_version, ip_country,
-      occurrence_count, report_count, first_seen_at, last_seen_at, updated_at
-    ) VALUES (
-      'report-health', 'install-health', 'fingerprint-health', 'event_processor',
-      'stage_failure', 'critical', '2.15.0', 'GB',
-      4, 1, datetime('now'), datetime('now'), datetime('now')
-    )
-  `).run();
-  await healthDb.prepare(`
-    INSERT INTO health_report_batches (
-      report_id, installation_id_hash, report_date, reported_at, event_groups_json
-    ) VALUES (
-      'batch-health', 'install-health', date('now'), datetime('now'),
-      '[{"fingerprint":"fingerprint-health","event_ids":["event-a","event-b"]}]'
-    )
-  `).run();
+  for (const suffix of ['a', 'b', 'c']) {
+    await healthDb.prepare(`
+      INSERT INTO health_issue_reports (
+        report_key, installation_id_hash, issue_fingerprint, issue_component,
+        issue_reason_code, severity, app_version, ip_country,
+        occurrence_count, report_count, first_seen_at, last_seen_at, updated_at
+      ) VALUES (?, ?, 'fingerprint-health', 'event_processor',
+                'stage_failure', 'critical', '2.15.0', 'GB',
+                4, 1, datetime('now'), datetime('now'), datetime('now'))
+    `).bind(`report-health-${suffix}`, `install-health-${suffix}`).run();
+    await healthDb.prepare(`
+      INSERT INTO health_report_batches (
+        report_id, installation_id_hash, report_date, reported_at, app_version,
+        issue_group_count, event_count, critical_count, country, event_groups_json
+      ) VALUES (?, ?, date('now'), datetime('now'), '2.15.0', 1, 2, 1, 'GB',
+                '[{"fingerprint":"fingerprint-health","severity":"critical","event_ids":["event-a","event-b"]}]')
+    `).bind(`batch-health-${suffix}`, `install-health-${suffix}`).run();
+  }
   t.after(async () => {
     await healthDb.prepare(
-      "DELETE FROM health_issue_reports WHERE installation_id_hash = 'install-health'",
+      "DELETE FROM health_issue_reports WHERE installation_id_hash LIKE 'install-health-%'",
     ).run();
     await healthDb.prepare(
-      "DELETE FROM health_report_batches WHERE installation_id_hash = 'install-health'",
+      "DELETE FROM health_report_batches WHERE installation_id_hash LIKE 'install-health-%'",
     ).run();
   });
 
@@ -164,6 +189,11 @@ test("heartbeat writes one bounded daily snapshot per installation", async () =>
   assert.equal(result.version, "2.15.1");
   assert.equal(result.installation_id_hash.length, 64);
   assert.notEqual(result.installation_id_hash, base.installation_id);
+  const current = await usageDb.prepare(
+    "SELECT installation_id FROM heartbeats WHERE app_version = '2.15.1'",
+  ).first();
+  assert.equal(current.installation_id.length, 64);
+  assert.notEqual(current.installation_id, base.installation_id);
 });
 
 test("heartbeat bounds runtime health values and dashboard excludes hostile legacy categories", async (t) => {
@@ -196,8 +226,8 @@ test("heartbeat bounds runtime health values and dashboard excludes hostile lega
     SELECT inference_health_status, inference_health_unhealthy_runtimes,
            inference_health_degraded_runtimes, inference_health_total_runtimes,
            last_recovery_reason, last_recovery_status
-    FROM heartbeats WHERE installation_id = 'runtime-normalization-install'
-  `).first();
+    FROM heartbeats WHERE app_version = ?
+  `).bind(testVersion).first();
   assert.deepEqual(stored, {
     inference_health_status: null,
     inference_health_unhealthy_runtimes: 0,
@@ -229,8 +259,8 @@ test("heartbeat bounds runtime health values and dashboard excludes hostile lega
     SELECT inference_health_status, inference_health_unhealthy_runtimes,
            inference_health_degraded_runtimes, inference_health_total_runtimes,
            last_recovery_reason, last_recovery_status
-    FROM heartbeats WHERE installation_id = 'runtime-normalization-valid-install'
-  `).first();
+    FROM heartbeats WHERE app_version = ? AND inference_health_status = 'degraded'
+  `).bind(testVersion).first();
   assert.deepEqual(validStored, {
     inference_health_status: "degraded",
     inference_health_unhealthy_runtimes: 1,
@@ -239,6 +269,14 @@ test("heartbeat bounds runtime health values and dashboard excludes hostile lega
     last_recovery_reason: "gpu_unhealthy_fallback",
     last_recovery_status: "recovered",
   });
+
+  await usageDb.prepare(`
+    INSERT INTO heartbeats (
+      installation_id, app_version, last_recovery_reason, last_recovery_status, last_seen
+    ) VALUES
+      ('recovery-cohort-a', ?, 'gpu_unhealthy_fallback', 'recovered', datetime('now')),
+      ('recovery-cohort-b', ?, 'gpu_unhealthy_fallback', 'recovered', datetime('now'))
+  `).bind(testVersion, testVersion).run();
 
   await usageDb.prepare(`
     WITH RECURSIVE categories(n) AS (
@@ -300,7 +338,7 @@ test("ingestion fails closed when rate-limit bindings are unavailable", async ()
       body: JSON.stringify({ installation_id: "guarded-installation" }),
     });
     assert.equal(response.status, 500);
-    assert.match(await response.text(), /rate limiter is unavailable/i);
+    assert.deepEqual(await response.json(), { error: "Telemetry ingestion failed" });
   } finally {
     await guarded.dispose();
   }
@@ -336,6 +374,7 @@ test("replayed health report is idempotent and creates one trend batch", async (
     }],
   };
 
+  let budgetAfterFirst = 0;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const response = await mf.dispatchFetch("http://worker.test/health-issues", {
       method: "POST",
@@ -343,6 +382,11 @@ test("replayed health report is idempotent and creates one trend batch", async (
       body: JSON.stringify(payload),
     });
     assert.equal(response.status, 200, await response.text());
+    const budget = await usageDb.prepare(
+      "SELECT write_units FROM ingestion_daily_budget WHERE budget_date = date('now')",
+    ).first();
+    if (attempt === 0) budgetAfterFirst = budget.write_units;
+    else assert.equal(budget.write_units, budgetAfterFirst, "a replay must not spend the daily write budget");
   }
 
   const batches = await healthDb.prepare("SELECT COUNT(*) AS rows FROM health_report_batches").first();
@@ -355,6 +399,69 @@ test("replayed health report is idempotent and creates one trend batch", async (
   assert.deepEqual(JSON.parse(issue.sample_context_json), { active_provider: "npu" });
   assert.equal(issue.last_payload_json.includes("private"), false);
   assert.equal(issue.last_payload_json.includes("must-not-be-stored"), false);
+});
+
+test("health window aggregates use accepted batches instead of lifetime issue counters", async (t) => {
+  const installs = ["window-a", "window-b", "window-c"];
+  for (const installation of installs) {
+    await healthDb.prepare(`
+      INSERT INTO health_issue_reports (
+        report_key, installation_id_hash, issue_fingerprint, issue_component,
+        issue_reason_code, severity, app_version, occurrence_count, report_count,
+        updated_at
+      ) VALUES (?, ?, 'window-fingerprint', 'video_classifier', 'window_timeout',
+                'error', '2.15.1', 100, 50, datetime('now'))
+    `).bind(`window-${installation}`, installation).run();
+    await healthDb.prepare(`
+      INSERT INTO health_report_batches (
+        report_id, installation_id_hash, report_date, reported_at, app_version,
+        schema_version, issue_group_count, event_count, error_count,
+        event_groups_json
+      ) VALUES (?, ?, date('now'), datetime('now'), '2.15.1',
+                '2026-07-25.health-issues.v3', 1, 2, 1,
+                '[{"fingerprint":"window-fingerprint","event_ids":["event-1","event-2"]}]')
+    `).bind(`window-batch-${installation}`, installation).run();
+  }
+  t.after(async () => {
+    await healthDb.prepare("DELETE FROM health_issue_reports WHERE issue_reason_code = 'window_timeout'").run();
+    await healthDb.prepare("DELETE FROM health_report_batches WHERE report_id LIKE 'window-batch-%'").run();
+  });
+
+  const response = await mf.dispatchFetch("http://worker.test/stats/health-issues");
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  const row = body.top_issues.find((issue) => issue.issue_reason_code === "window_timeout");
+  assert.ok(row);
+  assert.equal(row.install_count, 3);
+  assert.equal(row.occurrence_count, 6);
+  assert.equal(row.report_count, 3);
+});
+
+test("public health detail suppresses cohorts smaller than three installations", async (t) => {
+  await healthDb.prepare(`
+    INSERT INTO health_issue_reports (
+      report_key, installation_id_hash, issue_fingerprint, issue_component,
+      issue_reason_code, severity, app_version, occurrence_count, report_count, updated_at
+    ) VALUES ('private-cohort', 'private-install', 'private-fingerprint',
+              'private-component', 'private-reason', 'warning', 'private-version', 1, 1, datetime('now'))
+  `).run();
+  await healthDb.prepare(`
+    INSERT INTO health_report_batches (
+      report_id, installation_id_hash, report_date, reported_at, app_version,
+      schema_version, issue_group_count, event_count, warning_count, event_groups_json
+    ) VALUES ('private-batch', 'private-install', date('now'), datetime('now'), 'private-version',
+              '2026-07-25.health-issues.v3', 1, 1, 1,
+              '[{"fingerprint":"private-fingerprint","event_ids":["private-event"]}]')
+  `).run();
+  t.after(async () => {
+    await healthDb.prepare("DELETE FROM health_issue_reports WHERE report_key = 'private-cohort'").run();
+    await healthDb.prepare("DELETE FROM health_report_batches WHERE report_id = 'private-batch'").run();
+  });
+
+  const response = await mf.dispatchFetch("http://worker.test/stats/health-issues");
+  const body = await response.text();
+  assert.equal(response.status, 200);
+  assert.doesNotMatch(body, /private-component|private-reason|private-version/);
 });
 
 test("v3 event identities remain idempotent across restart-shaped overlapping reports", async () => {
@@ -546,4 +653,67 @@ test("shared daily budget rejects ingestion before telemetry rows are written", 
       "UPDATE ingestion_daily_budget SET write_units = 0 WHERE budget_date = date('now')",
     ).run();
   }
+});
+
+test("scheduled retention removes raw identifiers and expired bounded history", async () => {
+  await usageDb.prepare(`
+    INSERT INTO heartbeats (installation_id, last_seen)
+    VALUES ('00000000-0000-0000-0000-000000000099', datetime('now'))
+  `).run();
+  await usageDb.prepare(`
+    INSERT INTO heartbeat_daily (report_date, installation_id_hash, last_reported_at)
+    VALUES ('2020-01-01', 'scheduled-expired', '2020-01-01T00:00:00Z')
+  `).run();
+  await healthDb.prepare(`
+    INSERT INTO health_report_batches (report_id, installation_id_hash, report_date, reported_at)
+    VALUES ('scheduled-expired', 'scheduled-expired', '2020-01-01', '2020-01-01T00:00:00Z')
+  `).run();
+
+  const worker = await mf.getWorker();
+  await worker.scheduled({ cron: "17 3 * * *", scheduledTime: new Date() });
+
+  assert.deepEqual(
+    await usageDb.prepare("SELECT COUNT(*) AS rows FROM heartbeats WHERE length(installation_id) != 64").first(),
+    { rows: 0 },
+  );
+  assert.deepEqual(
+    await usageDb.prepare("SELECT COUNT(*) AS rows FROM heartbeat_daily WHERE installation_id_hash = 'scheduled-expired'").first(),
+    { rows: 0 },
+  );
+  assert.deepEqual(
+    await healthDb.prepare("SELECT COUNT(*) AS rows FROM health_report_batches WHERE report_id = 'scheduled-expired'").first(),
+    { rows: 0 },
+  );
+});
+
+test("forget removes an installation from both telemetry databases", async () => {
+  const installationId = "00000000-0000-0000-0000-000000000088";
+  const heartbeat = await mf.dispatchFetch("http://worker.test/heartbeat", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ installation_id: installationId, version: "forget-test" }),
+  });
+  assert.equal(heartbeat.status, 200, await heartbeat.text());
+  const hashedId = await usageDb.prepare(
+    "SELECT installation_id FROM heartbeats WHERE app_version = 'forget-test'",
+  ).first("installation_id");
+  await healthDb.prepare(`
+    INSERT INTO health_issue_reports (report_key, installation_id_hash, issue_fingerprint)
+    VALUES ('forget-test', ?, 'forget-test')
+  `).bind(hashedId).run();
+
+  const response = await mf.dispatchFetch("http://worker.test/forget", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ installation_id: installationId }),
+  });
+  assert.equal(response.status, 200, await response.text());
+  assert.deepEqual(
+    await usageDb.prepare("SELECT COUNT(*) AS rows FROM heartbeats WHERE installation_id = ?").bind(hashedId).first(),
+    { rows: 0 },
+  );
+  assert.deepEqual(
+    await healthDb.prepare("SELECT COUNT(*) AS rows FROM health_issue_reports WHERE installation_id_hash = ?").bind(hashedId).first(),
+    { rows: 0 },
+  );
 });
