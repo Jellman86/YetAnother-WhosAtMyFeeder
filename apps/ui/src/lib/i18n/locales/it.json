@@ -1504,6 +1504,7 @@
     "event_detection": "Nuova rilevazione",
     "event_detection_desc": "{species} • {camera}",
     "event_reclassify": "Riclassificazione completata",
+    "species_confirmed": "Identificazione confermata: {species}",
     "event_reclassify_desc": "{species}",
     "event_reclassify_progress": "Analisi {current}/{total}",
     "event_backfill": "Backfill rilevazioni in corso",
@@ -1538,7 +1539,9 @@
     "read_more_wikipedia": "Leggi altro su Wikipedia",
     "read_more_source": "Leggi altro su {source}",
     "delete_selected": "Elimina selezionati",
-    "reclassify_selected": "Riclassifica selezionati"
+    "reclassify_selected": "Riclassifica selezionati",
+    "confirm_species": "Conferma {species}",
+    "pick_species": "Scegli un’altra specie"
   },
   "detection": {
     "uploaded": "Caricata",
@@ -1830,7 +1833,25 @@
     "audio_spectrogram_alt": "Spettrogramma BirdNET-Go del rilevamento audio corrispondente",
     "snapshot_regenerate": "Rigenera snapshot",
     "snapshot_regenerate_no_candidates": "Snapshot rigenerati, ma non è stato prodotto alcun candidato selezionabile.",
-    "snapshot_source_unknown": "Origine sconosciuta"
+    "snapshot_source_unknown": "Origine sconosciuta",
+    "reference_disclosure": "Informazioni su {species} e avvistamenti vicini",
+    "identified_as": "Identificato come",
+    "identified_by_you": "Identificato da te",
+    "confidence_high": "sicuro",
+    "confidence_mid": "probabile",
+    "confidence_low": "incerto",
+    "fact_seen": "Visto",
+    "fact_conditions": "Condizioni",
+    "fact_frigate": "Punteggio uccello Frigate",
+    "fact_heard": "Udito nelle vicinanze",
+    "fact_heard_yes": "richiamo corrispondente",
+    "fact_heard_no": "nessun richiamo corrispondente",
+    "weather_breakdown": "Nuvole, vento e pioggia in quel momento",
+    "snapshot_options": "{count} opzioni istantanea",
+    "snapshot_option_aria": "Apri l’opzione istantanea {source}",
+    "media_stored": "Ritaglio migliore",
+    "media_full_frame": "Fotogramma intero",
+    "species_reference_alt": "Fotografia di riferimento di {species}"
   },
   "events": {
     "title": "Eventi",

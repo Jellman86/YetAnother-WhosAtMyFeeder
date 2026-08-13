@@ -1495,6 +1495,7 @@
     "event_detection": "Nouvelle détection",
     "event_detection_desc": "{species} • {camera}",
     "event_reclassify": "Reclassification terminée",
+    "species_confirmed": "Identification confirmée : {species}",
     "event_reclassify_desc": "{species}",
     "event_reclassify_progress": "Analyse {current}/{total}",
     "event_backfill": "Rattrapage des détections en cours",
@@ -1529,7 +1530,9 @@
     "read_more_wikipedia": "Lire la suite sur Wikipédia",
     "read_more_source": "Lire la suite sur {source}",
     "delete_selected": "Supprimer la sélection",
-    "reclassify_selected": "Reclassifier la sélection"
+    "reclassify_selected": "Reclassifier la sélection",
+    "confirm_species": "Confirmer {species}",
+    "pick_species": "Choisir une autre espèce"
   },
   "detection": {
     "uploaded": "Importée",
@@ -1821,7 +1824,25 @@
     "audio_spectrogram_alt": "Spectrogramme BirdNET-Go de la détection audio correspondante",
     "snapshot_regenerate": "Régénérer les captures",
     "snapshot_regenerate_no_candidates": "Captures régénérées, mais aucun candidat sélectionnable n'a été produit.",
-    "snapshot_source_unknown": "Source inconnue"
+    "snapshot_source_unknown": "Source inconnue",
+    "reference_disclosure": "À propos de {species} et observations à proximité",
+    "identified_as": "Identifié comme",
+    "identified_by_you": "Identifié par vous",
+    "confidence_high": "sûr",
+    "confidence_mid": "probable",
+    "confidence_low": "incertain",
+    "fact_seen": "Vu",
+    "fact_conditions": "Conditions",
+    "fact_frigate": "Score de détection d’oiseau Frigate",
+    "fact_heard": "Entendu à proximité",
+    "fact_heard_yes": "chant correspondant",
+    "fact_heard_no": "aucun chant correspondant",
+    "weather_breakdown": "Nuages, vent et pluie à ce moment-là",
+    "snapshot_options": "{count} options d’image",
+    "snapshot_option_aria": "Ouvrir l’option d’image {source}",
+    "media_stored": "Meilleur recadrage",
+    "media_full_frame": "Image entière",
+    "species_reference_alt": "Photographie de référence de {species}"
   },
   "events": {
     "title": "Événements",

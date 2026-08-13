@@ -1495,6 +1495,7 @@
     "event_detection": "Neue Erkennung",
     "event_detection_desc": "{species} • {camera}",
     "event_reclassify": "Reklassifizierung abgeschlossen",
+    "species_confirmed": "{species} bestätigt",
     "event_reclassify_desc": "{species}",
     "event_reclassify_progress": "Analyse {current}/{total}",
     "event_backfill": "Erkennungs-Backfill läuft",
@@ -1529,7 +1530,9 @@
     "read_more_wikipedia": "Mehr auf Wikipedia lesen",
     "read_more_source": "Mehr auf {source} lesen",
     "delete_selected": "Auswahl löschen",
-    "reclassify_selected": "Auswahl neu klassifizieren"
+    "reclassify_selected": "Auswahl neu klassifizieren",
+    "confirm_species": "{species} bestätigen",
+    "pick_species": "Andere Art wählen"
   },
   "detection": {
     "uploaded": "Hochgeladen",
@@ -1821,7 +1824,25 @@
     "audio_spectrogram_alt": "BirdNET-Go-Spektrogramm der zugehörigen Audio-Erkennung",
     "snapshot_regenerate": "Snapshots neu erzeugen",
     "snapshot_regenerate_no_candidates": "Snapshots neu erzeugt, aber keine auswählbaren Kandidaten gefunden.",
-    "snapshot_source_unknown": "Unbekannte Quelle"
+    "snapshot_source_unknown": "Unbekannte Quelle",
+    "reference_disclosure": "Über {species} und Sichtungen in der Nähe",
+    "identified_as": "Bestimmt als",
+    "identified_by_you": "Von Ihnen bestimmt",
+    "confidence_high": "sicher",
+    "confidence_mid": "wahrscheinlich",
+    "confidence_low": "unsicher",
+    "fact_seen": "Gesehen",
+    "fact_conditions": "Bedingungen",
+    "fact_frigate": "Frigate-Vogelerkennungswert",
+    "fact_heard": "In der Nähe gehört",
+    "fact_heard_yes": "passender Ruf",
+    "fact_heard_no": "kein passender Ruf",
+    "weather_breakdown": "Wolken, Wind und Regen zu dieser Zeit",
+    "snapshot_options": "{count} Schnappschussoptionen",
+    "snapshot_option_aria": "Schnappschussoption {source} öffnen",
+    "media_stored": "Bester Ausschnitt",
+    "media_full_frame": "Vollbild",
+    "species_reference_alt": "Referenzfoto von {species}"
   },
   "events": {
     "title": "Ereignisse",

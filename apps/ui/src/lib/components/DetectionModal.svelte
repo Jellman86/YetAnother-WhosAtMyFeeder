@@ -66,6 +66,8 @@
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
     import { classifyInferenceProvider } from '../utils/inference-provider';
     import { isVideoPromotionGated } from '../video-promotion-gate';
+    import { applyManualTagResult } from '../utils/manual-tag';
+    import { findMatchingFullFrameCandidate } from '../utils/detection-evidence';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
@@ -183,6 +185,7 @@
     let speciesInfo = $state<SpeciesInfo | null>(null);
     let speciesInfoLoading = $state(false);
     let speciesInfoError = $state<string | null>(null);
+    let failedSpeciesReferenceUrl = $state<string | null>(null);
     let ebirdNearby = $state<EbirdNearbyResult | null>(null);
     let ebirdNearbyLoading = $state(false);
     let ebirdNearbyError = $state<string | null>(null);
@@ -332,6 +335,10 @@
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotStatusLoading = $state(false);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
+    // Candidate media is owner-gated, so the strip simply does not exist for a guest.
+    const snapshotOptionStrip = $derived(
+        authStore.hasOwnerAccess ? snapshotCandidates.filter((item) => item.thumbnail_url) : []
+    );
     let snapshotCandidatesLoading = $state(false);
     let modelCropMissReason = $state<string | null>(null);
     let snapshotRepairOpen = $state(false);
@@ -443,6 +450,14 @@
     });
     const hasAudioContext = $derived(!isManualObservation && (effectiveAudioConfirmed || audioContextSpecies.length > 0));
     const audioNearbySummary = $derived(audioContextSpecies.join(', '));
+    const audioFactValue = $derived.by(() => {
+        if (effectiveAudioConfirmed) {
+            return effectiveAudioSpecies ?? $_('detection.fact_heard_yes', { default: 'matching call' });
+        }
+        if (audioContextLoading) return $_('common.loading');
+        if (audioContextError || !audioContextLoaded) return $_('common.unavailable');
+        return $_('detection.fact_heard_no', { default: 'no matching call' });
+    });
 
     // Pick the best audioContext entry to render its BirdNET-Go spectrogram
     // alongside the audio match card. When the visual detection was audio-
@@ -582,6 +597,11 @@
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
     const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && !!inatConnectedUser);
     const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);
+    // Rows that come from an integration only appear when that integration is on:
+    // "no matching call" from a disabled BirdNET would be a measurement we never took.
+    const birdnetEnabled = $derived(
+        settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false
+    );
     const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
     const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
     const hasSnapshotRepairCandidates = $derived(snapshotCandidates.length > 0);
@@ -609,7 +629,26 @@
         && !reclassifyProgress
     );
     const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available !== false);
-    const fullFrameSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'full_frame') ?? null);
+    const fullFrameSnapshotCandidate = $derived(
+        findMatchingFullFrameCandidate(snapshotCandidates, currentSnapshotCandidateId)
+    );
+
+    // The stored snapshot is often a crop, so filling the panel with it would hide the rest
+    // of the frame. The toggle is what makes filling safe: nothing is lost, it is one tap away.
+    let mediaView = $state<'stored' | 'full'>('stored');
+    const canShowFullFrame = $derived(
+        authStore.hasOwnerAccess && !!fullFrameSnapshotCandidate?.thumbnail_url
+    );
+    const mediaImageUrl = $derived(
+        mediaView === 'full' && fullFrameSnapshotCandidate?.thumbnail_url
+            ? fullFrameSnapshotCandidate.thumbnail_url
+            : snapshotImageUrl
+    );
+    $effect(() => {
+        // A new detection starts on its own stored frame.
+        void detection.frigate_event;
+        mediaView = 'stored';
+    });
     const frigateHintSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'frigate_hint_crop') ?? null);
     const modelSnapshotCandidates = $derived(snapshotCandidates.filter((candidate) => candidate.source_mode === 'model_crop'));
     const allSnapshotFrameCandidates = $derived(snapshotCandidates);
@@ -1221,33 +1260,25 @@
         pendingManualTagId = requestedSpecies;
         try {
             const result = await updateDetectionSpecies(detection.frigate_event, requestedSpecies);
-            const appliedSpecies = result.new_species || result.species || requestedSpecies;
-            const nextDetection = {
-                ...detection,
-                display_name: appliedSpecies,
-                category_name: selection.scientific_name ?? selection.display_name ?? requestedSpecies,
-                manual_tagged: true,
-                scientific_name: selection.scientific_name ?? detection.scientific_name,
-                common_name: selection.common_name ?? detection.common_name,
-                ai_analysis: null,
-                ai_analysis_timestamp: null,
-            };
-            detection.display_name = appliedSpecies;
-            detection.category_name = nextDetection.category_name;
-            detection.manual_tagged = true;
-            detection.scientific_name = nextDetection.scientific_name;
-            detection.common_name = nextDetection.common_name;
-            detection.ai_analysis = null;
-            detection.ai_analysis_timestamp = null;
+            const nextDetection = applyManualTagResult(detection, result);
+            Object.assign(detection, nextDetection);
             detectionsStore.updateDetection(nextDetection);
             showTagDropdown = false;
             tagSearchQuery = '';
-            aiAnalysis = null; // Reset AI analysis for new species
-            const names = getResultNames(selection);
-            const successLabel = names.primary || appliedSpecies;
-            toastStore.success(
-                `${$_('notifications.event_reclassify', { default: 'Reclassification complete' })}: ${successLabel}`
-            );
+            aiAnalysis = nextDetection.ai_analysis ?? null;
+            const successLabel = getBirdNames(nextDetection, showCommon, preferSci).primary;
+            if (result.status === 'unchanged') {
+                toastStore.success(
+                    $_('notifications.species_confirmed', {
+                        values: { species: successLabel },
+                        default: '{species} confirmed'
+                    })
+                );
+            } else {
+                toastStore.success(
+                    `${$_('notifications.event_reclassify', { default: 'Reclassification complete' })}: ${successLabel}`
+                );
+            }
         } catch (e) {
             toastStore.error($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
         } finally {
@@ -1375,6 +1406,12 @@
     function stageSnapshotCandidate(candidateId: string | null) {
         pendingSnapshotMode = candidateId ? 'candidate' : null;
         pendingSnapshotCandidateId = candidateId;
+    }
+
+    function openSnapshotCandidate(candidate: SnapshotCandidate) {
+        if (!hasOwnerDetectionActions) return;
+        stageSnapshotCandidate(candidate.candidate_id);
+        snapshotRepairOpen = true;
     }
 
     function stageOriginalFrigateSnapshot() {
@@ -2085,7 +2122,7 @@
         {/if}
 
         <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-	            <div class="relative aspect-[4/3] shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-950 to-brand-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
+	            <div class="relative aspect-[4/3] shrink-0 overflow-hidden lg:aspect-auto lg:h-full lg:min-h-[26rem] bg-gradient-to-br from-slate-900 via-slate-950 to-brand-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
                     {#if showMediaSlotVideoAnalysis}
                         <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"></div>
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
@@ -2140,8 +2177,14 @@
                     {:else}
                         <img data-detection-media-ambient src={snapshotImageUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
                         <div class="absolute inset-0 bg-slate-950/55" aria-hidden="true"></div>
-                        <img src={snapshotImageUrl} alt={detection.display_name} class="relative h-full w-full object-contain" />
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                        <img
+                            src={mediaImageUrl}
+                            alt={detection.display_name}
+                            class="relative h-full w-full {mediaView === 'full'
+                                ? 'object-contain'
+                                : canShowFullFrame ? 'object-cover' : 'object-contain'}"
+                        />
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
                         {#if canShowFavoriteAction}
                             <button
                                 type="button"
@@ -2176,7 +2219,7 @@
                                 </svg>
                             </button>
                         {/if}
-    	                <div class="absolute bottom-0 left-0 right-0 p-5">
+                        <div class="absolute bottom-0 left-0 right-0 p-5 {snapshotOptionStrip.length > 1 ? 'pb-16' : ''}">
                             <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
     	                    {#if subName && subName !== primaryName}
     	                        <p class="text-white/70 text-sm italic drop-shadow -mt-0.5 mb-0.5 truncate">{subName}</p>
@@ -2288,8 +2331,67 @@
                 </svg>
             </button>
         {/if}
+                {#if canShowFullFrame}
+                    <div class="absolute left-3 top-3 z-20 flex gap-1 rounded-lg bg-slate-950/55 p-1 backdrop-blur-sm" data-detection-media-toggle>
+                        <button
+                            type="button"
+                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'stored'
+                                ? 'bg-white/15 text-white'
+                                : 'text-white/60 hover:text-white'}"
+                            aria-pressed={mediaView === 'stored'}
+                            onclick={(event) => { event.stopPropagation(); mediaView = 'stored'; }}
+                        >
+                            {$_('detection.media_stored', { default: 'Best crop' })}
+                        </button>
+                        <button
+                            type="button"
+                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'full'
+                                ? 'bg-white/15 text-white'
+                                : 'text-white/60 hover:text-white'}"
+                            aria-pressed={mediaView === 'full'}
+                            onclick={(event) => { event.stopPropagation(); mediaView = 'full'; }}
+                        >
+                            {$_('detection.media_full_frame', { default: 'Full frame' })}
+                        </button>
+                    </div>
+                {/if}
 
-            </div>
+                {#if snapshotOptionStrip.length > 1}
+                    <!-- These are ranked display-snapshot options, not a frame-by-frame account
+                         of the identification that produced the detection. -->
+                    <div class="absolute inset-x-0 bottom-0 z-20 flex items-center gap-1.5 bg-gradient-to-t from-slate-950/85 to-transparent px-3 pb-3 pt-6" data-detection-frame-strip>
+                        <span class="shrink-0 text-[10px] font-semibold text-white/60">
+                            {$_('detection.snapshot_options', {
+                                values: { count: snapshotOptionStrip.length },
+                                default: '{count} snapshot options'
+                            })}
+                        </span>
+                        <div class="flex min-w-0 gap-1.5 overflow-x-auto">
+                            {#each snapshotOptionStrip as candidate (candidate.candidate_id)}
+                                <button
+                                    type="button"
+                                    class="min-h-11 min-w-11 shrink-0 rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {candidate.selected
+                                        ? 'ring-2 ring-brand-400'
+                                        : 'opacity-70 hover:opacity-100'}"
+                                    title={candidate.classifier_label ?? undefined}
+                                    aria-label={$_('detection.snapshot_option_aria', {
+                                        values: { source: snapshotSourceLabel(candidate.source_mode) },
+                                        default: 'Open {source} snapshot option'
+                                    })}
+                                    onclick={(event) => { event.stopPropagation(); openSnapshotCandidate(candidate); }}
+                                >
+                                    <img
+                                        src={candidate.thumbnail_url ?? undefined}
+                                        alt=""
+                                        loading="lazy"
+                                        class="h-9 w-12 rounded-md object-cover"
+                                    />
+                                </button>
+                            {/each}
+                        </div>
+                    </div>
+                {/if}
+</div>
 
             <div class="flex flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
             <!-- Detection ID -->
@@ -2332,23 +2434,76 @@
                     </div>
                 </div>
             {/if}
-            <!-- Confidence Bar -->
-            {#if currentClassificationSource !== 'manual'}
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-bold text-slate-500">{$_('detection.confidence')}</span>
-                        <span class="text-sm font-bold text-slate-900 dark:text-white">
-                            {((detection.score || 0) * 100).toFixed(1)}%
-                        </span>
-                    </div>
-                    <div class="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                        <div
-                            class="h-full rounded-full transition-all duration-700 {(detection.score || 0) >= 0.8 ? 'bg-accent-500' : 'bg-brand-500'}"
-                            style="width: {(detection.score || 0) * 100}%"
-                        ></div>
+            <!-- Identification: what it is, and how sure, in one place -->
+            <div data-detection-identity>
+                <p class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                    {#if currentClassificationSource === 'manual'}
+                        <svg class="h-3.5 w-3.5 text-accent-600 dark:text-accent-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
+                        </svg>
+                        {$_('detection.identified_by_you', { default: 'Identified by you' })}
+                    {:else}
+                        <svg class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V7a4 4 0 0 1 4-4ZM5 20a7 7 0 0 1 14 0" />
+                        </svg>
+                        {$_('detection.identified_as', { default: 'Identified as' })}
+                    {/if}
+                </p>
+                <div class="mt-0.5 flex items-start gap-3">
+                    {#if speciesInfo?.thumbnail_url}
+                        <!-- A reference photograph of the species, so the camera frame has something
+                             to be compared against without leaving the view. -->
+                        {#if failedSpeciesReferenceUrl === speciesInfo.thumbnail_url}
+                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500" aria-hidden="true" data-detection-species-reference-placeholder>
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 18 9 13l3 3 2-2 6 6M15 8h.01M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                            </span>
+                        {:else}
+                            <img
+                                src={speciesInfo.thumbnail_url}
+                                alt={$_('detection.species_reference_alt', {
+                                    values: { species: primaryName },
+                                    default: 'Reference photograph of {species}'
+                                })}
+                                loading="lazy"
+                                onerror={() => { failedSpeciesReferenceUrl = speciesInfo?.thumbnail_url ?? null; }}
+                                class="h-12 w-12 shrink-0 rounded-full border border-slate-200 object-cover dark:border-slate-700"
+                                data-detection-species-reference
+                            />
+                        {/if}
+                    {/if}
+                    <div class="min-w-0">
+                        <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>
+                        {#if subName && subName !== primaryName}
+                            <p class="text-xs italic text-slate-500 dark:text-slate-400">{subName}</p>
+                        {/if}
                     </div>
                 </div>
-            {/if}
+
+                {#if currentClassificationSource !== 'manual'}
+                    <div class="mt-2 flex items-center gap-2.5">
+                        <span class="text-sm font-bold tabular-nums text-slate-900 dark:text-white">
+                            {Math.round((detection.score || 0) * 100)}%
+                        </span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">
+                            {(detection.score || 0) >= 0.85
+                                ? $_('detection.confidence_high', { default: 'confident' })
+                                : (detection.score || 0) >= 0.6
+                                  ? $_('detection.confidence_mid', { default: 'likely' })
+                                  : $_('detection.confidence_low', { default: 'uncertain' })}
+                        </span>
+                        <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                            <span
+                                class="block h-full rounded-full {(detection.score || 0) >= 0.85
+                                    ? 'bg-emerald-500'
+                                    : (detection.score || 0) >= 0.6
+                                      ? 'bg-brand-500'
+                                      : 'bg-accent-500'}"
+                                style="width: {(detection.score || 0) * 100}%"
+                            ></span>
+                        </span>
+                    </div>
+                {/if}
+            </div>
 
             <!-- Snapshot fallback notice: video analysis failed, result came from a single frame -->
             <!-- Consolidated video-status notice. Single survivor for the three
@@ -2365,6 +2520,175 @@
                     didn't recover (rare, but actionable)
                  Folds Frigate-event-missing context, the technical details
                  expander, and the snapshot-fallback explanation together. -->
+
+
+            <!-- Auto-promotion gated notice: video analysis ran successfully but the
+                 score didn't clear the auto-promotion floor, so the primary display
+                 wasn't updated. Manual reclassify is the documented path here, so we
+                 wire the existing handler in directly. -->
+            {#if videoPromotionGated && hasOwnerDetectionActions && onReclassify}
+                <div class="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/30 text-indigo-900 dark:text-indigo-200 flex items-start gap-3" role="status">
+                    <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <div class="flex-1 min-w-0 flex flex-col gap-2">
+                        <div class="flex flex-col gap-0.5">
+                            <span class="text-[10px] font-semibold">
+                                {$_('detection.video_analysis.gated_title', { default: 'Video found a match — confirm to apply' })}
+                            </span>
+                            <span class="text-[11px] font-semibold leading-snug">
+                                {$_('detection.video_analysis.gated_desc', {
+                                    default: 'Auto-promotion was held back because the video score is below your minimum-confidence floor. Run reclassify to apply this result, or lower the floor in Settings → Detection.',
+                                })}
+                            </span>
+                        </div>
+                        <div>
+                            <button
+                                type="button"
+                                onclick={handleReclassifyClick}
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                                disabled={!!reclassifyProgress || awaitingReclassifyOverlay}
+                            >
+                                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
+                                    <path d="M21 3v5h-5"/>
+                                    <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
+                                    <path d="M3 21v-5h5"/>
+                                </svg>
+                                {$_('detection.video_analysis.gated_action', { default: 'Reclassify' })}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            {/if}
+
+            <!-- Video Classification Results -->
+            {#if detection.video_classification_status === 'completed' || (detection.video_classification_label && detection.video_classification_label !== detection.display_name)}
+                <div class="p-4 rounded-2xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
+                    <div class="flex items-center justify-between mb-2">
+                        <p class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                            {completedClassificationTitle}
+                        </p>
+                        {#if detection.video_classification_score}
+                            <span class="px-2 py-0.5 bg-indigo-500 text-white text-[9px] font-bold rounded uppercase">
+                                {$_('detection.video_analysis.match', { values: { score: (detection.video_classification_score * 100).toFixed(0) } })}
+                            </span>
+                        {/if}
+                    </div>
+                    <p class="text-sm font-bold text-slate-800 dark:text-slate-200">
+                        {detection.video_classification_label === detection.scientific_name
+                            ? getBirdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
+                            : detection.video_classification_label}
+                    </p>
+                    {#if detection.video_result_blocked}
+                        <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                            {$_('detection.video_analysis.blocked_label', { default: 'Matched a blocked species — not applied' })}
+                        </p>
+                    {/if}
+                    <div class="flex flex-wrap items-center gap-2 mt-1">
+                        <p class="text-[10px] text-slate-500 italic leading-tight">
+                            {completedClassificationDescription}
+                        </p>
+                        {#if classificationInputLabel}
+                            <span class="rounded border border-slate-200/70 bg-white/60 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 dark:border-slate-600/60 dark:bg-slate-900/40 dark:text-slate-300">
+                                {classificationInputLabel}
+                            </span>
+                        {/if}
+                        {#if completedVideoInferenceBadge.kind}
+                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-indigo-200/50 dark:border-indigo-500/30 bg-white/60 dark:bg-slate-900/40">
+                                {#if completedVideoInferenceBadge.kind === 'gpu'}
+                                    <svg class="h-3 w-3 text-indigo-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                        <path d="M10 2.5 16.5 9 10 15.5 3.5 9 10 2.5Zm0 2.12L5.62 9 10 13.38 14.38 9 10 4.62Z" />
+                                    </svg>
+                                    <span class="text-[9px] font-bold text-indigo-700 dark:text-indigo-300" title={detection.video_classification_provider ?? undefined}>
+                                        {completedVideoInferenceBadge.label}
+                                    </span>
+                                {:else}
+                                    <svg class="h-3 w-3 text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                                        <rect x="4.5" y="5.5" width="11" height="9" rx="1.5" />
+                                        <path d="M8 2.75v2M12 2.75v2M8 15.25v2M12 15.25v2M2.75 8h2M2.75 12h2M15.25 8h2M15.25 12h2" stroke-linecap="round" />
+                                    </svg>
+                                    <span class="text-[9px] font-bold text-slate-600 dark:text-slate-300" title={detection.video_classification_provider ?? detection.video_classification_backend ?? undefined}>
+                                        {completedVideoInferenceBadge.label}
+                                    </span>
+                                {/if}
+                            </div>
+                        {/if}
+                        {#if detection.video_classification_model_name}
+                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-slate-200/70 dark:border-slate-600/60 bg-white/60 dark:bg-slate-900/40">
+                                <svg class="h-3 w-3 text-slate-500 dark:text-slate-300" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                                    <path d="M4.5 5.75 10 2.75l5.5 3v8.5L10 17.25l-5.5-3v-8.5Z" />
+                                    <path d="M10 2.75v14.5M4.5 5.75 10 9l5.5-3.25" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                                <span
+                                    class="text-[9px] font-bold text-slate-600 dark:text-slate-200 tracking-wide"
+                                    title={detection.video_classification_model_id ?? detection.video_classification_model_name}
+                                >
+                                    {detection.video_classification_model_name}
+                                </span>
+                            </div>
+                        {/if}
+                    </div>
+                </div>
+            {:else if (detection.video_classification_status === 'processing' || detection.video_classification_status === 'pending') && !showMediaSlotVideoAnalysis}
+                 <div class="p-4 rounded-2xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/50 flex items-center gap-3 animate-pulse">
+                    <div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    <span class="text-xs font-bold text-slate-500">{$_('detection.video_analysis.in_progress')}</span>
+                 </div>
+            {/if}
+            <!-- The standalone "Video Analysis Failed" red card has been folded
+                 into the consolidated video-status notice above. -->
+
+            <!-- The facts, as rows rather than four separate boxes -->
+            <dl class="divide-y divide-slate-200/70 border-y border-slate-200/70 text-xs dark:divide-slate-700/50 dark:border-slate-700/50" data-detection-facts>
+                <div class="flex items-baseline justify-between gap-3 py-2">
+                    <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                        <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h11v8H4z" /><path stroke-linecap="round" stroke-linejoin="round" d="m15 12 5-3v6l-5-3z" /></svg>
+                        {$_('detection.fact_seen', { default: 'Seen' })}
+                    </dt>
+                    <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                        {formatDateTime(detection.detection_time)} &middot; {detection.camera_name}
+                    </dd>
+                </div>
+                {#if detection.weather_condition || detection.temperature !== undefined && detection.temperature !== null}
+                    <div class="flex items-baseline justify-between gap-3 py-2">
+                        <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                            <svg class="h-3.5 w-3.5 shrink-0 text-sky-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" /></svg>
+                            {$_('detection.fact_conditions', { default: 'Conditions' })}
+                        </dt>
+                        <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                            {detection.weather_condition ?? ''}{detection.temperature !== undefined && detection.temperature !== null
+                                ? ` ${formatTemperature(detection.temperature, temperatureUnit)}`
+                                : ''}
+                        </dd>
+                    </div>
+                {/if}
+                {#if detection.frigate_score != null}
+                    <div class="flex items-baseline justify-between gap-3 py-2">
+                        <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                            <svg class="h-3.5 w-3.5 shrink-0 text-indigo-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2" /></svg>
+                            {$_('detection.fact_frigate', { default: 'Frigate bird score' })}
+                        </dt>
+                        <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                            {Math.round((detection.frigate_score || 0) * 100)}%
+                        </dd>
+                    </div>
+                {/if}
+                {#if birdnetEnabled && !isManualObservation}
+                <div class="flex items-baseline justify-between gap-3 py-2">
+                    <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                        <svg class="h-3.5 w-3.5 shrink-0 text-emerald-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6v11a3 3 0 01-6 0zM5 11a7 7 0 0014 0M12 18v3" /></svg>
+                        {$_('detection.fact_heard', { default: 'Heard nearby' })}
+                    </dt>
+                    <dd class="text-right font-medium {effectiveAudioConfirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}">
+                        {audioFactValue}
+                    </dd>
+                </div>
+                {/if}
+            </dl>
+
             {#if videoStatusNoticeVisible}
                 <div
                     class="p-3 rounded-xl border flex items-start gap-2 {videoStatusNoticeTone.container}"
@@ -2498,155 +2822,6 @@
                     </div>
                 </div>
             {/if}
-
-            <!-- Auto-promotion gated notice: video analysis ran successfully but the
-                 score didn't clear the auto-promotion floor, so the primary display
-                 wasn't updated. Manual reclassify is the documented path here, so we
-                 wire the existing handler in directly. -->
-            {#if videoPromotionGated && hasOwnerDetectionActions && onReclassify}
-                <div class="p-3 rounded-xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/30 text-indigo-900 dark:text-indigo-200 flex items-start gap-3" role="status">
-                    <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="12" r="10"/>
-                        <line x1="12" y1="16" x2="12" y2="12"/>
-                        <line x1="12" y1="8" x2="12.01" y2="8"/>
-                    </svg>
-                    <div class="flex-1 min-w-0 flex flex-col gap-2">
-                        <div class="flex flex-col gap-0.5">
-                            <span class="text-[10px] font-semibold">
-                                {$_('detection.video_analysis.gated_title', { default: 'Video found a match — confirm to apply' })}
-                            </span>
-                            <span class="text-[11px] font-semibold leading-snug">
-                                {$_('detection.video_analysis.gated_desc', {
-                                    default: 'Auto-promotion was held back because the video score is below your minimum-confidence floor. Run reclassify to apply this result, or lower the floor in Settings → Detection.',
-                                })}
-                            </span>
-                        </div>
-                        <div>
-                            <button
-                                type="button"
-                                onclick={handleReclassifyClick}
-                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400 dark:focus:ring-offset-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
-                                disabled={!!reclassifyProgress || awaitingReclassifyOverlay}
-                            >
-                                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                    <path d="M3 12a9 9 0 0 1 15-6.7L21 8"/>
-                                    <path d="M21 3v5h-5"/>
-                                    <path d="M21 12a9 9 0 0 1-15 6.7L3 16"/>
-                                    <path d="M3 21v-5h5"/>
-                                </svg>
-                                {$_('detection.video_analysis.gated_action', { default: 'Reclassify' })}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            {/if}
-
-            <!-- Video Classification Results -->
-            {#if detection.video_classification_status === 'completed' || (detection.video_classification_label && detection.video_classification_label !== detection.display_name)}
-                <div class="p-4 rounded-2xl bg-indigo-50/80 dark:bg-indigo-500/10 border border-indigo-200/80 dark:border-indigo-500/20 animate-in fade-in slide-in-from-top-2">
-                    <div class="flex items-center justify-between mb-2">
-                        <p class="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
-                            {completedClassificationTitle}
-                        </p>
-                        {#if detection.video_classification_score}
-                            <span class="px-2 py-0.5 bg-indigo-500 text-white text-[9px] font-bold rounded uppercase">
-                                {$_('detection.video_analysis.match', { values: { score: (detection.video_classification_score * 100).toFixed(0) } })}
-                            </span>
-                        {/if}
-                    </div>
-                    <p class="text-sm font-bold text-slate-800 dark:text-slate-200">
-                        {detection.video_classification_label === detection.scientific_name
-                            ? getBirdNames(detection, settingsStore.displayCommonNames, settingsStore.scientificNamePrimary).primary
-                            : detection.video_classification_label}
-                    </p>
-                    {#if detection.video_result_blocked}
-                        <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">
-                            {$_('detection.video_analysis.blocked_label', { default: 'Matched a blocked species — not applied' })}
-                        </p>
-                    {/if}
-                    <div class="flex flex-wrap items-center gap-2 mt-1">
-                        <p class="text-[10px] text-slate-500 italic leading-tight">
-                            {completedClassificationDescription}
-                        </p>
-                        {#if classificationInputLabel}
-                            <span class="rounded border border-slate-200/70 bg-white/60 px-1.5 py-0.5 text-[9px] font-semibold text-slate-600 dark:border-slate-600/60 dark:bg-slate-900/40 dark:text-slate-300">
-                                {classificationInputLabel}
-                            </span>
-                        {/if}
-                        {#if completedVideoInferenceBadge.kind}
-                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-indigo-200/50 dark:border-indigo-500/30 bg-white/60 dark:bg-slate-900/40">
-                                {#if completedVideoInferenceBadge.kind === 'gpu'}
-                                    <svg class="h-3 w-3 text-indigo-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                                        <path d="M10 2.5 16.5 9 10 15.5 3.5 9 10 2.5Zm0 2.12L5.62 9 10 13.38 14.38 9 10 4.62Z" />
-                                    </svg>
-                                    <span class="text-[9px] font-bold text-indigo-700 dark:text-indigo-300" title={detection.video_classification_provider ?? undefined}>
-                                        {completedVideoInferenceBadge.label}
-                                    </span>
-                                {:else}
-                                    <svg class="h-3 w-3 text-slate-400" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                                        <rect x="4.5" y="5.5" width="11" height="9" rx="1.5" />
-                                        <path d="M8 2.75v2M12 2.75v2M8 15.25v2M12 15.25v2M2.75 8h2M2.75 12h2M15.25 8h2M15.25 12h2" stroke-linecap="round" />
-                                    </svg>
-                                    <span class="text-[9px] font-bold text-slate-600 dark:text-slate-300" title={detection.video_classification_provider ?? detection.video_classification_backend ?? undefined}>
-                                        {completedVideoInferenceBadge.label}
-                                    </span>
-                                {/if}
-                            </div>
-                        {/if}
-                        {#if detection.video_classification_model_name}
-                            <div class="flex items-center gap-1.5 px-1.5 py-0.5 rounded border border-slate-200/70 dark:border-slate-600/60 bg-white/60 dark:bg-slate-900/40">
-                                <svg class="h-3 w-3 text-slate-500 dark:text-slate-300" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                                    <path d="M4.5 5.75 10 2.75l5.5 3v8.5L10 17.25l-5.5-3v-8.5Z" />
-                                    <path d="M10 2.75v14.5M4.5 5.75 10 9l5.5-3.25" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                                <span
-                                    class="text-[9px] font-bold text-slate-600 dark:text-slate-200 tracking-wide"
-                                    title={detection.video_classification_model_id ?? detection.video_classification_model_name}
-                                >
-                                    {detection.video_classification_model_name}
-                                </span>
-                            </div>
-                        {/if}
-                    </div>
-                </div>
-            {:else if (detection.video_classification_status === 'processing' || detection.video_classification_status === 'pending') && !showMediaSlotVideoAnalysis}
-                 <div class="p-4 rounded-2xl bg-white/80 dark:bg-slate-900/40 border border-slate-200/70 dark:border-slate-700/50 flex items-center gap-3 animate-pulse">
-                    <div class="w-4 h-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <span class="text-xs font-bold text-slate-500">{$_('detection.video_analysis.in_progress')}</span>
-                 </div>
-            {/if}
-            <!-- The standalone "Video Analysis Failed" red card has been folded
-                 into the consolidated video-status notice above. -->
-
-            <!-- Metadata -->
-            <div class="grid grid-cols-2 divide-x divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700">
-                <div class="flex items-center gap-3 px-2 py-3">
-                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    <span class="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{detection.camera_name}</span>
-                </div>
-                {#if detection.temperature !== undefined && detection.temperature !== null}
-                    <div class="flex items-center gap-3 px-3 py-3">
-                        <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                        <span class="text-sm font-bold text-slate-700 dark:text-slate-300">
-                            {formatTemperature(detection.temperature, temperatureUnit)}
-                        </span>
-                    </div>
-                {/if}
-                {#if detection.frigate_score != null}
-                    <div class="flex items-center gap-3 border-l-0 border-t border-slate-200 px-2 py-3 dark:border-slate-700">
-                        <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                        <span class="text-sm font-bold text-slate-700 dark:text-slate-300">
-                            {$_('detection.frigate_score', { values: { score: Math.round(detection.frigate_score * 100) } })}
-                        </span>
-                    </div>
-                {/if}
-            </div>
 
             {#if hasAudioContext}
                 <section data-detection-audio-section class="space-y-3 border-t border-slate-200 pt-5 dark:border-slate-700">
@@ -2838,16 +3013,13 @@
                                 <p class="text-[10px] font-semibold text-sky-600/70 dark:text-sky-300/70 mb-0.5">
                                     {$_('detection.weather_title')}
                                 </p>
-                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
-                                    {detection.weather_condition || $_('detection.weather_unknown')}
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    {$_('detection.weather_breakdown', {
+                                        default: 'Cloud, wind and rain at the time'
+                                    })}
                                 </p>
                             </div>
                         </div>
-                        {#if detection.temperature !== undefined && detection.temperature !== null}
-                            <div class="text-sm font-bold text-slate-800 dark:text-slate-100">
-                                {formatTemperature(detection.temperature, temperatureUnit)}
-                            </div>
-                        {/if}
                     </div>
                     <button
                         type="button"
@@ -2930,6 +3102,17 @@
             {/if}
 
             {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby || showEbirdNotable)}
+                <details class="group rounded-2xl border border-slate-200/60 transition-colors hover:border-brand-300/60 dark:border-slate-700/50 dark:hover:border-brand-700/60" data-detection-reference>
+                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 [&::-webkit-details-marker]:hidden">
+                        {$_('detection.reference_disclosure', {
+                            values: { species: primaryName },
+                            default: 'About {species}, and nearby sightings'
+                        })}
+                        <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" />
+                        </svg>
+                    </summary>
+                    <div class="px-3 pb-3">
                 <div class="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {#if enrichmentSummaryProvider !== 'disabled'}
                         <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
@@ -3163,6 +3346,8 @@
                         </div>
                     {/if}
                 </div>
+                    </div>
+                </details>
             {/if}
 
             {#if canShowInat}
@@ -3439,13 +3624,36 @@
                         </button>
                     {/if}
 
+                    {#if !detection.manual_tagged && !isUnknownSpecies}
+                        <button
+                            onclick={() => handleManualTag({
+                                id: detection.display_name,
+                                display_name: detection.display_name,
+                                scientific_name: detection.scientific_name ?? null,
+                                common_name: detection.common_name ?? null
+                            } as SearchResult)}
+                            disabled={updatingTag}
+                            class="flex-1 rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50"
+                            data-detection-confirm
+                        >
+                            {updatingTag
+                                ? $_('common.saving')
+                                : $_('actions.confirm_species', {
+                                    values: { species: primaryName },
+                                    default: 'Confirm {species}'
+                                })}
+                        </button>
+                    {/if}
+
                     <div class="relative flex-1">
                         <button
                             onclick={() => showTagDropdown = !showTagDropdown}
                             disabled={updatingTag}
                             class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50"
                         >
-                            {updatingTag ? $_('common.saving') : $_('actions.manual_tag')}
+                            {updatingTag
+                                ? $_('common.saving')
+                                : $_('actions.pick_species', { default: 'Pick a different species' })}
                         </button>
                     </div>
                 </div>

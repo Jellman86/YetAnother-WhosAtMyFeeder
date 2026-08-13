@@ -187,6 +187,7 @@
     "dashboard.stats.audio",
     "detection.ai.assistant",
     "detection.ai.conversation_title",
+    "detection.fact_conditions",
     "detection.frigate_badge",
     "detection.inat.latitude",
     "detection.inat.longitude",

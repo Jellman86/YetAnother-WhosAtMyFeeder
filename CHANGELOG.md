@@ -8,6 +8,32 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The classifier's status notice stops competing with the identification.** "Identification
+  unchanged" and its error details were the second thing read on the panel, above the facts. The
+  notice is now a quieter note below them, where an explanation belongs, and the caption over the
+  photograph gained a deeper scrim so it stays legible now the image fills its panel.
+
+- **The detection actions say what they do.** "Manual Tag" is now "Pick a different species", and a
+  detection the model named can be accepted outright with "Confirm Coal Tit", which marks it as
+  human-verified in one press instead of reopening a species picker to choose the name it already
+  has. Confirmation applies the server's canonical names, preserves an existing behaviour analysis
+  when the identification did not change, and reports confirmation rather than reclassification.
+  The action is not offered for detections already confirmed, or for ones with no species to confirm.
+
+- **The detection view shows the evidence this install actually has.** Ranked snapshot options run
+  along the bottom of the photograph for owners and open with the chosen option selected. They are
+  labelled as snapshot options rather than as the frames that produced the identification. Each fact
+  row carries an icon, and the identification header states whether the name came from the model or
+  from you. BirdNET reports a late match, loading, unavailable and measured no-match states honestly;
+  a disabled integration has no row. Frigate's percentage is labelled as a bird-detection score, not
+  species agreement.
+
+- **Detection details leads with the detection.** The species text, the eBird map and the notable
+  nearby list, which together were the largest thing on the panel and were about other people's
+  sightings, now sit behind one disclosure. The media panel fills its column when the same moment has
+  a full-frame counterpart; otherwise it preserves the complete stored image rather than cropping it
+  without an escape hatch. Reference photographs retain their footprint when the provider image fails.
+
 - **Explorer replaces five rows of controls with a filter bar and counted facets.** Three stacked
   selects, three buttons, a page-size picker and a pagination row above the grid are now a single
   line stating the result count, with applied filters shown as removable tokens and the rest behind

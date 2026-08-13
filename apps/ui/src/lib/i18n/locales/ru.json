@@ -1504,6 +1504,7 @@
     "event_detection": "Новое обнаружение",
     "event_detection_desc": "{species} • {camera}",
     "event_reclassify": "Реклассификация завершена",
+    "species_confirmed": "Вид подтверждён: {species}",
     "event_reclassify_desc": "{species}",
     "event_reclassify_progress": "Анализ {current}/{total}",
     "event_backfill": "Бэкфилл обнаружений выполняется",
@@ -1538,7 +1539,9 @@
     "read_more_wikipedia": "Читать больше в Википедии",
     "read_more_source": "Читать больше на {source}",
     "delete_selected": "Удалить выбранные",
-    "reclassify_selected": "Переклассифицировать выбранные"
+    "reclassify_selected": "Переклассифицировать выбранные",
+    "confirm_species": "Подтвердить: {species}",
+    "pick_species": "Выбрать другой вид"
   },
   "detection": {
     "uploaded": "Загружено",
@@ -1830,7 +1833,25 @@
     "audio_spectrogram_alt": "Спектрограмма BirdNET-Go для соответствующего аудио-обнаружения",
     "snapshot_regenerate": "Пересоздать снимки",
     "snapshot_regenerate_no_candidates": "Снимки пересозданы, но не получено ни одного пригодного кандидата.",
-    "snapshot_source_unknown": "Неизвестный источник"
+    "snapshot_source_unknown": "Неизвестный источник",
+    "reference_disclosure": "О виде {species} и наблюдения поблизости",
+    "identified_as": "Определено как",
+    "identified_by_you": "Определено вами",
+    "confidence_high": "уверенно",
+    "confidence_mid": "вероятно",
+    "confidence_low": "неточно",
+    "fact_seen": "Снято",
+    "fact_conditions": "Условия",
+    "fact_frigate": "Оценка птицы Frigate",
+    "fact_heard": "Слышно поблизости",
+    "fact_heard_yes": "совпадающий голос",
+    "fact_heard_no": "совпадений нет",
+    "weather_breakdown": "Облачность, ветер и осадки в тот момент",
+    "snapshot_options": "Вариантов снимка: {count}",
+    "snapshot_option_aria": "Открыть вариант снимка {source}",
+    "media_stored": "Лучший кроп",
+    "media_full_frame": "Полный кадр",
+    "species_reference_alt": "Эталонное фото вида {species}"
   },
   "events": {
     "title": "События",

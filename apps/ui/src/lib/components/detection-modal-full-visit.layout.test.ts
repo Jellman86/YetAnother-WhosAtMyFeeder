@@ -91,8 +91,8 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('detectionsStore.updateDetection({');
         expect(detectionModalSource).toContain('ai_analysis: result.analysis');
         expect(detectionModalSource).toContain('ai_analysis_timestamp: result.analysis_timestamp');
-        expect(detectionModalSource).toContain('detection.ai_analysis = null;');
-        expect(detectionModalSource).toContain('detection.ai_analysis_timestamp = null;');
+        expect(detectionModalSource).toContain('const nextDetection = applyManualTagResult(detection, result);');
+        expect(detectionModalSource).toContain('Object.assign(detection, nextDetection);');
         expect(dashboardPageSource).toContain('asText(d.ai_analysis)');
         expect(dashboardPageSource).toContain('asText(d.ai_analysis_timestamp)');
     });

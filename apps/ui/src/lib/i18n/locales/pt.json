@@ -1504,6 +1504,7 @@
     "event_detection": "Nova detecção",
     "event_detection_desc": "{species} • {camera}",
     "event_reclassify": "Reclassificação concluída",
+    "species_confirmed": "{species} confirmado",
     "event_reclassify_desc": "{species}",
     "event_reclassify_progress": "Analisando {current}/{total}",
     "event_backfill": "Backfill de detecções em andamento",
@@ -1538,7 +1539,9 @@
     "read_more_wikipedia": "Leia mais na Wikipedia",
     "read_more_source": "Leia mais em {source}",
     "delete_selected": "Excluir selecionados",
-    "reclassify_selected": "Reclassificar selecionados"
+    "reclassify_selected": "Reclassificar selecionados",
+    "confirm_species": "Confirmar {species}",
+    "pick_species": "Escolher outra espécie"
   },
   "detection": {
     "uploaded": "Carregada",
@@ -1830,7 +1833,25 @@
     "audio_spectrogram_alt": "Espectrograma do BirdNET-Go da deteção de áudio correspondente",
     "snapshot_regenerate": "Regenerar capturas",
     "snapshot_regenerate_no_candidates": "Capturas regeneradas, mas nenhum candidato selecionável foi produzido.",
-    "snapshot_source_unknown": "Origem desconhecida"
+    "snapshot_source_unknown": "Origem desconhecida",
+    "reference_disclosure": "Sobre {species} e avistamentos próximos",
+    "identified_as": "Identificado como",
+    "identified_by_you": "Identificado por si",
+    "confidence_high": "seguro",
+    "confidence_mid": "provável",
+    "confidence_low": "incerto",
+    "fact_seen": "Visto",
+    "fact_conditions": "Condições",
+    "fact_frigate": "Pontuação de ave do Frigate",
+    "fact_heard": "Ouvido por perto",
+    "fact_heard_yes": "canto correspondente",
+    "fact_heard_no": "sem canto correspondente",
+    "weather_breakdown": "Nuvens, vento e chuva na altura",
+    "snapshot_options": "{count} opções de captura",
+    "snapshot_option_aria": "Abrir a opção de captura {source}",
+    "media_stored": "Melhor recorte",
+    "media_full_frame": "Imagem completa",
+    "species_reference_alt": "Fotografia de referência de {species}"
   },
   "events": {
     "title": "Eventos",

@@ -1507,6 +1507,7 @@
     "event_detection": "New detection",
     "event_detection_desc": "{species} • {camera}",
     "event_reclassify": "Reclassification complete",
+    "species_confirmed": "{species} confirmed",
     "event_reclassify_desc": "{species}",
     "event_reclassify_progress": "Analyzing {current}/{total}",
     "event_backfill": "Detection backfill running",
@@ -1538,7 +1539,9 @@
     "read_more_wikipedia": "Read more on Wikipedia",
     "read_more_source": "Read more on {source}",
     "delete_selected": "Delete Selected",
-    "reclassify_selected": "Reclassify Selected"
+    "reclassify_selected": "Reclassify Selected",
+    "confirm_species": "Confirm {species}",
+    "pick_species": "Pick a different species"
   },
   "detection": {
     "uploaded": "Uploaded",
@@ -1830,7 +1833,25 @@
     "audio_spectrogram_alt": "BirdNET-Go spectrogram for the matched audio detection",
     "snapshot_regenerate": "Regenerate snapshots",
     "snapshot_regenerate_no_candidates": "Snapshot regenerated, but no selectable candidates were produced.",
-    "snapshot_source_unknown": "Unknown source"
+    "snapshot_source_unknown": "Unknown source",
+    "reference_disclosure": "About {species}, and nearby sightings",
+    "identified_as": "Identified as",
+    "identified_by_you": "Identified by you",
+    "confidence_high": "confident",
+    "confidence_mid": "likely",
+    "confidence_low": "uncertain",
+    "fact_seen": "Seen",
+    "fact_conditions": "Conditions",
+    "fact_frigate": "Frigate bird score",
+    "fact_heard": "Heard nearby",
+    "fact_heard_yes": "matching call",
+    "fact_heard_no": "no matching call",
+    "weather_breakdown": "Cloud, wind and rain at the time",
+    "snapshot_options": "{count} snapshot options",
+    "snapshot_option_aria": "Open {source} snapshot option",
+    "media_stored": "Best crop",
+    "media_full_frame": "Full frame",
+    "species_reference_alt": "Reference photograph of {species}"
   },
   "events": {
     "title": "Events",

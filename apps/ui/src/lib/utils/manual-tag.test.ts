@@ -12,7 +12,9 @@ const detection = {
     manual_tagged: false,
     camera_name: 'front',
     detection_time: '2026-08-12T08:00:00Z',
-    score: 0.52
+    score: 0.52,
+    ai_analysis: 'The bird stayed briefly at the feeder.',
+    ai_analysis_timestamp: '2026-08-12T08:05:00Z'
 } as Detection;
 
 describe('applyManualTagResult', () => {
@@ -33,7 +35,9 @@ describe('applyManualTagResult', () => {
         expect(applyManualTagResult(detection, result)).toMatchObject({
             display_name: 'Blue Tit',
             category_name: 'Cyanistes caeruleus',
-            manual_tagged: true
+            manual_tagged: true,
+            ai_analysis: 'The bird stayed briefly at the feeder.',
+            ai_analysis_timestamp: '2026-08-12T08:05:00Z'
         });
     });
 
@@ -56,7 +60,9 @@ describe('applyManualTagResult', () => {
             scientific_name: 'Parus major',
             common_name: 'Great Tit',
             taxa_id: 145252,
-            manual_tagged: true
+            manual_tagged: true,
+            ai_analysis: null,
+            ai_analysis_timestamp: null
         });
     });
 });
