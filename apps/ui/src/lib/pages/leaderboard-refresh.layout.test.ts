@@ -53,7 +53,7 @@ describe('leaderboard field-journal layout', () => {
         expect(rankings).toBeGreaterThan(podium);
         expect(leaderboardSource).not.toContain('data-leaderboard-featured');
         // The podium follows the selected source, so Heard mode ranks by heard counts.
-        expect(leaderboardSource).toContain('leaderboardTableRows(sourceMode).slice(0, PODIUM_SIZE)');
+        expect(leaderboardSource).toContain('leaderboardRows.slice(0, PODIUM_SIZE)');
         expect(leaderboardSource).toContain('rowCountForMode(item, sourceMode)');
         // Most active repeated podium row one, so it was removed rather than drawn twice.
         expect(leaderboardSource).not.toContain("leaderboard.most_active");
@@ -71,5 +71,13 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('data-leaderboard-audio-history-link');
         expect(leaderboardSource).toContain("href={toAppPath('/audio')}");
         expect(leaderboardSource).toContain("$_('nav.audio_history')");
+    });
+
+    it('does not turn an unavailable BirdNET result into measured zero activity', () => {
+        expect(leaderboardSource).toContain("type AudioLoadState = 'disabled' | 'loading' | 'ready' | 'error'");
+        expect(leaderboardSource).toContain("audioLoadState = 'error'");
+        expect(leaderboardSource).toContain("sourceMode !== 'seen' && audioLoadState === 'error'");
+        expect(leaderboardSource).toContain('leaderboard.audio_unavailable_title');
+        expect(leaderboardSource).toContain('let leaderboardRows = $derived(leaderboardTableRows(sourceMode))');
     });
 });

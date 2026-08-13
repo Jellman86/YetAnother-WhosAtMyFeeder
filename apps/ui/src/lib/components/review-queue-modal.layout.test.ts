@@ -35,9 +35,14 @@ describe('review queue walk-through', () => {
 
     it('shows the crop the classifier scored when one exists, and says so when it does not', () => {
         expect(modalSource).toContain('fetchSnapshotCandidates');
+        expect(modalSource).toContain("import { findMatchingFullFrameCandidate } from '../utils/detection-evidence'");
+        expect(modalSource).toMatch(
+            /findMatchingFullFrameCandidate\(\s*response\.candidates \?\? \[\],\s*preferredCrop\?\.candidate_id \?\? null\s*\)/
+        );
         expect(modalSource).toContain('dashboard.review_session.crop');
         expect(modalSource).toContain('dashboard.review_session.full_frame');
         expect(modalSource).toContain('aria-pressed={view === \'crop\'}');
+        expect(modalSource).toContain("{#if crop?.thumbnail_url && fullFrame?.thumbnail_url}");
         // Crops only exist for scanned events, so their absence is stated, not hidden.
         expect(modalSource).toContain('dashboard.review_session.no_crop');
     });
@@ -54,7 +59,7 @@ describe('review queue walk-through', () => {
     });
 
     it('degrades when a snapshot is missing instead of showing a hole', () => {
-        expect(modalSource).toContain('imageFailed');
-        expect(modalSource).toContain('onerror={() => (imageFailed = true)}');
+        expect(modalSource).toContain('let failedImageUrls = $state<Set<string>>(new Set())');
+        expect(modalSource).toContain('failedImageUrls.has(imageUrl)');
     });
 });

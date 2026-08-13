@@ -57,6 +57,7 @@
     };
     type TrendMode = 'off' | 'smooth' | 'both';
     type SourceMode = 'seen' | 'heard' | 'both';
+    type AudioLoadState = 'disabled' | 'loading' | 'ready' | 'error';
 
     // A leaderboard row enriched for the table: naming + merged BirdNET "heard" data.
     type LeaderboardTableRow = LeaderboardRow & {
@@ -72,6 +73,7 @@
 
     let species: LeaderboardRow[] = $state([]);
     let audioSpecies = $state<AudioSpeciesLeaderboardItem[]>([]);
+    let audioLoadState = $state<AudioLoadState>('disabled');
     let sourceMode = $state<SourceMode>('seen');
     let loading = $state(true);
     let error = $state<string | null>(null);
@@ -172,7 +174,8 @@
     // The podium replaces the featured card: three species in the space one used, and the
     // rankings table starts higher up the page.
     const PODIUM_SIZE = 3;
-    let podium = $derived(leaderboardTableRows(sourceMode).slice(0, PODIUM_SIZE));
+    let leaderboardRows = $derived(leaderboardTableRows(sourceMode));
+    let podium = $derived(leaderboardRows.slice(0, PODIUM_SIZE));
     let podiumMax = $derived(
         Math.max(...podium.map((item) => rowCountForMode(item, sourceMode) || 0), 1)
     );
@@ -209,8 +212,8 @@
 
     // Rows for the leaderboard table: visual species with heard data merged in, plus
     // (in Heard/Both modes) audio-only species that were never seen on camera. Sort key
-    // follows the active source toggle. Charts/stats/podium still use the visual-only
-    // derived lists above, so they are unaffected.
+    // follows the active source toggle. Visual analytics remain separate, while the
+    // podium and ranking list follow the source the user selected.
     function leaderboardTableRows(mode: SourceMode): LeaderboardTableRow[] {
         const showCommon = settingsStore.displayCommonNames;
         const preferSci = settingsStore.scientificNamePrimary;
@@ -280,7 +283,10 @@
         return rows;
     }
 
-    let maxHeard = $derived(Math.max(...leaderboardTableRows(sourceMode).map((r) => r.heard_count || 0), 1));
+    let maxHeard = $derived(Math.max(...leaderboardRows.map((row) => row.heard_count || 0), 1));
+    let sourceTotal = $derived(
+        leaderboardRows.reduce((total, row) => total + rowCountForMode(row, sourceMode), 0)
+    );
 
     const leaderboardStale = new StaleTracker(120_000); // 2 minutes
 
@@ -368,6 +374,8 @@
         const requestedSpan = span;
         loading = true;
         error = null;
+        audioLoadState = birdnetEnabled ? 'loading' : 'disabled';
+        if (!birdnetEnabled) audioSpecies = [];
         // Fetch species and timeline independently so a chart/weather failure
         // doesn't make the leaderboard table disappear.
         try {
@@ -405,8 +413,10 @@
         // visual leaderboard, so it is handled independently and degrades to empty.
         if (audioResult.status === 'fulfilled') {
             audioSpecies = audioResult.value?.species ?? [];
+            audioLoadState = birdnetEnabled ? 'ready' : 'disabled';
         } else {
             audioSpecies = [];
+            audioLoadState = 'error';
             if (isTransientRequestError(audioResult.reason)) {
                 logger.warn('Audio species leaderboard fetch failed (transient)', {
                     message: getErrorMessage(audioResult.reason)
@@ -1511,13 +1521,21 @@
         </div>
     {/if}
 
-    {#if loading && leaderboardSpecies().length === 0}
+    {#if loading && leaderboardRows.length === 0}
         <div class="space-y-3">
             {#each [1, 2, 3, 4, 5, 6] as _}
                 <div class="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse"></div>
             {/each}
         </div>
-    {:else if leaderboardSpecies().length === 0}
+    {:else if sourceMode !== 'seen' && audioLoadState === 'error'}
+        <div class="border-y border-rose-200 bg-rose-50/60 px-4 py-6 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/20 dark:text-rose-200" role="status">
+            <h3 class="font-semibold">{$_('leaderboard.audio_unavailable_title', { default: 'BirdNET results unavailable' })}</h3>
+            <p class="mt-1 text-sm">{$_('leaderboard.audio_unavailable_desc', { default: 'The listening leaderboard could not be loaded. Seen results are still available.' })}</p>
+            <button class="btn btn-secondary mt-3 min-h-11 px-3 py-2 text-xs" onclick={loadLeaderboard}>
+                {$_('common.retry')}
+            </button>
+        </div>
+    {:else if leaderboardRows.length === 0}
         <div class="border-y border-slate-200 py-14 text-center dark:border-slate-700">
             <span class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
                 <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -1527,7 +1545,9 @@
             </span>
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">{$_('leaderboard.no_species')}</h3>
             <p class="text-slate-500 dark:text-slate-400">
-                {species.length > 0 && !includeUnknownBird
+                {sourceMode === 'heard'
+                    ? $_('leaderboard.no_audio_species', { default: 'No BirdNET detections were recorded in this period.' })
+                    : species.length > 0 && !includeUnknownBird
                     ? $_('leaderboard.only_unknown_desc')
                     : $_('leaderboard.no_species_desc')}
             </p>
@@ -1542,10 +1562,12 @@
                     {$_('leaderboard.podium_title', { default: 'Top of the period' })}
                 </h3>
                 <p class="text-xs text-slate-500 dark:text-slate-400">
-                    {spanLabel()} &middot; {formatRangeCompact(timeline?.window_start, timeline?.window_end)} &middot; {$_('leaderboard.podium_total', {
-                        values: { count: totalDetections.toLocaleString() },
-                        default: '{count} visits'
-                    })}
+                    {spanLabel()} &middot; {formatRangeCompact(timeline?.window_start, timeline?.window_end)} &middot;
+                    {sourceMode === 'heard'
+                        ? $_('leaderboard.podium_audio_total', { values: { count: sourceTotal.toLocaleString() }, default: '{count} calls' })
+                        : sourceMode === 'both'
+                          ? $_('leaderboard.podium_combined_total', { values: { count: sourceTotal.toLocaleString() }, default: '{count} records' })
+                          : $_('leaderboard.podium_total', { values: { count: sourceTotal.toLocaleString() }, default: '{count} visits' })}
                 </p>
             </div>
 
@@ -1615,8 +1637,11 @@
                                 ></span>
                             </span>
 
+                            {#if birdnetEnabled}
                             <span class="shrink-0 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
-                                {#if sourceMode === 'heard'}
+                                {#if audioLoadState !== 'ready'}
+                                    {$_('common.unavailable')}
+                                {:else if sourceMode === 'heard'}
                                     {item.count
                                         ? $_('leaderboard.seen_count', {
                                               values: { count: item.count.toLocaleString() },
@@ -1632,6 +1657,7 @@
                                     {$_('leaderboard.not_heard', { default: 'not heard' })}
                                 {/if}
                             </span>
+                            {/if}
                         </div>
                     </li>
                 {/each}
@@ -1662,12 +1688,12 @@
                         <p class="text-sm text-slate-500 dark:text-slate-400">{$_('leaderboard.all_species')}</p>
                     </div>
                 </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400">{spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)} · {totalDetections.toLocaleString()}</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400">{spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)} · {sourceTotal.toLocaleString()}</p>
             </div>
 
             {#key `${sourceMode}-${span}`}
                 <div class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700 md:hidden" data-leaderboard-mobile-rankings>
-                {#each leaderboardTableRows(sourceMode) as item, index (`mobile-${item.species}|${item.audio_only}|${index}`)}
+                {#each leaderboardRows as item, index (`mobile-${item.species}|${item.audio_only}|${index}`)}
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
@@ -1715,7 +1741,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                        {#each leaderboardTableRows(sourceMode) as item, index (`desktop-${item.species}|${item.audio_only}|${index}`)}
+                        {#each leaderboardRows as item, index (`desktop-${item.species}|${item.audio_only}|${index}`)}
                             {@const rowCountPct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}
                             {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
                             <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35">
@@ -1729,7 +1755,7 @@
                                     </button>
                                 </td>
                                 <td class="px-3 py-3 text-right"><span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-accent-500/70" style="width: {rowCountPct}%"></span></span></td>
-                                {#if birdnetEnabled}<td class="px-3 py-3 text-right"><span class="font-semibold tabular-nums text-brand-700 dark:text-brand-300">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowHeardPct}%"></span></span></td>{/if}
+                                {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-brand-700 dark:text-brand-300">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-slate-400" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
                                 <td class="hidden px-3 py-3 text-right font-semibold lg:table-cell {(item.delta ?? 0) > 0 ? 'text-accent-600 dark:text-accent-400' : (item.delta ?? 0) < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400'}">{span === 'all' ? '—' : formatTrend(item.delta, item.percent)}</td>
                                 <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>
                                 <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{(item.avg_confidence ?? 0).toFixed(2)}</td>

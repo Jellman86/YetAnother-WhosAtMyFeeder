@@ -1787,6 +1787,7 @@ class DetectionRepository:
 
     async def get_unique_species_with_taxonomy(
         self,
+        start_date: datetime | None = None,
     ) -> list[tuple[str, str | None, str | None, int | None, int]]:
         """Get unique species, pre-grouped to avoid duplicates from display_name variants.
 
@@ -1804,8 +1805,10 @@ class DetectionRepository:
         all collapse to a single row before Python taxonomy resolution runs, removing
         the source of duplicate entries in the Explorer species filter.
         """
+        start_filter = "AND d.detection_time >= ?" if start_date else ""
+        params = [start_date.isoformat(sep=" ")] if start_date else []
         async with self.db.execute(
-            """
+            f"""
             WITH species_rows AS (
                 -- Enrich taxa_id from taxonomy_cache when the detection is missing it
                 -- but has a known scientific_name we can join on.
@@ -1819,6 +1822,7 @@ class DetectionRepository:
                     ON d.scientific_name IS NOT NULL
                     AND LOWER(tc.scientific_name) = LOWER(d.scientific_name)
                 WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                  {start_filter}
             ),
             -- The filter bar shows how many detections each option would return, so the
             -- count has to be taken over the same grouping the options are built from.
@@ -1875,28 +1879,35 @@ class DetectionRepository:
             LEFT JOIN group_counts ON group_counts.species_key = ranked.species_key
             WHERE ranked.rn = 1
             ORDER BY ranked.display_name ASC
-            """
+            """,
+            params,
         ) as cursor:
             return await cursor.fetchall()
 
-    async def get_camera_counts(self) -> dict[str, int]:
+    async def get_camera_counts(self, start_date: datetime | None = None) -> dict[str, int]:
         """Detections per camera, for the Explorer camera facet."""
+        start_filter = "AND detection_time >= ?" if start_date else ""
+        params = [start_date.isoformat(sep=" ")] if start_date else []
         async with self.db.execute(
-            """
+            f"""
             SELECT camera_name, COUNT(*)
             FROM detections
             WHERE (is_hidden = 0 OR is_hidden IS NULL)
+              {start_filter}
             GROUP BY camera_name
             ORDER BY camera_name ASC
-            """
+            """,
+            params,
         ) as cursor:
             rows = await cursor.fetchall()
             return {row[0]: row[1] for row in rows if row[0]}
 
-    async def get_facet_totals(self) -> dict[str, int]:
+    async def get_facet_totals(self, start_date: datetime | None = None) -> dict[str, int]:
         """Counts for the facets that are a flag rather than a value."""
+        start_filter = "AND d.detection_time >= ?" if start_date else ""
+        params = [start_date.isoformat(sep=" ")] if start_date else []
         async with self.db.execute(
-            """
+            f"""
             SELECT
                 COUNT(*),
                 SUM(CASE WHEN f.detection_id IS NOT NULL THEN 1 ELSE 0 END),
@@ -1905,7 +1916,9 @@ class DetectionRepository:
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
-            """
+              {start_filter}
+            """,
+            params,
         ) as cursor:
             row = await cursor.fetchone()
             if not row:
@@ -1917,15 +1930,19 @@ class DetectionRepository:
                 "video_analysed": row[3] or 0,
             }
 
-    async def get_unique_cameras(self) -> list[str]:
+    async def get_unique_cameras(self, start_date: datetime | None = None) -> list[str]:
         """Get list of unique camera names, sorted alphabetically."""
+        start_filter = "AND detection_time >= ?" if start_date else ""
+        params = [start_date.isoformat(sep=" ")] if start_date else []
         async with self.db.execute(
-            """
+            f"""
             SELECT DISTINCT camera_name
             FROM detections
             WHERE (is_hidden = 0 OR is_hidden IS NULL)
+              {start_filter}
             ORDER BY camera_name ASC
-            """
+            """,
+            params,
         ) as cursor:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]

@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
@@ -33,11 +33,15 @@ async def ensure_db_initialized():
 def reset_auth_and_unknown_labels():
     original_auth_enabled = settings.auth.enabled
     original_public_enabled = settings.public_access.enabled
+    original_history_mode = settings.public_access.historical_days_mode
+    original_history_days = settings.public_access.show_historical_days
     original_unknown_labels = list(settings.classification.unknown_bird_labels)
     _event_filters_cache.clear()
     yield
     settings.auth.enabled = original_auth_enabled
     settings.public_access.enabled = original_public_enabled
+    settings.public_access.historical_days_mode = original_history_mode
+    settings.public_access.show_historical_days = original_history_days
     settings.classification.unknown_bird_labels = original_unknown_labels
     _event_filters_cache.clear()
 
@@ -52,6 +56,7 @@ async def _insert_detection(
     common_name: str | None = None,
     taxa_id: int | None = None,
     is_hidden: bool = False,
+    detection_time: datetime | None = None,
 ) -> None:
     async with get_db() as db:
         await db.execute(
@@ -63,7 +68,7 @@ async def _insert_detection(
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
             """,
             (
-                datetime.now(timezone.utc).isoformat(sep=" "),
+                (detection_time or datetime.now(timezone.utc)).isoformat(sep=" "),
                 1,
                 0.77,
                 species_name,
@@ -77,6 +82,70 @@ async def _insert_detection(
             ),
         )
         await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_guest_event_facets_share_the_public_history_window(client: httpx.AsyncClient):
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+    settings.public_access.historical_days_mode = "custom"
+    settings.public_access.show_historical_days = 1
+
+    recent_species = f"Recent Guest Bird {uuid.uuid4().hex[:6]}"
+    old_species = f"Private Historical Bird {uuid.uuid4().hex[:6]}"
+    recent_event = f"evt-{uuid.uuid4().hex[:8]}"
+    old_event = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(recent_event, recent_species, "public-camera")
+    await _insert_detection(
+        old_event,
+        old_species,
+        "historical-camera",
+        detection_time=datetime.now(timezone.utc) - timedelta(days=14),
+    )
+
+    try:
+        response = await client.get("/api/events/filters", params={"force_refresh": "true"})
+        assert response.status_code == 200
+        payload = response.json()
+        species_names = {item["display_name"] for item in payload["species"]}
+        assert recent_species in species_names
+        assert old_species not in species_names
+        assert payload["camera_counts"] == {"public-camera": 1}
+        assert payload["totals"]["total"] == 1
+    finally:
+        await _delete_detection(recent_event)
+        await _delete_detection(old_event)
+
+
+@pytest.mark.asyncio
+async def test_guest_event_facet_cache_is_partitioned_by_history_window(client: httpx.AsyncClient):
+    settings.auth.enabled = True
+    settings.public_access.enabled = True
+    settings.public_access.historical_days_mode = "custom"
+    settings.public_access.show_historical_days = 7
+
+    recent_event = f"evt-{uuid.uuid4().hex[:8]}"
+    older_event = f"evt-{uuid.uuid4().hex[:8]}"
+    await _insert_detection(recent_event, "Today Bird", "birdcam")
+    await _insert_detection(
+        older_event,
+        "Earlier Bird",
+        "birdcam",
+        detection_time=datetime.now(timezone.utc) - timedelta(days=3),
+    )
+
+    try:
+        first = await client.get("/api/events/filters")
+        assert first.status_code == 200
+        assert first.json()["totals"]["total"] == 2
+
+        settings.public_access.show_historical_days = 0
+        second = await client.get("/api/events/filters")
+        assert second.status_code == 200
+        assert second.json()["totals"]["total"] == 1
+    finally:
+        await _delete_detection(recent_event)
+        await _delete_detection(older_event)
 
 
 async def _delete_detection(event_id: str) -> None:

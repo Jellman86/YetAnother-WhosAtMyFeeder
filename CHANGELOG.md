@@ -8,6 +8,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The rebuilt UI now carries its evidence and privacy boundaries end to end.** Explorer facet
+  counts use the same history window as the guest event list, clicking a frame in a visit opens
+  that frame, and the review queue only offers a crop/full-frame comparison when both images come
+  from the same clip moment. BirdNET failures are shown as unavailable rather than zero activity,
+  audio-only periods remain visible, thumbnail controls meet the touch-target standard, and custom
+  date inputs have distinct accessible names.
+
 - **The classifier's status notice stops competing with the identification.** "Identification
   unchanged" and its error details were the second thing read on the panel, above the facts. The
   notice is now a quieter note below them, where an explanation belongs, and the caption over the

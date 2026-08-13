@@ -66,5 +66,7 @@ describe('Explorer page layout', () => {
         expect(filtersSource).toContain("datePreset === 'custom'");
         expect(filtersSource).toContain('events.filters.refresh_options');
         expect(eventsSource).toContain('onrefresh={() => refreshEventMetadata(true, true)}');
+        expect(filtersSource).toContain('events.filters.start_date');
+        expect(filtersSource).toContain('events.filters.end_date');
     });
 });
