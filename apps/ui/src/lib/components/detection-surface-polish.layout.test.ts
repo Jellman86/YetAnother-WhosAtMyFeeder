@@ -77,10 +77,21 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain("canShowFullFrame ? 'object-cover' : 'object-contain'");
     });
 
-    it('keeps the favorite action and full-frame switch in one non-overlapping flow', () => {
+    it('keeps media controls and snapshot choices in one ordered footer flow', () => {
+        const footerStart = detectionModalSource.indexOf('data-detection-media-footer');
+        const actionStart = detectionModalSource.indexOf('data-detection-media-actions', footerStart);
+        const pickerStart = detectionModalSource.indexOf('data-detection-inline-frame-picker', footerStart);
+
+        expect(footerStart).toBeGreaterThan(-1);
+        expect(actionStart).toBeGreaterThan(footerStart);
+        expect(pickerStart).toBeGreaterThan(actionStart);
         expect(detectionModalSource).toContain('data-detection-media-actions');
         expect(detectionModalSource).toContain('data-detection-media-toggle');
-        expect(detectionModalSource).toContain('flex-col items-start gap-2');
+        expect(detectionModalSource).toContain('data-detection-media-title');
+        expect(detectionModalSource).toContain('flex flex-wrap items-center gap-2');
+        expect(detectionModalSource).toContain('aspect-[4/3] min-h-72');
+        expect(detectionModalSource).not.toContain("absolute bottom-0 left-0 right-0 p-5 {showInlineFramePicker ? 'pb-28' : ''}");
+        expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1');
         // The comparison switch stays non-mutating. Only a filmstrip thumbnail stages a frame.
         expect(detectionModalSource).toContain('showFullFrameMedia()');
         expect(detectionModalSource).toContain("mediaView = 'full';");

@@ -17,6 +17,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Detection media controls no longer cover the bird name or snapshot choices on phones.** The
+  title, favourite, playback and full-visit actions, and snapshot rail now form one ordered footer
+  that wraps upward as a unit. Full-visit readiness is part of the play action instead of looking
+  like a second play button, while the crop/full-frame comparison remains isolated at the top.
 - **Detection frame choice now happens in the photograph itself.** The old full-screen crop/frame
   picker is gone. Owners can preview only genuinely retained Frigate frames from the filmstrip,
   compare them against the saved crop or full frame, then explicitly save or cancel. The strip keeps

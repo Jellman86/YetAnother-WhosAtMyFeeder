@@ -1834,6 +1834,7 @@
     "card_label": "{species} detected at {camera}",
     "image_alt": "{species} detected at {camera}",
     "play_video": "Play video of {species}",
+    "play_full_visit": "Play full visit clip of {species}",
     "reclassify": "Reclassify {species} detection",
     "retag": "Manually tag {species} detection",
     "audio_detected": "Audio Detected",
@@ -2605,6 +2606,7 @@
     "fetch_full_visit_retry": "Retry full clip",
     "no_video_support": "Your browser does not support video playback.",
     "full_visit_ready": "Full visit clip ready",
+    "full_visit_action": "Full visit",
     "partial_visit_ready": "A partial visit is ready; retry shortly for the complete clip.",
     "full_visit_failed": "Could not fetch full visit clip"
   },
