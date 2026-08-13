@@ -2190,7 +2190,7 @@
         </button>
 
         <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-	            <div class="relative aspect-[4/3] shrink-0 overflow-hidden lg:aspect-auto lg:h-full lg:min-h-[26rem] bg-gradient-to-br from-slate-900 via-slate-950 to-brand-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
+	            <div class="relative aspect-[4/3] min-h-72 shrink-0 overflow-hidden lg:aspect-auto lg:h-full lg:min-h-[26rem] bg-gradient-to-br from-slate-900 via-slate-950 to-brand-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
                     {#if showMediaSlotVideoAnalysis}
                         <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"></div>
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
@@ -2253,13 +2253,11 @@
                                 : canShowFullFrame ? 'object-cover' : 'object-contain'}"
                         />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
-                        {#if canShowFullFrame || canShowFavoriteAction || frigateIssueBadgeVisible}
+                        {#if canShowFullFrame}
                             <div
-                                class="absolute left-3 top-3 z-30 flex max-w-[calc(100%-6rem)] flex-col items-start gap-2"
-                                data-detection-media-actions
+                                class="absolute left-3 top-3 z-30 max-w-[calc(100%-6rem)]"
                             >
-                                {#if canShowFullFrame}
-                                    <div class="flex max-w-full gap-1 rounded-lg bg-slate-950/55 p-1 backdrop-blur-sm" data-detection-media-toggle>
+                                <div class="flex max-w-full gap-1 rounded-lg bg-slate-950/55 p-1 backdrop-blur-sm" data-detection-media-toggle>
                                         <button
                                             type="button"
                                             class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'stored'
@@ -2283,131 +2281,125 @@
                                         >
                                             {$_('detection.media_full_frame', { default: 'Full frame' })}
                                         </button>
-                                    </div>
-                                {/if}
-                                {#if canShowFavoriteAction}
-                                    <button
-                                        type="button"
-                                        onclick={handleFavoriteToggle}
-                                        disabled={favoritePending}
-                                        class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
-                                        title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
-                                        aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
-                                    >
-                                        {#if favoritePending}
-                                            <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                        {:else}
-                                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
-                                            </svg>
-                                        {/if}
-                                    </button>
-                                {/if}
-                                {#if frigateIssueBadgeVisible}
-                                    <div
-                                        class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
-                                        title={videoFailureInsight.summary}
-                                        aria-label={videoFailureInsight.summary}
-                                    >
-                                        <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-4 w-4 rounded-[3px] bg-white/95 p-0.5 object-contain" />
-                                    </div>
-                                {/if}
+                                </div>
                             </div>
                         {/if}
-                        <div class="absolute bottom-0 left-0 right-0 p-5 {showInlineFramePicker ? 'pb-28' : ''}">
-                            <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
-    	                    {#if subName && subName !== primaryName}
-    	                        <p class="text-white/70 text-sm italic drop-shadow -mt-0.5 mb-0.5 truncate">{subName}</p>
-    	                    {/if}
-                        <p class="text-white/50 text-[10px] font-semibold mt-2">
-                            {formatDateTime(detection.detection_time)}
-                        </p>
-                        <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
-                        {#if isManualObservation}
-                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-3.5 text-xs font-bold text-white shadow-xl backdrop-blur-sm">
-                                <svg class="h-4 w-4 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
-                                {$_('detection.uploaded', { default: 'Uploaded' })}
-                            </div>
-                        {/if}
-                        {#if canPlayVideo}
-                            <div class="flex items-center gap-2">
-                                {#if fullVisitFetched}
-                                    <div
-                                        class="inline-flex h-11 w-11 items-center justify-center rounded-full bg-brand-500/95 text-white shadow-xl shadow-brand-900/30 border border-brand-300/30 backdrop-blur-sm"
-                                        title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
-                                        aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
-                                    >
-                                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                            <path d="M7 3H5a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                            <path d="M13 3h2a2 2 0 012 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                            <path d="M17 13v2a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                            <path d="M7 17H5a2 2 0 01-2-2v-2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                        </svg>
-                                    </div>
-                                {/if}
-                                <button
-                                    type="button"
-                                    onclick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        onPlayVideo?.(detection.frigate_event, 'user');
-                                    }}
-                                    onpointerdown={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    ontouchstart={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    aria-label={$_('detection.play_video', { values: { species: primaryName } })}
-                                    class="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-brand-500/90 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                        <path d="M8 5v14l11-7z"/>
-                                    </svg>
-                                </button>
-                            </div>
-                        {/if}
-                        {#if showFetchFullVisitAction}
-                            <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
-                                <button
-                                    type="button"
-                                    onclick={handleFetchFullVisitClick}
-                                    onpointerdown={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    ontouchstart={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    disabled={fullVisitFetchState === 'fetching'}
-                                    aria-label={fullVisitFetchLabel}
-                                    class="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:bg-brand-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
-                                >
-                                    {#if fullVisitFetchState === 'fetching'}
-                                        <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                    {:else}
-                                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                            <path d="M10 3v8"></path>
-                                            <path d="M7 8l3 3 3-3"></path>
-                                            <path d="M4 14h12"></path>
-                                        </svg>
+                        <div
+                            class="absolute inset-x-0 bottom-0 z-20 flex flex-col bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12"
+                            data-detection-media-footer
+                        >
+                            <div class="flex flex-col gap-3 px-5 {showInlineFramePicker ? 'pb-2' : 'pb-5'}">
+                                <div data-detection-media-title>
+                                    <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
+                                    {#if subName && subName !== primaryName}
+                                        <p class="-mt-0.5 mb-0.5 truncate text-sm italic text-white/70 drop-shadow">{subName}</p>
                                     {/if}
-                                    <span>{fullVisitFetchLabel}</span>
-                                </button>
-                            </div>
-                        {/if}
-                        </div>
-                    </div>
-                    {/if}
+                                    <p class="mt-2 text-[10px] font-semibold text-white/50">
+                                        {formatDateTime(detection.detection_time)}
+                                    </p>
+                                </div>
 
-                {#if showInlineFramePicker}
+                                {#if canShowFavoriteAction || canPlayVideo || showFetchFullVisitAction || isManualObservation || frigateIssueBadgeVisible}
+                                    <div class="flex flex-wrap items-center gap-2" data-detection-media-actions>
+                                        {#if canShowFavoriteAction}
+                                            <button
+                                                type="button"
+                                                onclick={handleFavoriteToggle}
+                                                disabled={favoritePending}
+                                                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'border-amber-300 bg-amber-500/90 text-white hover:bg-amber-500' : 'border-white/35 bg-black/45 text-white hover:bg-black/60'}"
+                                                title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                                                aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                                            >
+                                                {#if favoritePending}
+                                                    <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                                                {:else}
+                                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
+                                                    </svg>
+                                                {/if}
+                                            </button>
+                                        {/if}
+                                        {#if canPlayVideo}
+                                            <button
+                                                type="button"
+                                                onclick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    onPlayVideo?.(detection.frigate_event, 'user');
+                                                }}
+                                                onpointerdown={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                ontouchstart={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                title={fullVisitFetched ? $_('video_player.full_visit_ready', { default: 'Full visit clip ready' }) : $_('detection.play_video', { values: { species: primaryName } })}
+                                                aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: 'Play full visit clip of {species}' }) : $_('detection.play_video', { values: { species: primaryName } })}
+                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border text-white shadow-xl backdrop-blur-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-brand-400/70 {fullVisitFetched ? 'gap-2 border-brand-300/30 bg-brand-500/95 px-3 hover:bg-brand-500' : 'w-11 border-white/25 bg-black/55 hover:bg-brand-500/90'}"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                    <path d="M8 5v14l11-7z"/>
+                                                </svg>
+                                                {#if fullVisitFetched}
+                                                    <span class="text-[11px] font-semibold">{$_('video_player.full_visit_action', { default: 'Full visit' })}</span>
+                                                {/if}
+                                            </button>
+                                        {/if}
+                                        {#if isManualObservation}
+                                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-3.5 text-xs font-bold text-white shadow-xl backdrop-blur-sm">
+                                                <svg class="h-4 w-4 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+                                                {$_('detection.uploaded', { default: 'Uploaded' })}
+                                            </div>
+                                        {/if}
+                                        {#if showFetchFullVisitAction}
+                                            <button
+                                                type="button"
+                                                onclick={handleFetchFullVisitClick}
+                                                onpointerdown={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                ontouchstart={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                disabled={fullVisitFetchState === 'fetching'}
+                                                aria-label={fullVisitFetchLabel}
+                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-brand-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
+                                            >
+                                                {#if fullVisitFetchState === 'fetching'}
+                                                    <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                                                {:else}
+                                                    <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                                        <path d="M10 3v8"></path>
+                                                        <path d="M7 8l3 3 3-3"></path>
+                                                        <path d="M4 14h12"></path>
+                                                    </svg>
+                                                {/if}
+                                                <span>{fullVisitFetchLabel}</span>
+                                            </button>
+                                        {/if}
+                                        {#if frigateIssueBadgeVisible}
+                                            <div
+                                                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
+                                                title={videoFailureInsight.summary}
+                                                aria-label={videoFailureInsight.summary}
+                                                role="img"
+                                            >
+                                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-4 w-4 rounded-[3px] bg-white/95 p-0.5 object-contain" />
+                                            </div>
+                                        {/if}
+                                    </div>
+                                {/if}
+                            </div>
+
+                            {#if showInlineFramePicker}
                     <!-- Preview and save happen here; the former full-screen snapshot picker has
                          deliberately been removed. Every thumbnail is a real retained frame. -->
                     <div
-                        class="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent px-3 pb-3 pt-8"
+                        class="flex flex-col gap-1 px-3 pb-3"
                         data-detection-inline-frame-picker
                         aria-busy={snapshotCandidatesLoading || snapshotApplyPending || snapshotGeneratePending}
                     >
@@ -2511,8 +2503,10 @@
                             {/if}
                         </div>
                     </div>
-                {/if}
-</div>
+                            {/if}
+                        </div>
+                    {/if}
+                </div>
 
             <div class="flex flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
             <!-- Detection ID -->
