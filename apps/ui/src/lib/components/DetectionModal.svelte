@@ -22,7 +22,6 @@
         setCommonNameOverride,
         clearCommonNameOverride,
         fetchEbirdNearby,
-        fetchEbirdNotable,
         fetchClassifierStatus,
         fetchDetectionConversation,
         sendDetectionConversationMessage,
@@ -31,7 +30,6 @@
         type InaturalistDraft,
         type SpeciesInfo,
         type EbirdNearbyResult,
-        type EbirdNotableResult,
         type ConversationTurn,
         type SnapshotStatusResponse,
         type SnapshotCandidate
@@ -189,9 +187,6 @@
     let ebirdNearby = $state<EbirdNearbyResult | null>(null);
     let ebirdNearbyLoading = $state(false);
     let ebirdNearbyError = $state<string | null>(null);
-    let ebirdNotable = $state<EbirdNotableResult | null>(null);
-    let ebirdNotableLoading = $state(false);
-    let ebirdNotableError = $state<string | null>(null);
     let lastEnrichmentKey = $state<string | null>(null);
     let commonNameEditorOpen = $state(false);
     let commonNameOverride = $state<string | null>(null);
@@ -722,11 +717,6 @@
             ? enrichmentSingleProviderSetting
             : (settingsStore.settings?.enrichment_seasonality_source ?? authStore.enrichmentSeasonalitySource ?? 'disabled')
     );
-    const enrichmentRarityProvider = $derived(
-        enrichmentModeSetting === 'single'
-            ? enrichmentSingleProviderSetting
-            : (settingsStore.settings?.enrichment_rarity_source ?? authStore.enrichmentRaritySource ?? 'disabled')
-    );
     const enrichmentLinksProviders = $derived(
         enrichmentModeSetting === 'single'
             ? [enrichmentSingleProviderSetting]
@@ -741,7 +731,6 @@
     const showEbirdNearby = $derived(
         enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
     );
-    const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
     const missingEventMetadataGone = $derived(
         !isManualObservation && (detection.frigate_status === 'missing'
         || detection.has_frigate_event === false
@@ -992,24 +981,6 @@
         }
     }
 
-    async function loadEbirdNotable() {
-        ebirdNotableLoading = true;
-        ebirdNotableError = null;
-        try {
-            const res = await fetchEbirdNotable();
-            if (res.status === 'error') {
-                ebirdNotableError = res.message || 'Failed to load eBird notable sightings';
-                ebirdNotable = null;
-            } else {
-                ebirdNotable = res;
-            }
-        } catch (e) {
-            ebirdNotableError = getErrorMessage(e) || 'Failed to load eBird notable sightings';
-        } finally {
-            ebirdNotableLoading = false;
-        }
-    }
-
     async function loadConversation() {
         if (!llmReady || !aiAnalysis || !authStore.canViewAiConversation) return;
         conversationLoading = true;
@@ -1045,8 +1016,9 @@
             enrichmentSummaryProvider,
             enrichmentSightingsProvider,
             enrichmentSeasonalityProvider,
-            enrichmentRarityProvider,
-            ebirdEnabled
+            ebirdEnabled,
+            ebirdRadius,
+            ebirdDaysBack
         ].join('|');
         if (enrichmentKey === lastEnrichmentKey) return;
         lastEnrichmentKey = enrichmentKey;
@@ -1055,20 +1027,14 @@
         speciesInfoError = null;
         ebirdNearby = null;
         ebirdNearbyError = null;
-        ebirdNotable = null;
-        ebirdNotableError = null;
 
         if (enrichmentSummaryProvider !== 'disabled') {
             void loadSpeciesInfo(detection.display_name);
         }
 
         const needsEbirdNearby = ebirdEnabled && showEbirdNearby;
-        const needsEbirdNotable = ebirdEnabled && showEbirdNotable;
         if (needsEbirdNearby) {
             void loadEbirdNearby(detection.display_name, detection.scientific_name ?? undefined);
-        }
-        if (needsEbirdNotable) {
-            void loadEbirdNotable();
         }
     });
 
@@ -2190,7 +2156,7 @@
                                 type="button"
                                 onclick={handleFavoriteToggle}
                                 disabled={favoritePending}
-                                class="absolute top-4 left-4 z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
+                                class="absolute z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {canShowFullFrame ? 'top-16 left-3' : 'top-4 left-4'} {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
                                 title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                                 aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                             >
@@ -3101,7 +3067,7 @@
                 </section>
             {/if}
 
-            {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby || showEbirdNotable)}
+            {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby)}
                 <details class="group rounded-2xl border border-slate-200/60 transition-colors hover:border-brand-300/60 dark:border-slate-700/50 dark:hover:border-brand-700/60" data-detection-reference>
                     <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 [&::-webkit-details-marker]:hidden">
                         {$_('detection.reference_disclosure', {
@@ -3291,60 +3257,6 @@
                         </div>
                     {/if}
 
-                    {#if showEbirdNotable}
-                        <div class="group relative overflow-hidden rounded-2xl border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/30 dark:bg-amber-900/10 p-5 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-all duration-300">
-                            <div class="flex items-center justify-between gap-3 mb-4">
-                                <div class="flex items-center gap-2">
-                                    <div class="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                                        </svg>
-                                    </div>
-                                    <div class="flex flex-col">
-                                        <p class="text-[10px] font-semibold text-amber-700 dark:text-amber-400">{$_('detection.ebird_notable_title')}</p>
-                                        <div class="flex items-center gap-1.5 mt-0.5">
-                                            <span class="text-[9px] font-bold text-amber-600/60 dark:text-amber-500/60">{$_('detection.ebird_notable_badge')}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {#if !ebirdEnabled}
-                                <div class="text-center py-4 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-dashed border-amber-200 dark:border-amber-800/30">
-                                    <p class="text-xs font-medium text-slate-500">{$_('detection.ebird_enable_notable')}</p>
-                                </div>
-                            {:else if ebirdNotableLoading}
-                                <div class="space-y-3">
-                                    {#each [1, 2] as _}
-                                        <div class="h-12 w-full bg-amber-100 dark:bg-amber-900/30 rounded-xl animate-pulse"></div>
-                                    {/each}
-                                </div>
-                            {:else if ebirdNotableError}
-                                <p class="text-xs text-rose-600">{ebirdNotableError}</p>
-                            {:else if (ebirdNotable?.results?.length || 0) === 0}
-                                <div class="text-center py-4">
-                                    <p class="text-sm text-slate-400 font-medium">{$_('detection.ebird_none_notable')}</p>
-                                </div>
-                            {:else if ebirdNotable}
-                                <div class="space-y-2">
-                                    {#each ebirdNotable.results.slice(0, 5) as obs}
-                                        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-amber-100 dark:border-amber-900/30 hover:border-amber-300 dark:hover:border-amber-700/50 transition-colors">
-                                            {#if obs.thumbnail_url}
-                                                <img src={obs.thumbnail_url} alt={obs.common_name || 'Bird'} class="w-10 h-10 rounded-lg object-cover bg-slate-200 dark:bg-slate-700 shrink-0" loading="lazy" />
-                                            {/if}
-                                            <div class="min-w-0 flex-1">
-                                                <p class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{obs.common_name || obs.scientific_name || $_('common.unknown_species')}</p>
-                                                <p class="text-[10px] font-medium text-slate-400 truncate">{obs.location_name || $_('common.unknown_location')}</p>
-                                            </div>
-                                            <div class="text-right shrink-0">
-                                                <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400">{formatEbirdDate(obs.observed_at)}</p>
-                                            </div>
-                                        </div>
-                                    {/each}
-                                </div>
-                            {/if}
-                        </div>
-                    {/if}
                 </div>
                     </div>
                 </details>

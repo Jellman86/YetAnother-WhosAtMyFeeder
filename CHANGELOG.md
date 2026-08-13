@@ -17,6 +17,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Detection details and dashboard:** On phones, the favourite action no longer covers the Best crop /
+  Full frame switch. Location-level eBird notable reports now live beneath the dashboard Field log
+  instead of appearing on every detection, with honest disabled, loading, empty, error, and scoped
+  result states.
+
 - **About:** The owner instance card now stays within the phone viewport when the issue-report
   fingerprint contains a long model identifier. The availability strip shrinks with its card,
   while the fingerprint wraps above a full-width Copy action on narrow screens.

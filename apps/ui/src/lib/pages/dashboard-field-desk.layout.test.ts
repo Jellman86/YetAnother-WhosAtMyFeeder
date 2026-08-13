@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import dashboardSource from './Dashboard.svelte?raw';
 import fieldLogSource from '../components/FieldLog.svelte?raw';
+import notableNearbySource from '../components/NotableNearby.svelte?raw';
 import histogramSource from '../components/DailyHistogram.svelte?raw';
 import previewSource from '../components/DetectionPreview.svelte?raw';
 import recentAudioSource from '../components/RecentAudio.svelte?raw';
@@ -19,6 +20,23 @@ describe('dashboard field desk layout', () => {
         expect(fieldLog).toBeGreaterThan(fieldDesk);
         expect(reviewQueue).toBeGreaterThan(fieldLog);
         expect(topVisitors).toBeGreaterThan(reviewQueue);
+    });
+
+    it('places location-level notable reports beneath the field log, not in a detection', () => {
+        expect(dashboardSource).toContain('data-dashboard-field-log-column');
+        expect(dashboardSource).toContain('<NotableNearby');
+        expect(notableNearbySource).toContain('data-dashboard-notable-nearby');
+        expect(notableNearbySource).toContain('fetchEbirdNotable({ distKm, daysBack })');
+        expect(notableNearbySource).toContain('dashboard.notable_nearby.scope');
+    });
+
+    it('handles a disabled notable datasource without making an eBird request', () => {
+        expect(notableNearbySource).toContain('if (!sourceEnabled)');
+        expect(notableNearbySource).toContain('dashboard.notable_nearby.unavailable');
+        expect(notableNearbySource).toContain('{#if canConfigure}');
+        expect(notableNearbySource).toContain('dashboard.notable_nearby.configure');
+        expect(notableNearbySource).toContain('role="alert"');
+        expect(notableNearbySource).toContain('dashboard.notable_nearby.retry');
     });
 
     it('keeps top visitors at full width instead of compressing it into the rail', () => {

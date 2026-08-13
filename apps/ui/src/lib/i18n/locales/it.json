@@ -302,6 +302,17 @@
       "earlier": "{count} visite precedenti oggi",
       "preview_frame_position": "Fotogramma {position} di {count} di questa visita"
     },
+    "notable_nearby": {
+      "title": "Avvistamenti notevoli nelle vicinanze",
+      "subtitle": "Segnalazioni eBird rare o insolite intorno a questa mangiatoia",
+      "scope": "{radius} km · {days} giorni",
+      "unavailable": "Le segnalazioni notevoli sono disponibili quando eBird è abilitato come fonte di rarità.",
+      "configure": "Configura eBird",
+      "error": "Impossibile caricare le segnalazioni notevoli.",
+      "retry": "Riprova",
+      "empty": "Non sono state trovate segnalazioni rare o insolite entro {radius} km negli ultimi {days} giorni.",
+      "empty_hint": "È un risultato eBird valido; gli avvistamenti comuni nelle vicinanze possono comunque essere numerosi."
+    },
     "day_bar": {
       "today": "Oggi",
       "visits": "visite",

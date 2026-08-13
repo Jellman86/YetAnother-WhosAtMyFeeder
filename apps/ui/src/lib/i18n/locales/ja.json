@@ -302,6 +302,17 @@
       "earlier": "今日はほかに {count} 件の訪問",
       "preview_frame_position": "この訪問の {count} フレーム中 {position} 枚目"
     },
+    "notable_nearby": {
+      "title": "周辺の注目記録",
+      "subtitle": "この給餌台周辺の希少または珍しい eBird 報告",
+      "scope": "{radius} km · {days} 日",
+      "unavailable": "eBird を希少性データ源として有効にすると、注目記録を利用できます。",
+      "configure": "eBird を設定",
+      "error": "注目記録を読み込めませんでした。",
+      "retry": "再試行",
+      "empty": "過去 {days} 日間、半径 {radius} km 以内に希少または珍しい報告はありませんでした。",
+      "empty_hint": "これは有効な eBird の結果です。通常の周辺観察は多数ある場合があります。"
+    },
     "day_bar": {
       "today": "今日",
       "visits": "回の訪問",

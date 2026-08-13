@@ -104,8 +104,17 @@ export async function fetchEbirdNearby(speciesName?: string, scientificName?: st
     return handleResponse<EbirdNearbyResult>(response);
 }
 
-export async function fetchEbirdNotable(): Promise<EbirdNotableResult> {
-    const response = await apiFetch(`${API_BASE}/ebird/notable`);
+export interface EbirdNotableQuery {
+    distKm?: number;
+    daysBack?: number;
+}
+
+export async function fetchEbirdNotable(query?: EbirdNotableQuery): Promise<EbirdNotableResult> {
+    const params = new URLSearchParams();
+    if (query?.distKm !== undefined) params.set('dist_km', String(query.distKm));
+    if (query?.daysBack !== undefined) params.set('days_back', String(query.daysBack));
+    const suffix = params.size > 0 ? `?${params.toString()}` : '';
+    const response = await apiFetch(`${API_BASE}/ebird/notable${suffix}`);
     return handleResponse<EbirdNotableResult>(response);
 }
 

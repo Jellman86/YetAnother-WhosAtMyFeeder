@@ -302,6 +302,17 @@
       "earlier": "{count} earlier visits today",
       "preview_frame_position": "Frame {position} of {count} in this visit"
     },
+    "notable_nearby": {
+      "title": "Notable nearby",
+      "subtitle": "Rare or unusual eBird reports around this feeder",
+      "scope": "{radius} km · {days} days",
+      "unavailable": "Notable reports are available when eBird is enabled as the rarity source.",
+      "configure": "Configure eBird",
+      "error": "Notable reports could not be loaded.",
+      "retry": "Try again",
+      "empty": "No rare or unusual reports were found within {radius} km in the last {days} days.",
+      "empty_hint": "That is a valid eBird result; ordinary nearby sightings may still be plentiful."
+    },
     "day_bar": {
       "today": "Today",
       "visits": "visits",
