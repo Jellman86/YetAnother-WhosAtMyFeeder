@@ -92,6 +92,38 @@ RUN set -eux; \
             libze-intel-gpu1 \
             libze1 \
             ocl-icd-libopencl1; \
+        # Intel publishes the last Gen8/Gen9/Gen11 compute runtime as `legacy1`.
+        # Install it beside the modern ICD instead of replacing the current stack.
+        # The current libigdgmm12 satisfies the legacy package's >=22.5 dependency;
+        # deliberately do not downgrade it to the older release-bundled build.
+        LEGACY_IGC_VER=1.0.17537.24; \
+        LEGACY_COMPUTE_VER=24.35.30872.36; \
+        LEGACY_LEVEL_ZERO_VER=1.5.30872.36; \
+        LEGACY_IGC_REL="https://github.com/intel/intel-graphics-compiler/releases/download/igc-${LEGACY_IGC_VER}"; \
+        LEGACY_COMPUTE_REL="https://github.com/intel/compute-runtime/releases/download/${LEGACY_COMPUTE_VER}"; \
+        ( cd /tmp \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${LEGACY_IGC_REL}/intel-igc-core_${LEGACY_IGC_VER}_amd64.deb" \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${LEGACY_IGC_REL}/intel-igc-opencl_${LEGACY_IGC_VER}_amd64.deb" \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${LEGACY_COMPUTE_REL}/intel-level-zero-gpu-legacy1_${LEGACY_LEVEL_ZERO_VER}_amd64.deb" \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${LEGACY_COMPUTE_REL}/intel-opencl-icd-legacy1_${LEGACY_COMPUTE_VER}_amd64.deb" \
+          && echo "c1e1ecdfe2064c047c552651cfdcdafc504f2033afafba65654338b880048b67  intel-igc-core_${LEGACY_IGC_VER}_amd64.deb" | sha256sum -c - \
+          && echo "dd016400f87fa2b6a9fa9fbcca7eb4a2629174a29de679709f9bec5cede88b0e  intel-igc-opencl_${LEGACY_IGC_VER}_amd64.deb" | sha256sum -c - \
+          && echo "40dfbd15ab62de036a00824b304a2aa1fa2d81ad60ef83da09cfe3c5a80c429f  intel-level-zero-gpu-legacy1_${LEGACY_LEVEL_ZERO_VER}_amd64.deb" | sha256sum -c - \
+          && echo "bbe71e4f414259e06a10cde72c29a2bd78d41b2bb2f6f8463b1806797fe66e85  intel-opencl-icd-legacy1_${LEGACY_COMPUTE_VER}_amd64.deb" | sha256sum -c - \
+          && apt-get install -y --no-install-recommends \
+                 "./intel-igc-core_${LEGACY_IGC_VER}_amd64.deb" \
+                 "./intel-igc-opencl_${LEGACY_IGC_VER}_amd64.deb" \
+                 "./intel-level-zero-gpu-legacy1_${LEGACY_LEVEL_ZERO_VER}_amd64.deb" \
+                 "./intel-opencl-icd-legacy1_${LEGACY_COMPUTE_VER}_amd64.deb" \
+          && rm -f \
+                 "/tmp/intel-igc-core_${LEGACY_IGC_VER}_amd64.deb" \
+                 "/tmp/intel-igc-opencl_${LEGACY_IGC_VER}_amd64.deb" \
+                 "/tmp/intel-level-zero-gpu-legacy1_${LEGACY_LEVEL_ZERO_VER}_amd64.deb" \
+                 "/tmp/intel-opencl-icd-legacy1_${LEGACY_COMPUTE_VER}_amd64.deb" ); \
         # Intel NPU ("AI Boost") driver for the OpenVINO `intel_npu` provider on
         # Core Ultra. These are NOT in the intel-graphics apt repo, so install the
         # release .debs (firmware + Level-Zero driver + compiler). This pinned version

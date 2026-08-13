@@ -266,3 +266,23 @@ def test_intel_npu_assets_are_pinned_verified_and_required() -> None:
     assert "24309e17063e94729330ae9c02c5f2ea8ca5c27cdb067303e4e26ad1f4656a13" in dockerfile
     assert "07ee5332d0523661f5b3cec69593197fecc95439c8a9a401905e05cb7690097b" in dockerfile
     assert '|| echo "WARN: Intel NPU driver install failed' not in dockerfile
+
+
+def test_legacy_intel_gpu_assets_are_pinned_verified_and_do_not_downgrade_gmmlib() -> None:
+    dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
+
+    assert "LEGACY_IGC_VER=1.0.17537.24" in dockerfile
+    assert "LEGACY_COMPUTE_VER=24.35.30872.36" in dockerfile
+    assert "LEGACY_LEVEL_ZERO_VER=1.5.30872.36" in dockerfile
+    for checksum in (
+        "c1e1ecdfe2064c047c552651cfdcdafc504f2033afafba65654338b880048b67",
+        "dd016400f87fa2b6a9fa9fbcca7eb4a2629174a29de679709f9bec5cede88b0e",
+        "40dfbd15ab62de036a00824b304a2aa1fa2d81ad60ef83da09cfe3c5a80c429f",
+        "bbe71e4f414259e06a10cde72c29a2bd78d41b2bb2f6f8463b1806797fe66e85",
+    ):
+        assert checksum in dockerfile
+
+    assert "intel-opencl-icd-legacy1_${LEGACY_COMPUTE_VER}_amd64.deb" in dockerfile
+    assert "intel-level-zero-gpu-legacy1_${LEGACY_LEVEL_ZERO_VER}_amd64.deb" in dockerfile
+    assert "libigdgmm12_22.5.0_amd64.deb" not in dockerfile
+    assert "./*.deb" not in dockerfile
