@@ -2072,7 +2072,7 @@
     "flaticon_credit": "Vogel-Icons erstellt von Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Lizenziert unter der {license}",
     "built_with_ai": "Mit KI-Unterstützung für die Liebe zur Vogelbeobachtung gebaut 🐦",
-    "project_desc_1": "YA-WAMF ist ein persönliches Projekt, das gestartet wurde, um mit KI-unterstützter Programmierung zu experimentieren. Als das ursprüngliche {link}-Projekt nicht mehr gepflegt wurde, entstand dieses Projekt sowohl als Lernmöglichkeit als auch als nützliches Werkzeug für Vogelliebhaber.",
+    "project_desc_1": "Ich habe damit angefangen, um herauszufinden, wie weit ich mit KI-Unterstützung beim Programmieren komme. Das ursprüngliche {link} wurde nicht mehr gepflegt, also gab es etwas Echtes nachzubauen statt eines Spielprojekts. Seitdem läuft es an meinem eigenen Futterhaus.",
     "project_desc_2": "Frigate überwacht die Futterstelle und meldet alles, was nach einem Vogel aussieht. YA-WAMF bestimmt es, gleicht es mit BirdNET-Go-Audio ab und speichert das Ergebnis. Jedes Foto auf dieser Seite stammt von dieser Kamera.",
     "links": {
       "repo": "GitHub-Repository",
@@ -2087,10 +2087,10 @@
       "frigate": "{link} als exzellenter Open-Source-NVR",
       "birdnet": "{link} für die Integration der Audio-Klassifizierung",
       "benjordan": "{link} auf YouTube für inspirierende Inhalte zur Vogelerkennung",
-      "ai_assistants": "KI-Assistenten, die beim Aufbau dieser Anwendung geholfen haben"
+      "ai_assistants": "Die KI-Programmierassistenten, die das meiste davon mit mir gebaut haben"
     },
     "pipeline": {
-      "subtitle": "Die übliche Verarbeitungskette und was diese Instanz gerade tut.",
+      "subtitle": "Der Weg, den eine Erkennung nimmt, und was diese Instanz bei jedem Schritt tut.",
       "frigate": "Frigate",
       "mqtt": "MQTT",
       "classifier": "Klassifikator",
@@ -2117,7 +2117,9 @@
       "legend_local": "läuft auf Ihrer Hardware",
       "legend_optional": "optional",
       "legend_external": "Ihr Broker und Browser",
-      "legend_note": "Nichts verlässt Ihr Netzwerk außer den unten aufgeführten Aufrufen."
+      "legend_note": "Nichts verlässt Ihr Netzwerk außer den unten aufgeführten Aufrufen.",
+      "not_checked": "nicht geprüft",
+      "no_reading": "von hier aus keine Messung"
     },
     "storage": {
       "title": "Was gespeichert wird",
@@ -2162,7 +2164,11 @@
       "no_gaps": "Keine Lücken in den letzten 24 Stunden.",
       "up_to_date": "Aktuell",
       "update_available": "v{version} ist verfügbar",
-      "checked": "geprüft {when}"
+      "checked": "geprüft {when}",
+      "availability": "{percent}% verfügbar",
+      "window_start": "vor {hours} Std.",
+      "window_now": "jetzt",
+      "history_unavailable": "Hier ist kein Verfügbarkeitsverlauf vorhanden."
     },
     "close": {
       "title": "Daten, Datenschutz und Danksagungen"

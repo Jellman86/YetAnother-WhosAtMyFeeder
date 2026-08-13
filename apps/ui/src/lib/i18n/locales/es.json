@@ -2072,7 +2072,7 @@
     "flaticon_credit": "Iconos de aves creados por Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Con licencia {license}",
     "built_with_ai": "Construido con asistencia de IA por amor a la observación de aves 🐦",
-    "project_desc_1": "YA-WAMF es un proyecto personal iniciado para experimentar con la programación asistida por IA. Cuando el proyecto original {link} dejó de mantenerse, este nació como una oportunidad de aprendizaje y una herramienta útil para los entusiastas de las aves.",
+    "project_desc_1": "Empecé esto para descubrir hasta dónde podía llegar programando con ayuda de la IA. El {link} original había dejado de mantenerse, así que había algo real que reconstruir en lugar de un proyecto de juguete. Desde entonces funciona en mi propio comedero.",
     "project_desc_2": "Frigate vigila el comedero y marca todo lo que parece un ave. YA-WAMF lo clasifica, lo contrasta con el audio de BirdNET-Go y guarda el resultado. Todas las fotos de esta página salieron de esa cámara.",
     "links": {
       "repo": "Repositorio GitHub",
@@ -2087,10 +2087,10 @@
       "frigate": "{link} por ser un excelente NVR de código abierto",
       "birdnet": "{link} por la integración de clasificación de audio",
       "benjordan": "{link} en YouTube por el contenido inspirador sobre detección de aves",
-      "ai_assistants": "Asistentes de IA que ayudaron a construir esta aplicación"
+      "ai_assistants": "Los asistentes de programación con IA que construyeron la mayor parte de esto conmigo"
     },
     "pipeline": {
-      "subtitle": "El flujo estándar, mostrando lo que hace esta instancia.",
+      "subtitle": "El recorrido que sigue una detección y lo que hace esta instancia en cada paso.",
       "frigate": "Frigate",
       "mqtt": "MQTT",
       "classifier": "Clasificador",
@@ -2117,7 +2117,9 @@
       "legend_local": "se ejecuta en tu hardware",
       "legend_optional": "opcional",
       "legend_external": "tu broker y navegador",
-      "legend_note": "Nada sale de tu red salvo las llamadas indicadas abajo."
+      "legend_note": "Nada sale de tu red salvo las llamadas indicadas abajo.",
+      "not_checked": "sin comprobar",
+      "no_reading": "sin lectura desde aquí"
     },
     "storage": {
       "title": "Qué almacena",
@@ -2162,7 +2164,11 @@
       "no_gaps": "Sin interrupciones en las últimas 24 horas.",
       "up_to_date": "Actualizado",
       "update_available": "v{version} está disponible",
-      "checked": "comprobado {when}"
+      "checked": "comprobado {when}",
+      "availability": "{percent}% activo",
+      "window_start": "hace {hours} h",
+      "window_now": "ahora",
+      "history_unavailable": "Aquí no hay historial de disponibilidad."
     },
     "close": {
       "title": "Datos, privacidad y créditos"

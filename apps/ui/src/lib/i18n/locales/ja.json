@@ -2072,7 +2072,7 @@
     "flaticon_credit": "鳥アイコンは Freepik が作成 - Flaticon",
     "license_notice": "© {year} Jellman86 • {license} の下で公開",
     "built_with_ai": "バードウォッチングへの愛を込めて、AIの助けを借りて構築されました 🐦",
-    "project_desc_1": "YA-WAMFは、AI支援によるコーディングを実験するために開始された個人プロジェクトです。元の {link} プロジェクトがメンテナンスされなくなったため、学習の機会として、また鳥愛好家のための便利なツールとして誕生しました。",
+    "project_desc_1": "AI の支援でどこまで作れるかを試すために始めました。元の {link} はメンテナンスが止まっていたので、おもちゃのような題材ではなく実際に作り直す価値のあるものがありました。それ以来、自宅の餌台で動かし続けています。",
     "project_desc_2": "Frigate が餌台を監視し、鳥らしきものを検知します。YA-WAMF がそれを分類し、BirdNET-Go の音声と照合して結果を保存します。このページの写真はすべてそのカメラで撮影されたものです。",
     "links": {
       "repo": "GitHub リポジトリ",
@@ -2087,10 +2087,10 @@
       "frigate": "優れたオープンソースNVRである {link}",
       "birdnet": "オーディオ分類統合のための {link}",
       "benjordan": "鳥検知コンテンツで刺激を与えてくれたYouTubeの {link}",
-      "ai_assistants": "このアプリケーションの構築を支援してくれたAIアシスタント"
+      "ai_assistants": "この大部分を一緒に作ってくれた AI コーディングアシスタント"
     },
     "pipeline": {
-      "subtitle": "標準的な処理の流れと、このインスタンスの現在の状態です。",
+      "subtitle": "検出が通る経路と、各ステップでこのインスタンスが行っている処理です。",
       "frigate": "Frigate",
       "mqtt": "MQTT",
       "classifier": "分類器",
@@ -2117,7 +2117,9 @@
       "legend_local": "自分のハードウェアで動作",
       "legend_optional": "任意",
       "legend_external": "ブローカーとブラウザ",
-      "legend_note": "下に挙げた通信以外、ネットワークの外には何も出ません。"
+      "legend_note": "下に挙げた通信以外、ネットワークの外には何も出ません。",
+      "not_checked": "未確認",
+      "no_reading": "ここからは取得できません"
     },
     "storage": {
       "title": "保存される内容",
@@ -2162,7 +2164,11 @@
       "no_gaps": "直近 24 時間に欠落はありません。",
       "up_to_date": "最新です",
       "update_available": "v{version} が利用できます",
-      "checked": "{when} に確認"
+      "checked": "{when} に確認",
+      "availability": "稼働 {percent}%",
+      "window_start": "{hours} 時間前",
+      "window_now": "現在",
+      "history_unavailable": "ここに表示できる稼働履歴はありません。"
     },
     "close": {
       "title": "データ、プライバシー、クレジット"

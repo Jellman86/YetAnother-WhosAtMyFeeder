@@ -2072,7 +2072,7 @@
     "flaticon_credit": "Icônes d'oiseaux créées par Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Sous licence {license}",
     "built_with_ai": "Construit avec l'aide de l'IA pour l'amour de l'observation des oiseaux 🐦",
-    "project_desc_1": "YA-WAMF est un projet personnel lancé pour expérimenter le codage assisté par l'IA. Lorsque le projet original {link} est devenu non maintenu, celui-ci est né à la fois comme une opportunité d'apprentissage et un outil utile pour les passionnés d'oiseaux.",
+    "project_desc_1": "J'ai commencé ce projet pour voir jusqu'où je pouvais aller en programmant avec l'aide de l'IA. Le {link} d'origine n'était plus maintenu, il y avait donc quelque chose de réel à reconstruire plutôt qu'un projet jouet. Depuis, il tourne à ma propre mangeoire.",
     "project_desc_2": "Frigate surveille la mangeoire et signale tout ce qui ressemble à un oiseau. YA-WAMF l'identifie, le recoupe avec l'audio de BirdNET-Go et enregistre le résultat. Toutes les photos de cette page viennent de cette caméra.",
     "links": {
       "repo": "Dépôt GitHub",
@@ -2087,10 +2087,10 @@
       "frigate": "{link} pour être un excellent NVR open-source",
       "birdnet": "{link} pour l'intégration de la classification audio",
       "benjordan": "{link} sur YouTube pour son contenu inspirant sur la détection des oiseaux",
-      "ai_assistants": "Les assistants IA qui ont aidé à construire cette application"
+      "ai_assistants": "Les assistants de programmation IA qui ont construit l'essentiel de tout cela avec moi"
     },
     "pipeline": {
-      "subtitle": "Le pipeline standard, avec ce que fait cette instance.",
+      "subtitle": "Le chemin que suit une détection, et ce que fait cette instance à chaque étape.",
       "frigate": "Frigate",
       "mqtt": "MQTT",
       "classifier": "Classificateur",
@@ -2117,7 +2117,9 @@
       "legend_local": "tourne sur votre matériel",
       "legend_optional": "optionnel",
       "legend_external": "votre broker et votre navigateur",
-      "legend_note": "Rien ne sort de votre réseau en dehors des appels listés ci-dessous."
+      "legend_note": "Rien ne sort de votre réseau en dehors des appels listés ci-dessous.",
+      "not_checked": "non vérifié",
+      "no_reading": "aucune lecture depuis ici"
     },
     "storage": {
       "title": "Ce qui est stocké",
@@ -2162,7 +2164,11 @@
       "no_gaps": "Aucune interruption sur les 24 dernières heures.",
       "up_to_date": "À jour",
       "update_available": "v{version} est disponible",
-      "checked": "vérifié {when}"
+      "checked": "vérifié {when}",
+      "availability": "{percent}% actif",
+      "window_start": "il y a {hours} h",
+      "window_now": "maintenant",
+      "history_unavailable": "Aucun historique de disponibilité à afficher ici."
     },
     "close": {
       "title": "Données, confidentialité et remerciements"

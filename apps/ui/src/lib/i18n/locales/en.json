@@ -2075,18 +2075,18 @@
     "not_heard": "not heard"
   },
   "about": {
-    "how_it_works": "How It Works",
-    "credits": "Credits & Thanks",
+    "how_it_works": "How it works",
+    "credits": "Credits and thanks",
     "view_changelog": "View changelog",
-    "flaticon_credit": "Bird icons created by Freepik - Flaticon",
+    "flaticon_credit": "Bird icons by Freepik on Flaticon",
     "license_notice": "© {year} Jellman86 • Licensed under the {license}",
     "built_with_ai": "Built with AI assistance for the love of bird watching 🐦",
-    "project_desc_1": "YA-WAMF is a personal project started to experiment with AI-assisted coding. When the original {link} project became unmaintained, this was born as both a learning opportunity and a useful tool for bird enthusiasts.",
+    "project_desc_1": "I started this to find out how far I could get building with AI assistance. The original {link} had stopped being maintained, so there was something real to rebuild rather than a toy project. It has been running at my own feeder ever since.",
     "project_desc_2": "Frigate watches the feeder and flags anything that looks like a bird. YA-WAMF classifies it, checks it against BirdNET-Go audio, and stores the result. Every photo on this page came off that camera.",
     "links": {
       "repo": "GitHub Repository",
       "docs": "Documentation",
-      "issues": "Report Issue",
+      "issues": "Report an issue",
       "frigate": "Frigate NVR",
       "birdnet": "BirdNET-Go"
     },
@@ -2096,10 +2096,10 @@
       "frigate": "{link} for being an excellent open-source NVR",
       "birdnet": "{link} for audio classification integration",
       "benjordan": "{link} on YouTube for inspiring bird detection content",
-      "ai_assistants": "AI assistants that helped build this application"
+      "ai_assistants": "The AI coding assistants that built most of this with me"
     },
     "pipeline": {
-      "subtitle": "The standard pipeline, showing what this instance is doing.",
+      "subtitle": "The path a detection takes, and what this instance is doing at each step.",
       "frigate": "Frigate",
       "mqtt": "MQTT",
       "classifier": "Classifier",
@@ -2126,7 +2126,9 @@
       "legend_local": "runs on your hardware",
       "legend_optional": "optional",
       "legend_external": "your broker and browser",
-      "legend_note": "Nothing leaves your network except the calls listed below."
+      "legend_note": "Nothing leaves your network except the calls listed below.",
+      "not_checked": "not checked",
+      "no_reading": "no reading from here"
     },
     "storage": {
       "title": "What it stores",
@@ -2171,7 +2173,11 @@
       "no_gaps": "No gaps in the last 24 hours.",
       "up_to_date": "Up to date",
       "update_available": "v{version} is available",
-      "checked": "checked {when}"
+      "checked": "checked {when}",
+      "availability": "{percent}% up",
+      "window_start": "{hours} h ago",
+      "window_now": "now",
+      "history_unavailable": "No availability history to show here."
     },
     "close": {
       "title": "Data, privacy and credits"

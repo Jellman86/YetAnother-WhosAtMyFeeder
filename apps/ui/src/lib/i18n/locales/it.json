@@ -2081,7 +2081,7 @@
     "flaticon_credit": "Icone di uccelli create da Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Concesso in licenza con {license}",
     "built_with_ai": "Costruito con assistenza IA per amore del birdwatching 🐦",
-    "project_desc_1": "YA-WAMF è un progetto personale iniziato per sperimentare con la programmazione assistita da IA. Quando il progetto originale {link} non è stato più mantenuto, questo è nato come opportunità di apprendimento e strumento utile per gli appassionati di uccelli.",
+    "project_desc_1": "Ho iniziato questo progetto per scoprire fino a dove potevo arrivare programmando con l'aiuto dell'IA. Il {link} originale non era più mantenuto, quindi c'era qualcosa di reale da ricostruire invece di un progetto giocattolo. Da allora gira alla mia mangiatoia.",
     "project_desc_2": "Frigate sorveglia la mangiatoia e segnala tutto ciò che sembra un uccello. YA-WAMF lo classifica, lo confronta con l'audio di BirdNET-Go e salva il risultato. Ogni foto in questa pagina viene da quella telecamera.",
     "links": {
       "repo": "Repository GitHub",
@@ -2096,10 +2096,10 @@
       "frigate": "{link} per essere un eccellente NVR open-source",
       "birdnet": "{link} per l'integrazione della classificazione audio",
       "benjordan": "{link} su YouTube per i contenuti ispiratori sul rilevamento uccelli",
-      "ai_assistants": "Assistenti IA che hanno aiutato a costruire questa applicazione"
+      "ai_assistants": "Gli assistenti di programmazione IA che hanno costruito gran parte di questo con me"
     },
     "pipeline": {
-      "subtitle": "La pipeline standard, con quello che sta facendo questa istanza.",
+      "subtitle": "Il percorso che segue un rilevamento e cosa fa questa istanza a ogni passaggio.",
       "frigate": "Frigate",
       "mqtt": "MQTT",
       "classifier": "Classificatore",
@@ -2126,7 +2126,9 @@
       "legend_local": "gira sul tuo hardware",
       "legend_optional": "opzionale",
       "legend_external": "il tuo broker e browser",
-      "legend_note": "Nulla esce dalla tua rete tranne le chiamate elencate sotto."
+      "legend_note": "Nulla esce dalla tua rete tranne le chiamate elencate sotto.",
+      "not_checked": "non verificato",
+      "no_reading": "nessuna lettura da qui"
     },
     "storage": {
       "title": "Cosa memorizza",
@@ -2171,7 +2173,11 @@
       "no_gaps": "Nessuna interruzione nelle ultime 24 ore.",
       "up_to_date": "Aggiornato",
       "update_available": "v{version} è disponibile",
-      "checked": "controllato {when}"
+      "checked": "controllato {when}",
+      "availability": "{percent}% attivo",
+      "window_start": "{hours} h fa",
+      "window_now": "adesso",
+      "history_unavailable": "Nessuno storico di disponibilità da mostrare qui."
     },
     "close": {
       "title": "Dati, privacy e ringraziamenti"

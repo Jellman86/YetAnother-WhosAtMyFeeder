@@ -8,6 +8,29 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The About page speaks in the first person again.** The project description had been written
+  as third-party marketing copy about the author ("YA-WAMF is a personal project started to
+  experiment with AI-assisted coding"), which is the README's own sentence with the "I" removed,
+  and it read like a brochure. It now matches the README's voice. "How It Works" loses its title
+  case, the credits line about AI assistants matches the grammar of the lines around it, and the
+  Flaticon credit is no longer punctuated with a stray hyphen.
+- **The pipeline shows which way the data moves.** A soft pulse sweeps each step in turn, in the
+  order a detection actually travels, with the border blooming as it passes. One sweep per nine
+  seconds and then a rest, so the page is still while you read it. Off entirely under
+  `prefers-reduced-motion`.
+- **Steps that were never probed say so.** MQTT and the database had no status chip at all while
+  every neighbour had one, which left the row looking ragged and the gap looking like a fault.
+  Both now read "not checked", which is the honest label for a step with no health endpoint.
+- **The availability strip stays on the page when there is no history.** It used to disappear
+  entirely, so a fresh install or a guest saw nothing and no explanation. It now renders an empty
+  rail that says why, carries end labels so it is clear which end is now, and headlines the uptime
+  percentage the API was already returning and nobody was showing.
+- **A step that cannot be read no longer says "unknown" twice**, once in the chip and again in the
+  detail line directly beneath it. The detail line now says there is no reading from here.
+- **The external link arrows in Reference and thanks** were a bare "↗" character sized by the
+  display font, which rendered them far larger than their labels. They are a properly sized icon
+  now, and nudge on hover.
+
 - **The rebuilt UI now carries its evidence and privacy boundaries end to end.** Explorer facet
   counts use the same history window as the guest event list, clicking a frame in a visit opens
   that frame, and the review queue only offers a crop/full-frame comparison when both images come
