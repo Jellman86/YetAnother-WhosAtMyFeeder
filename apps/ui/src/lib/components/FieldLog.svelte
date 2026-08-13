@@ -129,7 +129,7 @@
                         frameCount={visit.frames.length}
                         primaryName={naming.primary}
                         secondaryName={naming.secondary}
-                        onopen={() => onselect?.(visit.best)}
+                        onopen={(frame) => onselect?.(frame)}
                     />
 
                     <div class="min-w-0">

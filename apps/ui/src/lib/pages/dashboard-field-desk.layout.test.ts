@@ -98,6 +98,8 @@ describe('dashboard field desk layout', () => {
         expect(previewSource).toContain('loading="lazy"');
         expect(previewSource.match(/getThumbnailUrl/g) ?? []).toHaveLength(3);
         expect(previewSource).toContain('onopen?.(frame)');
+        expect(fieldLogSource).toContain('onopen={(frame) => onselect?.(frame)}');
+        expect(previewSource).toContain('min-h-11 min-w-11');
     });
 
 

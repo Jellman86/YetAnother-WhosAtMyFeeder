@@ -204,7 +204,7 @@
                 {#if datePreset === 'custom'}
                     <div class="mt-2 grid grid-cols-2 gap-2">
                         <label class="block">
-                            <span class="sr-only">{$_('events.filters.custom', { default: 'Custom range' })}</span>
+                            <span class="sr-only">{$_('events.filters.start_date', { default: 'Start date' })}</span>
                             <input
                                 class="input-base text-xs"
                                 type="date"
@@ -214,7 +214,7 @@
                             />
                         </label>
                         <label class="block">
-                            <span class="sr-only">{$_('events.filters.custom', { default: 'Custom range' })}</span>
+                            <span class="sr-only">{$_('events.filters.end_date', { default: 'End date' })}</span>
                             <input
                                 class="input-base text-xs"
                                 type="date"

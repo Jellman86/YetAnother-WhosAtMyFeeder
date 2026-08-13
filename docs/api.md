@@ -102,7 +102,9 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `GET /api/events`
 - `GET /api/events/count`
 - `GET /api/events/filters` Species and camera options, each with a detection count, plus totals
-  for the favourites, audio-matched and video-analysed facets. Counts exclude hidden detections.
+  for the favourites, audio-matched and video-analysed facets. Counts exclude hidden detections;
+  for public guests, they also use the configured public-history window so filter metadata cannot
+  reveal older private visits.
 - `GET /api/events/hidden-count` (owner)
 - `GET /api/events/{event_id}/classification-status` (owner)
 - `PATCH /api/events/{event_id}` (owner)

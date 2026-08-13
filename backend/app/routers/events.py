@@ -388,7 +388,16 @@ class EventFilters(BaseModel):
     totals: EventFilterTotals = EventFilterTotals()
 
 
-_event_filters_cache: dict[tuple[str, bool], tuple[float, EventFilters]] = {}
+_event_filters_cache: dict[tuple[str, bool, str], tuple[float, EventFilters]] = {}
+
+
+def _event_filter_start_date(auth: AuthContext) -> datetime | None:
+    """Match facet visibility to the same history boundary as guest event lists."""
+    if auth.is_owner or not settings.public_access.enabled:
+        return None
+    public_days = effective_public_events_days()
+    cutoff_date = date.today() - timedelta(days=public_days) if public_days > 0 else date.today()
+    return datetime.combine(cutoff_date, datetime.min.time())
 
 
 class EventsCountResponse(BaseModel):
@@ -411,8 +420,10 @@ async def get_event_filters(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
+    start_date = _event_filter_start_date(auth)
     lang = get_user_language(request)
-    cache_key = (lang, hide_camera_names)
+    cache_scope = start_date.date().isoformat() if start_date else "owner"
+    cache_key = (lang, hide_camera_names, cache_scope)
     now = time.monotonic()
     if not force_refresh:
         cached = _event_filters_cache.get(cache_key)
@@ -420,8 +431,8 @@ async def get_event_filters(
             return cached[1]
     async with get_db() as db:
         repo = DetectionRepository(db)
-        species_rows = await repo.get_unique_species_with_taxonomy()
-        cameras = [] if hide_camera_names else await repo.get_unique_cameras()
+        species_rows = await repo.get_unique_species_with_taxonomy(start_date=start_date)
+        cameras = [] if hide_camera_names else await repo.get_unique_cameras(start_date=start_date)
         unknown_label_keys = {
             key
             for key in (
@@ -507,8 +518,8 @@ async def get_event_filters(
             seen[key] = item
             species_options.append(item)
 
-        camera_counts = {} if hide_camera_names else await repo.get_camera_counts()
-        totals = await repo.get_facet_totals()
+        camera_counts = {} if hide_camera_names else await repo.get_camera_counts(start_date=start_date)
+        totals = await repo.get_facet_totals(start_date=start_date)
 
         result = EventFilters(
             species=species_options,

@@ -119,7 +119,7 @@
     {#each stack as frame, index (frame.frigate_event)}
         <div
             class="relative"
-            class:-ml-2={index > 0}
+            class:-ml-1={index > 0}
             class:hidden={index > 0}
             class:sm:block={index > 0}
             onmouseenter={() => show(index)}
@@ -128,7 +128,7 @@
         >
             <button
                 type="button"
-                class="block rounded-lg focus-ring"
+                class="grid min-h-11 min-w-11 place-items-center rounded-lg focus-ring"
                 aria-expanded={openIndex === index}
                 onclick={() => onopen?.(frame)}
             >

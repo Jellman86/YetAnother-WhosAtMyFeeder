@@ -6,6 +6,7 @@
     import { formatDate, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
     import { portal } from '../utils/portal';
+    import { findMatchingFullFrameCandidate } from '../utils/detection-evidence';
     import { _ } from 'svelte-i18n';
 
     interface Props {
@@ -27,11 +28,12 @@
     // scored does. Crops exist only for events that have been scanned, so this is a
     // best-effort enrichment rather than something the flow depends on.
     let crop = $state<SnapshotCandidate | null>(null);
+    let fullFrame = $state<SnapshotCandidate | null>(null);
     let cropLoading = $state(false);
     let view = $state<'crop' | 'full'>('crop');
     let search = $state('');
     let busy = $state(false);
-    let imageFailed = $state(false);
+    let failedImageUrls = $state<Set<string>>(new Set());
     let dialogEl = $state<HTMLElement | null>(null);
 
     // The queue is captured once on open: items resolving underneath would move the
@@ -49,12 +51,13 @@
         // A new subject starts with a clean picker.
         void session.current?.frigate_event;
         search = '';
-        imageFailed = false;
+        failedImageUrls = new Set();
     });
 
     $effect(() => {
         const eventId = session.current?.frigate_event;
         crop = null;
+        fullFrame = null;
         view = 'crop';
         if (!eventId) return;
 
@@ -67,13 +70,21 @@
                 const cropped = (response.candidates ?? []).filter(
                     (candidate) => candidate.crop_box && candidate.thumbnail_url
                 );
-                crop =
+                const preferredCrop =
                     cropped.find((candidate) => candidate.selected) ??
                     cropped.sort((left, right) => right.ranking_score - left.ranking_score)[0] ??
                     null;
+                crop = preferredCrop;
+                fullFrame = findMatchingFullFrameCandidate(
+                    response.candidates ?? [],
+                    preferredCrop?.candidate_id ?? null
+                );
             } catch {
                 // No scan has been run for this event, so there is no crop to show.
-                if (!cancelled) crop = null;
+                if (!cancelled) {
+                    crop = null;
+                    fullFrame = null;
+                }
             } finally {
                 if (!cancelled) cropLoading = false;
             }
@@ -87,10 +98,17 @@
     const imageUrl = $derived(
         view === 'crop' && crop?.thumbnail_url
             ? crop.thumbnail_url
+            : view === 'full' && fullFrame?.thumbnail_url
+              ? fullFrame.thumbnail_url
             : session.current
               ? getThumbnailUrl(session.current.frigate_event)
               : ''
     );
+    const imageFailed = $derived(Boolean(imageUrl && failedImageUrls.has(imageUrl)));
+
+    function markImageFailed(url: string): void {
+        failedImageUrls = new Set([...failedImageUrls, url]);
+    }
 
     $effect(() => {
         if (!dialogEl) return;
@@ -229,10 +247,10 @@
                                 default: 'Unidentified detection on {camera}'
                             })}
                             class="max-h-[52vh] w-full object-contain"
-                            onerror={() => (imageFailed = true)}
+                            onerror={() => markImageFailed(imageUrl)}
                         />
                     {/if}
-                    {#if crop?.thumbnail_url}
+                    {#if crop?.thumbnail_url && fullFrame?.thumbnail_url}
                         <div class="flex gap-1 px-4 pt-2" role="group" aria-label={$_('dashboard.review_session.view_label', { default: 'Which frame to show' })}>
                             <button
                                 class="min-h-11 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors focus-ring {view === 'crop' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-slate-200'}"
