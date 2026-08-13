@@ -2182,7 +2182,8 @@
       "availability": "{percent}% up",
       "window_start": "{hours} h ago",
       "window_now": "now",
-      "history_unavailable": "No availability history to show here."
+      "history_loading": "Loading availability…",
+      "history_unavailable": "Availability could not be read."
     },
     "close": {
       "title": "Data, privacy and credits"

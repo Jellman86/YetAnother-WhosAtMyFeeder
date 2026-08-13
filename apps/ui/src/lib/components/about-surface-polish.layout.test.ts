@@ -30,12 +30,24 @@ describe('About surface polish', () => {
         expect(pipelineSource.match(/state: notChecked/g)?.length).toBe(2);
     });
 
-    it('keeps the availability strip on the page when there is no history to draw', () => {
+    it('keeps the availability footprint without calling a failed request empty history', () => {
+        expect(instanceSource).toContain("type UptimeLoadState = 'loading' | 'ready' | 'error'");
+        expect(instanceSource).toContain("uptimeLoadState = 'ready'");
+        expect(instanceSource).toContain("uptimeLoadState = 'error'");
+        expect(instanceSource).toContain("uptimeLoadState === 'loading'");
+        expect(instanceSource).toContain("uptimeLoadState === 'error'");
         expect(instanceSource).toContain('about.instance.history_unavailable');
+        expect(instanceSource).toContain('about.instance.history_loading');
         expect(instanceSource).toContain('about.instance.availability');
         // A 24 bar strip with no scale leaves the reader guessing which end is now.
         expect(instanceSource).toContain('about.instance.window_start');
         expect(instanceSource).toContain('about.instance.window_now');
+    });
+
+    it('spends motion on the pipeline rather than decorative hover effects', () => {
+        expect(instanceSource).not.toContain('hover:scale-y-125');
+        expect(aboutSource).not.toContain('group-hover:-translate-y-px');
+        expect(aboutSource).not.toContain('group-hover:translate-x-px');
     });
 
     it('sizes the external link arrow in the icon, not the display font', () => {

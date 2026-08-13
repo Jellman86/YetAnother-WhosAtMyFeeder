@@ -2173,7 +2173,8 @@
       "availability": "{percent}% activo",
       "window_start": "hace {hours} h",
       "window_now": "ahora",
-      "history_unavailable": "Aquí no hay historial de disponibilidad."
+      "history_loading": "Cargando disponibilidad…",
+      "history_unavailable": "No se pudo consultar la disponibilidad."
     },
     "close": {
       "title": "Datos, privacidad y créditos"

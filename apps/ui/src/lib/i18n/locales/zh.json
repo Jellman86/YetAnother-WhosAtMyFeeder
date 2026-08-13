@@ -2173,7 +2173,8 @@
       "availability": "在线 {percent}%",
       "window_start": "{hours} 小时前",
       "window_now": "现在",
-      "history_unavailable": "此处没有可显示的可用性历史。"
+      "history_loading": "正在加载可用性…",
+      "history_unavailable": "无法读取可用性。"
     },
     "close": {
       "title": "数据、隐私与致谢"

@@ -2173,7 +2173,8 @@
       "availability": "稼働 {percent}%",
       "window_start": "{hours} 時間前",
       "window_now": "現在",
-      "history_unavailable": "ここに表示できる稼働履歴はありません。"
+      "history_loading": "稼働状況を読み込んでいます…",
+      "history_unavailable": "稼働状況を取得できませんでした。"
     },
     "close": {
       "title": "データ、プライバシー、クレジット"

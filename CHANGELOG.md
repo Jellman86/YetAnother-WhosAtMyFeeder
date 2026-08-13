@@ -21,15 +21,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Steps that were never probed say so.** MQTT and the database had no status chip at all while
   every neighbour had one, which left the row looking ragged and the gap looking like a fault.
   Both now read "not checked", which is the honest label for a step with no health endpoint.
-- **The availability strip stays on the page when there is no history.** It used to disappear
-  entirely, so a fresh install or a guest saw nothing and no explanation. It now renders an empty
-  rail that says why, carries end labels so it is clear which end is now, and headlines the uptime
-  percentage the API was already returning and nobody was showing.
+- **The availability strip now explains its state.** It keeps a stable footprint while its request
+  loads or cannot be read, and distinguishes those states from a successful window with no measured
+  history. It also labels which end is now and shows the availability percentage returned by the API.
 - **A step that cannot be read no longer says "unknown" twice**, once in the chip and again in the
   detail line directly beneath it. The detail line now says there is no reading from here.
 - **The external link arrows in Reference and thanks** were a bare "↗" character sized by the
-  display font, which rendered them far larger than their labels. They are a properly sized icon
-  now, and nudge on hover.
+  display font, which rendered them far larger than their labels. They are a properly sized icon now.
 
 - **The leaderboard opens with the bird, not a repeat of the table.** The most detected species of
   the selected period is shown through representative visits from your feeder, captioned "Most
@@ -114,7 +112,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   which classifier is loaded and on which provider, whether BirdNET-Go correlation and
   notifications are configured, and whether the browser is receiving live updates. A step whose
   status cannot be read says "unknown" rather than claiming to be healthy, and steps with no
-  status source (the broker, the database) carry no state at all. Two new columns state what is
+  status source (the broker, the database) say "not checked". Two new columns state what is
   stored in each table and which outbound calls are enabled, so the privacy answer lives on the
   page rather than across three documents.
 

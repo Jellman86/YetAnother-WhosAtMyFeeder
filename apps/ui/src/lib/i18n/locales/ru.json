@@ -2182,7 +2182,8 @@
       "availability": "{percent}% в строю",
       "window_start": "{hours} ч назад",
       "window_now": "сейчас",
-      "history_unavailable": "Здесь нет истории доступности для показа."
+      "history_loading": "Загрузка данных о доступности…",
+      "history_unavailable": "Не удалось получить данные о доступности."
     },
     "close": {
       "title": "Данные, приватность и благодарности"

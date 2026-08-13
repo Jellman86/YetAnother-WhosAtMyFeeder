@@ -2173,7 +2173,8 @@
       "availability": "{percent}% verfügbar",
       "window_start": "vor {hours} Std.",
       "window_now": "jetzt",
-      "history_unavailable": "Hier ist kein Verfügbarkeitsverlauf vorhanden."
+      "history_loading": "Verfügbarkeit wird geladen…",
+      "history_unavailable": "Verfügbarkeit konnte nicht abgerufen werden."
     },
     "close": {
       "title": "Daten, Datenschutz und Danksagungen"

@@ -249,7 +249,7 @@
                                 <!-- Sized in the icon rather than left to the display font, which
                                      rendered the bare arrow glyph far larger than its label. -->
                                 <svg
-                                    class="h-2.5 w-2.5 shrink-0 text-slate-400 transition-transform duration-150 group-hover:-translate-y-px group-hover:translate-x-px dark:text-slate-500"
+                                    class="h-2.5 w-2.5 shrink-0 text-slate-400 dark:text-slate-500"
                                     viewBox="0 0 12 12"
                                     fill="none"
                                     stroke="currentColor"

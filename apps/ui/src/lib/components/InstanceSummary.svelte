@@ -14,11 +14,14 @@
         versionInfo: VersionInfo;
     }
 
+    type UptimeLoadState = 'loading' | 'ready' | 'error';
+
     let { versionInfo }: Props = $props();
 
     let classifier = $state<ClassifierStatus | null>(null);
     let startedAt = $state<string | null>(null);
     let uptimeWindow = $state<UptimeWindowResponse | null>(null);
+    let uptimeLoadState = $state<UptimeLoadState>('loading');
     let updateStatus = $state<UpdateStatus | null>(null);
     let copied = $state(false);
     let copyFailed = $state(false);
@@ -35,8 +38,10 @@
             }
             try {
                 uptimeWindow = await fetchUptimeWindow(24);
+                uptimeLoadState = 'ready';
             } catch {
-                // No heartbeat history yet, so the strip stays out.
+                // A failed request is different from a successful window with no history.
+                uptimeLoadState = 'error';
             }
             try {
                 updateStatus = await fetchUpdateStatus();
@@ -183,9 +188,9 @@
                     {uptime ?? $_('about.pipeline.unknown', { default: 'unknown' })}
                 </p>
 
-                {#if uptimeWindow}
+                {#if uptimeLoadState === 'ready' && uptimeWindow}
                     {#if availability}
-                        <p class="mt-0.5 text-xs font-semibold tabular-nums text-emerald-700 dark:text-emerald-300">
+                        <p class="mt-0.5 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">
                             {$_('about.instance.availability', {
                                 values: { percent: availability },
                                 default: '{percent}% up'
@@ -203,7 +208,7 @@
                     >
                         {#each uptimeWindow.buckets as bucket (bucket.start)}
                             <span
-                                class="h-4 flex-1 rounded-[2px] transition-transform duration-150 hover:scale-y-125 {bucket.state === 'up'
+                                class="h-4 flex-1 rounded-[2px] {bucket.state === 'up'
                                     ? 'bg-emerald-500/80'
                                     : bucket.state === 'down'
                                       ? 'bg-accent-500'
@@ -237,7 +242,16 @@
                             {$_('about.instance.no_gaps', { default: 'No gaps in the last 24 hours.' })}
                         {/if}
                     </p>
-                {:else}
+                {:else if uptimeLoadState === 'loading'}
+                    <div class="mt-2 flex gap-[2px]" aria-hidden="true">
+                        {#each { length: 24 } as _, slot (slot)}
+                            <span class="h-4 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
+                        {/each}
+                    </div>
+                    <p class="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                        {$_('about.instance.history_loading', { default: 'Loading availability…' })}
+                    </p>
+                {:else if uptimeLoadState === 'error'}
                     <div class="mt-2 flex gap-[2px]" aria-hidden="true">
                         {#each { length: 24 } as _, slot (slot)}
                             <span class="h-4 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
@@ -245,7 +259,7 @@
                     </div>
                     <p class="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                         {$_('about.instance.history_unavailable', {
-                            default: 'No availability history to show here.'
+                            default: 'Availability could not be read.'
                         })}
                     </p>
                 {/if}
