@@ -31,6 +31,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   list drew its own rules inside that again. One hairline separates them now.
 - **The species reference and nearby sightings are part of the record**, not folded behind a
   disclosure that had to be opened every time.
+- **The detection id opens as a little terminal.** The disclosure you click is the window chrome
+  itself, and the id is printed as command output with a blinking caret. The window furniture
+  follows the viewer's own platform, inside and out: traffic lights over a dark shell on macOS, a
+  bevelled Windows 95 title bar over a black DOS box on Windows, and a GNOME close button over
+  Ubuntu's aubergine with its green bash prompt on Linux. The caret stops under
+  `prefers-reduced-motion`.
 - **The species info button has padding.** It carried no padding class at all, so for a guest, whose
   sibling actions are hidden, it collapsed to the height of its own text.
 - **The Explorer loses two sets of horizontal rules.** The timeline was wrapped in a line above and
