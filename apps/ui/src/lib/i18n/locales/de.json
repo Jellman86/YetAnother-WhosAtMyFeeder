@@ -2063,7 +2063,12 @@
     "seen_count": "{count} gesehen",
     "not_seen": "nicht gesehen",
     "heard_count": "{count} gehört",
-    "not_heard": "nicht gehört"
+    "not_heard": "nicht gehört",
+    "most_detected_day": "Heute am häufigsten",
+    "most_detected_week": "Diese Woche am häufigsten",
+    "most_detected_month": "Diesen Monat am häufigsten",
+    "most_detected_all": "Insgesamt am häufigsten",
+    "collage_counts": "{seen} Besuche"
   },
   "about": {
     "how_it_works": "Wie es funktioniert",

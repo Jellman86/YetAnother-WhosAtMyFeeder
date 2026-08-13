@@ -2063,7 +2063,12 @@
     "seen_count": "看到 {count}",
     "not_seen": "未看到",
     "heard_count": "听到 {count}",
-    "not_heard": "未听到"
+    "not_heard": "未听到",
+    "most_detected_day": "今天最常出现",
+    "most_detected_week": "本周最常出现",
+    "most_detected_month": "本月最常出现",
+    "most_detected_all": "历来最常出现",
+    "collage_counts": "{seen} 次到访"
   },
   "about": {
     "how_it_works": "工作原理",

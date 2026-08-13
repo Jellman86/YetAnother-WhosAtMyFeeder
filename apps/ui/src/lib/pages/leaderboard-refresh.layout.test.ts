@@ -34,29 +34,15 @@ describe('leaderboard field-journal layout', () => {
     });
 
     it('uses accessible section icons and touch-sized controls', () => {
-        expect(leaderboardSource.match(/data-leaderboard-section-icon/g) ?? []).toHaveLength(3);
-        expect(leaderboardSource.match(/data-leaderboard-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(3);
+        expect(leaderboardSource.match(/data-leaderboard-section-icon/g) ?? []).toHaveLength(2);
+        expect(leaderboardSource.match(/data-leaderboard-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(2);
         expect(leaderboardSource).toContain('min-h-11');
         expect(leaderboardSource).toContain('focus-visible:ring-2 focus-visible:ring-brand-500');
     });
 
     it('uses round species portraits throughout the ranking surface', () => {
-        expect(leaderboardSource.match(/data-leaderboard-species-portrait/g) ?? []).toHaveLength(3);
-        expect(leaderboardSource.match(/data-leaderboard-species-portrait[^>]+rounded-full/g) ?? []).toHaveLength(3);
-    });
-
-    it('opens with a podium rather than a featured card', () => {
-        const podium = leaderboardSource.indexOf('data-leaderboard-podium');
-        const rankings = leaderboardSource.indexOf('data-leaderboard-rankings');
-
-        expect(podium).toBeGreaterThan(-1);
-        expect(rankings).toBeGreaterThan(podium);
-        expect(leaderboardSource).not.toContain('data-leaderboard-featured');
-        // The podium follows the selected source, so Heard mode ranks by heard counts.
-        expect(leaderboardSource).toContain('leaderboardRows.slice(0, PODIUM_SIZE)');
-        expect(leaderboardSource).toContain('rowCountForMode(item, sourceMode)');
-        // Most active repeated podium row one, so it was removed rather than drawn twice.
-        expect(leaderboardSource).not.toContain("leaderboard.most_active");
+        expect(leaderboardSource.match(/data-leaderboard-species-portrait/g) ?? []).toHaveLength(2);
+        expect(leaderboardSource.match(/data-leaderboard-species-portrait[^>]+rounded-full/g) ?? []).toHaveLength(2);
     });
 
     it('exposes toggle state and table headings to assistive technology', () => {
@@ -79,5 +65,18 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain("sourceMode !== 'seen' && audioLoadState === 'error'");
         expect(leaderboardSource).toContain('leaderboard.audio_unavailable_title');
         expect(leaderboardSource).toContain('let leaderboardRows = $derived(leaderboardTableRows(sourceMode))');
+    });
+
+    it('uses source-aware comparisons in both ranking layouts', () => {
+        expect(leaderboardSource).toContain('heard_prev_count: heard?.heard_prev_count ?? null');
+        expect(leaderboardSource).toContain('trendForMode(item, sourceMode)');
+        expect(leaderboardSource).toContain('deltaForMode(item, sourceMode)');
+        expect(leaderboardSource).toContain('activityTimestampForMode(item, sourceMode)');
+    });
+
+    it('keeps distinct rising and recent facts without repeating the leader', () => {
+        expect(leaderboardSource).toContain('data-leaderboard-highlights');
+        expect(leaderboardSource).toContain('topByTrend.species !== sourceLeader?.species');
+        expect(leaderboardSource).toContain('mostRecent.species !== sourceLeader?.species');
     });
 });
