@@ -2548,7 +2548,7 @@
                 class="group order-last rounded-lg border border-slate-300 dark:border-slate-700/70 {terminalTheme.shell}"
             >
                 <summary
-                    class="flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-[7px] px-3 py-1.5 marker:hidden group-open:rounded-b-none group-open:border-b group-open:border-slate-800 {windowChrome ===
+                    class="flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-[7px] px-3 py-1.5 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 group-open:rounded-b-none group-open:border-b group-open:border-slate-800 {windowChrome ===
                     'windows'
                         ? 'bg-[#000080]'
                         : 'bg-slate-900/80'}"
@@ -2557,11 +2557,11 @@
                         <span class="h-2 w-2 rounded-full bg-rose-500/70" aria-hidden="true"></span>
                         <span class="h-2 w-2 rounded-full bg-amber-500/70" aria-hidden="true"></span>
                         <span class="h-2 w-2 rounded-full bg-emerald-500/70" aria-hidden="true"></span>
-                        <span class="ml-1.5 font-mono text-[10px] text-slate-400">{$_('detection.id')}</span>
+                        <span class="ml-1.5 font-mono text-xs text-slate-400">{$_('detection.id')}</span>
                     {:else if windowChrome === 'windows'}
                         <!-- Deliberate Windows 95 pastiche, so the raised bevel and the period
                              greys are literal values rather than palette tokens. -->
-                        <span class="font-mono text-[10px] font-bold text-white">{$_('detection.id')}</span>
+                        <span class="font-mono text-xs font-bold text-white">{$_('detection.id')}</span>
                         <span class="ml-auto flex items-center gap-0.5" aria-hidden="true">
                             {#each ['minimise', 'maximise', 'close'] as control (control)}
                                 <span
@@ -2578,16 +2578,16 @@
                             {/each}
                         </span>
                     {:else}
-                        <span class="font-mono text-[10px] text-slate-400">{$_('detection.id')}</span>
+                        <span class="font-mono text-xs text-slate-400">{$_('detection.id')}</span>
                         <span class="ml-auto grid h-4 w-4 place-items-center rounded-full bg-slate-700/70 text-slate-300" aria-hidden="true">
                             <svg class="h-2 w-2" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.4"><path d="m2 2 6 6M8 2l-6 6" /></svg>
                         </span>
                     {/if}
-                    <svg class="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180 {windowChrome === 'mac' ? 'ml-auto text-slate-500' : windowChrome === 'windows' ? 'ml-2.5 text-white/70' : 'ml-2.5 text-slate-500'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                    <svg class="h-3.5 w-3.5 shrink-0 motion-safe:transition-transform group-open:rotate-180 {windowChrome === 'mac' ? 'ml-auto text-slate-500' : windowChrome === 'windows' ? 'ml-2.5 text-white/70' : 'ml-2.5 text-slate-500'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
                     </svg>
                 </summary>
-                <div class="px-3 py-2.5 font-mono text-[11px] leading-relaxed">
+                <div class="px-3 py-2.5 font-mono text-xs leading-relaxed">
                     <p class={terminalTheme.prompt}>
                         {#if terminalTheme.host}<span class="font-bold text-[#8ae234]" aria-hidden="true">{terminalTheme.host}</span>{/if}<span
                             aria-hidden="true">{terminalTheme.sigil}</span>

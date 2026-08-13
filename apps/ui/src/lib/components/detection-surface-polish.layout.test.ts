@@ -118,6 +118,9 @@ describe('detection surface polish', () => {
             /data-detection-technical-identity[\s\S]{0,240}?overflow-hidden/
         );
         expect(detectionModalSource).toContain('group-open:rounded-b-none');
+        expect(detectionModalSource).toContain('focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400');
+        expect(detectionModalSource).toContain('font-mono text-xs');
+        expect(detectionModalSource).toContain('motion-safe:transition-transform group-open:rotate-180');
     });
 
     it('borrows the window furniture of the viewer os', () => {
