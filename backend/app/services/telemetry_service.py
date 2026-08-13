@@ -444,7 +444,7 @@ class TelemetryService:
         # Generate new UUID
         new_id = str(uuid.uuid4())
         settings.telemetry.installation_id = new_id
-        log.info("Generated new anonymous installation ID", id=new_id[:8] + "...")
+        log.info("Generated new anonymous installation ID")
 
         # Try to persist it to config file with retries
         for attempt in range(1, max_retries + 1):
@@ -467,7 +467,6 @@ class TelemetryService:
         # All retries failed - continue with in-memory ID
         log.warning(
             "Using in-memory installation ID (config save failed)",
-            id=new_id[:8] + "...",
             note="Telemetry will work but ID may change on restart",
         )
         return False
@@ -520,6 +519,37 @@ class TelemetryService:
         if settings.telemetry.health_enabled:
             log.info("Forcing health issue telemetry report")
             await self._send_health_report()
+
+    async def forget_installation(self, installation_id: str | None = None) -> bool:
+        """Request deletion of this anonymous installation and rotate its ID.
+
+        Rotation happens only after the receiver confirms deletion, so a
+        transient network failure cannot silently orphan data under an ID the
+        installation can no longer identify for a later retry.
+        """
+        target_id = _safe_text(installation_id or settings.telemetry.installation_id, limit=160)
+        telemetry_url = str(settings.telemetry.url or "").rstrip("/")
+        if not target_id or not telemetry_url:
+            return False
+        forget_url = f"{telemetry_url.rsplit('/', 1)[0]}/forget"
+        try:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+                response = await client.post(forget_url, json={"installation_id": target_id})
+            if response.status_code != 200:
+                log.warning("Telemetry deletion request returned error", status=response.status_code)
+                return False
+
+            self._reported_health_event_ids.clear()
+            self._pending_health_payload = None
+            self._pending_health_event_ids.clear()
+            if settings.telemetry.installation_id == target_id:
+                settings.telemetry.installation_id = str(uuid.uuid4())
+                await settings.save()
+            log.info("Anonymous telemetry history deleted and installation identity rotated")
+            return True
+        except Exception as exc:
+            log.warning("Failed to delete anonymous telemetry history", error=str(exc))
+            return False
 
     async def _report_loop(self):
         """Periodically send heartbeat."""

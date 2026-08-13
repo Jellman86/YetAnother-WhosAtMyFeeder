@@ -1,5 +1,4 @@
--- Safe, idempotent bootstrap for local development. Production changes are
--- applied from migrations/health. This file must never destroy reports.
+-- Baseline for databases adopted into Wrangler's ordered migration flow.
 CREATE TABLE IF NOT EXISTS health_issue_reports (
     report_key TEXT PRIMARY KEY,
     installation_id_hash TEXT NOT NULL,
@@ -23,7 +22,6 @@ CREATE TABLE IF NOT EXISTS health_issue_reports (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-
 CREATE INDEX IF NOT EXISTS idx_health_issue_last_seen ON health_issue_reports(last_seen_at);
 CREATE INDEX IF NOT EXISTS idx_health_issue_fingerprint ON health_issue_reports(issue_fingerprint);
 CREATE INDEX IF NOT EXISTS idx_health_issue_component ON health_issue_reports(issue_component);

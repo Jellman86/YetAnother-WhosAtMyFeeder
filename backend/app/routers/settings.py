@@ -1419,6 +1419,8 @@ async def update_settings(
 ) -> SettingsUpdateResponse:
     """Update application settings. Owner only."""
     inference_provider_changed = False
+    telemetry_was_enabled = settings.telemetry.enabled or settings.telemetry.health_enabled
+    telemetry_installation_id = settings.telemetry.installation_id
 
     def should_update_secret(value: Optional[str]) -> bool:
         return value not in (None, "", "***REDACTED***")
@@ -1943,6 +1945,13 @@ async def update_settings(
         background_tasks.add_task(telemetry_service.force_heartbeat)
     if settings.telemetry.health_enabled:
         background_tasks.add_task(telemetry_service.force_health_report)
+    if (
+        telemetry_was_enabled
+        and not settings.telemetry.enabled
+        and not settings.telemetry.health_enabled
+        and telemetry_installation_id
+    ):
+        background_tasks.add_task(telemetry_service.forget_installation, telemetry_installation_id)
 
     await settings.save()
     if inference_provider_changed or execution_mode_changed:

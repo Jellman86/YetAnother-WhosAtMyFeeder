@@ -1,5 +1,5 @@
--- Safe, idempotent bootstrap for local development. Production changes are
--- applied from migrations/telemetry. This file must never destroy user data.
+-- Baseline for databases adopted into Wrangler's ordered migration flow.
+-- All statements are intentionally idempotent for existing production data.
 CREATE TABLE IF NOT EXISTS heartbeats (
     installation_id TEXT PRIMARY KEY,
     app_version TEXT,
@@ -52,14 +52,12 @@ CREATE TABLE IF NOT EXISTS heartbeats (
     last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
-
 CREATE INDEX IF NOT EXISTS idx_last_seen ON heartbeats(last_seen);
 CREATE INDEX IF NOT EXISTS idx_app_version ON heartbeats(app_version);
 CREATE INDEX IF NOT EXISTS idx_inference_provider_active ON heartbeats(inference_provider_active);
 CREATE INDEX IF NOT EXISTS idx_image_arch ON heartbeats(image_arch);
 CREATE INDEX IF NOT EXISTS idx_inference_health_status ON heartbeats(inference_health_status);
 CREATE INDEX IF NOT EXISTS idx_last_recovery_reason ON heartbeats(last_recovery_reason);
-
 CREATE TABLE IF NOT EXISTS app_versions (
     channel TEXT PRIMARY KEY,
     version TEXT,

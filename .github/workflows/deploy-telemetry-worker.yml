@@ -42,17 +42,11 @@ jobs:
       - name: Run Worker and D1 integration tests
         run: npm test
 
-      - name: Apply usage rollup migrations
-        run: >-
-          npx wrangler d1 execute yawamf-telemetry
-          --remote --yes
-          --file=./migrations/telemetry/0001_daily_heartbeats.sql
+      - name: Apply ordered usage migrations
+        run: npm run db:migrate:telemetry
 
-      - name: Apply health idempotency migrations
-        run: >-
-          npx wrangler d1 execute yawamf-health-issues
-          --remote --yes
-          --file=./migrations/health/0001_report_batches.sql
+      - name: Apply ordered health migrations
+        run: npm run db:migrate:health
 
       - name: Deploy telemetry Worker
         run: npx wrangler deploy

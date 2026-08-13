@@ -8,10 +8,10 @@
     "deploy": "wrangler deploy",
     "dev": "wrangler dev",
     "test": "npm run check && node --test test/*.test.mjs",
-    "db:init": "wrangler d1 execute yawamf-telemetry --file=./schema.sql",
-    "db:health:init": "wrangler d1 execute yawamf-health-issues --file=./health_schema.sql",
-    "db:migrate:telemetry": "wrangler d1 execute yawamf-telemetry --remote --yes --file=./migrations/telemetry/0001_daily_heartbeats.sql",
-    "db:migrate:health": "wrangler d1 execute yawamf-health-issues --remote --yes --file=./migrations/health/0001_report_batches.sql"
+    "db:init": "wrangler d1 migrations apply yawamf-telemetry --local",
+    "db:health:init": "wrangler d1 migrations apply yawamf-health-issues --local",
+    "db:migrate:telemetry": "wrangler d1 migrations apply yawamf-telemetry --remote",
+    "db:migrate:health": "wrangler d1 migrations apply yawamf-health-issues --remote"
   },
   "dependencies": {
     "hono": "4.13.1"
