@@ -24,8 +24,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   view switch keeps its recovery path for tightly cropped detections, while a dedicated action lane
   gives both controls full-size touch targets without overlap.
 - **The options strip no longer shows a native scrollbar** across the image gradient. The bar is
-  hidden and the trailing edge fades, but only while the strip actually overflows, so a strip that
-  fits is not clipped for decoration.
+  hidden and a generous trailing-edge fade makes additional frames clear, but only while the strip
+  actually overflows, so a strip that fits is not clipped for decoration.
 - **The video notice stops nesting a card inside a card.** The notice is already tinted and
   bordered; its technical details added another border and background inside that, and the evidence
   list drew its own rules inside that again. One hairline separates them now.
