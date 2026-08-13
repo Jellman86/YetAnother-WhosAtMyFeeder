@@ -85,8 +85,7 @@
     };
 </script>
 
-<!-- Matches the About page: a list of short text rows should not run the full 7xl shell. -->
-<div class="mx-auto max-w-5xl space-y-5" data-notifications-timeline>
+<div class="space-y-5" data-notifications-timeline>
     <!-- One window, stated once, with the same metrics the dashboard day bar uses. -->
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">

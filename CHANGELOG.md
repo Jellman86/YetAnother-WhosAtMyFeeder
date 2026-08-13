@@ -22,6 +22,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   short and landscape layouts, and exposes proper dialog and field semantics. Phone notifications
   now use a safe-area-aware lane beneath the detection close control, which remains anchored while
   detection content scrolls or the device rotates. Desktop notification placement stays unchanged.
+- **The notification view is owner only.** Every job, error and process event was already hidden
+  from guests, so a guest was left with a page that could never hold anything.
+- **Pages no longer sit narrower than the header above them.** The page header renders only for
+  signed-in owners, at the shell width, while About and the notification view constrained themselves
+  to a narrower column. For an owner that read as a broken second header with mismatched edges. Both
+  now take the shell width, and About drops the eyebrow that repeated the header's own title.
 - **Notifications lead with the capture, like the field log.** A detection whose event is known
   shows its photograph rather than an abstract badge, in a fixed box with a placeholder underneath so
   a missing image cannot shift the row. Every other kind gets an icon for what it is: a warning for a
