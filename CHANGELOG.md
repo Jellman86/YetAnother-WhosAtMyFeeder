@@ -17,6 +17,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The Explorer loses two sets of horizontal rules.** The timeline was wrapped in a line above and
+  below, putting one directly above the first row of detections, and the pagination was wrapped the
+  same way. Against a grid of cards that already carry strong edges, those read as lines drawn across
+  the page rather than as structure. Both are separated by space now.
+
 - **Mobile species tagging and notifications no longer hide controls.** The species picker follows
   the browser's visible viewport when an on-screen keyboard opens, keeps its results scrollable in
   short and landscape layouts, and exposes proper dialog and field semantics. Phone notifications
