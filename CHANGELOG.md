@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **Legacy Intel GPU compute support for Gen8, Gen9, and Gen11 hardware.** The `full` and `intel`
+  images now include Intel's pinned `legacy1` OpenCL and Level Zero packages alongside the modern
+  driver stack, restoring OpenVINO discovery on hardware such as Coffee Lake. Every downloaded
+  package is checksum-verified, and the install retains the current `libigdgmm12` instead of
+  downgrading a shared modern-driver dependency
+  ([#177](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/pull/177)).
+
 ### Changed
 
 - **Ten more bird facts in the footer ticker**, weighted towards birds that turn up at feeders.
