@@ -743,7 +743,7 @@
     function watchOverflow(node: HTMLElement) {
         const update = () => {
             const hasMoreToRight = node.scrollLeft + node.clientWidth < node.scrollWidth - 1;
-            node.style.setProperty('--strip-fade', hasMoreToRight ? '2rem' : '0px');
+            node.style.setProperty('--strip-fade', hasMoreToRight ? '3.5rem' : '0px');
         };
         update();
         const resize = new ResizeObserver(update);
