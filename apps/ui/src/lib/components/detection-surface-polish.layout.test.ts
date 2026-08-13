@@ -82,6 +82,7 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('scrollbar-width: none');
         expect(detectionModalSource).toContain('node.scrollLeft + node.clientWidth < node.scrollWidth - 1');
         expect(detectionModalSource).toContain("node.addEventListener('scroll', update, { passive: true })");
+        expect(detectionModalSource).toContain("hasMoreToRight ? '3.5rem' : '0px'");
         expect(detectionModalSource).toContain("'--strip-fade'");
     });
 
