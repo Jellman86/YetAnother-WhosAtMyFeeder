@@ -693,17 +693,19 @@
      */
     function watchOverflow(node: HTMLElement) {
         const update = () => {
-            const overflowing = node.scrollWidth > node.clientWidth + 1;
-            node.style.setProperty('--strip-fade', overflowing ? '2rem' : '0px');
+            const hasMoreToRight = node.scrollLeft + node.clientWidth < node.scrollWidth - 1;
+            node.style.setProperty('--strip-fade', hasMoreToRight ? '2rem' : '0px');
         };
         update();
         const observer = new ResizeObserver(update);
         observer.observe(node);
         node.addEventListener('load', update, true);
+        node.addEventListener('scroll', update, { passive: true });
         return {
             destroy() {
                 observer.disconnect();
                 node.removeEventListener('load', update, true);
+                node.removeEventListener('scroll', update);
             }
         };
     }

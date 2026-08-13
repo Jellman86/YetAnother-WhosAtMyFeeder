@@ -80,7 +80,8 @@ describe('detection surface polish', () => {
         // would clip the last thumbnail on a strip that fits.
         expect(detectionModalSource).toContain('.snapshot-strip');
         expect(detectionModalSource).toContain('scrollbar-width: none');
-        expect(detectionModalSource).toContain("node.scrollWidth > node.clientWidth + 1");
+        expect(detectionModalSource).toContain('node.scrollLeft + node.clientWidth < node.scrollWidth - 1');
+        expect(detectionModalSource).toContain("node.addEventListener('scroll', update, { passive: true })");
         expect(detectionModalSource).toContain("'--strip-fade'");
     });
 
