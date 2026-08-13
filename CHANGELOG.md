@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **Legacy Intel GPU compute driver support for 8th- and 9th-generation architectures.** The Intel
+  runtime image now incorporates pinned `legacy1` OpenCL and Level Zero driver assets directly into
+  the build pipeline. This restores OpenVINO iGPU hardware acceleration on Gen9/Gen9.5 Intel chips
+  without affecting modern driver paths or requiring secondary image tags.
+
 ## [2.17.0] - 2026-08-01
 
 ### Added
