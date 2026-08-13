@@ -66,6 +66,8 @@
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
     import { classifyInferenceProvider } from '../utils/inference-provider';
     import { isVideoPromotionGated } from '../video-promotion-gate';
+    import { applyManualTagResult } from '../utils/manual-tag';
+    import { findMatchingFullFrameCandidate } from '../utils/detection-evidence';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
@@ -183,6 +185,7 @@
     let speciesInfo = $state<SpeciesInfo | null>(null);
     let speciesInfoLoading = $state(false);
     let speciesInfoError = $state<string | null>(null);
+    let failedSpeciesReferenceUrl = $state<string | null>(null);
     let ebirdNearby = $state<EbirdNearbyResult | null>(null);
     let ebirdNearbyLoading = $state(false);
     let ebirdNearbyError = $state<string | null>(null);
@@ -332,8 +335,8 @@
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotStatusLoading = $state(false);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
-    // Candidates are owner-gated, so the strip simply does not exist for a guest.
-    const scoredFrameStrip = $derived(
+    // Candidate media is owner-gated, so the strip simply does not exist for a guest.
+    const snapshotOptionStrip = $derived(
         authStore.hasOwnerAccess ? snapshotCandidates.filter((item) => item.thumbnail_url) : []
     );
     let snapshotCandidatesLoading = $state(false);
@@ -447,6 +450,14 @@
     });
     const hasAudioContext = $derived(!isManualObservation && (effectiveAudioConfirmed || audioContextSpecies.length > 0));
     const audioNearbySummary = $derived(audioContextSpecies.join(', '));
+    const audioFactValue = $derived.by(() => {
+        if (effectiveAudioConfirmed) {
+            return effectiveAudioSpecies ?? $_('detection.fact_heard_yes', { default: 'matching call' });
+        }
+        if (audioContextLoading) return $_('common.loading');
+        if (audioContextError || !audioContextLoaded) return $_('common.unavailable');
+        return $_('detection.fact_heard_no', { default: 'no matching call' });
+    });
 
     // Pick the best audioContext entry to render its BirdNET-Go spectrogram
     // alongside the audio match card. When the visual detection was audio-
@@ -618,7 +629,9 @@
         && !reclassifyProgress
     );
     const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available !== false);
-    const fullFrameSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'full_frame') ?? null);
+    const fullFrameSnapshotCandidate = $derived(
+        findMatchingFullFrameCandidate(snapshotCandidates, currentSnapshotCandidateId)
+    );
 
     // The stored snapshot is often a crop, so filling the panel with it would hide the rest
     // of the frame. The toggle is what makes filling safe: nothing is lost, it is one tap away.
@@ -1247,33 +1260,25 @@
         pendingManualTagId = requestedSpecies;
         try {
             const result = await updateDetectionSpecies(detection.frigate_event, requestedSpecies);
-            const appliedSpecies = result.new_species || result.species || requestedSpecies;
-            const nextDetection = {
-                ...detection,
-                display_name: appliedSpecies,
-                category_name: selection.scientific_name ?? selection.display_name ?? requestedSpecies,
-                manual_tagged: true,
-                scientific_name: selection.scientific_name ?? detection.scientific_name,
-                common_name: selection.common_name ?? detection.common_name,
-                ai_analysis: null,
-                ai_analysis_timestamp: null,
-            };
-            detection.display_name = appliedSpecies;
-            detection.category_name = nextDetection.category_name;
-            detection.manual_tagged = true;
-            detection.scientific_name = nextDetection.scientific_name;
-            detection.common_name = nextDetection.common_name;
-            detection.ai_analysis = null;
-            detection.ai_analysis_timestamp = null;
+            const nextDetection = applyManualTagResult(detection, result);
+            Object.assign(detection, nextDetection);
             detectionsStore.updateDetection(nextDetection);
             showTagDropdown = false;
             tagSearchQuery = '';
-            aiAnalysis = null; // Reset AI analysis for new species
-            const names = getResultNames(selection);
-            const successLabel = names.primary || appliedSpecies;
-            toastStore.success(
-                `${$_('notifications.event_reclassify', { default: 'Reclassification complete' })}: ${successLabel}`
-            );
+            aiAnalysis = nextDetection.ai_analysis ?? null;
+            const successLabel = getBirdNames(nextDetection, showCommon, preferSci).primary;
+            if (result.status === 'unchanged') {
+                toastStore.success(
+                    $_('notifications.species_confirmed', {
+                        values: { species: successLabel },
+                        default: '{species} confirmed'
+                    })
+                );
+            } else {
+                toastStore.success(
+                    `${$_('notifications.event_reclassify', { default: 'Reclassification complete' })}: ${successLabel}`
+                );
+            }
         } catch (e) {
             toastStore.error($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
         } finally {
@@ -1401,6 +1406,12 @@
     function stageSnapshotCandidate(candidateId: string | null) {
         pendingSnapshotMode = candidateId ? 'candidate' : null;
         pendingSnapshotCandidateId = candidateId;
+    }
+
+    function openSnapshotCandidate(candidate: SnapshotCandidate) {
+        if (!hasOwnerDetectionActions) return;
+        stageSnapshotCandidate(candidate.candidate_id);
+        snapshotRepairOpen = true;
     }
 
     function stageOriginalFrigateSnapshot() {
@@ -2169,7 +2180,9 @@
                         <img
                             src={mediaImageUrl}
                             alt={detection.display_name}
-                            class="relative h-full w-full {mediaView === 'full' ? 'object-contain' : 'object-cover lg:object-cover'}"
+                            class="relative h-full w-full {mediaView === 'full'
+                                ? 'object-contain'
+                                : canShowFullFrame ? 'object-cover' : 'object-contain'}"
                         />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
                         {#if canShowFavoriteAction}
@@ -2206,7 +2219,7 @@
                                 </svg>
                             </button>
                         {/if}
-    	                <div class="absolute bottom-0 left-0 right-0 p-5 {scoredFrameStrip.length > 1 ? 'pb-16' : ''}">
+                        <div class="absolute bottom-0 left-0 right-0 p-5 {snapshotOptionStrip.length > 1 ? 'pb-16' : ''}">
                             <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
     	                    {#if subName && subName !== primaryName}
     	                        <p class="text-white/70 text-sm italic drop-shadow -mt-0.5 mb-0.5 truncate">{subName}</p>
@@ -2318,8 +2331,6 @@
                 </svg>
             </button>
         {/if}
-
-            
                 {#if canShowFullFrame}
                     <div class="absolute left-3 top-3 z-20 flex gap-1 rounded-lg bg-slate-950/55 p-1 backdrop-blur-sm" data-detection-media-toggle>
                         <button
@@ -2345,27 +2356,29 @@
                     </div>
                 {/if}
 
-                {#if scoredFrameStrip.length > 1}
-                    <!-- The frames the classifier actually scored, so the panel shows its working. -->
+                {#if snapshotOptionStrip.length > 1}
+                    <!-- These are ranked display-snapshot options, not a frame-by-frame account
+                         of the identification that produced the detection. -->
                     <div class="absolute inset-x-0 bottom-0 z-20 flex items-center gap-1.5 bg-gradient-to-t from-slate-950/85 to-transparent px-3 pb-3 pt-6" data-detection-frame-strip>
                         <span class="shrink-0 text-[10px] font-semibold text-white/60">
-                            {$_('detection.frames_scanned', {
-                                values: { count: scoredFrameStrip.length },
-                                default: '{count} frames scanned'
+                            {$_('detection.snapshot_options', {
+                                values: { count: snapshotOptionStrip.length },
+                                default: '{count} snapshot options'
                             })}
                         </span>
                         <div class="flex min-w-0 gap-1.5 overflow-x-auto">
-                            {#each scoredFrameStrip as candidate (candidate.candidate_id)}
+                            {#each snapshotOptionStrip as candidate (candidate.candidate_id)}
                                 <button
                                     type="button"
-                                    class="shrink-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {candidate.selected
+                                    class="min-h-11 min-w-11 shrink-0 rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {candidate.selected
                                         ? 'ring-2 ring-brand-400'
                                         : 'opacity-70 hover:opacity-100'}"
                                     title={candidate.classifier_label ?? undefined}
-                                    onclick={(event) => {
-                                        event.stopPropagation();
-                                        snapshotRepairOpen = true;
-                                    }}
+                                    aria-label={$_('detection.snapshot_option_aria', {
+                                        values: { source: snapshotSourceLabel(candidate.source_mode) },
+                                        default: 'Open {source} snapshot option'
+                                    })}
+                                    onclick={(event) => { event.stopPropagation(); openSnapshotCandidate(candidate); }}
                                 >
                                     <img
                                         src={candidate.thumbnail_url ?? undefined}
@@ -2440,16 +2453,23 @@
                     {#if speciesInfo?.thumbnail_url}
                         <!-- A reference photograph of the species, so the camera frame has something
                              to be compared against without leaving the view. -->
-                        <img
-                            src={speciesInfo.thumbnail_url}
-                            alt={$_('detection.species_reference_alt', {
-                                values: { species: primaryName },
-                                default: 'Reference photograph of {species}'
-                            })}
-                            loading="lazy"
-                            class="h-12 w-12 shrink-0 rounded-full border border-slate-200 object-cover dark:border-slate-700"
-                            data-detection-species-reference
-                        />
+                        {#if failedSpeciesReferenceUrl === speciesInfo.thumbnail_url}
+                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500" aria-hidden="true" data-detection-species-reference-placeholder>
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 18 9 13l3 3 2-2 6 6M15 8h.01M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                            </span>
+                        {:else}
+                            <img
+                                src={speciesInfo.thumbnail_url}
+                                alt={$_('detection.species_reference_alt', {
+                                    values: { species: primaryName },
+                                    default: 'Reference photograph of {species}'
+                                })}
+                                loading="lazy"
+                                onerror={() => { failedSpeciesReferenceUrl = speciesInfo?.thumbnail_url ?? null; }}
+                                class="h-12 w-12 shrink-0 rounded-full border border-slate-200 object-cover dark:border-slate-700"
+                                data-detection-species-reference
+                            />
+                        {/if}
                     {/if}
                     <div class="min-w-0">
                         <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>
@@ -2649,23 +2669,21 @@
                     <div class="flex items-baseline justify-between gap-3 py-2">
                         <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                             <svg class="h-3.5 w-3.5 shrink-0 text-indigo-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2" /></svg>
-                            {$_('detection.fact_frigate', { default: 'Frigate agreed' })}
+                            {$_('detection.fact_frigate', { default: 'Frigate bird score' })}
                         </dt>
                         <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
                             {Math.round((detection.frigate_score || 0) * 100)}%
                         </dd>
                     </div>
                 {/if}
-                {#if birdnetEnabled}
+                {#if birdnetEnabled && !isManualObservation}
                 <div class="flex items-baseline justify-between gap-3 py-2">
                     <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                         <svg class="h-3.5 w-3.5 shrink-0 text-emerald-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6v11a3 3 0 01-6 0zM5 11a7 7 0 0014 0M12 18v3" /></svg>
                         {$_('detection.fact_heard', { default: 'Heard nearby' })}
                     </dt>
-                    <dd class="text-right font-medium {detection.audio_confirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}">
-                        {detection.audio_confirmed
-                            ? (detection.audio_species ?? $_('detection.fact_heard_yes', { default: 'matching call' }))
-                            : $_('detection.fact_heard_no', { default: 'no matching call' })}
+                    <dd class="text-right font-medium {effectiveAudioConfirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}">
+                        {audioFactValue}
                     </dd>
                 </div>
                 {/if}
@@ -3618,10 +3636,12 @@
                             class="flex-1 rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50"
                             data-detection-confirm
                         >
-                            {$_('actions.confirm_species', {
-                                values: { species: primaryName },
-                                default: 'Confirm {species}'
-                            })}
+                            {updatingTag
+                                ? $_('common.saving')
+                                : $_('actions.confirm_species', {
+                                    values: { species: primaryName },
+                                    default: 'Confirm {species}'
+                                })}
                         </button>
                     {/if}
 

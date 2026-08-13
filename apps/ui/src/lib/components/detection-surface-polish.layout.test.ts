@@ -40,12 +40,16 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toMatch(/data-detection-weather-section[^>]+border-t/);
     });
 
-    it('shows the scored frames and keeps integration rows to instances that have them', () => {
+    it('shows honest snapshot options and keeps integration rows to measured states', () => {
         expect(detectionModalSource).toContain('data-detection-frame-strip');
         // Candidates are owner-gated, so a guest gets no strip rather than an empty one.
         expect(detectionModalSource).toContain('authStore.hasOwnerAccess ? snapshotCandidates.filter');
         // "no matching call" from a disabled BirdNET would report a measurement never taken.
-        expect(detectionModalSource).toContain('{#if birdnetEnabled}');
+        expect(detectionModalSource).toContain('{#if birdnetEnabled && !isManualObservation}');
+        expect(detectionModalSource).toContain('effectiveAudioConfirmed');
+        expect(detectionModalSource).toContain('audioContextLoading');
+        expect(detectionModalSource).toContain("detection.snapshot_options");
+        expect(detectionModalSource).toContain('openSnapshotCandidate(candidate)');
         expect(detectionModalSource).toContain('data-detection-facts');
         expect(detectionModalSource).toContain('data-detection-identity');
     });
@@ -54,8 +58,14 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('data-detection-confirm');
         expect(detectionModalSource).toContain("actions.confirm_species");
         expect(detectionModalSource).toContain("actions.pick_species");
+        expect(detectionModalSource).toContain('applyManualTagResult(detection, result)');
         // Confirming an already-confirmed or unnamed detection is not offered.
         expect(detectionModalSource).toContain('{#if !detection.manual_tagged && !isUnknownSpecies}');
+    });
+
+    it('preserves the complete stored image unless a matching full frame is available', () => {
+        expect(detectionModalSource).toContain('findMatchingFullFrameCandidate');
+        expect(detectionModalSource).toContain("canShowFullFrame ? 'object-cover' : 'object-contain'");
     });
 
     it('discovers late BirdNET context independently of stored audio hints', () => {
