@@ -1,2 +1,2 @@
 # Portable ONNX CPU runtime.
-onnxruntime>=1.27.0
+onnxruntime>=1.28.0

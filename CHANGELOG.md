@@ -17,6 +17,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Dependencies:** Reviewed and consolidated the outstanding runtime, UI, telemetry Worker, and
+  workflow dependency updates against current `dev`. The OpenVINO floor is consistent across both
+  Intel-capable image flavours, CPU ONNX Runtime 1.28 is covered across CPU/Intel/ARM64 paths while
+  the CUDA compatibility ceiling remains unchanged, and the markdown-it 15 migration preserves
+  existing bare-domain links while using its bundled TypeScript declarations. The telemetry test
+  toolchain also overrides its vulnerable transitive Undici range to the patched 7.29 release.
+
 - **Ten more bird facts in the footer ticker**, weighted towards birds that turn up at feeders.
   Broad claims were narrowed to the species, measurement or observation the research supports,
   including chickadee cache recovery after 28 days and the British record of 61 wrens roosting
