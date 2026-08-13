@@ -3,6 +3,7 @@
     import type { Detection } from '../api';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
+    import { fade } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
 
     interface Props {
@@ -129,7 +130,7 @@
     >
         <!-- One frame reads as a portrait; several read as a collage. -->
         <div
-            class="absolute inset-0 grid gap-0.5 {visible.length === 1
+            class="absolute -inset-x-6 inset-y-0 grid gap-1 {visible.length === 1
                 ? 'grid-cols-1'
                 : visible.length === 2
                   ? 'grid-cols-2'
@@ -137,15 +138,21 @@
             aria-hidden="true"
         >
             {#each visible as photo, index (index)}
-                <span class="relative block overflow-hidden">
+                <span class="collage-tile relative block overflow-hidden">
                     {#key photo.frigate_event}
-                        <img
-                            src={getThumbnailUrl(photo.frigate_event)}
-                            alt=""
-                            loading="lazy"
-                            decoding="async"
-                            class="collage-frame absolute inset-0 h-full w-full object-cover"
-                        />
+                        <span
+                            class="collage-unskew absolute inset-0 block"
+                            in:fade={{ duration: 1400 }}
+                            out:fade={{ duration: 1400 }}
+                        >
+                            <img
+                                src={getThumbnailUrl(photo.frigate_event)}
+                                alt=""
+                                loading="lazy"
+                                decoding="async"
+                                class="collage-frame h-full w-full object-cover"
+                            />
+                        </span>
                     {/key}
                 </span>
             {/each}
@@ -185,17 +192,6 @@
 <style>
     /* Svelte scopes keyframes, so this one is declared global and referenced by a class
        rather than an inline style, which could not resolve the scoped name. */
-    @keyframes -global-collage-fade {
-        from {
-            opacity: 0;
-            transform: scale(1.06);
-        }
-        to {
-            opacity: 1;
-            transform: scale(1.03);
-        }
-    }
-
     /* A slow drift so a still photograph does not sit dead on the page. */
     @keyframes -global-collage-drift {
         from {
@@ -206,17 +202,24 @@
         }
     }
 
+    /* Skewing the tile and counter-skewing its contents leaves a diagonal seam between
+       photographs while the pictures themselves stay upright. */
+    .collage-tile {
+        transform: skewX(-7deg);
+    }
+
+    .collage-unskew {
+        transform: skewX(7deg) scale(1.18);
+    }
+
     .collage-frame {
-        animation:
-            collage-fade 1600ms ease-out both,
-            collage-drift 14s ease-in-out 1600ms infinite alternate;
-        will-change: transform, opacity;
+        animation: collage-drift 16s ease-in-out infinite alternate;
+        will-change: transform;
     }
 
     @media (prefers-reduced-motion: reduce) {
         .collage-frame {
             animation: none;
-            transform: none;
         }
     }
 </style>
