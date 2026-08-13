@@ -22,6 +22,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   short and landscape layouts, and exposes proper dialog and field semantics. Phone notifications
   now use a safe-area-aware lane beneath the detection close control, which remains anchored while
   detection content scrolls or the device rotates. Desktop notification placement stays unchanged.
+- **The notification view is one timeline instead of two tabs.** A job that failed is the most
+  urgent thing this app can say, and it was filed under a different tab from notifications, one click
+  from the place people look. Jobs, errors, birds and updates now share a single chronological river
+  grouped into Now, Earlier today, Yesterday and Older, filtered by chips that state their size
+  before they are applied. The job manager stays reachable for the controls a timeline cannot carry.
+- **Amber went back to meaning one thing.** Progress bars ran a gradient from the attention colour
+  through brand into sky, spending the one colour reserved for "this needs a person" on the thing you
+  can safely ignore. A job in flight is brand blue; only a failure is amber.
+- **Opening a notification is a real control.** It was a paragraph styled to look like an action,
+  which could not be focused or clicked.
+- **Owner-only filters are hidden rather than shown returning zero**, and a filter left selected as
+  access changes falls back instead of stranding a guest on an empty list.
+- **The empty page says what will fill it** and offers the field log, rather than reporting that it
+  holds nothing across an otherwise blank screen.
 
 - **Update notifications now converge within minutes instead of potentially remaining stale for
   half a day.** The telemetry version endpoint reads CI's promoted D1 row without an isolate-local
