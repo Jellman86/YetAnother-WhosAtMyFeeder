@@ -8,6 +8,7 @@ export interface NotificationMeta {
     total?: number;
     processed?: number;
     kind?: string;
+    status?: 'queued' | 'running' | 'stale' | 'completed' | 'failed';
     stale?: boolean;
     open_label?: string;
 }

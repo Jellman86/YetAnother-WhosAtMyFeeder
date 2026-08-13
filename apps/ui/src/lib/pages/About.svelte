@@ -128,15 +128,16 @@
     ]);
 </script>
 
-<div class="mx-auto max-w-5xl space-y-6">
+<!-- No self-imposed width: the owner PageHeader above uses the shell width, and a
+     narrower page below it reads as a mismatched second header. -->
+<div class="space-y-6">
     <!-- Colophon: what this is, in plain sentences -->
     <section id="about-project" aria-labelledby="about-project-heading" class="space-y-4 px-1 pt-2">
         <div class="flex items-start gap-4">
             <div class="min-w-0">
-                <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
-                    {$_('nav.about', { default: 'About' })}
-                </p>
-                <h2 id="about-project-heading" class="mt-1 font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white">
+                <!-- The PageHeader already says "About" for owners; repeating it here was the
+                     second half of the doubled heading. -->
+                <h2 id="about-project-heading" class="font-display text-3xl font-bold leading-tight text-slate-900 dark:text-white">
                     {$_('app.full_title', { default: 'Yet Another WhosAtMyFeeder' })}
                 </h2>
             </div>
