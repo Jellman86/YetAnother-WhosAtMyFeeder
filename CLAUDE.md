@@ -169,6 +169,15 @@ sources — is [`docs/standards/code-quality.md`](docs/standards/code-quality.md
 The full researched standard — the 10 heuristics, WCAG 2.2 AA checklist, and Refactoring UI
 craft rules, with authoritative sources — is [`docs/standards/ui-ux.md`](docs/standards/ui-ux.md).
 
+- **Layouts follow the established page shapes.** The Dashboard, the observation flow, and About
+  share one design language: a single time window per surface, visits rather than raw frames, work
+  that needs a person stated in words with amber reserved for it, small captures that open on hover
+  *and* keyboard focus, and never claiming a state that has not been measured. Before changing or
+  adding a screen, read
+  [`docs/standards/layout-patterns.md`](docs/standards/layout-patterns.md) — it records the three
+  page shapes, which component belongs where, the hover pop-out accessibility contract, and the
+  writing rules (including no em dashes).
+
 ## 6. Definition of done
 
 A change is done when **all** of these hold:

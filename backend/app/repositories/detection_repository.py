@@ -131,10 +131,10 @@ def _normalize_mapping_key(value: str | None) -> str:
 
 def _parse_mapping_filter_values(mapping_value: str | None) -> tuple[bool, set[str]]:
     if not isinstance(mapping_value, str):
-        return True, set()
+        return False, set()
     tokens = {_normalize_mapping_key(token) for token in re.split(r"[,\n;|]+", mapping_value)}
     tokens.discard("")
-    if not tokens or "*" in tokens:
+    if "*" in tokens:
         return True, set()
     return False, tokens
 
@@ -1602,16 +1602,18 @@ class DetectionRepository:
         frigate_event: str | None = None,
     ) -> list[Detection]:
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
+        needs_taxonomy_cache = bool(has_taxonomy_cache and (species or species_any or taxa_id is not None))
         query = (
             """
             SELECT """
+            + ("DISTINCT " if needs_taxonomy_cache else "")
             + DETECTION_SELECT_COLUMNS
             + """
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
         )
-        if has_taxonomy_cache:
+        if needs_taxonomy_cache:
             query += """
             LEFT JOIN taxonomy_cache tc_filter
                 ON ((d.scientific_name IS NOT NULL AND LOWER(tc_filter.scientific_name) = LOWER(d.scientific_name))
@@ -1635,7 +1637,7 @@ class DetectionRepository:
             species_condition, species_params = await self._build_canonical_species_condition(
                 detection_alias="d",
                 species_name=species,
-                has_taxonomy_cache=has_taxonomy_cache,
+                has_taxonomy_cache=needs_taxonomy_cache,
             )
             conditions.append(species_condition)
             params.extend(species_params)
@@ -1646,7 +1648,7 @@ class DetectionRepository:
                 clause, clause_params = await self._build_canonical_species_condition(
                     detection_alias="d",
                     species_name=species_name,
-                    has_taxonomy_cache=has_taxonomy_cache,
+                    has_taxonomy_cache=needs_taxonomy_cache,
                 )
                 any_clauses.append(clause)
                 any_params.extend(clause_params)
@@ -1654,7 +1656,7 @@ class DetectionRepository:
                 conditions.append("(" + " OR ".join(any_clauses) + ")")
                 params.extend(any_params)
         if taxa_id is not None:
-            if has_taxonomy_cache:
+            if needs_taxonomy_cache:
                 conditions.append("COALESCE(d.taxa_id, tc_filter.taxa_id) = ?")
             else:
                 conditions.append("d.taxa_id = ?")
@@ -1703,12 +1705,13 @@ class DetectionRepository:
     ) -> int:
         """Get total count of detections, optionally filtered."""
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
-        query = """
-            SELECT COUNT(*)
+        needs_taxonomy_cache = bool(has_taxonomy_cache and (species or species_any or taxa_id is not None))
+        query = f"""
+            SELECT {"COUNT(DISTINCT d.id)" if needs_taxonomy_cache else "COUNT(*)"}
             FROM detections d
             LEFT JOIN detection_favorites f ON f.detection_id = d.id
         """
-        if has_taxonomy_cache:
+        if needs_taxonomy_cache:
             query += """
             LEFT JOIN taxonomy_cache tc_filter
                 ON ((d.scientific_name IS NOT NULL AND LOWER(tc_filter.scientific_name) = LOWER(d.scientific_name))
@@ -1732,7 +1735,7 @@ class DetectionRepository:
             species_condition, species_params = await self._build_canonical_species_condition(
                 detection_alias="d",
                 species_name=species,
-                has_taxonomy_cache=has_taxonomy_cache,
+                has_taxonomy_cache=needs_taxonomy_cache,
             )
             conditions.append(species_condition)
             params.extend(species_params)
@@ -1743,7 +1746,7 @@ class DetectionRepository:
                 clause, clause_params = await self._build_canonical_species_condition(
                     detection_alias="d",
                     species_name=species_name,
-                    has_taxonomy_cache=has_taxonomy_cache,
+                    has_taxonomy_cache=needs_taxonomy_cache,
                 )
                 any_clauses.append(clause)
                 any_params.extend(clause_params)
@@ -1751,7 +1754,7 @@ class DetectionRepository:
                 conditions.append("(" + " OR ".join(any_clauses) + ")")
                 params.extend(any_params)
         if taxa_id is not None:
-            if has_taxonomy_cache:
+            if needs_taxonomy_cache:
                 conditions.append("COALESCE(d.taxa_id, tc_filter.taxa_id) = ?")
             else:
                 conditions.append("d.taxa_id = ?")
@@ -1782,7 +1785,9 @@ class DetectionRepository:
             rows = await cursor.fetchall()
             return [row[0] for row in rows]
 
-    async def get_unique_species_with_taxonomy(self) -> list[tuple[str, str | None, str | None, int | None]]:
+    async def get_unique_species_with_taxonomy(
+        self,
+    ) -> list[tuple[str, str | None, str | None, int | None, int]]:
         """Get unique species, pre-grouped to avoid duplicates from display_name variants.
 
         Strategy:
@@ -1801,10 +1806,10 @@ class DetectionRepository:
         """
         async with self.db.execute(
             """
-            WITH species_distinct AS (
+            WITH species_rows AS (
                 -- Enrich taxa_id from taxonomy_cache when the detection is missing it
                 -- but has a known scientific_name we can join on.
-                SELECT DISTINCT
+                SELECT
                     d.display_name,
                     d.scientific_name,
                     d.common_name,
@@ -1815,12 +1820,34 @@ class DetectionRepository:
                     AND LOWER(tc.scientific_name) = LOWER(d.scientific_name)
                 WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
             ),
+            -- The filter bar shows how many detections each option would return, so the
+            -- count has to be taken over the same grouping the options are built from.
+            group_counts AS (
+                SELECT
+                    COALESCE(
+                        CAST(taxa_id AS TEXT),
+                        LOWER(scientific_name),
+                        LOWER(display_name)
+                    ) AS species_key,
+                    COUNT(*) AS detection_count
+                FROM species_rows
+                GROUP BY species_key
+            ),
+            species_distinct AS (
+                SELECT DISTINCT display_name, scientific_name, common_name, taxa_id
+                FROM species_rows
+            ),
             ranked AS (
                 SELECT
                     display_name,
                     scientific_name,
                     common_name,
                     taxa_id,
+                    COALESCE(
+                        CAST(taxa_id AS TEXT),
+                        LOWER(scientific_name),
+                        LOWER(display_name)
+                    ) AS species_key,
                     ROW_NUMBER() OVER (
                         -- Group all name variants for the same species together:
                         -- first by taxa_id (most canonical), then by scientific_name,
@@ -1838,13 +1865,57 @@ class DetectionRepository:
                     ) AS rn
                 FROM species_distinct
             )
-            SELECT display_name, scientific_name, common_name, taxa_id
+            SELECT
+                ranked.display_name,
+                ranked.scientific_name,
+                ranked.common_name,
+                ranked.taxa_id,
+                COALESCE(group_counts.detection_count, 0) AS detection_count
             FROM ranked
-            WHERE rn = 1
-            ORDER BY display_name ASC
+            LEFT JOIN group_counts ON group_counts.species_key = ranked.species_key
+            WHERE ranked.rn = 1
+            ORDER BY ranked.display_name ASC
             """
         ) as cursor:
             return await cursor.fetchall()
+
+    async def get_camera_counts(self) -> dict[str, int]:
+        """Detections per camera, for the Explorer camera facet."""
+        async with self.db.execute(
+            """
+            SELECT camera_name, COUNT(*)
+            FROM detections
+            WHERE (is_hidden = 0 OR is_hidden IS NULL)
+            GROUP BY camera_name
+            ORDER BY camera_name ASC
+            """
+        ) as cursor:
+            rows = await cursor.fetchall()
+            return {row[0]: row[1] for row in rows if row[0]}
+
+    async def get_facet_totals(self) -> dict[str, int]:
+        """Counts for the facets that are a flag rather than a value."""
+        async with self.db.execute(
+            """
+            SELECT
+                COUNT(*),
+                SUM(CASE WHEN f.detection_id IS NOT NULL THEN 1 ELSE 0 END),
+                SUM(CASE WHEN d.audio_confirmed = 1 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN d.video_classification_status = 'completed' THEN 1 ELSE 0 END)
+            FROM detections d
+            LEFT JOIN detection_favorites f ON f.detection_id = d.id
+            WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+            """
+        ) as cursor:
+            row = await cursor.fetchone()
+            if not row:
+                return {"total": 0, "favorites": 0, "audio_matched": 0, "video_analysed": 0}
+            return {
+                "total": row[0] or 0,
+                "favorites": row[1] or 0,
+                "audio_matched": row[2] or 0,
+                "video_analysed": row[3] or 0,
+            }
 
     async def get_unique_cameras(self) -> list[str]:
         """Get list of unique camera names, sorted alphabetically."""
@@ -1901,6 +1972,13 @@ class DetectionRepository:
                 audio_score,
                 frigate_event,
             ),
+        )
+
+    async def confirm_manual_species_tag(self, *, frigate_event: str) -> None:
+        """Record a human confirmation without rewriting the stored species identity."""
+        await self.db.execute(
+            "UPDATE detections SET manual_tagged = 1 WHERE frigate_event = ?",
+            (frigate_event,),
         )
 
     async def get_favorite_frigate_event_ids(self) -> set[str]:
@@ -1990,12 +2068,20 @@ class DetectionRepository:
         normalized_lookup = _normalize_species_lookup_name(name)
 
         async with self.db.execute(
-            "SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
-            (name, name),
+            """SELECT scientific_name, COALESCE(manual_common_name, common_name), taxa_id,
+                      manual_common_name
+               FROM taxonomy_cache
+               WHERE LOWER(scientific_name) = LOWER(?)
+                  OR LOWER(common_name) = LOWER(?)
+                  OR LOWER(manual_common_name) = LOWER(?)""",
+            (name, name, name),
         ) as cursor:
             row = await cursor.fetchone()
             if row:
                 result = {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
+                has_manual_override = bool(row[3])
+            else:
+                has_manual_override = False
 
         if (
             result["taxa_id"] is None
@@ -2004,7 +2090,8 @@ class DetectionRepository:
             and await self._table_exists("taxonomy_translations")
         ):
             async with self.db.execute(
-                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                """SELECT tc.scientific_name, COALESCE(tc.manual_common_name, tc.common_name),
+                          tc.taxa_id, tt.common_name, tc.manual_common_name
                    FROM taxonomy_translations tt
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
                    WHERE tt.language_code = ?
@@ -2014,7 +2101,11 @@ class DetectionRepository:
             ) as cursor:
                 row = await cursor.fetchone()
                 if row:
-                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    result = {
+                        "scientific_name": row[0],
+                        "common_name": row[1] if row[4] else (row[3] or row[1]),
+                        "taxa_id": row[2],
+                    }
                     return result
 
         # Accent-insensitive fallback for localized names (e.g. "comun" vs "común").
@@ -2027,7 +2118,8 @@ class DetectionRepository:
             and await self._table_exists("taxonomy_translations")
         ):
             async with self.db.execute(
-                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                """SELECT tc.scientific_name, COALESCE(tc.manual_common_name, tc.common_name),
+                          tc.taxa_id, tt.common_name, tc.manual_common_name
                    FROM taxonomy_translations tt
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id
                    WHERE tt.language_code = ?""",
@@ -2036,25 +2128,37 @@ class DetectionRepository:
                 rows = await cursor.fetchall()
             for row in rows:
                 if _normalize_species_lookup_name(row[3]) == normalized_lookup:
-                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    result = {
+                        "scientific_name": row[0],
+                        "common_name": row[1] if row[4] else (row[3] or row[1]),
+                        "taxa_id": row[2],
+                    }
                     return result
 
         # Language-agnostic localized fallback for repair/maintenance paths that
         # do not know the source language of the stored display name.
         if result["taxa_id"] is None and normalized_lookup and await self._table_exists("taxonomy_translations"):
             async with self.db.execute(
-                """SELECT tc.scientific_name, tc.common_name, tc.taxa_id, tt.common_name
+                """SELECT tc.scientific_name, COALESCE(tc.manual_common_name, tc.common_name),
+                          tc.taxa_id, tt.common_name, tc.manual_common_name
                    FROM taxonomy_translations tt
                    JOIN taxonomy_cache tc ON tc.taxa_id = tt.taxa_id"""
             ) as cursor:
                 rows = await cursor.fetchall()
             for row in rows:
                 if _normalize_species_lookup_name(row[3]) == normalized_lookup:
-                    result = {"scientific_name": row[0], "common_name": row[3] or row[1], "taxa_id": row[2]}
+                    result = {
+                        "scientific_name": row[0],
+                        "common_name": row[1] if row[4] else (row[3] or row[1]),
+                        "taxa_id": row[2],
+                    }
                     return result
 
         if result["taxa_id"] is None and normalized_lookup:
-            async with self.db.execute("SELECT scientific_name, common_name, taxa_id FROM taxonomy_cache") as cursor:
+            async with self.db.execute(
+                """SELECT scientific_name, COALESCE(manual_common_name, common_name),
+                          taxa_id, manual_common_name FROM taxonomy_cache"""
+            ) as cursor:
                 rows = await cursor.fetchall()
             for row in rows:
                 if (
@@ -2062,10 +2166,12 @@ class DetectionRepository:
                     or _normalize_species_lookup_name(row[1]) == normalized_lookup
                 ):
                     result = {"scientific_name": row[0], "common_name": row[1], "taxa_id": row[2]}
+                    has_manual_override = bool(row[3])
                     break
 
         if (
             result["taxa_id"] is not None
+            and not has_manual_override
             and language
             and language != "en"
             and await self._table_exists("taxonomy_translations")
@@ -2081,6 +2187,14 @@ class DetectionRepository:
                     result["common_name"] = row[0]
 
         return result
+
+    async def update_common_name_for_scientific_name(self, scientific_name: str, common_name: str | None) -> None:
+        """Apply one effective taxonomy name to existing detections."""
+        await self.db.execute(
+            """UPDATE detections SET common_name = ?
+               WHERE LOWER(scientific_name) = LOWER(?)""",
+            (common_name, scientific_name),
+        )
 
     async def resolve_species_aliases(self, species_name: str, language: str | None = None) -> dict:
         """Resolve a species identifier into taxonomy metadata and matching display labels.
@@ -2831,14 +2945,16 @@ class DetectionRepository:
 
     async def get_species_leaderboard_base(self) -> list[dict]:
         """Get leaderboard base stats per species with taxonomy and time bounds."""
-        query = """
+        canonical_key = self._canonical_key_sql()
+        taxonomy_join = self._taxonomy_join_sql()
+        query = f"""
             SELECT 
-                COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
+                {canonical_key} as unified_id,
                 COUNT(*) as total_count, 
-                MAX(d.scientific_name) as scientific_name, 
-                MAX(d.common_name) as common_name,
+                COALESCE(MAX(tc.scientific_name), MAX(d.scientific_name)) as scientific_name,
+                COALESCE(MAX(tc.manual_common_name), MAX(d.common_name), MAX(tc.common_name)) as common_name,
                 MAX(d.display_name) as display_name,
-                MAX(d.taxa_id) as taxa_id,
+                COALESCE(MAX(d.taxa_id), MAX(tc.taxa_id)) as taxa_id,
                 MIN(d.detection_time) as first_seen,
                 MAX(d.detection_time) as last_seen,
                 AVG(d.score) as avg_confidence,
@@ -2846,8 +2962,9 @@ class DetectionRepository:
                 MIN(d.score) as min_confidence,
                 COUNT(DISTINCT d.camera_name) as camera_count
             FROM detections d
+            {taxonomy_join}
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
-            GROUP BY unified_id
+            GROUP BY {canonical_key}
             ORDER BY total_count DESC
         """
         async with self.db.execute(query) as cursor:
@@ -2882,13 +2999,15 @@ class DetectionRepository:
         - Uses detection_time timestamps (not rollups) so it supports 24h windows.
         - Returns rows for any species that appears in either window; caller can filter to window_count > 0.
         """
-        query = """
+        canonical_key = self._canonical_key_sql()
+        taxonomy_join = self._taxonomy_join_sql()
+        query = f"""
             SELECT
-                COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
-                MAX(d.scientific_name) as scientific_name,
-                MAX(d.common_name) as common_name,
+                {canonical_key} as unified_id,
+                COALESCE(MAX(tc.scientific_name), MAX(d.scientific_name)) as scientific_name,
+                COALESCE(MAX(tc.manual_common_name), MAX(d.common_name), MAX(tc.common_name)) as common_name,
                 MAX(d.display_name) as display_name,
-                MAX(d.taxa_id) as taxa_id,
+                COALESCE(MAX(d.taxa_id), MAX(tc.taxa_id)) as taxa_id,
 
                 SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as window_count,
                 SUM(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN 1 ELSE 0 END) as prev_count,
@@ -2899,10 +3018,11 @@ class DetectionRepository:
                 AVG(CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.score ELSE NULL END) as window_avg_confidence,
                 COUNT(DISTINCT CASE WHEN d.detection_time >= ? AND d.detection_time < ? THEN d.camera_name ELSE NULL END) as window_camera_count
             FROM detections d
+            {taxonomy_join}
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
               AND d.detection_time >= ?
               AND d.detection_time < ?
-            GROUP BY unified_id
+            GROUP BY {canonical_key}
         """
         params = (
             window_start,
@@ -3901,7 +4021,13 @@ class DetectionRepository:
 
     async def get_audio_context(
         self, target_time: datetime, window_seconds: int, mapping_value: Optional[str], limit: int
-    ) -> list[dict]:
+    ) -> tuple[list[dict], int]:
+        """Return audio near ``target_time`` plus how many rows the mapping excluded.
+
+        The count lets a caller distinguish a silent window from one where audio was
+        heard on a microphone this camera is not mapped to; both otherwise present as
+        an empty list.
+        """
         if target_time.tzinfo is None:
             target_time = target_time.replace(tzinfo=timezone.utc)
 
@@ -3924,10 +4050,12 @@ class DetectionRepository:
 
         wildcard_mapping, mapping_keys = _parse_mapping_filter_values(mapping_value)
         results: list[dict] = []
+        suppressed_by_mapping = 0
         for row in rows:
             if not wildcard_mapping:
                 row_keys = _extract_audio_mapping_keys(row[3], row[5])
                 if not row_keys.intersection(mapping_keys):
+                    suppressed_by_mapping += 1
                     continue
             det_time = _parse_datetime(row[0])
             if det_time.tzinfo is None:
@@ -3959,7 +4087,7 @@ class DetectionRepository:
             )
 
         results.sort(key=lambda item: (abs(item["offset_seconds"]), -item["confidence"]))
-        return results[:limit]
+        return results[:limit], suppressed_by_mapping
 
     def _build_audio_history_filter(
         self,

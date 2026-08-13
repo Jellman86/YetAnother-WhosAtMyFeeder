@@ -168,6 +168,14 @@
     let maxCount = $derived(Math.max(...leaderboardSpecies().map(s => s.count || 0), 1));
 
     let topByCount = $derived(sortedSpecies()[0]);
+
+    // The podium replaces the featured card: three species in the space one used, and the
+    // rankings table starts higher up the page.
+    const PODIUM_SIZE = 3;
+    let podium = $derived(leaderboardTableRows(sourceMode).slice(0, PODIUM_SIZE));
+    let podiumMax = $derived(
+        Math.max(...podium.map((item) => rowCountForMode(item, sourceMode) || 0), 1)
+    );
     let topByTrend = $derived(
         span === 'all'
             ? null
@@ -1525,70 +1533,114 @@
             </p>
         </div>
     {:else}
-        <section class="overflow-hidden rounded-[2rem] border border-brand-200/80 bg-gradient-to-br from-brand-50/80 via-white to-accent-50/60 dark:border-brand-800/60 dark:from-brand-950/35 dark:via-slate-900/40 dark:to-accent-950/25" data-leaderboard-featured>
-            <div class="grid lg:grid-cols-[minmax(0,1fr)_17rem]">
-                <div class="p-6 md:p-8">
-                    <div class="flex items-center gap-3 text-sm font-semibold text-brand-700 dark:text-brand-300">
-                        <svg data-leaderboard-section-icon aria-hidden="true" class="h-8 w-8 rounded-xl border border-brand-200 bg-white/80 p-1.5 text-brand-600 dark:border-brand-700 dark:bg-slate-900/60 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" />
-
-                        </svg>
-                        {$_('leaderboard.featured')}
-                    </div>
-                    <div class="mt-5 flex flex-col gap-5 sm:flex-row sm:items-start">
-                        <span
-                            data-leaderboard-species-portrait
-                            class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white/90 bg-white/70 text-brand-500 shadow-md ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:text-brand-300 dark:ring-brand-700"
-                        >
-                            {#if heroPortraitInfo?.thumbnail_url}
-                                <img src={heroPortraitInfo.thumbnail_url} alt="" class="h-full w-full object-cover" />
-                            {:else}
-                                <svg class="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
-                            {/if}
-                        </span>
-                        <div class="min-w-0 flex-1">
-                            <h3 class="text-2xl font-bold text-slate-950 dark:text-white md:text-3xl">{topByCount?.displayName || '—'}</h3>
-                            {#if topByCount?.subName}
-                                <p class="mt-1 text-sm italic text-slate-500 dark:text-slate-400">{topByCount.subName}</p>
-                            {/if}
-                            {#if heroBlurb}
-                                <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">{heroBlurb}</p>
-                            {/if}
-                            <div class="mt-5 flex flex-wrap items-center gap-3">
-                                <button
-                                    type="button"
-                                    onclick={() => topByCount && (selectedSpecies = topByCount.species)}
-                                    class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-brand-500 dark:text-slate-950 dark:hover:bg-brand-400"
-                                >
-                                    {$_('leaderboard.view_details')}
-                                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
-                                </button>
-                                {#if heroSource}
-                                    <a href={heroSource.url} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-2 px-1 text-sm font-semibold text-brand-700 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300">
-                                        {heroSource.source === 'wikipedia' ? $_('actions.read_more_wikipedia') : $_('actions.read_more_source', { values: { source: $_('common.source_inaturalist', { default: 'iNaturalist' }) } })}
-                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 4h6v6m0-6L10 14m-1-8H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" /></svg>
-                                    </a>
-                                {/if}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <dl class="grid grid-cols-2 border-t border-brand-200/70 bg-white/40 dark:border-brand-800/50 dark:bg-slate-950/15 lg:grid-cols-1 lg:border-l lg:border-t-0">
-                    <div class="p-4 lg:px-6"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{selectedCountLabel()}</dt><dd class="mt-1 text-2xl font-bold text-brand-700 dark:text-brand-300">{topByCount?.count?.toLocaleString() || '—'}</dd></div>
-                    <div class="border-l border-brand-200/70 p-4 dark:border-brand-800/50 lg:border-l-0 lg:border-t lg:px-6"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.trend')}</dt><dd class="mt-1 text-lg font-bold text-slate-900 dark:text-white">{span === 'all' ? '—' : formatTrend(topByCount?.delta, topByCount?.percent)}</dd></div>
-                    <div class="border-t border-brand-200/70 p-4 dark:border-brand-800/50 lg:px-6"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.cameras')}</dt><dd class="mt-1 text-lg font-bold text-slate-900 dark:text-white">{(topByCount?.camera_count ?? 0).toLocaleString()}</dd></div>
-                    <div class="border-l border-t border-brand-200/70 p-4 dark:border-brand-800/50 lg:border-l-0 lg:px-6"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.last_seen')}</dt><dd class="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-300">{formatDate(topByCount?.last_seen)}</dd></div>
-                </dl>
+        <section class="border-y border-slate-200 dark:border-slate-700" data-leaderboard-podium>
+            <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-3">
+                <h3 class="flex items-center gap-3 font-display text-base font-bold text-slate-950 dark:text-white">
+                    <svg data-leaderboard-section-icon aria-hidden="true" class="h-8 w-8 rounded-xl border border-brand-200 bg-white/80 p-1.5 text-brand-600 dark:border-brand-800 dark:bg-slate-900/60 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4ZM17 5h2a2 2 0 0 1 0 4h-2M7 5H5a2 2 0 0 0 0 4h2" />
+                    </svg>
+                    {$_('leaderboard.podium_title', { default: 'Top of the period' })}
+                </h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                    {spanLabel()} &middot; {formatRangeCompact(timeline?.window_start, timeline?.window_end)} &middot; {$_('leaderboard.podium_total', {
+                        values: { count: totalDetections.toLocaleString() },
+                        default: '{count} visits'
+                    })}
+                </p>
             </div>
+
+            <ol class="border-t border-slate-200 dark:border-slate-700">
+                {#each podium as item, index (item.species)}
+                    <li
+                        class="grid grid-cols-[1.25rem_2.75rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 border-b border-slate-200/70 py-3 last:border-b-0 sm:grid-cols-[1.25rem_2.75rem_minmax(0,1.1fr)_minmax(0,1.2fr)] dark:border-slate-700/50"
+                        data-leaderboard-podium-row
+                    >
+                        <span class="font-display text-sm text-slate-400 dark:text-slate-500">{index + 1}</span>
+
+                        <button
+                            type="button"
+                            data-leaderboard-species-portrait
+                            class="h-11 w-11 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-700 dark:bg-slate-800"
+                            onclick={() => (selectedSpecies = item.species)}
+                            aria-label={$_('leaderboard.view_species', {
+                                values: { species: item.displayName },
+                                default: 'View {species}'
+                            })}
+                        >
+                            {#if getCachedSpeciesInfo(item.species)?.thumbnail_url}
+                                <img
+                                    src={getCachedSpeciesInfo(item.species)?.thumbnail_url ?? undefined}
+                                    alt=""
+                                    loading="lazy"
+                                    class="h-full w-full object-cover"
+                                />
+                            {/if}
+                        </button>
+
+                        <div class="min-w-0">
+                            <button
+                                type="button"
+                                class="block max-w-full truncate text-left text-sm font-semibold text-slate-900 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-white dark:hover:text-brand-300"
+                                onclick={() => (selectedSpecies = item.species)}
+                            >
+                                {item.displayName}
+                            </button>
+                            {#if item.subName}
+                                <p class="truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</p>
+                            {:else}
+                                <p class="truncate text-xs font-medium text-accent-700 dark:text-accent-300">
+                                    {$_('leaderboard.no_species_assigned', { default: 'No species assigned' })}
+                                </p>
+                            {/if}
+                        </div>
+
+                        <div class="col-span-full flex items-center gap-3 sm:col-span-1">
+                            <span class="flex shrink-0 items-baseline gap-1">
+                                <b class="font-display text-base font-bold tabular-nums text-slate-900 dark:text-white">
+                                    {rowCountForMode(item, sourceMode).toLocaleString()}
+                                </b>
+                                <span class="text-xs text-slate-500 dark:text-slate-400">
+                                    {sourceMode === 'heard'
+                                        ? $_('leaderboard.heard', { default: 'heard' })
+                                        : sourceMode === 'both'
+                                          ? $_('leaderboard.total', { default: 'total' })
+                                          : $_('leaderboard.seen', { default: 'seen' })}
+                                </span>
+                            </span>
+
+                            <span class="h-1.5 min-w-[2.5rem] max-w-[14rem] flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden="true">
+                                <span
+                                    class="block h-full rounded-full bg-brand-500"
+                                    style="width: {Math.max(Math.round((rowCountForMode(item, sourceMode) / podiumMax) * 100), 2)}%"
+                                ></span>
+                            </span>
+
+                            <span class="shrink-0 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+                                {#if sourceMode === 'heard'}
+                                    {item.count
+                                        ? $_('leaderboard.seen_count', {
+                                              values: { count: item.count.toLocaleString() },
+                                              default: '{count} seen'
+                                          })
+                                        : $_('leaderboard.not_seen', { default: 'not seen' })}
+                                {:else if item.heard_count}
+                                    {$_('leaderboard.heard_count', {
+                                        values: { count: item.heard_count.toLocaleString() },
+                                        default: '{count} heard'
+                                    })}
+                                {:else}
+                                    {$_('leaderboard.not_heard', { default: 'not heard' })}
+                                {/if}
+                            </span>
+                        </div>
+                    </li>
+                {/each}
+            </ol>
         </section>
 
-        <dl class="grid border-y border-slate-200 dark:border-slate-700 md:grid-cols-3" data-leaderboard-highlights>
-            <div class="flex min-w-0 items-center gap-3 py-4 md:pr-5">
-                <svg class="h-5 w-5 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V12h4v8M10 20V7h4v13M16 20V4h4v16" /></svg>
-                <div class="min-w-0"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.most_active')}</dt><dd class="truncate font-semibold text-slate-900 dark:text-white">{topByCount?.displayName || '—'} <span class="font-normal text-brand-700 dark:text-brand-300">· {(topByCount?.count || 0).toLocaleString()}</span></dd></div>
-            </div>
+        <dl class="grid border-y border-slate-200 dark:border-slate-700 md:grid-cols-2" data-leaderboard-highlights>
             {#if span !== 'all'}
-                <div class="flex min-w-0 items-center gap-3 border-t border-slate-200 py-4 dark:border-slate-700 md:border-l md:border-t-0 md:px-5">
+                <div class="flex min-w-0 items-center gap-3 py-4 md:border-t-0 md:pr-5">
                     <svg class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 17 5-5 4 4 7-9m-5 0h5v5" /></svg>
                     <div class="min-w-0"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.rising')}</dt><dd class="truncate font-semibold text-slate-900 dark:text-white">{topByTrend?.displayName || '—'} <span class="font-normal text-amber-700 dark:text-amber-300">· {formatTrend(topByTrend?.delta, topByTrend?.percent)}</span></dd></div>
                 </div>

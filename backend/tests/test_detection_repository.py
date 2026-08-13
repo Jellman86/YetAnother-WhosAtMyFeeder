@@ -71,6 +71,7 @@ async def _create_taxonomy_tables(db: aiosqlite.Connection) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             scientific_name TEXT NOT NULL UNIQUE,
             common_name TEXT,
+            manual_common_name TEXT,
             taxa_id INTEGER UNIQUE
         )
     """)

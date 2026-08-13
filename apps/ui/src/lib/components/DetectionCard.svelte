@@ -28,7 +28,7 @@
         selected?: boolean;
         fullVisitAvailable?: boolean;
         fullVisitFetched?: boolean;
-        fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'failed';
+        fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'partial' | 'failed';
     }
 
     let {

@@ -22,6 +22,7 @@ def mock_dependencies():
         mock_frigate.set_sublabel = AsyncMock()
         mock_cache.cache_snapshot = AsyncMock()
         mock_weather.get_current_weather = AsyncMock(return_value={"temperature": 20, "condition_text": "Sunny"})
+        mock_audio.correlate_species = AsyncMock(return_value=(False, None, None))
         mock_taxonomy.get_names = AsyncMock(
             return_value={"scientific_name": "Scientific Name", "common_name": "Common Name"}
         )
@@ -135,6 +136,29 @@ async def test_audio_mismatch_recorded_as_heard(mock_dependencies):
     assert kwargs["audio_confirmed"] is False
     assert kwargs["audio_species"] == "European Robin"
     assert kwargs["audio_score"] == 0.95
+
+
+@pytest.mark.asyncio
+async def test_initial_audio_correlation_checks_visual_species_before_generic_context(mock_dependencies):
+    classifier = MagicMock()
+    classifier.classify_async_live = AsyncMock(return_value=[{"label": "Blue Tit", "score": 0.9, "index": 1}])
+    mock_dependencies["det_service"].filter_and_label.return_value = ({"label": "Blue Tit", "score": 0.9}, {})
+
+    generic_match = MagicMock()
+    generic_match.species = "European Robin"
+    generic_match.confidence = 0.99
+    mock_dependencies["audio"].find_match = AsyncMock(return_value=generic_match)
+    mock_dependencies["audio"].correlate_species = AsyncMock(return_value=(True, "Blue Tit", 0.73))
+
+    processor = EventProcessor(classifier)
+    payload = b'{"after": {"id": "event-species-first", "label": "bird", "camera": "cam1", "start_time": 1700000000}}'
+    await processor.process_mqtt_message(payload)
+
+    _, kwargs = mock_dependencies["det_service"].save_detection.call_args
+    assert kwargs["audio_confirmed"] is True
+    assert kwargs["audio_species"] == "Blue Tit"
+    assert kwargs["audio_score"] == pytest.approx(0.73)
+    mock_dependencies["audio"].correlate_species.assert_awaited_once()
 
 
 @pytest.mark.asyncio

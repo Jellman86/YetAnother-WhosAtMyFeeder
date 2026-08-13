@@ -182,12 +182,15 @@ async def test_species_search_deduplicates_classifier_alias_labels_to_one_canoni
 
         assert response.status_code == 200, response.text
         payload = response.json()
-        assert len(payload) == 1
-        assert payload[0]["id"] == "Parus major"
-        assert payload[0]["scientific_name"] == "Parus major"
-        assert payload[0]["common_name"] == "Great Tit"
-        assert payload[0]["display_name"] == "Parus major"
-        assert payload[0]["taxa_id"] == taxa_id
+        # Assert about the species under test rather than the size of the whole
+        # payload: taxonomy cached by earlier tests can also match this query.
+        matches = [item for item in payload if item["scientific_name"] == "Parus major"]
+        assert len(matches) == 1, f"aliases did not collapse to one species: {payload}"
+        assert matches[0]["id"] == "Parus major"
+        assert matches[0]["common_name"] == "Great Tit"
+        assert matches[0]["display_name"] == "Parus major"
+        assert matches[0]["taxa_id"] == taxa_id
+        assert not [item for item in payload if item["id"] in set(labels)]
     finally:
         async with get_db() as db:
             await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (taxa_id,))
@@ -210,9 +213,12 @@ async def test_species_search_hides_noncanonical_model_labels(client: httpx.Asyn
 
     assert response.status_code == 200, response.text
     payload = response.json()
-    assert len(payload) == 1
-    assert payload[0]["id"] == "Great Tit"
-    assert payload[0]["display_name"] == "Great Tit"
+    # Assert about these labels rather than the size of the whole payload:
+    # taxonomy cached by earlier tests can also match this query.
+    ids = [item["id"] for item in payload]
+    assert "Great Tit" in ids
+    assert "Great tit and allies" not in ids
+    assert "Life (life)" not in ids
 
 
 @pytest.mark.asyncio
@@ -264,3 +270,37 @@ async def test_species_search_includes_cached_non_classifier_taxa_for_blocking(c
             await db.execute("DELETE FROM detections WHERE taxa_id = ?", (taxa_id,))
             await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (taxa_id,))
             await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_species_search_merges_same_species_when_only_one_source_has_a_taxa_id(
+    client: httpx.AsyncClient,
+):
+    """One species must not appear twice because a taxa id resolved for only one source.
+
+    Classifier labels and stored detection labels are both searched. When the same
+    taxon resolves with a taxa id from one and without from the other, the picker
+    showed two identical rows, both marked as already blocked.
+    """
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    resolved = {
+        "Rattus": ("Rattus", "Old World Rats", 44436),
+        "Old World Rats (Rattus rattus)": ("Rattus", "Old World Rats", None),
+    }
+
+    async def fake_lookup(_db, *, label: str, lang: str):
+        return resolved[label]
+
+    with (
+        patch("app.routers.species.get_classifier", return_value=_MockClassifier(list(resolved))),
+        patch("app.routers.species._lookup_species_search_taxonomy", AsyncMock(side_effect=fake_lookup)),
+    ):
+        response = await client.get("/api/species/search?q=rat&limit=20")
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert len(payload) == 1, f"expected one merged species, got {[p['display_name'] for p in payload]}"
+    assert payload[0]["scientific_name"] == "Rattus"
+    assert payload[0]["taxa_id"] == 44436

@@ -1739,6 +1739,10 @@ class AutoVideoClassifierService:
                         source in {"manual", "maintenance"} or frigate_event in self._manual_requested_ids
                     ) and snapshot_fallback_requested():
                         timeout_context["snapshot_fallback_attempted"] = True
+                        await self._broadcast_snapshot_fallback(
+                            frigate_event,
+                            reason="video_timeout",
+                        )
                         snapshot_error = await self._classify_from_snapshot(
                             frigate_event,
                             camera,
@@ -1781,12 +1785,41 @@ class AutoVideoClassifierService:
                     return
                 except VideoClassificationWorkerError as exc:
                     reason_code = exc.reason_code
+                    worker_context = {"error": reason_code}
+                    if snapshot_fallback_requested():
+                        worker_context["snapshot_fallback_attempted"] = True
+                        await self._broadcast_snapshot_fallback(
+                            frigate_event,
+                            reason=reason_code,
+                        )
+                        snapshot_error = await self._classify_from_snapshot(
+                            frigate_event,
+                            camera,
+                            event_data=event_data,
+                            manual_tagged=manual_reclassification_requested(),
+                        )
+                        worker_context["snapshot_fallback_recovered"] = snapshot_error is None
+                        if snapshot_error is not None:
+                            worker_context["snapshot_fallback_error"] = snapshot_error
+                        self._record_diagnostic(
+                            frigate_event,
+                            reason_code=reason_code,
+                            message="Video classification worker failed; snapshot fallback was attempted",
+                            severity="warning" if snapshot_error is None else "error",
+                            context=worker_context,
+                        )
+                        if snapshot_error is None:
+                            self._record_success(frigate_event, source=source)
+                        else:
+                            self._record_failure(frigate_event, snapshot_error, source=source)
+                        return
+
                     self._record_diagnostic(
                         frigate_event,
                         reason_code=reason_code,
                         message="Video classification worker failed before producing results",
                         severity="error",
-                        context={"error": reason_code},
+                        context=worker_context,
                     )
                     await self._update_status(frigate_event, "failed", error=reason_code, broadcast=True)
                     self._record_failure(frigate_event, reason_code, source=source)

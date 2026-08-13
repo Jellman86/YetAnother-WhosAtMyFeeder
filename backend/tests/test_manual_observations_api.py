@@ -135,6 +135,38 @@ async def test_upload_rejects_unsupported_media(client: httpx.AsyncClient):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("filename", "content_type", "limit_name", "expected_detail"),
+    (
+        ("too-large.jpg", "image/jpeg", "MAX_IMAGE_BYTES", "Image exceeds the 0 MB limit."),
+        ("too-large.mp4", "video/mp4", "MAX_VIDEO_BYTES", "Video exceeds the 0 MB limit."),
+    ),
+)
+async def test_upload_size_limit_removes_partial_draft(
+    client: httpx.AsyncClient,
+    filename: str,
+    content_type: str,
+    limit_name: str,
+    expected_detail: str,
+) -> None:
+    from app.services import manual_observation_service as service_module
+
+    service = service_module.manual_observation_service
+    before = set(service.base_dir.iterdir()) if service.base_dir.exists() else set()
+
+    with patch.object(service_module, limit_name, 1):
+        response = await client.post(
+            "/api/manual-observations",
+            files={"media": (filename, b"too large", content_type)},
+        )
+
+    after = set(service.base_dir.iterdir()) if service.base_dir.exists() else set()
+    assert response.status_code == 413
+    assert response.json()["detail"] == expected_detail
+    assert after == before
+
+
+@pytest.mark.asyncio
 async def test_new_upload_purges_expired_unsaved_draft(client: httpx.AsyncClient):
     with patch(
         "app.services.manual_observation_service.manual_observation_service._run_analysis",

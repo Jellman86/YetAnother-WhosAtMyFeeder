@@ -9,7 +9,8 @@ describe('video player canonical full-visit wiring', () => {
         expect(mediaApiSource).not.toContain('clip_variant: options.clipVariant');
 
         expect(videoPlayerSource).toContain('initialFullVisitPromoted');
-        expect(videoPlayerSource).toContain('fullVisitPromoted');
+        expect(videoPlayerSource).toContain('recordingClipState');
+        expect(videoPlayerSource).not.toContain('fullVisitPromoted');
         expect(videoPlayerSource).toContain('const base = getClipUrl(frigateEvent);');
         expect(videoPlayerSource).toContain('getRecordingClipUrl');
         expect(videoPlayerSource).not.toContain("type ClipVariant = 'event' | 'recording'");
@@ -21,10 +22,17 @@ describe('video player canonical full-visit wiring', () => {
     });
 
     it('removes the playback toggle but keeps a full-visit badge and wrapping action row', () => {
-        expect(videoPlayerSource).toContain("fullVisitPromoted\n            ? $_('video_player.full_visit_badge'");
+        expect(videoPlayerSource).toContain("$_('video_player.full_visit_badge'");
         expect(videoPlayerSource).toContain('probeFullVisitPromotion');
         expect(videoPlayerSource).toContain('flex-wrap items-center justify-end gap-2');
         expect(videoPlayerSource).not.toContain("video_player.event_clip_toggle");
         expect(videoPlayerSource).not.toContain("video_player.full_visit_toggle");
+    });
+
+    it('distinguishes a retained partial visit from a complete full visit', () => {
+        expect(mediaApiSource).toContain('RECORDING_CLIP_STATE_HEADER');
+        expect(videoPlayerSource).toContain("'partial'");
+        expect(videoPlayerSource).toContain("video_player.partial_visit_badge");
+        expect(videoPlayerSource).toContain("default: 'Partial visit'");
     });
 });

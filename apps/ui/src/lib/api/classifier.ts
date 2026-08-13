@@ -112,13 +112,7 @@ export async function downloadDefaultModel(): Promise<DownloadModelResult> {
 
 export type ReclassifyResult = paths['/api/events/{event_id}/reclassify']['post']['response'];
 
-export interface UpdateDetectionResult {
-    status: string;
-    event_id: string;
-    old_species?: string;
-    new_species?: string;
-    species?: string;
-}
+export type UpdateDetectionResult = paths['/api/events/{event_id}']['patch']['response'];
 
 export type BulkUpdateDetectionResult = paths['/api/events/bulk/manual-tag']['patch']['response'];
 

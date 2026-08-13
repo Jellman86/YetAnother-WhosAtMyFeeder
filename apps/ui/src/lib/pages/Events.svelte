@@ -20,6 +20,7 @@
         type EventFilterSpecies,
         type SearchResult
     } from '../api';
+    import ExplorerFilters from '../components/ExplorerFilters.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
@@ -54,6 +55,7 @@
     let totalPages = $derived(Math.ceil(totalCount / pageSize));
     let availableSpecies: EventFilterSpecies[] = $state([]);
     let availableCameras: string[] = $state([]);
+    let eventFilters = $state<EventFilters | null>(null);
     type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
     let datePreset = $state<DatePreset>('all');
     let customStartDate = $state('');
@@ -252,6 +254,7 @@
             const filters = await fetchEventFilters({ forceRefresh });
             availableSpecies = (filters as EventFilters).species;
             availableCameras = (filters as EventFilters).cameras;
+            eventFilters = filters as EventFilters;
             if (includeAuxiliary) {
                 const [labels, hidden] = await Promise.all([
                     fetchClassifierLabels().catch(() => ({ labels: [] })),
@@ -857,8 +860,12 @@
 
     async function handleFetchFullVisit(event: Detection) {
         try {
-            await fullVisitStore.fetchFullVisit(event.frigate_event);
-            toastStore.success($_('video_player.full_visit_ready', { default: 'Full visit clip ready' }));
+            const complete = await fullVisitStore.fetchFullVisit(event.frigate_event);
+            if (complete) {
+                toastStore.success($_('video_player.full_visit_ready', { default: 'Full visit clip ready' }));
+            } else {
+                toastStore.warning($_('video_player.partial_visit_ready', { default: 'A partial visit is ready; retry shortly for the complete clip.' }));
+            }
         } catch (e) {
             const message = e instanceof Error ? e.message : $_('video_player.full_visit_failed', { default: 'Could not fetch full visit clip' });
             toastStore.error(message);
@@ -1072,167 +1079,81 @@
         </div>
     {/if}
 
-    <section data-events-filter-bar class="space-y-3 border-y border-slate-200 py-4 dark:border-slate-700">
-        <div class="grid gap-3 lg:grid-cols-3">
-            <select bind:value={datePreset} onchange={loadEvents} aria-label={$_('events.filters.all_time')} class="select-base min-w-0 w-full shadow-none">
-                <option value="all">{$_('events.filters.all_time')}</option><option value="today">{$_('common.today')}</option><option value="week">{$_('events.filters.week')}</option><option value="month">{$_('events.filters.month')}</option><option value="custom">{$_('events.filters.custom')}</option>
-            </select>
-            <select bind:value={speciesFilter} onchange={loadEvents} aria-label={$_('events.filters.all_species')} class="select-base min-w-0 w-full shadow-none">
-                <option value="">{$_('events.filters.all_species')}</option>{#each availableSpecies as s}<option value={s.value}>{formatSpeciesLabel(s)}</option>{/each}
-            </select>
-            <select bind:value={cameraFilter} onchange={loadEvents} aria-label={$_('events.filters.all_cameras')} class="select-base min-w-0 w-full shadow-none">
-                <option value="">{$_('events.filters.all_cameras')}</option>{#each availableCameras as c}<option value={c}>{c}</option>{/each}
-            </select>
-        </div>
-        <div class="flex flex-wrap gap-3">
-            <button
-            type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold transition-colors
-                {refreshingFilterOptions
-                    ? 'bg-slate-100 text-slate-500 border-slate-300 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
-                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
-            onclick={() => void refreshEventMetadata(true, true)}
-            disabled={refreshingFilterOptions}
-            title={$_('events.filters.refresh_options', { default: 'Refresh species and camera options' })}
-        >
-            {#if refreshingFilterOptions}
-                <svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 12a8 8 0 018-8m8 8a8 8 0 01-8 8"></path>
-                </svg>
-                <span>{$_('events.filters.refreshing_options', { default: 'Refreshing' })}</span>
-            {:else}
-                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6"></path>
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 9A8 8 0 005.4 5.4L4 6M4 15a8 8 0 0014.6 3.6L20 18"></path>
-                </svg>
-                <span>{$_('events.filters.refresh_options', { default: 'Refresh options' })}</span>
-            {/if}
-            </button>
-            <button
-            type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
-                {favoritesOnly
-                    ? 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-500/50'
-                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
-            onclick={() => {
-                favoritesOnly = !favoritesOnly;
+    <div class="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start" data-explorer-layout>
+        <div class="lg:sticky lg:top-4">
+        <ExplorerFilters
+            species={availableSpecies}
+            cameras={availableCameras}
+            filters={eventFilters}
+            {datePreset}
+            {speciesFilter}
+            {cameraFilter}
+            {favoritesOnly}
+            {audioConfirmedOnly}
+            {showHidden}
+            {hiddenCount}
+            {customStartDate}
+            {customEndDate}
+            canSeeHidden={authStore.hasOwnerAccess}
+            refreshing={refreshingFilterOptions}
+            resultCount={totalCount}
+            onchange={(next) => {
+                if (next.datePreset !== undefined) datePreset = next.datePreset;
+                if (next.speciesFilter !== undefined) speciesFilter = next.speciesFilter;
+                if (next.cameraFilter !== undefined) cameraFilter = next.cameraFilter;
+                if (next.favoritesOnly !== undefined) favoritesOnly = next.favoritesOnly;
+                if (next.audioConfirmedOnly !== undefined) audioConfirmedOnly = next.audioConfirmedOnly;
+                if (next.showHidden !== undefined) showHidden = next.showHidden;
+                if (next.customStartDate !== undefined) customStartDate = next.customStartDate;
+                if (next.customEndDate !== undefined) customEndDate = next.customEndDate;
                 currentPage = 1;
-                void loadEvents();
+                loadEvents();
             }}
-            aria-pressed={favoritesOnly}
-            title={$_('events.filters.favorites', { default: 'Favorites only' })}
-        >
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill={favoritesOnly ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
-            </svg>
-            <span>{$_('events.filters.favorites', { default: 'Favorites' })}</span>
-            </button>
-            <button
-            type="button"
-            class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
-                {audioConfirmedOnly
-                    ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-500/20 dark:text-blue-200 dark:border-blue-500/50'
-                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
-            onclick={() => {
-                audioConfirmedOnly = !audioConfirmedOnly;
+            onclear={() => {
+                datePreset = 'all';
+                speciesFilter = '';
+                cameraFilter = '';
+                favoritesOnly = false;
+                audioConfirmedOnly = false;
+                showHidden = false;
+                customStartDate = '';
+                customEndDate = '';
                 currentPage = 1;
-                void loadEvents();
+                loadEvents();
             }}
-            aria-pressed={audioConfirmedOnly}
-            title={$_('events.filters.audio_confirmed_only', { default: 'Audio confirmed only' })}
-        >
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-            </svg>
-            <span>{$_('events.filters.audio_confirmed', { default: 'Audio Matches' })}</span>
-            </button>
-            {#if authStore.hasOwnerAccess && (hiddenCount > 0 || showHidden)}
-                <button
-                    type="button"
-                    class="inline-flex min-h-11 items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors
-                        {showHidden
-                            ? 'bg-slate-800 text-white border-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:border-slate-200'
-                            : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50 dark:bg-slate-900/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-800'}"
-                    onclick={() => {
-                        showHidden = !showHidden;
-                        currentPage = 1;
-                        void loadEvents();
-                    }}
-                    aria-pressed={showHidden}
-                    title={$_('events.filters.hidden_detections', { default: 'Show hidden detections' })}
-                >
-                    {#if showHidden}
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.457 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.543 7-1.275 4.057-5.065 7-9.543 7-4.477 0-8.268-2.943-9.543-7z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        </svg>
-                    {:else}
-                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                        </svg>
-                    {/if}
-                    <span>{$_('events.filters.hidden', { default: 'Hidden' })}</span>
-                    <span class="inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none {showHidden ? 'bg-white/20 text-white dark:bg-slate-900/15 dark:text-slate-900' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'}">
-                        {hiddenCount}
-                    </span>
-                </button>
-            {/if}
+            onrefresh={() => refreshEventMetadata(true, true)}
+        />
         </div>
-    </section>
 
-    <Pagination {currentPage} {totalPages} totalItems={totalCount} itemsPerPage={pageSize} onPageChange={handlePageChange} onPageSizeChange={handlePageSizeChange} />
+        <div class="min-w-0">
 
-    {#if error}
-        <div class="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
-            {error}
-            <button onclick={loadEvents} class="ml-2 underline">{$_('common.retry')}</button>
-        </div>
-    {/if}
 
-    {#if !loading && timelineBuckets.length > 0}
-        <section data-events-timeline class="border-y border-slate-200 py-3 dark:border-slate-700">
-            <div class="flex flex-wrap items-center gap-2">
-                <button
-                    type="button"
-                    class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
-                        {selectedTimelineBucket === 'all'
-                            ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
-                            : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
-                    onclick={() => selectedTimelineBucket = 'all'}
-                >
-                    <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                        <circle cx="10" cy="10" r="6"></circle>
-                        <path d="M4.5 10h11"></path>
-                    </svg>
-                    <span>{$_('common.all', { default: 'All' })}</span>
-                    <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
-                        {selectedTimelineBucket === 'all'
-                            ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
-                            : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
-                    >
-                        <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                            <path d="M4 14h12"></path>
-                            <path d="M7 14V9M10 14V6M13 14v-3"></path>
-                        </svg>
-                        {events.length}
-                    </span>
-                </button>
-                {#each timelineBuckets as bucket}
+
+        {#if error}
+            <div class="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800">
+                {error}
+                <button onclick={loadEvents} class="ml-2 underline">{$_('common.retry')}</button>
+            </div>
+        {/if}
+
+        {#if !loading && timelineBuckets.length > 0}
+            <section data-events-timeline class="border-y border-slate-200 py-3 dark:border-slate-700">
+                <div class="flex flex-wrap items-center gap-2">
                     <button
                         type="button"
                         class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
-                            {selectedTimelineBucket === bucket.key
+                            {selectedTimelineBucket === 'all'
                                 ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                                 : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
-                        onclick={() => selectedTimelineBucket = bucket.key}
+                        onclick={() => selectedTimelineBucket = 'all'}
                     >
                         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                            <rect x="3" y="4" width="14" height="13" rx="2"></rect>
-                            <path d="M3 8h14"></path>
+                            <circle cx="10" cy="10" r="6"></circle>
+                            <path d="M4.5 10h11"></path>
                         </svg>
-                        <span>{bucket.label}</span>
+                        <span>{$_('common.all', { default: 'All' })}</span>
                         <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
-                            {selectedTimelineBucket === bucket.key
+                            {selectedTimelineBucket === 'all'
                                 ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
                                 : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
                         >
@@ -1240,65 +1161,92 @@
                                 <path d="M4 14h12"></path>
                                 <path d="M7 14V9M10 14V6M13 14v-3"></path>
                             </svg>
-                            {bucket.count}
+                            {events.length}
                         </span>
                     </button>
+                    {#each timelineBuckets as bucket}
+                        <button
+                            type="button"
+                            class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
+                                {selectedTimelineBucket === bucket.key
+                                    ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
+                                    : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
+                            onclick={() => selectedTimelineBucket = bucket.key}
+                        >
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                <rect x="3" y="4" width="14" height="13" rx="2"></rect>
+                                <path d="M3 8h14"></path>
+                            </svg>
+                            <span>{bucket.label}</span>
+                            <span class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold normal-case tracking-normal
+                                {selectedTimelineBucket === bucket.key
+                                    ? 'bg-brand-200/80 dark:bg-brand-400/25 text-brand-800 dark:text-brand-100'
+                                    : 'bg-slate-100 dark:bg-slate-700/60 text-slate-700 dark:text-slate-200'}"
+                            >
+                                <svg class="h-3 w-3" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                    <path d="M4 14h12"></path>
+                                    <path d="M7 14V9M10 14V6M13 14v-3"></path>
+                                </svg>
+                                {bucket.count}
+                            </span>
+                        </button>
+                    {/each}
+                </div>
+                <p class="mt-2 hidden items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 sm:inline-flex">
+                    <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                        <path d="M6 7h8M6 10h8M6 13h5"></path>
+                        <rect x="3" y="4" width="14" height="12" rx="2"></rect>
+                    </svg>
+                    {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
+                </p>
+            </section>
+        {/if}
+
+        {#if !loading && visibleEvents.length === 0}
+            <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700">
+                <svg class="mx-auto mb-4 h-10 w-10 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.5 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.3-2.3L2 20" />
+                    <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3m4-3.25V21M7 18a6 6 0 0 0 3.8-10.6" />
+                </svg>
+                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
+            </div>
+        {:else}
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {#each visibleEvents as event, index (eventKey(event))}
+                    <DetectionCard 
+                        detection={event} 
+                        {index}
+                        onclick={() => handleEventCardClick(event)}
+                        onPlay={() => {
+                            videoEventId = event.frigate_event;
+                            videoShareToken = null;
+                            videoPlayIntent = 'user';
+                            showVideo = true;
+                            selectedEvent = null;
+                        }}
+                        onFetchFullVisit={recordingClipFetchEnabled ? () => handleFetchFullVisit(event) : undefined}
+                        fullVisitAvailable={fullVisitAvailability[event.frigate_event] === 'available'}
+                        fullVisitFetched={fullVisitFetchState[event.frigate_event] === 'ready'}
+                        fullVisitFetchState={fullVisitFetchState[event.frigate_event] ?? 'idle'}
+                        hideProgress={selectedEvent?.frigate_event === event.frigate_event}
+                        selectionMode={selectionMode}
+                        selected={selectedEventIds.includes(event.frigate_event)}
+                    />
                 {/each}
             </div>
-            <p class="mt-2 hidden items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 sm:inline-flex">
-                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                    <path d="M6 7h8M6 10h8M6 13h5"></path>
-                    <rect x="3" y="4" width="14" height="12" rx="2"></rect>
-                </svg>
-                {$_('events.timeline_keyboard_hint', { default: 'Timeline keyboard: [ previous day, ] next day, 0 reset' })}
-            </p>
-        </section>
-    {/if}
+        {/if}
 
-    {#if !loading && visibleEvents.length === 0}
-        <div class="border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700">
-            <svg class="mx-auto mb-4 h-10 w-10 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.5 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.3-2.3L2 20" />
-                <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3m4-3.25V21M7 18a6 6 0 0 0 3.8-10.6" />
-            </svg>
-            <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h3>
-            <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
+        <Pagination
+            {currentPage}
+            {totalPages}
+            totalItems={totalCount}
+            itemsPerPage={pageSize}
+            onPageChange={handlePageChange}
+            onPageSizeChange={handlePageSizeChange}
+        />
         </div>
-    {:else}
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {#each visibleEvents as event, index (eventKey(event))}
-                <DetectionCard 
-                    detection={event} 
-                    {index}
-                    onclick={() => handleEventCardClick(event)}
-                    onPlay={() => {
-                        videoEventId = event.frigate_event;
-                        videoShareToken = null;
-                        videoPlayIntent = 'user';
-                        showVideo = true;
-                        selectedEvent = null;
-                    }}
-                    onFetchFullVisit={recordingClipFetchEnabled ? () => handleFetchFullVisit(event) : undefined}
-                    fullVisitAvailable={fullVisitAvailability[event.frigate_event] === 'available'}
-                    fullVisitFetched={fullVisitFetchState[event.frigate_event] === 'ready'}
-                    fullVisitFetchState={fullVisitFetchState[event.frigate_event] ?? 'idle'}
-                    hideProgress={selectedEvent?.frigate_event === event.frigate_event}
-                    selectionMode={selectionMode}
-                    selected={selectedEventIds.includes(event.frigate_event)}
-                />
-            {/each}
-        </div>
-    {/if}
-
-    <Pagination
-        {currentPage}
-        {totalPages}
-        totalItems={totalCount}
-        itemsPerPage={pageSize}
-        onPageChange={handlePageChange}
-        onPageSizeChange={handlePageSizeChange}
-        showPageSize={false}
-    />
+    </div>
 </div>
 
 {#if selectedEvent}

@@ -5,6 +5,7 @@ import json
 import os
 import time
 import uuid
+import weakref
 import aiofiles
 import aiofiles.os
 import structlog
@@ -54,6 +55,16 @@ def _clip_duration_seconds(path: Path) -> Optional[float]:
         return None
 
 
+def _valid_clip_duration_seconds(path: Path) -> Optional[float]:
+    """Measure an on-disk clip only when it clears the minimum size boundary."""
+    try:
+        if path.stat().st_size < _MIN_VALID_CLIP_BYTES:
+            return None
+    except OSError:
+        return None
+    return _clip_duration_seconds(path)
+
+
 class MediaCacheService:
     """Manages local caching of snapshots and clips from Frigate.
 
@@ -66,6 +77,9 @@ class MediaCacheService:
         self._init_error: Optional[str] = None
         self._recording_clip_duration_cache: dict[str, tuple[int, int, Optional[float]]] = {}
         self._recording_clip_listeners: list[RecordingClipListener] = []
+        self._recording_clip_commit_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = (
+            weakref.WeakValueDictionary()
+        )
         try:
             self._ensure_dirs()
         except Exception as e:
@@ -101,6 +115,13 @@ class MediaCacheService:
             self._recording_clip_listeners.remove(listener)
         except ValueError:
             pass
+
+    def _recording_clip_commit_lock(self, event_id: str) -> asyncio.Lock:
+        lock = self._recording_clip_commit_locks.get(event_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._recording_clip_commit_locks[event_id] = lock
+        return lock
 
     async def _emit_recording_clip_cached(self, event_id: str) -> None:
         """Notify listeners after a validated recording clip is available."""
@@ -595,65 +616,109 @@ class MediaCacheService:
                 min_valid_bytes=_MIN_VALID_CLIP_BYTES,
             )
             return None
+        tmp_path: Path | None = None
         try:
             path = self._recording_clip_path(event_id)
-            async with aiofiles.open(path, "wb") as f:
+            tmp_path = path.with_name(f".{path.stem}.{uuid.uuid4().hex}.tmp.mp4")
+            async with aiofiles.open(tmp_path, "wb") as f:
                 await f.write(clip_bytes)
-            self._invalidate_recording_clip_duration_cache(path)
-            log.debug("Cached recording clip", event_id=event_id, size=len(clip_bytes))
-            await self._emit_recording_clip_cached(event_id)
-            return path
+            return await self._commit_recording_clip_candidate(
+                event_id,
+                path=path,
+                tmp_path=tmp_path,
+                total_size=len(clip_bytes),
+            )
         except Exception as e:
             log.error("Failed to cache recording clip", event_id=event_id, error=str(e))
-            try:
-                path = self._recording_clip_path(event_id)
-                await asyncio.to_thread(_unlink_if_present, path)
-                self._invalidate_recording_clip_duration_cache(path)
-            except Exception:
-                pass
             return None
+        finally:
+            if tmp_path is not None:
+                try:
+                    await asyncio.to_thread(_unlink_if_present, tmp_path)
+                except Exception:
+                    pass
+
+    async def _commit_recording_clip_candidate(
+        self,
+        event_id: str,
+        *,
+        path: Path,
+        tmp_path: Path,
+        total_size: int,
+    ) -> Optional[Path]:
+        """Validate and atomically promote a recording candidate without shortening the cache."""
+        if total_size < _MIN_VALID_CLIP_BYTES:
+            log.warning(
+                "Downloaded recording clip is too small to be valid",
+                event_id=event_id,
+                size=total_size,
+                min_valid_bytes=_MIN_VALID_CLIP_BYTES,
+            )
+            return None
+
+        candidate_duration = await asyncio.to_thread(_clip_duration_seconds, tmp_path)
+        if candidate_duration is None or candidate_duration <= 0:
+            log.warning(
+                "Downloaded recording clip duration could not be measured",
+                event_id=event_id,
+                size=total_size,
+            )
+            return None
+
+        async with self._recording_clip_commit_lock(event_id):
+            existing_duration = await asyncio.to_thread(_valid_clip_duration_seconds, path)
+            if existing_duration is not None and candidate_duration <= existing_duration:
+                log.info(
+                    "Retained longer cached recording clip",
+                    event_id=event_id,
+                    existing_duration_seconds=round(existing_duration, 2),
+                    candidate_duration_seconds=round(candidate_duration, 2),
+                )
+                return path
+
+            await asyncio.to_thread(tmp_path.replace, path)
+            self._invalidate_recording_clip_duration_cache(path)
+        log.debug(
+            "Cached recording clip atomically",
+            event_id=event_id,
+            size=total_size,
+            duration_seconds=round(candidate_duration, 2),
+            replaced_duration_seconds=round(existing_duration, 2) if existing_duration is not None else None,
+        )
+        await self._emit_recording_clip_cached(event_id)
+        return path
 
     async def cache_recording_clip_streaming(self, event_id: str, chunks) -> Optional[Path]:
         """Cache a recording clip from a stream of chunks."""
         if not self._available:
             log.warning("Media cache unavailable; skipping recording clip cache write", error=self._init_error)
             return None
+        tmp_path: Path | None = None
         try:
             path = self._recording_clip_path(event_id)
+            tmp_path = path.with_name(f".{path.stem}.{uuid.uuid4().hex}.tmp.mp4")
             total_size = 0
-            async with aiofiles.open(path, "wb") as f:
+            async with aiofiles.open(tmp_path, "wb") as f:
                 async for chunk in chunks:
                     if chunk:
                         await f.write(chunk)
                         total_size += len(chunk)
 
-            if total_size < _MIN_VALID_CLIP_BYTES:
-                log.warning(
-                    "Downloaded recording clip is too small to be valid",
-                    event_id=event_id,
-                    size=total_size,
-                    min_valid_bytes=_MIN_VALID_CLIP_BYTES,
-                )
-                try:
-                    await asyncio.to_thread(_unlink_if_present, path)
-                    self._invalidate_recording_clip_duration_cache(path)
-                except Exception:
-                    pass
-                return None
-
-            self._invalidate_recording_clip_duration_cache(path)
-            log.debug("Cached recording clip (streaming)", event_id=event_id, size=total_size)
-            await self._emit_recording_clip_cached(event_id)
-            return path
+            return await self._commit_recording_clip_candidate(
+                event_id,
+                path=path,
+                tmp_path=tmp_path,
+                total_size=total_size,
+            )
         except Exception as e:
             log.error("Failed to cache recording clip", event_id=event_id, error=str(e))
-            try:
-                path = self._recording_clip_path(event_id)
-                await asyncio.to_thread(_unlink_if_present, path)
-                self._invalidate_recording_clip_duration_cache(path)
-            except Exception:
-                pass
             return None
+        finally:
+            if tmp_path is not None:
+                try:
+                    await asyncio.to_thread(_unlink_if_present, tmp_path)
+                except Exception:
+                    pass
 
     def get_clip_path(self, event_id: str) -> Optional[Path]:
         """Get path to a cached clip if it exists and has content.
@@ -712,7 +777,15 @@ class MediaCacheService:
                         path,
                         stat_result=stat_result,
                     )
-                    if actual_duration is not None and actual_duration < float(min_duration_seconds):
+                    if actual_duration is None:
+                        log.warning(
+                            "Cached recording clip duration could not be measured",
+                            event_id=event_id,
+                            min_duration_seconds=round(float(min_duration_seconds), 2),
+                            size=size,
+                        )
+                        return None
+                    if actual_duration < float(min_duration_seconds):
                         log.info(
                             "Retained usable partial recording clip",
                             event_id=event_id,

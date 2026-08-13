@@ -101,7 +101,9 @@ export interface components {
     AudioContextDetectionResponse: {
     birdnet_id?: number | null;
     confidence: number;
+    matches_visual?: boolean;
     offset_seconds: number;
+    scientific_name?: string | null;
     sensor_id?: string | null;
     source_name?: string | null;
     species: string;
@@ -429,6 +431,16 @@ export interface components {
     deleted_count: number;
     message: string;
     status: string;
+};
+    CommonNameOverrideRequest: {
+    common_name: string;
+    scientific_name: string;
+};
+    CommonNameOverrideResponse: {
+    effective_common_name?: string | null;
+    manual_common_name?: string | null;
+    provider_common_name?: string | null;
+    scientific_name: string;
 };
     ConnectivityResponse: {
     frigate: components['schemas']['ConnectivityResult'];
@@ -760,14 +772,23 @@ export interface components {
 };
     EventFilterSpecies: {
     common_name?: string | null;
+    count?: number;
     display_name: string;
     scientific_name?: string | null;
     taxa_id?: number | null;
     value: string;
 };
+    EventFilterTotals: {
+    audio_matched?: number;
+    favorites?: number;
+    total?: number;
+    video_analysed?: number;
+};
     EventFilters: {
+    camera_counts?: Record<string, number>;
     cameras: Array<string>;
     species: Array<components['schemas']['EventFilterSpecies']>;
+    totals?: components['schemas']['EventFilterTotals'];
 };
     EventsCountResponse: {
     count: number;
@@ -1040,8 +1061,10 @@ export interface components {
     status: "saved";
 };
     ManualTagResponse: {
+    category_name?: string | null;
     common_name?: string | null;
     event_id: string;
+    manual_tagged: boolean;
     new_species: string;
     old_species?: string | null;
     scientific_name?: string | null;
@@ -1148,6 +1171,13 @@ export interface components {
     missing: number;
     status: string;
 };
+    ReadinessResponse: {
+    db_pool_initialized: boolean;
+    ready: boolean;
+    startup_instance_id: string;
+    startup_started_at: string | null;
+    startup_warnings: Array<Record<string, unknown>>;
+};
     ReclassifyResponse: {
     actual_strategy: "snapshot" | "video";
     event_id: string;
@@ -1171,7 +1201,8 @@ export interface components {
     cached: boolean;
     clip_variant?: "recording";
     event_id: string;
-    status: "ready";
+    recording_state: "complete" | "partial";
+    status: "ready" | "partial";
 };
     ReverseGeocodeResponse: {
     country?: string | null;
@@ -1773,6 +1804,21 @@ export interface components {
     latest_version?: string | null;
     release_url: string;
     update_available: boolean;
+};
+    UptimeBucketResponse: {
+    samples: number;
+    start: string;
+    state: "up" | "down" | "unknown";
+};
+    UptimeWindowResponse: {
+    bucket_minutes: number;
+    buckets: Array<components['schemas']['UptimeBucketResponse']>;
+    heartbeat_interval_minutes: number;
+    longest_gap_minutes: number;
+    longest_gap_start?: string | null;
+    uptime_ratio?: number | null;
+    window_end: string;
+    window_start: string;
 };
     ValidationError: {
     ctx?: Record<string, unknown>;
@@ -3374,6 +3420,33 @@ export interface paths {
       response: Array<components['schemas']['SpeciesCountItem']>;
     };
   };
+  "/api/species/common-name-override": {
+    get: {
+      operationId: "get_common_name_override_api_species_common_name_override_get";
+      path: never;
+      query: {
+    scientific_name: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['CommonNameOverrideResponse'];
+    };
+    put: {
+      operationId: "set_common_name_override_api_species_common_name_override_put";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['CommonNameOverrideRequest'];
+      response: components['schemas']['CommonNameOverrideResponse'];
+    };
+    delete: {
+      operationId: "clear_common_name_override_api_species_common_name_override_delete";
+      path: never;
+      query: {
+    scientific_name: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['CommonNameOverrideResponse'];
+    };
+  };
   "/api/species/search": {
     get: {
       operationId: "search_species_api_species_search_get";
@@ -3508,6 +3581,18 @@ export interface paths {
       response: components['schemas']['DetectionsTimelineSpanResponse'];
     };
   };
+  "/api/stats/uptime": {
+    get: {
+      operationId: "get_uptime_api_stats_uptime_get";
+      path: never;
+      query: {
+    bucket_minutes?: number;
+    hours?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['UptimeWindowResponse'];
+    };
+  };
   "/api/system-telemetry": {
     get: {
       operationId: "get_system_telemetry_api_system_telemetry_get";
@@ -3596,7 +3681,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, unknown>;
     };
   };
   "/metrics": {
@@ -3614,7 +3699,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ReadinessResponse'];
     };
   };
 }

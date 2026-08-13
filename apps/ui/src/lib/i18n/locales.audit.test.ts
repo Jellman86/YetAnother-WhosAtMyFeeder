@@ -45,8 +45,6 @@ const NON_ENGLISH_LOCALES: Array<[string, LocaleRoot]> = [
 ];
 
 const REQUIRED_ACTIVE_KEYS = [
-    'about.feature_list.full_visit_clip.title',
-    'about.feature_list.full_visit_clip.desc',
     'auth.public_view',
     'auth.public_viewing_mode',
     'common.added',
@@ -294,7 +292,6 @@ const MUST_BE_LOCALIZED = [
     'species_detail.copy_diagnostics_bundle',
     'video_player.detection_clip_title',
     'video_player.full_visit_title',
-    'about.feature_list.full_visit_clip.title',
     'detection.snapshot_generate_hint',
     'detection.snapshot_source_full_frame_hint',
     'detection.snapshot_candidate_final_frame',

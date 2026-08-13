@@ -66,8 +66,9 @@ curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
 
 ## Health, Readiness, Version, Streaming
 
-- `GET /health`: process + classifier health.
-- `GET /ready`: startup readiness (returns `503` until ready).
+- `GET /health`: process + classifier health. The response is not cacheable.
+- `GET /ready`: startup readiness (returns `503` until ready). This exact public path is proxied
+  through both monolithic and split frontend deployments and is not cacheable.
 - `GET /api/version`: app version metadata.
 - `GET /api/sse`: Server-Sent Events stream.
   - Supports bearer token or `?token=<jwt>` for EventSource compatibility.
@@ -100,7 +101,8 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 
 - `GET /api/events`
 - `GET /api/events/count`
-- `GET /api/events/filters`
+- `GET /api/events/filters` Species and camera options, each with a detection count, plus totals
+  for the favourites, audio-matched and video-analysed facets. Counts exclude hidden detections.
 - `GET /api/events/hidden-count` (owner)
 - `GET /api/events/{event_id}/classification-status` (owner)
 - `PATCH /api/events/{event_id}` (owner)
@@ -111,6 +113,13 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `DELETE /api/events/{event_id}/favorite` (owner)
 - `POST /api/events/{event_id}/reclassify` (owner)
 - `POST /api/events/{event_id}/classify-wildlife` (owner)
+
+`PATCH /api/events/{event_id}` accepts `{"display_name": "Blue Tit"}`. A successful response
+always includes `manual_tagged: true` and the retained taxonomy fields. If the requested name is
+the current species or another known name for the same taxon, `status` is `unchanged`: YA-WAMF
+records the human confirmation but preserves the stored display, scientific and common names and
+does not create correction feedback. A different species returns `status: "updated"` after the
+canonical taxonomy and manual tag have been committed.
 
 Event rows and `GET /api/events/{event_id}/classification-status` expose
 `video_classification_input_source` when YA-WAMF knows which representation produced the retained
@@ -154,7 +163,8 @@ candidate does not clear the configured promotion threshold. The SSE stream emit
 
 ### Manual observations
 
-- `POST /api/manual-observations` (owner; multipart `media`, returns `202`)
+- `POST /api/manual-observations` (owner; multipart `media`; images up to 25 MiB, videos up to
+  250 MiB; returns `202`)
 - `GET /api/manual-observations/{draft_id}` (owner)
 - `POST /api/manual-observations/{draft_id}/retry` (owner; returns `202`)
 - `POST /api/manual-observations/{draft_id}/confirm` (owner)
@@ -172,6 +182,10 @@ from the retained top classifier result. Detection responses expose confirmed lo
 `observation_latitude`, `observation_longitude`, and `observation_location_source`. Manual media is
 served through the canonical snapshot, thumbnail, and clip routes but is excluded from Frigate
 reconciliation and BirdNET-Go context lookup.
+
+Reverse proxies must permit a 256 MiB request envelope on the exact upload route to accommodate
+multipart overhead and should stream the request body. The backend remains authoritative for the
+per-file limits above.
 
 ### Media Proxy and Share Links
 
@@ -217,9 +231,9 @@ sampled frames; a Frigate crop is available only when `path_data` aligns it with
 tolerance. Full-frame and detector-crop evidence remain available when tracking data is absent.
 
 Notes:
-- `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted full-visit clip exists for the event, this route serves that full-visit file before falling back to the shorter Frigate event clip.
-- `GET /api/frigate/{event_id}/recording-clip.mp4` remains available as an explicit full-visit route and uses the same persisted `{event_id}_recording.mp4` cache file when ready.
-- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint, but with recording clips and the media cache enabled YA-WAMF also generates full-visit clips automatically for eligible completed detections.
+- `GET /api/frigate/{event_id}/clip.mp4` is the canonical YA-WAMF clip route. When a persisted recording exists for the event, this route serves it before falling back to the shorter Frigate event clip. Recording responses expose `X-YAWAMF-Clip-Variant: recording`, `X-YAWAMF-Recording-Clip-State: complete|partial`, and the measured `X-YAWAMF-Recording-Clip-Duration` when available.
+- `GET` and `HEAD /api/frigate/{event_id}/recording-clip.mp4` remain available as explicit full-visit routes and use the same persisted `{event_id}_recording.mp4` cache file. `X-YAWAMF-Recording-Clip-Ready` is `cached` for a complete file and `partial` for a usable shorter file.
+- `POST /api/frigate/{event_id}/recording-clip/fetch` remains available as a manual recovery/warm endpoint. Its response reports `status: ready|partial` and `recording_state: complete|partial`; with recording clips and the media cache enabled YA-WAMF also generates and upgrades full-visit clips automatically for eligible completed detections.
 
 ### Species and Leaderboard
 
@@ -228,6 +242,9 @@ Notes:
 - `GET /api/species/{species_name}/stats`
 - `GET /api/species/{species_name}/info`
 - `GET /api/species/{species_name}/range`
+- `GET /api/species/common-name-override?scientific_name=...` (owner)
+- `PUT /api/species/common-name-override` (owner; preserves the provider name separately)
+- `DELETE /api/species/common-name-override?scientific_name=...` (owner; restores the provider name)
 - `DELETE /api/species/{species_name}/cache` (owner)
 - `GET /api/leaderboard/species`
 
@@ -237,6 +254,10 @@ Notes:
 - `GET /api/stats/detections/daily`
 - `GET /api/stats/detections/timeline`
 - `GET /api/stats/detections/activity-heatmap`
+- `GET /api/stats/uptime` (owner) Availability over a recent window, derived from heartbeat rows
+  written every 5 minutes. Buckets with no heartbeat report `down`; buckets from before the first
+  heartbeat ever recorded report `unknown`, because a fresh install has no history and that is not
+  an outage. Query: `hours` (1 to 168, default 24), `bucket_minutes` (5 to 240, default 60).
 
 ### Classifier and Models
 
@@ -400,7 +421,13 @@ snapshot, not a destructive queue-control API.
   - `GET /api/audio/species`
   - `GET /api/audio/context`
   - `GET /api/audio/context/event/{event_id}` — nearby BirdNET detections for one persisted visual
-    event, using the configured correlation window and camera-to-audio-source mapping
+    event, using the configured correlation window and camera-to-audio-source mapping. Both retain
+    their established array response. The `X-YAWAMF-Audio-Suppressed-By-Mapping` response header
+    counts detections that fell inside the correlation window but were excluded by the mapping, so
+    clients can distinguish "nothing was heard" from "something was heard on an unmapped microphone"
+    without breaking consumers of the response body. Event-scoped rows expose `scientific_name` and
+    `matches_visual`; the latter is true when the row independently confirms the persisted visual
+    species, including audio that arrived after initial event processing.
   - `GET /api/audio/sources`
 
 `GET /api/events` accepts `event_id` for an exact Frigate event lookup. It retains the same guest

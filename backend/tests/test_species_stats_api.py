@@ -448,6 +448,92 @@ async def test_leaderboard_species_uses_canonical_common_name_for_variant_aliase
 
 
 @pytest.mark.asyncio
+async def test_leaderboard_species_backfills_cached_taxonomy_for_legacy_detection(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    suffix = uuid.uuid4().hex[:8]
+    event_id = f"leaderboard-legacy-taxonomy-{suffix}"
+    scientific_name = f"Dryobates pubescens {suffix}"
+    common_name = f"Downy Woodpecker {suffix}"
+    taxa_id = 920000 + int(suffix[:4], 16)
+
+    async with get_db() as db:
+        await db.execute(
+            """
+            INSERT INTO taxonomy_cache (scientific_name, common_name, taxa_id)
+            VALUES (?, ?, ?)
+            """,
+            (scientific_name, common_name, taxa_id),
+        )
+        await db.execute(
+            """
+            INSERT INTO detections (
+                detection_time, detection_index, score, display_name, category_name,
+                frigate_event, camera_name, is_hidden, manual_tagged,
+                scientific_name, common_name, taxa_id
+            ) VALUES (?, 1, 0.93, ?, ?, ?, 'test-camera', 0, 0, ?, NULL, NULL)
+            """,
+            (
+                datetime.now(timezone.utc).isoformat(sep=" "),
+                scientific_name,
+                scientific_name,
+                event_id,
+                scientific_name,
+            ),
+        )
+        await db.commit()
+
+    try:
+        response = await client.get("/api/leaderboard/species?span=month")
+        assert response.status_code == 200, response.text
+        rows = [row for row in response.json()["species"] if row["scientific_name"] == scientific_name]
+        assert len(rows) == 1
+        assert rows[0]["species"] == common_name
+        assert rows[0]["common_name"] == common_name
+        assert rows[0]["taxa_id"] == taxa_id
+
+        all_species_response = await client.get("/api/species")
+        assert all_species_response.status_code == 200, all_species_response.text
+        all_rows = [row for row in all_species_response.json() if row["scientific_name"] == scientific_name]
+        assert len(all_rows) == 1
+        assert all_rows[0]["species"] == common_name
+        assert all_rows[0]["common_name"] == common_name
+        assert all_rows[0]["taxa_id"] == taxa_id
+
+        manual_common_name = f"Back Garden Woodpecker {suffix}"
+        async with get_db() as db:
+            await db.execute(
+                "UPDATE taxonomy_cache SET manual_common_name = ? WHERE taxa_id = ?",
+                (manual_common_name, taxa_id),
+            )
+            await db.commit()
+
+        overridden_window_response = await client.get("/api/leaderboard/species?span=month")
+        assert overridden_window_response.status_code == 200, overridden_window_response.text
+        overridden_window_rows = [
+            row for row in overridden_window_response.json()["species"] if row["scientific_name"] == scientific_name
+        ]
+        assert len(overridden_window_rows) == 1
+        assert overridden_window_rows[0]["species"] == manual_common_name
+        assert overridden_window_rows[0]["common_name"] == manual_common_name
+
+        overridden_all_response = await client.get("/api/species")
+        assert overridden_all_response.status_code == 200, overridden_all_response.text
+        overridden_all_rows = [
+            row for row in overridden_all_response.json() if row["scientific_name"] == scientific_name
+        ]
+        assert len(overridden_all_rows) == 1
+        assert overridden_all_rows[0]["species"] == manual_common_name
+        assert overridden_all_rows[0]["common_name"] == manual_common_name
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+            await db.execute("DELETE FROM taxonomy_cache WHERE taxa_id = ?", (taxa_id,))
+            await db.commit()
+
+
+@pytest.mark.asyncio
 async def test_species_stats_accepts_cyrillic_common_name_and_aggregates_aliases(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False

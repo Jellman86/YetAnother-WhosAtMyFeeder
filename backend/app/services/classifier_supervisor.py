@@ -670,11 +670,15 @@ class ClassifierSupervisor:
                     if assignment is None:
                         continue
                     now = time.monotonic()
-                    last_heartbeat = status.get("last_heartbeat_monotonic")
-                    if (
-                        isinstance(last_heartbeat, (int, float))
-                        and now - float(last_heartbeat) > self._heartbeat_timeout_seconds
-                    ):
+                    last_activity = status.get("last_activity_monotonic")
+                    if not isinstance(last_activity, (int, float)):
+                        last_activity = status.get("last_heartbeat_monotonic")
+                    liveness_reference = (
+                        max(float(last_activity), assignment.started_at)
+                        if isinstance(last_activity, (int, float))
+                        else assignment.started_at
+                    )
+                    if now - liveness_reference > self._heartbeat_timeout_seconds:
                         await self._replace_worker(
                             priority,
                             index,

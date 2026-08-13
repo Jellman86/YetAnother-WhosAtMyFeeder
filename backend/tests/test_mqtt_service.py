@@ -122,6 +122,45 @@ class _FakeMessages:
         return value
 
 
+@pytest.mark.asyncio
+async def test_start_does_not_subscribe_to_birdnet_when_integration_disabled(monkeypatch):
+    service = MQTTService("test+birdnet-disabled")
+    processor = _RecordingProcessor()
+    subscriptions: list[str] = []
+
+    class _FakeClient:
+        def __init__(self, **kwargs):
+            del kwargs
+            self.messages = _FakeMessages([])
+
+        async def __aenter__(self):
+            service.running = False
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            del exc_type, exc, tb
+            return False
+
+        async def subscribe(self, topic):
+            subscriptions.append(topic)
+
+    async def _idle_watchdog(client, frigate_topic):
+        del client, frigate_topic
+
+    monkeypatch.setattr(mqtt_module.settings.frigate, "mqtt_server", "mosquitto", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "mqtt_port", 1883, raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "main_topic", "frigate", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "audio_topic", "birdnet/detections", raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "birdnet_enabled", False, raising=False)
+    monkeypatch.setattr(mqtt_module.settings.frigate, "mqtt_auth", False, raising=False)
+    monkeypatch.setattr(mqtt_module, "Client", _FakeClient)
+    monkeypatch.setattr(service, "_connection_watchdog", _idle_watchdog)
+
+    await service.start(processor)
+
+    assert subscriptions == ["frigate/events", "frigate/available"]
+
+
 def _frigate_payload(event_id: str, event_type: str, false_positive: bool = False) -> bytes:
     return json.dumps(
         {

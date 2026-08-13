@@ -72,17 +72,30 @@ export async function fetchAudioSpeciesLeaderboard(
 
 export type AudioContextDetection = paths['/api/audio/context']['get']['response'][number];
 
+export interface AudioContextResponse {
+    detections: AudioContextDetection[];
+    suppressed_by_mapping: number;
+}
+
+const AUDIO_SUPPRESSED_BY_MAPPING_HEADER = 'X-YAWAMF-Audio-Suppressed-By-Mapping';
+
 export type AudioSourceOption = paths['/api/audio/sources']['get']['response'][number];
 
 export async function fetchEventAudioContext(
     eventId: string,
     signal?: AbortSignal
-): Promise<AudioContextDetection[]> {
+): Promise<AudioContextResponse> {
     const response = await apiFetch(`${API_BASE}/audio/context/event/${encodeURIComponent(eventId)}`, {
         signal,
         timeoutMs: 10_000
     });
-    return handleResponse<AudioContextDetection[]>(response);
+    const detections = await handleResponse<AudioContextDetection[]>(response);
+    const headerValue = response.headers.get(AUDIO_SUPPRESSED_BY_MAPPING_HEADER);
+    const parsedSuppressedCount = headerValue === null ? 0 : Number.parseInt(headerValue, 10);
+    const suppressedByMapping = Number.isFinite(parsedSuppressedCount) && parsedSuppressedCount > 0
+        ? parsedSuppressedCount
+        : 0;
+    return { detections, suppressed_by_mapping: suppressedByMapping };
 }
 
 export async function fetchAudioSources(limit: number = 20): Promise<AudioSourceOption[]> {

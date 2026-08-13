@@ -98,7 +98,7 @@ Include `context` fields in `_record_recent_outcome_locked()`, especially for `a
 Pass classifier context from `classifier_service.py`:
 
 ```python
-context={
+context = {
     "backend": self._inference_backend,
     "provider": self._active_inference_provider,
     "model_id": model_id or self._resolve_active_model_id(),

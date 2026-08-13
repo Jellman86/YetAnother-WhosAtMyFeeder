@@ -46,6 +46,9 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `YA_WAMF_API_KEY` | _(unset)_ | Require `X-API-Key` on all API requests when set. |
 | `CONFIG_FILE` | `/config/config.json` | Path to the persisted config file. |
 | `LOG_LEVEL` | `INFO` | Log verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
+| `DB_PRE_MIGRATION_BACKUP_RETENTION` | `10` | Number of newest automatic pre-migration database backups to keep; values below `1` still retain one restore point. Manual backups are unaffected. |
+| `CONTAINER_LOG_MAX_SIZE` | `10m` | Compose-only size at which the monolithic container's JSON log rotates. |
+| `CONTAINER_LOG_MAX_FILES` | `3` | Compose-only number of rotated monolithic container log files to retain. |
 | `SPECIES_INFO__SOURCE` | `auto` | Species info source: `auto`, `inat`, `wikipedia`. |
 | `DISPLAY__DATE_FORMAT` | `locale` | Date format: `locale`, `mdy`, `dmy`, `ymd`. |
 

@@ -729,9 +729,25 @@
             "title": "Confidence",
             "type": "number"
           },
+          "matches_visual": {
+            "default": false,
+            "title": "Matches Visual",
+            "type": "boolean"
+          },
           "offset_seconds": {
             "title": "Offset Seconds",
             "type": "integer"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
           },
           "sensor_id": {
             "anyOf": [
@@ -2767,6 +2783,74 @@
           "deleted_count"
         ],
         "title": "ClearFeedbackResponse",
+        "type": "object"
+      },
+      "CommonNameOverrideRequest": {
+        "properties": {
+          "common_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Common Name",
+            "type": "string"
+          },
+          "scientific_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Scientific Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scientific_name",
+          "common_name"
+        ],
+        "title": "CommonNameOverrideRequest",
+        "type": "object"
+      },
+      "CommonNameOverrideResponse": {
+        "properties": {
+          "effective_common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Common Name"
+          },
+          "manual_common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual Common Name"
+          },
+          "provider_common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Common Name"
+          },
+          "scientific_name": {
+            "title": "Scientific Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scientific_name"
+        ],
+        "title": "CommonNameOverrideResponse",
         "type": "object"
       },
       "ConnectivityResponse": {
@@ -5279,6 +5363,11 @@
             ],
             "title": "Common Name"
           },
+          "count": {
+            "default": 0,
+            "title": "Count",
+            "type": "integer"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -5317,9 +5406,44 @@
         "title": "EventFilterSpecies",
         "type": "object"
       },
+      "EventFilterTotals": {
+        "description": "Counts for the facets that are a flag rather than a value.",
+        "properties": {
+          "audio_matched": {
+            "default": 0,
+            "title": "Audio Matched",
+            "type": "integer"
+          },
+          "favorites": {
+            "default": 0,
+            "title": "Favorites",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "video_analysed": {
+            "default": 0,
+            "title": "Video Analysed",
+            "type": "integer"
+          }
+        },
+        "title": "EventFilterTotals",
+        "type": "object"
+      },
       "EventFilters": {
         "description": "Available filter options for events.",
         "properties": {
+          "camera_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {},
+            "title": "Camera Counts",
+            "type": "object"
+          },
           "cameras": {
             "items": {
               "type": "string"
@@ -5333,6 +5457,15 @@
             },
             "title": "Species",
             "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/EventFilterTotals",
+            "default": {
+              "audio_matched": 0,
+              "favorites": 0,
+              "total": 0,
+              "video_analysed": 0
+            }
           }
         },
         "required": [
@@ -7213,6 +7346,17 @@
       "ManualTagResponse": {
         "description": "Response returned after applying or skipping a manual species tag.",
         "properties": {
+          "category_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Name"
+          },
           "common_name": {
             "anyOf": [
               {
@@ -7227,6 +7371,10 @@
           "event_id": {
             "title": "Event Id",
             "type": "string"
+          },
+          "manual_tagged": {
+            "title": "Manual Tagged",
+            "type": "boolean"
           },
           "new_species": {
             "title": "New Species",
@@ -7288,7 +7436,8 @@
         "required": [
           "status",
           "event_id",
-          "new_species"
+          "new_species",
+          "manual_tagged"
         ],
         "title": "ManualTagResponse",
         "type": "object"
@@ -7988,6 +8137,50 @@
         "title": "PurgeMissingMediaResponse",
         "type": "object"
       },
+      "ReadinessResponse": {
+        "properties": {
+          "db_pool_initialized": {
+            "title": "Db Pool Initialized",
+            "type": "boolean"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "startup_instance_id": {
+            "title": "Startup Instance Id",
+            "type": "string"
+          },
+          "startup_started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startup Started At"
+          },
+          "startup_warnings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Startup Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ready",
+          "db_pool_initialized",
+          "startup_warnings",
+          "startup_instance_id",
+          "startup_started_at"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
       "ReclassifyResponse": {
         "description": "Response from reclassification.",
         "properties": {
@@ -8167,8 +8360,19 @@
             "title": "Event Id",
             "type": "string"
           },
+          "recording_state": {
+            "enum": [
+              "complete",
+              "partial"
+            ],
+            "title": "Recording State",
+            "type": "string"
+          },
           "status": {
-            "const": "ready",
+            "enum": [
+              "ready",
+              "partial"
+            ],
             "title": "Status",
             "type": "string"
           }
@@ -8176,6 +8380,7 @@
         "required": [
           "event_id",
           "status",
+          "recording_state",
           "cached"
         ],
         "title": "RecordingClipFetchResponse",
@@ -13562,6 +13767,97 @@
         "title": "UpdateStatusResponse",
         "type": "object"
       },
+      "UptimeBucketResponse": {
+        "properties": {
+          "samples": {
+            "title": "Samples",
+            "type": "integer"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "up",
+              "down",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "state",
+          "samples"
+        ],
+        "title": "UptimeBucketResponse",
+        "type": "object"
+      },
+      "UptimeWindowResponse": {
+        "properties": {
+          "bucket_minutes": {
+            "title": "Bucket Minutes",
+            "type": "integer"
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/UptimeBucketResponse"
+            },
+            "title": "Buckets",
+            "type": "array"
+          },
+          "heartbeat_interval_minutes": {
+            "title": "Heartbeat Interval Minutes",
+            "type": "integer"
+          },
+          "longest_gap_minutes": {
+            "title": "Longest Gap Minutes",
+            "type": "integer"
+          },
+          "longest_gap_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longest Gap Start"
+          },
+          "uptime_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime Ratio"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "window_start",
+          "window_end",
+          "bucket_minutes",
+          "heartbeat_interval_minutes",
+          "buckets",
+          "longest_gap_minutes"
+        ],
+        "title": "UptimeWindowResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -14264,7 +14560,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-YAWAMF-Audio-Suppressed-By-Mapping": {
+                "description": "Audio detections in the window excluded by the camera mapping.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -14325,7 +14630,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-YAWAMF-Audio-Suppressed-By-Mapping": {
+                "description": "Audio detections in the window excluded by the camera mapping.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -21925,6 +22239,158 @@
         "summary": "Get Species List"
       }
     },
+    "/api/species/common-name-override": {
+      "delete": {
+        "description": "Clear a common-name override and restore the cached provider value.",
+        "operationId": "clear_common_name_override_api_species_common_name_override_delete",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scientific_name",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Scientific Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonNameOverrideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Clear Common Name Override"
+      },
+      "get": {
+        "description": "Read the manual common-name override for one cached taxon.",
+        "operationId": "get_common_name_override_api_species_common_name_override_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scientific_name",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Scientific Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonNameOverrideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Common Name Override"
+      },
+      "put": {
+        "description": "Set a durable common-name override while retaining provider data.",
+        "operationId": "set_common_name_override_api_species_common_name_override_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommonNameOverrideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonNameOverrideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Set Common Name Override"
+      }
+    },
     "/api/species/search": {
       "get": {
         "description": "Search classifier labels plus cached/stored taxa and return taxonomy info.",
@@ -22609,6 +23075,75 @@
         ]
       }
     },
+    "/api/stats/uptime": {
+      "get": {
+        "description": "Availability over a recent window, derived from heartbeat rows.\n\nA bucket with no heartbeat is reported as down; a bucket from before the first\nheartbeat ever recorded is reported as unknown, because a fresh install has no\nhistory and that is not an outage.",
+        "operationId": "get_uptime_api_stats_uptime_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 168,
+              "minimum": 1,
+              "title": "Hours",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bucket_minutes",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 240,
+              "minimum": 5,
+              "title": "Bucket Minutes",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UptimeWindowResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Uptime",
+        "tags": [
+          "stats"
+        ]
+      }
+    },
     "/api/system-telemetry": {
       "get": {
         "description": "Return one live host-utilization sample for the sidebar's rolling graph.",
@@ -22988,7 +23523,11 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health Check Health Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -23022,7 +23561,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
               }
             },
             "description": "Successful Response"

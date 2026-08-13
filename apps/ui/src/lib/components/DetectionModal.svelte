@@ -18,6 +18,9 @@
         createInaturalistDraft,
         submitInaturalistObservation,
         fetchSpeciesInfo,
+        fetchCommonNameOverride,
+        setCommonNameOverride,
+        clearCommonNameOverride,
         fetchEbirdNearby,
         fetchEbirdNotable,
         fetchClassifierStatus,
@@ -81,7 +84,7 @@
         readOnly?: boolean;
         fullVisitAvailable?: boolean;
         fullVisitFetched?: boolean;
-        fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'failed';
+        fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'partial' | 'failed';
     }
 
     let {
@@ -164,6 +167,7 @@
     let audioContextLoading = $state(false);
     let audioContextLoaded = $state(false);
     let audioContext = $state<AudioContextDetection[]>([]);
+    let audioContextSuppressed = $state(0);
     let audioContextError = $state<string | null>(null);
     let weatherDetailsOpen = $state(false);
     let inatPanelOpen = $state(false);
@@ -186,6 +190,11 @@
     let ebirdNotableLoading = $state(false);
     let ebirdNotableError = $state<string | null>(null);
     let lastEnrichmentKey = $state<string | null>(null);
+    let commonNameEditorOpen = $state(false);
+    let commonNameOverride = $state<string | null>(null);
+    let commonNameOverrideInput = $state('');
+    let commonNameOverrideSaving = $state(false);
+    let commonNameOverrideLoadedFor = $state<string | null>(null);
 
     $effect(() => {
         if (modalElement) {
@@ -347,12 +356,12 @@
         detectionsStore.progressMap.get(detection.frigate_event) || null
     );
     let canPlayVideo = $derived(showVideoButton && !!onPlayVideo && (detection.has_clip || fullVisitFetched) && !reclassifyProgress);
-    let showFetchFullVisitAction = $derived(!!onFetchFullVisit && fullVisitAvailable && !fullVisitFetched && fullVisitFetchState === 'failed' && !reclassifyProgress);
+    let showFetchFullVisitAction = $derived(!!onFetchFullVisit && fullVisitAvailable && !fullVisitFetched && (fullVisitFetchState === 'partial' || fullVisitFetchState === 'failed') && !reclassifyProgress);
     let fullVisitFetchLabel = $derived.by(() => {
         if (fullVisitFetchState === 'fetching') {
             return $_('video_player.fetching_full_visit', { default: 'Fetching...' });
         }
-        if (fullVisitFetchState === 'failed') {
+        if (fullVisitFetchState === 'partial' || fullVisitFetchState === 'failed') {
             return $_('video_player.fetch_full_visit_retry', { default: 'Retry full clip' });
         }
         return $_('video_player.fetch_full_visit', { default: 'Fetch full clip' });
@@ -390,9 +399,27 @@
     // Naming logic
     const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
     const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
-    const naming = $derived(getBirdNames(detection, showCommon, preferSci));
+    const namingDetection = $derived({
+        ...detection,
+        common_name: commonNameOverride ?? detection.common_name
+    });
+    const naming = $derived(getBirdNames(namingDetection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
+    const lateAudioMatch = $derived.by(() => {
+        const matches = audioContext.filter((audio) => audio.matches_visual);
+        if (!matches.length) return null;
+        return [...matches].sort(
+            (a, b) => b.confidence - a.confidence || Math.abs(a.offset_seconds) - Math.abs(b.offset_seconds)
+        )[0];
+    });
+    const effectiveAudioConfirmed = $derived(Boolean(detection.audio_confirmed || lateAudioMatch));
+    const effectiveAudioSpecies = $derived(
+        detection.audio_confirmed ? detection.audio_species : (lateAudioMatch?.species ?? detection.audio_species)
+    );
+    const effectiveAudioScore = $derived(
+        detection.audio_confirmed ? detection.audio_score : (lateAudioMatch?.confidence ?? detection.audio_score)
+    );
     const audioContextSpecies = $derived.by(() => {
         const seen = new Set<string>();
         const values: string[] = [];
@@ -405,7 +432,7 @@
             seen.add(key);
             values.push(normalized);
         };
-        add(detection.audio_species);
+        add(effectiveAudioSpecies);
         for (const species of detection.audio_context_species ?? []) {
             add(species);
         }
@@ -414,7 +441,7 @@
         }
         return values;
     });
-    const hasAudioContext = $derived(!isManualObservation && (detection.audio_confirmed || audioContextSpecies.length > 0));
+    const hasAudioContext = $derived(!isManualObservation && (effectiveAudioConfirmed || audioContextSpecies.length > 0));
     const audioNearbySummary = $derived(audioContextSpecies.join(', '));
 
     // Pick the best audioContext entry to render its BirdNET-Go spectrogram
@@ -423,7 +450,8 @@
     // Otherwise fall back to whichever context entry is closest in time.
     const matchedAudioEntry = $derived.by(() => {
         if (!audioContext.length) return null;
-        const target = (detection.audio_species || '').trim().toLowerCase();
+        if (lateAudioMatch?.birdnet_id != null) return lateAudioMatch;
+        const target = (effectiveAudioSpecies || '').trim().toLowerCase();
         if (target) {
             const match = audioContext.find(
                 (a) => (a.species || '').trim().toLowerCase() === target && a.birdnet_id != null
@@ -504,6 +532,7 @@
         if (detection.observation_source === 'manual_upload') {
             untrack(() => {
                 audioContext = [];
+                audioContextSuppressed = 0;
                 audioContextLoaded = true;
                 audioContextLoading = false;
                 audioContextError = null;
@@ -514,6 +543,7 @@
         const controller = new AbortController();
         untrack(() => {
             audioContext = [];
+            audioContextSuppressed = 0;
             audioContextLoaded = false;
             audioContextLoading = true;
             audioContextError = null;
@@ -523,7 +553,8 @@
             try {
                 const context = await fetchEventAudioContext(eventId, controller.signal);
                 if (controller.signal.aborted || detection.frigate_event !== eventId) return;
-                audioContext = context;
+                audioContext = context.detections;
+                audioContextSuppressed = context.suppressed_by_mapping ?? 0;
                 audioContextLoaded = true;
             } catch (error) {
                 if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) return;
@@ -837,6 +868,73 @@
         }
     }
 
+    async function loadCommonNameOverride(scientificName: string) {
+        commonNameOverrideLoadedFor = scientificName;
+        commonNameEditorOpen = false;
+        try {
+            const result = await fetchCommonNameOverride(scientificName);
+            if (commonNameOverrideLoadedFor !== scientificName) return;
+            commonNameOverride = result.manual_common_name ?? null;
+            commonNameOverrideInput = result.manual_common_name ?? result.effective_common_name ?? '';
+        } catch {
+            if (commonNameOverrideLoadedFor !== scientificName) return;
+            commonNameOverride = null;
+            commonNameOverrideInput = detection.common_name ?? '';
+        }
+    }
+
+    async function saveCommonNameOverride() {
+        const scientificName = detection.scientific_name?.trim();
+        const commonName = commonNameOverrideInput.trim();
+        if (!scientificName || !commonName || commonNameOverrideSaving) return;
+        commonNameOverrideSaving = true;
+        try {
+            const result = await setCommonNameOverride(scientificName, commonName);
+            commonNameOverride = result.manual_common_name ?? null;
+            commonNameOverrideInput = result.effective_common_name ?? commonName;
+            detection.common_name = result.effective_common_name ?? undefined;
+            detectionsStore.updateDetection({ ...detection });
+            commonNameEditorOpen = false;
+            toastStore.success($_('detection.common_name_override_saved', { default: 'Common name updated' }));
+        } catch (error) {
+            toastStore.error(getErrorMessage(error) || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            commonNameOverrideSaving = false;
+        }
+    }
+
+    async function resetCommonNameOverride() {
+        const scientificName = detection.scientific_name?.trim();
+        if (!scientificName || commonNameOverrideSaving) return;
+        commonNameOverrideSaving = true;
+        try {
+            const result = await clearCommonNameOverride(scientificName);
+            commonNameOverride = null;
+            commonNameOverrideInput = result.effective_common_name ?? '';
+            detection.common_name = result.effective_common_name ?? undefined;
+            detectionsStore.updateDetection({ ...detection });
+            commonNameEditorOpen = false;
+            toastStore.success($_('detection.common_name_override_cleared', { default: 'Provider common name restored' }));
+        } catch (error) {
+            toastStore.error(getErrorMessage(error) || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            commonNameOverrideSaving = false;
+        }
+    }
+
+    $effect(() => {
+        const scientificName = detection.scientific_name?.trim();
+        if (!hasOwnerDetectionActions || !scientificName) {
+            commonNameOverrideLoadedFor = null;
+            commonNameOverride = null;
+            commonNameEditorOpen = false;
+            return;
+        }
+        if (commonNameOverrideLoadedFor !== scientificName) {
+            void loadCommonNameOverride(scientificName);
+        }
+    });
+
     async function loadEbirdNearby(speciesName: string, scientificName?: string) {
         ebirdNearbyLoading = true;
         ebirdNearbyError = null;
@@ -928,7 +1026,7 @@
         const needsEbirdNearby = ebirdEnabled && showEbirdNearby;
         const needsEbirdNotable = ebirdEnabled && showEbirdNotable;
         if (needsEbirdNearby) {
-            void loadEbirdNearby(detection.display_name, detection.scientific_name);
+            void loadEbirdNearby(detection.display_name, detection.scientific_name ?? undefined);
         }
         if (needsEbirdNotable) {
             void loadEbirdNotable();
@@ -2560,18 +2658,18 @@
                         </div>
                         <div class="min-w-0">
                             <p class="text-[10px] font-semibold text-brand-600/70 dark:text-brand-400/70">
-                                {detection.audio_confirmed
+                                {effectiveAudioConfirmed
                                     ? $_('detection.audio_match')
                                     : $_('detection.audio_context')}
                             </p>
                             <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
-                                {detection.audio_confirmed
-                                    ? (detection.audio_species || $_('detection.birdnet_confirmed'))
+                                {effectiveAudioConfirmed
+                                    ? (effectiveAudioSpecies || $_('detection.birdnet_confirmed'))
                                     : (audioNearbySummary
                                         ? $_('detection.audio_nearby', { values: { species: audioNearbySummary }, default: 'Nearby audio: {species}' })
                                         : $_('detection.audio_no_match_desc', { default: 'No nearby BirdNET species in the matching window' }))}
-                                {#if detection.audio_score && detection.audio_confirmed}
-                                    <span class="ml-1 opacity-60">({(detection.audio_score * 100).toFixed(0)}%)</span>
+                                {#if effectiveAudioScore && effectiveAudioConfirmed}
+                                    <span class="ml-1 opacity-60">({(effectiveAudioScore * 100).toFixed(0)}%)</span>
                                 {/if}
                             </p>
                         </div>
@@ -2669,7 +2767,7 @@
                                 </figcaption>
                             {/if}
                         </figure>
-                    {:else if detection.audio_confirmed && audioContextLoaded && audioContext.length > 0}
+                    {:else if effectiveAudioConfirmed && audioContextLoaded && audioContext.length > 0}
                         <p class="px-3 py-2 rounded-xl bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-[10px] font-semibold text-slate-500">
                             {$_('detection.audio_spectrogram_unavailable', { default: 'Spectrogram unavailable for this match' })}
                         </p>
@@ -2694,6 +2792,14 @@
                                 <p class="text-[10px] font-semibold text-slate-400">{$_('detection.audio_context_loading')}</p>
                             {:else if audioContextError}
                                 <p class="text-[10px] font-semibold text-rose-500">{audioContextError}</p>
+                            {:else if audioContext.length === 0 && audioContextSuppressed > 0}
+                                <p class="text-[10px] font-semibold text-slate-400">
+                                    {$_('detection.audio_context_suppressed', {
+                                        values: { count: audioContextSuppressed },
+                                        default:
+                                            'Nearby audio was heard, but on a microphone this camera is not mapped to. Change the sensor mapping in Settings to include it.'
+                                    })}
+                                </p>
                             {:else if audioContext.length === 0}
                                 <p class="text-[10px] font-semibold text-slate-400">{$_('detection.audio_context_empty')}</p>
                             {:else}
@@ -3267,6 +3373,61 @@
             {/if}
 
             <!-- Actions -->
+            {#if hasOwnerDetectionActions && detection.scientific_name}
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                {$_('detection.common_name_override', { default: 'Common name' })}
+                            </p>
+                            <p class="truncate text-sm font-bold text-slate-800 dark:text-slate-100">
+                                {commonNameOverride ?? detection.common_name ?? $_('common.unknown_species')}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onclick={() => {
+                                commonNameOverrideInput = commonNameOverride ?? detection.common_name ?? '';
+                                commonNameEditorOpen = !commonNameEditorOpen;
+                            }}
+                            class="shrink-0 rounded-lg bg-white dark:bg-slate-700 px-3 py-2 text-xs font-semibold text-brand-600 dark:text-brand-300 shadow-sm"
+                        >
+                            {$_('detection.common_name_override_edit', { default: 'Edit name' })}
+                        </button>
+                    </div>
+                    {#if commonNameEditorOpen}
+                        <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                            <input
+                                type="text"
+                                maxlength="120"
+                                bind:value={commonNameOverrideInput}
+                                disabled={commonNameOverrideSaving}
+                                aria-label={$_('detection.common_name_override', { default: 'Common name' })}
+                                class="min-w-0 flex-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            />
+                            <button
+                                type="button"
+                                onclick={saveCommonNameOverride}
+                                disabled={!commonNameOverrideInput.trim() || commonNameOverrideSaving}
+                                class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                            >
+                                {commonNameOverrideSaving ? $_('common.saving') : $_('common.save')}
+                            </button>
+                            {#if commonNameOverride}
+                                <button
+                                    type="button"
+                                    onclick={resetCommonNameOverride}
+                                    disabled={commonNameOverrideSaving}
+                                    class="rounded-lg bg-slate-200 dark:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 disabled:opacity-50"
+                                >
+                                    {$_('detection.common_name_override_reset', { default: 'Use provider name' })}
+                                </button>
+                            {/if}
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
             {#if hasOwnerDetectionActions}
                 <div class="flex gap-2">
                     {#if !isManualObservation}

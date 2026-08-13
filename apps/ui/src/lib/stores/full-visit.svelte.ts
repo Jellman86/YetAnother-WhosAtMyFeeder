@@ -1,7 +1,7 @@
 import { checkRecordingClipAvailable, fetchRecordingClip } from '../api';
 
 export type FullVisitAvailabilityState = 'unknown' | 'checking' | 'available' | 'unavailable';
-export type FullVisitFetchState = 'idle' | 'fetching' | 'ready' | 'failed';
+export type FullVisitFetchState = 'idle' | 'fetching' | 'ready' | 'partial' | 'failed';
 
 interface FullVisitStoreOptions {
     maxEntries?: number;
@@ -183,10 +183,15 @@ export class FullVisitStore {
 
         const fetchPromise = (async () => {
             try {
-                await fetchRecordingClip(eventId);
-                this.markFetched(eventId);
+                const result = await fetchRecordingClip(eventId);
+                this.setAvailability(eventId, 'available');
                 this.cancelReprobe(eventId);
-                return true;
+                if (result.recording_state === 'complete') {
+                    this.markFetched(eventId);
+                    return true;
+                }
+                this.setFetchState(eventId, 'partial');
+                return false;
             } catch (error) {
                 const message = error instanceof Error ? error.message : '';
                 if (message.includes('HTTP 404') || message.includes('not found')) {

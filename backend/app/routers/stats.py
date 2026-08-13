@@ -5,18 +5,20 @@ from typing import List, Optional, Literal
 from collections import Counter
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.health_repository import HealthRepository
+from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES, build_uptime_window
 from app.models import APIModel, DetectionResponse
 from app.config import settings
 from app.services.system_telemetry import system_telemetry_sampler
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.weather_service import weather_service
-from app.auth import AuthContext
+from app.auth import AuthContext, require_owner
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.language import get_user_language
 from app.utils.canonical_species import should_hide_species_label, user_facing_species_fields
 from app.utils.audio_localization import localize_audio_species_name
-from app.utils.api_datetime import utc_naive_now
+from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.timezone import get_user_timezone
 
 router = APIRouter()
@@ -857,6 +859,70 @@ async def get_detection_timeline_span(
             sunrise_range=sunrise_range,
             sunset_range=sunset_range,
         )
+
+
+class UptimeBucketResponse(APIModel):
+    start: str
+    state: Literal["up", "down", "unknown"]
+    samples: int
+
+
+class UptimeWindowResponse(APIModel):
+    window_start: str
+    window_end: str
+    bucket_minutes: int
+    heartbeat_interval_minutes: int
+    buckets: list[UptimeBucketResponse]
+    #: Null when nothing was recorded in the window, which is not the same as zero uptime.
+    uptime_ratio: Optional[float] = None
+    longest_gap_minutes: int
+    longest_gap_start: Optional[str] = None
+
+
+@router.get("/stats/uptime", response_model=UptimeWindowResponse)
+async def get_uptime(
+    hours: int = Query(24, ge=1, le=168),
+    bucket_minutes: int = Query(60, ge=5, le=240),
+    auth: AuthContext = Depends(require_owner),
+) -> UptimeWindowResponse:
+    """Availability over a recent window, derived from heartbeat rows.
+
+    A bucket with no heartbeat is reported as down; a bucket from before the first
+    heartbeat ever recorded is reported as unknown, because a fresh install has no
+    history and that is not an outage.
+    """
+    del auth
+    async with get_db() as db:
+        repo = HealthRepository(db)
+        now = datetime.now(timezone.utc)
+        samples = await repo.list_samples_since(now - timedelta(hours=hours))
+        first_recorded_at = await repo.first_sample_at()
+
+    window = build_uptime_window(
+        samples,
+        now=now,
+        hours=hours,
+        bucket_minutes=bucket_minutes,
+        first_recorded_at=first_recorded_at,
+    )
+
+    return UptimeWindowResponse(
+        window_start=serialize_api_datetime(window.window_start),
+        window_end=serialize_api_datetime(window.window_end),
+        bucket_minutes=window.bucket_minutes,
+        heartbeat_interval_minutes=HEARTBEAT_INTERVAL_MINUTES,
+        buckets=[
+            UptimeBucketResponse(
+                start=serialize_api_datetime(bucket.start),
+                state=bucket.state,
+                samples=bucket.samples,
+            )
+            for bucket in window.buckets
+        ],
+        uptime_ratio=window.uptime_ratio,
+        longest_gap_minutes=window.longest_gap_minutes,
+        longest_gap_start=(serialize_api_datetime(window.longest_gap_start) if window.longest_gap_start else None),
+    )
 
 
 @router.get("/stats/detections/activity-heatmap", response_model=DetectionsActivityHeatmapResponse)

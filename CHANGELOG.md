@@ -13,6 +13,239 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   the build pipeline. This restores OpenVINO iGPU hardware acceleration on Gen9/Gen9.5 Intel chips
   without affecting modern driver paths or requiring secondary image tags.
 
+### Changed
+
+- **Explorer replaces five rows of controls with a filter bar and counted facets.** Three stacked
+  selects, three buttons, a page-size picker and a pagination row above the grid are now a single
+  line stating the result count, with applied filters shown as removable tokens and the rest behind
+  a Filters button that opens only when wanted. On a phone this removed roughly 1,290 pixels of
+  chrome that sat between opening the page and seeing the first photograph.
+
+- **Every Explorer filter states how many results it would return.** `GET /api/events/filters` now
+  reports a detection count per species, per camera, and for favourites, audio matches and video
+  analysed, so an option that would return nothing says so before it is chosen. Species counts are
+  taken over the same canonical grouping the options are built from, so name variants of one species
+  count once.
+
+- **The leaderboard opens with a podium instead of a featured card.** The top three species share
+  the space one species used to fill, on hairline rows rather than in a large rounded panel, each
+  showing what was seen and what was heard so a bird that is loud but rarely on camera is visible.
+  The podium follows the Seen, Heard and Both toggle, so it ranks by whichever source is selected.
+  The Wikipedia extract moves to the species detail view, where it was already available, and the
+  Most active tile is gone because it repeated the podium's first row word for word. The rankings
+  table now starts roughly 200px higher up the page.
+
+- **The dashboard is now a field desk: one chronological log of the day with the outstanding work
+  docked beside it.** Repeat frames of the same bird on the same camera within ten minutes fold
+  into a single visit row showing the clearest frame and the best score, so one blackbird landing
+  once no longer prints four cards. The full-height latest-detection hero and the four-metric
+  overview ribbon are replaced by a compact day bar (visits, species, unresolved, calls heard,
+  cross-confirmed) and a **Needs your call** queue listing detections that fell below the naming
+  threshold, oldest first, with Identify available inline on the row. New context cards cover
+  per-camera visit counts with online status, an audio-versus-camera reconciliation that is honest
+  when the two sensors never corroborate each other, and the temperature range visits happened in.
+  The day bar, log, queue and cards all describe the same 24-hour window, so the numbers cannot
+  contradict one another.
+
+- **Small captures now open on hover and on keyboard focus.** Any thumbnail in the log expands to
+  a preview panel with the full frame, score, camera, time and conditions, modelled on the existing
+  header camera popover: it stays open while the pointer travels into it, dismisses with Escape,
+  reuses the thumbnail already fetched rather than a second request, and honours reduced-motion.
+
+- **Adding an observation now shows the evidence at the size you need to judge it.** The review
+  step is media-led: the frame takes the larger half of the screen, and when the classifier scored
+  a crop you can switch between that exact input and your original upload to tell a bad crop from
+  a bad classification. The model, provider, scored input and original filename are listed as
+  evidence rather than left implied by a single badge, and the confirm button names the species
+  it is about to add instead of saying "Add observation".
+
+- **The About page now shows what this instance is actually doing.** The eight-step description
+  of the pipeline is replaced by the same seven steps annotated with live state: cameras online,
+  which classifier is loaded and on which provider, whether BirdNET-Go correlation and
+  notifications are configured, and whether the browser is receiving live updates. A step whose
+  status cannot be read says "unknown" rather than claiming to be healthy, and steps with no
+  status source (the broker, the database) carry no state at all. Two new columns state what is
+  stored in each table and which outbound calls are enabled, so the privacy answer lives on the
+  page rather than across three documents.
+
+- **The About page is now the page, not a brochure.** The eighteen-item feature grid, the
+  technology-stack card, the jump-to nav and the separate resources card are gone. What remains is
+  what the page is for: what this is, how it works with live state on every step, what it stores
+  and sends, the build detail to quote in an issue report, and the credits. The feature list stays
+  documented in the readme and docs.
+
+- **Adding an observation gives the evidence the room.** The gradient intro banner and the 16rem
+  step rail are replaced by a slim bar carrying the filename, the flow status and Start over, so
+  the frame and the candidate list get the width instead of the chrome.
+
+- **"Work through the queue" now opens a walk-through instead of sending you to Explorer.** A
+  distinct full-screen flow takes the unresolved detections one at a time: the frame at full size
+  with its time, camera, score and conditions, and a decision rail offering the species this feeder
+  actually sees, most frequent first, rather than the alphabetical head of an eleven thousand label
+  list. Each item can be identified, hidden as not a bird, skipped for later, or opened in full. It
+  states position and what is left throughout, and closes on an honest summary of what was decided
+  and what was skipped. Where a snapshot scan has already found the crop the classifier scored,
+  the walk-through opens on that crop with a Best crop / Full frame toggle, since a wide feeder
+  shot rarely settles what a low-confidence blur is. Detections without a stored crop say so
+  instead of pretending the full frame is one.
+
+- **About shows how long this instance has been running.** The readiness probe already records
+  when the process started, so "This instance" now states uptime and the time it started, with no
+  new endpoint. The colophon is no longer boxed in a card, since it reads as the page opening
+  rather than as one panel among several.
+
+- **Uptime is now recorded, so About can show it honestly.** The application writes a heartbeat
+  every five minutes to a new `health_samples` table, and `GET /api/stats/uptime` turns those rows
+  into an availability window. About draws the last 24 hours as a strip and names the longest gap,
+  for example "47 minutes missing at 05:40". A bucket with no heartbeat is reported as down, and a
+  bucket from before the first heartbeat ever recorded is reported as unknown rather than as an
+  outage, so a fresh install does not claim a day of downtime. Heartbeats are pruned after seven
+  days.
+
+- **Dashboard and About polish against the agreed designs.** The field log now draws a spine
+  behind the state dots, so the day reads as one thread rather than a stack of unrelated rows, and
+  it says how many earlier visits are not shown instead of stopping silently at twelve. Camera rows
+  keep the count and its unit together and carry the last visit time, so a quiet camera is visibly
+  quiet. About states whether the build is up to date, using the update check that already exists.
+
+### Fixed
+
+- **Review confirmations now persist and leave the queue immediately.** Choosing the species a
+  detection already shows, including a translated alias of the same taxon, records the human
+  confirmation without rewriting its canonical taxonomy or adding false correction feedback. The
+  API and dashboard synchronise `manual_tagged` immediately instead of depending on a later live
+  update.
+
+- **Dashboard review and camera state now follows saved settings.** The review queue uses the
+  configured classification threshold instead of a fixed 60% floor. The camera section shows only
+  selected cameras when a selection exists, keeps configured cameras with unavailable health as
+  unknown, and counts grouped visits rather than raw Frigate frames.
+
+- **Active video workers no longer time out while reporting progress.** Every valid worker protocol
+  event now refreshes liveness, so a long frame-analysis run is not killed merely because a heartbeat
+  and a progress event crossed. Manual and maintenance jobs recover from a genuine worker failure by
+  using the existing snapshot fallback and retain a diagnostic record of the recovery.
+
+- **Every frame in a visit previews itself.** Hovering any thumbnail in a folded group showed the
+  same clearest frame. Each thumbnail is now its own trigger with its own preview, stating which
+  frame it is, and clicking one opens that frame rather than the visit's best.
+
+- **Explorer puts the facets beside the results.** They were hidden behind a Filters button and
+  opened full width above the grid, which is not the layout that was chosen: the facet rail is now
+  persistent alongside the photographs on desktop, and collapses behind the button only where there
+  is no room for it.
+
+- **The field log fits a phone.** Rows were around 225 pixels tall because the action button sat on
+  its own line with nothing beside it, so four visits filled a screen. The action now shares the row,
+  the score and camera appear under the species name instead of being hidden, and the thumbnail
+  stack shows one frame rather than three, which stops long species names truncating. Eight visits
+  now fit where four did. The day bar keeps its live indicator inline, and "See full history" stays
+  on the heading row.
+
+- **The review queue is owner only.** "Needs your call", its walk-through, and the Identify action
+  on a flagged row were visible on an unauthenticated dashboard, where the identify and hide calls
+  they offer are refused. They are now gated on owner access, so a guest sees the day without being
+  offered work it cannot do.
+
+- **Top Visitors is readable on the dashboard again.** It lays out horizontally and was being
+  compressed into the context rail on desktop. It now sits full width below the desk, where it
+  was before, with a layout test to keep it there.
+
+- **Leaderboard rows now recover common names already present in the taxonomy cache.** Historic
+  detections that predated successful taxonomy enrichment no longer remain scientific-name-only in
+  the rolling or all-time rankings. Cached taxonomy identifiers, provider names, and durable manual
+  overrides are applied locally without adding external requests to the leaderboard path.
+
+- **Manual observation uploads now pass through the bundled Nginx proxies at their documented
+  limits.** The exact upload route accepts a bounded 256 MiB multipart request and streams it to
+  the backend, which continues to enforce the 25 MiB image and 250 MiB video file limits. The
+  browser rejects oversized files before upload, and container smoke tests cover requests larger
+  than Nginx's former 1 MiB default.
+
+- **Public readiness checks now report backend readiness instead of returning the web app.** Both
+  monolithic and split frontend proxies route the exact `/ready` path to the backend without
+  caching it. Container health and image smoke tests now exercise that public route, so a future
+  proxy regression cannot be hidden by checking the backend port directly.
+
+- **Full-visit clips no longer become permanently short when Frigate is still finalizing a recording.**
+  Automatic generation waits for the requested window to settle, measures the downloaded duration,
+  and makes bounded attempts to upgrade a partial result. Recording files are staged and replaced
+  atomically only when the candidate is longer, while the player labels a retained usable fallback
+  as a **Partial visit** instead of presenting it as complete.
+
+- **The Events page no longer lets taxonomy aliases or slow Frigate media checks hold up a page.**
+  Unfiltered reads avoid the taxonomy join, filtered reads deduplicate detections that have more
+  than one cached alias, and clip availability checks use a bounded two-second request window with
+  controlled concurrency instead of allowing one page to wait on repeated long timeouts.
+
+- **Owners can set a durable common name without losing the provider's taxonomy value.** Detection
+  details now offer an owner-only common-name editor and reset action. The override applies to
+  existing sightings immediately, remains authoritative across taxonomy refreshes and localized
+  lookups, and can be cleared to restore the latest provider name.
+
+- **BirdNET enablement, source mapping, and species confirmation now use strict runtime semantics.**
+  Disabling BirdNET removes its MQTT subscription and a live toggle reconnects before another audio
+  message is ingested. A named camera with no source mapping matches nothing; only an explicit `*`
+  is a wildcard. Initial correlation searches for the visually classified species before retaining
+  a higher-confidence different call as context, and same-species audio that arrives later is
+  presented as confirmed in detection details with its score, spectrogram, and clip.
+
+- **Authentication tokens no longer appear in monolithic container access logs.** Nginx now logs
+  the request path without its query string, the duplicate Uvicorn access log is disabled, and the
+  recommended Compose deployment rotates JSON logs at 10 MB while retaining three files.
+
+- **Automatic database migration backups no longer grow without a limit.** YA-WAMF keeps the 10
+  newest timestamped restore points by default and removes older automatic backups only after a
+  new backup succeeds. `DB_PRE_MIGRATION_BACKUP_RETENTION` can raise that limit, at least one
+  restore point is always kept, and manual backups are unaffected.
+
+- **A detection no longer claims nothing was heard when audio was heard on an unmapped
+  microphone.** The audio panel distinguishes a silent window from audio excluded by the
+  camera-to-audio-source mapping. The established array response remains compatible with existing
+  API clients, while a response header carries the suppressed count for newer clients.
+
+- **Taxonomy retries now replace stale negative aliases cleanly.** When a previously unresolved
+  common name later resolves to a different canonical scientific name, the obsolete negative row
+  is removed so it cannot shadow the successful result or trigger an iNaturalist request every
+  time. Malformed successful responses are treated as provider failures rather than escaping into
+  request and ingest paths as unexpected exceptions.
+
+- **A species recorded as unknown to iNaturalist is checked again instead of staying unknown
+  forever.** A single lookup that found nothing was trusted permanently, so a species that was
+  temporarily unresolvable never regained its common name. Those entries are now re-tested after a
+  week (`TAXONOMY_NOT_FOUND_RETRY_SECONDS`), which also repairs installations already carrying one.
+  Species that resolved successfully are unaffected, however old the entry.
+
+- **A species no longer loses its common name because a taxonomy lookup failed once.** A timeout,
+  rate limit, or other failure reaching iNaturalist was recorded as "no such species" and cached,
+  so the species kept showing its scientific name alone. Only an answer from iNaturalist that
+  genuinely holds no match is cached now; a failed request is left for the next attempt.
+
+- **The species picker no longer lists the same species twice.** Blocking a species could show two
+  identical rows, both marked as already added, when a taxonomy id resolved for the classifier
+  label but not the stored detection label. Matching species are now merged on their scientific
+  name, keeping whichever record carries the richer taxonomy.
+
+- **Species in the Events filter no longer show "No events yet".** When a detection stored a
+  scientific name but no taxonomy id, the filter list resolved an id live and offered it as the
+  filter value. No stored row carried that id, so selecting the species matched nothing and the
+  page reported zero events for a species that plainly had some. The filter now offers a value the
+  events query can actually match.
+
+- **Diagnostics no longer report a crop-detector fallback that did not happen.** Choosing the
+  accurate detector tier falls back to the fast detector, but the reported reason stayed
+  `fallback_fast` even when that fallback was itself missing, contradicting the `installed`,
+  `healthy`, and `enabled_for_runtime` fields reported beside it. The reason now reports
+  `not_installed` or `config_missing` whenever the resolved detector cannot run. Per-model crop
+  policy is unchanged.
+
+- **Short visits no longer produce a second, futile classification attempt when the event ends.**
+  An event whose classification ran and was deliberately rejected by the confidence or label filter
+  is now remembered as decided, so the terminal `end` recovery no longer mistakes "no detection was
+  saved" for "the initial ingest failed". Previously such events were reclassified against a
+  snapshot Frigate had already discarded, which always failed and logged a misleading
+  "snapshot unavailable after retry" drop. Recovery of genuinely un-ingested events is unchanged.
+
 ## [2.17.0] - 2026-08-01
 
 ### Added

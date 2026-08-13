@@ -45,6 +45,20 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource.match(/data-leaderboard-species-portrait[^>]+rounded-full/g) ?? []).toHaveLength(3);
     });
 
+    it('opens with a podium rather than a featured card', () => {
+        const podium = leaderboardSource.indexOf('data-leaderboard-podium');
+        const rankings = leaderboardSource.indexOf('data-leaderboard-rankings');
+
+        expect(podium).toBeGreaterThan(-1);
+        expect(rankings).toBeGreaterThan(podium);
+        expect(leaderboardSource).not.toContain('data-leaderboard-featured');
+        // The podium follows the selected source, so Heard mode ranks by heard counts.
+        expect(leaderboardSource).toContain('leaderboardTableRows(sourceMode).slice(0, PODIUM_SIZE)');
+        expect(leaderboardSource).toContain('rowCountForMode(item, sourceMode)');
+        // Most active repeated podium row one, so it was removed rather than drawn twice.
+        expect(leaderboardSource).not.toContain("leaderboard.most_active");
+    });
+
     it('exposes toggle state and table headings to assistive technology', () => {
         expect(leaderboardSource).toContain("aria-pressed={span === 'month'}");
         expect(leaderboardSource).toContain("aria-pressed={sourceMode === 'seen'}");
