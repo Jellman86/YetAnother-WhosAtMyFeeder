@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import leaderboardSource from './Species.svelte?raw';
-import collageSource from '../components/TopSpeciesCollage.svelte?raw';
 
 describe('leaderboard field-journal layout', () => {
     it('puts the working ranking surface before secondary analytics', () => {
@@ -66,5 +65,18 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain("sourceMode !== 'seen' && audioLoadState === 'error'");
         expect(leaderboardSource).toContain('leaderboard.audio_unavailable_title');
         expect(leaderboardSource).toContain('let leaderboardRows = $derived(leaderboardTableRows(sourceMode))');
+    });
+
+    it('uses source-aware comparisons in both ranking layouts', () => {
+        expect(leaderboardSource).toContain('heard_prev_count: heard?.heard_prev_count ?? null');
+        expect(leaderboardSource).toContain('trendForMode(item, sourceMode)');
+        expect(leaderboardSource).toContain('deltaForMode(item, sourceMode)');
+        expect(leaderboardSource).toContain('activityTimestampForMode(item, sourceMode)');
+    });
+
+    it('keeps distinct rising and recent facts without repeating the leader', () => {
+        expect(leaderboardSource).toContain('data-leaderboard-highlights');
+        expect(leaderboardSource).toContain('topByTrend.species !== sourceLeader?.species');
+        expect(leaderboardSource).toContain('mostRecent.species !== sourceLeader?.species');
     });
 });

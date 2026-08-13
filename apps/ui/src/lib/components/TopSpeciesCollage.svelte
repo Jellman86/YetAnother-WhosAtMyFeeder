@@ -1,6 +1,11 @@
 <script lang="ts">
     import { fetchEvents, getThumbnailUrl } from '../api';
-    import type { Detection } from '../api';
+    import type { Detection, LeaderboardSpan } from '../api';
+    import {
+        advanceCollageSlots,
+        collageDateQuery,
+        selectCollagePhotos
+    } from '../leaderboard/collage';
     import { getErrorMessage, isTransientRequestError } from '../utils/error-handling';
     import { logger } from '../utils/logger';
     import { fade } from 'svelte/transition';
@@ -12,8 +17,10 @@
         subName?: string | null;
         seenCount: number;
         heardCount?: number;
-        /** Matches LeaderboardSpan, so the caption follows the selected period. */
-        span?: string | undefined;
+        span: LeaderboardSpan;
+        sourceMode: 'seen' | 'both';
+        windowStart?: string | null;
+        windowEnd?: string | null;
         onopen?: () => void;
     }
 
@@ -23,63 +30,72 @@
         subName = null,
         seenCount,
         heardCount = 0,
-        span = 'month',
+        span,
+        sourceMode,
+        windowStart = null,
+        windowEnd = null,
         onopen
     }: Props = $props();
 
-    /** Tiles on screen. Anything beyond this is cycled through them. */
     const TILES = 4;
-    /** One tile changes per tick, so the collage drifts rather than cutting. */
+    const MAX_PHOTOS = 12;
     const CYCLE_MS = 3600;
-    const FADE_MS = 1600;
-    /** Detections closer together than this are the same visit, so they look the same. */
-    const VISIT_GAP_MS = 10 * 60 * 1000;
+    const FADE_MS = 1400;
 
     let loading = $state(true);
     let photos = $state<Detection[]>([]);
-    /** Which photo each tile is showing. Only one entry changes per tick. */
-    let slots = $state<number[]>([]);
+    /** Stable event IDs keep tile positions fixed while their photographs crossfade. */
+    let slots = $state<string[]>([]);
     let nextTile = $state(0);
+    let reduceMotion = $state(false);
+
+    $effect(() => {
+        if (typeof window === 'undefined') return;
+        const query = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const syncPreference = () => {
+            reduceMotion = query.matches;
+        };
+        syncPreference();
+        query.addEventListener('change', syncPreference);
+        return () => query.removeEventListener('change', syncPreference);
+    });
 
     $effect(() => {
         const name = species;
+        const dateQuery = collageDateQuery(span, windowStart, windowEnd);
         photos = [];
         slots = [];
         nextTile = 0;
         loading = true;
-        if (!name) return;
+        if (!name || !dateQuery) {
+            loading = false;
+            return;
+        }
 
         const controller = new AbortController();
         void (async () => {
             try {
-                const events = await fetchEvents({ species: name, limit: 12 });
-                if (controller.signal.aborted) return;
-                // Consecutive detections are usually frames of a single visit and look the
-                // same, so keep one per visit and then spread the picks across the window.
-                const spaced: Detection[] = [];
-                let lastAt = 0;
-                for (const event of events.filter((item) => item.has_snapshot !== false)) {
-                    const at = Date.parse(event.detection_time);
-                    if (!spaced.length || Number.isNaN(at) || Math.abs(lastAt - at) > VISIT_GAP_MS) {
-                        spaced.push(event);
-                        lastAt = at;
-                    }
-                }
-                // The endpoint can return the same event twice across pages; a collage that
-                // shows one photograph twice looks like a bug even when the data is fine.
-                const seen = new Set<string>();
-                photos = spaced.filter((event) => {
-                    if (seen.has(event.frigate_event)) return false;
-                    seen.add(event.frigate_event);
-                    return true;
+                const events = await fetchEvents({
+                    species: name,
+                    limit: 500,
+                    startDate: dateQuery.startDate,
+                    endDate: dateQuery.endDate,
+                    fields: 'list',
+                    requestKey: null,
+                    signal: controller.signal
                 });
-                slots = Array.from({ length: Math.min(TILES, photos.length) }, (_unused, i) => i);
+                if (controller.signal.aborted) return;
+                photos = selectCollagePhotos(events, {
+                    windowStart: span === 'all' ? null : windowStart,
+                    windowEnd: span === 'all' ? null : windowEnd,
+                    maxPhotos: MAX_PHOTOS
+                });
+                slots = photos.slice(0, TILES).map((photo) => photo.frigate_event);
             } finally {
                 if (!controller.signal.aborted) loading = false;
             }
         })().catch((error) => {
             if (controller.signal.aborted) return;
-            // The collage is decoration over the rankings; its absence is not an error state.
             if (isTransientRequestError(error)) {
                 logger.warn('Top species photos unavailable', { message: getErrorMessage(error) });
             } else {
@@ -89,41 +105,50 @@
         return () => controller.abort();
     });
 
-    // Only cycle when there is genuinely more to show than fits, and never against a
-    // reduced-motion preference.
-    const canCycle = $derived(photos.length > TILES);
+    const canCycle = $derived(!reduceMotion && photos.length > TILES);
 
     $effect(() => {
         if (!canCycle) return;
-        if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-            return;
-        }
         const timer = setInterval(() => {
-            // Advance a single tile to a photo none of the others is showing.
-            // Only rotate when there is a photograph no tile is currently showing.
-            const shown = new Set(slots);
-            if (shown.size >= photos.length) return;
-            let candidate = (Math.max(...slots) + 1) % photos.length;
-            for (let step = 0; step < photos.length && shown.has(candidate); step++) {
-                candidate = (candidate + 1) % photos.length;
-            }
-            if (shown.has(candidate)) return;
-            slots = slots.map((current, index) => (index === nextTile ? candidate : current));
-            nextTile = (nextTile + 1) % slots.length;
+            const advanced = advanceCollageSlots(
+                slots,
+                photos.map((photo) => photo.frigate_event),
+                nextTile
+            );
+            slots = advanced.slots;
+            nextTile = advanced.nextTile;
         }, CYCLE_MS);
         return () => clearInterval(timer);
     });
 
-    const visible = $derived(slots.map((photoIndex) => photos[photoIndex]).filter(Boolean));
+    const visible = $derived(
+        slots
+            .map((eventId) => photos.find((photo) => photo.frigate_event === eventId))
+            .filter((photo): photo is Detection => Boolean(photo))
+    );
+
+    function markPhotoUnavailable(eventId: string): void {
+        photos = photos.filter((photo) => photo.frigate_event !== eventId);
+        const available = photos.map((photo) => photo.frigate_event);
+        const nextSlots = slots.filter((slot) => slot !== eventId && available.includes(slot));
+        for (const candidate of available) {
+            if (nextSlots.length >= TILES) break;
+            if (!nextSlots.includes(candidate)) nextSlots.push(candidate);
+        }
+        slots = nextSlots;
+        nextTile = slots.length > 0 ? nextTile % slots.length : 0;
+    }
 
     const spanLabel = $derived(
-        span === 'day'
-            ? $_('leaderboard.most_detected_day', { default: 'Most detected today' })
-            : span === 'week'
-              ? $_('leaderboard.most_detected_week', { default: 'Most detected this week' })
-              : span === 'all'
-                ? $_('leaderboard.most_detected_all', { default: 'Most detected ever' })
-                : $_('leaderboard.most_detected_month', { default: 'Most detected this month' })
+        sourceMode === 'both'
+            ? $_('leaderboard.most_active', { default: 'Most active' })
+            : span === 'day'
+              ? $_('leaderboard.most_detected_day', { default: 'Most detected today' })
+              : span === 'week'
+                ? $_('leaderboard.most_detected_week', { default: 'Most detected this week' })
+                : span === 'all'
+                  ? $_('leaderboard.most_detected_all', { default: 'Most detected ever' })
+                  : $_('leaderboard.most_detected_month', { default: 'Most detected this month' })
     );
 </script>
 
@@ -137,7 +162,6 @@
         class="relative aspect-[16/9] overflow-hidden rounded-2xl border border-slate-200/70 sm:aspect-[21/9] dark:border-slate-700/50"
         data-leaderboard-collage
     >
-        <!-- One frame reads as a portrait; several read as a collage. -->
         <div
             class="absolute -inset-x-6 inset-y-0 grid gap-1 {visible.length === 1
                 ? 'grid-cols-1'
@@ -151,8 +175,8 @@
                     {#key photo.frigate_event}
                         <span
                             class="collage-unskew absolute inset-0 block"
-                            in:fade={{ duration: 1400 }}
-                            out:fade={{ duration: 1400 }}
+                            in:fade={{ duration: reduceMotion ? 0 : FADE_MS }}
+                            out:fade={{ duration: reduceMotion ? 0 : FADE_MS }}
                         >
                             <img
                                 src={getThumbnailUrl(photo.frigate_event)}
@@ -160,6 +184,7 @@
                                 loading="lazy"
                                 decoding="async"
                                 class="collage-frame h-full w-full object-cover"
+                                onerror={() => markPhotoUnavailable(photo.frigate_event)}
                             />
                         </span>
                     {/key}
@@ -184,10 +209,10 @@
             {/if}
             <span class="mt-1 block text-xs text-white/80">
                 {$_('leaderboard.collage_counts', {
-                    values: { seen: seenCount.toLocaleString(), heard: heardCount.toLocaleString() },
+                    values: { seen: seenCount.toLocaleString() },
                     default: '{seen} visits'
                 })}
-                {#if heardCount > 0}
+                {#if sourceMode === 'both' && heardCount > 0}
                     &middot; {$_('leaderboard.heard_count', {
                         values: { count: heardCount.toLocaleString() },
                         default: '{count} heard'
@@ -199,9 +224,6 @@
 {/if}
 
 <style>
-    /* Svelte scopes keyframes, so this one is declared global and referenced by a class
-       rather than an inline style, which could not resolve the scoped name. */
-    /* A slow drift so a still photograph does not sit dead on the page. */
     @keyframes -global-collage-drift {
         from {
             transform: scale(1.03) translate3d(0, 0, 0);
@@ -211,8 +233,6 @@
         }
     }
 
-    /* Skewing the tile and counter-skewing its contents leaves a diagonal seam between
-       photographs while the pictures themselves stay upright. */
     .collage-tile {
         transform: skewX(-7deg);
     }
