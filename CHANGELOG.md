@@ -8,6 +8,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Ten more bird facts in the footer ticker**, weighted towards birds that actually turn up at a
+  feeder rather than albatrosses and penguins: seasonal brain growth in tits and chickadees, the
+  seven neighbours each starling tracks in a murmuration, the blue tits that learned to open milk
+  bottles, wrens piling into one nest box on cold nights.
+- **Corrected a fact that was wrong.** The ticker claimed woodpecker skulls have air pockets to
+  absorb shock. A 2022 study in Current Biology found the opposite: the skull works as a stiff
+  hammer, and the brain is small enough to take the impact.
+- **The footer signature drops the sentiment.** "Built with AI assistance for the love of bird
+  watching" becomes "Built with AI assistance, and a lot of trial and error", and the string moves
+  from `about.built_with_ai` to `footer.built_with_ai`, which is where it is actually used.
+- **The footer no longer jumps as the ticker turns over.** Facts run from four words to two lines
+  and the row was sized to whatever it held, so the whole footer moved every few seconds.
+
 - **The rebuilt UI now carries its evidence and privacy boundaries end to end.** Explorer facet
   counts use the same history window as the guest event list, clicking a frame in a visit opens
   that frame, and the review queue only offers a crop/full-frame comparison when both images come

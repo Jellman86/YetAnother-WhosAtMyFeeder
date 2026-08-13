@@ -92,7 +92,9 @@
 
         <!-- Bird Facts Ticker -->
         <div class="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-700/40">
-            <div class="flex items-center justify-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+            <!-- Facts vary from four words to two lines. Without a reserved height the whole
+                 footer jumps every time the ticker turns over. -->
+            <div class="flex min-h-8 items-center justify-center gap-2 text-xs text-slate-600 dark:text-slate-400">
                 <span class="text-amber-700 dark:text-amber-300 flex-shrink-0">{$_('footer.did_you_know', { default: 'Did you know?' })}</span>
                 <span
                     class="transition-opacity duration-300 text-center"
@@ -105,7 +107,7 @@
         </div>
 
         <div class="mt-3 text-center text-xs text-slate-500 dark:text-slate-500">
-            {$_('about.built_with_ai', { default: 'Built with AI assistance for the love of bird watching 🐦' })}
+            {$_('footer.built_with_ai', { default: 'Built with AI assistance, and a lot of trial and error' })}
         </div>
     </div>
 </footer>

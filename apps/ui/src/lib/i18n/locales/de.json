@@ -2071,7 +2071,6 @@
     "view_changelog": "Changelog anzeigen",
     "flaticon_credit": "Vogel-Icons erstellt von Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Lizenziert unter der {license}",
-    "built_with_ai": "Mit KI-Unterstützung für die Liebe zur Vogelbeobachtung gebaut 🐦",
     "project_desc_1": "YA-WAMF ist ein persönliches Projekt, das gestartet wurde, um mit KI-unterstützter Programmierung zu experimentieren. Als das ursprüngliche {link}-Projekt nicht mehr gepflegt wurde, entstand dieses Projekt sowohl als Lernmöglichkeit als auch als nützliches Werkzeug für Vogelliebhaber.",
     "project_desc_2": "Frigate überwacht die Futterstelle und meldet alles, was nach einem Vogel aussieht. YA-WAMF bestimmt es, gleicht es mit BirdNET-Go-Audio ab und speichert das Ergebnis. Jedes Foto auf dieser Seite stammt von dieser Kamera.",
     "links": {
@@ -2235,14 +2234,25 @@
       "Fregattvögel können monatelang in der Luft bleiben, ohne zu landen",
       "Elstern sind eines der wenigen Tiere, die sich selbst im Spiegel erkennen können",
       "Der Wanderalbatros hat die größte Flügelspannweite aller lebenden Vögel, bis zu 11,8 Fuß",
-      "Spechte bekommen keine Kopfschmerzen, weil ihre Schädel Luftpolster haben, die Stöße absorbieren",
+      "Spechtschädel sind doch keine Stoßdämpfer, sie wirken als starre Hämmer, und das Gehirn ist klein genug, um das auszuhalten",
       "Mauersegler verbringen den größten Teil ihres Lebens in der Luft und können sogar im Flug schlafen",
       "Vögel sind nicht echt - sie sind staatliche Überwachungsdrohnen (angeblich)",
       "Gänse haben Zähne auf ihren Zungen. Schlaf gut heute Nacht!",
       "Ein Vogel in der Hand ist zwei im Busch wert, aber deutlich unordentlicher",
       "Pinguine sind einfach formelle Hühner, die für eine Gala gekleidet sind",
-      "Hähne schreien die Sonne an, weil sie Angst vor der Dunkelheit haben"
-    ]
+      "Hähne schreien die Sonne an, weil sie Angst vor der Dunkelheit haben",
+      "Meisen vergrößern ihr Gedächtniszentrum jeden Herbst um etwa 30 Prozent und verkleinern es im Frühjahr wieder",
+      "Eine einzige Meise kann in einem Herbst Zehntausende Samen verstecken und sich Monate später noch an die Orte erinnern",
+      "Kleiber laufen kopfüber Baumstämme hinab und finden so Futter, das alle aufwärts kletternden Vögel übersehen haben",
+      "Im Schwarm achtet jeder Star nur auf seine sieben nächsten Nachbarn, und das genügt, damit Tausende wie einer wenden",
+      "Blaumeisen in Großbritannien lernten, die Folie von Milchflaschen zu öffnen, und der Trick verbreitete sich von Vogel zu Vogel",
+      "Zaunkönige drängen sich in kalten Nächten zusammen, manchmal Dutzende in einem einzigen Nistkasten",
+      "Viele Singvögel sehen Ultraviolett, sodass zwei für dich gleich aussehende Vögel einander völlig verschieden erscheinen",
+      "Die rote Brust des Rotkehlchens ist eine Warnung, keine Zierde, und ein Männchen greift schon ein bloßes rotes Federbüschel an",
+      "Vögel haben ein drittes Augenlid, das seitlich über das Auge streicht und es reinigt, ohne es zu schließen",
+      "Alles an deinem Futterhaus ist stillschweigend zu dem Schluss gekommen, dass du das Personal bist"
+    ],
+    "built_with_ai": "Mit KI-Unterstützung gebaut, und mit viel Versuch und Irrtum"
   },
   "error": {
     "boundary_title": "Etwas ist schiefgelaufen",

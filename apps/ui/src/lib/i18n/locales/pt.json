@@ -2080,7 +2080,6 @@
     "view_changelog": "Ver changelog",
     "flaticon_credit": "Ícones de pássaros criados por Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Licenciado sob {license}",
-    "built_with_ai": "Construído com assistência de IA pelo amor à observação de pássaros 🐦",
     "project_desc_1": "YA-WAMF é um projeto pessoal iniciado para experimentar com codificação assistida por IA. Quando o projeto original {link} deixou de ser mantido, este nasceu como uma oportunidade de aprendizado e uma ferramenta útil para entusiastas de pássaros.",
     "project_desc_2": "O Frigate vigia o comedouro e assinala tudo o que pareça uma ave. O YA-WAMF classifica-a, compara com o áudio do BirdNET-Go e guarda o resultado. Todas as fotos desta página vieram dessa câmara.",
     "links": {
@@ -2244,14 +2243,25 @@
       "Fragatas podem ficar no ar por meses sem pousar",
       "Pegas são um dos poucos animais que podem se reconhecer em um espelho",
       "O albatroz-errante tem a maior envergadura de qualquer pássaro vivo, até 11,8 pés",
-      "Pica-paus não têm dores de cabeça porque seus crânios têm bolsas de ar para absorver o impacto",
+      "O crânio do pica-pau não absorve choques, funciona como um martelo rígido, e o cérebro é pequeno o suficiente para aguentar",
       "Andorinhões passam a maior parte de suas vidas no ar e podem até dormir enquanto voam",
       "Pássaros não são reais - são drones de vigilância do governo (supostamente)",
       "Gansos têm dentes em suas línguas. Durma bem hoje à noite!",
       "Mais vale um pássaro na mão do que dois voando",
       "Pinguins são apenas galinhas formais vestidas para uma festa de gala",
-      "Galos gritam para o sol porque têm medo do escuro"
-    ]
+      "Galos gritam para o sol porque têm medo do escuro",
+      "Os chapins aumentam o seu centro de memória cerca de 30 por cento todos os outonos e voltam a reduzi-lo na primavera",
+      "Um único chapim consegue esconder dezenas de milhares de sementes num outono e lembrar-se dos locais meses depois",
+      "As trepadeiras descem os troncos de cabeça para baixo e assim encontram comida que escapa às aves que sobem",
+      "Numa revoada cada estorninho segue apenas os seus sete vizinhos mais próximos, e isso basta para milhares virarem como um só",
+      "Os chapins-azuis britânicos aprenderam a abrir a tampa das garrafas de leite, e o truque espalhou-se de ave em ave pelo país",
+      "As carriças amontoam-se num só dormitório nas noites frias, por vezes às dezenas dentro de uma única caixa ninho",
+      "Muitas aves canoras veem ultravioleta, por isso duas aves idênticas para si podem parecer muito diferentes entre elas",
+      "O peito vermelho do pisco é um aviso e não um enfeite, e um macho ataca até um simples tufo de penas vermelhas",
+      "As aves têm uma terceira pálpebra que varre o olho de lado, limpando-o sem chegar a fechá-lo",
+      "Tudo o que aparece no seu comedouro decidiu discretamente que o pessoal é você"
+    ],
+    "built_with_ai": "Construído com ajuda de IA, e com muita tentativa e erro"
   },
   "first_run": {
     "title": "Bem-vindo ao YA-WAMF",

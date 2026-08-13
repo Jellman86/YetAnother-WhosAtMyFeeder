@@ -2071,7 +2071,6 @@
     "view_changelog": "Ver registro de cambios",
     "flaticon_credit": "Iconos de aves creados por Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Con licencia {license}",
-    "built_with_ai": "Construido con asistencia de IA por amor a la observación de aves 🐦",
     "project_desc_1": "YA-WAMF es un proyecto personal iniciado para experimentar con la programación asistida por IA. Cuando el proyecto original {link} dejó de mantenerse, este nació como una oportunidad de aprendizaje y una herramienta útil para los entusiastas de las aves.",
     "project_desc_2": "Frigate vigila el comedero y marca todo lo que parece un ave. YA-WAMF lo clasifica, lo contrasta con el audio de BirdNET-Go y guarda el resultado. Todas las fotos de esta página salieron de esa cámara.",
     "links": {
@@ -2235,14 +2234,25 @@
       "Las fragatas pueden permanecer en el aire durante meses sin aterrizar",
       "Las urracas son uno de los pocos animales que pueden reconocerse a sí mismas en un espejo",
       "El albatros viajero tiene la envergadura más grande de cualquier ave viva, hasta 11.8 pies",
-      "Los pájaros carpinteros no sufren dolores de cabeza porque sus cráneos tienen bolsas de aire que absorben el impacto",
+      "El cráneo del pájaro carpintero no amortigua golpes, funciona como un martillo rígido, y su cerebro es lo bastante pequeño para soportarlo",
       "Los vencejos pasan la mayor parte de sus vidas en el aire e incluso pueden dormir mientras vuelan",
       "Las aves no son reales - son drones de vigilancia del gobierno (supuestamente)",
       "Los gansos tienen dientes en la lengua. ¡Que duermas bien esta noche!",
       "Más vale pájaro en mano que ciento volando, pero significativamente más sucio",
       "Los pingüinos son simplemente pollos formales vestidos para una gala",
-      "Los gallos le gritan al sol porque le tienen miedo a la oscuridad"
-    ]
+      "Los gallos le gritan al sol porque le tienen miedo a la oscuridad",
+      "Los herrerillos y carboneros agrandan su centro de memoria cerca de un 30 por ciento cada otoño y lo reducen en primavera",
+      "Un solo carbonero puede esconder decenas de miles de semillas en un otoño y recordar los sitios meses después",
+      "Los trepadores azules bajan por los troncos de cabeza, y así encuentran comida que se le escapa a las aves que suben",
+      "En una bandada cada estornino sigue solo a sus siete vecinos más cercanos, y eso basta para que miles giren como uno",
+      "Los herrerillos británicos aprendieron a abrir la tapa de las botellas de leche, y el truco se propagó de ave en ave por todo el país",
+      "Los chochines se apiñan en un mismo dormidero las noches frías, a veces docenas dentro de una sola caja nido",
+      "Muchas aves canoras ven el ultravioleta, así que dos pájaros idénticos para ti pueden parecerse muy poco entre ellos",
+      "El pecho rojo del petirrojo es una advertencia, no un adorno, y un macho atacará incluso un simple mechón de plumas rojas",
+      "Las aves tienen un tercer párpado que barre el ojo de lado y lo limpia sin llegar a cerrarlo",
+      "Todo lo que hay en tu comedero ha decidido en silencio que tú eres el personal"
+    ],
+    "built_with_ai": "Creado con ayuda de IA, y con mucho ensayo y error"
   },
   "error": {
     "boundary_title": "Algo salió mal",

@@ -2071,7 +2071,6 @@
     "view_changelog": "Voir le journal des modifications",
     "flaticon_credit": "Icônes d'oiseaux créées par Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Sous licence {license}",
-    "built_with_ai": "Construit avec l'aide de l'IA pour l'amour de l'observation des oiseaux 🐦",
     "project_desc_1": "YA-WAMF est un projet personnel lancé pour expérimenter le codage assisté par l'IA. Lorsque le projet original {link} est devenu non maintenu, celui-ci est né à la fois comme une opportunité d'apprentissage et un outil utile pour les passionnés d'oiseaux.",
     "project_desc_2": "Frigate surveille la mangeoire et signale tout ce qui ressemble à un oiseau. YA-WAMF l'identifie, le recoupe avec l'audio de BirdNET-Go et enregistre le résultat. Toutes les photos de cette page viennent de cette caméra.",
     "links": {
@@ -2235,14 +2234,25 @@
       "Les frégates peuvent rester en vol pendant des mois sans se poser",
       "Les pies sont l'un des rares animaux capables de se reconnaître dans un miroir",
       "L'albatros hurleur possède la plus grande envergure de tous les oiseaux vivants, jusqu'à 3,6 mètres",
-      "Les pics ne souffrent pas de maux de tête car leurs crânes ont des poches d'air qui absorbent les chocs",
+      "Le crâne du pic n'amortit pas les chocs, il agit comme un marteau rigide, et le cerveau est assez petit pour l'encaisser",
       "Les martinets passent la majeure partie de leur vie dans les airs et peuvent même dormir en vol",
       "Les oiseaux n'existent pas - ce sont des drones de surveillance gouvernementaux (soi-disant)",
       "Les oies ont des dents sur leur langue. Dormez bien ce soir !",
       "Un oiseau dans la main vaut mieux que deux dans la brousse, mais c'est nettement plus salissant",
       "Les manchots ne sont que des poulets habillés en tenue de gala",
-      "Les coqs crient vers le soleil parce qu'ils ont peur du noir"
-    ]
+      "Les coqs crient vers le soleil parce qu'ils ont peur du noir",
+      "Les mésanges augmentent leur centre de la mémoire d'environ 30 pour cent chaque automne, puis le réduisent au printemps",
+      "Une seule mésange peut cacher des dizaines de milliers de graines en un automne et se rappeler les endroits des mois plus tard",
+      "Les sittelles descendent les troncs la tête la première, et trouvent ainsi la nourriture que les oiseaux montants ont manquée",
+      "Dans une nuée, chaque étourneau ne suit que ses sept plus proches voisins, ce qui suffit à faire virer des milliers d'oiseaux ensemble",
+      "Les mésanges bleues britanniques ont appris à percer l'opercule des bouteilles de lait, et l'astuce s'est propagée d'oiseau en oiseau",
+      "Les troglodytes se serrent dans un même dortoir les nuits froides, parfois des dizaines dans un seul nichoir",
+      "Beaucoup d'oiseaux chanteurs voient l'ultraviolet: deux oiseaux identiques à vos yeux peuvent se paraître très différents",
+      "La poitrine rouge du rougegorge est un avertissement, pas un ornement: un mâle attaque même une simple touffe de plumes rouges",
+      "Les oiseaux ont une troisième paupière qui balaie l'oeil de côté et le nettoie sans jamais le fermer",
+      "Tout ce qui fréquente votre mangeoire a discrètement décidé que vous étiez le personnel"
+    ],
+    "built_with_ai": "Construit avec l'aide de l'IA, et beaucoup d'essais et d'erreurs"
   },
   "error": {
     "boundary_title": "Un problème est survenu",
