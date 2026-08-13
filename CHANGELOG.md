@@ -22,6 +22,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   short and landscape layouts, and exposes proper dialog and field semantics. Phone notifications
   now use a safe-area-aware lane beneath the detection close control, which remains anchored while
   detection content scrolls or the device rotates. Desktop notification placement stays unchanged.
+- **Notifications lead with the capture, like the field log.** A detection whose event is known
+  shows its photograph rather than an abstract badge, in a fixed box with a placeholder underneath so
+  a missing image cannot shift the row. Every other kind gets an icon for what it is: a warning for a
+  failure, a clock for a job in flight, a tick for one that finished, a download for an update, a
+  bird for a detection with no capture, a bell for anything else.
+- **The timeline rail is drawn correctly.** Its marker was offset against the list border by hand,
+  which left the dot 1.5px off the line and hanging outside the box; and because the rail column was
+  a grid item, its box stopped at the row padding and the line broke between every entry. Rail and
+  marker now share one centred column, the line runs unbroken, and it starts and stops at the outer
+  dots instead of dangling past them.
+- **The page is the width of a reading surface**, matching About, rather than stretching short rows
+  across the full shell.
 - **The notification view is one timeline instead of two tabs.** A job that failed is the most
   urgent thing this app can say, and it was filed under a different tab from notifications, one click
   from the place people look. Jobs, errors, birds and updates now share a single chronological river

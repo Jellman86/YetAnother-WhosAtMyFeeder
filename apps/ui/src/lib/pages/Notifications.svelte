@@ -12,6 +12,7 @@
         toneOf
     } from '../utils/notification-timeline';
     import { formatDateTime, formatTime } from '../utils/datetime';
+    import { getThumbnailUrl } from '../api';
     import { authStore } from '../stores/auth.svelte';
     import { toAppPath } from '../app/url-base';
 
@@ -49,6 +50,23 @@
         return typeof item.meta?.route === 'string' && item.meta.route.length > 0;
     }
 
+    /** A detection carries its own evidence; everything else gets an icon for its kind. */
+    function captureEventId(item: NotificationItem): string | null {
+        if (item.type !== 'detection') return null;
+        const id = item.meta?.event_id;
+        return typeof id === 'string' && id.length > 0 ? id : null;
+    }
+
+    type IconKind = 'warn' | 'check' | 'clock' | 'update' | 'bird' | 'bell';
+
+    function iconKind(item: NotificationItem, tone: string): IconKind {
+        if (tone === 'attention') return 'warn';
+        if (item.type === 'detection') return 'bird';
+        if (item.type === 'update') return 'update';
+        if (item.type === 'system') return 'bell';
+        return tone === 'done' ? 'check' : 'clock';
+    }
+
     function isOwnerOnlyItem(item: NotificationItem): boolean {
         return item.type === 'process' || item.type === 'system';
     }
@@ -67,7 +85,8 @@
     };
 </script>
 
-<div class="space-y-5" data-notifications-timeline>
+<!-- Matches the About page: a list of short text rows should not run the full 7xl shell. -->
+<div class="mx-auto max-w-5xl space-y-5" data-notifications-timeline>
     <!-- One window, stated once, with the same metrics the dashboard day bar uses. -->
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -150,39 +169,84 @@
                 <h3 class="mb-1 mt-5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400 first:mt-0 dark:text-slate-500">
                     {$_(`notifications.group_${group.key}`)}
                 </h3>
-                <ol class="relative ml-1 border-l border-slate-200 pl-5 dark:border-slate-700">
-                    {#each group.items as item (item.id)}
+                <ol class="ml-1">
+                    {#each group.items as item, index (item.id)}
                         {@const tone = toneOf(item)}
                         {@const progress = progressOf(item)}
-                        <li class="relative py-3">
-                            <!-- State reads from position and shape as well as colour, so it survives greyscale. -->
-                            <span
-                                class="absolute -left-[27px] top-5 h-2.5 w-2.5 rounded-full border-2 {TONE_DOT[tone]}"
-                                aria-hidden="true"
-                            ></span>
-                            <div class="flex items-start gap-3">
-                                <span class="grid h-6 w-6 shrink-0 place-items-center rounded-md border {TONE_ICON[tone]}">
-                                    {#if tone === 'attention'}
-                                        <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                            <path d="M8 4.5v4.2M8 11.3v.2" stroke-linecap="round" />
-                                            <path d="M6.9 2.6 1.9 12a1.2 1.2 0 0 0 1.1 1.8h10a1.2 1.2 0 0 0 1.1-1.8l-5-9.4a1.2 1.2 0 0 0-2.2 0z" />
-                                        </svg>
-                                    {:else if tone === 'done'}
-                                        <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-                                            <path d="m3.5 8.5 3 3 6-6.5" stroke-linecap="round" stroke-linejoin="round" />
-                                        </svg>
-                                    {:else if tone === 'running'}
-                                        <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                            <circle cx="8" cy="8" r="5.4" />
-                                            <path d="M8 5.4V8l1.8 1.2" stroke-linecap="round" />
-                                        </svg>
-                                    {:else}
-                                        <svg class="h-3 w-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                            <path d="M8 7.2v3.6M8 5.1v.2" stroke-linecap="round" />
-                                            <circle cx="8" cy="8" r="5.6" />
-                                        </svg>
-                                    {/if}
+                        {@const capture = captureEventId(item)}
+                        {@const kind = iconKind(item, tone)}
+                        <li class="grid grid-cols-[0.75rem_minmax(0,1fr)] gap-3">
+                            <!-- The rail and its marker are centred in the same column rather than
+                                 offset against a border by hand, so the dot cannot drift off the line.
+                                 State reads from position and shape as well as colour, so it survives
+                                 greyscale. -->
+                            <span class="relative flex justify-center" aria-hidden="true">
+                                {#if group.items.length > 1}
+                                    <!-- The rail starts and stops at the outer dots rather than
+                                         dangling past them. A lone entry needs no rail at all. -->
+                                    <span
+                                        class="absolute left-1/2 w-px -translate-x-1/2 bg-slate-200 dark:bg-slate-700 {index ===
+                                        0
+                                            ? 'top-7 bottom-0'
+                                            : index === group.items.length - 1
+                                              ? 'top-0 h-7'
+                                              : 'inset-y-0'}"
+                                    ></span>
+                                {/if}
+                                <span class="relative mt-3 grid h-8 place-items-center">
+                                    <span class="h-2.5 w-2.5 rounded-full border-2 {TONE_DOT[tone]}"></span>
                                 </span>
+                            </span>
+                            <div class="flex items-start gap-3 py-3">
+                                {#if capture}
+                                    <!-- The capture is the evidence, same as the field log. Fixed box
+                                         and a placeholder underneath, so a missing image cannot shift
+                                         the row or imply a state. -->
+                                    <span class="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-md border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-800">
+                                        <img
+                                            src={getThumbnailUrl(capture)}
+                                            alt=""
+                                            loading="lazy"
+                                            decoding="async"
+                                            width="32"
+                                            height="32"
+                                            class="h-8 w-8 object-cover"
+                                            onerror={(event) => event.currentTarget.classList.add('hidden')}
+                                        />
+                                    </span>
+                                {:else}
+                                    <span class="grid h-8 w-8 shrink-0 place-items-center rounded-md border {TONE_ICON[tone]}">
+                                        {#if kind === 'warn'}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                                <path d="M8 4.5v4.2M8 11.3v.2" stroke-linecap="round" />
+                                                <path d="M6.9 2.6 1.9 12a1.2 1.2 0 0 0 1.1 1.8h10a1.2 1.2 0 0 0 1.1-1.8l-5-9.4a1.2 1.2 0 0 0-2.2 0z" />
+                                            </svg>
+                                        {:else if kind === 'check'}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+                                                <path d="m3.5 8.5 3 3 6-6.5" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        {:else if kind === 'clock'}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                                <circle cx="8" cy="8" r="5.4" />
+                                                <path d="M8 5.4V8l1.8 1.2" stroke-linecap="round" />
+                                            </svg>
+                                        {:else if kind === 'update'}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                                <path d="M8 3v6.6M5.3 7.2 8 9.9l2.7-2.7M3.4 12.4h9.2" stroke-linecap="round" stroke-linejoin="round" />
+                                            </svg>
+                                        {:else if kind === 'bird'}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                                <path d="M10.4 4.1a1.9 1.9 0 1 1 2.2 2.9v1.4c0 2.6-2.1 4.7-4.7 4.7H3.1l2.6-2.2A4.4 4.4 0 0 1 10.4 4.1z" stroke-linejoin="round" />
+                                                <path d="M12.6 4.6h1.6" stroke-linecap="round" />
+                                            </svg>
+                                        {:else}
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                                                <path d="M4 6.8a4 4 0 1 1 8 0c0 3 1 3.9 1 3.9H3s1-.9 1-3.9z" stroke-linejoin="round" />
+                                                <path d="M6.6 12.6a1.6 1.6 0 0 0 2.8 0" stroke-linecap="round" />
+                                            </svg>
+                                        {/if}
+                                    </span>
+                                {/if}
                                 <div class="min-w-0 flex-1">
                                     <p class="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
                                         {item.title}
