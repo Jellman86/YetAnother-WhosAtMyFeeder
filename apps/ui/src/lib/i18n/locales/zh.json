@@ -2077,7 +2077,7 @@
     "flaticon_credit": "鸟类图标由 Freepik 制作 - Flaticon",
     "license_notice": "© {year} Jellman86 • 采用 {license} 许可",
     "built_with_ai": "出于对观鸟的热爱，在 AI 协助下构建 🐦",
-    "project_desc_1": "YA-WAMF 是一个个人项目，最初是为了尝试 AI 辅助编程。当原来的 {link} 项目停止维护时，本项目作为一个学习机会和鸟类爱好者的实用工具应运而生。",
+    "project_desc_1": "我做这个项目是想看看借助 AI 辅助编程能走多远。原来的 {link} 已经无人维护，所以有了一个真正值得重写的东西，而不是一个玩具项目。从那以后，它一直在我自己的喂食器上运行。",
     "project_desc_2": "Frigate 监视喂食器，标记任何看起来像鸟的目标。YA-WAMF 进行识别，与 BirdNET-Go 的声音比对，然后保存结果。本页所有照片都来自那台摄像头。",
     "links": {
       "repo": "GitHub 仓库",
@@ -2092,10 +2092,10 @@
       "frigate": "{link} 作为优秀的开源 NVR",
       "birdnet": "{link} 用于音频分类集成",
       "benjordan": "YouTube 上的 {link} 激发的鸟类检测内容",
-      "ai_assistants": "帮助构建此应用程序的 AI 助手"
+      "ai_assistants": "与我一起构建了其中大部分内容的 AI 编程助手"
     },
     "pipeline": {
-      "subtitle": "标准处理流程，以及这个实例当前的状态。",
+      "subtitle": "一次检测所经过的路径，以及本实例在每一步所做的事情。",
       "frigate": "Frigate",
       "mqtt": "MQTT",
       "classifier": "分类器",
@@ -2122,7 +2122,9 @@
       "legend_local": "在你的硬件上运行",
       "legend_optional": "可选",
       "legend_external": "你的 broker 和浏览器",
-      "legend_note": "除下面列出的请求外，没有任何数据离开你的网络。"
+      "legend_note": "除下面列出的请求外，没有任何数据离开你的网络。",
+      "not_checked": "未检查",
+      "no_reading": "无法从此处读取"
     },
     "storage": {
       "title": "存储了什么",
@@ -2167,7 +2169,12 @@
       "no_gaps": "最近 24 小时没有中断。",
       "up_to_date": "已是最新",
       "update_available": "v{version} 可用",
-      "checked": "检查于 {when}"
+      "checked": "检查于 {when}",
+      "availability": "在线 {percent}%",
+      "window_start": "{hours} 小时前",
+      "window_now": "现在",
+      "history_loading": "正在加载可用性…",
+      "history_unavailable": "无法读取可用性。"
     },
     "close": {
       "title": "数据、隐私与致谢"
