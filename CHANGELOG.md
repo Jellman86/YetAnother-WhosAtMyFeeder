@@ -17,6 +17,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Mobile species tagging and notifications no longer hide controls.** The species picker follows
+  the browser's visible viewport when an on-screen keyboard opens, keeps its results scrollable in
+  short and landscape layouts, and exposes proper dialog and field semantics. Phone notifications
+  now use a safe-area-aware lane beneath the detection close control, which remains anchored while
+  detection content scrolls or the device rotates. Desktop notification placement stays unchanged.
+
 - **Update notifications now converge within minutes instead of potentially remaining stale for
   half a day.** The telemetry version endpoint reads CI's promoted D1 row without an isolate-local
   stale copy, the backend uses a bounded fifteen-minute success cache with a five-minute failure retry,
