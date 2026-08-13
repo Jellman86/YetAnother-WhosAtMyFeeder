@@ -8,6 +8,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Ten more bird facts in the footer ticker**, weighted towards birds that turn up at feeders.
+  Broad claims were narrowed to the species, measurement or observation the research supports,
+  including chickadee cache recovery after 28 days and the British record of 61 wrens roosting
+  together.
+- **Corrected several bird myths and overstatements.** Woodpecker skulls work as stiff hammers, not
+  shock absorbers; geese have serrated bills rather than teeth; penguins use pebbles as nest
+  material rather than marriage proposals; and flocking starlings respond to around seven nearby
+  neighbours rather than tracking exactly seven birds.
+- **The footer signature drops the sentiment.** "Built with AI assistance for the love of bird
+  watching" becomes "Built with AI assistance, and a lot of trial and error", and the string moves
+  from `about.built_with_ai` to `footer.built_with_ai`, which is where it is actually used.
+- **The footer ticker is stable and safe on narrow screens.** Its mobile layout reserves enough
+  room for the bundled translations, skips missing or single-item fact lists safely, clears both
+  timers on teardown, and changes facts without fading when reduced motion is requested.
 - **The About page speaks in the first person again.** The project description had been written
   as third-party marketing copy about the author ("YA-WAMF is a personal project started to
   experiment with AI-assisted coding"), which is the README's own sentence with the "I" removed,
