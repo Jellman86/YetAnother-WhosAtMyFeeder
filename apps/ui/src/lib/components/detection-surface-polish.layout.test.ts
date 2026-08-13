@@ -63,15 +63,54 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('{#if !detection.manual_tagged && !isUnknownSpecies}');
     });
 
-    it('preserves the complete stored image unless a matching full frame is available', () => {
+    it('preserves the complete stored image when a matching full frame is unavailable', () => {
         expect(detectionModalSource).toContain('findMatchingFullFrameCandidate');
         expect(detectionModalSource).toContain("canShowFullFrame ? 'object-cover' : 'object-contain'");
     });
 
-    it('keeps the favorite action clear of the crop and full-frame switch', () => {
+    it('keeps the favorite action and full-frame switch in one non-overlapping flow', () => {
+        expect(detectionModalSource).toContain('data-detection-media-actions');
         expect(detectionModalSource).toContain('data-detection-media-toggle');
-        expect(detectionModalSource).toContain("canShowFullFrame ? 'top-16 left-3' : 'top-4 left-4'");
-        expect(detectionModalSource).not.toContain('class="absolute top-4 left-4 z-30');
+        expect(detectionModalSource).toContain('flex-col items-start gap-2');
+        expect(detectionModalSource).not.toContain("canShowFullFrame ? 'top-16 left-3' : 'top-4 left-4'");
+    });
+
+    it('hides the options strip scrollbar and fades only a real overflow', () => {
+        // A native bar over the image gradient is ugly and low contrast; masking unconditionally
+        // would clip the last thumbnail on a strip that fits.
+        expect(detectionModalSource).toContain('.snapshot-strip');
+        expect(detectionModalSource).toContain('scrollbar-width: none');
+        expect(detectionModalSource).toContain('node.scrollLeft + node.clientWidth < node.scrollWidth - 1');
+        expect(detectionModalSource).toContain("node.addEventListener('scroll', update, { passive: true })");
+        expect(detectionModalSource).toContain("'--strip-fade'");
+    });
+
+    it('labels the name rather than the reference photograph beside it', () => {
+        // The eyebrow sat above a row that opens with a circular reference photo, so it read as
+        // captioning the picture. The person glyph only restated the words.
+        expect(detectionModalSource).not.toContain('M12 3a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V7a4 4 0 0 1 4-4');
+        expect(detectionModalSource).toMatch(
+            /detection\.identified_as[\s\S]{0,400}?font-display text-2xl/
+        );
+    });
+
+    it('lets the species reference sit in the record instead of behind a twisty', () => {
+        expect(detectionModalSource).toContain('data-detection-reference');
+        expect(detectionModalSource).not.toMatch(/<details[^>]*>\s*<summary[^>]*>\s*\{\$_\('detection\.reference_disclosure'/);
+    });
+
+    it('does not nest a card inside the video notice card', () => {
+        // The notice is already tinted and bordered; the disclosure adding its own border and
+        // background made a card within a card.
+        expect(detectionModalSource).not.toContain("bg-white/75 dark:bg-slate-900/40'");
+        expect(detectionModalSource).toContain('border-t pt-2 {videoStatusNoticeTone.detailsContainer}');
+    });
+
+    it('gives the species info button real padding', () => {
+        // It carried no padding class at all, so with its siblings hidden for a guest it
+        // collapsed to the height of its own text.
+        expect(detectionModalSource).not.toContain('flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-xl');
+        expect(detectionModalSource).toContain('btn btn-primary flex-1 px-3 py-2.5 text-xs');
     });
 
     it('keeps location-level notable reports out of individual detections', () => {

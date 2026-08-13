@@ -17,6 +17,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The detection view says what it identified above the name, not above the photograph.** The
+  label sat over a row that opens with a circular reference photo, so it read as a caption for the
+  picture rather than for the record. The person glyph beside it is gone: it only restated the words.
+- **The crop and full-frame switch no longer collides with the favourite action on phones.** The
+  view switch keeps its recovery path for tightly cropped detections, while a dedicated action lane
+  gives both controls full-size touch targets without overlap.
+- **The options strip no longer shows a native scrollbar** across the image gradient. The bar is
+  hidden and the trailing edge fades, but only while the strip actually overflows, so a strip that
+  fits is not clipped for decoration.
+- **The video notice stops nesting a card inside a card.** The notice is already tinted and
+  bordered; its technical details added another border and background inside that, and the evidence
+  list drew its own rules inside that again. One hairline separates them now.
+- **The species reference and nearby sightings are part of the record**, not folded behind a
+  disclosure that had to be opened every time.
+- **The species info button has padding.** It carried no padding class at all, so for a guest, whose
+  sibling actions are hidden, it collapsed to the height of its own text.
 - **The Explorer loses two sets of horizontal rules.** The timeline was wrapped in a line above and
   below, putting one directly above the first row of detections, and the pagination was wrapped the
   same way. Against a grid of cards that already carry strong edges, those read as lines drawn across
