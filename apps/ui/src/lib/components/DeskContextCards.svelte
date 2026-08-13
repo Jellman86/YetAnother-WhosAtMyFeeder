@@ -2,6 +2,8 @@
     import { onMount } from 'svelte';
     import { fetchCameraStatuses } from '../api';
     import type { AudioSummaryResponse, CameraStatusResponse, Detection } from '../api';
+    import type { DetectionVisit } from '../utils/visit-grouping';
+    import { buildDashboardCameraRows } from '../utils/dashboard-cameras';
     import { formatTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import { getTemperatureUnitForSystem, resolveWeatherUnitSystem } from '../utils/weather-units';
@@ -14,12 +16,13 @@
     interface Props {
         /** The detections the log is showing, newest first. */
         detections: Detection[];
+        visits: DetectionVisit[];
         birdnetEnabled?: boolean;
         /** Fetched once by the page and shared with the day bar. */
         audioSummary?: AudioSummaryResponse | null;
     }
 
-    let { detections, birdnetEnabled = false, audioSummary = null }: Props = $props();
+    let { detections, visits, birdnetEnabled = false, audioSummary = null }: Props = $props();
 
     let cameraStatus = $state<CameraStatusResponse | null>(null);
 
@@ -43,49 +46,13 @@
         return () => controller.abort();
     });
 
-    interface CameraRow {
-        name: string;
-        visits: number;
-        status: 'online' | 'offline' | 'unknown';
-        /** The most recent visit, so a quiet camera is visibly quiet. */
-        lastSeen: string | null;
-    }
-
-    const cameraRows = $derived.by<CameraRow[]>(() => {
-        const visitsByCamera = new Map<string, number>();
-        const lastSeenByCamera = new Map<string, string>();
-        for (const detection of detections) {
-            const camera = detection.camera_name;
-            if (!camera) continue;
-            visitsByCamera.set(camera, (visitsByCamera.get(camera) ?? 0) + 1);
-            const seen = lastSeenByCamera.get(camera);
-            if (!seen || detection.detection_time > seen) {
-                lastSeenByCamera.set(camera, detection.detection_time);
-            }
-        }
-
-        const known = cameraStatus?.cameras ?? [];
-        const rows: CameraRow[] = known.map((camera) => ({
-            name: camera.camera,
-            visits: visitsByCamera.get(camera.camera) ?? 0,
-            status: camera.status,
-            lastSeen: lastSeenByCamera.get(camera.camera) ?? null
-        }));
-
-        // A camera that produced detections but is missing from the status list still belongs here.
-        for (const [name, visits] of visitsByCamera) {
-            if (!rows.some((row) => row.name === name)) {
-                rows.push({
-                    name,
-                    visits,
-                    status: 'unknown',
-                    lastSeen: lastSeenByCamera.get(name) ?? null
-                });
-            }
-        }
-
-        return rows.sort((left, right) => right.visits - left.visits || left.name.localeCompare(right.name));
-    });
+    const cameraRows = $derived(
+        buildDashboardCameraRows({
+            cameraStatus,
+            visits,
+            configuredCameras: settingsStore.settings?.cameras ?? null
+        })
+    );
 
     const crossConfirmed = $derived(
         detections.reduce((total, detection) => total + (detection.audio_confirmed ? 1 : 0), 0)

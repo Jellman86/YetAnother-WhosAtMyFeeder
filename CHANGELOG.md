@@ -127,6 +127,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Review confirmations now persist and leave the queue immediately.** Choosing the species a
+  detection already shows, including a translated alias of the same taxon, records the human
+  confirmation without rewriting its canonical taxonomy or adding false correction feedback. The
+  API and dashboard synchronise `manual_tagged` immediately instead of depending on a later live
+  update.
+
+- **Dashboard review and camera state now follows saved settings.** The review queue uses the
+  configured classification threshold instead of a fixed 60% floor. The camera section shows only
+  selected cameras when a selection exists, keeps configured cameras with unavailable health as
+  unknown, and counts grouped visits rather than raw Frigate frames.
+
+- **Active video workers no longer time out while reporting progress.** Every valid worker protocol
+  event now refreshes liveness, so a long frame-analysis run is not killed merely because a heartbeat
+  and a progress event crossed. Manual and maintenance jobs recover from a genuine worker failure by
+  using the existing snapshot fallback and retain a diagnostic record of the recovery.
+
 - **Every frame in a visit previews itself.** Hovering any thumbnail in a folded group showed the
   same clearest frame. Each thumbnail is now its own trigger with its own preview, stating which
   frame it is, and clicking one opens that frame rather than the visit's best.

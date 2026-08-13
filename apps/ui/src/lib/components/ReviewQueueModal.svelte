@@ -1,4 +1,5 @@
 <script lang="ts">
+    import { untrack } from 'svelte';
     import { fetchSnapshotCandidates, getThumbnailUrl } from '../api';
     import type { Detection, SnapshotCandidate } from '../api';
     import { advance, createReviewSession, remaining, type ReviewSession } from '../utils/review-session';
@@ -21,7 +22,7 @@
 
     let { queue, labels = [], suggestions = [], onidentify, onhide, onopen, onclose }: Props = $props();
 
-    let session = $state<ReviewSession>(createReviewSession(queue));
+    let session = $state<ReviewSession>(untrack(() => createReviewSession(queue)));
     // A wide feeder shot does not settle what a 56% blur is; the crop the classifier
     // scored does. Crops exist only for events that have been scanned, so this is a
     // best-effort enrichment rather than something the flow depends on.

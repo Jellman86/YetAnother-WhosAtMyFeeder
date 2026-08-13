@@ -28,6 +28,7 @@
     import { getBirdNames } from '../naming';
     import { groupDetectionsIntoVisits, withinDeskWindow } from '../utils/visit-grouping';
     import { buildReviewQueue } from '../utils/review-queue';
+    import { applyManualTagResult } from '../utils/manual-tag';
 
     interface Props {
         onnavigate?: (path: string) => void;
@@ -95,9 +96,10 @@
 
     // One window for the whole desk, so the day bar, the log and the context cards agree.
     let deskDetections = $derived(withinDeskWindow(detectionsStore.detections));
+    let reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
 
     // The day reads as visits, not frames: repeat frames of one bird fold into one row.
-    let allVisits = $derived(groupDetectionsIntoVisits(deskDetections));
+    let allVisits = $derived(groupDetectionsIntoVisits(deskDetections, { reviewThreshold }));
     let visits = $derived(allVisits.slice(0, VISIT_ROW_LIMIT));
     let hiddenVisitCount = $derived(Math.max(allVisits.length - visits.length, 0));
 
@@ -133,7 +135,8 @@
 
     async function identifyFromQueue(detection: Detection, species: string): Promise<void> {
         try {
-            await updateDetectionSpecies(detection.frigate_event, species);
+            const result = await updateDetectionSpecies(detection.frigate_event, species);
+            detectionsStore.updateDetection(applyManualTagResult(detection, result));
             toastStore.show($_('detection.species_updated', { default: 'Species updated' }), 'success');
         } catch (e) {
             toastStore.show(getErrorMessage(e), 'error');
@@ -152,7 +155,7 @@
     }
 
     // Detections still waiting on a person, oldest first.
-    let reviewQueue = $derived(buildReviewQueue(deskDetections));
+    let reviewQueue = $derived(buildReviewQueue(deskDetections, { reviewThreshold }));
 
     // Derive reclassification progress for the modal
     let modalReclassifyProgress = $derived(
@@ -387,12 +390,9 @@
         updatingTag = true;
         try {
             const eventId = selectedEvent.frigate_event;
-            await updateDetectionSpecies(eventId, newSpecies);
-            selectedEvent.display_name = newSpecies;
-            selectedEvent.category_name = newSpecies;
-            selectedEvent.manual_tagged = true;
-            // Optimistically update store
-            detectionsStore.updateDetection({ ...selectedEvent, display_name: newSpecies, category_name: newSpecies, manual_tagged: true });
+            const result = await updateDetectionSpecies(eventId, newSpecies);
+            selectedEvent = applyManualTagResult(selectedEvent, result);
+            detectionsStore.updateDetection(selectedEvent);
             if (recordingClipFetchEnabled) {
                 await fullVisitStore.ensureAvailability(eventId, { refresh: true });
             }
@@ -495,6 +495,7 @@
 
             <DeskContextCards
                 detections={deskDetections}
+                visits={allVisits}
                 {birdnetEnabled}
                 {audioSummary}
             />
@@ -526,7 +527,10 @@
 
 {#if reviewSessionOpen && canReview}
     <ReviewQueueModal
-        queue={buildReviewQueue(deskDetections, Number.MAX_SAFE_INTEGER).items}
+        queue={buildReviewQueue(deskDetections, {
+            reviewThreshold,
+            limit: Number.MAX_SAFE_INTEGER
+        }).items}
         labels={classifierLabels}
         suggestions={recentSpecies}
         onidentify={identifyFromQueue}

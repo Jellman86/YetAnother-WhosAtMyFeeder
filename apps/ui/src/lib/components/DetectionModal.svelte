@@ -1052,7 +1052,7 @@
         const needsEbirdNearby = ebirdEnabled && showEbirdNearby;
         const needsEbirdNotable = ebirdEnabled && showEbirdNotable;
         if (needsEbirdNearby) {
-            void loadEbirdNearby(detection.display_name, detection.scientific_name);
+            void loadEbirdNearby(detection.display_name, detection.scientific_name ?? undefined);
         }
         if (needsEbirdNotable) {
             void loadEbirdNotable();

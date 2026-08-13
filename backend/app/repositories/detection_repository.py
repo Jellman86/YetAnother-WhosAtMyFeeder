@@ -1974,6 +1974,13 @@ class DetectionRepository:
             ),
         )
 
+    async def confirm_manual_species_tag(self, *, frigate_event: str) -> None:
+        """Record a human confirmation without rewriting the stored species identity."""
+        await self.db.execute(
+            "UPDATE detections SET manual_tagged = 1 WHERE frigate_event = ?",
+            (frigate_event,),
+        )
+
     async def get_favorite_frigate_event_ids(self) -> set[str]:
         """Get Frigate event IDs that are marked as favorites."""
         async with self.db.execute(

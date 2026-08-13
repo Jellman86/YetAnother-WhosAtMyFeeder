@@ -34,6 +34,7 @@ class ClassifierWorkerClient:
         self._wait_task: asyncio.Task[None] | None = None
         self._event_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self._last_heartbeat_monotonic: float | None = None
+        self._last_activity_monotonic: float | None = None
         self._last_stderr_monotonic: float | None = None
         self._busy = False
         self._current_request_id: str | None = None
@@ -111,6 +112,7 @@ class ClassifierWorkerClient:
             "busy": self._busy,
             "current_request_id": self._current_request_id,
             "last_heartbeat_monotonic": self._last_heartbeat_monotonic,
+            "last_activity_monotonic": self._last_activity_monotonic,
             "last_stderr_monotonic": self._last_stderr_monotonic,
             "heartbeat_timeout_seconds": self.heartbeat_timeout_seconds,
             "exit_code": self._exit_code,
@@ -131,6 +133,7 @@ class ClassifierWorkerClient:
                     continue
                 if message.get("worker_generation") not in {None, self.worker_generation}:
                     continue
+                self._last_activity_monotonic = time.monotonic()
                 message_type = message["type"]
                 if message_type == "ready":
                     self._ready.set()
