@@ -54,6 +54,9 @@ delivered → release-defining initiatives → non-blocking backlog → breaking
 
 - [ ] The UI simplification pass has made Settings and the primary owner/guest journeys coherent,
   responsive, keyboard-operable, and honest about loading, empty, error, and destructive states.
+- [ ] A separately versioned SQLite species catalogue maps every supported model output index to
+  a canonical taxon and supplies common, scientific, and translated names without requiring model
+  label text files at runtime; migration from existing taxonomy data is lossless and reversible.
 - [ ] Native editorial review is complete for locales presented as fully supported, or any residual
   language-quality limitations are labelled honestly in the release notes.
 - [x] Stable installation and recovery docs match the shipped Compose defaults and first-run auth
@@ -109,6 +112,27 @@ All four recommendations from the
 
 The headline work that makes `3.0` a major version: a guided first run, a cleaner product
 surface, a codebase reviewed to the gold standard, and complete translations.
+
+#### Versioned species catalogue and model mapping 🐦
+**Priority:** P1 | **Effort:** L | **Status:** ☐ Not started — required before `3.0`
+
+Create a separate, enrichable SQLite catalogue whose stable taxon records own scientific names,
+locale-specific common names, aliases, regions, and provenance. A versioned mapping table will bind
+each immutable model artifact and raw output index to one canonical taxon. Model sidecars may still
+declare the mapping asset/version needed to validate a download, but production inference will emit
+the model ID, output index, score, and resolved taxon identity rather than treating mutable label
+text as identity.
+
+The catalogue must be independently backed up and upgraded, use Alembic-safe attached-database
+migrations or an equivalently reversible versioned importer, and retain the current application DB
+as the owner of detections and user choices. Offline installs keep a bundled baseline; enrichment is
+an explicit, checksum/versioned transaction that never silently rewrites historical identity.
+
+**Acceptance:** every shipped classifier and crop-independent species model has complete,
+checksum-bound index coverage; missing or ambiguous mappings fail closed; common/scientific/locale
+switches do not change filtering or analytics identity; existing `taxonomy_cache` and translation
+rows migrate without loss; backup/restore and rollback are exercised; and tests prove two models
+with different label orders resolve the same bird to the same taxon.
 
 #### First-run setup wizard 🧭
 **Priority:** P1 | **Effort:** L | **Status:** ✅ Shipped on `dev` — multi-part, hardware-validating, re-runnable from the Settings navigation ([design](docs/plans/2026-07-12-first-run-setup-wizard-design.md))
@@ -316,6 +340,23 @@ Automated highlight reels and time-based browsing. Shipped: video preview pipeli
 day-bucket timeline strip with keyboard nav. Remaining:
 - Fuller grouped-browsing timeline UI + advanced keyboard UX.
 - Highlight scoring (confidence, rarity, activity) and clip stitching/preview thumbnails.
+
+#### Durable media archive and retention floors 📚
+**Priority:** P2 | **Effort:** M | **Status:** ☐ Proposed
+([#178](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/178))
+
+Favourites already protect their detection row and existing cached snapshot/clip from scheduled and
+manual retention cleanup. Complete the stronger durability contract requested in #178: when a visit
+is favourited, durably acquire its best snapshot and available clip into a dedicated archive before
+Frigate rotates them; expose acquisition state and failures; and make unfavourite/archive deletion
+an explicit owner choice. Add bounded rolling snapshot retention with both an age window and a
+configurable per-species minimum, without automatically downloading every video.
+
+**Acceptance:** archive writes are atomic and restart-safe; a favourite is not reported protected
+until requested assets are durable (or an honest unavailable state is recorded); normal cache clear
+cannot remove archived media; storage usage and destructive actions are visible; per-species floors
+are canonical-taxon based; backup/restore is documented; and tests cover Frigate expiry, concurrent
+favourite/unfavourite, partial downloads, cleanup order, and disk-pressure failure.
 
 #### Analytics: insights panel + camera comparison 📊
 **Priority:** P2 | **Effort:** M | **Status:** ☐ Not started

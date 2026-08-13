@@ -17,6 +17,13 @@ describe('Explorer page layout', () => {
         expect(filtersSource).toContain('let panelOpen = $state(false)');
     });
 
+    it('passes naming-aware species labels to the responsive filter panel', () => {
+        expect(eventsSource).toContain('let displaySpecies = $derived(');
+        expect(eventsSource).toContain('display_name: formatSpeciesLabel(item)');
+        expect(eventsSource).toContain('species={displaySpecies}');
+        expect(eventsSource).not.toContain('species={availableSpecies}');
+    });
+
     it('presents the timeline as a quiet divided control instead of another card', () => {
         expect(eventsSource).toContain('data-events-timeline');
         expect(eventsSource).toMatch(/data-events-timeline[^>]+border-y/);

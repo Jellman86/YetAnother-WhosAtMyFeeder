@@ -172,6 +172,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The responsive Events species filter now honours the configured naming preference**
+  ([#180](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/180)). Filter values remain
+  canonical, while their visible labels use the same common/scientific-name pairing as detection
+  cards instead of exposing only the model's scientific label.
+
 - **The leaderboard stops printing a percentage it cannot stand behind.** Every camera trend read
   "+76 (0.0%)" because the previous window holds no camera data to compare against, so the figure was
   the same on every row and meant nothing. A trend now shows its percentage only when there is a

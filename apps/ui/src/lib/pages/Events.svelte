@@ -160,6 +160,16 @@
         return naming.secondary ? `${naming.primary} (${naming.secondary})` : naming.primary;
     }
 
+    // The API's display name is a stable fallback, not necessarily the owner's chosen
+    // naming presentation. Keep the canonical filter value intact while deriving the
+    // visible label from the same common/scientific-name policy as detection cards.
+    let displaySpecies = $derived(
+        availableSpecies.map((item) => ({
+            ...item,
+            display_name: formatSpeciesLabel(item)
+        }))
+    );
+
     let dateRange = $derived.by(() => {
         const today = new Date();
         const fmt = (d: Date) => toLocalYMD(d);
@@ -1082,7 +1092,7 @@
     <div class="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start" data-explorer-layout>
         <div class="lg:sticky lg:top-4">
         <ExplorerFilters
-            species={availableSpecies}
+            species={displaySpecies}
             cameras={availableCameras}
             filters={eventFilters}
             {datePreset}
