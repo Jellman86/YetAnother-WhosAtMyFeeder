@@ -49,6 +49,7 @@
         taxa_id?: number | null;
         count: number;
         prev_count?: number | null;
+        heard_prev_count?: number | null;
         delta?: number | null;
         percent?: number | null;
         first_seen?: string | null;
@@ -263,6 +264,7 @@
                     displayName: a.species,
                     subName: a.scientific_name ?? null,
                     heard_count: a.heard_count,
+                    heard_prev_count: a.heard_prev_count,
                     heard_delta: a.heard_delta,
                     heard_percent: a.heard_percent,
                     heard_avg: a.avg_confidence,
@@ -555,12 +557,19 @@
         return formatDateTime(value);
     }
 
-    function formatTrend(delta?: number | null, percent?: number | null): string {
+    function formatTrend(
+        delta?: number | null,
+        percent?: number | null,
+        prevCount?: number | null
+    ): string {
         if (!delta) return '0';
-        if (percent === undefined || percent === null) {
-            return `${delta > 0 ? '+' : ''}${delta}`;
+        const sign = delta > 0 ? '+' : '';
+        // With nothing in the previous window there is no percentage to give: every species
+        // would read 0.0%, which says less than the count on its own.
+        if (!prevCount || percent === undefined || percent === null) {
+            return `${sign}${delta}`;
         }
-        return `${delta > 0 ? '+' : ''}${delta} (${percent.toFixed(1)}%)`;
+        return `${sign}${delta} (${percent.toFixed(1)}%)`;
     }
 
     function rowCountForMode(row: LeaderboardTableRow, mode: SourceMode): number {
@@ -577,9 +586,11 @@
 
     function rowTrendForMode(row: LeaderboardTableRow, mode: SourceMode): string {
         const delta = rowDeltaForMode(row, mode);
-        if (mode === 'heard') return formatTrend(delta, row.heard_percent);
-        if (mode === 'both') return formatTrend(delta, null);
-        return formatTrend(delta, row.percent);
+        // Heard counts have a real previous window; camera counts on this instance do not,
+        // so each mode is asked about its own history rather than sharing one flag.
+        if (mode === 'heard') return formatTrend(delta, row.heard_percent, row.heard_prev_count);
+        if (mode === 'both') return formatTrend(delta, null, null);
+        return formatTrend(delta, row.percent, row.prev_count);
     }
 
     function rowLastActivityForMode(row: LeaderboardTableRow, mode: SourceMode): string {
@@ -1569,18 +1580,7 @@
 
 
 
-        <dl class="grid border-y border-slate-200 dark:border-slate-700 md:grid-cols-2" data-leaderboard-highlights>
-            {#if span !== 'all'}
-                <div class="flex min-w-0 items-center gap-3 py-4 md:border-t-0 md:pr-5">
-                    <svg class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 17 5-5 4 4 7-9m-5 0h5v5" /></svg>
-                    <div class="min-w-0"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.rising')}</dt><dd class="truncate font-semibold text-slate-900 dark:text-white">{topByTrend?.displayName || '—'} <span class="font-normal text-amber-700 dark:text-amber-300">· {formatTrend(topByTrend?.delta, topByTrend?.percent)}</span></dd></div>
-                </div>
-            {/if}
-            <div class="flex min-w-0 items-center gap-3 border-t border-slate-200 py-4 dark:border-slate-700 md:border-l md:border-t-0 md:pl-5">
-                <svg class="h-5 w-5 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" d="M12 8v4l3 2" /></svg>
-                <div class="min-w-0"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.most_recent')}</dt><dd class="truncate font-semibold text-slate-900 dark:text-white">{mostRecent?.displayName || '—'} <span class="font-normal text-brand-700 dark:text-brand-300">· {formatDate(mostRecent?.last_seen)}</span></dd></div>
-            </div>
-        </dl>
+
 
         <section class="space-y-5" data-leaderboard-rankings>
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -1661,7 +1661,7 @@
                                 </td>
                                 <td class="px-3 py-3 text-right"><span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-accent-500/70" style="width: {rowCountPct}%"></span></span></td>
                                 {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-brand-700 dark:text-brand-300">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-slate-400" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
-                                <td class="hidden px-3 py-3 text-right font-semibold lg:table-cell {(item.delta ?? 0) > 0 ? 'text-accent-600 dark:text-accent-400' : (item.delta ?? 0) < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400'}">{span === 'all' ? '—' : formatTrend(item.delta, item.percent)}</td>
+                                <td class="hidden px-3 py-3 text-right font-semibold lg:table-cell {(item.delta ?? 0) > 0 ? 'text-accent-600 dark:text-accent-400' : (item.delta ?? 0) < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400'}">{span === 'all' ? '—' : formatTrend(item.delta, item.percent, item.prev_count)}</td>
                                 <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>
                                 <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{(item.avg_confidence ?? 0).toFixed(2)}</td>
                                 <td class="hidden px-3 py-3 text-slate-500 dark:text-slate-400 lg:table-cell">{formatDate(item.last_seen)}</td>

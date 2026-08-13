@@ -143,6 +143,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The leaderboard stops printing a percentage it cannot stand behind.** Every camera trend read
+  "+76 (0.0%)" because the previous window holds no camera data to compare against, so the figure was
+  the same on every row and meant nothing. A trend now shows its percentage only when there is a
+  previous window to measure against, and each mode is asked about its own history, so heard counts
+  keep their real percentages while camera counts show the change alone. The Rising and Most recent
+  tiles are gone with it: both named the same species as the collage directly above them.
+
 - **Review confirmations now persist and leave the queue immediately.** Choosing the species a
   detection already shows, including a translated alias of the same taxon, records the human
   confirmation without rewriting its canonical taxonomy or adding false correction feedback. The
