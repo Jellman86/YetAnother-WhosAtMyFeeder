@@ -18,8 +18,11 @@
     import { getThumbnailUrl } from '../api';
     import { authStore } from '../stores/auth.svelte';
     import { toAppPath } from '../app/url-base';
+    import Pagination from '../components/Pagination.svelte';
+    import { paginateItems } from '../utils/pagination';
+    import Jobs from './Jobs.svelte';
 
-    let { onNavigate } = $props<{ onNavigate?: (path: string) => void; currentRoute?: string }>();
+    let { onNavigate, currentRoute = '/notifications' } = $props<{ onNavigate?: (path: string) => void; currentRoute?: string }>();
 
     const FILTERS: NotificationFilter[] = ['all', 'birds', 'updates', 'jobs', 'errors'];
 
@@ -34,10 +37,14 @@
     let unread = $derived(items.filter((item) => !item.read).length);
 
     let filter = $state<NotificationFilter>('all');
+    let requestedPage = $state(1);
+    let pageSize = $state(20);
     // A guest can reach an owner filter by leaving one selected as access changes underneath them.
     let effectiveFilter = $derived(!isOwner && isOwnerOnlyFilter(filter) ? 'all' : filter);
     let visibleFilters = $derived(FILTERS.filter((name) => isOwner || !isOwnerOnlyFilter(name)));
-    let groups = $derived(groupNotifications(filterNotifications(items, effectiveFilter)));
+    let filteredItems = $derived(filterNotifications(items, effectiveFilter));
+    let timelinePage = $derived(paginateItems(filteredItems, requestedPage, pageSize));
+    let groups = $derived(groupNotifications(timelinePage.items));
 
     $effect(() => {
         if (!isOwner) return;
@@ -52,6 +59,20 @@
             return;
         }
         window.location.assign(toAppPath(path));
+    }
+
+    function selectFilter(nextFilter: NotificationFilter) {
+        filter = nextFilter;
+        requestedPage = 1;
+    }
+
+    function changePage(page: number) {
+        requestedPage = page;
+    }
+
+    function changePageSize(size: number) {
+        pageSize = size;
+        requestedPage = 1;
     }
 
     function openItem(item: NotificationItem) {
@@ -101,6 +122,17 @@
     };
 </script>
 
+{#if currentRoute.startsWith('/notifications/jobs') && isOwner}
+    <div class="space-y-5" data-jobs-page>
+        <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => navigate('/notifications')}>
+            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                <path d="m10 3-5 5 5 5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            {$_('notifications.page_history', { default: 'History' })}
+        </button>
+        <Jobs {onNavigate} embedded />
+    </div>
+{:else}
 <div class="space-y-5" data-notifications-timeline>
     <!-- One window, stated once, with the same metrics the dashboard day bar uses. -->
     <div class="flex flex-wrap items-center justify-between gap-3">
@@ -144,7 +176,7 @@
                     ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/50 dark:text-brand-300'
                     : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-300'}"
                 aria-pressed={effectiveFilter === name}
-                onclick={() => (filter = name)}
+                onclick={() => selectFilter(name)}
             >
                 {$_(`notifications.filter_${name}`)}
                 <span class="tabular-nums text-[10px] text-slate-400 dark:text-slate-500">{counts[name]}</span>
@@ -315,5 +347,17 @@
                 </ol>
             {/each}
         </div>
+        <div data-notifications-pagination>
+            <Pagination
+                currentPage={timelinePage.page}
+                totalPages={timelinePage.totalPages}
+                totalItems={timelinePage.totalItems}
+                itemsPerPage={timelinePage.pageSize}
+                onPageChange={changePage}
+                onPageSizeChange={changePageSize}
+                pageSizeOptions={[10, 20, 50]}
+            />
+        </div>
     {/if}
 </div>
+{/if}

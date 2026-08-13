@@ -40,16 +40,25 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toMatch(/data-detection-weather-section[^>]+border-t/);
     });
 
-    it('shows honest snapshot options and keeps integration rows to measured states', () => {
-        expect(detectionModalSource).toContain('data-detection-frame-strip');
+    it('replaces the old snapshot overlay with an honest inline frame picker', () => {
+        expect(detectionModalSource).toContain('data-detection-inline-frame-picker');
         // Candidates are owner-gated, so a guest gets no strip rather than an empty one.
         expect(detectionModalSource).toContain('authStore.hasOwnerAccess ? snapshotCandidates.filter');
+        expect(detectionModalSource).toContain('previewSnapshotCandidate(candidate)');
+        expect(detectionModalSource).toContain('handleSaveSnapshotSelection');
+        expect(detectionModalSource).toContain('stageOriginalFrigateSnapshot');
+        expect(detectionModalSource).toContain('aria-busy={snapshotCandidatesLoading || snapshotApplyPending || snapshotGeneratePending}');
+        expect(detectionModalSource).toContain('aria-live="polite"');
+        expect(detectionModalSource).not.toContain('snapshotRepairOpen');
+        expect(detectionModalSource).not.toContain("default: 'Crop Type'");
+        expect(detectionModalSource).not.toContain("default: 'Scored Frames'");
+    });
+
+    it('keeps integration rows to measured states', () => {
         // "no matching call" from a disabled BirdNET would report a measurement never taken.
         expect(detectionModalSource).toContain('{#if birdnetEnabled && !isManualObservation}');
         expect(detectionModalSource).toContain('effectiveAudioConfirmed');
         expect(detectionModalSource).toContain('audioContextLoading');
-        expect(detectionModalSource).toContain("detection.snapshot_options");
-        expect(detectionModalSource).toContain('openSnapshotCandidate(candidate)');
         expect(detectionModalSource).toContain('data-detection-facts');
         expect(detectionModalSource).toContain('data-detection-identity');
     });
@@ -72,6 +81,9 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('data-detection-media-actions');
         expect(detectionModalSource).toContain('data-detection-media-toggle');
         expect(detectionModalSource).toContain('flex-col items-start gap-2');
+        // The comparison switch stays non-mutating. Only a filmstrip thumbnail stages a frame.
+        expect(detectionModalSource).toContain('showFullFrameMedia()');
+        expect(detectionModalSource).toContain("mediaView = 'full';");
         expect(detectionModalSource).not.toContain("canShowFullFrame ? 'top-16 left-3' : 'top-4 left-4'");
     });
 

@@ -17,6 +17,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Detection frame choice now happens in the photograph itself.** The old full-screen crop/frame
+  picker is gone. Owners can preview only genuinely retained Frigate frames from the filmstrip,
+  compare them against the saved crop or full frame, then explicitly save or cancel. The strip keeps
+  its edge fade, 44px controls and unsaved-state label on phones, while media actions share one
+  predictable lane instead of overlapping the close control or one another.
+- **Notifications and finished-job history no longer grow into an endless page.** Both views show
+  20 rows at a time with 10, 20 and 50-row choices, bounded previous/next navigation on phones and
+  full page controls on wider screens. Active work remains unpaginated, filters return to page one,
+  and a page is clamped automatically when live history shrinks. The Job manager route now opens the
+  manager rather than silently rendering the notification timeline again.
 - **The detection view says what it identified above the name, not above the photograph.** The
   label sat over a row that opens with a circular reference photo, so it read as a caption for the
   picture rather than for the record. The person glyph beside it is gone: it only restated the words.

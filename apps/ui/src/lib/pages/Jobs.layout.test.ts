@@ -35,8 +35,15 @@ describe('jobs page active work semantics', () => {
     it('sorts recent jobs by newest terminal event and renders job icons', () => {
         expect(jobsPageSource).toContain('let recentJobs = $derived.by(() =>');
         expect(jobsPageSource).toContain('const recentDiff = jobRecentSortTimestamp(right) - jobRecentSortTimestamp(left);');
-        expect(jobsPageSource).toContain('{#each recentJobs as job (job.id)}');
+        expect(jobsPageSource).toContain('{#each recentJobsPage.items as job (job.id)}');
         expect(jobsPageSource).toContain('presentJobKindIcon(job.kind)');
+    });
+
+    it('paginates completed history while leaving active work continuously visible', () => {
+        expect(jobsPageSource).toContain("import Pagination from '../components/Pagination.svelte'");
+        expect(jobsPageSource).toContain('paginateItems(recentJobs, requestedRecentPage, recentPageSize)');
+        expect(jobsPageSource).toContain('data-jobs-history-pagination');
+        expect(jobsPageSource).toContain('{#each presentedActiveJobs as job (job.id)}');
     });
 
     it('explains that backfill cards represent coordinator work', () => {
