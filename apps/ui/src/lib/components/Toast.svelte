@@ -23,24 +23,30 @@
     function getColorClasses(type: Toast['type']) {
         switch (type) {
             case 'success':
-                return 'bg-accent-500 border-accent-600';
+                return 'bg-accent-700 border-accent-800';
             case 'error':
-                return 'bg-red-500 border-red-600';
+                return 'bg-red-700 border-red-800';
             case 'warning':
-                return 'bg-amber-500 border-amber-600';
+                return 'bg-amber-700 border-amber-800';
             case 'info':
             default:
-                return 'bg-brand-500 border-brand-600';
+                return 'bg-brand-700 border-brand-800';
         }
     }
 </script>
 
 <!-- Toast Container -->
-<div class="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+<div
+    data-toast-container
+    class="toast-container z-[100] flex flex-col items-end gap-2 pointer-events-none"
+    aria-live="polite"
+    aria-relevant="additions"
+>
     {#each toasts as toast (toast.id)}
         <div
-            class="pointer-events-auto max-w-md {getColorClasses(toast.type)} text-white rounded-xl shadow-lg border-2 backdrop-blur-sm"
+            class="pointer-events-auto w-full max-w-md {getColorClasses(toast.type)} text-white rounded-xl shadow-lg border-2 backdrop-blur-sm"
             transition:fly={{ x: 300, duration: 300 }}
+            aria-atomic="true"
         >
             <div class="flex items-center gap-3 p-4">
                 <!-- Icon -->
@@ -56,7 +62,7 @@
                 <!-- Close Button -->
                 <button
                     onclick={() => toastStore.remove(toast.id)}
-                    class="flex-shrink-0 w-6 h-6 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
+                    class="-mr-2 inline-flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-white/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                     aria-label={$_('notifications.close_toast', { default: 'Close notification' })}
                 >
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -69,5 +75,17 @@
 </div>
 
 <style>
-    /* Additional styles if needed */
+    .toast-container {
+        position: fixed;
+        top: calc(env(safe-area-inset-top, 0px) + 5rem);
+        right: 1rem;
+        left: 1rem;
+    }
+
+    @media (min-width: 640px) {
+        .toast-container {
+            top: 1rem;
+            left: auto;
+        }
+    }
 </style>

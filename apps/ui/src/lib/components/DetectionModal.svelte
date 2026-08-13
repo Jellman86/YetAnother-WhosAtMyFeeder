@@ -66,6 +66,7 @@
     import { isVideoPromotionGated } from '../video-promotion-gate';
     import { applyManualTagResult } from '../utils/manual-tag';
     import { findMatchingFullFrameCandidate } from '../utils/detection-evidence';
+    import { intersectVisibleViewport } from '../utils/visible-viewport';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
@@ -155,6 +156,8 @@
 
     // State
     let modalElement = $state<HTMLElement | null>(null);
+    let manualTagViewportStyle = $state<string | undefined>(undefined);
+    let viewportAnimationFrame: number | undefined;
     let previousBodyPosition = '';
     let previousBodyTop = '';
     let previousBodyWidth = '';
@@ -231,6 +234,35 @@
         scrollLocked = false;
     }
 
+    function syncManualTagViewport(): void {
+        if (typeof window === 'undefined' || !modalElement || !window.visualViewport) {
+            manualTagViewportStyle = undefined;
+            return;
+        }
+
+        const modalBounds = modalElement.getBoundingClientRect();
+        const visibleBounds = intersectVisibleViewport(
+            { top: modalBounds.top, height: modalBounds.height },
+            {
+                offsetTop: window.visualViewport.offsetTop,
+                height: window.visualViewport.height
+            }
+        );
+        const isClipped = visibleBounds.top > 0.5 || visibleBounds.height < modalBounds.height - 0.5;
+
+        manualTagViewportStyle = isClipped && visibleBounds.height > 0
+            ? `top:${Math.round(visibleBounds.top)}px;height:${Math.round(visibleBounds.height)}px;`
+            : undefined;
+    }
+
+    function scheduleManualTagViewportSync(): void {
+        if (typeof window === 'undefined' || viewportAnimationFrame !== undefined) return;
+        viewportAnimationFrame = window.requestAnimationFrame(() => {
+            viewportAnimationFrame = undefined;
+            syncManualTagViewport();
+        });
+    }
+
     function withCacheBust(url: string, token: number): string {
         const separator = url.includes('?') ? '&' : '?';
         return `${url}${separator}v=${token}`;
@@ -287,6 +319,33 @@
         lockDocumentScroll();
         return () => {
             unlockDocumentScroll();
+        };
+    });
+
+    onMount(() => {
+        if (typeof window === 'undefined') return;
+        const visualViewport = window.visualViewport;
+        const modalResizeObserver = typeof ResizeObserver === 'undefined'
+            ? undefined
+            : new ResizeObserver(scheduleManualTagViewportSync);
+
+        syncManualTagViewport();
+        if (modalElement) {
+            modalResizeObserver?.observe(modalElement);
+        }
+        window.addEventListener('resize', scheduleManualTagViewportSync);
+        visualViewport?.addEventListener('resize', scheduleManualTagViewportSync);
+        visualViewport?.addEventListener('scroll', scheduleManualTagViewportSync);
+
+        return () => {
+            modalResizeObserver?.disconnect();
+            window.removeEventListener('resize', scheduleManualTagViewportSync);
+            visualViewport?.removeEventListener('resize', scheduleManualTagViewportSync);
+            visualViewport?.removeEventListener('scroll', scheduleManualTagViewportSync);
+            if (viewportAnimationFrame !== undefined) {
+                window.cancelAnimationFrame(viewportAnimationFrame);
+                viewportAnimationFrame = undefined;
+            }
         };
     });
 
@@ -2087,6 +2146,19 @@
             <ReclassificationOverlay progress={reclassifyProgress} />
         {/if}
 
+        {#if !snapshotRepairOpen}
+            <button
+                data-detection-modal-close
+                onclick={onClose}
+                class="absolute top-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                aria-label={$_('common.close')}
+            >
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        {/if}
+
         <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
 	            <div class="relative aspect-[4/3] shrink-0 overflow-hidden lg:aspect-auto lg:h-full lg:min-h-[26rem] bg-gradient-to-br from-slate-900 via-slate-950 to-brand-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
                     {#if showMediaSlotVideoAnalysis}
@@ -2286,17 +2358,6 @@
                         </div>
                     {/if}
 
-        {#if !snapshotRepairOpen}
-            <button
-                onclick={onClose}
-                class="absolute top-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-                aria-label={$_('common.close')}
-            >
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        {/if}
                 {#if canShowFullFrame}
                     <div class="absolute left-3 top-3 z-20 flex gap-1 rounded-lg bg-slate-950/55 p-1 backdrop-blur-sm" data-detection-media-toggle>
                         <button
@@ -3908,48 +3969,59 @@
 
         {#if hasOwnerDetectionActions && showTagDropdown}
             <div
-                class="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overscroll-contain touch-none"
+                data-manual-tag-dialog
+                class="absolute left-0 right-0 top-0 z-50 flex h-full items-center justify-center overscroll-contain bg-black/40 p-4 backdrop-blur-sm"
+                style={manualTagViewportStyle}
                 onclick={(e) => {
                     if (e.target === e.currentTarget && !updatingTag) {
                         showTagDropdown = false;
                     }
                 }}
                 onkeydown={(e) => {
-                    if ((e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget && !updatingTag) {
+                    if (e.key === 'Escape' && !updatingTag) {
                         e.preventDefault();
+                        e.stopPropagation();
                         showTagDropdown = false;
                     }
                 }}
-                role="button"
-                tabindex="0"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="manual-tag-dialog-title"
+                tabindex="-1"
             >
                 <div
-                    class="w-full max-w-md mx-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 touch-pan-y"
+                    class="mx-2 flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 touch-pan-y dark:border-slate-700 dark:bg-slate-800"
                     aria-busy={updatingTag}
                 >
-                    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                        <h4 class="text-sm font-bold text-slate-800 dark:text-slate-100">
+                    <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-2 dark:border-slate-700">
+                        <h4 id="manual-tag-dialog-title" class="text-sm font-bold text-slate-800 dark:text-slate-100">
                             {$_('actions.manual_tag')}
                         </h4>
                         <button
                             type="button"
                             onclick={() => showTagDropdown = false}
                             disabled={updatingTag}
-                            class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                            class="btn btn-ghost min-h-11 px-3 text-xs"
                         >
                             {$_('common.cancel')}
                         </button>
                     </div>
-                    <div class="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                    <div class="shrink-0 border-b border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
+                        <label for="manual-tag-species-search" class="sr-only">
+                            {$_('detection.tagging.search_placeholder')}
+                        </label>
                         <input
+                            id="manual-tag-species-search"
                             type="text"
                             bind:value={tagSearchQuery}
                             disabled={updatingTag}
+                            autocomplete="off"
+                            enterkeyhint="search"
                             placeholder={$_('detection.tagging.search_placeholder')}
-                            class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none"
+                            class="input-base min-h-11 text-base sm:text-sm"
                         />
                     </div>
-                    <div class="max-h-72 overflow-y-auto overscroll-contain p-1">
+                    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
                         {#each searchResults as result}
                             {@const names = getResultNames(result)}
                             {@const isPending = updatingTag && pendingManualTagId === result.id}
@@ -3957,7 +4029,7 @@
                                 type="button"
                                 onclick={() => handleManualTag(result)}
                                 disabled={updatingTag}
-                                class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-600 dark:hover:text-brand-400 disabled:opacity-60 disabled:cursor-wait {result.id === detection.display_name ? 'bg-brand-500/10 text-brand-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
+                                class="min-h-11 w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-all touch-manipulation hover:bg-brand-50 hover:text-brand-600 disabled:cursor-wait disabled:opacity-60 dark:hover:bg-brand-900/20 dark:hover:text-brand-400 {result.id === detection.display_name ? 'bg-brand-500/10 text-brand-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
                             >
                                 <span class="block text-sm leading-tight">
                                     {names.primary}
