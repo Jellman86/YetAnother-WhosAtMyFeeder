@@ -31,6 +31,8 @@
     /** One tile changes per tick, so the collage drifts rather than cutting. */
     const CYCLE_MS = 3600;
     const FADE_MS = 1600;
+    /** Detections closer together than this are the same visit, so they look the same. */
+    const VISIT_GAP_MS = 10 * 60 * 1000;
 
     let photos = $state<Detection[]>([]);
     /** Which photo each tile is showing. Only one entry changes per tick. */
@@ -49,7 +51,25 @@
             try {
                 const events = await fetchEvents({ species: name, limit: 12 });
                 if (controller.signal.aborted) return;
-                photos = events.filter((event) => event.has_snapshot !== false);
+                // Consecutive detections are usually frames of a single visit and look the
+                // same, so keep one per visit and then spread the picks across the window.
+                const spaced: Detection[] = [];
+                let lastAt = 0;
+                for (const event of events.filter((item) => item.has_snapshot !== false)) {
+                    const at = Date.parse(event.detection_time);
+                    if (!spaced.length || Number.isNaN(at) || Math.abs(lastAt - at) > VISIT_GAP_MS) {
+                        spaced.push(event);
+                        lastAt = at;
+                    }
+                }
+                // The endpoint can return the same event twice across pages; a collage that
+                // shows one photograph twice looks like a bug even when the data is fine.
+                const seen = new Set<string>();
+                photos = spaced.filter((event) => {
+                    if (seen.has(event.frigate_event)) return false;
+                    seen.add(event.frigate_event);
+                    return true;
+                });
                 slots = Array.from({ length: Math.min(TILES, photos.length) }, (_unused, i) => i);
             } catch (error) {
                 if (controller.signal.aborted) return;
@@ -75,11 +95,14 @@
         }
         const timer = setInterval(() => {
             // Advance a single tile to a photo none of the others is showing.
+            // Only rotate when there is a photograph no tile is currently showing.
             const shown = new Set(slots);
+            if (shown.size >= photos.length) return;
             let candidate = (Math.max(...slots) + 1) % photos.length;
             for (let step = 0; step < photos.length && shown.has(candidate); step++) {
                 candidate = (candidate + 1) % photos.length;
             }
+            if (shown.has(candidate)) return;
             slots = slots.map((current, index) => (index === nextTile ? candidate : current));
             nextTile = (nextTile + 1) % slots.length;
         }, CYCLE_MS);
@@ -121,8 +144,7 @@
                             alt=""
                             loading="lazy"
                             decoding="async"
-                            class="absolute inset-0 h-full w-full object-cover motion-reduce:animate-none"
-                            style="animation: collage-fade {FADE_MS}ms ease-in-out"
+                            class="collage-frame absolute inset-0 h-full w-full object-cover"
                         />
                     {/key}
                 </span>
@@ -161,21 +183,40 @@
 {/if}
 
 <style>
-    /* The incoming frame fades up over the one it replaces, which stays put underneath. */
-    @keyframes collage-fade {
+    /* Svelte scopes keyframes, so this one is declared global and referenced by a class
+       rather than an inline style, which could not resolve the scoped name. */
+    @keyframes -global-collage-fade {
         from {
             opacity: 0;
-            transform: scale(1.04);
+            transform: scale(1.06);
         }
         to {
             opacity: 1;
-            transform: scale(1);
+            transform: scale(1.03);
         }
     }
 
+    /* A slow drift so a still photograph does not sit dead on the page. */
+    @keyframes -global-collage-drift {
+        from {
+            transform: scale(1.03) translate3d(0, 0, 0);
+        }
+        to {
+            transform: scale(1.09) translate3d(0, -1.5%, 0);
+        }
+    }
+
+    .collage-frame {
+        animation:
+            collage-fade 1600ms ease-out both,
+            collage-drift 14s ease-in-out 1600ms infinite alternate;
+        will-change: transform, opacity;
+    }
+
     @media (prefers-reduced-motion: reduce) {
-        :global([data-leaderboard-collage] img) {
-            animation: none !important;
+        .collage-frame {
+            animation: none;
+            transform: none;
         }
     }
 </style>
