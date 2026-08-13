@@ -17,7 +17,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full bg-brand-500/95');
         expect(detectionModalSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
         expect(detectionModalSource).toContain('bottom-4 left-4 z-30 flex items-end gap-2 mt-3');
-        expect(detectionModalSource).toContain('{#if canPlayVideo && !snapshotRepairOpen}\n                            <div class="flex items-center gap-2">');
+        expect(detectionModalSource).toContain('{#if canPlayVideo}\n                            <div class="flex items-center gap-2">');
         expect(detectionModalSource).not.toContain('absolute inset-0 flex items-center justify-center pointer-events-none');
         expect(detectionModalSource).toContain('inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55');
         expect(detectionModalSource).toContain('M7 3H5a2 2 0 00-2 2v2');
@@ -49,33 +49,26 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).not.toContain('{#if authStore.canModify}\n                <div class="flex gap-2">');
     });
 
-    it('wires an owner-only HQ crop action into the snapshot hero', () => {
+    it('replaces the owner-only HQ crop overlay with the inline frame rail', () => {
         expect(detectionModalSource).toContain('fetchSnapshotStatus');
         expect(detectionModalSource).toContain('fetchSnapshotCandidates');
         expect(detectionModalSource).toContain('applySnapshotCandidate');
         expect(detectionModalSource).toContain('generateHighQualityBirdCropSnapshot');
-        expect(detectionModalSource).toContain('showSnapshotRepairAction');
-        expect(detectionModalSource).toContain('hasSnapshotRepairCandidates');
-        expect(detectionModalSource).toContain('hasSnapshotRepairWork');
-        expect(detectionModalSource).toContain("currentSnapshotSource?.startsWith('hq_candidate_')");
-        expect(detectionModalSource).toContain('handleSnapshotRepairToggle');
+        expect(detectionModalSource).toContain('showInlineFramePicker');
+        expect(detectionModalSource).toContain('data-detection-inline-frame-picker');
+        expect(detectionModalSource).toContain('previewSnapshotCandidate');
+        expect(detectionModalSource).toContain('cancelSnapshotPreview');
         expect(detectionModalSource).toContain('handleGenerateSnapshotCandidates');
-        expect(detectionModalSource).toContain("Choose Snapshot");
-        expect(detectionModalSource).toContain("Save'");
-        expect(detectionModalSource).toContain("Regenerate HQ'");
-        expect(detectionModalSource).toContain("Crop Type");
-        expect(detectionModalSource).toContain("Scored Frames");
+        expect(detectionModalSource).toContain("Save this frame");
+        expect(detectionModalSource).toContain("Regenerate snapshots");
+        expect(detectionModalSource).toContain("Preview, not saved");
         expect(detectionModalSource).toContain("snapshot_source_original");
-        expect(detectionModalSource).toContain("Full Frame");
-        expect(detectionModalSource).toContain("No AI-cropped frames found.");
-        expect(detectionModalSource).not.toContain("Snapshot repair");
         expect(detectionModalSource).toContain('handleApplySnapshot');
-        expect(detectionModalSource).toContain('</div>\n        </div>\n\n        {#if snapshotRepairOpen}');
         expect(detectionModalSource).toContain('{#if canShowFavoriteAction}');
-        expect(detectionModalSource).toContain('{#if showSnapshotRepairAction && !snapshotRepairOpen}');
-        expect(detectionModalSource).toContain('{#if canPlayVideo && !snapshotRepairOpen}');
-        expect(detectionModalSource).toContain('{#if showFetchFullVisitAction && !snapshotRepairOpen}');
-        expect(detectionModalSource).toContain('{#if frigateIssueBadgeVisible && !snapshotRepairOpen}');
+        expect(detectionModalSource).not.toContain('snapshotRepairOpen');
+        expect(detectionModalSource).not.toContain('handleSnapshotRepairToggle');
+        expect(detectionModalSource).not.toContain("Crop Type");
+        expect(detectionModalSource).not.toContain("Scored Frames");
     });
 
     it('normalizes media overlay circular controls to a consistent size', () => {

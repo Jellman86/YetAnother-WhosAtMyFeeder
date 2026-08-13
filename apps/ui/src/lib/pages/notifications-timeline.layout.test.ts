@@ -16,6 +16,22 @@ describe('Notifications timeline layout', () => {
         expect(en.notifications.clear_notifications).toBe('Clear notifications');
     });
 
+    it('paginates the filtered river instead of rendering the full retained history', () => {
+        expect(source).toContain("import Pagination from '../components/Pagination.svelte'");
+        expect(source).toContain('paginateItems(filteredItems, requestedPage, pageSize)');
+        expect(source).toContain('groupNotifications(timelinePage.items)');
+        expect(source).toContain('data-notifications-pagination');
+        expect(source).toContain('onPageChange={changePage}');
+        expect(source).toContain('onPageSizeChange={changePageSize}');
+    });
+
+    it('routes the job manager to the dedicated bounded jobs view', () => {
+        expect(source).toContain("import Jobs from './Jobs.svelte'");
+        expect(source).toContain("currentRoute.startsWith('/notifications/jobs') && isOwner");
+        expect(source).toContain('<Jobs {onNavigate} embedded />');
+        expect(source).toContain('data-jobs-page');
+    });
+
     it('hides owner-only filters rather than showing them empty', () => {
         expect(source).toContain('isOwner || !isOwnerOnlyFilter(name)');
         // Leaving an owner filter selected as access drops must not strand a guest on it.

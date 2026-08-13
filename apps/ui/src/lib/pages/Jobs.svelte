@@ -11,6 +11,8 @@
     import { resetVideoCircuit } from '../api/maintenance';
     import { toAppPath } from '../app/url-base';
     import { serverJobsStore } from '../stores/server_jobs.svelte';
+    import Pagination from '../components/Pagination.svelte';
+    import { paginateItems } from '../utils/pagination';
     let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
 
     let nowTs = $state(Date.now());
@@ -55,6 +57,9 @@
             return right.id.localeCompare(left.id);
         });
     });
+    let requestedRecentPage = $state(1);
+    let recentPageSize = $state(20);
+    let recentJobsPage = $derived(paginateItems(recentJobs, requestedRecentPage, recentPageSize));
     let queueByKind = $derived({
         ...analysisQueueStatusStore.queueByKind,
         ...serverJobsStore.queueByKind
@@ -131,6 +136,15 @@
 
     function jobRecentSortTimestamp(job: JobProgressItem): number {
         return Math.max(job.finishedAt ?? 0, job.updatedAt ?? 0, job.startedAt ?? 0);
+    }
+
+    function changeRecentPage(page: number) {
+        requestedRecentPage = page;
+    }
+
+    function changeRecentPageSize(size: number) {
+        recentPageSize = size;
+        requestedRecentPage = 1;
     }
 
 </script>
@@ -377,7 +391,7 @@
             <p class="text-xs text-slate-500">{$_('jobs.recent_empty', { default: 'No completed jobs yet.' })}</p>
         {:else}
             <div class="divide-y divide-slate-100 dark:divide-slate-800/60">
-                {#each recentJobs as job (job.id)}
+                {#each recentJobsPage.items as job (job.id)}
                     {@const jobKindIcon = presentJobKindIcon(job.kind)}
                     <button
                         type="button"
@@ -434,6 +448,17 @@
                         </div>
                     </button>
                 {/each}
+            </div>
+            <div data-jobs-history-pagination>
+                <Pagination
+                    currentPage={recentJobsPage.page}
+                    totalPages={recentJobsPage.totalPages}
+                    totalItems={recentJobsPage.totalItems}
+                    itemsPerPage={recentJobsPage.pageSize}
+                    onPageChange={changeRecentPage}
+                    onPageSizeChange={changeRecentPageSize}
+                    pageSizeOptions={[10, 20, 50]}
+                />
             </div>
         {/if}
     </section>

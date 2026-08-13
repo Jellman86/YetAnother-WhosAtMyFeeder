@@ -34,6 +34,8 @@ describe('Explorer page layout', () => {
         expect(paginationSource).not.toContain('card-base');
         expect(paginationSource).toContain("$_('pagination.showing'");
         expect(paginationSource).not.toContain('Showing <span');
+        expect(paginationSource).toContain('sm:hidden');
+        expect(paginationSource).toContain('hidden items-center gap-1 sm:flex');
     });
 
     it('labels the page-level selection toggle as Multi Select', () => {

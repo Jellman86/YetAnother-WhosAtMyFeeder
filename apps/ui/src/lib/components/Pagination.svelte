@@ -72,7 +72,7 @@
 {#if totalPages > 0}
     <div data-pagination class="flex flex-col items-center justify-between gap-4 pt-5 pb-1 sm:flex-row">
         <!-- Items info and page size selector -->
-        <div class="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
+        <div class="flex flex-wrap items-center justify-center gap-4 text-sm text-slate-600 dark:text-slate-400 sm:justify-start">
             <span class="font-medium text-slate-700 dark:text-slate-300">
                 {$_('pagination.showing', { values: { from: startItem, to: endItem, total: totalItems.toLocaleString() }, default: `Showing ${startItem}-${endItem} of ${totalItems.toLocaleString()}` })}
             </span>
@@ -96,7 +96,7 @@
         </div>
 
         <!-- Page navigation -->
-        <nav class="flex items-center gap-1" aria-label={$_('pagination.navigation', { default: 'Pagination' })}>
+        <nav class="flex max-w-full items-center gap-1" aria-label={$_('pagination.navigation', { default: 'Pagination' })}>
             <!-- Previous button -->
             <button
                 onclick={() => goToPage(currentPage - 1)}
@@ -109,24 +109,31 @@
                 </svg>
             </button>
 
-            <!-- Page numbers -->
-            {#each pageNumbers() as page}
-                {#if page === 'ellipsis'}
-                    <span class="px-2 text-slate-400 dark:text-slate-500">...</span>
-                {:else}
-                    <button
-                        onclick={() => goToPage(page)}
-                        class="h-11 min-w-11 rounded-xl px-3 text-sm font-semibold transition-colors
-                               {page === currentPage
-                                   ? 'bg-brand-600 text-white shadow-sm dark:bg-brand-500 dark:text-slate-950'
-                                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}"
-                        aria-current={page === currentPage ? 'page' : undefined}
-                        aria-label={$_('pagination.page_number', { values: { number: page }, default: `Page ${page}` })}
-                    >
-                        {page}
-                    </button>
-                {/if}
-            {/each}
+            <span class="min-w-24 text-center text-xs font-semibold text-slate-600 dark:text-slate-300 sm:hidden">
+                {$_('pagination.page_number', { values: { number: currentPage }, default: `Page ${currentPage}` })} / {totalPages}
+            </span>
+
+            <!-- Full page numbers are useful on wider screens; on mobile, previous/current/next
+                 stays within the viewport and keeps every control at 44px. -->
+            <span class="hidden items-center gap-1 sm:flex">
+                {#each pageNumbers() as page}
+                    {#if page === 'ellipsis'}
+                        <span class="px-2 text-slate-400 dark:text-slate-500">...</span>
+                    {:else}
+                        <button
+                            onclick={() => goToPage(page)}
+                            class="h-11 min-w-11 rounded-xl px-3 text-sm font-semibold transition-colors
+                                   {page === currentPage
+                                       ? 'bg-brand-600 text-white shadow-sm dark:bg-brand-500 dark:text-slate-950'
+                                       : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}"
+                            aria-current={page === currentPage ? 'page' : undefined}
+                            aria-label={$_('pagination.page_number', { values: { number: page }, default: `Page ${page}` })}
+                        >
+                            {page}
+                        </button>
+                    {/if}
+                {/each}
+            </span>
 
             <!-- Next button -->
             <button

@@ -268,11 +268,7 @@
         return `${url}${separator}v=${token}`;
     }
 
-    async function refreshSnapshotControls(eventId: string, options: { closeOverlay?: boolean } = {}) {
-        if (options.closeOverlay !== false) {
-            snapshotRepairOpen = false;
-        }
-        snapshotStatusLoading = true;
+    async function refreshSnapshotControls(eventId: string) {
         snapshotCandidatesLoading = true;
         try {
             const [status, candidateList] = await Promise.all([
@@ -284,17 +280,14 @@
             snapshotCandidates = candidateList.candidates ?? [];
             currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
             currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
-            modelCropMissReason = candidateList.model_crop_miss_reason ?? null;
         } catch {
             if (detection.frigate_event !== eventId) return;
             snapshotStatus = null;
             snapshotCandidates = [];
             currentSnapshotCandidateId = null;
             currentSnapshotSource = null;
-            modelCropMissReason = null;
         } finally {
             if (detection.frigate_event === eventId) {
-                snapshotStatusLoading = false;
                 snapshotCandidatesLoading = false;
             }
         }
@@ -353,16 +346,13 @@
         const eventId = detection?.frigate_event;
         if (!eventId || !hasOwnerDetectionActions) {
             snapshotStatus = null;
-            snapshotStatusLoading = false;
             snapshotCandidates = [];
             snapshotCandidatesLoading = false;
-            snapshotRepairOpen = false;
             currentSnapshotCandidateId = null;
             currentSnapshotSource = null;
             return;
         }
 
-        snapshotStatusLoading = true;
         snapshotCandidatesLoading = true;
 
         void (async () => {
@@ -387,15 +377,12 @@
     let pendingManualTagId = $state<string | null>(null);
     let favoritePending = $state(false);
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
-    let snapshotStatusLoading = $state(false);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
     // Candidate media is owner-gated, so the strip simply does not exist for a guest.
     const snapshotOptionStrip = $derived(
         authStore.hasOwnerAccess ? snapshotCandidates.filter((item) => item.thumbnail_url) : []
     );
     let snapshotCandidatesLoading = $state(false);
-    let modelCropMissReason = $state<string | null>(null);
-    let snapshotRepairOpen = $state(false);
     let snapshotApplyPending = $state(false);
     let snapshotGeneratePending = $state(false);
     let currentSnapshotCandidateId = $state<string | null>(null);
@@ -658,31 +645,13 @@
     );
     const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
     const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
-    const hasSnapshotRepairCandidates = $derived(snapshotCandidates.length > 0);
-    const hasSnapshotRepairWork = $derived(
-        hasSnapshotRepairCandidates
-        || Boolean(snapshotStatus?.can_generate_hq_bird_crop)
-        || Boolean(
-            currentSnapshotSource === 'high_quality_snapshot'
-            || currentSnapshotSource === 'high_quality_bird_crop'
-            || currentSnapshotSource?.startsWith('hq_candidate_')
-        )
-    );
-    const showSnapshotRepairAction = $derived(
-        hasOwnerDetectionActions
-        && detection.observation_source !== 'manual_upload'
-        && !showMediaSlotVideoAnalysis
-        && !reclassifyProgress
-        && hasSnapshotRepairWork
-    );
     let canShowFavoriteAction = $derived(
         authStore.canModify
         && !readOnly
-        && !snapshotRepairOpen
         && !showMediaSlotVideoAnalysis
         && !reclassifyProgress
     );
-    const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available !== false);
+    const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available === true);
     const fullFrameSnapshotCandidate = $derived(
         findMatchingFullFrameCandidate(snapshotCandidates, currentSnapshotCandidateId)
     );
@@ -764,26 +733,35 @@
         };
     }
 
-    // The stored snapshot is often a crop, so filling the panel with it is safe only while the
-    // matching full frame remains one tap away. The controls share one flow layout below, which
-    // prevents the favourite action from overlapping this switch at any viewport or label length.
-    let mediaView = $state<'stored' | 'full'>('stored');
+    // The frame rail previews a choice in place. Persisting it remains a separate, explicit action.
+    let mediaView = $state<'stored' | 'full' | 'candidate' | 'original'>('stored');
     const canShowFullFrame = $derived(
         authStore.hasOwnerAccess && !!fullFrameSnapshotCandidate?.thumbnail_url
     );
-    const mediaImageUrl = $derived(
-        mediaView === 'full' && fullFrameSnapshotCandidate?.thumbnail_url
-            ? fullFrameSnapshotCandidate.thumbnail_url
-            : snapshotImageUrl
+    const previewedSnapshotCandidate = $derived(
+        pendingSnapshotMode === 'candidate' && pendingSnapshotCandidateId
+            ? snapshotCandidates.find((candidate) => candidate.candidate_id === pendingSnapshotCandidateId) ?? null
+            : null
     );
+    const mediaImageUrl = $derived.by(() => {
+        if (mediaView === 'original' && originalFrigateSnapshotAvailable) {
+            return originalFrigateSnapshotUrl;
+        }
+        if (mediaView === 'candidate' && previewedSnapshotCandidate?.thumbnail_url) {
+            return previewedSnapshotCandidate.thumbnail_url;
+        }
+        if (mediaView === 'full' && fullFrameSnapshotCandidate?.thumbnail_url) {
+            return fullFrameSnapshotCandidate.thumbnail_url;
+        }
+        return snapshotImageUrl;
+    });
     $effect(() => {
         // A new detection starts on its own stored frame.
         void detection.frigate_event;
         mediaView = 'stored';
+        pendingSnapshotMode = null;
+        pendingSnapshotCandidateId = null;
     });
-    const frigateHintSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'frigate_hint_crop') ?? null);
-    const modelSnapshotCandidates = $derived(snapshotCandidates.filter((candidate) => candidate.source_mode === 'model_crop'));
-    const allSnapshotFrameCandidates = $derived(snapshotCandidates);
     const selectedSnapshotPickerCandidate = $derived.by(() => {
         if (pendingSnapshotMode === 'revert_original') {
             return null;
@@ -794,44 +772,40 @@
         if (currentSnapshotCandidateId) {
             return snapshotCandidates.find((candidate) => candidate.candidate_id === currentSnapshotCandidateId) ?? null;
         }
-        return fullFrameSnapshotCandidate ?? frigateHintSnapshotCandidate ?? modelSnapshotCandidates[0] ?? null;
-    });
-    const selectedSnapshotPickerLabel = $derived.by(() => {
-        if (
-            originalFrigateSnapshotAvailable
-            && (pendingSnapshotMode === 'revert_original' || (!selectedSnapshotPickerCandidate && currentSnapshotSource === 'frigate_snapshot'))
-        ) {
-            return $_('detection.snapshot_source_original', { default: 'Original Frigate crop' });
-        }
-        if (selectedSnapshotPickerCandidate) {
-            return snapshotSourceLabel(selectedSnapshotPickerCandidate.source_mode);
-        }
-        return snapshotSourceLabel(currentSnapshotSource ?? snapshotStatus?.source ?? null);
-    });
-    const selectedSnapshotPreviewUrl = $derived.by(() => {
-        if (
-            originalFrigateSnapshotAvailable
-            && (pendingSnapshotMode === 'revert_original' || (!selectedSnapshotPickerCandidate && currentSnapshotSource === 'frigate_snapshot'))
-        ) {
-            return originalFrigateSnapshotUrl;
-        }
-        if (selectedSnapshotPickerCandidate?.thumbnail_url) {
-            return selectedSnapshotPickerCandidate.thumbnail_url;
-        }
-        return snapshotImageUrl;
+        return null;
     });
     const canSaveSnapshotSelection = $derived(
         !snapshotApplyPending
         && !snapshotGeneratePending
         && (
-            (pendingSnapshotMode === 'revert_original' && originalFrigateSnapshotAvailable)
-            || Boolean(selectedSnapshotPickerCandidate)
+            (
+                pendingSnapshotMode === 'revert_original'
+                && originalFrigateSnapshotAvailable
+                && currentSnapshotSource !== 'frigate_snapshot'
+            )
+            || (
+                pendingSnapshotMode === 'candidate'
+                && Boolean(pendingSnapshotCandidateId)
+                && pendingSnapshotCandidateId !== currentSnapshotCandidateId
+            )
         )
     );
     const canGenerateSnapshotCandidates = $derived(
         !snapshotApplyPending
         && !snapshotGeneratePending
         && Boolean(snapshotStatus?.can_generate_hq_bird_crop)
+    );
+    const showInlineFramePicker = $derived(
+        hasOwnerDetectionActions
+        && detection.observation_source !== 'manual_upload'
+        && !showMediaSlotVideoAnalysis
+        && !reclassifyProgress
+        && (
+            snapshotCandidatesLoading
+            || snapshotOptionStrip.length > 0
+            || originalFrigateSnapshotAvailable
+            || canGenerateSnapshotCandidates
+        )
     );
 
     const UNKNOWN_SPECIES_LABELS = new Set(['unknown', 'unknown bird', 'background']);
@@ -1467,95 +1441,41 @@
         }
     }
 
-    function snapshotSourceBadgeClass(source: string | null | undefined): string {
-        switch (String(source || '').trim()) {
-            case 'model_crop':
-            case 'hq_candidate_model_crop':
-            case 'high_quality_bird_crop':
-                return 'bg-brand-500/20 text-brand-300';
-            case 'full_frame':
-            case 'hq_candidate_full_frame':
-                return 'bg-blue-500/20 text-blue-300';
-            case 'frigate_hint_crop':
-            case 'hq_candidate_frigate_hint_crop':
-                return 'bg-amber-500/20 text-amber-300';
-            default:
-                return 'bg-white/10 text-white/50';
-        }
-    }
-
-    function snapshotSourceShortLabel(source: string | null | undefined): string {
-        switch (String(source || '').trim()) {
-            case 'model_crop':
-            case 'hq_candidate_model_crop':
-            case 'high_quality_bird_crop':
-                return $_('detection.snapshot_source_short_model_crop', { default: 'AI Crop' });
-            case 'full_frame':
-            case 'hq_candidate_full_frame':
-                return $_('detection.snapshot_source_short_full_frame', { default: 'Full' });
-            case 'frigate_hint_crop':
-            case 'hq_candidate_frigate_hint_crop':
-                return $_('detection.snapshot_source_short_frigate_hint', { default: 'Smart' });
-            default:
-                return source || '';
-        }
-    }
-
-    function formatSnapshotFrameOffset(offset?: number | null) {
-        if (typeof offset !== 'number' || Number.isNaN(offset)) return null;
-        return `${offset.toFixed(2)}s`;
-    }
-
     function stageSnapshotCandidate(candidateId: string | null) {
         pendingSnapshotMode = candidateId ? 'candidate' : null;
         pendingSnapshotCandidateId = candidateId;
     }
 
-    function openSnapshotCandidate(candidate: SnapshotCandidate) {
+    function previewSnapshotCandidate(candidate: SnapshotCandidate) {
         if (!hasOwnerDetectionActions) return;
-        stageSnapshotCandidate(candidate.candidate_id);
-        snapshotRepairOpen = true;
+        if (candidate.candidate_id === currentSnapshotCandidateId) {
+            pendingSnapshotMode = null;
+            pendingSnapshotCandidateId = null;
+        } else {
+            stageSnapshotCandidate(candidate.candidate_id);
+        }
+        mediaView = candidate.candidate_id === fullFrameSnapshotCandidate?.candidate_id
+            ? 'full'
+            : 'candidate';
     }
 
     function stageOriginalFrigateSnapshot() {
         if (!originalFrigateSnapshotAvailable) return;
-        pendingSnapshotMode = 'revert_original';
+        pendingSnapshotMode = currentSnapshotSource === 'frigate_snapshot' ? null : 'revert_original';
         pendingSnapshotCandidateId = null;
+        mediaView = 'original';
     }
 
-    function resetSnapshotPickerSelection() {
-        if (currentSnapshotSource === 'frigate_snapshot' && originalFrigateSnapshotAvailable) {
-            stageOriginalFrigateSnapshot();
-            return;
-        }
-        if (currentSnapshotCandidateId) {
-            stageSnapshotCandidate(currentSnapshotCandidateId);
-            return;
-        }
-        if (fullFrameSnapshotCandidate?.candidate_id) {
-            stageSnapshotCandidate(fullFrameSnapshotCandidate.candidate_id);
-            return;
-        }
-        if (frigateHintSnapshotCandidate?.candidate_id) {
-            stageSnapshotCandidate(frigateHintSnapshotCandidate.candidate_id);
-            return;
-        }
-        if (modelSnapshotCandidates[0]?.candidate_id) {
-            stageSnapshotCandidate(modelSnapshotCandidates[0].candidate_id);
-            return;
-        }
+    function cancelSnapshotPreview() {
         pendingSnapshotMode = null;
         pendingSnapshotCandidateId = null;
+        mediaView = 'stored';
     }
 
-    function handleSnapshotRepairToggle(event: Event) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!showSnapshotRepairAction) return;
-        snapshotRepairOpen = !snapshotRepairOpen;
-        if (snapshotRepairOpen) {
-            resetSnapshotPickerSelection();
-        }
+    function showFullFrameMedia() {
+        pendingSnapshotMode = null;
+        pendingSnapshotCandidateId = null;
+        mediaView = 'full';
     }
 
     async function handleApplySnapshot(
@@ -1571,9 +1491,9 @@
             });
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
-            snapshotRepairOpen = false;
             currentSnapshotSource = result.source ?? null;
             currentSnapshotCandidateId = result.applied_candidate_id ?? null;
+            cancelSnapshotPreview();
             toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
             await refreshSnapshotControls(detection.frigate_event);
         } catch (e) {
@@ -1592,9 +1512,9 @@
             if (!detection || detection.frigate_event !== eventId) return;
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
-            await refreshSnapshotControls(eventId, { closeOverlay: false });
+            await refreshSnapshotControls(eventId);
             if (!detection || detection.frigate_event !== eventId) return;
-            resetSnapshotPickerSelection();
+            cancelSnapshotPreview();
             if (snapshotCandidates.length > 0) {
                 toastStore.success($_('detection.snapshot_generate_success', { default: 'Snapshots regenerated' }));
             } else {
@@ -2258,18 +2178,16 @@
             <ReclassificationOverlay progress={reclassifyProgress} />
         {/if}
 
-        {#if !snapshotRepairOpen}
-            <button
-                data-detection-modal-close
-                onclick={onClose}
-                class="absolute top-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-                aria-label={$_('common.close')}
-            >
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        {/if}
+        <button
+            data-detection-modal-close
+            onclick={onClose}
+            class="absolute top-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            aria-label={$_('common.close')}
+        >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
 
         <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
 	            <div class="relative aspect-[4/3] shrink-0 overflow-hidden lg:aspect-auto lg:h-full lg:min-h-[26rem] bg-gradient-to-br from-slate-900 via-slate-950 to-brand-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
@@ -2330,12 +2248,12 @@
                         <img
                             src={mediaImageUrl}
                             alt={detection.display_name}
-                            class="relative h-full w-full {mediaView === 'full'
+                            class="relative h-full w-full {mediaView === 'full' || mediaView === 'candidate' || mediaView === 'original'
                                 ? 'object-contain'
                                 : canShowFullFrame ? 'object-cover' : 'object-contain'}"
                         />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
-                        {#if canShowFullFrame || canShowFavoriteAction}
+                        {#if canShowFullFrame || canShowFavoriteAction || frigateIssueBadgeVisible}
                             <div
                                 class="absolute left-3 top-3 z-30 flex max-w-[calc(100%-6rem)] flex-col items-start gap-2"
                                 data-detection-media-actions
@@ -2348,7 +2266,7 @@
                                                 ? 'bg-white/15 text-white'
                                                 : 'text-white/60 hover:text-white'}"
                                             aria-pressed={mediaView === 'stored'}
-                                            onclick={(event) => { event.stopPropagation(); mediaView = 'stored'; }}
+                                            onclick={(event) => { event.stopPropagation(); cancelSnapshotPreview(); }}
                                         >
                                             {$_('detection.media_stored', { default: 'Best crop' })}
                                         </button>
@@ -2358,7 +2276,10 @@
                                                 ? 'bg-white/15 text-white'
                                                 : 'text-white/60 hover:text-white'}"
                                             aria-pressed={mediaView === 'full'}
-                                            onclick={(event) => { event.stopPropagation(); mediaView = 'full'; }}
+                                            onclick={(event) => {
+                                                event.stopPropagation();
+                                                showFullFrameMedia();
+                                            }}
                                         >
                                             {$_('detection.media_full_frame', { default: 'Full frame' })}
                                         </button>
@@ -2382,25 +2303,18 @@
                                         {/if}
                                     </button>
                                 {/if}
+                                {#if frigateIssueBadgeVisible}
+                                    <div
+                                        class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
+                                        title={videoFailureInsight.summary}
+                                        aria-label={videoFailureInsight.summary}
+                                    >
+                                        <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-4 w-4 rounded-[3px] bg-white/95 p-0.5 object-contain" />
+                                    </div>
+                                {/if}
                             </div>
                         {/if}
-                        {#if showSnapshotRepairAction && !snapshotRepairOpen}
-                            <button
-                                type="button"
-                                onclick={handleSnapshotRepairToggle}
-                                class="absolute top-4 right-[4.5rem] z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/35 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300/70"
-                                title={$_('detection.snapshot_change', { default: 'Change snapshot' })}
-                                aria-label={$_('detection.snapshot_change', { default: 'Change snapshot' })}
-                            >
-                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                    <path d="M5 8a2 2 0 0 1 2-2h2l1.2-1.6A1 1 0 0 1 11 4h2a1 1 0 0 1 .8.4L15 6h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8Z" stroke-linecap="round" stroke-linejoin="round"></path>
-                                    <circle cx="12" cy="11.5" r="3.25"></circle>
-                                    <path d="M8 20l2-2"></path>
-                                    <path d="M16 20l-2-2"></path>
-                                </svg>
-                            </button>
-                        {/if}
-                        <div class="absolute bottom-0 left-0 right-0 p-5 {snapshotOptionStrip.length > 1 ? 'pb-16' : ''}">
+                        <div class="absolute bottom-0 left-0 right-0 p-5 {showInlineFramePicker ? 'pb-28' : ''}">
                             <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
     	                    {#if subName && subName !== primaryName}
     	                        <p class="text-white/70 text-sm italic drop-shadow -mt-0.5 mb-0.5 truncate">{subName}</p>
@@ -2415,7 +2329,7 @@
                                 {$_('detection.uploaded', { default: 'Uploaded' })}
                             </div>
                         {/if}
-                        {#if canPlayVideo && !snapshotRepairOpen}
+                        {#if canPlayVideo}
                             <div class="flex items-center gap-2">
                                 {#if fullVisitFetched}
                                     <div
@@ -2455,7 +2369,7 @@
                                 </button>
                             </div>
                         {/if}
-                        {#if showFetchFullVisitAction && !snapshotRepairOpen}
+                        {#if showFetchFullVisitAction}
                             <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
                                 <button
                                     type="button"
@@ -2489,51 +2403,112 @@
                     </div>
                     {/if}
 
-                    {#if frigateIssueBadgeVisible && !snapshotRepairOpen}
-                        <div class="absolute top-4 right-4 z-30">
-                            <div
-                                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
-                                title={videoFailureInsight.summary}
-                                aria-label={videoFailureInsight.summary}
-                            >
-                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-4 w-4 rounded-[3px] bg-white/95 p-0.5 object-contain" />
-                            </div>
+                {#if showInlineFramePicker}
+                    <!-- Preview and save happen here; the former full-screen snapshot picker has
+                         deliberately been removed. Every thumbnail is a real retained frame. -->
+                    <div
+                        class="absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent px-3 pb-3 pt-8"
+                        data-detection-inline-frame-picker
+                        aria-busy={snapshotCandidatesLoading || snapshotApplyPending || snapshotGeneratePending}
+                    >
+                        <div class="flex min-h-4 items-center justify-between gap-2 px-1 text-[10px] font-semibold text-white/65" aria-live="polite">
+                            <span>
+                                {#if snapshotCandidatesLoading}
+                                    {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
+                                {:else}
+                                    {$_('detection.snapshot_options', {
+                                        values: { count: snapshotOptionStrip.length + (originalFrigateSnapshotAvailable ? 1 : 0) },
+                                        default: '{count} snapshot options'
+                                    })}
+                                {/if}
+                            </span>
+                            {#if pendingSnapshotMode}
+                                <span>{$_('detection.snapshot_preview_unsaved', { default: 'Preview, not saved' })}</span>
+                            {/if}
                         </div>
-                    {/if}
-
-
-                {#if snapshotOptionStrip.length > 1}
-                    <!-- These are ranked display-snapshot options, not a frame-by-frame account
-                         of the identification that produced the detection. -->
-                    <div class="absolute inset-x-0 bottom-0 z-20 flex items-center gap-1.5 bg-gradient-to-t from-slate-950/85 to-transparent px-3 pb-3 pt-6" data-detection-frame-strip>
-                        <span class="shrink-0 text-[10px] font-semibold text-white/60">
-                            {$_('detection.snapshot_options', {
-                                values: { count: snapshotOptionStrip.length },
-                                default: '{count} snapshot options'
-                            })}
-                        </span>
-                        <div class="snapshot-strip flex min-w-0 gap-1.5 overflow-x-auto" use:watchOverflow>
-                            {#each snapshotOptionStrip as candidate (candidate.candidate_id)}
+                        <div class="flex min-w-0 items-center gap-1.5">
+                            <div class="snapshot-strip flex min-w-0 flex-1 gap-1.5 overflow-x-auto" use:watchOverflow>
+                                {#if originalFrigateSnapshotAvailable}
+                                    {@const originalIsSelected = pendingSnapshotMode === 'revert_original' || (!pendingSnapshotMode && currentSnapshotSource === 'frigate_snapshot')}
+                                    <button
+                                        type="button"
+                                        class="min-h-11 min-w-11 shrink-0 rounded-md p-1 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {originalIsSelected ? 'ring-2 ring-brand-400' : 'opacity-70 hover:opacity-100'}"
+                                        title={$_('detection.snapshot_source_original', { default: 'Original Frigate crop' })}
+                                        aria-label={$_('detection.snapshot_preview_original_aria', { default: 'Preview original Frigate snapshot' })}
+                                        aria-pressed={originalIsSelected}
+                                        onclick={(event) => { event.stopPropagation(); stageOriginalFrigateSnapshot(); }}
+                                    >
+                                        <img src={originalFrigateSnapshotUrl} alt="" loading="lazy" class="h-9 w-12 rounded-md object-cover" />
+                                    </button>
+                                {/if}
+                                {#each snapshotOptionStrip as candidate (candidate.candidate_id)}
+                                    {@const candidateIsSelected = pendingSnapshotCandidateId === candidate.candidate_id || (!pendingSnapshotMode && currentSnapshotCandidateId === candidate.candidate_id)}
+                                    <button
+                                        type="button"
+                                        class="min-h-11 min-w-11 shrink-0 rounded-md p-1 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {candidateIsSelected ? 'ring-2 ring-brand-400' : 'opacity-70 hover:opacity-100'}"
+                                        title={candidate.classifier_label ?? snapshotSourceLabel(candidate.source_mode)}
+                                        aria-label={$_('detection.snapshot_option_aria', {
+                                            values: { source: snapshotSourceLabel(candidate.source_mode) },
+                                            default: 'Preview {source} snapshot option'
+                                        })}
+                                        aria-pressed={candidateIsSelected}
+                                        onclick={(event) => { event.stopPropagation(); previewSnapshotCandidate(candidate); }}
+                                    >
+                                        <img
+                                            src={candidate.thumbnail_url ?? undefined}
+                                            alt=""
+                                            loading="lazy"
+                                            class="h-9 w-12 rounded-md object-cover"
+                                        />
+                                    </button>
+                                {/each}
+                            </div>
+                            {#if pendingSnapshotMode}
                                 <button
                                     type="button"
-                                    class="min-h-11 min-w-11 shrink-0 rounded-md p-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {candidate.selected
-                                        ? 'ring-2 ring-brand-400'
-                                        : 'opacity-70 hover:opacity-100'}"
-                                    title={candidate.classifier_label ?? undefined}
-                                    aria-label={$_('detection.snapshot_option_aria', {
-                                        values: { source: snapshotSourceLabel(candidate.source_mode) },
-                                        default: 'Open {source} snapshot option'
-                                    })}
-                                    onclick={(event) => { event.stopPropagation(); openSnapshotCandidate(candidate); }}
+                                    class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white/80 transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                                    title={$_('common.cancel', { default: 'Cancel' })}
+                                    aria-label={$_('detection.snapshot_cancel_preview', { default: 'Cancel frame preview' })}
+                                    onclick={(event) => { event.stopPropagation(); cancelSnapshotPreview(); }}
                                 >
-                                    <img
-                                        src={candidate.thumbnail_url ?? undefined}
-                                        alt=""
-                                        loading="lazy"
-                                        class="h-9 w-12 rounded-md object-cover"
-                                    />
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                        <path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" />
+                                    </svg>
                                 </button>
-                            {/each}
+                                <button
+                                    type="button"
+                                    class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-500 text-slate-950 shadow-lg transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                                    disabled={!canSaveSnapshotSelection}
+                                    title={$_('detection.snapshot_save', { default: 'Save this frame' })}
+                                    aria-label={$_('detection.snapshot_save', { default: 'Save this frame' })}
+                                    onclick={(event) => { event.stopPropagation(); void handleSaveSnapshotSelection(); }}
+                                >
+                                    {#if snapshotApplyPending}
+                                        <span class="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                                    {:else}
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                            <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    {/if}
+                                </button>
+                            {:else if canGenerateSnapshotCandidates}
+                                <button
+                                    type="button"
+                                    class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-300/35 bg-brand-500/15 text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                                    disabled={snapshotGeneratePending}
+                                    title={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
+                                    aria-label={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
+                                    onclick={(event) => { event.stopPropagation(); void handleGenerateSnapshotCandidates(); }}
+                                >
+                                    {#if snapshotGeneratePending}
+                                        <span class="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                                    {:else}
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                            <path d="M20 6v5h-5M4 18v-5h5M6.1 9a7 7 0 0 1 11.5-2.6L20 11M4 13l2.4 4.6A7 7 0 0 0 17.9 15" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    {/if}
+                                </button>
+                            {/if}
                         </div>
                     </div>
                 {/if}
@@ -3833,299 +3808,6 @@
             </div>
             </div>
         </div>
-
-        {#if snapshotRepairOpen}
-            <div class="absolute inset-0 z-35 flex flex-col bg-slate-950/95 text-white backdrop-blur-md">
-
-                <!-- ── Header ── -->
-                <div class="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-                    <div class="flex min-w-0 items-center gap-2.5">
-                        <svg class="h-4 w-4 shrink-0 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                            <rect x="3" y="6" width="18" height="14" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <circle cx="12" cy="13" r="3.5"/>
-                            <path d="M9 6l1.5-2h3L15 6" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        <div class="min-w-0">
-                            <p class="text-[10px] font-semibold text-white/60">
-                                {$_('detection.snapshot_change', { default: 'Choose Snapshot' })}
-                            </p>
-                            <p class="truncate text-sm font-semibold text-white">{selectedSnapshotPickerLabel}</p>
-                        </div>
-                    </div>
-                    <div class="flex shrink-0 items-center gap-2">
-                        <button
-                            type="button"
-                            onclick={() => { snapshotRepairOpen = false; resetSnapshotPickerSelection(); }}
-                            class="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/80 transition-colors hover:border-white/30 hover:text-white"
-                        >
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/>
-                            </svg>
-                            {$_('common.cancel', { default: 'Cancel' })}
-                        </button>
-                        <button
-                            type="button"
-                            onclick={handleSaveSnapshotSelection}
-                            disabled={!canSaveSnapshotSelection}
-                            class="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-3 py-1.5 text-[11px] font-semibold text-slate-950 transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {#if snapshotApplyPending}
-                                <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                            {:else}
-                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                                    <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                            {/if}
-                            {$_('detection.snapshot_save', { default: 'Save' })}
-                        </button>
-                    </div>
-                </div>
-
-                <div class="flex-1 overflow-y-auto p-4">
-                    <div class="space-y-5">
-
-                        <!-- ── Preview ── -->
-                        <div class="overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-                            <img src={selectedSnapshotPreviewUrl} alt={selectedSnapshotPickerLabel} class="aspect-video w-full object-cover" />
-                        </div>
-
-                        <!-- ── Crop type ── -->
-                        <div class="space-y-2">
-                            <div>
-                                <p class="text-[10px] font-semibold text-white/60">
-                                    {$_('detection.snapshot_picker_sources', { default: 'Crop Type' })}
-                                </p>
-                                <p class="mt-0.5 text-[11px] text-white/40">
-                                    {$_('detection.snapshot_picker_sources_hint', { default: 'Full frame, Frigate region, or the original capture' })}
-                                </p>
-                            </div>
-                            <div class="grid grid-cols-3 gap-2">
-
-                                <!-- Full frame -->
-                                <button
-                                    type="button"
-                                    onclick={() => stageSnapshotCandidate(fullFrameSnapshotCandidate?.candidate_id ?? null)}
-                                    disabled={!fullFrameSnapshotCandidate}
-                                    class="rounded-2xl border p-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 {pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === fullFrameSnapshotCandidate?.candidate_id ? 'border-blue-400/70 bg-blue-400/10' : 'border-white/10 bg-white/5 hover:border-white/25'}"
-                                >
-                                    {#if fullFrameSnapshotCandidate?.thumbnail_url}
-                                        <img src={fullFrameSnapshotCandidate.thumbnail_url} alt={$_('detection.snapshot_source_full_frame', { default: 'Full Frame' })} class="aspect-video w-full rounded-xl object-cover" />
-                                    {:else}
-                                        <div class="flex aspect-video w-full items-center justify-center rounded-xl bg-white/5">
-                                            <svg class="h-5 w-5 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                                                <path d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3M16 21h3a2 2 0 002-2v-3" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                        </div>
-                                    {/if}
-                                    <div class="mt-2 flex items-center gap-1.5">
-                                        <svg class="h-3 w-3 shrink-0 text-blue-300/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                            <path d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3M16 21h3a2 2 0 002-2v-3" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                        <span class="text-[11px] font-semibold">{$_('detection.snapshot_source_full_frame', { default: 'Full Frame' })}</span>
-                                    </div>
-                                    <span class="block text-[10px] text-white/40">{$_('detection.snapshot_source_full_frame_hint', { default: 'Entire scene' })}</span>
-                                </button>
-
-                                <!-- Smart crop (Frigate hint) -->
-                                <button
-                                    type="button"
-                                    onclick={() => stageSnapshotCandidate(frigateHintSnapshotCandidate?.candidate_id ?? null)}
-                                    disabled={!frigateHintSnapshotCandidate}
-                                    class="rounded-2xl border p-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 {pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === frigateHintSnapshotCandidate?.candidate_id ? 'border-amber-400/70 bg-amber-400/10' : 'border-white/10 bg-white/5 hover:border-white/25'}"
-                                >
-                                    {#if frigateHintSnapshotCandidate?.thumbnail_url}
-                                        <img src={frigateHintSnapshotCandidate.thumbnail_url} alt={$_('detection.snapshot_source_frigate_hint_crop', { default: 'Smart Crop' })} class="aspect-video w-full rounded-xl object-cover" />
-                                    {:else}
-                                        <div class="flex aspect-video w-full items-center justify-center rounded-xl bg-white/5">
-                                            <svg class="h-5 w-5 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                                                <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7.5"/>
-                                                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/>
-                                            </svg>
-                                        </div>
-                                    {/if}
-                                    <div class="mt-2 flex items-center gap-1.5">
-                                        <svg class="h-3 w-3 shrink-0 text-amber-300/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                            <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7.5"/>
-                                            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/>
-                                        </svg>
-                                        <span class="text-[11px] font-semibold">{$_('detection.snapshot_source_frigate_hint_crop', { default: 'Smart Crop' })}</span>
-                                    </div>
-                                    <span class="block text-[10px] text-white/40">{$_('detection.snapshot_source_frigate_hint_hint', { default: 'Frigate region' })}</span>
-                                </button>
-
-                                <!-- Original Frigate snapshot -->
-                                <button
-                                    type="button"
-                                    onclick={stageOriginalFrigateSnapshot}
-                                    disabled={!originalFrigateSnapshotAvailable}
-                                    class="rounded-2xl border p-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 {pendingSnapshotMode === 'revert_original' ? 'border-white/40 bg-white/10' : 'border-white/10 bg-white/5 hover:border-white/25'}"
-                                >
-                                    {#if originalFrigateSnapshotAvailable}
-                                        <img src={originalFrigateSnapshotUrl} alt={$_('detection.snapshot_source_original', { default: 'Original' })} class="aspect-video w-full rounded-xl object-cover" />
-                                    {:else}
-                                        <div class="flex aspect-video w-full items-center justify-center rounded-xl bg-white/5">
-                                            <svg class="h-5 w-5 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                                                <path d="M12 9v4M12 17h.01M10.3 4.3L2.8 17.1A2 2 0 004.5 20h15a2 2 0 001.7-2.9L13.7 4.3a2 2 0 00-3.4 0z" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                        </div>
-                                    {/if}
-                                    <div class="mt-2 flex items-center gap-1.5">
-                                        <svg class="h-3 w-3 shrink-0 text-white/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                            <path d="M9 14L4 9l5-5M4 9h11a6 6 0 010 12h-3" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                        <span class="text-[11px] font-semibold">{$_('detection.snapshot_source_original', { default: 'Original' })}</span>
-                                    </div>
-                                    <span class="block text-[10px] text-white/40">
-                                        {originalFrigateSnapshotAvailable
-                                            ? $_('detection.snapshot_source_original_hint', { default: 'Frigate snapshot' })
-                                            : $_('detection.snapshot_source_original_unavailable_hint', { default: 'Original unavailable' })}
-                                    </span>
-                                </button>
-
-                            </div>
-                        </div>
-
-                        <!-- ── Scored frames ── -->
-                        <div class="space-y-2">
-                            <div class="flex items-start justify-between gap-2">
-                                <div>
-                                    <p class="text-[10px] font-semibold text-white/60">
-                                        {$_('detection.snapshot_candidate_frames', { default: 'Scored Frames' })}
-                                    </p>
-                                    <p class="mt-0.5 text-[11px] text-white/40">
-                                        {$_('detection.snapshot_candidate_frames_hint', { default: 'AI-ranked frames from the video clip — tap to select' })}
-                                    </p>
-                                </div>
-                                {#if canGenerateSnapshotCandidates && allSnapshotFrameCandidates.length > 0}
-                                    <button
-                                        type="button"
-                                        onclick={handleGenerateSnapshotCandidates}
-                                        disabled={snapshotGeneratePending}
-                                        title={$_('detection.snapshot_generate_hint', { default: 'Run the AI crop model on the highest-scoring frames from video analysis' })}
-                                        class="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-brand-300/35 bg-brand-500/15 px-3 py-1.5 text-[11px] font-semibold text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        {#if snapshotGeneratePending}
-                                            <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                        {:else}
-                                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                                <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.636 5.636l2.121 2.121M16.243 16.243l2.121 2.121M5.636 18.364l2.121-2.121M16.243 7.757l2.121-2.121" stroke-linecap="round"/>
-                                            </svg>
-                                        {/if}
-                                        {$_('detection.snapshot_generate', { default: 'Regenerate HQ' })}
-                                    </button>
-                                {/if}
-                            </div>
-
-                            {#if snapshotCandidatesLoading}
-                                <div class="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/60">
-                                    <span class="inline-block h-4 w-4 shrink-0 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                    {$_('detection.snapshot_candidates_loading', { default: 'Loading…' })}
-                                </div>
-                            {:else if allSnapshotFrameCandidates.length === 0}
-                                <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/50 sm:flex-row sm:items-center sm:justify-between">
-                                    <div class="flex items-center gap-2.5">
-                                        <svg class="h-4 w-4 shrink-0 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                            <circle cx="12" cy="12" r="9"/>
-                                            <path d="M12 8v4M12 16h.01" stroke-linecap="round"/>
-                                        </svg>
-                                        <span>{$_('detection.snapshot_candidates_empty', { default: 'No scored frames yet - regenerate snapshots to analyse this clip.' })}</span>
-                                    </div>
-                                    {#if canGenerateSnapshotCandidates}
-                                        <button
-                                            type="button"
-                                            onclick={handleGenerateSnapshotCandidates}
-                                            disabled={snapshotGeneratePending}
-                                            title={$_('detection.snapshot_generate_hint', { default: 'Run the AI crop model on the highest-scoring frames from video analysis' })}
-                                            class="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full border border-brand-300/35 bg-brand-500/15 px-3 py-1.5 text-[11px] font-semibold text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            {#if snapshotGeneratePending}
-                                                <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                            {:else}
-                                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                                    <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.636 5.636l2.121 2.121M16.243 16.243l2.121 2.121M5.636 18.364l2.121-2.121M16.243 7.757l2.121-2.121" stroke-linecap="round"/>
-                                                </svg>
-                                            {/if}
-                                            {$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
-                                        </button>
-                                    {/if}
-                                </div>
-                            {:else}
-                                {#if modelSnapshotCandidates.length === 0}
-                                    <div class="flex items-start gap-2.5 rounded-2xl border px-3 py-3 text-sm
-                                        {modelCropMissReason === 'crop_model_disabled' || modelCropMissReason === 'crop_model_unavailable'
-                                            ? 'border-amber-400/20 bg-amber-400/5 text-amber-200/80'
-                                            : 'border-white/10 bg-white/5 text-white/50'}">
-                                        {#if modelCropMissReason === 'crop_model_disabled' || modelCropMissReason === 'crop_model_unavailable'}
-                                            <svg class="mt-0.5 h-4 w-4 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke-linecap="round" stroke-linejoin="round"/>
-                                                <line x1="12" y1="9" x2="12" y2="13" stroke-linecap="round"/>
-                                                <line x1="12" y1="17" x2="12.01" y2="17" stroke-linecap="round"/>
-                                            </svg>
-                                        {:else}
-                                            <svg class="mt-0.5 h-4 w-4 shrink-0 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                                <circle cx="12" cy="12" r="9"/>
-                                                <path d="M12 8v4M12 16h.01" stroke-linecap="round"/>
-                                            </svg>
-                                        {/if}
-                                        <span>
-                                            {#if modelCropMissReason === 'crop_model_disabled'}
-                                                {$_('detection.snapshot_model_crop_disabled', { default: 'AI cropping is disabled — enable "HQ Bird Crop Snapshots" in Settings to get tighter crops.' })}
-                                            {:else if modelCropMissReason === 'crop_model_unavailable'}
-                                                {$_('detection.snapshot_model_crop_unavailable', { default: 'AI crop model not loaded — visit Model Manager to download it.' })}
-                                            {:else}
-                                                {$_('detection.snapshot_model_candidates_empty', { default: 'No AI-cropped frames found. Full-frame and smart-crop candidates are available above.' })}
-                                            {/if}
-                                        </span>
-                                    </div>
-                                {/if}
-
-                                <div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-                                    {#each allSnapshotFrameCandidates as candidate, i}
-                                        {@const isSelected = pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === candidate.candidate_id}
-                                        {@const isSaved = currentSnapshotCandidateId === candidate.candidate_id}
-                                        {@const isFirstModelCrop = candidate.source_mode === 'model_crop' && i === allSnapshotFrameCandidates.findIndex(c => c.source_mode === 'model_crop')}
-                                        <button
-                                            type="button"
-                                            onclick={() => stageSnapshotCandidate(candidate.candidate_id)}
-                                            class="relative rounded-2xl border p-2 text-left transition-colors {isSelected ? 'border-brand-400 bg-brand-400/15 ring-1 ring-brand-400/30' : 'border-white/10 bg-white/5 hover:border-white/25'}"
-                                        >
-                                            {#if isSaved}
-                                                <span class="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-slate-950 shadow" title={$_('detection.snapshot_currently_saved', { default: 'Currently saved' })}>
-                                                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                                </span>
-                                            {/if}
-                                            {#if isFirstModelCrop}
-                                                <span class="absolute left-3 top-3 z-10 rounded-full bg-brand-500/90 px-1.5 py-0.5 text-[9px] font-semibold text-slate-950 shadow">
-                                                    {$_('detection.snapshot_best', { default: 'Best' })}
-                                                </span>
-                                            {/if}
-                                            {#if candidate.thumbnail_url}
-                                                <img src={candidate.thumbnail_url} alt={candidate.classifier_label || snapshotSourceLabel(candidate.source_mode)} class="aspect-video w-full rounded-xl object-cover" />
-                                            {/if}
-                                            <div class="mt-1.5 flex items-center justify-between gap-1">
-                                                <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold {snapshotSourceBadgeClass(candidate.source_mode)}">
-                                                    {snapshotSourceShortLabel(candidate.source_mode)}
-                                                </span>
-                                                {#if typeof candidate.classifier_score === 'number'}
-                                                    <span class="text-[10px] font-semibold tabular-nums text-brand-300/80">{(candidate.classifier_score * 100).toFixed(0)}%</span>
-                                                {/if}
-                                            </div>
-                                            <span class="mt-0.5 block truncate text-[11px] font-semibold leading-tight">{candidate.classifier_label || snapshotSourceLabel(candidate.source_mode)}</span>
-                                            <span class="block text-[10px] text-white/40">
-                                                {candidate.clip_variant === 'frigate_snapshot'
-                                                    ? $_('detection.snapshot_candidate_final_frame', { default: 'Frigate final snapshot' })
-                                                    : formatSnapshotFrameOffset(candidate.frame_offset_seconds) || `Frame ${candidate.frame_index}`}
-                                            </span>
-                                        </button>
-                                    {/each}
-                                </div>
-                            {/if}
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-        {/if}
 
         {#if hasOwnerDetectionActions && showTagDropdown}
             <div
