@@ -121,10 +121,16 @@ describe('detection surface polish', () => {
     });
 
     it('borrows the window furniture of the viewer os', () => {
-        expect(detectionModalSource).toContain("): 'mac' | 'windows'");
-        expect(detectionModalSource).toContain("platform.includes('win') ? 'windows' : 'mac'");
+        expect(detectionModalSource).toContain("): 'mac' | 'windows' | 'linux'");
+        expect(detectionModalSource).toContain("if (platform.includes('win')) return 'windows'");
+        // Android reports Linux in its user agent and is not a desktop window manager.
+        expect(detectionModalSource).toContain("!platform.includes('android')");
         // Cosmetic only, so an unrecognised platform still gets a complete window.
         expect(detectionModalSource).toContain("if (typeof navigator === 'undefined') return 'mac'");
+        // The insides follow the furniture: DOS black, Ubuntu aubergine, plain dark elsewhere.
+        expect(detectionModalSource).toContain("shell: 'bg-[#300a24]'");
+        expect(detectionModalSource).toContain("host: 'yawamf@feeder'");
+        expect(detectionModalSource).toContain("bg-[#000080]");
     });
 
     it('re-measures the options strip when the candidate list changes', () => {
