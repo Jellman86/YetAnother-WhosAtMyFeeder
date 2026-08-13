@@ -6,6 +6,7 @@
     import DailyHistogram from '../components/DailyHistogram.svelte';
     import TopVisitors from '../components/TopVisitors.svelte';
     import FieldLog from '../components/FieldLog.svelte';
+    import NotableNearby from '../components/NotableNearby.svelte';
     import ReviewQueueCard from '../components/ReviewQueueCard.svelte';
     import ReviewQueueModal from '../components/ReviewQueueModal.svelte';
     import DayBar from '../components/DayBar.svelte';
@@ -44,6 +45,7 @@
     let topSpeciesInfo = $state<SpeciesInfo | null>(null);
     let selectedEvent = $state<Detection | null>(null);
     let selectedSpecies = $state<string | null>(null);
+    let notableRefreshKey = $state(0);
     let deleting = $state(false);
     let hiding = $state(false);
     let lastModalEventId = $state<string | null>(null);
@@ -309,6 +311,7 @@
     $effect(() => {
         return pageRefreshAction.register(async () => {
             summaryLoading = true;
+            notableRefreshKey += 1;
             await Promise.all([
                 detectionsStore.loadInitial(),
                 loadSummary(true)
@@ -474,15 +477,23 @@
         data-dashboard-field-desk
         class="grid grid-cols-1 items-start gap-8 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.7fr)]"
     >
-        <FieldLog
-            visits={visits}
-            hiddenCount={hiddenVisitCount}
-            loading={detectionsStore.isLoading}
-            canIdentify={canReview}
-            onselect={(detection) => selectedEvent = detection}
-            onidentify={(detection) => selectedEvent = detection}
-            onseeall={() => onnavigate?.('/events')}
-        />
+        <div class="space-y-7" data-dashboard-field-log-column>
+            <FieldLog
+                visits={visits}
+                hiddenCount={hiddenVisitCount}
+                loading={detectionsStore.isLoading}
+                canIdentify={canReview}
+                onselect={(detection) => selectedEvent = detection}
+                onidentify={(detection) => selectedEvent = detection}
+                onseeall={() => onnavigate?.('/events')}
+            />
+
+            <NotableNearby
+                canConfigure={canReview}
+                refreshKey={notableRefreshKey}
+                onconfigure={() => onnavigate?.('/settings/integrations')}
+            />
+        </div>
 
         <aside class="flex flex-col gap-7 xl:border-l xl:border-slate-200 xl:pl-8 dark:xl:border-slate-700">
             {#if canReview}

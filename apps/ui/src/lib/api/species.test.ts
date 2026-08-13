@@ -10,7 +10,25 @@ vi.mock('./core', () => ({
     handleResponse: vi.fn()
 }));
 
-import { exportEbirdCsv } from './species';
+import { exportEbirdCsv, fetchEbirdNotable } from './species';
+
+describe('fetchEbirdNotable', () => {
+    beforeEach(() => {
+        apiFetchMock.mockReset();
+    });
+
+    it('sends the radius and day window shown by the detection modal', async () => {
+        await fetchEbirdNotable({ distKm: 40, daysBack: 21 });
+
+        expect(apiFetchMock).toHaveBeenCalledWith('/api/ebird/notable?dist_km=40&days_back=21');
+    });
+
+    it('keeps the endpoint query-free when no scope override is supplied', async () => {
+        await fetchEbirdNotable();
+
+        expect(apiFetchMock).toHaveBeenCalledWith('/api/ebird/notable');
+    });
+});
 
 describe('exportEbirdCsv', () => {
     beforeEach(() => {

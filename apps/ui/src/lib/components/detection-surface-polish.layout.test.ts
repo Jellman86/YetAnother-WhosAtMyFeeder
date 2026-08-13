@@ -68,6 +68,18 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain("canShowFullFrame ? 'object-cover' : 'object-contain'");
     });
 
+    it('keeps the favorite action clear of the crop and full-frame switch', () => {
+        expect(detectionModalSource).toContain('data-detection-media-toggle');
+        expect(detectionModalSource).toContain("canShowFullFrame ? 'top-16 left-3' : 'top-4 left-4'");
+        expect(detectionModalSource).not.toContain('class="absolute top-4 left-4 z-30');
+    });
+
+    it('keeps location-level notable reports out of individual detections', () => {
+        expect(detectionModalSource).not.toContain('fetchEbirdNotable');
+        expect(detectionModalSource).not.toContain('showEbirdNotable');
+        expect(detectionModalSource).not.toContain('detection.ebird_notable_title');
+    });
+
     it('discovers late BirdNET context independently of stored audio hints', () => {
         expect(detectionModalSource).toContain('fetchEventAudioContext');
         expect(detectionModalSource).toContain('controller.abort()');

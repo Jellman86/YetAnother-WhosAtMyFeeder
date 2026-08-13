@@ -302,6 +302,17 @@
       "earlier": "{count} visites plus tôt aujourd’hui",
       "preview_frame_position": "Image {position} sur {count} de cette visite"
     },
+    "notable_nearby": {
+      "title": "Observations notables à proximité",
+      "subtitle": "Signalements eBird rares ou inhabituels autour de cette mangeoire",
+      "scope": "{radius} km · {days} jours",
+      "unavailable": "Les signalements notables sont disponibles lorsque eBird est activé comme source de rareté.",
+      "configure": "Configurer eBird",
+      "error": "Impossible de charger les signalements notables.",
+      "retry": "Réessayer",
+      "empty": "Aucun signalement rare ou inhabituel n’a été trouvé dans un rayon de {radius} km au cours des {days} derniers jours.",
+      "empty_hint": "Il s’agit d’un résultat eBird valide ; les observations courantes à proximité peuvent néanmoins être nombreuses."
+    },
     "day_bar": {
       "today": "Aujourd’hui",
       "visits": "visites",

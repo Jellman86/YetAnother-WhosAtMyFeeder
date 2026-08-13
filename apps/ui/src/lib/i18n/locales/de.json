@@ -302,6 +302,17 @@
       "earlier": "{count} frühere Besuche heute",
       "preview_frame_position": "Aufnahme {position} von {count} in diesem Besuch"
     },
+    "notable_nearby": {
+      "title": "Bemerkenswertes in der Nähe",
+      "subtitle": "Seltene oder ungewöhnliche eBird-Meldungen rund um diesen Futterplatz",
+      "scope": "{radius} km · {days} Tage",
+      "unavailable": "Bemerkenswerte Meldungen sind verfügbar, wenn eBird als Seltenheitsquelle aktiviert ist.",
+      "configure": "eBird konfigurieren",
+      "error": "Bemerkenswerte Meldungen konnten nicht geladen werden.",
+      "retry": "Erneut versuchen",
+      "empty": "Im Umkreis von {radius} km wurden in den letzten {days} Tagen keine seltenen oder ungewöhnlichen Meldungen gefunden.",
+      "empty_hint": "Dies ist ein gültiges eBird-Ergebnis; gewöhnliche Beobachtungen in der Nähe können trotzdem zahlreich sein."
+    },
     "day_bar": {
       "today": "Heute",
       "visits": "Besuche",

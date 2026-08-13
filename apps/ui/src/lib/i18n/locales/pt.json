@@ -302,6 +302,17 @@
       "earlier": "{count} visitas anteriores hoje",
       "preview_frame_position": "Fotograma {position} de {count} desta visita"
     },
+    "notable_nearby": {
+      "title": "Registros notáveis próximos",
+      "subtitle": "Relatos raros ou incomuns do eBird ao redor deste comedouro",
+      "scope": "{radius} km · {days} dias",
+      "unavailable": "Os relatos notáveis ficam disponíveis quando o eBird está ativado como fonte de raridade.",
+      "configure": "Configurar eBird",
+      "error": "Não foi possível carregar os relatos notáveis.",
+      "retry": "Tentar novamente",
+      "empty": "Nenhum relato raro ou incomum foi encontrado em um raio de {radius} km nos últimos {days} dias.",
+      "empty_hint": "Este é um resultado válido do eBird; ainda pode haver muitos avistamentos comuns nas proximidades."
+    },
     "day_bar": {
       "today": "Hoje",
       "visits": "visitas",
