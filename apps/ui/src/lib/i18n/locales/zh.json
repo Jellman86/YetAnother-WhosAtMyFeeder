@@ -1544,7 +1544,8 @@
     "empty_body": "分类器一旦识别出访客，就会按从新到旧的顺序显示在这里。",
     "empty_action": "打开观察日志",
     "empty_filtered": "没有符合此筛选条件的内容。",
-    "job_manager": "任务管理"
+    "job_manager": "任务管理",
+    "clear_notifications": "清除通知"
   },
   "actions": {
     "confirm_delete": "删除此 {species} 检测记录？",

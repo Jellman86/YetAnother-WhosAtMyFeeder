@@ -1,9 +1,12 @@
 <script lang="ts">
+    import { untrack } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { notificationCenter, type NotificationItem } from '../stores/notification_center.svelte';
     import { jobProgressStore } from '../stores/job_progress.svelte';
+    import { serverJobsStore } from '../stores/server_jobs.svelte';
     import {
         type NotificationFilter,
+        buildTimelineItems,
         countByFilter,
         filterNotifications,
         groupNotifications,
@@ -20,9 +23,13 @@
 
     const FILTERS: NotificationFilter[] = ['all', 'birds', 'updates', 'jobs', 'errors'];
 
-    let items = $derived(notificationCenter.items);
+    let notificationItems = $derived(notificationCenter.items);
     let isOwner = $derived(authStore.showSettings);
-    let activeJobs = $derived(jobProgressStore.activeJobs);
+    let activeJobs = $derived(serverJobsStore.mergeActive(jobProgressStore.activeJobs));
+    let historyJobs = $derived(serverJobsStore.mergeHistory(jobProgressStore.historyJobs));
+    // Never retain or expose an earlier owner's server snapshot after access changes.
+    let timelineJobs = $derived(isOwner ? [...activeJobs, ...historyJobs] : []);
+    let items = $derived(buildTimelineItems(notificationItems, timelineJobs));
     let counts = $derived(countByFilter(items));
     let unread = $derived(items.filter((item) => !item.read).length);
 
@@ -31,6 +38,13 @@
     let effectiveFilter = $derived(!isOwner && isOwnerOnlyFilter(filter) ? 'all' : filter);
     let visibleFilters = $derived(FILTERS.filter((name) => isOwner || !isOwnerOnlyFilter(name)));
     let groups = $derived(groupNotifications(filterNotifications(items, effectiveFilter)));
+
+    $effect(() => {
+        if (!isOwner) return;
+        // retain() starts a refresh that reads and updates reactive store state. Keep those reads
+        // outside this effect's dependency graph so a response cannot restart its own polling loop.
+        return untrack(() => serverJobsStore.retain());
+    });
 
     function navigate(path: string) {
         if (onNavigate) {
@@ -61,14 +75,16 @@
 
     function iconKind(item: NotificationItem, tone: string): IconKind {
         if (tone === 'attention') return 'warn';
+        if (tone === 'done') return 'check';
+        if (tone === 'running') return 'clock';
         if (item.type === 'detection') return 'bird';
         if (item.type === 'update') return 'update';
         if (item.type === 'system') return 'bell';
-        return tone === 'done' ? 'check' : 'clock';
+        return 'clock';
     }
 
     function isOwnerOnlyItem(item: NotificationItem): boolean {
-        return item.type === 'process' || item.type === 'system';
+        return item.type === 'process' || item.type === 'system' || Boolean(item.meta?.status);
     }
 
     const TONE_DOT: Record<string, string> = {
@@ -90,7 +106,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <h2 class="font-display text-xl font-bold text-slate-900 dark:text-white">
-                {$_('notifications.window_label', { default: 'Today' })}
+                {$_('notifications.page_history', { default: 'History' })}
             </h2>
             <p class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600 dark:text-slate-400">
                 <span><b class="font-semibold tabular-nums text-slate-900 dark:text-white">{items.length}</b>
@@ -103,18 +119,18 @@
         </div>
         <div class="flex flex-wrap gap-2">
             {#if isOwner}
-                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => navigate('/notifications/jobs')}>
+                <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => navigate('/notifications/jobs')}>
                     {$_('notifications.job_manager', { default: 'Job manager' })}
                     {#if activeJobs.length > 0}
                         <span class="ml-1.5 tabular-nums">{activeJobs.length}</span>
                     {/if}
                 </button>
             {/if}
-            <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => notificationCenter.markAllRead()}>
+            <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => notificationCenter.markAllRead()}>
                 {$_('notifications.center_mark_all')}
             </button>
-            <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => notificationCenter.clear()}>
-                {$_('notifications.center_clear')}
+            <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => notificationCenter.clear()}>
+                {$_('notifications.clear_notifications', { default: 'Clear notifications' })}
             </button>
         </div>
     </div>
@@ -124,7 +140,7 @@
         {#each visibleFilters as name (name)}
             <button
                 type="button"
-                class="focus-ring inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors {effectiveFilter === name
+                class="focus-ring inline-flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors {effectiveFilter === name
                     ? 'border-brand-300 bg-brand-50 text-brand-700 dark:border-brand-800 dark:bg-brand-950/50 dark:text-brand-300'
                     : 'border-slate-200 text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:text-slate-300'}"
                 aria-pressed={effectiveFilter === name}
@@ -157,7 +173,7 @@
                         default: 'Visits appear here as the classifier names them, newest first.'
                     })}
                 </p>
-                <button type="button" class="btn btn-secondary mt-4 px-3 py-2 text-xs" onclick={() => navigate('/')}>
+                <button type="button" class="btn btn-secondary mt-4 min-h-11 px-3 py-2 text-xs" onclick={() => navigate('/')}>
                     {$_('notifications.empty_action', { default: 'Open the field log' })}
                 </button>
             {/if}
@@ -286,7 +302,7 @@
                                         <!-- Was a paragraph that looked like an action and could not be reached. -->
                                         <button
                                             type="button"
-                                            class="btn btn-secondary focus-ring mt-2 px-2.5 py-1 text-xs"
+                                            class="btn btn-secondary focus-ring mt-2 min-h-11 px-2.5 py-1 text-xs"
                                             onclick={() => openItem(item)}
                                         >
                                             {item.meta?.open_label ?? $_('notifications.open_action')}

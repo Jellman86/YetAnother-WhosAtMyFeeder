@@ -1,4 +1,5 @@
 import type { NotificationItem } from '../stores/notification_center.svelte';
+import type { JobProgressItem } from '../stores/job_progress.svelte';
 
 /**
  * One chronological river replaces the notification/jobs tab split. A job that failed is the most
@@ -28,9 +29,102 @@ export function isOwnerOnlyFilter(filter: NotificationFilter): boolean {
 }
 
 function isFailure(item: NotificationItem): boolean {
-    // The store carries no severity, so a failure is recognised by the job kind it reports.
+    if (item.meta?.status === 'failed') return true;
+    // Retain compatibility with persisted notifications written before job status was attached.
     const kind = item.meta?.kind;
     return kind === 'error' || kind === 'failed' || kind === 'failure';
+}
+
+function notificationJobId(item: NotificationItem): string {
+    if (item.type === 'process' && item.id.startsWith('reclassify:progress:')) {
+        return `reclassify:${item.id.slice('reclassify:progress:'.length)}`;
+    }
+    return item.id;
+}
+
+function jobIdentity(job: JobProgressItem): string {
+    if (job.id.startsWith('video:')) return `event:${job.id.slice('video:'.length)}`;
+    if (job.id.startsWith('reclassify:') && !job.id.startsWith('reclassify:progress:')) {
+        return `event:${job.id.slice('reclassify:'.length)}`;
+    }
+    return `job:${job.id}`;
+}
+
+function jobTimestamp(job: JobProgressItem): number {
+    return Math.max(job.finishedAt ?? 0, job.updatedAt ?? 0, job.startedAt ?? 0);
+}
+
+function jobAsNotification(job: JobProgressItem): NotificationItem {
+    return {
+        id: job.id,
+        type: 'process',
+        title: job.title,
+        message: job.message,
+        timestamp: jobTimestamp(job),
+        // Job history has no read state. Do not inflate the alert badge with synthetic unread rows.
+        read: true,
+        meta: {
+            source: job.source,
+            route: job.route,
+            kind: job.kind,
+            status: job.status,
+            current: job.current,
+            total: job.total
+        }
+    };
+}
+
+/**
+ * Build the single timeline from both stores. Job state is authoritative for progress and terminal
+ * status, while a matching notification keeps its user-facing title, message and read state.
+ */
+export function buildTimelineItems(
+    notifications: readonly NotificationItem[],
+    jobs: readonly JobProgressItem[]
+): NotificationItem[] {
+    // The server uses video:<event> while the browser uses reclassify:<event>. Later entries are
+    // authoritative, matching ServerJobsStore's local-then-server merge order.
+    const jobsByIdentity = new Map<string, JobProgressItem>();
+    for (const job of jobs) jobsByIdentity.set(jobIdentity(job), job);
+    const jobsById = new Map<string, JobProgressItem>();
+    for (const job of jobsByIdentity.values()) {
+        jobsById.set(job.id, job);
+        const identity = jobIdentity(job);
+        if (identity.startsWith('event:')) {
+            const eventId = identity.slice('event:'.length);
+            jobsById.set(`video:${eventId}`, job);
+            jobsById.set(`reclassify:${eventId}`, job);
+        }
+    }
+    const consumedJobs = new Set<string>();
+    const items = notifications.map((notification) => {
+        const jobId = notificationJobId(notification);
+        const job = jobsById.get(jobId);
+        if (!job) return notification;
+        consumedJobs.add(jobIdentity(job));
+        const jobItem = jobAsNotification(job);
+        return {
+            ...jobItem,
+            ...notification,
+            id: notification.id,
+            timestamp: Math.max(notification.timestamp, jobItem.timestamp),
+            meta: {
+                ...notification.meta,
+                ...jobItem.meta,
+                route: job.route ?? notification.meta?.route,
+                open_label: notification.meta?.open_label
+            }
+        };
+    });
+
+    for (const [identity, job] of jobsByIdentity) {
+        if (!consumedJobs.has(identity)) items.push(jobAsNotification(job));
+    }
+
+    return items.sort((left, right) => {
+        const timestampDiff = right.timestamp - left.timestamp;
+        return timestampDiff !== 0 ? timestampDiff : right.id.localeCompare(left.id);
+    });
 }
 
 export function progressOf(item: NotificationItem): { percent: number; current: number; total: number } | null {
@@ -45,6 +139,9 @@ export function progressOf(item: NotificationItem): { percent: number; current: 
 
 export function toneOf(item: NotificationItem): NotificationTone {
     if (isFailure(item)) return 'attention';
+    if (item.meta?.status === 'stale') return 'attention';
+    if (item.meta?.status === 'completed') return 'done';
+    if (item.meta?.status === 'queued' || item.meta?.status === 'running') return 'running';
     if (item.type === 'process') {
         const progress = progressOf(item);
         // A finished process is done; one still counting is merely running, and neither needs amber.
@@ -57,6 +154,7 @@ export function toneOf(item: NotificationItem): NotificationTone {
 export function filterOf(item: NotificationItem): NotificationFilter {
     if (isFailure(item)) return 'errors';
     if (item.type === 'detection') return 'birds';
+    if (item.meta?.status) return 'jobs';
     if (item.type === 'update') return 'updates';
     return 'jobs';
 }
@@ -98,7 +196,9 @@ export function groupKeyFor(timestamp: number, now: number): TimelineGroupKey {
     if (now - timestamp <= NOW_WINDOW_MS) return 'now';
     const today = startOfDay(now);
     if (timestamp >= today) return 'earlier';
-    if (timestamp >= today - 24 * 60 * 60 * 1000) return 'yesterday';
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (timestamp >= yesterday.getTime()) return 'yesterday';
     return 'older';
 }
 

@@ -1,6 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { NotificationItem } from '../stores/notification_center.svelte';
+import type { JobProgressItem } from '../stores/job_progress.svelte';
 import {
+    buildTimelineItems,
     countByFilter,
     filterNotifications,
     groupNotifications,
@@ -21,7 +23,29 @@ function item(over: Partial<NotificationItem> & { id: string }): NotificationIte
     } as NotificationItem;
 }
 
+function job(over: Partial<JobProgressItem> & { id: string }): JobProgressItem {
+    return {
+        kind: 'reclassify',
+        title: 'Reclassification',
+        status: 'running',
+        current: 1,
+        total: 2,
+        startedAt: NOW - 1000,
+        updatedAt: NOW,
+        source: 'sse',
+        ...over
+    };
+}
+
 describe('notification timeline', () => {
+    beforeAll(() => {
+        vi.stubEnv('TZ', 'Europe/London');
+    });
+
+    afterAll(() => {
+        vi.unstubAllEnvs();
+    });
+
     it('reserves amber for the things that need a person', () => {
         // layout-patterns 1.3: a running job needs nobody, so it must not claim the attention colour.
         expect(toneOf(item({ id: 'a', type: 'process', meta: { kind: 'error' } }))).toBe('attention');
@@ -35,6 +59,75 @@ describe('notification timeline', () => {
         const failed = item({ id: 'f', type: 'process', meta: { kind: 'failed' } });
         expect(filterNotifications([failed], 'errors')).toHaveLength(1);
         expect(filterNotifications([failed], 'jobs')).toHaveLength(0);
+    });
+
+    it('includes real job-store failures and merges their matching notification row', () => {
+        const notifications = [
+            item({
+                id: 'backfill:detections:42',
+                type: 'update',
+                title: 'Backfill failed',
+                message: 'Classifier unavailable',
+                meta: { kind: 'detections', current: 4, total: 10 }
+            })
+        ];
+        const jobs = [
+            job({
+                id: 'backfill:detections:42',
+                status: 'failed',
+                current: 4,
+                total: 10,
+                finishedAt: NOW
+            })
+        ];
+
+        const timeline = buildTimelineItems(notifications, jobs);
+
+        expect(timeline).toHaveLength(1);
+        expect(timeline[0].title).toBe('Backfill failed');
+        expect(timeline[0].message).toBe('Classifier unavailable');
+        expect(timeline[0].meta?.status).toBe('failed');
+        expect(filterNotifications(timeline, 'errors')).toHaveLength(1);
+        expect(toneOf(timeline[0])).toBe('attention');
+    });
+
+    it('uses jobs as the source of process rows without duplicating progress notifications', () => {
+        const notifications = [
+            item({
+                id: 'reclassify:progress:event-7',
+                type: 'process',
+                title: 'Reclassifying',
+                meta: { current: 3, total: 8 }
+            })
+        ];
+        const jobs = [job({ id: 'reclassify:event-7', current: 3, total: 8 })];
+
+        const timeline = buildTimelineItems(notifications, jobs);
+
+        expect(timeline).toHaveLength(1);
+        expect(timeline[0].id).toBe('reclassify:progress:event-7');
+        expect(timeline[0].meta?.status).toBe('running');
+        expect(filterNotifications(timeline, 'jobs')).toHaveLength(1);
+    });
+
+    it('deduplicates the same job reported by local and server sources', () => {
+        const local = job({ id: 'job-9', source: 'sse', updatedAt: NOW - 1000 });
+        const server = job({ id: 'job-9', source: 'system', updatedAt: NOW });
+
+        const timeline = buildTimelineItems([], [local, server]);
+
+        expect(timeline).toHaveLength(1);
+        expect(timeline[0].meta?.source).toBe('system');
+    });
+
+    it('deduplicates local and server job ids that describe the same event', () => {
+        const local = job({ id: 'reclassify:event-12', source: 'sse', updatedAt: NOW - 1000 });
+        const server = job({ id: 'video:event-12', kind: 'video_analysis', source: 'system', updatedAt: NOW });
+
+        const timeline = buildTimelineItems([], [local, server]);
+
+        expect(timeline).toHaveLength(1);
+        expect(timeline[0].id).toBe('video:event-12');
     });
 
     it('counts every bucket so a chip can state its size before it is applied', () => {
@@ -62,6 +155,14 @@ describe('notification timeline', () => {
         expect(groups[0].items.map((i) => i.id)).toEqual(['newest', 'recent']);
         // "yesterday" had nothing in it and must not render as a bare heading.
         expect(groups.some((g) => g.key === 'yesterday')).toBe(false);
+    });
+
+    it('uses calendar-day boundaries across daylight-saving changes', () => {
+        const afterClocksChange = new Date(2026, 9, 26, 12, 0, 0).getTime();
+        const earlyYesterday = new Date(2026, 9, 25, 0, 30, 0).getTime();
+
+        expect(groupNotifications([item({ id: 'dst', timestamp: earlyYesterday })], afterClocksChange)[0]?.key)
+            .toBe('yesterday');
     });
 
     it('refuses to invent a percentage from a missing or zero total', () => {

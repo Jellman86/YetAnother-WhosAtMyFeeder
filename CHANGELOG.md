@@ -45,6 +45,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   from the place people look. Jobs, errors, birds and updates now share a single chronological river
   grouped into Now, Earlier today, Yesterday and Older, filtered by chips that state their size
   before they are applied. The job manager stays reachable for the controls a timeline cannot carry.
+- **The timeline reads real job status.** Active and recent jobs from both local progress and the
+  authoritative server snapshot are merged with matching notifications, so failed jobs actually
+  appear under Errors without duplicate progress rows. Calendar grouping also follows local-day
+  boundaries across daylight-saving changes.
 - **Amber went back to meaning one thing.** Progress bars ran a gradient from the attention colour
   through brand into sky, spending the one colour reserved for "this needs a person" on the thing you
   can safely ignore. A job in flight is brand blue; only a failure is amber.

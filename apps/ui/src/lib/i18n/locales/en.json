@@ -1553,7 +1553,8 @@
     "empty_body": "Visits appear here as the classifier names them, newest first.",
     "empty_action": "Open the field log",
     "empty_filtered": "Nothing matches this filter.",
-    "job_manager": "Job manager"
+    "job_manager": "Job manager",
+    "clear_notifications": "Clear notifications"
   },
   "actions": {
     "confirm_delete": "Delete this {species} detection?",

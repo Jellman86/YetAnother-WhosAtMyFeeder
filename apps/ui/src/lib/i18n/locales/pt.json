@@ -1553,7 +1553,8 @@
     "empty_body": "As visitas aparecem aqui assim que o classificador as nomeia, a mais recente primeiro.",
     "empty_action": "Abrir o diário de campo",
     "empty_filtered": "Nada corresponde a este filtro.",
-    "job_manager": "Gestor de tarefas"
+    "job_manager": "Gestor de tarefas",
+    "clear_notifications": "Limpar notificações"
   },
   "actions": {
     "confirm_delete": "Excluir esta detecção de {species}?",

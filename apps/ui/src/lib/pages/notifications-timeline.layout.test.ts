@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import source from './Notifications.svelte?raw';
+import appSource from '../../App.svelte?raw';
 import en from '../i18n/locales/en.json';
 
 describe('Notifications timeline layout', () => {
@@ -12,12 +13,26 @@ describe('Notifications timeline layout', () => {
         for (const name of ['all', 'birds', 'updates', 'jobs', 'errors']) {
             expect(en.notifications[`filter_${name}` as keyof typeof en.notifications]).toBeTruthy();
         }
+        expect(en.notifications.clear_notifications).toBe('Clear notifications');
     });
 
     it('hides owner-only filters rather than showing them empty', () => {
         expect(source).toContain('isOwner || !isOwnerOnlyFilter(name)');
         // Leaving an owner filter selected as access drops must not strand a guest on it.
         expect(source).toContain("!isOwner && isOwnerOnlyFilter(filter) ? 'all' : filter");
+    });
+
+    it('gates the operational timeline at the route and data-source boundaries', () => {
+        expect(appSource).toContain('const isOwnerOnly = isNotificationRoute(currentRoute)');
+        expect(source).toContain('serverJobsStore.mergeActive(jobProgressStore.activeJobs)');
+        expect(source).toContain('buildTimelineItems(');
+        expect(source).toContain('untrack(() => serverJobsStore.retain())');
+    });
+
+    it('keeps every timeline control at the repository touch-target minimum', () => {
+        const buttonTags = source.match(/<button\b[\s\S]*?>/g) ?? [];
+        expect(buttonTags.length).toBeGreaterThan(0);
+        for (const button of buttonTags) expect(button).toContain('min-h-11');
     });
 
     it('keeps amber for what needs a person', () => {

@@ -1544,7 +1544,8 @@
     "empty_body": "Besuche erscheinen hier, sobald der Klassifikator sie benennt, neueste zuerst.",
     "empty_action": "Feldprotokoll öffnen",
     "empty_filtered": "Nichts entspricht diesem Filter.",
-    "job_manager": "Aufgabenverwaltung"
+    "job_manager": "Aufgabenverwaltung",
+    "clear_notifications": "Benachrichtigungen löschen"
   },
   "actions": {
     "confirm_delete": "Diese {species} Erkennung löschen?",

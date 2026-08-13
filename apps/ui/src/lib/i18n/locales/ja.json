@@ -1544,7 +1544,8 @@
     "empty_body": "分類器が名前を付けた順に、新しいものから訪問がここに表示されます。",
     "empty_action": "フィールドログを開く",
     "empty_filtered": "このフィルターに一致するものはありません。",
-    "job_manager": "ジョブ管理"
+    "job_manager": "ジョブ管理",
+    "clear_notifications": "通知をクリア"
   },
   "actions": {
     "confirm_delete": "この {species} の検出を削除しますか？",

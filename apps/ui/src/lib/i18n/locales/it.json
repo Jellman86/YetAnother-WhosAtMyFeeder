@@ -1553,7 +1553,8 @@
     "empty_body": "Le visite compaiono qui appena il classificatore le nomina, prima le più recenti.",
     "empty_action": "Apri il diario di campo",
     "empty_filtered": "Nessun risultato per questo filtro.",
-    "job_manager": "Gestione processi"
+    "job_manager": "Gestione processi",
+    "clear_notifications": "Cancella notifiche"
   },
   "actions": {
     "confirm_delete": "Eliminare questo rilevamento di {species}?",

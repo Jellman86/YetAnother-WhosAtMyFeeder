@@ -1544,7 +1544,8 @@
     "empty_body": "Les visites apparaissent ici dès que le classifieur les nomme, la plus récente en premier.",
     "empty_action": "Ouvrir le journal de terrain",
     "empty_filtered": "Rien ne correspond à ce filtre.",
-    "job_manager": "Gestionnaire de tâches"
+    "job_manager": "Gestionnaire de tâches",
+    "clear_notifications": "Effacer les notifications"
   },
   "actions": {
     "confirm_delete": "Supprimer cette détection de {species} ?",
