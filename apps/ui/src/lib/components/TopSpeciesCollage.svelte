@@ -28,15 +28,20 @@
 
     /** Tiles on screen. Anything beyond this is cycled through them. */
     const TILES = 4;
-    const CYCLE_MS = 4200;
+    /** One tile changes per tick, so the collage drifts rather than cutting. */
+    const CYCLE_MS = 3600;
+    const FADE_MS = 1600;
 
     let photos = $state<Detection[]>([]);
-    let offset = $state(0);
+    /** Which photo each tile is showing. Only one entry changes per tick. */
+    let slots = $state<number[]>([]);
+    let nextTile = $state(0);
 
     $effect(() => {
         const name = species;
         photos = [];
-        offset = 0;
+        slots = [];
+        nextTile = 0;
         if (!name) return;
 
         const controller = new AbortController();
@@ -45,6 +50,7 @@
                 const events = await fetchEvents({ species: name, limit: 12 });
                 if (controller.signal.aborted) return;
                 photos = events.filter((event) => event.has_snapshot !== false);
+                slots = Array.from({ length: Math.min(TILES, photos.length) }, (_unused, i) => i);
             } catch (error) {
                 if (controller.signal.aborted) return;
                 // The collage is decoration over the rankings; its absence is not an error state.
@@ -68,17 +74,19 @@
             return;
         }
         const timer = setInterval(() => {
-            offset = (offset + 1) % photos.length;
+            // Advance a single tile to a photo none of the others is showing.
+            const shown = new Set(slots);
+            let candidate = (Math.max(...slots) + 1) % photos.length;
+            for (let step = 0; step < photos.length && shown.has(candidate); step++) {
+                candidate = (candidate + 1) % photos.length;
+            }
+            slots = slots.map((current, index) => (index === nextTile ? candidate : current));
+            nextTile = (nextTile + 1) % slots.length;
         }, CYCLE_MS);
         return () => clearInterval(timer);
     });
 
-    const visible = $derived.by(() => {
-        if (photos.length === 0) return [];
-        return Array.from({ length: Math.min(TILES, photos.length) }, (_unused, index) => {
-            return photos[(offset + index) % photos.length];
-        });
-    });
+    const visible = $derived(slots.map((photoIndex) => photos[photoIndex]).filter(Boolean));
 
     const spanLabel = $derived(
         span === 'day'
@@ -92,7 +100,10 @@
 </script>
 
 {#if visible.length > 0}
-    <section class="relative overflow-hidden rounded-2xl" data-leaderboard-collage>
+    <section
+        class="relative aspect-[16/9] overflow-hidden rounded-2xl border border-slate-200/70 sm:aspect-[21/9] dark:border-slate-700/50"
+        data-leaderboard-collage
+    >
         <!-- One frame reads as a portrait; several read as a collage. -->
         <div
             class="absolute inset-0 grid gap-0.5 {visible.length === 1
@@ -102,24 +113,29 @@
                   : 'grid-cols-2 sm:grid-cols-4'}"
             aria-hidden="true"
         >
-            {#each visible as photo (photo.frigate_event)}
-                <img
-                    src={getThumbnailUrl(photo.frigate_event)}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    class="h-full w-full object-cover transition-opacity duration-700 motion-reduce:transition-none"
-                />
+            {#each visible as photo, index (index)}
+                <span class="relative block overflow-hidden">
+                    {#key photo.frigate_event}
+                        <img
+                            src={getThumbnailUrl(photo.frigate_event)}
+                            alt=""
+                            loading="lazy"
+                            decoding="async"
+                            class="absolute inset-0 h-full w-full object-cover motion-reduce:animate-none"
+                            style="animation: collage-fade {FADE_MS}ms ease-in-out"
+                        />
+                    {/key}
+                </span>
             {/each}
         </div>
         <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/35 to-slate-950/10"></div>
 
         <button
             type="button"
-            class="relative block w-full px-4 pb-4 pt-40 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 sm:pt-44"
+            class="absolute inset-x-0 bottom-0 block px-4 pb-4 pt-16 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2"
             onclick={() => onopen?.()}
         >
-            <span class="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+            <span class="text-xs font-semibold uppercase tracking-[0.16em] text-white/75">
                 {spanLabel}
             </span>
             <span class="mt-0.5 block font-display text-2xl font-bold text-white sm:text-3xl">
@@ -143,3 +159,23 @@
         </button>
     </section>
 {/if}
+
+<style>
+    /* The incoming frame fades up over the one it replaces, which stays put underneath. */
+    @keyframes collage-fade {
+        from {
+            opacity: 0;
+            transform: scale(1.04);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        :global([data-leaderboard-collage] img) {
+            animation: none !important;
+        }
+    }
+</style>
