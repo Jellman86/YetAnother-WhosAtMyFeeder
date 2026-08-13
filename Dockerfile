@@ -88,10 +88,21 @@ RUN set -eux; \
             > /etc/apt/sources.list.d/intel-gpu.list; \
         apt-get update; \
         apt-get install -y --no-install-recommends \
+            intel-media-va-driver-non-free \
             intel-opencl-icd \
             libze-intel-gpu1 \
             libze1 \
             ocl-icd-libopencl1; \
+        # Intel Gen9/Gen9.5 Legacy Drivers for older architectures (e.g., Coffee Lake).
+        # Modern Intel drivers dropped support; these coexist via ICD loader to restore OpenVINO.
+        ( cd /tmp \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 -O https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-core_1.0.17537.24_amd64.deb \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 -O https://github.com/intel/intel-graphics-compiler/releases/download/igc-1.0.17537.24/intel-igc-opencl_1.0.17537.24_amd64.deb \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 -O https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/libigdgmm12_22.5.0_amd64.deb \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 -O https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-level-zero-gpu-legacy1_1.5.30872.36_amd64.deb \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 -O https://github.com/intel/compute-runtime/releases/download/24.35.30872.36/intel-opencl-icd-legacy1_24.35.30872.36_amd64.deb \
+          && apt-get install -y --no-install-recommends ./*.deb \
+          && rm -f /tmp/*.deb ); \
         # Intel NPU ("AI Boost") driver for the OpenVINO `intel_npu` provider on
         # Core Ultra. These are NOT in the intel-graphics apt repo, so install the
         # release .debs (firmware + Level-Zero driver + compiler). This pinned version
