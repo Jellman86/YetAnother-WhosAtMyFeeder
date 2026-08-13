@@ -687,22 +687,30 @@
         findMatchingFullFrameCandidate(snapshotCandidates, currentSnapshotCandidateId)
     );
 
-    // The stored snapshot is often a crop, so filling the panel with it would hide the rest
-    // of the frame. The toggle is what makes filling safe: nothing is lost, it is one tap away.
-    let mediaView = $state<'stored' | 'full'>('stored');
-    const canShowFullFrame = $derived(
-        authStore.hasOwnerAccess && !!fullFrameSnapshotCandidate?.thumbnail_url
-    );
-    const mediaImageUrl = $derived(
-        mediaView === 'full' && fullFrameSnapshotCandidate?.thumbnail_url
-            ? fullFrameSnapshotCandidate.thumbnail_url
-            : snapshotImageUrl
-    );
-    $effect(() => {
-        // A new detection starts on its own stored frame.
-        void detection.frigate_event;
-        mediaView = 'stored';
-    });
+    /**
+     * Fades the strip's trailing edge only while it actually overflows, so a strip that fits is not
+     * clipped for decoration. Thumbnails load lazily, so image loads are watched as well as resizes.
+     */
+    function watchOverflow(node: HTMLElement) {
+        const update = () => {
+            const overflowing = node.scrollWidth > node.clientWidth + 1;
+            node.style.setProperty('--strip-fade', overflowing ? '2rem' : '0px');
+        };
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(node);
+        node.addEventListener('load', update, true);
+        return {
+            destroy() {
+                observer.disconnect();
+                node.removeEventListener('load', update, true);
+            }
+        };
+    }
+
+    // The snapshot options strip below the image now covers choosing a frame, so the stored
+    // snapshot is shown whole rather than filled and cropped. Nothing is hidden without a way back.
+    const mediaImageUrl = $derived(snapshotImageUrl);
     const frigateHintSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'frigate_hint_crop') ?? null);
     const modelSnapshotCandidates = $derived(snapshotCandidates.filter((candidate) => candidate.source_mode === 'model_crop'));
     const allSnapshotFrameCandidates = $derived(snapshotCandidates);
@@ -836,7 +844,7 @@
             return {
                 kind: 'rose' as const,
                 container: 'bg-rose-50/80 dark:bg-rose-500/10 border-rose-200/80 dark:border-rose-500/30 text-rose-900 dark:text-rose-200',
-                detailsContainer: 'border-rose-200/80 dark:border-rose-400/25 bg-white/75 dark:bg-slate-900/40',
+                detailsContainer: 'border-rose-200/70 dark:border-rose-400/25',
                 detailsSummary: 'text-rose-700 dark:text-rose-300',
             };
         }
@@ -845,14 +853,14 @@
             return {
                 kind: 'slate' as const,
                 container: 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-700/60 text-slate-700 dark:text-slate-300',
-                detailsContainer: 'border-slate-200/80 dark:border-slate-700/60 bg-white/75 dark:bg-slate-900/40',
+                detailsContainer: 'border-slate-200/70 dark:border-slate-700/60',
                 detailsSummary: 'text-slate-700 dark:text-slate-300',
             };
         }
         return {
             kind: 'amber' as const,
             container: 'bg-amber-50/80 dark:bg-amber-500/10 border-amber-200/80 dark:border-amber-500/30 text-amber-900 dark:text-amber-200',
-            detailsContainer: 'border-amber-200/80 dark:border-amber-500/30 bg-white/75 dark:bg-slate-900/40',
+            detailsContainer: 'border-amber-200/70 dark:border-amber-500/30',
             detailsSummary: 'text-amber-700 dark:text-amber-300',
         };
     });
@@ -1612,6 +1620,24 @@
 </script>
 
 <style>
+    /*
+     * The options strip sits over a dark gradient on the image, where a native scrollbar is both
+     * ugly and low contrast. The bar is hidden and the right edge fades instead, so there is still
+     * a signal that more frames exist. Scrolling by wheel, trackpad and keyboard is unaffected.
+     */
+    .snapshot-strip {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        /* Zero width until the action measures a real overflow, so a strip that fits is not
+           clipped for decoration. */
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--strip-fade, 0px)), transparent 100%);
+        mask-image: linear-gradient(to right, #000 calc(100% - var(--strip-fade, 0px)), transparent 100%);
+    }
+
+    .snapshot-strip::-webkit-scrollbar {
+        display: none;
+    }
+
     .ai-surface {
         position: relative;
         overflow: hidden;
@@ -2218,9 +2244,7 @@
                         <img
                             src={mediaImageUrl}
                             alt={detection.display_name}
-                            class="relative h-full w-full {mediaView === 'full'
-                                ? 'object-contain'
-                                : canShowFullFrame ? 'object-cover' : 'object-contain'}"
+                            class="relative h-full w-full object-contain"
                         />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
                         {#if canShowFavoriteAction}
@@ -2228,7 +2252,7 @@
                                 type="button"
                                 onclick={handleFavoriteToggle}
                                 disabled={favoritePending}
-                                class="absolute z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {canShowFullFrame ? 'top-16 left-3' : 'top-4 left-4'} {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
+                                class="absolute z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 top-4 left-4 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
                                 title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                                 aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
                             >
@@ -2358,30 +2382,6 @@
                         </div>
                     {/if}
 
-                {#if canShowFullFrame}
-                    <div class="absolute left-3 top-3 z-20 flex gap-1 rounded-lg bg-slate-950/55 p-1 backdrop-blur-sm" data-detection-media-toggle>
-                        <button
-                            type="button"
-                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'stored'
-                                ? 'bg-white/15 text-white'
-                                : 'text-white/60 hover:text-white'}"
-                            aria-pressed={mediaView === 'stored'}
-                            onclick={(event) => { event.stopPropagation(); mediaView = 'stored'; }}
-                        >
-                            {$_('detection.media_stored', { default: 'Best crop' })}
-                        </button>
-                        <button
-                            type="button"
-                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'full'
-                                ? 'bg-white/15 text-white'
-                                : 'text-white/60 hover:text-white'}"
-                            aria-pressed={mediaView === 'full'}
-                            onclick={(event) => { event.stopPropagation(); mediaView = 'full'; }}
-                        >
-                            {$_('detection.media_full_frame', { default: 'Full frame' })}
-                        </button>
-                    </div>
-                {/if}
 
                 {#if snapshotOptionStrip.length > 1}
                     <!-- These are ranked display-snapshot options, not a frame-by-frame account
@@ -2393,7 +2393,7 @@
                                 default: '{count} snapshot options'
                             })}
                         </span>
-                        <div class="flex min-w-0 gap-1.5 overflow-x-auto">
+                        <div class="snapshot-strip flex min-w-0 gap-1.5 overflow-x-auto" use:watchOverflow>
                             {#each snapshotOptionStrip as candidate (candidate.candidate_id)}
                                 <button
                                     type="button"
@@ -2463,20 +2463,7 @@
             {/if}
             <!-- Identification: what it is, and how sure, in one place -->
             <div data-detection-identity>
-                <p class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
-                    {#if currentClassificationSource === 'manual'}
-                        <svg class="h-3.5 w-3.5 text-accent-600 dark:text-accent-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
-                        </svg>
-                        {$_('detection.identified_by_you', { default: 'Identified by you' })}
-                    {:else}
-                        <svg class="h-3.5 w-3.5 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3a4 4 0 0 1 4 4v1a4 4 0 0 1-8 0V7a4 4 0 0 1 4-4ZM5 20a7 7 0 0 1 14 0" />
-                        </svg>
-                        {$_('detection.identified_as', { default: 'Identified as' })}
-                    {/if}
-                </p>
-                <div class="mt-0.5 flex items-start gap-3">
+                <div class="flex items-start gap-3">
                     {#if speciesInfo?.thumbnail_url}
                         <!-- A reference photograph of the species, so the camera frame has something
                              to be compared against without leaving the view. -->
@@ -2499,6 +2486,16 @@
                         {/if}
                     {/if}
                     <div class="min-w-0">
+                        <p class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                        {#if currentClassificationSource === 'manual'}
+                            <svg class="h-3.5 w-3.5 text-accent-600 dark:text-accent-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
+                            </svg>
+                            {$_('detection.identified_by_you', { default: 'Identified by you' })}
+                        {:else}
+                            {$_('detection.identified_as', { default: 'Identified as' })}
+                        {/if}
+                        </p>
                         <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>
                         {#if subName && subName !== primaryName}
                             <p class="text-xs italic text-slate-500 dark:text-slate-400">{subName}</p>
@@ -2759,7 +2756,7 @@
                             </span>
                         {/if}
                         {#if videoStatusShowTechnicalDetails}
-                            <details class="mt-1 rounded-lg border px-3 py-2 {videoStatusNoticeTone.detailsContainer}" bind:open={videoErrorDetailsOpen}>
+                            <details class="mt-2 border-t pt-2 {videoStatusNoticeTone.detailsContainer}" bind:open={videoErrorDetailsOpen}>
                                 <summary class="cursor-pointer select-none text-[11px] font-bold {videoStatusNoticeTone.detailsSummary}">
                                     {videoErrorDetailsOpen
                                         ? $_('detection.video_analysis.error_details.hide', { default: 'Hide technical details' })
@@ -2786,7 +2783,7 @@
                                                     }
                                                 })}
                                             </p>
-                                            <dl class="mt-2 divide-y divide-slate-200/80 dark:divide-slate-700/70 border-y border-slate-200/80 dark:border-slate-700/70">
+                                            <dl class="mt-2 divide-y divide-slate-200/80 dark:divide-slate-700/70 border-y-0 border-slate-200/80 dark:border-slate-700/70">
                                                 {#each videoClassificationSources as [source, evidence]}
                                                     <div class="py-2 first:pt-0 last:pb-0">
                                                         <div class="flex items-baseline justify-between gap-3">
@@ -3129,17 +3126,14 @@
             {/if}
 
             {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby)}
-                <details class="group rounded-2xl border border-slate-200/60 transition-colors hover:border-brand-300/60 dark:border-slate-700/50 dark:hover:border-brand-700/60" data-detection-reference>
-                    <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-slate-300 [&::-webkit-details-marker]:hidden">
+                <section data-detection-reference class="space-y-3">
+                    <h4 class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                         {$_('detection.reference_disclosure', {
                             values: { species: primaryName },
                             default: 'About {species}, and nearby sightings'
                         })}
-                        <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m5 8 5 5 5-5" />
-                        </svg>
-                    </summary>
-                    <div class="px-3 pb-3">
+                    </h4>
+
                 <div class="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {#if enrichmentSummaryProvider !== 'disabled'}
                         <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
@@ -3319,8 +3313,7 @@
                     {/if}
 
                 </div>
-                    </div>
-                </details>
+                </section>
             {/if}
 
             {#if canShowInat}
@@ -3666,7 +3659,7 @@
                 {/if}
                 <button
                     onclick={handleSpeciesInfo}
-                    class="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-xl transition-all shadow-lg shadow-brand-500/20"
+                    class="btn btn-primary flex-1 px-3 py-2.5 text-xs shadow-lg shadow-brand-500/20"
                 >
                     {$_('actions.species_info')}
                 </button>

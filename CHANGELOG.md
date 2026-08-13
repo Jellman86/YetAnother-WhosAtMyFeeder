@@ -17,6 +17,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The detection view says what it identified above the name, not above the photograph.** The
+  label sat over a row that opens with a circular reference photo, so it read as a caption for the
+  picture rather than for the record. The person glyph beside it is gone: it only restated the words.
+- **The crop and full-frame switch is removed.** The snapshot options strip below the image already
+  covers choosing a frame. With the switch gone the stored image is shown whole rather than filled
+  and cropped, because there is no longer a way back from a crop.
+- **The options strip no longer shows a native scrollbar** across the image gradient. The bar is
+  hidden and the trailing edge fades, but only while the strip actually overflows, so a strip that
+  fits is not clipped for decoration.
+- **The video notice stops nesting a card inside a card.** The notice is already tinted and
+  bordered; its technical details added another border and background inside that, and the evidence
+  list drew its own rules inside that again. One hairline separates them now.
+- **The species reference and nearby sightings are part of the record**, not folded behind a
+  disclosure that had to be opened every time.
+- **The species info button has padding.** It carried no padding class at all, so for a guest, whose
+  sibling actions are hidden, it collapsed to the height of its own text.
+
 - **Mobile species tagging and notifications no longer hide controls.** The species picker follows
   the browser's visible viewport when an on-screen keyboard opens, keeps its results scrollable in
   short and landscape layouts, and exposes proper dialog and field semantics. Phone notifications
