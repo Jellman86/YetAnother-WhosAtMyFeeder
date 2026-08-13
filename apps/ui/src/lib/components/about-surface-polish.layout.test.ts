@@ -44,6 +44,18 @@ describe('About surface polish', () => {
         expect(instanceSource).toContain('about.instance.window_now');
     });
 
+    it('keeps uptime and issue-report content inside the instance card on narrow screens', () => {
+        // A long model id used to establish the mobile grid's intrinsic width. That widened the
+        // whole card, carrying both the report row and the 24-hour strip past the viewport.
+        expect(instanceSource).toContain('class="grid min-w-0 gap-6');
+        expect(instanceSource).toContain('data-instance-uptime class="min-w-0"');
+        expect(instanceSource).toContain('class="mt-2 flex w-full min-w-0 max-w-full gap-[2px]"');
+        expect(instanceSource).toContain('class="min-w-0" data-instance-report');
+        expect(instanceSource).toContain('flex min-w-0 flex-col items-stretch gap-2');
+        expect(instanceSource).toContain('whitespace-normal break-all');
+        expect(instanceSource).toContain('w-full sm:w-auto');
+    });
+
     it('spends motion on the pipeline rather than decorative hover effects', () => {
         expect(instanceSource).not.toContain('hover:scale-y-125');
         expect(aboutSource).not.toContain('group-hover:-translate-y-px');

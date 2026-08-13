@@ -17,6 +17,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **About:** The owner instance card now stays within the phone viewport when the issue-report
+  fingerprint contains a long model identifier. The availability strip shrinks with its card,
+  while the fingerprint wraps above a full-width Copy action on narrow screens.
+
 - **Dependencies:** Reviewed and consolidated the outstanding runtime, UI, telemetry Worker, and
   workflow dependency updates against current `dev`. The OpenVINO floor is consistent across both
   Intel-capable image flavours, CPU ONNX Runtime 1.28 is covered across CPU/Intel/ARM64 paths while

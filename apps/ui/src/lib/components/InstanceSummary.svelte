@@ -128,7 +128,7 @@
 </script>
 
 {#if isOwner}
-    <section class="card-base space-y-4 p-6" data-about-instance aria-labelledby="about-instance-heading">
+    <section class="card-base min-w-0 max-w-full space-y-4 p-6" data-about-instance aria-labelledby="about-instance-heading">
         <div class="flex flex-wrap items-center gap-3">
             <h2 id="about-instance-heading" class="font-display text-xl font-bold text-slate-900 dark:text-white">
                 {$_('about.instance.title', { default: 'This instance' })}
@@ -167,12 +167,12 @@
             {/if}
         </div>
 
-        <div class="grid gap-6 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.6fr)]">
-            <div>
+        <div class="grid min-w-0 gap-6 sm:grid-cols-[minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.6fr)]">
+            <div class="min-w-0">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                     {$_('about.instance.acceleration', { default: 'Acceleration' })}
                 </p>
-                <p class="font-display text-2xl font-bold text-slate-900 dark:text-white">{acceleration}</p>
+                <p class="break-words font-display text-2xl font-bold text-slate-900 dark:text-white">{acceleration}</p>
                 {#if classifier?.fallback_reason}
                     <p class="mt-1 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
                         {classifier.fallback_reason}
@@ -180,7 +180,7 @@
                 {/if}
             </div>
 
-            <div data-instance-uptime>
+            <div data-instance-uptime class="min-w-0">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                     {$_('about.instance.uptime', { default: 'Running for' })}
                 </p>
@@ -198,7 +198,7 @@
                         </p>
                     {/if}
                     <div
-                        class="mt-2 flex gap-[2px]"
+                        class="mt-2 flex w-full min-w-0 max-w-full gap-[2px]"
                         role="img"
                         aria-label={$_('about.instance.strip_label', {
                             values: { hours: 24 },
@@ -208,7 +208,7 @@
                     >
                         {#each uptimeWindow.buckets as bucket (bucket.start)}
                             <span
-                                class="h-4 flex-1 rounded-[2px] {bucket.state === 'up'
+                                class="h-4 min-w-0 flex-1 rounded-[2px] {bucket.state === 'up'
                                     ? 'bg-emerald-500/80'
                                     : bucket.state === 'down'
                                       ? 'bg-accent-500'
@@ -243,18 +243,18 @@
                         {/if}
                     </p>
                 {:else if uptimeLoadState === 'loading'}
-                    <div class="mt-2 flex gap-[2px]" aria-hidden="true">
+                    <div class="mt-2 flex w-full min-w-0 max-w-full gap-[2px]" aria-hidden="true">
                         {#each { length: 24 } as _, slot (slot)}
-                            <span class="h-4 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
+                            <span class="h-4 min-w-0 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
                         {/each}
                     </div>
                     <p class="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                         {$_('about.instance.history_loading', { default: 'Loading availability…' })}
                     </p>
                 {:else if uptimeLoadState === 'error'}
-                    <div class="mt-2 flex gap-[2px]" aria-hidden="true">
+                    <div class="mt-2 flex w-full min-w-0 max-w-full gap-[2px]" aria-hidden="true">
                         {#each { length: 24 } as _, slot (slot)}
-                            <span class="h-4 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
+                            <span class="h-4 min-w-0 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
                         {/each}
                     </div>
                     <p class="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
@@ -273,15 +273,15 @@
                 {/if}
             </div>
 
-            <div>
+            <div class="min-w-0" data-instance-report>
                 <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                     {$_('about.instance.for_issue', { default: 'For an issue report' })}
                 </p>
-                <div class="mt-1.5 flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-900/50">
-                    <code class="min-w-0 flex-1 truncate font-mono text-xs text-slate-700 dark:text-slate-200">
+                <div class="mt-1.5 flex min-w-0 flex-col items-stretch gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 sm:flex-row sm:items-center dark:border-slate-700 dark:bg-slate-900/50">
+                    <code class="min-w-0 max-w-full whitespace-normal break-all font-mono text-xs leading-relaxed text-slate-700 sm:flex-1 sm:truncate sm:whitespace-nowrap dark:text-slate-200">
                         {supportSummary}
                     </code>
-                    <button class="btn btn-secondary min-h-11 shrink-0 px-3 py-1.5 text-xs" onclick={copySummary}>
+                    <button class="btn btn-secondary min-h-11 w-full sm:w-auto shrink-0 px-3 py-1.5 text-xs" onclick={copySummary}>
                         {copied
                             ? $_('about.instance.copied', { default: 'Copied' })
                             : $_('about.instance.copy', { default: 'Copy' })}
