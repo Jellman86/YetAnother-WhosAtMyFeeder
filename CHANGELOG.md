@@ -31,6 +31,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   display font, which rendered them far larger than their labels. They are a properly sized icon
   now, and nudge on hover.
 
+- **The leaderboard opens with the bird, not a repeat of the table.** The most detected species of
+  the selected period is shown through representative visits from your feeder, captioned "Most
+  detected this month" and following the Day, Week, Month and Total control. Simultaneous visits on
+  different cameras stay distinct, while consecutive frames from one visit contribute only their
+  clearest photograph. Where more photographs exist than tiles, they cycle slowly; a single
+  photograph is shown as one frame rather than a grid with gaps. Broken snapshots disappear without
+  leaving a blank tile, and every transition stops for anyone who prefers reduced motion. Heard-only
+  leaders use the ranking instead because an audio detection cannot provide a feeder photograph.
+
 - **The rebuilt UI now carries its evidence and privacy boundaries end to end.** Explorer facet
   counts use the same history window as the guest event list, clicking a frame in a visit opens
   that frame, and the review queue only offers a crop/full-frame comparison when both images come
@@ -75,14 +84,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   analysed, so an option that would return nothing says so before it is chosen. Species counts are
   taken over the same canonical grouping the options are built from, so name variants of one species
   count once.
-
-- **The leaderboard opens with a podium instead of a featured card.** The top three species share
-  the space one species used to fill, on hairline rows rather than in a large rounded panel, each
-  showing what was seen and what was heard so a bird that is loud but rarely on camera is visible.
-  The podium follows the Seen, Heard and Both toggle, so it ranks by whichever source is selected.
-  The Wikipedia extract moves to the species detail view, where it was already available, and the
-  Most active tile is gone because it repeated the podium's first row word for word. The rankings
-  table now starts roughly 200px higher up the page.
 
 - **The dashboard is now a field desk: one chronological log of the day with the outstanding work
   docked beside it.** Repeat frames of the same bird on the same camera within ten minutes fold
@@ -158,6 +159,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   quiet. About states whether the build is up to date, using the update check that already exists.
 
 ### Fixed
+
+- **The leaderboard stops printing a percentage it cannot stand behind.** Every camera trend read
+  "+76 (0.0%)" because the previous window holds no camera data to compare against, so the figure was
+  the same on every row and meant nothing. A trend now shows its percentage only when there is a
+  previous window to measure against, and each mode is asked about its own history. Heard counts keep
+  their real percentages, combined trends use the combined previous count, and camera counts show the
+  change alone when that is the only supported comparison. Rising and Most recent remain when they
+  describe a different species from the leader, and use the selected Seen, Heard, or Both evidence.
 
 - **Review confirmations now persist and leave the queue immediately.** Choosing the species a
   detection already shows, including a translated alias of the same taxon, records the human

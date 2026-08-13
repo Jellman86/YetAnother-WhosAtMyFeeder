@@ -2072,7 +2072,12 @@
     "seen_count": "{count} seen",
     "not_seen": "not seen",
     "heard_count": "{count} heard",
-    "not_heard": "not heard"
+    "not_heard": "not heard",
+    "most_detected_day": "Most detected today",
+    "most_detected_week": "Most detected this week",
+    "most_detected_month": "Most detected this month",
+    "most_detected_all": "Most detected ever",
+    "collage_counts": "{seen} visits"
   },
   "about": {
     "how_it_works": "How it works",

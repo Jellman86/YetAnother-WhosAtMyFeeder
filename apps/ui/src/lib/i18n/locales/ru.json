@@ -2072,7 +2072,12 @@
     "seen_count": "снято {count}",
     "not_seen": "не снято",
     "heard_count": "услышано {count}",
-    "not_heard": "не слышно"
+    "not_heard": "не слышно",
+    "most_detected_day": "Чаще всего сегодня",
+    "most_detected_week": "Чаще всего за неделю",
+    "most_detected_month": "Чаще всего за месяц",
+    "most_detected_all": "Чаще всего за всё время",
+    "collage_counts": "{seen} визитов"
   },
   "about": {
     "how_it_works": "Как это работает",
