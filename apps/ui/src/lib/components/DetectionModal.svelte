@@ -688,6 +688,19 @@
     );
 
     /**
+     * A terminal borrows the viewer's own window furniture: traffic lights on macOS, and the
+     * minimise/maximise/close set on Windows. Purely cosmetic, so an unknown platform gets the
+     * macOS set rather than nothing.
+     */
+    const windowChrome = $derived.by((): 'mac' | 'windows' => {
+        if (typeof navigator === 'undefined') return 'mac';
+        const agent = navigator as Navigator & { userAgentData?: { platform?: string } };
+        const platform = (agent.userAgentData?.platform ?? navigator.platform ?? navigator.userAgent ?? '')
+            .toLowerCase();
+        return platform.includes('win') ? 'windows' : 'mac';
+    });
+
+    /**
      * Fades the strip's trailing edge only while it actually overflows, so a strip that fits is not
      * clipped for decoration. Thumbnails load lazily, so image loads are watched as well as resizes.
      */
@@ -697,13 +710,18 @@
             node.style.setProperty('--strip-fade', hasMoreToRight ? '2rem' : '0px');
         };
         update();
-        const observer = new ResizeObserver(update);
-        observer.observe(node);
+        const resize = new ResizeObserver(update);
+        resize.observe(node);
+        // The container keeps its size when the candidate list changes, so a resize alone would
+        // leave the fade describing a strip that is no longer there.
+        const mutation = new MutationObserver(update);
+        mutation.observe(node, { childList: true });
         node.addEventListener('load', update, true);
         node.addEventListener('scroll', update, { passive: true });
         return {
             destroy() {
-                observer.disconnect();
+                resize.disconnect();
+                mutation.disconnect();
                 node.removeEventListener('load', update, true);
                 node.removeEventListener('scroll', update);
             }
@@ -1636,6 +1654,22 @@
 </script>
 
 <style>
+    /* Svelte scopes @keyframes, so a name referenced from a class resolves to nothing without
+       the -global- prefix. */
+    @keyframes -global-terminal-blink {
+        0%, 49% { opacity: 1; }
+        50%, 100% { opacity: 0; }
+    }
+
+    .terminal-caret {
+        margin-left: 0.15em;
+        animation: terminal-blink 1.1s steps(1) infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .terminal-caret { animation: none; opacity: 1; }
+    }
+
     /*
      * The options strip sits over a dark gradient on the image, where a native scrollbar is both
      * ugly and low contrast. The bar is hidden and the right edge fades instead, so there is still
@@ -2471,14 +2505,39 @@
 
             <div class="flex flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
             <!-- Detection ID -->
-            <details data-detection-technical-identity class="group order-last border-t border-slate-200 pt-3 dark:border-slate-700">
-                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-slate-500 marker:hidden dark:text-slate-400">
-                    <span>{$_('detection.id')}</span>
-                    <svg class="h-4 w-4 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <!-- The disclosure is the window chrome: clicking the title bar opens the terminal.
+                 Dark in both themes on purpose, because that is what a terminal is. -->
+            <details
+                data-detection-technical-identity
+                class="group order-last rounded-lg border border-slate-300 bg-slate-950 dark:border-slate-700/70"
+            >
+                <summary class="flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-[7px] bg-slate-900/80 px-3 py-1.5 marker:hidden group-open:rounded-b-none group-open:border-b group-open:border-slate-800">
+                    {#if windowChrome === 'mac'}
+                        <span class="h-2 w-2 rounded-full bg-rose-500/70" aria-hidden="true"></span>
+                        <span class="h-2 w-2 rounded-full bg-amber-500/70" aria-hidden="true"></span>
+                        <span class="h-2 w-2 rounded-full bg-emerald-500/70" aria-hidden="true"></span>
+                        <span class="ml-1.5 font-mono text-[10px] text-slate-400">{$_('detection.id')}</span>
+                    {:else}
+                        <span class="font-mono text-[10px] text-slate-400">{$_('detection.id')}</span>
+                        <span class="ml-auto flex items-center gap-2.5 text-slate-500" aria-hidden="true">
+                            <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1"><path d="M1 5h8" /></svg>
+                            <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="1.5" y="1.5" width="7" height="7" /></svg>
+                            <svg class="h-2.5 w-2.5" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1"><path d="m1.5 1.5 7 7M8.5 1.5l-7 7" /></svg>
+                        </span>
+                    {/if}
+                    <svg class="h-3.5 w-3.5 shrink-0 text-slate-500 transition-transform group-open:rotate-180 {windowChrome === 'mac' ? 'ml-auto' : 'ml-2.5'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
                     </svg>
                 </summary>
-                <p class="break-all font-mono text-xs text-slate-700 dark:text-slate-300">{detection.frigate_event}</p>
+                <div class="px-3 py-2.5 font-mono text-[11px] leading-relaxed">
+                    <p class="text-slate-500">
+                        <span class="text-emerald-400" aria-hidden="true">$</span>
+                        yawamf event show
+                    </p>
+                    <p class="mt-1 break-all text-emerald-300">
+                        {detection.frigate_event}<span class="terminal-caret" aria-hidden="true">&#9608;</span>
+                    </p>
+                </div>
                 <!-- The "Frigate event missing" indicator that used to live here as a
                      standalone pill has been folded into the consolidated snapshot/
                      video-status notice below.  The same information is now shown
