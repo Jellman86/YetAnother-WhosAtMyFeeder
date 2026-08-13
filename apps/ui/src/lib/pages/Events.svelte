@@ -1147,7 +1147,7 @@
         {/if}
 
         {#if !loading && timelineBuckets.length > 0}
-            <section data-events-timeline class="border-y border-slate-200 py-3 dark:border-slate-700">
+            <section data-events-timeline class="pb-4 pt-1">
                 <div class="flex flex-wrap items-center gap-2">
                     <button
                         type="button"

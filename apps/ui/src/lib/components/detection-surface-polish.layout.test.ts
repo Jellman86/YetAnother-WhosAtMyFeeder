@@ -63,17 +63,16 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain('{#if !detection.manual_tagged && !isUnknownSpecies}');
     });
 
-    it('shows the stored image whole, with no crop-and-switch pair to undo it', () => {
-        // The snapshot options strip covers choosing a frame, so the full-frame toggle went. The
-        // image must therefore never be filled and cropped: there is no longer a way back.
-        expect(detectionModalSource).not.toContain('data-detection-media-toggle');
-        expect(detectionModalSource).not.toContain('mediaView');
-        expect(detectionModalSource).not.toContain('canShowFullFrame');
-        expect(detectionModalSource).toContain('relative h-full w-full object-contain');
+    it('preserves the complete stored image when a matching full frame is unavailable', () => {
+        expect(detectionModalSource).toContain('findMatchingFullFrameCandidate');
+        expect(detectionModalSource).toContain("canShowFullFrame ? 'object-cover' : 'object-contain'");
     });
 
-    it('anchors the favorite action now that nothing sits above it', () => {
-        expect(detectionModalSource).toContain('top-4 left-4');
+    it('keeps the favorite action and full-frame switch in one non-overlapping flow', () => {
+        expect(detectionModalSource).toContain('data-detection-media-actions');
+        expect(detectionModalSource).toContain('data-detection-media-toggle');
+        expect(detectionModalSource).toContain('flex-col items-start gap-2');
+        expect(detectionModalSource).not.toContain("canShowFullFrame ? 'top-16 left-3' : 'top-4 left-4'");
     });
 
     it('hides the options strip scrollbar and fades only a real overflow', () => {

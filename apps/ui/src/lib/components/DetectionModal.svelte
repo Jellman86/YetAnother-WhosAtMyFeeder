@@ -708,9 +708,23 @@
         };
     }
 
-    // The snapshot options strip below the image now covers choosing a frame, so the stored
-    // snapshot is shown whole rather than filled and cropped. Nothing is hidden without a way back.
-    const mediaImageUrl = $derived(snapshotImageUrl);
+    // The stored snapshot is often a crop, so filling the panel with it is safe only while the
+    // matching full frame remains one tap away. The controls share one flow layout below, which
+    // prevents the favourite action from overlapping this switch at any viewport or label length.
+    let mediaView = $state<'stored' | 'full'>('stored');
+    const canShowFullFrame = $derived(
+        authStore.hasOwnerAccess && !!fullFrameSnapshotCandidate?.thumbnail_url
+    );
+    const mediaImageUrl = $derived(
+        mediaView === 'full' && fullFrameSnapshotCandidate?.thumbnail_url
+            ? fullFrameSnapshotCandidate.thumbnail_url
+            : snapshotImageUrl
+    );
+    $effect(() => {
+        // A new detection starts on its own stored frame.
+        void detection.frigate_event;
+        mediaView = 'stored';
+    });
     const frigateHintSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'frigate_hint_crop') ?? null);
     const modelSnapshotCandidates = $derived(snapshotCandidates.filter((candidate) => candidate.source_mode === 'model_crop'));
     const allSnapshotFrameCandidates = $derived(snapshotCandidates);
@@ -2244,26 +2258,59 @@
                         <img
                             src={mediaImageUrl}
                             alt={detection.display_name}
-                            class="relative h-full w-full object-contain"
+                            class="relative h-full w-full {mediaView === 'full'
+                                ? 'object-contain'
+                                : canShowFullFrame ? 'object-cover' : 'object-contain'}"
                         />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
-                        {#if canShowFavoriteAction}
-                            <button
-                                type="button"
-                                onclick={handleFavoriteToggle}
-                                disabled={favoritePending}
-                                class="absolute z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 top-4 left-4 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
-                                title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
-                                aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                        {#if canShowFullFrame || canShowFavoriteAction}
+                            <div
+                                class="absolute left-3 top-3 z-30 flex max-w-[calc(100%-6rem)] flex-col items-start gap-2"
+                                data-detection-media-actions
                             >
-                                {#if favoritePending}
-                                    <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                {:else}
-                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
-                                    </svg>
+                                {#if canShowFullFrame}
+                                    <div class="flex max-w-full gap-1 rounded-lg bg-slate-950/55 p-1 backdrop-blur-sm" data-detection-media-toggle>
+                                        <button
+                                            type="button"
+                                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'stored'
+                                                ? 'bg-white/15 text-white'
+                                                : 'text-white/60 hover:text-white'}"
+                                            aria-pressed={mediaView === 'stored'}
+                                            onclick={(event) => { event.stopPropagation(); mediaView = 'stored'; }}
+                                        >
+                                            {$_('detection.media_stored', { default: 'Best crop' })}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'full'
+                                                ? 'bg-white/15 text-white'
+                                                : 'text-white/60 hover:text-white'}"
+                                            aria-pressed={mediaView === 'full'}
+                                            onclick={(event) => { event.stopPropagation(); mediaView = 'full'; }}
+                                        >
+                                            {$_('detection.media_full_frame', { default: 'Full frame' })}
+                                        </button>
+                                    </div>
                                 {/if}
-                            </button>
+                                {#if canShowFavoriteAction}
+                                    <button
+                                        type="button"
+                                        onclick={handleFavoriteToggle}
+                                        disabled={favoritePending}
+                                        class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
+                                        title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                                        aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                                    >
+                                        {#if favoritePending}
+                                            <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                                        {:else}
+                                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
+                                            </svg>
+                                        {/if}
+                                    </button>
+                                {/if}
+                            </div>
                         {/if}
                         {#if showSnapshotRepairAction && !snapshotRepairOpen}
                             <button

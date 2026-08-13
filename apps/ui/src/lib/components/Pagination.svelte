@@ -70,7 +70,7 @@
 </script>
 
 {#if totalPages > 0}
-    <div data-pagination class="flex flex-col items-center justify-between gap-4 border-y border-slate-200 py-4 dark:border-slate-700 sm:flex-row">
+    <div data-pagination class="flex flex-col items-center justify-between gap-4 pt-5 pb-1 sm:flex-row">
         <!-- Items info and page size selector -->
         <div class="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-400">
             <span class="font-medium text-slate-700 dark:text-slate-300">

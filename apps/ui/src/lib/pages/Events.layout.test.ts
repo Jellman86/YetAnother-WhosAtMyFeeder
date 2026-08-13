@@ -24,10 +24,13 @@ describe('Explorer page layout', () => {
         expect(eventsSource).not.toContain('species={availableSpecies}');
     });
 
-    it('presents the timeline as a quiet divided control instead of another card', () => {
+    it('separates the timeline and pagination with space, not rules', () => {
         expect(eventsSource).toContain('data-events-timeline');
-        expect(eventsSource).toMatch(/data-events-timeline[^>]+border-y/);
+        // Both used to be wrapped in a rule above and below. Against a grid of cards that
+        // already carry strong edges, those read as lines drawn across the page.
+        expect(eventsSource).not.toMatch(/data-events-timeline[^>]+border-y/);
         expect(paginationSource).toContain('data-pagination');
+        expect(paginationSource).not.toMatch(/data-pagination[^>]+border-y/);
         expect(paginationSource).not.toContain('card-base');
         expect(paginationSource).toContain("$_('pagination.showing'");
         expect(paginationSource).not.toContain('Showing <span');
