@@ -65,6 +65,31 @@ after(async () => {
   await mf?.dispose();
 });
 
+test("version publication is visible immediately without a stale isolate cache", async (t) => {
+  await usageDb.prepare(`
+    INSERT OR REPLACE INTO app_versions (channel, version, commit_sha, url, updated_at)
+    VALUES ('dev', '2.17.0', 'old0000000000000000000000000000000000000',
+            'https://example.test/tree/dev', datetime('now'))
+  `).run();
+  t.after(async () => {
+    await usageDb.prepare("DELETE FROM app_versions WHERE channel = 'dev'").run();
+  });
+
+  const before = await mf.dispatchFetch("http://worker.test/version");
+  assert.equal(before.status, 200);
+  assert.equal((await before.json()).dev.commit, "old0000000000000000000000000000000000000");
+
+  await usageDb.prepare(`
+    UPDATE app_versions
+    SET commit_sha = 'new1111111111111111111111111111111111111', updated_at = datetime('now')
+    WHERE channel = 'dev'
+  `).run();
+
+  const afterPublish = await mf.dispatchFetch("http://worker.test/version");
+  assert.equal(afterPublish.status, 200);
+  assert.equal((await afterPublish.json()).dev.commit, "new1111111111111111111111111111111111111");
+});
+
 test("user metrics dashboard renders a bounded daily trend and distinct mode", async (t) => {
   await usageDb.prepare(`
     INSERT INTO heartbeats (
