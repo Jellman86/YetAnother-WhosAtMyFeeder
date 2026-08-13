@@ -14,11 +14,14 @@
         versionInfo: VersionInfo;
     }
 
+    type UptimeLoadState = 'loading' | 'ready' | 'error';
+
     let { versionInfo }: Props = $props();
 
     let classifier = $state<ClassifierStatus | null>(null);
     let startedAt = $state<string | null>(null);
     let uptimeWindow = $state<UptimeWindowResponse | null>(null);
+    let uptimeLoadState = $state<UptimeLoadState>('loading');
     let updateStatus = $state<UpdateStatus | null>(null);
     let copied = $state(false);
     let copyFailed = $state(false);
@@ -35,8 +38,10 @@
             }
             try {
                 uptimeWindow = await fetchUptimeWindow(24);
+                uptimeLoadState = 'ready';
             } catch {
-                // No heartbeat history yet, so the strip stays out.
+                // A failed request is different from a successful window with no history.
+                uptimeLoadState = 'error';
             }
             try {
                 updateStatus = await fetchUpdateStatus();
@@ -66,6 +71,14 @@
 
     // The readiness probe records when this process started. There is no health history,
     // so this is honestly "running since", not a 24-hour availability strip.
+    const availability = $derived.by(() => {
+        const ratio = uptimeWindow?.uptime_ratio;
+        if (ratio === null || ratio === undefined) return null;
+        // One decimal only below 100, so a full window reads "100% up" rather than "100.0% up".
+        const percent = ratio * 100;
+        return percent >= 99.95 ? '100' : percent.toFixed(1);
+    });
+
     const uptime = $derived.by(() => {
         if (!startedAt) return null;
         const started = Date.parse(startedAt);
@@ -175,7 +188,15 @@
                     {uptime ?? $_('about.pipeline.unknown', { default: 'unknown' })}
                 </p>
 
-                {#if uptimeWindow}
+                {#if uptimeLoadState === 'ready' && uptimeWindow}
+                    {#if availability}
+                        <p class="mt-0.5 text-xs font-semibold tabular-nums text-slate-600 dark:text-slate-300">
+                            {$_('about.instance.availability', {
+                                values: { percent: availability },
+                                default: '{percent}% up'
+                            })}
+                        </p>
+                    {/if}
                     <div
                         class="mt-2 flex gap-[2px]"
                         role="img"
@@ -196,6 +217,14 @@
                             ></span>
                         {/each}
                     </div>
+                    <!-- A 24 bar strip with no scale leaves the reader guessing which end is now. -->
+                    <div
+                        class="mt-1 flex justify-between text-[10px] tabular-nums text-slate-400 dark:text-slate-500"
+                        aria-hidden="true"
+                    >
+                        <span>{$_('about.instance.window_start', { values: { hours: 24 }, default: '{hours} h ago' })}</span>
+                        <span>{$_('about.instance.window_now', { default: 'now' })}</span>
+                    </div>
                     <p class="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
                         {#if uptimeWindow.longest_gap_minutes > 0 && uptimeWindow.longest_gap_start}
                             {$_('about.instance.gap', {
@@ -212,6 +241,26 @@
                         {:else}
                             {$_('about.instance.no_gaps', { default: 'No gaps in the last 24 hours.' })}
                         {/if}
+                    </p>
+                {:else if uptimeLoadState === 'loading'}
+                    <div class="mt-2 flex gap-[2px]" aria-hidden="true">
+                        {#each { length: 24 } as _, slot (slot)}
+                            <span class="h-4 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
+                        {/each}
+                    </div>
+                    <p class="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                        {$_('about.instance.history_loading', { default: 'Loading availability…' })}
+                    </p>
+                {:else if uptimeLoadState === 'error'}
+                    <div class="mt-2 flex gap-[2px]" aria-hidden="true">
+                        {#each { length: 24 } as _, slot (slot)}
+                            <span class="h-4 flex-1 rounded-[2px] bg-slate-200/70 dark:bg-slate-700/50"></span>
+                        {/each}
+                    </div>
+                    <p class="mt-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                        {$_('about.instance.history_unavailable', {
+                            default: 'Availability could not be read.'
+                        })}
                     </p>
                 {/if}
                 {#if startedAt}

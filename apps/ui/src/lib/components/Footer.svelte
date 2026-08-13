@@ -32,21 +32,58 @@
 
     let currentFactIndex = $state(0);
     let isTransitioning = $state(false);
+    let prefersReducedMotion = $state(false);
+    let transitionTimeout: ReturnType<typeof setTimeout> | undefined;
+    const currentFact = $derived(
+        birdFacts.length > 0 ? (birdFacts[currentFactIndex % birdFacts.length] ?? '') : ''
+    );
     const year = $derived(new Date().getFullYear());
 
+    function advanceFact(): void {
+        if (birdFacts.length === 0) return;
+        if (birdFacts.length === 1) {
+            currentFactIndex = 0;
+            return;
+        }
+
+        if (prefersReducedMotion) {
+            currentFactIndex = (currentFactIndex + 1) % birdFacts.length;
+            return;
+        }
+
+        isTransitioning = true;
+        transitionTimeout = setTimeout(() => {
+            currentFactIndex = birdFacts.length > 0 ? (currentFactIndex + 1) % birdFacts.length : 0;
+            isTransitioning = false;
+            transitionTimeout = undefined;
+        }, 300);
+    }
+
     onMount(() => {
-        const interval = setInterval(() => {
-            isTransitioning = true;
-            setTimeout(() => {
-                currentFactIndex = (currentFactIndex + 1) % birdFacts.length;
+        const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+        const updateMotionPreference = () => {
+            prefersReducedMotion = motionQuery.matches;
+            if (prefersReducedMotion && transitionTimeout !== undefined) {
+                clearTimeout(transitionTimeout);
+                transitionTimeout = undefined;
                 isTransitioning = false;
-            }, 300);
-        }, 8000);
+            }
+        };
+        updateMotionPreference();
+        motionQuery.addEventListener('change', updateMotionPreference);
 
         // Randomize starting fact
-        currentFactIndex = Math.floor(Math.random() * birdFacts.length);
+        if (birdFacts.length > 0) {
+            currentFactIndex = Math.floor(Math.random() * birdFacts.length);
+        }
 
-        return () => clearInterval(interval);
+        const interval = setInterval(advanceFact, 8000);
+
+        return () => {
+            clearInterval(interval);
+            if (transitionTimeout !== undefined) clearTimeout(transitionTimeout);
+            motionQuery.removeEventListener('change', updateMotionPreference);
+        };
     });
 </script>
 
@@ -94,14 +131,14 @@
         <div class="mt-4 pt-4 border-t border-slate-200/60 dark:border-slate-700/40">
             <!-- Facts vary from four words to two lines. Without a reserved height the whole
                  footer jumps every time the ticker turns over. -->
-            <div class="flex min-h-8 items-center justify-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+            <div class="flex min-h-28 flex-col items-center justify-center gap-1 text-xs text-slate-600 sm:min-h-10 sm:flex-row sm:gap-2 dark:text-slate-400">
                 <span class="text-amber-700 dark:text-amber-300 flex-shrink-0">{$_('footer.did_you_know', { default: 'Did you know?' })}</span>
                 <span
-                    class="transition-opacity duration-300 text-center"
+                    class="text-center motion-safe:transition-opacity motion-safe:duration-300"
                     class:opacity-0={isTransitioning}
                     class:opacity-100={!isTransitioning}
                 >
-                    {birdFacts[currentFactIndex]}
+                    {currentFact}
                 </span>
             </div>
         </div>

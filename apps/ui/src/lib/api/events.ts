@@ -16,10 +16,11 @@ export interface FetchEventsOptions {
     eventId?: string;
     fields?: 'list' | 'detail' | string;
     requestKey?: string | null;
+    signal?: AbortSignal;
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly, audioConfirmedOnly, eventId, fields, requestKey } = options;
+    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly, audioConfirmedOnly, eventId, fields, requestKey, signal } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
@@ -51,7 +52,8 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     ].join('-');
 
     return fetchWithAbort<Detection[]>(requestKey === undefined ? filterKey : requestKey, `${API_BASE}/events?${params.toString()}`, {
-        timeoutMs: 15_000
+        timeoutMs: 15_000,
+        signal
     });
 }
 

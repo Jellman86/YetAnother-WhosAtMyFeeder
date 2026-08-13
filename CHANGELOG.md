@@ -8,18 +8,49 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
-- **Ten more bird facts in the footer ticker**, weighted towards birds that actually turn up at a
-  feeder rather than albatrosses and penguins: seasonal brain growth in tits and chickadees, the
-  seven neighbours each starling tracks in a murmuration, the blue tits that learned to open milk
-  bottles, wrens piling into one nest box on cold nights.
-- **Corrected a fact that was wrong.** The ticker claimed woodpecker skulls have air pockets to
-  absorb shock. A 2022 study in Current Biology found the opposite: the skull works as a stiff
-  hammer, and the brain is small enough to take the impact.
+- **Ten more bird facts in the footer ticker**, weighted towards birds that turn up at feeders.
+  Broad claims were narrowed to the species, measurement or observation the research supports,
+  including chickadee cache recovery after 28 days and the British record of 61 wrens roosting
+  together.
+- **Corrected several bird myths and overstatements.** Woodpecker skulls work as stiff hammers, not
+  shock absorbers; geese have serrated bills rather than teeth; penguins use pebbles as nest
+  material rather than marriage proposals; and flocking starlings respond to around seven nearby
+  neighbours rather than tracking exactly seven birds.
 - **The footer signature drops the sentiment.** "Built with AI assistance for the love of bird
   watching" becomes "Built with AI assistance, and a lot of trial and error", and the string moves
   from `about.built_with_ai` to `footer.built_with_ai`, which is where it is actually used.
-- **The footer no longer jumps as the ticker turns over.** Facts run from four words to two lines
-  and the row was sized to whatever it held, so the whole footer moved every few seconds.
+- **The footer ticker is stable and safe on narrow screens.** Its mobile layout reserves enough
+  room for the bundled translations, skips missing or single-item fact lists safely, clears both
+  timers on teardown, and changes facts without fading when reduced motion is requested.
+- **The About page speaks in the first person again.** The project description had been written
+  as third-party marketing copy about the author ("YA-WAMF is a personal project started to
+  experiment with AI-assisted coding"), which is the README's own sentence with the "I" removed,
+  and it read like a brochure. It now matches the README's voice. "How It Works" loses its title
+  case, the credits line about AI assistants matches the grammar of the lines around it, and the
+  Flaticon credit is no longer punctuated with a stray hyphen.
+- **The pipeline shows which way the data moves.** A soft pulse sweeps each step in turn, in the
+  order a detection actually travels, with the border blooming as it passes. One sweep per nine
+  seconds and then a rest, so the page is still while you read it. Off entirely under
+  `prefers-reduced-motion`.
+- **Steps that were never probed say so.** MQTT and the database had no status chip at all while
+  every neighbour had one, which left the row looking ragged and the gap looking like a fault.
+  Both now read "not checked", which is the honest label for a step with no health endpoint.
+- **The availability strip now explains its state.** It keeps a stable footprint while its request
+  loads or cannot be read, and distinguishes those states from a successful window with no measured
+  history. It also labels which end is now and shows the availability percentage returned by the API.
+- **A step that cannot be read no longer says "unknown" twice**, once in the chip and again in the
+  detail line directly beneath it. The detail line now says there is no reading from here.
+- **The external link arrows in Reference and thanks** were a bare "↗" character sized by the
+  display font, which rendered them far larger than their labels. They are a properly sized icon now.
+
+- **The leaderboard opens with the bird, not a repeat of the table.** The most detected species of
+  the selected period is shown through representative visits from your feeder, captioned "Most
+  detected this month" and following the Day, Week, Month and Total control. Simultaneous visits on
+  different cameras stay distinct, while consecutive frames from one visit contribute only their
+  clearest photograph. Where more photographs exist than tiles, they cycle slowly; a single
+  photograph is shown as one frame rather than a grid with gaps. Broken snapshots disappear without
+  leaving a blank tile, and every transition stops for anyone who prefers reduced motion. Heard-only
+  leaders use the ranking instead because an audio detection cannot provide a feeder photograph.
 
 - **The rebuilt UI now carries its evidence and privacy boundaries end to end.** Explorer facet
   counts use the same history window as the guest event list, clicking a frame in a visit opens
@@ -66,14 +97,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   taken over the same canonical grouping the options are built from, so name variants of one species
   count once.
 
-- **The leaderboard opens with a podium instead of a featured card.** The top three species share
-  the space one species used to fill, on hairline rows rather than in a large rounded panel, each
-  showing what was seen and what was heard so a bird that is loud but rarely on camera is visible.
-  The podium follows the Seen, Heard and Both toggle, so it ranks by whichever source is selected.
-  The Wikipedia extract moves to the species detail view, where it was already available, and the
-  Most active tile is gone because it repeated the podium's first row word for word. The rankings
-  table now starts roughly 200px higher up the page.
-
 - **The dashboard is now a field desk: one chronological log of the day with the outstanding work
   docked beside it.** Repeat frames of the same bird on the same camera within ten minutes fold
   into a single visit row showing the clearest frame and the best score, so one blackbird landing
@@ -103,7 +126,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   which classifier is loaded and on which provider, whether BirdNET-Go correlation and
   notifications are configured, and whether the browser is receiving live updates. A step whose
   status cannot be read says "unknown" rather than claiming to be healthy, and steps with no
-  status source (the broker, the database) carry no state at all. Two new columns state what is
+  status source (the broker, the database) say "not checked". Two new columns state what is
   stored in each table and which outbound calls are enabled, so the privacy answer lives on the
   page rather than across three documents.
 
@@ -148,6 +171,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   quiet. About states whether the build is up to date, using the update check that already exists.
 
 ### Fixed
+
+- **The leaderboard stops printing a percentage it cannot stand behind.** Every camera trend read
+  "+76 (0.0%)" because the previous window holds no camera data to compare against, so the figure was
+  the same on every row and meant nothing. A trend now shows its percentage only when there is a
+  previous window to measure against, and each mode is asked about its own history. Heard counts keep
+  their real percentages, combined trends use the combined previous count, and camera counts show the
+  change alone when that is the only supported comparison. Rising and Most recent remain when they
+  describe a different species from the leader, and use the selected Seen, Heard, or Both evidence.
 
 - **Review confirmations now persist and leave the queue immediately.** Choosing the species a
   detection already shows, including a translated alias of the same taxon, records the human

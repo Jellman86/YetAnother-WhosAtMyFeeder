@@ -243,9 +243,22 @@
                                 href={action.href}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                class="text-brand-600 hover:underline focus-ring dark:text-brand-400"
+                                class="group inline-flex items-center gap-1.5 text-brand-600 focus-ring dark:text-brand-400"
                             >
-                                {action.label} ↗
+                                <span class="group-hover:underline">{action.label}</span>
+                                <!-- Sized in the icon rather than left to the display font, which
+                                     rendered the bare arrow glyph far larger than its label. -->
+                                <svg
+                                    class="h-2.5 w-2.5 shrink-0 text-slate-400 dark:text-slate-500"
+                                    viewBox="0 0 12 12"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.6"
+                                    aria-hidden="true"
+                                >
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4.25 2.75h5v5" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.25 2.75 2.75 9.25" />
+                                </svg>
                             </a>
                         </li>
                     {/each}

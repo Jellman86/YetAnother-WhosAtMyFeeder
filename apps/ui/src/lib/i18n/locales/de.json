@@ -2063,7 +2063,12 @@
     "seen_count": "{count} gesehen",
     "not_seen": "nicht gesehen",
     "heard_count": "{count} gehört",
-    "not_heard": "nicht gehört"
+    "not_heard": "nicht gehört",
+    "most_detected_day": "Heute am häufigsten",
+    "most_detected_week": "Diese Woche am häufigsten",
+    "most_detected_month": "Diesen Monat am häufigsten",
+    "most_detected_all": "Insgesamt am häufigsten",
+    "collage_counts": "{seen} Besuche"
   },
   "about": {
     "how_it_works": "Wie es funktioniert",
@@ -2071,7 +2076,7 @@
     "view_changelog": "Changelog anzeigen",
     "flaticon_credit": "Vogel-Icons erstellt von Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Lizenziert unter der {license}",
-    "project_desc_1": "YA-WAMF ist ein persönliches Projekt, das gestartet wurde, um mit KI-unterstützter Programmierung zu experimentieren. Als das ursprüngliche {link}-Projekt nicht mehr gepflegt wurde, entstand dieses Projekt sowohl als Lernmöglichkeit als auch als nützliches Werkzeug für Vogelliebhaber.",
+    "project_desc_1": "Ich habe damit angefangen, um herauszufinden, wie weit ich mit KI-Unterstützung beim Programmieren komme. Das ursprüngliche {link} wurde nicht mehr gepflegt, also gab es etwas Echtes nachzubauen statt eines Spielprojekts. Seitdem läuft es an meinem eigenen Futterhaus.",
     "project_desc_2": "Frigate überwacht die Futterstelle und meldet alles, was nach einem Vogel aussieht. YA-WAMF bestimmt es, gleicht es mit BirdNET-Go-Audio ab und speichert das Ergebnis. Jedes Foto auf dieser Seite stammt von dieser Kamera.",
     "links": {
       "repo": "GitHub-Repository",
@@ -2086,10 +2091,10 @@
       "frigate": "{link} als exzellenter Open-Source-NVR",
       "birdnet": "{link} für die Integration der Audio-Klassifizierung",
       "benjordan": "{link} auf YouTube für inspirierende Inhalte zur Vogelerkennung",
-      "ai_assistants": "KI-Assistenten, die beim Aufbau dieser Anwendung geholfen haben"
+      "ai_assistants": "Die KI-Programmierassistenten, die das meiste davon mit mir gebaut haben"
     },
     "pipeline": {
-      "subtitle": "Die übliche Verarbeitungskette und was diese Instanz gerade tut.",
+      "subtitle": "Der Weg, den eine Erkennung nimmt, und was diese Instanz bei jedem Schritt tut.",
       "frigate": "Frigate",
       "mqtt": "MQTT",
       "classifier": "Klassifikator",
@@ -2116,7 +2121,9 @@
       "legend_local": "läuft auf Ihrer Hardware",
       "legend_optional": "optional",
       "legend_external": "Ihr Broker und Browser",
-      "legend_note": "Nichts verlässt Ihr Netzwerk außer den unten aufgeführten Aufrufen."
+      "legend_note": "Nichts verlässt Ihr Netzwerk außer den unten aufgeführten Aufrufen.",
+      "not_checked": "nicht geprüft",
+      "no_reading": "von hier aus keine Messung"
     },
     "storage": {
       "title": "Was gespeichert wird",
@@ -2161,7 +2168,12 @@
       "no_gaps": "Keine Lücken in den letzten 24 Stunden.",
       "up_to_date": "Aktuell",
       "update_available": "v{version} ist verfügbar",
-      "checked": "geprüft {when}"
+      "checked": "geprüft {when}",
+      "availability": "{percent}% verfügbar",
+      "window_start": "vor {hours} Std.",
+      "window_now": "jetzt",
+      "history_loading": "Verfügbarkeit wird geladen…",
+      "history_unavailable": "Verfügbarkeit konnte nicht abgerufen werden."
     },
     "close": {
       "title": "Daten, Datenschutz und Danksagungen"
@@ -2221,35 +2233,35 @@
   "footer": {
     "did_you_know": "Wussten Sie?",
     "bird_facts": [
-      "Kolibris können rückwärts fliegen und sind die einzigen Vögel, die an Ort und Stelle schweben können",
-      "Krähen können menschliche Gesichter erkennen und sich an Menschen erinnern, die ihnen Unrecht getan haben",
+      "Kolibris können in stiller Luft dauerhaft auf der Stelle schweben und rückwärts fliegen",
+      "Amerikanische Krähen erinnerten sich jahrelang an die Gesichtsmasken ihrer Fänger",
       "Die Küstenseeschwalbe wandert jährlich über 44.000 Meilen - die längste Wanderung aller Vögel",
       "Eulen können ihre Augäpfel nicht bewegen, weshalb sie ihre Köpfe bis zu 270 Grad drehen können",
       "Der Wanderfalke kann mit Geschwindigkeiten von über 240 mph tauchen und ist damit das schnellste Tier der Erde",
-      "Raben können menschliche Sprache und andere Geräusche wie Automotoren und Toilettenspülungen nachahmen",
-      "Pinguine machen ihren Partnern einen Heiratsantrag mit einem Kieselstein",
-      "Blauhäher können die Rufe von Habichten nachahmen, um andere Vögel von Futterstellen zu verscheuchen",
-      "Die Federn eines Vogels wiegen mehr als sein Skelett",
+      "Raben können menschliche Sprache und viele Geräusche aus ihrer Umgebung nachahmen",
+      "Adélie- und Eselspinguine bauen Nester aus Steinen; begehrte Kiesel werden manchmal aus anderen Nestern gestohlen",
+      "Blauhäher können Rotschulter- und Rotschwanzbussarde nachahmen, auch in der Nähe von Futterstellen",
+      "Viele Vogelknochen sind hohl, aber im Inneren durch Streben verstärkt",
       "Der Bienenkolibri ist der kleinste Vogel der Welt und wiegt weniger als ein Penny",
       "Fregattvögel können monatelang in der Luft bleiben, ohne zu landen",
-      "Elstern sind eines der wenigen Tiere, die sich selbst im Spiegel erkennen können",
+      "Eurasische Elstern zeigten 2008 in einem Spiegel-Markierungstest selbstbezogenes Verhalten",
       "Der Wanderalbatros hat die größte Flügelspannweite aller lebenden Vögel, bis zu 11,8 Fuß",
-      "Spechtschädel sind doch keine Stoßdämpfer, sie wirken als starre Hämmer, und das Gehirn ist klein genug, um das auszuhalten",
-      "Mauersegler verbringen den größten Teil ihres Lebens in der Luft und können sogar im Flug schlafen",
+      "Spechtschädel wirken als starre Hämmer statt als Stoßdämpfer; gemessene Hirnbelastungen blieben unter geschätzten Gehirnerschütterungsschwellen",
+      "Mauersegler können zwischen zwei Brutzeiten etwa zehn Monate lang in der Luft bleiben",
       "Vögel sind nicht echt - sie sind staatliche Überwachungsdrohnen (angeblich)",
-      "Gänse haben Zähne auf ihren Zungen. Schlaf gut heute Nacht!",
+      "Gänse haben keine Zähne; gezackte Schnabelkanten und rückwärts gerichtete Zungenpapillen helfen ihnen, Nahrung festzuhalten",
       "Ein Vogel in der Hand ist zwei im Busch wert, aber deutlich unordentlicher",
       "Pinguine sind einfach formelle Hühner, die für eine Gala gekleidet sind",
       "Hähne schreien die Sonne an, weil sie Angst vor der Dunkelheit haben",
-      "Meisen vergrößern ihr Gedächtniszentrum jeden Herbst um etwa 30 Prozent und verkleinern es im Frühjahr wieder",
-      "Eine einzige Meise kann in einem Herbst Zehntausende Samen verstecken und sich Monate später noch an die Orte erinnern",
-      "Kleiber laufen kopfüber Baumstämme hinab und finden so Futter, das alle aufwärts kletternden Vögel übersehen haben",
-      "Im Schwarm achtet jeder Star nur auf seine sieben nächsten Nachbarn, und das genügt, damit Tausende wie einer wenden",
+      "Der Hippocampus von Schwarzkopfmeisen ist im Oktober am größten, wenn das Verstecken von Futter seinen Höhepunkt erreicht",
+      "Schwarzkopfmeisen fanden in Versuchen ihre eigenen Futterverstecke nach 28 Tagen wieder",
+      "Kleiber können Baumstämme kopfüber hinabsteigen und untersuchen die Rinde aus einer Richtung, die die meisten Klettervögel nicht nutzen",
+      "Ein Star im Schwarm reagiert auf etwa sieben Vögel in seiner Nähe statt auf jedes Tier der Gruppe",
       "Blaumeisen in Großbritannien lernten, die Folie von Milchflaschen zu öffnen, und der Trick verbreitete sich von Vogel zu Vogel",
-      "Zaunkönige drängen sich in kalten Nächten zusammen, manchmal Dutzende in einem einzigen Nistkasten",
+      "Zaunkönige übernachten manchmal gemeinsam in Nistkästen; bei einem britischen Rekord wurden 61 zusammen gezählt",
       "Viele Singvögel sehen Ultraviolett, sodass zwei für dich gleich aussehende Vögel einander völlig verschieden erscheinen",
-      "Die rote Brust des Rotkehlchens ist eine Warnung, keine Zierde, und ein Männchen greift schon ein bloßes rotes Federbüschel an",
-      "Vögel haben ein drittes Augenlid, das seitlich über das Auge streicht und es reinigt, ohne es zu schließen",
+      "Rotkehlchen setzen ihre orangerote Brust bei Revieranzeigen gegenüber Rivalen ein",
+      "Vögel haben ein durchsichtiges drittes Augenlid, das seitlich über das Auge streicht, Tränen verteilt und das Auge schützt",
       "Alles an deinem Futterhaus ist stillschweigend zu dem Schluss gekommen, dass du das Personal bist"
     ],
     "built_with_ai": "Mit KI-Unterstützung gebaut, und mit viel Versuch und Irrtum"

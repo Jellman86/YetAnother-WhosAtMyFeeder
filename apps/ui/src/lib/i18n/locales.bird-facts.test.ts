@@ -23,9 +23,13 @@ describe('footer bird facts', () => {
             expect(count).toBe(en.footer.bird_facts.length);
         }
         expect(en.footer.bird_facts.length).toBe(30);
+        for (const [name, data] of Object.entries(locales)) {
+            const longest = Math.max(...data.footer.bird_facts.map((fact) => fact.length));
+            expect(longest, `${name} has a fact too long for the reserved mobile rail`).toBeLessThanOrEqual(180);
+        }
     });
 
-    it('no longer states the debunked woodpecker claim', () => {
+    it('does not repeat debunked or overstated bird claims', () => {
         // Van Wassenbergh et al., Current Biology 2022: the skull works as a stiff hammer,
         // not as a shock absorber.
         for (const data of Object.values(locales)) {
@@ -33,6 +37,9 @@ describe('footer bird facts', () => {
                 expect(fact).not.toMatch(/absorb shock|air pockets/i);
             }
         }
+        expect(en.footer.bird_facts.join(' ')).not.toMatch(
+            /only birds that can hover|people who have wronged|toilets flushing|scare other birds away|feathers weigh more|few animals that can recognize|penguins propose|geese have teeth|around 30 percent|months later|every bird walking up has missed|only its seven|bare tuft|without ever closing/i
+        );
     });
 
     it('holds no em dashes and no duplicates', () => {
@@ -49,7 +56,18 @@ describe('footer bird facts', () => {
         expect(footerSource).toContain("footer.built_with_ai");
         expect(footerSource).not.toContain('about.built_with_ai');
         expect(en.footer.built_with_ai).toBe('Built with AI assistance, and a lot of trial and error');
-        // The ticker jumps the whole footer when a longer fact rotates in without this.
-        expect(footerSource).toContain('min-h-8');
+    });
+
+    it('keeps a stable mobile footprint and honours reduced motion', () => {
+        expect(footerSource).toContain('min-h-28');
+        expect(footerSource).toContain('sm:min-h-10');
+        expect(footerSource).toContain('motion-safe:transition-opacity');
+        expect(footerSource).toContain("matchMedia('(prefers-reduced-motion: reduce)')");
+    });
+
+    it('handles empty facts and clears both timers on teardown', () => {
+        expect(footerSource).toContain('if (birdFacts.length === 0) return;');
+        expect(footerSource).toContain('clearInterval(interval)');
+        expect(footerSource).toContain('clearTimeout(transitionTimeout)');
     });
 });

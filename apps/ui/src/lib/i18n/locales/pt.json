@@ -2072,7 +2072,12 @@
     "seen_count": "{count} vistas",
     "not_seen": "não vista",
     "heard_count": "{count} ouvidas",
-    "not_heard": "não ouvida"
+    "not_heard": "não ouvida",
+    "most_detected_day": "Mais detetada hoje",
+    "most_detected_week": "Mais detetada esta semana",
+    "most_detected_month": "Mais detetada este mês",
+    "most_detected_all": "Mais detetada de sempre",
+    "collage_counts": "{seen} visitas"
   },
   "about": {
     "how_it_works": "Como Funciona",
@@ -2080,7 +2085,7 @@
     "view_changelog": "Ver changelog",
     "flaticon_credit": "Ícones de pássaros criados por Freepik - Flaticon",
     "license_notice": "© {year} Jellman86 • Licenciado sob {license}",
-    "project_desc_1": "YA-WAMF é um projeto pessoal iniciado para experimentar com codificação assistida por IA. Quando o projeto original {link} deixou de ser mantido, este nasceu como uma oportunidade de aprendizado e uma ferramenta útil para entusiastas de pássaros.",
+    "project_desc_1": "Comecei isto para descobrir até onde conseguia chegar programando com ajuda de IA. O {link} original tinha deixado de ser mantido, por isso havia algo real para reconstruir em vez de um projeto de brincadeira. Desde então funciona no meu próprio comedouro.",
     "project_desc_2": "O Frigate vigia o comedouro e assinala tudo o que pareça uma ave. O YA-WAMF classifica-a, compara com o áudio do BirdNET-Go e guarda o resultado. Todas as fotos desta página vieram dessa câmara.",
     "links": {
       "repo": "Repositório GitHub",
@@ -2095,10 +2100,10 @@
       "frigate": "{link} por ser um excelente NVR open-source",
       "birdnet": "{link} pela integração de classificação de áudio",
       "benjordan": "{link} no YouTube por conteúdo inspirador de detecção de pássaros",
-      "ai_assistants": "Assistentes de IA que ajudaram a construir este aplicativo"
+      "ai_assistants": "Os assistentes de programação com IA que construíram a maior parte disto comigo"
     },
     "pipeline": {
-      "subtitle": "O fluxo padrão, a mostrar o que esta instância está a fazer.",
+      "subtitle": "O caminho que uma deteção percorre e o que esta instância faz em cada passo.",
       "frigate": "Frigate",
       "mqtt": "MQTT",
       "classifier": "Classificador",
@@ -2125,7 +2130,9 @@
       "legend_local": "corre no seu hardware",
       "legend_optional": "opcional",
       "legend_external": "o seu broker e navegador",
-      "legend_note": "Nada sai da sua rede além das chamadas listadas abaixo."
+      "legend_note": "Nada sai da sua rede além das chamadas listadas abaixo.",
+      "not_checked": "não verificado",
+      "no_reading": "sem leitura a partir daqui"
     },
     "storage": {
       "title": "O que é guardado",
@@ -2170,7 +2177,12 @@
       "no_gaps": "Sem falhas nas últimas 24 horas.",
       "up_to_date": "Atualizado",
       "update_available": "v{version} está disponível",
-      "checked": "verificado {when}"
+      "checked": "verificado {when}",
+      "availability": "{percent}% ativo",
+      "window_start": "há {hours} h",
+      "window_now": "agora",
+      "history_loading": "A carregar disponibilidade…",
+      "history_unavailable": "Não foi possível consultar a disponibilidade."
     },
     "close": {
       "title": "Dados, privacidade e créditos"
@@ -2230,35 +2242,35 @@
   "footer": {
     "did_you_know": "Você sabia?",
     "bird_facts": [
-      "Beija-flores podem voar para trás e são os únicos pássaros que podem pairar no lugar",
-      "Corvos podem reconhecer rostos humanos e lembrar de pessoas que lhes fizeram mal",
+      "Beija-flores conseguem pairar de forma sustentada em ar parado e voar para trás",
+      "Corvos-americanos lembraram durante anos os rostos usados como máscaras pelos seus captores",
       "O Trinta-réis-ártico migra mais de 44.000 milhas anualmente - a maior migração de qualquer pássaro",
       "Corujas não conseguem mover seus globos oculares, por isso giram a cabeça até 270 graus",
       "O Falcão-peregrino pode mergulhar a velocidades acima de 240 mph, tornando-o o animal mais rápido da Terra",
-      "Corvos podem imitar a fala humana e outros sons como motores de carros e descargas de banheiro",
-      "Pinguins propõem aos seus parceiros com uma pedra",
-      "Gaios-azuis podem imitar os chamados de falcões para assustar outros pássaros dos alimentadores",
-      "As penas de um pássaro pesam mais que seu esqueleto",
+      "Corvos podem imitar a fala humana e muitos sons do seu ambiente",
+      "Pinguins-de-adélia e pinguins-gentoo constroem ninhos de pedras, e os seixos mais cobiçados são por vezes roubados entre ninhos",
+      "Gaios-azuis podem imitar gaviões-de-ombros-vermelhos e de-cauda-vermelha, inclusive perto de comedouros",
+      "Muitos ossos das aves são ocos, mas reforçados internamente por travessas",
       "O Beija-flor-abelha é o menor pássaro do mundo, pesando menos que uma moeda",
       "Fragatas podem ficar no ar por meses sem pousar",
-      "Pegas são um dos poucos animais que podem se reconhecer em um espelho",
+      "Pegas-rabudas mostraram comportamento autodirigido num teste de marca com espelho de 2008",
       "O albatroz-errante tem a maior envergadura de qualquer pássaro vivo, até 11,8 pés",
-      "O crânio do pica-pau não absorve choques, funciona como um martelo rígido, e o cérebro é pequeno o suficiente para aguentar",
-      "Andorinhões passam a maior parte de suas vidas no ar e podem até dormir enquanto voam",
+      "O crânio do pica-pau funciona como um martelo rígido, não como amortecedor; as cargas cerebrais medidas ficaram abaixo dos limiares estimados de concussão",
+      "Andorinhões-pretos podem permanecer no ar cerca de dez meses entre épocas de reprodução",
       "Pássaros não são reais - são drones de vigilância do governo (supostamente)",
-      "Gansos têm dentes em suas línguas. Durma bem hoje à noite!",
+      "Os gansos não têm dentes; as bordas serrilhadas do bico e as papilas da língua voltadas para trás ajudam a agarrar o alimento",
       "Mais vale um pássaro na mão do que dois voando",
       "Pinguins são apenas galinhas formais vestidas para uma festa de gala",
       "Galos gritam para o sol porque têm medo do escuro",
-      "Os chapins aumentam o seu centro de memória cerca de 30 por cento todos os outonos e voltam a reduzi-lo na primavera",
-      "Um único chapim consegue esconder dezenas de milhares de sementes num outono e lembrar-se dos locais meses depois",
-      "As trepadeiras descem os troncos de cabeça para baixo e assim encontram comida que escapa às aves que sobem",
-      "Numa revoada cada estorninho segue apenas os seus sete vizinhos mais próximos, e isso basta para milhares virarem como um só",
+      "O hipocampo do chapim-de-cabeça-preta atinge o maior tamanho em outubro, quando o armazenamento de alimento chega ao pico",
+      "Em experiências, chapins-de-cabeça-preta recuperaram os seus próprios esconderijos de alimento após 28 dias",
+      "As trepadeiras podem descer troncos de cabeça para baixo e inspecionar a casca numa direção pouco usada por outras aves trepadoras",
+      "Num bando, um estorninho responde a cerca de sete vizinhos próximos em vez de a todas as aves do grupo",
       "Os chapins-azuis britânicos aprenderam a abrir a tampa das garrafas de leite, e o truque espalhou-se de ave em ave pelo país",
-      "As carriças amontoam-se num só dormitório nas noites frias, por vezes às dezenas dentro de uma única caixa ninho",
+      "As carriças-europeias às vezes dormem juntas em caixas-ninho; um recorde britânico contou 61 no mesmo local",
       "Muitas aves canoras veem ultravioleta, por isso duas aves idênticas para si podem parecer muito diferentes entre elas",
-      "O peito vermelho do pisco é um aviso e não um enfeite, e um macho ataca até um simples tufo de penas vermelhas",
-      "As aves têm uma terceira pálpebra que varre o olho de lado, limpando-o sem chegar a fechá-lo",
+      "Os piscos-de-peito-ruivo exibem o peito laranja-avermelhado em demonstrações territoriais perante rivais",
+      "As aves têm uma terceira pálpebra translúcida que percorre o olho de lado para espalhar lágrimas e protegê-lo",
       "Tudo o que aparece no seu comedouro decidiu discretamente que o pessoal é você"
     ],
     "built_with_ai": "Construído com ajuda de IA, e com muita tentativa e erro"
