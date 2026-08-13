@@ -35,6 +35,7 @@
     /** Detections closer together than this are the same visit, so they look the same. */
     const VISIT_GAP_MS = 10 * 60 * 1000;
 
+    let loading = $state(true);
     let photos = $state<Detection[]>([]);
     /** Which photo each tile is showing. Only one entry changes per tick. */
     let slots = $state<number[]>([]);
@@ -45,6 +46,7 @@
         photos = [];
         slots = [];
         nextTile = 0;
+        loading = true;
         if (!name) return;
 
         const controller = new AbortController();
@@ -72,16 +74,18 @@
                     return true;
                 });
                 slots = Array.from({ length: Math.min(TILES, photos.length) }, (_unused, i) => i);
-            } catch (error) {
-                if (controller.signal.aborted) return;
-                // The collage is decoration over the rankings; its absence is not an error state.
-                if (isTransientRequestError(error)) {
-                    logger.warn('Top species photos unavailable', { message: getErrorMessage(error) });
-                } else {
-                    logger.error('Failed to load top species photos', error);
-                }
+            } finally {
+                if (!controller.signal.aborted) loading = false;
             }
-        })();
+        })().catch((error) => {
+            if (controller.signal.aborted) return;
+            // The collage is decoration over the rankings; its absence is not an error state.
+            if (isTransientRequestError(error)) {
+                logger.warn('Top species photos unavailable', { message: getErrorMessage(error) });
+            } else {
+                logger.error('Failed to load top species photos', error);
+            }
+        });
         return () => controller.abort();
     });
 
@@ -123,7 +127,12 @@
     );
 </script>
 
-{#if visible.length > 0}
+{#if loading && visible.length === 0}
+    <div
+        class="aspect-[16/9] animate-pulse rounded-2xl border border-slate-200/70 bg-slate-100 sm:aspect-[21/9] dark:border-slate-700/50 dark:bg-slate-800/60"
+        aria-hidden="true"
+    ></div>
+{:else if visible.length > 0}
     <section
         class="relative aspect-[16/9] overflow-hidden rounded-2xl border border-slate-200/70 sm:aspect-[21/9] dark:border-slate-700/50"
         data-leaderboard-collage
