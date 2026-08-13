@@ -68,7 +68,7 @@ class UpdateStatusResponse(APIModel):
 
 
 @router.get("/update-status", response_model=UpdateStatusResponse)
-async def get_update_status() -> UpdateStatusResponse:
+async def get_update_status(response: Response) -> UpdateStatusResponse:
     """Report whether a newer YA-WAMF release is available (in-app update prompt).
 
     A notification only — YA-WAMF never updates itself; pulling a new image is left to the
@@ -76,6 +76,9 @@ async def get_update_status() -> UpdateStatusResponse:
     """
     from app.services.update_service import update_service
 
+    # The shared UI store owns freshness and the backend owns its short Worker/D1 cache.
+    # Intermediate browser/proxy caching would make both controls ineffective.
+    response.headers["Cache-Control"] = "no-store, max-age=0"
     current_version = os.environ.get("APP_VERSION", "unknown")
     # APP_VERSION is "<base>-<branch>+<hash>" (branch image) or "<base>+<hash>" (release).
     # Prefer APP_BRANCH from the image build because stable releases intentionally omit the

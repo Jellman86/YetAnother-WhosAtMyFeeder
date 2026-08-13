@@ -1,6 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { shouldShowUpdateBanner, type UpdateStatus } from './system';
+import { fetchUpdateStatus, shouldShowUpdateBanner, type UpdateStatus } from './system';
+
+afterEach(() => {
+    vi.unstubAllGlobals();
+});
 
 const status = (overrides: Partial<UpdateStatus>): UpdateStatus => ({
     current_version: '2.10.0',
@@ -33,5 +37,20 @@ describe('shouldShowUpdateBanner', () => {
 
     it('is safe with null status', () => {
         expect(shouldShowUpdateBanner(null, null)).toBe(false);
+    });
+
+    it('bypasses browser caches when checking update status', async () => {
+        const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(status({})), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+        }));
+        vi.stubGlobal('fetch', fetchMock);
+
+        await fetchUpdateStatus();
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            expect.stringContaining('/api/update-status'),
+            expect.objectContaining({ cache: 'no-store' })
+        );
     });
 });

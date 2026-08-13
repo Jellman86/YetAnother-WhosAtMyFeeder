@@ -1,11 +1,10 @@
 """Checks for a newer YA-WAMF release to power the in-app update prompt.
 
-The latest version comes from the telemetry worker's ``/version`` endpoint (a plain GET
-with no telemetry payload), which fetches and edge-caches it from GitHub — so GitHub is
-hit once per cache window globally rather than once per install, and the check works even
-when telemetry is disabled. The local lookup is itself cached and lazy (refreshed on
-request when stale), never blocks, and degrades to the last known result — or to "no
-update" — on any failure. Honours the ``system.update_check_enabled`` privacy opt-out.
+The latest version comes from the telemetry worker's D1-backed ``/version`` endpoint (a
+plain GET with no telemetry payload), so the check works even when telemetry is disabled.
+The local lookup is cached briefly and refreshed lazily on request, never blocks, and
+degrades to the last known result — or to "no update" — on any failure. Honours the
+``system.update_check_enabled`` privacy opt-out.
 """
 
 import asyncio
@@ -21,8 +20,11 @@ from app.utils.version import is_update_available
 log = structlog.get_logger()
 
 RELEASES_PAGE_URL = "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/latest"
-SUCCESS_TTL_SECONDS = 12 * 3600
-FAILURE_RETRY_SECONDS = 3600
+# Keep update prompts useful without turning every browser poll into a Worker/D1 read.
+# At the current fleet size a fifteen-minute successful TTL is roughly 2,400 requests/day,
+# while avoiding the old twelve-hour stale "no update" window and retaining Free-tier headroom.
+SUCCESS_TTL_SECONDS = 15 * 60
+FAILURE_RETRY_SECONDS = 5 * 60
 FETCH_TIMEOUT_SECONDS = 8.0
 
 

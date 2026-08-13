@@ -17,6 +17,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Update notifications now converge within minutes instead of potentially remaining stale for
+  half a day.** The telemetry version endpoint reads CI's promoted D1 row without an isolate-local
+  stale copy, the backend uses a bounded fifteen-minute success cache with a five-minute failure retry,
+  and browser/proxy caching is disabled for the instance status response. The shared UI store now
+  retries failed checks and refreshes while visible, on navigation, and after returning to the tab;
+  version-keyed dismissals remain honoured.
+
 - **Anonymous telemetry now has an explicit Free-tier and privacy boundary.** D1 schema updates use
   ordered, non-destructive migrations; new heartbeats retain only a hashed installation identity;
   exact health replays no longer spend the daily write budget; scheduled bounded retention removes

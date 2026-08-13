@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, patch
 
 from app.config import settings
-from app.services.update_service import UpdateService
+from app.services.update_service import FAILURE_RETRY_SECONDS, SUCCESS_TTL_SECONDS, UpdateService
 
 CHANNELS = {
     "stable": {"version": "v2.12.0", "url": "https://example/releases/tag/v2.12.0"},
@@ -98,6 +98,35 @@ async def test_result_is_cached_within_ttl():
         await svc.get_status("2.10.0", branch="main", git_hash="x")
         await svc.get_status("2.10.0", branch="main", git_hash="x")
     svc._fetch_channels.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_successful_result_refreshes_after_bounded_ttl():
+    svc = UpdateService()
+    svc._fetch_channels = AsyncMock(return_value=CHANNELS)
+    with patch.object(settings.system, "update_check_enabled", True):
+        await svc.get_status("2.10.0", branch="main", git_hash="x")
+        svc._fetched_at -= SUCCESS_TTL_SECONDS + 1
+        await svc.get_status("2.10.0", branch="main", git_hash="x")
+
+    assert svc._fetch_channels.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_failed_result_retries_after_short_bounded_ttl():
+    svc = UpdateService()
+    svc._fetch_channels = AsyncMock(
+        side_effect=[RuntimeError("temporary"), CHANNELS],
+    )
+    with patch.object(settings.system, "update_check_enabled", True):
+        first = await svc.get_status("2.10.0", branch="main", git_hash="x")
+        svc._fetched_at -= FAILURE_RETRY_SECONDS + 1
+        recovered = await svc.get_status("2.10.0", branch="main", git_hash="x")
+
+    assert first["error"] == "fetch_failed"
+    assert recovered["error"] is None
+    assert recovered["update_available"] is True
+    assert svc._fetch_channels.await_count == 2
 
 
 @pytest.mark.asyncio

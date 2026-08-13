@@ -833,9 +833,6 @@ type VersionChannels = {
   dev: { version: string | null; commit: string | null; url: string | null };
   branches: Record<string, { version: string | null; commit: string | null; url: string | null }>;
 };
-const VERSION_CACHE: { data: VersionChannels | null; expires: number } = { data: null, expires: 0 };
-const VERSION_CACHE_TTL_MS = 30 * 60 * 1000;
-
 // Versions published by CI. D1 is authoritative for update checks; if the table or a branch row
 // is missing, the corresponding channel stays null instead of being guessed from GitHub.
 async function readVersionsFromD1(db: D1Database): Promise<Partial<VersionChannels>> {
@@ -860,10 +857,6 @@ async function readVersionsFromD1(db: D1Database): Promise<Partial<VersionChanne
 }
 
 app.get('/version', async (c) => {
-  const now = Date.now();
-  if (VERSION_CACHE.data && VERSION_CACHE.expires > now) {
-    return c.json(VERSION_CACHE.data, 200, { 'Cache-Control': 'public, max-age=1800' });
-  }
   try {
     const stored = await readVersionsFromD1(c.env.DB);
     const payload: VersionChannels = {
@@ -871,12 +864,13 @@ app.get('/version', async (c) => {
       dev: stored.dev ?? { version: null, commit: null, url: null },
       branches: stored.branches ?? {},
     };
-    VERSION_CACHE.data = payload;
-    VERSION_CACHE.expires = now + VERSION_CACHE_TTL_MS;
-    return c.json(payload, 200, { 'Cache-Control': 'public, max-age=1800' });
-  } catch (e: any) {
-    if (VERSION_CACHE.data) return c.json(VERSION_CACHE.data, 200);
-    return c.json({ error: e?.message ?? 'fetch_failed' }, 502);
+    // CI writes D1 only after the corresponding image family has passed and been promoted.
+    // Do not retain an isolate-local copy: it could hide the publication for 30 minutes and
+    // then seed each installation's own cache with stale data. Backend callers already
+    // coalesce this read for fifteen minutes per installation.
+    return c.json(payload, 200, { 'Cache-Control': 'no-store, max-age=0' });
+  } catch {
+    return c.json({ error: 'fetch_failed' }, 502, { 'Cache-Control': 'no-store, max-age=0' });
   }
 });
 
