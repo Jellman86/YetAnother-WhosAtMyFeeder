@@ -7,6 +7,11 @@ const markdown = new MarkdownIt({
     typographer: true,
 });
 
+// markdown-it 15 made bare-domain linkification opt-in. Keep the existing UI
+// contract for model and help text such as "example.org" while still escaping
+// raw HTML above.
+markdown.linkify.set({ fuzzyLink: true });
+
 const isHeadingLike = (value: string) => {
     if (value.length < 3 || value.length > 40) return false;
     const cleaned = value.replace(/[:.]+$/, '').trim();
