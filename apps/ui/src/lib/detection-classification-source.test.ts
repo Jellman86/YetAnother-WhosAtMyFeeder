@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getClassificationInputKind, getDetectionClassificationSource } from './detection-classification-source';
+import {
+    getClassificationInputKind,
+    getDetectionClassificationSource,
+    shouldShowVideoStatusNotice
+} from './detection-classification-source';
 import type { Detection } from './api';
 
 function buildDetection(overrides: Partial<Detection> = {}): Detection {
@@ -75,5 +79,31 @@ describe('getDetectionClassificationSource', () => {
         });
 
         expect(getDetectionClassificationSource(detection)).toBe('snapshot');
+    });
+});
+
+describe('shouldShowVideoStatusNotice', () => {
+    it('hides an earlier inconclusive video result after a manual identification', () => {
+        const detection = buildDetection({
+            manual_tagged: true,
+            category_name: 'Prunella modularis',
+            video_classification_status: 'failed',
+            video_classification_error: 'video_no_results'
+        });
+
+        expect(shouldShowVideoStatusNotice(detection, false)).toBe(false);
+    });
+
+    it('still shows an inconclusive video result when it remains relevant to the current identification', () => {
+        const detection = buildDetection({
+            video_classification_status: 'failed',
+            video_classification_error: 'video_no_results'
+        });
+
+        expect(shouldShowVideoStatusNotice(detection, false)).toBe(true);
+    });
+
+    it('still explains missing upstream media for a snapshot identification', () => {
+        expect(shouldShowVideoStatusNotice(buildDetection(), true)).toBe(true);
     });
 });

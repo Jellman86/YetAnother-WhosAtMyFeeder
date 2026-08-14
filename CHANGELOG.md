@@ -17,6 +17,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Manual identifications no longer show stale automatic-analysis warnings.** The earlier video
+  evidence remains stored for diagnostics, but once an owner identifies the species the detection
+  view stops presenting an inconclusive model run as if it still describes the current result.
+
 - **Live work now stays put while it progresses.** Full-visit and best-frame jobs retain one
   timestamp from queue admission through execution, queued video work keeps that timestamp when a
   worker starts, and the browser reconciles polling with fresher live progress without moving a row
