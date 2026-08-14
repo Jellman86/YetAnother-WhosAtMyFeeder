@@ -12426,6 +12426,17 @@
             ],
             "title": "Frame Offset Seconds"
           },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
+          },
           "ranking_score": {
             "title": "Ranking Score",
             "type": "number"
@@ -19667,6 +19678,63 @@
           }
         ],
         "summary": "Get Snapshot Candidates"
+      }
+    },
+    "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg": {
+      "get": {
+        "description": "Return the retained full-resolution candidate for the large preview surface.",
+        "operationId": "get_snapshot_candidate_image_api_frigate__event_id__snapshot_candidates__candidate_id__image_jpg_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Snapshot Candidate Image"
       }
     },
     "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg": {

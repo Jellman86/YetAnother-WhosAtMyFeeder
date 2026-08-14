@@ -260,6 +260,19 @@ def _candidate_thumbnail_url(request: Request, event_id: str, candidate_id: str)
     )
 
 
+def _candidate_image_url(request: Request, event_id: str, candidate_id: str) -> str:
+    import time
+
+    return (
+        request.url_for(
+            "get_snapshot_candidate_image",
+            event_id=event_id,
+            candidate_id=candidate_id,
+        ).path
+        + f"?v={int(time.time())}"
+    )
+
+
 async def _build_snapshot_candidates_response(request: Request, event_id: str) -> "SnapshotCandidateListResponse":
     status = await _build_snapshot_status(event_id, check_original_frigate_snapshot=False)
     candidates = await _list_snapshot_candidates(event_id)
@@ -317,6 +330,15 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
                 selected=bool(candidate.get("selected")),
                 snapshot_source=(
                     str(candidate.get("snapshot_source")) if candidate.get("snapshot_source") is not None else None
+                ),
+                image_url=(
+                    _candidate_image_url(
+                        request,
+                        event_id,
+                        str(candidate.get("candidate_id") or ""),
+                    )
+                    if str(candidate.get("image_ref") or "").strip()
+                    else None
                 ),
                 thumbnail_url=_candidate_thumbnail_url(
                     request,
@@ -504,6 +526,7 @@ class SnapshotCandidateResponse(BaseModel):
     ranking_score: float
     selected: bool
     snapshot_source: str | None = None
+    image_url: str | None = None
     thumbnail_url: str | None = None
 
 
@@ -1516,6 +1539,31 @@ async def get_snapshot_candidate_thumbnail(
     if not thumbnail_bytes:
         raise HTTPException(status_code=404, detail="Snapshot candidate thumbnail unavailable")
     return Response(content=thumbnail_bytes, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+
+
+@router.get("/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg", response_class=Response)
+async def get_snapshot_candidate_image(
+    event_id: str = Path(..., min_length=1, max_length=64),
+    candidate_id: str = Path(..., min_length=1, max_length=160),
+    auth: AuthContext = Depends(require_owner),
+):
+    """Return the retained full-resolution candidate for the large preview surface."""
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    candidates = await _list_snapshot_candidates(event_id)
+    candidate = next((item for item in candidates if str(item.get("candidate_id") or "") == candidate_id), None)
+    if candidate is None:
+        raise HTTPException(status_code=404, detail="Snapshot candidate not found")
+    from app.services.media_cache import media_cache
+
+    image_ref = str(candidate.get("image_ref") or "").strip()
+    if not image_ref:
+        raise HTTPException(status_code=404, detail="Snapshot candidate image unavailable")
+    image_bytes = await media_cache.get_snapshot(image_ref)
+    if not image_bytes:
+        raise HTTPException(status_code=404, detail="Snapshot candidate image unavailable")
+    return Response(content=image_bytes, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
 
 @router.post("/frigate/{event_id}/snapshot/apply", response_model=SnapshotApplyResponse)

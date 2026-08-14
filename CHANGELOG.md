@@ -17,6 +17,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Alternative frame previews now use their retained full-resolution images.** The compact 240px
+  JPEGs remain limited to the filmstrip, while selecting a frame or comparing its full-frame peer
+  loads the authenticated full-size candidate instead of stretching a thumbnail across the modal.
 - **Finished jobs now remain newest-first before and after a browser refresh.** Active work keeps
   its queue-admission position while progress arrives, but a completion or failure is placed once
   at its terminal time instead of temporarily inheriting the older job-start time.

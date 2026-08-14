@@ -45,6 +45,9 @@ describe('detection surface polish', () => {
         // Candidates are owner-gated, so a guest gets no strip rather than an empty one.
         expect(detectionModalSource).toContain('authStore.hasOwnerAccess ? snapshotCandidates.filter');
         expect(detectionModalSource).toContain('previewSnapshotCandidate(candidate)');
+        expect(detectionModalSource).toContain('previewedSnapshotCandidate?.image_url');
+        expect(detectionModalSource).toContain('fullFrameSnapshotCandidate?.image_url');
+        expect(detectionModalSource).toContain('src={candidate.thumbnail_url ?? undefined}');
         expect(detectionModalSource).toContain('handleSaveSnapshotSelection');
         expect(detectionModalSource).toContain('stageOriginalFrigateSnapshot');
         expect(detectionModalSource).toContain('aria-busy={snapshotCandidatesLoading || snapshotApplyPending || snapshotGeneratePending}');
