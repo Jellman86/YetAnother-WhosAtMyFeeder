@@ -24,6 +24,15 @@ describe('Explorer page layout', () => {
         expect(eventsSource).not.toContain('species={availableSpecies}');
     });
 
+    it('shows the complete species facet and lets it use the remaining desktop viewport', () => {
+        expect(filtersSource).toContain("filterExplorerSpecies(species, search)");
+        expect(filtersSource).not.toContain('.slice(0, 12)');
+        expect(filtersSource).toContain('data-explorer-species-facet');
+        expect(filtersSource).toContain('data-explorer-species-list');
+        expect(filtersSource).toContain('lg:max-h-[calc(100dvh-2rem)]');
+        expect(filtersSource).toContain('lg:min-h-0 lg:max-h-none lg:flex-1');
+    });
+
     it('separates the timeline and pagination with space, not rules', () => {
         expect(eventsSource).toContain('data-events-timeline');
         // Both used to be wrapped in a rule above and below. Against a grid of cards that
