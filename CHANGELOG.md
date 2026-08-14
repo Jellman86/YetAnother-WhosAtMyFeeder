@@ -17,6 +17,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Finished jobs now remain newest-first before and after a browser refresh.** Active work keeps
+  its queue-admission position while progress arrives, but a completion or failure is placed once
+  at its terminal time instead of temporarily inheriting the older job-start time.
 - **Manual identifications no longer show stale automatic-analysis warnings.** The earlier video
   evidence remains stored for diagnostics, but once an owner identifies the species the detection
   view stops presenting an inconclusive model run as if it still describes the current result.
