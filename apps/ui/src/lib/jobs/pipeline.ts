@@ -74,13 +74,19 @@ function normalizeKind(value: unknown): string {
     return trimmed.length > 0 ? trimmed : 'job';
 }
 
-function rankKind(row: JobPipelineKindRow): number {
-    // Prioritize active/running work, then known queued pressure, then terminal backlog.
-    return (row.running * 1000)
-        + ((row.queued ?? 0) * 100)
-        + (row.failed * 10)
-        + row.completed;
-}
+const KIND_DISPLAY_ORDER = [
+    'reclassify_batch',
+    'reclassify',
+    'auto_video',
+    'video_analysis',
+    'high_quality_snapshot',
+    'full_visit',
+    'backfill',
+    'weather_backfill',
+    'taxonomy_sync'
+] as const;
+
+const KIND_DISPLAY_RANK = new Map<string, number>(KIND_DISPLAY_ORDER.map((kind, index) => [kind, index]));
 
 export function buildJobsPipelineModel(
     activeJobs: JobProgressItem[],
@@ -191,7 +197,10 @@ export function buildJobsPipelineModel(
     }
 
     kinds.sort((a, b) => {
-        const diff = rankKind(b) - rankKind(a);
+        // Counts change on every live update. A fixed operational order keeps lanes
+        // (including taxonomy/enrichment work) in one place while those counts change.
+        const diff = (KIND_DISPLAY_RANK.get(a.kind) ?? KIND_DISPLAY_ORDER.length)
+            - (KIND_DISPLAY_RANK.get(b.kind) ?? KIND_DISPLAY_ORDER.length);
         if (diff !== 0) return diff;
         return a.kind.localeCompare(b.kind);
     });

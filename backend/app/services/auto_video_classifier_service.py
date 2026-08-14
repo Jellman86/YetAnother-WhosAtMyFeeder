@@ -460,11 +460,17 @@ class AutoVideoClassifierService:
                         name=f"video_classifier:{frigate_event}",
                     )
                     self._active_tasks[frigate_event] = task
+                    pending_metadata = self._pending_metadata.get(frigate_event, {})
+                    started_at_epoch = time.time()
                     self._active_metadata[frigate_event] = {
                         "source": source,
                         "started_at": time.monotonic(),
-                        "started_at_epoch": time.time(),
-                        "updated_at_epoch": time.time(),
+                        # Keep the queue admission time as the job's identity timestamp.
+                        # Replacing it with the worker start time made rows jump whenever
+                        # queued work became active.
+                        "queued_at_epoch": pending_metadata.get("queued_at_epoch", started_at_epoch),
+                        "started_at_epoch": started_at_epoch,
+                        "updated_at_epoch": started_at_epoch,
                         "phase": "preparing",
                         "current": 0,
                         "total": int(settings.classification.video_classification_frames or 0),
@@ -878,7 +884,7 @@ class AutoVideoClassifierService:
             )
         for event_id, metadata in self._active_metadata.items():
             source = "manual" if metadata.get("manual_requested") else str(metadata.get("source") or "maintenance")
-            started_at = metadata.get("started_at_epoch")
+            started_at = metadata.get("queued_at_epoch") or metadata.get("started_at_epoch")
             updated_at = metadata.get("updated_at_epoch")
             kind = "reclassify" if source == "manual" else "auto_video" if source == "live" else "video_analysis"
             started_iso = (

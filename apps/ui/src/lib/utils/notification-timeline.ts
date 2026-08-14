@@ -51,7 +51,9 @@ function jobIdentity(job: JobProgressItem): string {
 }
 
 function jobTimestamp(job: JobProgressItem): number {
-    return Math.max(job.finishedAt ?? 0, job.updatedAt ?? 0, job.startedAt ?? 0);
+    // updatedAt is a progress heartbeat, not a new timeline event. Keeping the
+    // admission timestamp prevents active rows changing position on every tick.
+    return job.startedAt || job.finishedAt || job.updatedAt;
 }
 
 function jobAsNotification(job: JobProgressItem): NotificationItem {
@@ -107,7 +109,7 @@ export function buildTimelineItems(
             ...jobItem,
             ...notification,
             id: notification.id,
-            timestamp: Math.max(notification.timestamp, jobItem.timestamp),
+            timestamp: jobItem.timestamp,
             meta: {
                 ...notification.meta,
                 ...jobItem.meta,

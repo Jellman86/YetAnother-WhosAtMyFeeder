@@ -152,8 +152,8 @@
                 >
                     {#if aggregate.determinate && aggregate.percent !== null}
                         <div
-                            class="h-full bg-gradient-to-r from-accent-500 via-brand-500 to-sky-500 transition-all duration-500"
-                            style="width: {aggregate.percent}%"
+                            class="h-full w-full origin-left bg-gradient-to-r from-accent-500 via-brand-500 to-sky-500 transition-transform duration-200 ease-out motion-reduce:transition-none"
+                            style="transform: scaleX({aggregate.percent / 100})"
                         ></div>
                     {:else}
                         <div class="h-full w-2/5 bg-gradient-to-r from-accent-500/70 via-brand-500/70 to-sky-500/70 motion-safe:animate-pulse"></div>

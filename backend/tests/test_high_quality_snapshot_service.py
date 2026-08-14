@@ -15,6 +15,18 @@ from app.services import high_quality_snapshot_service as hq_module
 from app.services import media_cache as media_cache_module
 
 
+def test_job_snapshot_keeps_timestamp_stable_between_polls():
+    service = hq_module.HighQualitySnapshotService()
+    service._queued_ids.add("evt-stable")
+
+    first = service.get_jobs_snapshot()[0]
+    second = service.get_jobs_snapshot()[0]
+
+    assert first["created_at"] is not None
+    assert first["created_at"] == second["created_at"]
+    assert first["updated_at"] == second["updated_at"]
+
+
 def _jpeg_bytes(color: str, size: tuple[int, int] = (32, 32), *, quality: int = 92) -> bytes:
     buffer = BytesIO()
     Image.new("RGB", size, color=color).save(buffer, format="JPEG", quality=quality)

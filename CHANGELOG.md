@@ -17,6 +17,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Live work now stays put while it progresses.** Full-visit and best-frame jobs retain one
+  timestamp from queue admission through execution, queued video work keeps that timestamp when a
+  worker starts, and the browser reconciles polling with fresher live progress without moving a row
+  or running a bar backwards. Work lanes, including taxonomy enrichment, use a fixed operational
+  order; the job manager, combined notification timeline and global progress bar use short,
+  reduced-motion-safe transform animations instead of long layout-driven width transitions.
+
 - **Desktop snapshot choices remain selectable at the edge of the filmstrip.** The overflow fade
   is now a separate pointer-transparent layer instead of a mask on the interactive scroller. The
   selected frame uses a subtle lift, scale and shadow rather than a persistent blue outline.

@@ -10,7 +10,7 @@
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { resetVideoCircuit } from '../api/maintenance';
     import { toAppPath } from '../app/url-base';
-    import { serverJobsStore } from '../stores/server_jobs.svelte';
+    import { serverJobsStore, stableJobIdentity } from '../stores/server_jobs.svelte';
     import Pagination from '../components/Pagination.svelte';
     import { paginateItems } from '../utils/pagination';
     let { onNavigate, embedded = false } = $props<{ onNavigate?: (path: string) => void; embedded?: boolean }>();
@@ -285,7 +285,7 @@
             <p class="text-xs text-slate-500">{$_('jobs.active_empty', { default: 'No active jobs.' })}</p>
         {:else}
             <div class="divide-y divide-slate-200/80 dark:divide-slate-800/80">
-                {#each presentedActiveJobs as job (job.id)}
+                {#each presentedActiveJobs as job (stableJobIdentity(job))}
                     {@const presentation = presentActiveJob(job, pipelineByKind.get(job.kind) ?? null, analysisStatus, nowTs, t)}
                     {@const jobKindIcon = presentJobKindIcon(job.kind)}
                     <div class="py-4 first:pt-0 last:pb-0">
@@ -351,9 +351,9 @@
                                 aria-valuenow={presentation.determinate && presentation.percent !== null ? presentation.percent : undefined}
                             >
                                 {#if presentation.determinate && presentation.percent !== null}
-                                    <div class="h-full bg-gradient-to-r from-accent-500 via-brand-500 to-sky-500 transition-all duration-500" style={`width: ${presentation.percent}%`}></div>
+                                    <div class="h-full w-full origin-left bg-gradient-to-r from-accent-500 via-brand-500 to-sky-500 transition-transform duration-200 ease-out motion-reduce:transition-none" style={`transform: scaleX(${presentation.percent / 100})`}></div>
                                 {:else}
-                                    <div class="h-full w-2/5 bg-gradient-to-r from-accent-500/70 via-brand-500/70 to-sky-500/70 animate-pulse"></div>
+                                    <div class="h-full w-2/5 bg-gradient-to-r from-accent-500/70 via-brand-500/70 to-sky-500/70 motion-safe:animate-pulse"></div>
                                 {/if}
                             </div>
                             {#if isBackfillKind(job.kind)}

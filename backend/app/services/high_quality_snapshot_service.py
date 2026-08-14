@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 import hashlib
+import time
 from io import BytesIO
 from collections import Counter, deque
 from datetime import datetime, timedelta, timezone
@@ -101,6 +102,7 @@ class HighQualitySnapshotService:
         self._queued_ids: set[str] = set()
         self._deferred_ids: set[str] = set()
         self._deferred_order: deque[str] = deque()
+        self._job_timestamps: dict[str, tuple[float, float]] = {}
         self._completed_ids: set[str] = set()
         self._final_refresh_ids: set[str] = set()
         self._crop_event_hints: dict[str, dict[str, Any]] = {}
@@ -329,6 +331,7 @@ class HighQualitySnapshotService:
             return self._record_outcome(event_id, "duplicate")
 
         self._active_ids.add(event_id)
+        self._mark_job_active(event_id)
         try:
             crop_event_data = (
                 event_data if isinstance(event_data, dict) else await self._load_event_data_for_crop(event_id)
@@ -404,6 +407,7 @@ class HighQualitySnapshotService:
         finally:
             self._active_ids.discard(event_id)
             self._promote_deferred_events()
+            self._forget_finished_job(event_id)
 
     async def _load_preferred_frame_indices(
         self,
@@ -1384,6 +1388,7 @@ class HighQualitySnapshotService:
         self._queued_ids.clear()
         self._deferred_ids.clear()
         self._deferred_order.clear()
+        self._job_timestamps.clear()
         self._completed_ids.clear()
         self._final_refresh_ids.clear()
         self._crop_event_hints.clear()
@@ -1430,6 +1435,7 @@ class HighQualitySnapshotService:
                 continue
             self._final_refresh_ids.discard(event_id)
             self._active_ids.add(event_id)
+            self._mark_job_active(event_id)
             try:
                 await self.process_event(event_id)
             except asyncio.CancelledError:
@@ -1448,6 +1454,7 @@ class HighQualitySnapshotService:
                 self._active_ids.discard(event_id)
                 queue.task_done()
                 self._promote_deferred_events()
+                self._forget_finished_job(event_id)
 
     def _ensure_workers_started(self) -> None:
         self._cleanup_completed_workers()
@@ -1510,8 +1517,7 @@ class HighQualitySnapshotService:
                     "total": 0,
                     "unit": "items",
                     "route": f"/events?detection={event_id}",
-                    "created_at": None,
-                    "updated_at": None,
+                    **self._job_timestamp_fields(event_id),
                     "error": None,
                 }
             )
@@ -1528,8 +1534,7 @@ class HighQualitySnapshotService:
                     "total": 0,
                     "unit": "items",
                     "route": f"/events?detection={event_id}",
-                    "created_at": None,
-                    "updated_at": None,
+                    **self._job_timestamp_fields(event_id),
                     "error": None,
                 }
             )
@@ -1541,6 +1546,7 @@ class HighQualitySnapshotService:
         except asyncio.QueueFull:
             return False
         self._queued_ids.add(event_id)
+        self._mark_job_queued(event_id)
         return True
 
     def _defer_event(self, event_id: str) -> bool:
@@ -1556,8 +1562,30 @@ class HighQualitySnapshotService:
             return False
         self._deferred_ids.add(event_id)
         self._deferred_order.append(event_id)
+        self._mark_job_queued(event_id)
         self._queue_full_deferrals += 1
         return True
+
+    def _mark_job_queued(self, event_id: str) -> None:
+        now = time.time()
+        self._job_timestamps.setdefault(event_id, (now, now))
+
+    def _mark_job_active(self, event_id: str) -> None:
+        now = time.time()
+        created_at, _updated_at = self._job_timestamps.get(event_id, (now, now))
+        self._job_timestamps[event_id] = (created_at, now)
+
+    def _forget_finished_job(self, event_id: str) -> None:
+        if event_id not in self._active_ids and event_id not in self._queued_ids and event_id not in self._deferred_ids:
+            self._job_timestamps.pop(event_id, None)
+
+    def _job_timestamp_fields(self, event_id: str) -> dict[str, str]:
+        now = time.time()
+        created_at, updated_at = self._job_timestamps.setdefault(event_id, (now, now))
+        return {
+            "created_at": datetime.fromtimestamp(created_at, tz=timezone.utc).isoformat(),
+            "updated_at": datetime.fromtimestamp(updated_at, tz=timezone.utc).isoformat(),
+        }
 
     def _promote_deferred_events(self) -> None:
         while self._deferred_order:
