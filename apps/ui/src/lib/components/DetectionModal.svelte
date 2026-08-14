@@ -50,7 +50,11 @@
     import { trapFocus } from '../utils/focus-trap';
     import { FRIGATE_LOGO_URL } from '../assets';
     import { getErrorMessage } from '../utils/error-handling';
-    import { getClassificationInputKind, getDetectionClassificationSource } from '../detection-classification-source';
+    import {
+        getClassificationInputKind,
+        getDetectionClassificationSource,
+        shouldShowVideoStatusNotice
+    } from '../detection-classification-source';
     import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import { getManualTagSearchOptions } from '../search/manual-tag-search';
@@ -871,15 +875,7 @@
     // snapshot" amber notice, "Video Analysis Failed" red card) that used to
     // co-exist for the same underlying state.
     const videoStatusNoticeVisible = $derived.by(() => {
-        const status = (detection.video_classification_status || '').trim().toLowerCase();
-        const error = (detection.video_classification_error || '').trim();
-        // Failed video classification of any kind.
-        if (status === 'failed' && error) return true;
-        // Snapshot fallback already produced a result, but the underlying
-        // Frigate event is gone — surface that so the modal isn't silent
-        // about why the player and the diagnostics disagree.
-        if (currentClassificationSource === 'snapshot' && missingEventNoticeVisible) return true;
-        return false;
+        return shouldShowVideoStatusNotice(detection, missingEventNoticeVisible);
     });
     const videoStatusNoticeTone = $derived.by(() => {
         const status = (detection.video_classification_status || '').trim().toLowerCase();
