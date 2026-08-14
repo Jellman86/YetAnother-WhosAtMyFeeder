@@ -17,6 +17,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The Explorer species facet now includes every recorded species.** The desktop list uses the
+  remaining viewport height and scrolls only when the complete set is taller than that space;
+  smaller filter panels stay bounded and searchable ([#197](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/197)).
 - **Manual identifications no longer show stale automatic-analysis warnings.** The earlier video
   evidence remains stored for diagnostics, but once an owner identifies the species the detection
   view stops presenting an inconclusive model run as if it still describes the current result.
