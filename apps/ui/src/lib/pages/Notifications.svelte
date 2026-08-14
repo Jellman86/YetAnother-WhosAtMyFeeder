@@ -307,7 +307,7 @@
                                     {#if progress}
                                         <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                                             <!-- Brand, not the amber gradient this used to run: a job in flight needs nobody. -->
-                                            <div class="h-full rounded-full bg-brand-500 transition-[width] duration-500" style={`width: ${progress.percent}%`}></div>
+                                            <div class="h-full w-full origin-left rounded-full bg-brand-500 transition-transform duration-200 ease-out motion-reduce:transition-none" style={`transform: scaleX(${progress.percent / 100})`}></div>
                                         </div>
                                         <p class="mt-1 flex justify-between font-mono text-[10px] text-slate-400 dark:text-slate-500">
                                             <span>{progress.current.toLocaleString()} / {progress.total.toLocaleString()}</span>

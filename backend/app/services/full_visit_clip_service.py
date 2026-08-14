@@ -42,6 +42,7 @@ class FullVisitClipService:
         self._queue: asyncio.Queue[tuple[str, str | None, str, str]] = asyncio.Queue(maxsize=FULL_VISIT_QUEUE_MAX)
         self._queued_ids: set[str] = set()
         self._active_ids: set[str] = set()
+        self._job_timestamps: dict[str, tuple[float, float]] = {}
         self._workers: list[asyncio.Task] = []
         self._queue_full_rejections = 0
         # Queue workers, reconciliation and direct calls all share this ceiling.
@@ -136,6 +137,8 @@ class FullVisitClipService:
             )
             return False
         self._queued_ids.add(event_id)
+        now = time.time()
+        self._job_timestamps.setdefault(event_id, (now, now))
         return True
 
     async def start(self) -> None:
@@ -173,6 +176,7 @@ class FullVisitClipService:
                 break
         self._queued_ids.clear()
         self._active_ids.clear()
+        self._job_timestamps.clear()
         self._partial_upgrade_attempts.clear()
 
     async def _worker_loop(self, worker_index: int) -> None:
@@ -185,6 +189,8 @@ class FullVisitClipService:
                 break
             self._queued_ids.discard(event_id)
             self._active_ids.add(event_id)
+            created_at, _updated_at = self._job_timestamps.get(event_id, (time.time(), time.time()))
+            self._job_timestamps[event_id] = (created_at, time.time())
             try:
                 await self.trigger_for_event(event_id, camera, source=source, lang=lang)
             except asyncio.CancelledError:
@@ -198,6 +204,7 @@ class FullVisitClipService:
                 )
             finally:
                 self._active_ids.discard(event_id)
+                self._job_timestamps.pop(event_id, None)
                 self._queue.task_done()
 
     def get_status(self) -> dict[str, object]:
@@ -226,8 +233,9 @@ class FullVisitClipService:
             jobs.append(self._job_snapshot(event_id, "queued", "waiting"))
         return jobs
 
-    @staticmethod
-    def _job_snapshot(event_id: str, status: str, phase: str) -> dict[str, object]:
+    def _job_snapshot(self, event_id: str, status: str, phase: str) -> dict[str, object]:
+        now = time.time()
+        created_at, updated_at = self._job_timestamps.setdefault(event_id, (now, now))
         return {
             "id": f"full_visit:{event_id}",
             "event_id": event_id,
@@ -239,8 +247,8 @@ class FullVisitClipService:
             "total": 0,
             "unit": "items",
             "route": f"/events?detection={event_id}",
-            "created_at": None,
-            "updated_at": None,
+            "created_at": datetime.fromtimestamp(created_at, tz=timezone.utc).isoformat(),
+            "updated_at": datetime.fromtimestamp(updated_at, tz=timezone.utc).isoformat(),
             "error": None,
         }
 

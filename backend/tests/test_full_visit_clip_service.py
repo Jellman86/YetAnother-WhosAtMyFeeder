@@ -9,6 +9,18 @@ import pytest
 from app.services.full_visit_clip_service import FullVisitClipService
 
 
+def test_job_snapshot_keeps_timestamp_stable_between_polls():
+    service = FullVisitClipService()
+    service._queued_ids.add("evt-stable")
+
+    first = service.get_jobs_snapshot()[0]
+    second = service.get_jobs_snapshot()[0]
+
+    assert first["created_at"] is not None
+    assert first["created_at"] == second["created_at"]
+    assert first["updated_at"] == second["updated_at"]
+
+
 def test_background_trigger_is_bounded_and_deduplicated(monkeypatch):
     monkeypatch.setattr("app.services.full_visit_clip_service.FULL_VISIT_QUEUE_MAX", 1)
     service = FullVisitClipService()

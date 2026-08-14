@@ -16,10 +16,20 @@ function titleForJob(job: ServerJob): string {
     return job.event_id ?? job.kind.replace(/_/g, ' ');
 }
 
-function toProgressItem(job: ServerJob, capturedAt: number): JobProgressItem {
-    const startedAt = parseTimestamp(job.created_at, capturedAt);
-    const updatedAt = parseTimestamp(job.updated_at, startedAt);
+function toProgressItem(
+    job: ServerJob,
+    capturedAt: number,
+    previous?: JobProgressItem
+): JobProgressItem {
+    const reportedStartedAt = parseTimestamp(job.created_at, capturedAt);
+    const startedAt = previous ? Math.min(previous.startedAt, reportedStartedAt) : reportedStartedAt;
+    const reportedUpdatedAt = parseTimestamp(job.updated_at, startedAt);
+    const updatedAt = previous ? Math.max(previous.updatedAt, reportedUpdatedAt) : reportedUpdatedAt;
     const terminal = job.status === 'completed' || job.status === 'failed';
+    const reportedCurrent = Math.max(0, Math.floor(job.current ?? 0));
+    const reportedTotal = Math.max(0, Math.floor(job.total ?? 0));
+    const current = previous ? Math.max(previous.current, reportedCurrent) : reportedCurrent;
+    const total = previous ? Math.max(previous.total, reportedTotal, current) : Math.max(reportedTotal, current);
     return {
         id: job.id,
         kind: job.kind,
@@ -35,8 +45,8 @@ function toProgressItem(job: ServerJob, capturedAt: number): JobProgressItem {
                     : job.status === 'queued' || job.status === 'retrying'
                         ? 'queued'
                         : 'running',
-        current: Math.max(0, Math.floor(job.current ?? 0)),
-        total: Math.max(0, Math.floor(job.total ?? 0)),
+        current,
+        total,
         startedAt,
         updatedAt,
         finishedAt: terminal ? parseTimestamp(job.finished_at, updatedAt) : undefined,
@@ -55,6 +65,12 @@ function correlationEventId(job: JobProgressItem): string | null {
     return null;
 }
 
+/** Stable across the browser's reclassify id and the server's video id for one event. */
+export function stableJobIdentity(job: JobProgressItem): string {
+    const eventId = correlationEventId(job);
+    return eventId ? `event:${eventId}` : `job:${job.id}`;
+}
+
 export class ServerJobsStore {
     snapshot = $state<JobsSnapshot | null>(null);
     loading = $state(false);
@@ -62,23 +78,42 @@ export class ServerJobsStore {
     private retainCount = 0;
     private timer: ReturnType<typeof setTimeout> | null = null;
     private request: Promise<void> | null = null;
+    private materializedSnapshot: JobsSnapshot | null = null;
+    private materializedActive: JobProgressItem[] = [];
+    private materializedHistory: JobProgressItem[] = [];
+    private previousById = new Map<string, JobProgressItem>();
+
+    private materializeSnapshot(): void {
+        const snapshot = this.snapshot;
+        if (snapshot === this.materializedSnapshot) return;
+        this.materializedSnapshot = snapshot;
+        if (!snapshot) {
+            this.materializedActive = [];
+            this.materializedHistory = [];
+            this.previousById.clear();
+            return;
+        }
+
+        const capturedAt = parseTimestamp(snapshot.captured_at, Date.now());
+        const nextById = new Map<string, JobProgressItem>();
+        for (const job of snapshot.items) {
+            const item = toProgressItem(job, capturedAt, this.previousById.get(job.id));
+            nextById.set(item.id, item);
+        }
+        this.previousById = nextById;
+        const items = [...nextById.values()];
+        this.materializedActive = items.filter((job) => job.status !== 'completed' && job.status !== 'failed');
+        this.materializedHistory = items.filter((job) => job.status === 'completed' || job.status === 'failed');
+    }
 
     get activeJobs(): JobProgressItem[] {
-        const snapshot = this.snapshot;
-        if (!snapshot) return [];
-        const capturedAt = parseTimestamp(snapshot.captured_at, Date.now());
-        return snapshot.items
-            .filter((job) => !['completed', 'failed'].includes(job.status))
-            .map((job) => toProgressItem(job, capturedAt));
+        this.materializeSnapshot();
+        return this.materializedActive;
     }
 
     get historyJobs(): JobProgressItem[] {
-        const snapshot = this.snapshot;
-        if (!snapshot) return [];
-        const capturedAt = parseTimestamp(snapshot.captured_at, Date.now());
-        return snapshot.items
-            .filter((job) => ['completed', 'failed'].includes(job.status))
-            .map((job) => toProgressItem(job, capturedAt));
+        this.materializeSnapshot();
+        return this.materializedHistory;
     }
 
     get queueByKind(): QueueTelemetryByKind {
@@ -99,12 +134,33 @@ export class ServerJobsStore {
 
     mergeActive(localJobs: JobProgressItem[], prominentOnly = false): JobProgressItem[] {
         const serverJobs = this.activeJobs.filter((job) => !prominentOnly || job.visibility === 'prominent');
-        const serverEventIds = new Set(serverJobs.map(correlationEventId).filter((id): id is string => Boolean(id)));
+        const localByEventId = new Map(
+            localJobs
+                .map((job) => [correlationEventId(job), job] as const)
+                .filter((entry): entry is [string, JobProgressItem] => Boolean(entry[0]))
+        );
+        const reconciledServerJobs = serverJobs.map((serverJob) => {
+            const eventId = correlationEventId(serverJob);
+            const localJob = eventId ? localByEventId.get(eventId) : undefined;
+            if (!localJob) return serverJob;
+            const current = Math.max(serverJob.current, localJob.current);
+            const total = Math.max(serverJob.total, localJob.total, current);
+            return {
+                ...serverJob,
+                current,
+                total,
+                startedAt: Math.min(serverJob.startedAt, localJob.startedAt),
+                updatedAt: Math.max(serverJob.updatedAt, localJob.updatedAt),
+                ratePerMinute: localJob.ratePerMinute ?? serverJob.ratePerMinute,
+                etaSeconds: localJob.etaSeconds ?? serverJob.etaSeconds
+            };
+        });
+        const serverEventIds = new Set(reconciledServerJobs.map(correlationEventId).filter((id): id is string => Boolean(id)));
         const local = localJobs.filter((job) => {
             const eventId = correlationEventId(job);
             return !eventId || !serverEventIds.has(eventId);
         });
-        return [...serverJobs, ...local];
+        return [...reconciledServerJobs, ...local];
     }
 
     mergeHistory(localJobs: JobProgressItem[]): JobProgressItem[] {

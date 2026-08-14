@@ -130,6 +130,19 @@ describe('notification timeline', () => {
         expect(timeline[0].id).toBe('video:event-12');
     });
 
+    it('does not move an active process row when only its progress heartbeat changes', () => {
+        const detection = item({ id: 'bird-1', timestamp: NOW - 500 });
+        const first = buildTimelineItems([], [job({ id: 'job-1', startedAt: NOW - 1000, updatedAt: NOW })]);
+        const second = buildTimelineItems(
+            [detection],
+            [job({ id: 'job-1', current: 2, startedAt: NOW - 1000, updatedAt: NOW + 5000 })]
+        );
+
+        expect(first[0].timestamp).toBe(NOW - 1000);
+        expect(second.map((row) => row.id)).toEqual(['bird-1', 'job-1']);
+        expect(second[1].timestamp).toBe(NOW - 1000);
+    });
+
     it('counts every bucket so a chip can state its size before it is applied', () => {
         const counts = countByFilter([
             item({ id: '1', type: 'detection' }),

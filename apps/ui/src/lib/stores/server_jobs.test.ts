@@ -40,7 +40,7 @@ describe('ServerJobsStore', () => {
         });
     });
 
-    it('prefers server truth over a browser-local job for the same event', () => {
+    it('keeps server identity without rolling back fresher browser progress', () => {
         const store = new ServerJobsStore();
         store.snapshot = {
             captured_at: '2026-07-22T12:00:00Z',
@@ -73,5 +73,34 @@ describe('ServerJobsStore', () => {
 
         expect(merged).toHaveLength(1);
         expect(merged[0].id).toBe('video:evt-2');
+        expect(merged[0]).toMatchObject({ current: 2, total: 15, startedAt: 1 });
+        expect(merged[0].updatedAt).toBeGreaterThanOrEqual(2);
+    });
+
+    it('keeps a missing server timestamp and progress monotonic across polls', () => {
+        const store = new ServerJobsStore();
+        store.snapshot = {
+            captured_at: '2026-07-22T12:00:00Z',
+            items: [{
+                id: 'full_visit:evt-3', event_id: 'evt-3', kind: 'full_visit', source: 'automatic',
+                status: 'running', phase: 'fetching_media', current: 4, total: 10, unit: 'items'
+            }],
+            lanes: []
+        };
+        const first = store.activeJobs[0];
+
+        store.snapshot = {
+            captured_at: '2026-07-22T12:00:05Z',
+            items: [{
+                id: 'full_visit:evt-3', event_id: 'evt-3', kind: 'full_visit', source: 'automatic',
+                status: 'running', phase: 'fetching_media', current: 2, total: 10, unit: 'items'
+            }],
+            lanes: []
+        };
+        const second = store.activeJobs[0];
+
+        expect(second.startedAt).toBe(first.startedAt);
+        expect(second.current).toBe(4);
+        expect(second.updatedAt).toBeGreaterThanOrEqual(first.updatedAt);
     });
 });
