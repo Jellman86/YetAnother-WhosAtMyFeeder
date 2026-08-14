@@ -17,6 +17,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Desktop snapshot choices remain selectable at the edge of the filmstrip.** The overflow fade
+  is now a separate pointer-transparent layer instead of a mask on the interactive scroller. The
+  selected frame uses a subtle lift, scale and shadow rather than a persistent blue outline.
 - **Detection media controls no longer cover the bird name or snapshot choices on phones.** The
   title, favourite, playback and full-visit actions, and snapshot rail now form one ordered footer
   that wraps upward as a unit. Full-visit readiness is part of the play action instead of looking

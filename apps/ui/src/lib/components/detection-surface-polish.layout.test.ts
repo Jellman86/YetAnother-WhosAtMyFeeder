@@ -98,15 +98,26 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).not.toContain("canShowFullFrame ? 'top-16 left-3' : 'top-4 left-4'");
     });
 
-    it('hides the options strip scrollbar and fades only a real overflow', () => {
-        // A native bar over the image gradient is ugly and low contrast; masking unconditionally
-        // would clip the last thumbnail on a strip that fits.
+    it('keeps overflowing snapshot choices clickable beneath a non-interactive fade', () => {
+        // Masking the interactive scroller makes hit testing unreliable at the transparent edge
+        // in desktop browsers. The visual hint belongs in a pointer-transparent sibling layer.
         expect(detectionModalSource).toContain('.snapshot-strip');
         expect(detectionModalSource).toContain('scrollbar-width: none');
         expect(detectionModalSource).toContain('node.scrollLeft + node.clientWidth < node.scrollWidth - 1');
         expect(detectionModalSource).toContain("node.addEventListener('scroll', update, { passive: true })");
-        expect(detectionModalSource).toContain("hasMoreToRight ? '3.5rem' : '0px'");
-        expect(detectionModalSource).toContain("'--strip-fade'");
+        expect(detectionModalSource).toContain("style.setProperty('--strip-fade-opacity', hasMoreToRight ? '1' : '0')");
+        expect(detectionModalSource).toContain('data-snapshot-strip-fade');
+        expect(detectionModalSource).toContain('pointer-events-none');
+        expect(detectionModalSource).not.toContain('mask-image:');
+    });
+
+    it('lifts the selected snapshot like a dock item without using an active outline', () => {
+        expect(detectionModalSource).toContain("'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50'");
+        expect(detectionModalSource).toContain('motion-reduce:transform-none');
+        expect(detectionModalSource).toContain('aria-pressed={candidateIsSelected}');
+        expect(detectionModalSource).toContain('aria-pressed={originalIsSelected}');
+        expect(detectionModalSource).not.toContain("originalIsSelected ? 'ring-2 ring-brand-400'");
+        expect(detectionModalSource).not.toContain("candidateIsSelected ? 'ring-2 ring-brand-400'");
     });
 
     it('labels the name rather than the reference photograph beside it', () => {

@@ -706,13 +706,15 @@
     });
 
     /**
-     * Fades the strip's trailing edge only while it actually overflows, so a strip that fits is not
-     * clipped for decoration. Thumbnails load lazily, so image loads are watched as well as resizes.
+     * Shows the strip's trailing hint only while it actually overflows. The hint is a separate,
+     * pointer-transparent layer so desktop browsers never hit-test through a CSS mask.
+     * Thumbnails load lazily, so image loads are watched as well as resizes.
      */
     function watchOverflow(node: HTMLElement) {
+        const shell = node.closest<HTMLElement>('[data-snapshot-strip-shell]');
         const update = () => {
             const hasMoreToRight = node.scrollLeft + node.clientWidth < node.scrollWidth - 1;
-            node.style.setProperty('--strip-fade', hasMoreToRight ? '3.5rem' : '0px');
+            shell?.style.setProperty('--strip-fade-opacity', hasMoreToRight ? '1' : '0');
         };
         update();
         const resize = new ResizeObserver(update);
@@ -727,6 +729,7 @@
             destroy() {
                 resize.disconnect();
                 mutation.disconnect();
+                shell?.style.removeProperty('--strip-fade-opacity');
                 node.removeEventListener('load', update, true);
                 node.removeEventListener('scroll', update);
             }
@@ -1628,20 +1631,21 @@
 
     /*
      * The options strip sits over a dark gradient on the image, where a native scrollbar is both
-     * ugly and low contrast. The bar is hidden and the right edge fades instead, so there is still
-     * a signal that more frames exist. Scrolling by wheel, trackpad and keyboard is unaffected.
+     * ugly and low contrast. The bar is hidden and a pointer-transparent sibling darkens the right
+     * edge instead, so there is still a signal that more frames exist without blocking selection.
+     * Scrolling by wheel, trackpad and keyboard is unaffected.
      */
     .snapshot-strip {
         scrollbar-width: none;
         -ms-overflow-style: none;
-        /* Zero width until the action measures a real overflow, so a strip that fits is not
-           clipped for decoration. */
-        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - var(--strip-fade, 0px)), transparent 100%);
-        mask-image: linear-gradient(to right, #000 calc(100% - var(--strip-fade, 0px)), transparent 100%);
     }
 
     .snapshot-strip::-webkit-scrollbar {
         display: none;
+    }
+
+    .snapshot-strip-fade {
+        opacity: var(--strip-fade-opacity, 0);
     }
 
     .ai-surface {
@@ -2419,41 +2423,48 @@
                             {/if}
                         </div>
                         <div class="flex min-w-0 items-center gap-1.5">
-                            <div class="snapshot-strip flex min-w-0 flex-1 gap-1.5 overflow-x-auto" use:watchOverflow>
-                                {#if originalFrigateSnapshotAvailable}
-                                    {@const originalIsSelected = pendingSnapshotMode === 'revert_original' || (!pendingSnapshotMode && currentSnapshotSource === 'frigate_snapshot')}
-                                    <button
-                                        type="button"
-                                        class="min-h-11 min-w-11 shrink-0 rounded-md p-1 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {originalIsSelected ? 'ring-2 ring-brand-400' : 'opacity-70 hover:opacity-100'}"
-                                        title={$_('detection.snapshot_source_original', { default: 'Original Frigate crop' })}
-                                        aria-label={$_('detection.snapshot_preview_original_aria', { default: 'Preview original Frigate snapshot' })}
-                                        aria-pressed={originalIsSelected}
-                                        onclick={(event) => { event.stopPropagation(); stageOriginalFrigateSnapshot(); }}
-                                    >
-                                        <img src={originalFrigateSnapshotUrl} alt="" loading="lazy" class="h-9 w-12 rounded-md object-cover" />
-                                    </button>
-                                {/if}
-                                {#each snapshotOptionStrip as candidate (candidate.candidate_id)}
-                                    {@const candidateIsSelected = pendingSnapshotCandidateId === candidate.candidate_id || (!pendingSnapshotMode && currentSnapshotCandidateId === candidate.candidate_id)}
-                                    <button
-                                        type="button"
-                                        class="min-h-11 min-w-11 shrink-0 rounded-md p-1 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {candidateIsSelected ? 'ring-2 ring-brand-400' : 'opacity-70 hover:opacity-100'}"
-                                        title={candidate.classifier_label ?? snapshotSourceLabel(candidate.source_mode)}
-                                        aria-label={$_('detection.snapshot_option_aria', {
-                                            values: { source: snapshotSourceLabel(candidate.source_mode) },
-                                            default: 'Preview {source} snapshot option'
-                                        })}
-                                        aria-pressed={candidateIsSelected}
-                                        onclick={(event) => { event.stopPropagation(); previewSnapshotCandidate(candidate); }}
-                                    >
-                                        <img
-                                            src={candidate.thumbnail_url ?? undefined}
-                                            alt=""
-                                            loading="lazy"
-                                            class="h-9 w-12 rounded-md object-cover"
-                                        />
-                                    </button>
-                                {/each}
+                            <div class="snapshot-strip-shell relative min-w-0 flex-1" data-snapshot-strip-shell>
+                                <div class="snapshot-strip -my-2 flex min-w-0 gap-1.5 overflow-x-auto px-1 py-3" use:watchOverflow>
+                                    {#if originalFrigateSnapshotAvailable}
+                                        {@const originalIsSelected = pendingSnapshotMode === 'revert_original' || (!pendingSnapshotMode && currentSnapshotSource === 'frigate_snapshot')}
+                                        <button
+                                            type="button"
+                                            class="relative min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {originalIsSelected ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50' : 'opacity-70 hover:z-10 hover:-translate-y-0.5 hover:scale-105 hover:opacity-100 hover:shadow-md active:translate-y-0 active:scale-95'}"
+                                            title={$_('detection.snapshot_source_original', { default: 'Original Frigate crop' })}
+                                            aria-label={$_('detection.snapshot_preview_original_aria', { default: 'Preview original Frigate snapshot' })}
+                                            aria-pressed={originalIsSelected}
+                                            onclick={(event) => { event.stopPropagation(); stageOriginalFrigateSnapshot(); }}
+                                        >
+                                            <img src={originalFrigateSnapshotUrl} alt="" loading="lazy" class="h-9 w-12 rounded-md object-cover" />
+                                        </button>
+                                    {/if}
+                                    {#each snapshotOptionStrip as candidate (candidate.candidate_id)}
+                                        {@const candidateIsSelected = pendingSnapshotCandidateId === candidate.candidate_id || (!pendingSnapshotMode && currentSnapshotCandidateId === candidate.candidate_id)}
+                                        <button
+                                            type="button"
+                                            class="relative min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {candidateIsSelected ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50' : 'opacity-70 hover:z-10 hover:-translate-y-0.5 hover:scale-105 hover:opacity-100 hover:shadow-md active:translate-y-0 active:scale-95'}"
+                                            title={candidate.classifier_label ?? snapshotSourceLabel(candidate.source_mode)}
+                                            aria-label={$_('detection.snapshot_option_aria', {
+                                                values: { source: snapshotSourceLabel(candidate.source_mode) },
+                                                default: 'Preview {source} snapshot option'
+                                            })}
+                                            aria-pressed={candidateIsSelected}
+                                            onclick={(event) => { event.stopPropagation(); previewSnapshotCandidate(candidate); }}
+                                        >
+                                            <img
+                                                src={candidate.thumbnail_url ?? undefined}
+                                                alt=""
+                                                loading="lazy"
+                                                class="h-9 w-12 rounded-md object-cover"
+                                            />
+                                        </button>
+                                    {/each}
+                                </div>
+                                <div
+                                    class="snapshot-strip-fade pointer-events-none absolute inset-y-2 right-0 w-14 bg-gradient-to-r from-transparent to-slate-950/80 transition-opacity duration-150 motion-reduce:transition-none"
+                                    data-snapshot-strip-fade
+                                    aria-hidden="true"
+                                ></div>
                             </div>
                             {#if pendingSnapshotMode}
                                 <button
