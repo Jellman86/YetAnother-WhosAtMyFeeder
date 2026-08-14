@@ -202,6 +202,7 @@ export async function fetchSnapshotCandidates(frigateEvent: string): Promise<Sna
         ...body,
         candidates: (body.candidates || []).map((candidate) => ({
             ...candidate,
+            image_url: candidate.image_url ? withAuthParams(candidate.image_url) : candidate.image_url,
             thumbnail_url: candidate.thumbnail_url ? withAuthParams(candidate.thumbnail_url) : candidate.thumbnail_url
         }))
     };

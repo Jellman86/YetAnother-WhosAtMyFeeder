@@ -743,7 +743,7 @@
     // The frame rail previews a choice in place. Persisting it remains a separate, explicit action.
     let mediaView = $state<'stored' | 'full' | 'candidate' | 'original'>('stored');
     const canShowFullFrame = $derived(
-        authStore.hasOwnerAccess && !!fullFrameSnapshotCandidate?.thumbnail_url
+        authStore.hasOwnerAccess && !!(fullFrameSnapshotCandidate?.image_url ?? fullFrameSnapshotCandidate?.thumbnail_url)
     );
     const previewedSnapshotCandidate = $derived(
         pendingSnapshotMode === 'candidate' && pendingSnapshotCandidateId
@@ -754,8 +754,14 @@
         if (mediaView === 'original' && originalFrigateSnapshotAvailable) {
             return originalFrigateSnapshotUrl;
         }
+        if (mediaView === 'candidate' && previewedSnapshotCandidate?.image_url) {
+            return previewedSnapshotCandidate.image_url;
+        }
         if (mediaView === 'candidate' && previewedSnapshotCandidate?.thumbnail_url) {
             return previewedSnapshotCandidate.thumbnail_url;
+        }
+        if (mediaView === 'full' && fullFrameSnapshotCandidate?.image_url) {
+            return fullFrameSnapshotCandidate.image_url;
         }
         if (mediaView === 'full' && fullFrameSnapshotCandidate?.thumbnail_url) {
             return fullFrameSnapshotCandidate.thumbnail_url;

@@ -1590,11 +1590,70 @@ async def test_proxy_snapshot_candidates_lists_persisted_candidates(client: http
     assert body["candidates"][0]["candidate_id"] == "cand-1"
     assert body["candidates"][0]["crop_strategy"] == "frigate_guided"
     thumbnail_url = body["candidates"][0]["thumbnail_url"]
+    image_url = body["candidates"][0]["image_url"]
     # A cache-busting `?v=<mtime>` query is appended so promoted candidates refresh in the browser.
     assert thumbnail_url.split("?", 1)[0].endswith(
         "/api/frigate/test_event_id/snapshot/candidates/cand-1/thumbnail.jpg"
     )
     assert "?v=" in thumbnail_url
+    assert image_url.split("?", 1)[0].endswith("/api/frigate/test_event_id/snapshot/candidates/cand-1/image.jpg")
+    assert "?v=" in image_url
+
+
+@pytest.mark.asyncio
+async def test_proxy_snapshot_candidate_image_returns_retained_full_resolution_image(client: httpx.AsyncClient):
+    with (
+        patch("app.routers.proxy.get_db") as mock_get_db,
+        patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+    ):
+        mock_db = AsyncMock()
+        mock_get_db.return_value.__aenter__.return_value = mock_db
+        mock_repo = mock_repo_cls.return_value
+        mock_repo.list_snapshot_candidates = AsyncMock(
+            return_value=[
+                {
+                    "candidate_id": "cand-1",
+                    "image_ref": "evt__cand-1__image",
+                }
+            ]
+        )
+        mock_get_snapshot.return_value = b"full-resolution-jpeg"
+
+        response = await client.get("/api/frigate/test_event_id/snapshot/candidates/cand-1/image.jpg")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("image/jpeg")
+    assert response.content == b"full-resolution-jpeg"
+    mock_get_snapshot.assert_awaited_once_with("evt__cand-1__image")
+
+
+@pytest.mark.asyncio
+async def test_proxy_snapshot_candidate_image_returns_404_when_retained_image_is_missing(
+    client: httpx.AsyncClient,
+):
+    with (
+        patch("app.routers.proxy.get_db") as mock_get_db,
+        patch("app.routers.proxy.DetectionRepository") as mock_repo_cls,
+        patch("app.services.media_cache.media_cache.get_snapshot", new_callable=AsyncMock) as mock_get_snapshot,
+    ):
+        mock_db = AsyncMock()
+        mock_get_db.return_value.__aenter__.return_value = mock_db
+        mock_repo = mock_repo_cls.return_value
+        mock_repo.list_snapshot_candidates = AsyncMock(
+            return_value=[
+                {
+                    "candidate_id": "cand-1",
+                    "image_ref": "evt__cand-1__image",
+                }
+            ]
+        )
+        mock_get_snapshot.return_value = None
+
+        response = await client.get("/api/frigate/test_event_id/snapshot/candidates/cand-1/image.jpg")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Snapshot candidate image unavailable"
 
 
 @pytest.mark.asyncio

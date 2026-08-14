@@ -68,7 +68,7 @@
                 const response = await fetchSnapshotCandidates(eventId);
                 if (cancelled) return;
                 const cropped = (response.candidates ?? []).filter(
-                    (candidate) => candidate.crop_box && candidate.thumbnail_url
+                    (candidate) => candidate.crop_box && (candidate.image_url || candidate.thumbnail_url)
                 );
                 const preferredCrop =
                     cropped.find((candidate) => candidate.selected) ??
@@ -96,10 +96,10 @@
     });
 
     const imageUrl = $derived(
-        view === 'crop' && crop?.thumbnail_url
-            ? crop.thumbnail_url
-            : view === 'full' && fullFrame?.thumbnail_url
-              ? fullFrame.thumbnail_url
+        view === 'crop' && (crop?.image_url || crop?.thumbnail_url)
+            ? (crop.image_url ?? crop.thumbnail_url ?? '')
+            : view === 'full' && (fullFrame?.image_url || fullFrame?.thumbnail_url)
+              ? (fullFrame.image_url ?? fullFrame.thumbnail_url ?? '')
             : session.current
               ? getThumbnailUrl(session.current.frigate_event)
               : ''

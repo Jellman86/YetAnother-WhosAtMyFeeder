@@ -35,6 +35,8 @@ describe('review queue walk-through', () => {
 
     it('shows the crop the classifier scored when one exists, and says so when it does not', () => {
         expect(modalSource).toContain('fetchSnapshotCandidates');
+        expect(modalSource).toContain('crop.image_url ?? crop.thumbnail_url');
+        expect(modalSource).toContain('fullFrame.image_url ?? fullFrame.thumbnail_url');
         expect(modalSource).toContain("import { findMatchingFullFrameCandidate } from '../utils/detection-evidence'");
         expect(modalSource).toMatch(
             /findMatchingFullFrameCandidate\(\s*response\.candidates \?\? \[\],\s*preferredCrop\?\.candidate_id \?\? null\s*\)/

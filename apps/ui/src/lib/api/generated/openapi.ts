@@ -1608,6 +1608,7 @@ export interface components {
     crop_strategy?: string | null;
     frame_index: number;
     frame_offset_seconds?: number | null;
+    image_url?: string | null;
     ranking_score: number;
     selected: boolean;
     snapshot_source?: string | null;
@@ -2858,6 +2859,18 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['SnapshotCandidateListResponse'];
+    };
+  };
+  "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg": {
+    get: {
+      operationId: "get_snapshot_candidate_image_api_frigate__event_id__snapshot_candidates__candidate_id__image_jpg_get";
+      path: {
+    candidate_id: string;
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
     };
   };
   "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg": {

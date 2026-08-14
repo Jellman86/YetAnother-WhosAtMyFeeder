@@ -127,6 +127,7 @@ describe('snapshot HQ crop helpers', () => {
                         clip_variant: 'recording',
                         ranking_score: 0.92,
                         selected: true,
+                        image_url: '/api/frigate/evt-9/snapshot/candidates/cand-1/image.jpg',
                         thumbnail_url: '/api/frigate/evt-9/snapshot/candidates/cand-1/thumbnail.jpg'
                     }
                 ]
@@ -139,6 +140,7 @@ describe('snapshot HQ crop helpers', () => {
             candidates: [
                 expect.objectContaining({
                     candidate_id: 'cand-1',
+                    image_url: expect.stringContaining('/api/frigate/evt-9/snapshot/candidates/cand-1/image.jpg'),
                     thumbnail_url: expect.stringContaining('/api/frigate/evt-9/snapshot/candidates/cand-1/thumbnail.jpg')
                 })
             ]
