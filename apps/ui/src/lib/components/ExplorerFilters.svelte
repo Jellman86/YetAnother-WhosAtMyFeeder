@@ -1,6 +1,7 @@
 <script lang="ts">
     import type { EventFilterSpecies, EventFilters } from '../api';
     import { _ } from 'svelte-i18n';
+    import { filterExplorerSpecies } from '../utils/explorer-species';
 
     type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
 
@@ -118,29 +119,14 @@
         return applied;
     });
 
-    const visibleSpecies = $derived.by(() => {
-        const term = search.trim().toLowerCase();
-        const matched = term
-            ? species.filter((item) =>
-                  [item.display_name, item.common_name, item.scientific_name]
-                      .filter(Boolean)
-                      .some((name) => String(name).toLowerCase().includes(term))
-              )
-            : species;
-        // Counts are absent on older backends, where sorting by them would leave an
-        // arbitrary order, so fall back to alphabetical.
-        return [...matched]
-            .sort(
-                (left, right) =>
-                    (right.count ?? 0) - (left.count ?? 0) ||
-                    left.display_name.localeCompare(right.display_name)
-            )
-            .slice(0, 12);
-    });
+    const visibleSpecies = $derived(filterExplorerSpecies(species, search));
 </script>
 
-<section class="border-y border-slate-200 py-3 lg:border-0 lg:py-0" data-events-filter-bar>
-    <div class="flex flex-wrap items-center gap-2">
+<section
+    class="border-y border-slate-200 py-3 lg:flex lg:h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:border-0 lg:py-0"
+    data-events-filter-bar
+>
+    <div class="flex shrink-0 flex-wrap items-center gap-2">
         <p class="text-sm font-semibold text-slate-900 dark:text-white">
             {$_('events.filters.result_count', {
                 values: { count: resultCount.toLocaleString() },
@@ -177,9 +163,9 @@
     </div>
 
     <div
-        class="mt-3 gap-5 border-t border-slate-200 pt-3 lg:!block dark:border-slate-700 {panelOpen
+        class="mt-3 gap-5 border-t border-slate-200 pt-3 lg:!flex dark:border-slate-700 {panelOpen
             ? 'grid grid-cols-1 sm:grid-cols-3'
-            : 'hidden'} lg:mt-0 lg:space-y-5 lg:border-t-0 lg:pt-0"
+            : 'hidden'} lg:mt-0 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-5 lg:overflow-hidden lg:border-t-0 lg:pt-0"
         data-explorer-facets
     >
             <div>
@@ -279,7 +265,7 @@
                 </div>
             </div>
 
-            <div>
+            <div class="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col" data-explorer-species-facet>
                 <p class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                     {$_('events.filters.all_species')}
                 </p>
@@ -287,7 +273,10 @@
                     <span class="sr-only">{$_('events.filters.search_species', { default: 'Search species' })}</span>
                     <input class="input-base text-xs" type="search" bind:value={search} placeholder={$_('events.filters.search_species', { default: 'Search species' })} />
                 </label>
-                <div class="mt-2 max-h-56 space-y-0.5 overflow-y-auto">
+                <div
+                    class="mt-2 max-h-56 space-y-0.5 overflow-y-auto overscroll-contain lg:min-h-0 lg:max-h-none lg:flex-1"
+                    data-explorer-species-list
+                >
                     {#each visibleSpecies as item (item.value)}
                         <button
                             class="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-xs transition-colors hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:hover:bg-slate-800/60 {speciesFilter ===

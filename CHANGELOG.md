@@ -17,6 +17,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The Explorer species facet now includes every recorded species.** The desktop list uses the
+  remaining viewport height and scrolls only when the complete set is taller than that space;
+  smaller filter panels stay bounded and searchable ([#197](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/197)).
+
 - **Live work now stays put while it progresses.** Full-visit and best-frame jobs retain one
   timestamp from queue admission through execution, queued video work keeps that timestamp when a
   worker starts, and the browser reconciles polling with fresher live progress without moving a row
