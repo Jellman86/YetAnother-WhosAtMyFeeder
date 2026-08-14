@@ -143,6 +143,32 @@ describe('notification timeline', () => {
         expect(second[1].timestamp).toBe(NOW - 1000);
     });
 
+    it('keeps a completed job newest-first before and after transient live state is cleared', () => {
+        const detection = item({ id: 'bird-1', timestamp: NOW });
+        const completion = item({
+            id: 'job-1',
+            type: 'update',
+            timestamp: NOW + 5000,
+            meta: { current: 8, total: 8 }
+        });
+        const completedJob = job({
+            id: 'job-1',
+            status: 'completed',
+            current: 8,
+            total: 8,
+            startedAt: NOW - 60_000,
+            updatedAt: NOW + 5000,
+            finishedAt: NOW + 5000
+        });
+
+        const whileLive = buildTimelineItems([detection, completion], [completedJob]);
+        const afterRefresh = buildTimelineItems([detection, completion], []);
+
+        expect(whileLive.map((row) => row.id)).toEqual(['job-1', 'bird-1']);
+        expect(whileLive[0].timestamp).toBe(NOW + 5000);
+        expect(afterRefresh.map((row) => row.id)).toEqual(['job-1', 'bird-1']);
+    });
+
     it('counts every bucket so a chip can state its size before it is applied', () => {
         const counts = countByFilter([
             item({ id: '1', type: 'detection' }),

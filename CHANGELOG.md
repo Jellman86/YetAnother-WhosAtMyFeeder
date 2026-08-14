@@ -17,6 +17,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Finished jobs now remain newest-first before and after a browser refresh.** Active work keeps
+  its queue-admission position while progress arrives, but a completion or failure is placed once
+  at its terminal time instead of temporarily inheriting the older job-start time.
 - **The Explorer species facet now includes every recorded species.** The desktop list uses the
   remaining viewport height and scrolls only when the complete set is taller than that space;
   smaller filter panels stay bounded and searchable ([#197](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/197)).

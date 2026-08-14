@@ -51,8 +51,12 @@ function jobIdentity(job: JobProgressItem): string {
 }
 
 function jobTimestamp(job: JobProgressItem): number {
-    // updatedAt is a progress heartbeat, not a new timeline event. Keeping the
-    // admission timestamp prevents active rows changing position on every tick.
+    // A terminal transition is a real timeline event, so it belongs at its completion time.
+    // Active updatedAt values are only progress heartbeats; retaining admission time there
+    // prevents rows changing position on every tick.
+    if (job.status === 'completed' || job.status === 'failed') {
+        return job.finishedAt || job.updatedAt || job.startedAt;
+    }
     return job.startedAt || job.finishedAt || job.updatedAt;
 }
 
