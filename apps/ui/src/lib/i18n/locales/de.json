@@ -2583,6 +2583,7 @@
     "errors_filtered_none": "Bisher wurde nichts herausgefiltert.",
     "errors_filtered_summary": "{count} Erkennungen haben Ihre Erkennungseinstellungen nicht erfüllt. Das ist der Filter bei der Arbeit, kein Fehler.",
     "errors_filtered_hint": "Passen Sie den Konfidenzschwellenwert unter Einstellungen → Erkennung an, um mehr davon zu behalten.",
+    "errors_filtered_recent": "Zuletzt",
     "errors_drop_reason": {
       "filter_low_confidence": "Unter Konfidenzschwelle",
       "filter_below_threshold": "Unter Artenschwelle",

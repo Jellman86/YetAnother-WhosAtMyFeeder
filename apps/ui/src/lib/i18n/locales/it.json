@@ -2583,6 +2583,7 @@
     "errors_filtered_none": "Non è ancora stato filtrato nulla.",
     "errors_filtered_summary": "{count} rilevamenti non hanno soddisfatto le tue impostazioni di rilevamento. È il filtro che funziona, non un guasto.",
     "errors_filtered_hint": "Regola la soglia di confidenza in Impostazioni → Rilevamento per conservarne di più.",
+    "errors_filtered_recent": "Più recenti",
     "errors_drop_reason": {
       "filter_low_confidence": "Sotto la soglia di confidenza",
       "filter_below_threshold": "Sotto la soglia di specie",

@@ -9,6 +9,7 @@
 
 export interface EventPipelineHealth {
     status?: unknown;
+    recent_outcomes?: unknown;
     critical_failure_active?: unknown;
     critical_failures?: unknown;
     dropped_events?: unknown;
@@ -71,4 +72,66 @@ export function eventPipelineVerdict(
 /** Whether anything was filtered out by configuration rather than by failure. */
 export function hasExpectedDrops(pipeline: EventPipelineHealth | null | undefined): boolean {
     return expectedDropCount(pipeline) > 0;
+}
+
+export interface FilteredDetection {
+    eventId: string;
+    reason: string;
+    label: string | null;
+    score: number | null;
+    timestamp: string | null;
+}
+
+function toText(value: unknown): string | null {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+}
+
+function toScore(value: unknown): number | null {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * The most recently filtered detections, newest first.
+ *
+ * Read from `recent_outcomes` so the card can say what was rejected and how
+ * confident the model was, rather than only how many. Entries without an event
+ * id are skipped: an unidentifiable row helps nobody diagnose anything.
+ */
+export function recentFilteredDetections(
+    pipeline: EventPipelineHealth | null | undefined,
+    limit = 5
+): FilteredDetection[] {
+    const outcomes = pipeline?.recent_outcomes;
+    if (!Array.isArray(outcomes)) return [];
+    const filtered: FilteredDetection[] = [];
+    for (const entry of outcomes) {
+        if (!entry || typeof entry !== 'object') continue;
+        const record = entry as Record<string, unknown>;
+        if (record.outcome !== 'dropped') continue;
+        const reason = toText(record.reason);
+        if (!reason || !reason.startsWith('filter_')) continue;
+        const eventId = toText(record.event_id);
+        if (!eventId) continue;
+        filtered.push({
+            eventId,
+            reason,
+            label: toText(record.label),
+            score: toScore(record.score),
+            timestamp: toText(record.timestamp)
+        });
+    }
+    return filtered.reverse().slice(0, Math.max(0, limit));
+}
+
+/**
+ * Backend diagnostics worth showing under a heading that promises warnings and
+ * errors. Expected filtering is recorded at `info` so it stays out of this list
+ * and cannot bury a real failure.
+ */
+export function faultDiagnostics<T extends { severity?: unknown }>(events: readonly T[] | null | undefined): T[] {
+    if (!Array.isArray(events)) return [];
+    return events.filter(event => String(event?.severity ?? 'warning').toLowerCase() !== 'info');
 }

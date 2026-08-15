@@ -4,9 +4,11 @@ import {
     eventPipelineVerdict,
     expectedDropCount,
     expectedDropReasons,
+    faultDiagnostics,
     faultDropCount,
     faultDropReasons,
-    hasExpectedDrops
+    hasExpectedDrops,
+    recentFilteredDetections
 } from './pipeline-health';
 
 describe('event pipeline verdict', () => {
@@ -88,5 +90,63 @@ describe('drop counts', () => {
         expect(hasExpectedDrops({ expected_drops: 0 })).toBe(false);
         expect(expectedDropReasons({ expected_drop_reasons: [] })).toEqual([]);
         expect(expectedDropReasons({ expected_drop_reasons: { filter_low_confidence: 0 } })).toEqual([]);
+    });
+});
+
+describe('recent filtered detections', () => {
+    const outcomes = [
+        { event_id: 'a', outcome: 'completed', duration_ms: 3 },
+        { event_id: 'b', outcome: 'dropped', reason: 'filter_low_confidence', label: 'Catharus fuscescens', score: 0.1115, timestamp: '2026-08-15T05:53:06Z' },
+        { event_id: 'c', outcome: 'dropped', reason: 'classifier_empty_results' },
+        { event_id: 'd', outcome: 'dropped', reason: 'filter_low_confidence', label: 'Oryctolagus cuniculus', score: 0.2074, timestamp: '2026-08-15T06:15:57Z' }
+    ];
+
+    it('lists what the filter rejected, newest first', () => {
+        expect(recentFilteredDetections({ recent_outcomes: outcomes })).toEqual([
+            { eventId: 'd', reason: 'filter_low_confidence', label: 'Oryctolagus cuniculus', score: 0.2074, timestamp: '2026-08-15T06:15:57Z' },
+            { eventId: 'b', reason: 'filter_low_confidence', label: 'Catharus fuscescens', score: 0.1115, timestamp: '2026-08-15T05:53:06Z' }
+        ]);
+    });
+
+    it('leaves fault drops to the pipeline card', () => {
+        const reasons = recentFilteredDetections({ recent_outcomes: outcomes }).map(entry => entry.reason);
+        expect(reasons).not.toContain('classifier_empty_results');
+    });
+
+    it('honours the limit and tolerates unusable payloads', () => {
+        expect(recentFilteredDetections({ recent_outcomes: outcomes }, 1)).toHaveLength(1);
+        expect(recentFilteredDetections({ recent_outcomes: 'nope' })).toEqual([]);
+        expect(recentFilteredDetections({})).toEqual([]);
+        expect(recentFilteredDetections(null)).toEqual([]);
+    });
+
+    it('skips rows with no event id or missing label', () => {
+        const entries = recentFilteredDetections({
+            recent_outcomes: [
+                { outcome: 'dropped', reason: 'filter_low_confidence', label: 'No id' },
+                { event_id: 'e', outcome: 'dropped', reason: 'filter_blocked_label' }
+            ]
+        });
+        expect(entries).toEqual([
+            { eventId: 'e', reason: 'filter_blocked_label', label: null, score: null, timestamp: null }
+        ]);
+    });
+});
+
+describe('backend diagnostics list', () => {
+    it('keeps warnings and errors and drops expected filtering noise', () => {
+        const events = [
+            { id: '1', severity: 'info', reason_code: 'drop_filter_low_confidence' },
+            { id: '2', severity: 'warning', reason_code: 'drop_classifier_empty_results' },
+            { id: '3', severity: 'error', reason_code: 'drop_save_and_notify_failed' },
+            { id: '4', severity: 'INFO', reason_code: 'drop_filter_blocked_label' }
+        ];
+        expect(faultDiagnostics(events).map(event => event.id)).toEqual(['2', '3']);
+    });
+
+    it('treats a missing severity as a warning rather than hiding it', () => {
+        const withoutSeverity: Array<{ id: string; severity?: string }> = [{ id: '1' }];
+        expect(faultDiagnostics(withoutSeverity)).toHaveLength(1);
+        expect(faultDiagnostics(null)).toEqual([]);
     });
 });

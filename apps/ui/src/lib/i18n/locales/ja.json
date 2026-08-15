@@ -2583,6 +2583,7 @@
     "errors_filtered_none": "まだ何もフィルターされていません。",
     "errors_filtered_summary": "{count}件の検出が検出設定を満たしませんでした。これは障害ではなくフィルターの動作です。",
     "errors_filtered_hint": "さらに残すには、設定 → 検出で信頼度のしきい値を調整してください。",
+    "errors_filtered_recent": "最新",
     "errors_drop_reason": {
       "filter_low_confidence": "信頼度のしきい値未満",
       "filter_below_threshold": "種のしきい値未満",

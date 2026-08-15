@@ -12,8 +12,10 @@
         eventPipelineVerdict,
         expectedDropCount,
         expectedDropReasons,
+        faultDiagnostics,
         faultDropCount,
-        hasExpectedDrops
+        hasExpectedDrops,
+        recentFilteredDetections
     } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
@@ -65,7 +67,7 @@
     let videoClassifierCard = $derived(getVideoClassifierCardState(health));
     let frigateMediaAdvisory = $derived(getFrigateMediaAdvisory(health));
     let frigateMediaDropPercent = $derived(Math.round(frigateMediaAdvisory.rate * 100));
-    let backendEvents = $derived(workspacePayload?.backend_diagnostics?.events ?? []);
+    let backendEvents = $derived(faultDiagnostics(workspacePayload?.backend_diagnostics?.events ?? []));
     let startupWarnings = $derived(workspacePayload?.startup_warnings ?? []);
     let captureLabel = $state('');
     let reportNotes = $state('');
@@ -280,6 +282,11 @@
 
     function filteredReasonLabel(reason: string): string {
         return $_(`jobs.errors_drop_reason.${reason}`, { default: reason });
+    }
+
+    function filteredScoreLabel(score: number | null): string {
+        if (score === null) return '';
+        return `${Math.round(score * 100)}%`;
     }
 
     function mqttStatus(): string {
@@ -514,6 +521,22 @@
                                         </div>
                                     {/each}
                                 </dl>
+                                {#if recentFilteredDetections(health?.event_pipeline).length > 0}
+                                    <div class="mt-4 border-t border-current/15 pt-3">
+                                        <p class="text-xs font-black uppercase tracking-wider opacity-70">{$_('jobs.errors_filtered_recent', { default: 'Most recent' })}</p>
+                                        <ul class="mt-2 space-y-1.5 text-xs font-semibold">
+                                            {#each recentFilteredDetections(health?.event_pipeline) as entry (entry.eventId)}
+                                                <li
+                                                    class="flex items-baseline justify-between gap-3"
+                                                    title={`${filteredReasonLabel(entry.reason)}${entry.timestamp ? ` · ${formatDateTime(Date.parse(entry.timestamp))}` : ''} · ${entry.eventId}`}
+                                                >
+                                                    <span class="min-w-0 truncate italic">{entry.label ?? $_('common.unknown_species', { default: 'Unknown species' })}</span>
+                                                    <span class="shrink-0 tabular-nums opacity-80">{filteredScoreLabel(entry.score)}</span>
+                                                </li>
+                                            {/each}
+                                        </ul>
+                                    </div>
+                                {/if}
                                 <p class="mt-3 text-xs font-semibold opacity-70">{$_('jobs.errors_filtered_hint', { default: 'Adjust the confidence threshold in Settings → Detection to keep more of these.' })}</p>
                             {/if}
                         </div>

@@ -2583,6 +2583,7 @@
     "errors_filtered_none": "Rien n’a encore été filtré.",
     "errors_filtered_summary": "{count} détections n’ont pas satisfait vos réglages de détection. C’est le filtre qui fonctionne, pas une panne.",
     "errors_filtered_hint": "Ajustez le seuil de confiance dans Réglages → Détection pour en conserver davantage.",
+    "errors_filtered_recent": "Les plus récentes",
     "errors_drop_reason": {
       "filter_low_confidence": "Sous le seuil de confiance",
       "filter_below_threshold": "Sous le seuil d’espèce",

@@ -2583,6 +2583,7 @@
     "errors_filtered_none": "Пока ничего не отфильтровано.",
     "errors_filtered_summary": "Обнаружений, не прошедших ваши настройки обнаружения: {count}. Это работа фильтра, а не сбой.",
     "errors_filtered_hint": "Измените порог уверенности в разделе «Настройки → Обнаружение», чтобы сохранять больше.",
+    "errors_filtered_recent": "Последние",
     "errors_drop_reason": {
       "filter_low_confidence": "Ниже порога уверенности",
       "filter_below_threshold": "Ниже порога вида",

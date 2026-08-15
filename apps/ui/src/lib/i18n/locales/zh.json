@@ -2583,6 +2583,7 @@
     "errors_filtered_none": "目前没有任何内容被过滤。",
     "errors_filtered_summary": "有{count}项检测未达到您的检测设置。这是过滤器在工作，并非故障。",
     "errors_filtered_hint": "在“设置 → 检测”中调整置信度阈值可保留更多结果。",
+    "errors_filtered_recent": "最近",
     "errors_drop_reason": {
       "filter_low_confidence": "低于置信度阈值",
       "filter_below_threshold": "低于物种阈值",

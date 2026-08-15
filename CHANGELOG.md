@@ -22,8 +22,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   the Event Pipeline card to `DEGRADED` while the backend reported the pipeline healthy on the same
   screen. Drops are now classified where they are recorded: expected, configuration-driven filtering
   stays out of the health verdict, and only a drop caused by a fault degrades the card. Filtering
-  gets its own **Filtered Detections** card showing how much each rule rejected, so the number stays
-  visible without being dressed up as a failure.
+  gets its own **Filtered Detections** card showing how much each rule rejected and the species and
+  confidence of the most recent ones, so the number stays visible without being dressed up as a
+  failure.
+- **Recent Backend Diagnostics now shows what it says it shows.** The list is headed "warnings and
+  errors" but was also carrying every expected filter drop at `info` severity, so eight low-confidence
+  rejections could push a real failure out of view.
 
 ### Changed
 

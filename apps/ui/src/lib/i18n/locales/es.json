@@ -2583,6 +2583,7 @@
     "errors_filtered_none": "Todavía no se ha filtrado nada.",
     "errors_filtered_summary": "{count} detecciones no cumplieron tus ajustes de detección. Es el filtro funcionando, no un fallo.",
     "errors_filtered_hint": "Ajusta el umbral de confianza en Ajustes → Detección para conservar más.",
+    "errors_filtered_recent": "Más recientes",
     "errors_drop_reason": {
       "filter_low_confidence": "Bajo el umbral de confianza",
       "filter_below_threshold": "Bajo el umbral de especie",

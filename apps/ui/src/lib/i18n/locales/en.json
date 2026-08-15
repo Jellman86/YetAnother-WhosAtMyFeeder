@@ -2447,6 +2447,7 @@
     "errors_filtered_none": "Nothing has been filtered out yet.",
     "errors_filtered_summary": "{count} detections did not meet your detection settings. This is the filter working, not a fault.",
     "errors_filtered_hint": "Adjust the confidence threshold in Settings → Detection to keep more of these.",
+    "errors_filtered_recent": "Most recent",
     "errors_drop_reason": {
       "filter_low_confidence": "Below confidence threshold",
       "filter_below_threshold": "Below species threshold",

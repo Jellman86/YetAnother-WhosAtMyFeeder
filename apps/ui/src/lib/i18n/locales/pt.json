@@ -2583,6 +2583,7 @@
     "errors_filtered_none": "Nada foi filtrado ainda.",
     "errors_filtered_summary": "{count} detecções não atenderam às suas configurações de detecção. É o filtro funcionando, não uma falha.",
     "errors_filtered_hint": "Ajuste o limite de confiança em Configurações → Detecção para manter mais delas.",
+    "errors_filtered_recent": "Mais recentes",
     "errors_drop_reason": {
       "filter_low_confidence": "Abaixo do limite de confiança",
       "filter_below_threshold": "Abaixo do limite da espécie",
