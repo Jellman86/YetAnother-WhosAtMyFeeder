@@ -8,6 +8,13 @@
         type JobDiagnosticBundle
     } from '../stores/job_diagnostics.svelte';
     import { formatDateTime } from '../utils/datetime';
+    import {
+        eventPipelineVerdict,
+        expectedDropCount,
+        expectedDropReasons,
+        faultDropCount,
+        hasExpectedDrops
+    } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
 
@@ -240,23 +247,39 @@
     }
 
     function eventPipelineStatus(): string {
-        const pipeline = health?.event_pipeline ?? {};
-        const criticalFailureActive = pipeline.critical_failure_active === true;
-        const dropped = asNumber(pipeline.dropped_events);
-        if (criticalFailureActive) return 'critical';
-        if (dropped > 0) return 'degraded';
-        return asText(pipeline.status, overallStatusLabel());
+        return eventPipelineVerdict(health?.event_pipeline, overallStatusLabel());
     }
 
     function eventPipelineSummary(): string {
         const pipeline = health?.event_pipeline ?? {};
         const criticalFailureActive = pipeline.critical_failure_active === true;
         const criticalFailures = asNumber(pipeline.critical_failures);
-        const dropped = asNumber(pipeline.dropped_events);
+        const faults = faultDropCount(pipeline);
         if (criticalFailureActive) return $_('jobs.errors_pipeline_critical', { values: { count: criticalFailures.toLocaleString() }, default: `${criticalFailures.toLocaleString()} critical failures recorded.` });
         if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures.toLocaleString() }, default: `${criticalFailures.toLocaleString()} historical failures recorded; pipeline has since recovered.` });
-        if (dropped > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: dropped.toLocaleString() }, default: `${dropped.toLocaleString()} events have been dropped.` });
+        if (faults > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: faults.toLocaleString() }, default: `${faults.toLocaleString()} events were dropped by a fault.` });
         return $_('jobs.errors_pipeline_ok', { default: 'The ingest pipeline is processing detections normally.' });
+    }
+
+    // Filtering is reported on its own, away from the health verdict: it is useful
+    // to see how much the confidence threshold is rejecting, but it is not a fault.
+    function filteredStatus(): string {
+        return hasExpectedDrops(health?.event_pipeline) ? 'info' : 'clear';
+    }
+
+    function filteredSummary(): string {
+        const count = expectedDropCount(health?.event_pipeline);
+        if (count === 0) {
+            return $_('jobs.errors_filtered_none', { default: 'Nothing has been filtered out yet.' });
+        }
+        return $_('jobs.errors_filtered_summary', {
+            values: { count: count.toLocaleString() },
+            default: `${count.toLocaleString()} detections did not meet your detection settings. This is the filter working, not a fault.`
+        });
+    }
+
+    function filteredReasonLabel(reason: string): string {
+        return $_(`jobs.errors_drop_reason.${reason}`, { default: reason });
     }
 
     function mqttStatus(): string {
@@ -464,6 +487,35 @@
                                 <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_dropped', { default: 'Dropped' })}</span><span>{asNumber(health?.event_pipeline?.dropped_events).toLocaleString()}</span></div>
                                 <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_critical', { default: 'Critical' })}</span><span>{asNumber(health?.event_pipeline?.critical_failures).toLocaleString()}</span></div>
                             </div>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Filtered detections (expected, configuration-driven drops) -->
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(filteredStatus())}">
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 12.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-8.586L3.293 6.707A1 1 0 013 6V4z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_filtered_title', { default: 'Filtered Detections' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{expectedDropCount(health?.event_pipeline).toLocaleString()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{filteredSummary()}</p>
+                            {#if expectedDropReasons(health?.event_pipeline).length > 0}
+                                <dl class="mt-4 grid grid-cols-1 gap-2 text-xs font-semibold">
+                                    {#each expectedDropReasons(health?.event_pipeline) as entry (entry.reason)}
+                                        <div class="flex items-baseline justify-between gap-3">
+                                            <dt class="min-w-0 truncate uppercase tracking-wider opacity-80">{filteredReasonLabel(entry.reason)}</dt>
+                                            <dd class="shrink-0">{entry.count.toLocaleString()}</dd>
+                                        </div>
+                                    {/each}
+                                </dl>
+                                <p class="mt-3 text-xs font-semibold opacity-70">{$_('jobs.errors_filtered_hint', { default: 'Adjust the confidence threshold in Settings → Detection to keep more of these.' })}</p>
+                            {/if}
                         </div>
                     </div>
                 </article>

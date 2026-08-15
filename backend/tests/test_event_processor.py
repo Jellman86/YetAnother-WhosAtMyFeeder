@@ -1781,3 +1781,66 @@ def test_record_stage_failure_defaults_unknown_exception_type():
 
     kwargs = mock_history.record.call_args.kwargs
     assert kwargs["context"]["error_type"] == "UnknownError"
+
+
+def test_drop_reason_severity_separates_expected_filtering_from_faults():
+    """Expected filtering and real faults must not share one counter.
+
+    The Errors page reads these to decide whether the pipeline is healthy, so a
+    detection rejected by the confidence threshold must never be indistinguishable
+    from a snapshot fetch that failed.
+    """
+    from app.services.event_processor import drop_reason_severity
+
+    for expected in (
+        "filter_low_confidence",
+        "filter_below_threshold",
+        "filter_blocked_label",
+        "filter_abstention_label",
+        "filter_invalid_score",
+    ):
+        assert drop_reason_severity(expected) == "info"
+
+    for fault in (
+        "classify_snapshot_unavailable",
+        "classify_snapshot_timeout",
+        "save_and_notify_failed",
+    ):
+        assert drop_reason_severity(fault) == "error"
+
+    for warning in (
+        "classify_snapshot_overloaded",
+        "classifier_empty_results",
+        "end_recovery_lookup_failed",
+        "live_event_stale",
+    ):
+        assert drop_reason_severity(warning) == "warning"
+
+
+def test_get_status_reports_expected_and_fault_drops_separately():
+    processor = EventProcessor(MagicMock())
+    processor._record_drop("evt-1", "filter_low_confidence", label="Sparrow", score=0.12)
+    processor._record_drop("evt-2", "filter_low_confidence", label="Rabbit", score=0.2)
+    processor._record_drop("evt-3", "filter_blocked_label", label="Mountain Lion")
+    processor._record_drop("evt-4", "classifier_empty_results")
+
+    status = processor.get_status()
+
+    assert status["dropped_events"] == 4
+    assert status["expected_drops"] == 3
+    assert status["fault_drops"] == 1
+    assert status["expected_drop_reasons"] == {"filter_low_confidence": 2, "filter_blocked_label": 1}
+    assert status["fault_drop_reasons"] == {"classifier_empty_results": 1}
+
+
+def test_expected_filtering_alone_leaves_the_pipeline_healthy():
+    """A feeder that filters low-confidence frames is working, not degraded."""
+    processor = EventProcessor(MagicMock())
+    for index in range(12):
+        processor._record_drop(f"evt-{index}", "filter_low_confidence", label="Rabbit", score=0.2)
+
+    status = processor.get_status()
+
+    assert status["status"] == "ok"
+    assert status["fault_drops"] == 0
+    assert status["expected_drops"] == 12

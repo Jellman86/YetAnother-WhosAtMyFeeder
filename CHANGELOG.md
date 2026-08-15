@@ -15,6 +15,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   downgrading a shared modern-driver dependency
   ([#177](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/pull/177)).
 
+### Fixed
+
+- **The Health page no longer calls normal filtering a degraded pipeline.** Any dropped event at
+  all, including a detection correctly rejected by the confidence threshold or a blocklist, flipped
+  the Event Pipeline card to `DEGRADED` while the backend reported the pipeline healthy on the same
+  screen. Drops are now classified where they are recorded: expected, configuration-driven filtering
+  stays out of the health verdict, and only a drop caused by a fault degrades the card. Filtering
+  gets its own **Filtered Detections** card showing how much each rule rejected, so the number stays
+  visible without being dressed up as a failure.
+
 ### Changed
 
 - **eBird distances now follow your chosen unit system.** The notable-nearby scope, the species and

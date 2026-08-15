@@ -129,6 +129,29 @@ class EventData:
         self.detection_dt: datetime = datetime.fromtimestamp(self.start_time_ts, tz=timezone.utc)
 
 
+DROP_FAULT_SEVERITIES = frozenset({"warning", "error"})
+
+_DROP_ERROR_REASONS = frozenset(
+    {"classify_snapshot_unavailable", "classify_snapshot_timeout", "save_and_notify_failed"}
+)
+
+
+def drop_reason_severity(reason: str) -> str:
+    """Classify why an event was dropped.
+
+    `info` is expected, config-driven filtering (low confidence, blocked labels
+    and species). It is the pipeline working, so it must never be counted as a
+    fault: a feeder that rejects a blurry rabbit is healthy. `warning` and
+    `error` are real faults that cost the user a detection.
+    """
+    reason_key = str(reason or "unknown")
+    if reason_key.startswith("filter_"):
+        return "info"
+    if reason_key in _DROP_ERROR_REASONS:
+        return "error"
+    return "warning"
+
+
 class EventProcessor:
     def __init__(self, classifier: ClassifierService | None = None):
         # `classifier` is a starting reference. The `classifier` property
@@ -213,15 +236,7 @@ class EventProcessor:
         }
         payload.update(details)
         self._last_drop = payload
-        if reason_key.startswith("filter_"):
-            # Expected, config-driven filtering (low confidence, blocked labels/species).
-            # Not a fault — record as informational so normal drops stay out of the
-            # health telemetry and don't bury real failures on the Errors page.
-            severity = "info"
-        elif reason_key in {"classify_snapshot_unavailable", "classify_snapshot_timeout", "save_and_notify_failed"}:
-            severity = "error"
-        else:
-            severity = "warning"
+        severity = drop_reason_severity(reason_key)
         error_diagnostics_history.record(
             source="event_pipeline",
             component="event_processor",
@@ -322,6 +337,14 @@ class EventProcessor:
             + int(stage_failures.get("save_and_notify", 0))
         )
         incomplete_events = max(0, self._started_events - self._completed_events - self._dropped_events)
+        expected_drop_reasons = {
+            reason: count for reason, count in drop_reasons.items() if drop_reason_severity(reason) == "info"
+        }
+        fault_drop_reasons = {
+            reason: count
+            for reason, count in drop_reasons.items()
+            if drop_reason_severity(reason) in DROP_FAULT_SEVERITIES
+        }
         critical_failure_active = self._critical_failure_active()
         has_unresolved_post_failure_work = self._has_historical_critical_failure() and incomplete_events > 0
         return {
@@ -334,6 +357,10 @@ class EventProcessor:
             "stage_failures": stage_failures,
             "stage_fallbacks": stage_fallbacks,
             "drop_reasons": drop_reasons,
+            "expected_drops": sum(expected_drop_reasons.values()),
+            "fault_drops": sum(fault_drop_reasons.values()),
+            "expected_drop_reasons": expected_drop_reasons,
+            "fault_drop_reasons": fault_drop_reasons,
             "critical_failures": critical_failures,
             "last_stage_timeout": self._last_stage_timeout,
             "last_stage_failure": self._last_stage_failure,
