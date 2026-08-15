@@ -39,6 +39,42 @@ describe('health page timeline', () => {
     });
 });
 
+describe('the health verdict', () => {
+    it('colours the whole card, not just a pill on a neutral ground', () => {
+        expect(errorsSource).toContain('heroToneClass');
+        expect(errorsSource).toMatch(/<div class="rounded-3xl border p-6 \{heroToneClass\(/);
+    });
+
+    it('is green when healthy and amber only when something wants a person', () => {
+        const fn = errorsSource.slice(
+            errorsSource.indexOf('function heroToneClass'),
+            errorsSource.indexOf('function toneClass')
+        );
+        const healthy = fn.slice(fn.indexOf("'ok', 'healthy', 'normal'"), fn.indexOf("'degraded'"));
+        expect(healthy).toContain('emerald');
+        const degraded = fn.slice(fn.indexOf("'degraded'"), fn.indexOf("'critical'"));
+        expect(degraded).toContain('amber-');
+        // accent-* is emerald in the classic theme, which would paint degraded green.
+        expect(degraded).not.toContain('accent-');
+    });
+
+    it('leaves a state it has not measured in slate rather than claiming health', () => {
+        // The fallback branch is what an unknown status hits, and it must not be green.
+        const fn = errorsSource.slice(
+            errorsSource.indexOf('function heroToneClass'),
+            errorsSource.indexOf('function toneClass')
+        );
+        const fallback = fn.slice(fn.lastIndexOf('return '));
+        expect(fallback).toContain('slate');
+        expect(fallback).not.toContain('emerald');
+    });
+
+    it('keeps export plumbing out of the health reading', () => {
+        expect(errorsSource).not.toContain("errors_health_snapshots', { default: 'Health Snapshots' }");
+        expect(errorsSource).not.toContain('backend events\n');
+    });
+});
+
 describe('filtered rows', () => {
     it('are rendered by Field log as their own kind', () => {
         expect(fieldLogSource).toContain("row.kind === 'filtered'");

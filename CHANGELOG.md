@@ -17,6 +17,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **The Health page now says how the feeder is doing in colour, not just in a badge.** The status
+  card takes the verdict itself: green when everything is healthy, amber when something is waiting on
+  you, red on a failure, and slate for a state that has not been measured. Counts that described the
+  diagnostics export rather than the feeder have moved out of the reading, and the export itself is a
+  compact panel behind a disclosure instead of a two-column library.
+
 - **The Health page opens with what your feeder actually did.** Visits it recorded and frames it
   filtered out now share one thread, in the order they happened, rendered by the same `FieldLog`
   timeline the dashboard uses rather than a second idiom. Every figure on the page describes one
