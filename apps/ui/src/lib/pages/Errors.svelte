@@ -8,8 +8,22 @@
         type JobDiagnosticBundle
     } from '../stores/job_diagnostics.svelte';
     import { formatDateTime } from '../utils/datetime';
+    import {
+        eventPipelineVerdict,
+        expectedDropCount,
+        expectedDropReasons,
+        faultDiagnostics,
+        faultDropCount,
+        hasExpectedDrops,
+        recentFilteredDetections
+    } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
+    import { settingsStore } from '../stores/settings.svelte';
+    import { groupDetectionsIntoVisits, withinDeskWindow } from '../utils/visit-grouping';
+    import { buildHealthTimeline, hiddenEventCount, instanceWindowMs } from '../utils/health-timeline';
+    import FieldLog from '../components/FieldLog.svelte';
 
     const FRIGATE_MISSING_DOCS_URL =
         'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
@@ -58,7 +72,7 @@
     let videoClassifierCard = $derived(getVideoClassifierCardState(health));
     let frigateMediaAdvisory = $derived(getFrigateMediaAdvisory(health));
     let frigateMediaDropPercent = $derived(Math.round(frigateMediaAdvisory.rate * 100));
-    let backendEvents = $derived(workspacePayload?.backend_diagnostics?.events ?? []);
+    let backendEvents = $derived(faultDiagnostics(workspacePayload?.backend_diagnostics?.events ?? []));
     let startupWarnings = $derived(workspacePayload?.startup_warnings ?? []);
     let captureLabel = $state('');
     let reportNotes = $state('');
@@ -74,7 +88,26 @@
         return Number.isFinite(parsed) ? parsed : null;
     });
 
+    // The health counters are measured from startup, so the visits shown beside them
+    // use the same window rather than a rolling day (layout-patterns 1.1).
+    const instanceWindow = $derived(instanceWindowMs(health?.startup_started_at as string | undefined));
+    const reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
+    const windowedDetections = $derived(
+        instanceWindow === null ? [] : withinDeskWindow(detectionsStore.detections, Date.now(), instanceWindow)
+    );
+    const keptVisits = $derived(groupDetectionsIntoVisits(windowedDetections, { reviewThreshold }));
+    const timelineRows = $derived(
+        buildHealthTimeline({
+            visits: keptVisits,
+            filtered: recentFilteredDetections(health?.event_pipeline, 12)
+        })
+    );
+    const timelineHidden = $derived(
+        hiddenEventCount(asNumber(health?.event_pipeline?.started_events), timelineRows.length)
+    );
+
     onMount(() => {
+        void detectionsStore.loadInitial();
         void refreshWorkspace();
     });
 
@@ -240,23 +273,44 @@
     }
 
     function eventPipelineStatus(): string {
-        const pipeline = health?.event_pipeline ?? {};
-        const criticalFailureActive = pipeline.critical_failure_active === true;
-        const dropped = asNumber(pipeline.dropped_events);
-        if (criticalFailureActive) return 'critical';
-        if (dropped > 0) return 'degraded';
-        return asText(pipeline.status, overallStatusLabel());
+        return eventPipelineVerdict(health?.event_pipeline, overallStatusLabel());
     }
 
     function eventPipelineSummary(): string {
         const pipeline = health?.event_pipeline ?? {};
         const criticalFailureActive = pipeline.critical_failure_active === true;
         const criticalFailures = asNumber(pipeline.critical_failures);
-        const dropped = asNumber(pipeline.dropped_events);
+        const faults = faultDropCount(pipeline);
         if (criticalFailureActive) return $_('jobs.errors_pipeline_critical', { values: { count: criticalFailures.toLocaleString() }, default: `${criticalFailures.toLocaleString()} critical failures recorded.` });
         if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures.toLocaleString() }, default: `${criticalFailures.toLocaleString()} historical failures recorded; pipeline has since recovered.` });
-        if (dropped > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: dropped.toLocaleString() }, default: `${dropped.toLocaleString()} events have been dropped.` });
+        if (faults > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: faults.toLocaleString() }, default: `${faults.toLocaleString()} events were dropped by a fault.` });
         return $_('jobs.errors_pipeline_ok', { default: 'The ingest pipeline is processing detections normally.' });
+    }
+
+    // Filtering is reported on its own, away from the health verdict: it is useful
+    // to see how much the confidence threshold is rejecting, but it is not a fault.
+    function filteredStatus(): string {
+        return hasExpectedDrops(health?.event_pipeline) ? 'info' : 'clear';
+    }
+
+    function filteredSummary(): string {
+        const count = expectedDropCount(health?.event_pipeline);
+        if (count === 0) {
+            return $_('jobs.errors_filtered_none', { default: 'Nothing has been filtered out yet.' });
+        }
+        return $_('jobs.errors_filtered_summary', {
+            values: { count: count.toLocaleString() },
+            default: `${count.toLocaleString()} detections did not meet your detection settings. This is the filter working, not a fault.`
+        });
+    }
+
+    function filteredReasonLabel(reason: string): string {
+        return $_(`jobs.errors_drop_reason.${reason}`, { default: reason });
+    }
+
+    function filteredScoreLabel(score: number | null): string {
+        if (score === null) return '';
+        return `${Math.round(score * 100)}%`;
     }
 
     function mqttStatus(): string {
@@ -343,6 +397,23 @@
         const first = startupWarnings[0] ?? {};
         const phase = asText((first as Record<string, unknown>).phase, 'unknown phase');
         return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length.toLocaleString(), phase }, default: `${startupWarnings.length.toLocaleString()} startup warnings recorded. Latest phase: ${phase}.` });
+    }
+
+    function startedAgoText(): string {
+        if (instanceWindow === null) return $_('common.unknown', { default: 'unknown' });
+        const minutes = Math.floor(instanceWindow / 60000);
+        if (minutes < 60) return $_('about.instance.uptime_minutes', { values: { count: minutes }, default: '{count} min' });
+        const hours = Math.floor(minutes / 60);
+        return $_('about.instance.uptime_hours', { values: { count: hours }, default: '{count} h' });
+    }
+
+    function goToDetection(eventId: string): void {
+        if (!eventId) return;
+        window.location.hash = `#/events?event=${encodeURIComponent(eventId)}`;
+    }
+
+    function goToHistory(): void {
+        window.location.hash = '#/events';
     }
 
     function refreshedAgoText(): string | null {
@@ -441,8 +512,54 @@
                 </div>
             {/if}
 
-            <!-- ── Subsystem cards ─────────────────────────────────── -->
-            <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <!-- ── What happened: one thread of kept visits and filtered frames ── -->
+            <section class="card-base mt-6 p-5" data-health-timeline>
+                <header class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200/70 pb-3 dark:border-slate-700/50">
+                    <div class="min-w-0">
+                        <h3 class="font-display text-xl font-bold text-slate-950 dark:text-white">
+                            {$_('jobs.errors_activity_title', { default: 'What happened' })}
+                        </h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                            {$_('jobs.errors_activity_subtitle', {
+                                default: 'Visits recorded and frames filtered out, in the order they happened'
+                            })}
+                        </p>
+                    </div>
+                    <span class="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        {$_('jobs.errors_activity_window', {
+                            values: { started: startedAgoText() },
+                            default: 'Since this instance started, {started}'
+                        })}
+                    </span>
+                </header>
+
+                {#if instanceWindow === null}
+                    <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+                        {$_('jobs.errors_activity_no_window', {
+                            default: 'This instance has not reported when it started, so activity cannot be placed in a window yet.'
+                        })}
+                    </p>
+                {:else}
+                    <div class="mt-3">
+                        <FieldLog
+                            rows={timelineRows}
+                            hiddenCount={timelineHidden}
+                            loading={detectionsStore.isLoading && timelineRows.length === 0}
+                            onselect={(detection) => goToDetection(detection.frigate_event)}
+                            onopenfiltered={(eventId) => goToDetection(eventId)}
+                            onseeall={() => goToHistory()}
+                        />
+                    </div>
+                {/if}
+            </section>
+
+            <!-- ── Subsystem detail ────────────────────────────────── -->
+            <details class="card-base mt-6 p-0" data-subsystem-detail>
+                <summary class="flex cursor-pointer items-center justify-between gap-3 px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-slate-500 focus-ring dark:text-slate-400">
+                    <span>{$_('jobs.errors_subsystems_title', { default: 'Subsystem detail' })}</span>
+                    <span class="text-slate-400" aria-hidden="true">+</span>
+                </summary>
+                <div class="grid grid-cols-1 gap-4 px-5 pb-5 md:grid-cols-2 xl:grid-cols-3">
 
                 <!-- Event Pipeline -->
                 <article class="rounded-3xl border p-5 shadow-sm {toneClass(eventPipelineStatus())}">
@@ -464,6 +581,51 @@
                                 <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_dropped', { default: 'Dropped' })}</span><span>{asNumber(health?.event_pipeline?.dropped_events).toLocaleString()}</span></div>
                                 <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_critical', { default: 'Critical' })}</span><span>{asNumber(health?.event_pipeline?.critical_failures).toLocaleString()}</span></div>
                             </div>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Filtered detections (expected, configuration-driven drops) -->
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(filteredStatus())}">
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 12.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-8.586L3.293 6.707A1 1 0 013 6V4z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_filtered_title', { default: 'Filtered Detections' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{expectedDropCount(health?.event_pipeline).toLocaleString()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{filteredSummary()}</p>
+                            {#if expectedDropReasons(health?.event_pipeline).length > 0}
+                                <dl class="mt-4 grid grid-cols-1 gap-2 text-xs font-semibold">
+                                    {#each expectedDropReasons(health?.event_pipeline) as entry (entry.reason)}
+                                        <div class="flex items-baseline justify-between gap-3">
+                                            <dt class="min-w-0 truncate uppercase tracking-wider opacity-80">{filteredReasonLabel(entry.reason)}</dt>
+                                            <dd class="shrink-0">{entry.count.toLocaleString()}</dd>
+                                        </div>
+                                    {/each}
+                                </dl>
+                                {#if recentFilteredDetections(health?.event_pipeline).length > 0}
+                                    <div class="mt-4 border-t border-current/15 pt-3">
+                                        <p class="text-xs font-black uppercase tracking-wider opacity-70">{$_('jobs.errors_filtered_recent', { default: 'Most recent' })}</p>
+                                        <ul class="mt-2 space-y-1.5 text-xs font-semibold">
+                                            {#each recentFilteredDetections(health?.event_pipeline) as entry (entry.eventId)}
+                                                <li
+                                                    class="flex items-baseline justify-between gap-3"
+                                                    title={`${filteredReasonLabel(entry.reason)}${entry.timestamp ? ` · ${formatDateTime(Date.parse(entry.timestamp))}` : ''} · ${entry.eventId}`}
+                                                >
+                                                    <span class="min-w-0 truncate italic">{entry.label ?? $_('common.unknown_species', { default: 'Unknown species' })}</span>
+                                                    <span class="shrink-0 tabular-nums opacity-80">{filteredScoreLabel(entry.score)}</span>
+                                                </li>
+                                            {/each}
+                                        </ul>
+                                    </div>
+                                {/if}
+                                <p class="mt-3 text-xs font-semibold opacity-70">{$_('jobs.errors_filtered_hint', { default: 'Adjust the confidence threshold in Settings → Detection to keep more of these.' })}</p>
+                            {/if}
                         </div>
                     </div>
                 </article>
@@ -617,7 +779,8 @@
                     </div>
                 </article>
 
-            </div>
+                </div>
+            </details>
         </div>
     </section>
 

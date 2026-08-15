@@ -111,7 +111,8 @@ readme and `docs/` hold the feature list.
 
 | Component | Use for | Do not |
 | --- | --- | --- |
-| `FieldLog` | Any chronological list of visits | Use for search results; Explorer owns those |
+| `FieldLog` | Any chronological list of visits, and the Health page thread where kept visits and filtered frames share one order | Use for search results; Explorer owns those |
+| `FilteredFramePreview` | A frame the classifier rejected, which has no detection record | Use where a `Detection` exists; that is `DetectionPreview` |
 | `DetectionPreview` | Any thumbnail under ~64px | Use as a click target for navigation; click opens the record |
 | `ReviewQueueCard` | Outstanding decisions | Use for notifications or job progress |
 | `DayBar` | The window label plus its headline metrics | Add a seventh metric; cut one instead |
@@ -121,8 +122,10 @@ readme and `docs/` hold the feature list.
 | `ReviewQueueModal` | Working a queue item by item | Use for viewing one record; that is `DetectionModal` |
 
 Pure logic lives in `apps/ui/src/lib/utils/`: `visit-grouping.ts` (grouping, the desk window and
-threshold-aware review decisions), `review-queue.ts` (queue selection and ordering), and
-`dashboard-cameras.ts` (configured-camera scope and visit counts). New decision rules go there,
+threshold-aware review decisions), `review-queue.ts` (queue selection and ordering),
+`dashboard-cameras.ts` (configured-camera scope and visit counts), `pipeline-health.ts` (which
+dropped events are faults and which are expected filtering) and `health-timeline.ts` (merging kept
+visits with filtered frames into one thread). New decision rules go there,
 with unit tests, and never inside a component.
 
 The review threshold comes from the saved `classification_threshold` setting. Do not copy its
@@ -182,7 +185,9 @@ build something better."*
   not by nested cards.
 - **Flagged rows**: a left-to-right amber wash plus a state dot plus a worded reason. All three.
 - **Score**: a percentage in a tone band (under 60 amber, under 85 brand, above 85 green) and a
-  3px bar. Never the bar alone.
+  3px bar. Never the bar alone. **Exception:** a frame the filter rejected scores under 60 by
+  definition and wants nothing from anyone, so it renders in slate with its reason in words. Amber
+  on those rows would contradict 1.3 and put seven of them under a heading saying nothing failed.
 - **Touch targets**: `min-h-11` on anything interactive, including chips and inline actions.
 - **Media**: fixed aspect, `loading="lazy"`, and an `onerror` placeholder of identical size.
 

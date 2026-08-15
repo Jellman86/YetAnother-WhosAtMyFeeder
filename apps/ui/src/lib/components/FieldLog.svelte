@@ -1,14 +1,24 @@
 <script lang="ts">
     import DetectionPreview from './DetectionPreview.svelte';
+    import FilteredFramePreview from './FilteredFramePreview.svelte';
     import type { Detection } from '../api';
     import type { DetectionVisit } from '../utils/visit-grouping';
+    import type { HealthTimelineRow } from '../utils/health-timeline';
     import { formatTime } from '../utils/datetime';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
     import { _ } from 'svelte-i18n';
 
     interface Props {
-        visits: DetectionVisit[];
+        visits?: DetectionVisit[];
+        /**
+         * Pre-merged rows, used by the Health page so kept visits and filtered
+         * frames share one thread. When absent the visits prop is rendered as
+         * before, so the dashboard is unaffected.
+         */
+        rows?: HealthTimelineRow[];
+        /** Filtered frames carry no record to open, so their action is suppressed. */
+        onopenfiltered?: (eventId: string) => void;
         /** Visits in the window beyond the ones shown, so truncation is stated. */
         hiddenCount?: number;
         /** Identifying requires owner access, so guests get a read-only row. */
@@ -20,7 +30,9 @@
     }
 
     let {
-        visits,
+        visits = [],
+        rows,
+        onopenfiltered,
         hiddenCount = 0,
         canIdentify = false,
         loading = false,
@@ -28,6 +40,10 @@
         onidentify,
         onseeall
     }: Props = $props();
+
+    const renderRows = $derived<HealthTimelineRow[]>(
+        rows ?? visits.map((visit) => ({ kind: 'visit' as const, key: `visit:${visit.key}`, at: 0, visit }))
+    );
 
     function names(detection: Detection): { primary: string; secondary: string | null } {
         return getBirdNames(
@@ -47,6 +63,10 @@
         if (score < 0.6) return 'text-accent-700 dark:text-accent-300';
         if (score < 0.85) return 'text-brand-700 dark:text-brand-300';
         return 'text-emerald-700 dark:text-emerald-300';
+    }
+
+    function quietScore(score: number | null): string {
+        return score === null ? '' : `${Math.round(score * 100)}%`;
     }
 
     function barTone(score: number): string {
@@ -85,7 +105,7 @@
                 <div class="h-16 animate-pulse rounded-xl bg-slate-100/80 dark:bg-slate-800/50"></div>
             {/each}
         </div>
-    {:else if visits.length === 0}
+    {:else if renderRows.length === 0}
         <div class="flex flex-col items-center justify-center border-y border-dashed border-slate-200 py-12 text-center dark:border-slate-700/50">
             <div class="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-800/50 dark:text-slate-500">
                 <svg class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
@@ -98,7 +118,57 @@
         </div>
     {:else}
         <ol class="space-y-0.5">
-            {#each visits as visit (visit.key)}
+            {#each renderRows as row (row.key)}
+                {#if row.kind === 'filtered'}
+                    {@const drop = row.drop}
+                    <li
+                        class="grid grid-cols-[3.4rem_0.6rem_auto_minmax(0,1fr)_auto] items-center gap-x-2.5 gap-y-1 rounded-xl border-b border-slate-200/60 px-2 py-2 last:border-b-0 sm:grid-cols-[4.5rem_0.75rem_auto_minmax(0,1fr)_auto_auto_5rem] sm:gap-x-3 sm:py-2.5 dark:border-slate-700/40"
+                        data-field-log-row
+                        data-row-kind="filtered"
+                        data-needs-review="false"
+                    >
+                        <span class="text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                            {drop.timestamp ? formatTime(drop.timestamp) : ''}
+                        </span>
+
+                        <span class="relative flex h-full justify-center" aria-hidden="true">
+                            <span class="absolute inset-y-[-0.7rem] w-px bg-slate-200 dark:bg-slate-700/70"></span>
+                            <span class="relative mt-[0.4rem] h-1.5 w-1.5 shrink-0 self-start rounded-full bg-slate-400 ring-2 ring-white dark:bg-slate-500 dark:ring-slate-900"></span>
+                        </span>
+
+                        <FilteredFramePreview eventId={drop.eventId} label={drop.label} onopen={() => onopenfiltered?.(drop.eventId)} />
+
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-semibold italic text-slate-700 dark:text-slate-200">
+                                {drop.label ?? $_('common.unknown_species', { default: 'Unknown species' })}
+                            </p>
+                            <p class="truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                                {$_(`jobs.errors_drop_reason_row.${drop.reason}`, {
+                                    default: $_('jobs.errors_drop_reason_row.filter_low_confidence', {
+                                        default: 'Not recorded, below your naming threshold'
+                                    })
+                                })}
+                            </p>
+                        </div>
+
+                        <span class="hidden sm:inline-flex"></span>
+
+                        <span class="hidden flex-col items-end gap-1 sm:flex">
+                            <span class="text-xs font-bold tabular-nums text-slate-500 dark:text-slate-400">
+                                {quietScore(drop.score)}
+                            </span>
+                            <span class="h-[3px] w-16 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                                <span
+                                    class="block h-full rounded-full bg-slate-400 dark:bg-slate-500"
+                                    style="width: {Math.round((drop.score ?? 0) * 100)}%"
+                                ></span>
+                            </span>
+                        </span>
+
+                        <span class="flex justify-end"></span>
+                    </li>
+                {:else}
+                {@const visit = row.visit}
                 {@const naming = names(visit.lead)}
                 {@const score = visit.best.score ?? 0}
                 <li
@@ -197,6 +267,7 @@
                         {/if}
                     </span>
                 </li>
+                {/if}
             {/each}
         </ol>
 

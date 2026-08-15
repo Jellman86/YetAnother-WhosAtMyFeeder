@@ -15,6 +15,29 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   downgrading a shared modern-driver dependency
   ([#177](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/pull/177)).
 
+### Added
+
+- **The Health page opens with what your feeder actually did.** Visits it recorded and frames it
+  filtered out now share one thread, in the order they happened, rendered by the same `FieldLog`
+  timeline the dashboard uses rather than a second idiom. Every figure on the page describes one
+  window, measured from when the instance started, and each filtered frame carries its picture on
+  hover or keyboard focus, degrading to a placeholder once Frigate has rotated it away. Subsystem
+  cards keep all of their detail behind a disclosure below.
+
+### Fixed
+
+- **The Health page no longer calls normal filtering a degraded pipeline.** Any dropped event at
+  all, including a detection correctly rejected by the confidence threshold or a blocklist, flipped
+  the Event Pipeline card to `DEGRADED` while the backend reported the pipeline healthy on the same
+  screen. Drops are now classified where they are recorded: expected, configuration-driven filtering
+  stays out of the health verdict, and only a drop caused by a fault degrades the card. Filtering
+  gets its own **Filtered Detections** card showing how much each rule rejected and the species and
+  confidence of the most recent ones, so the number stays visible without being dressed up as a
+  failure.
+- **Recent Backend Diagnostics now shows what it says it shows.** The list is headed "warnings and
+  errors" but was also carrying every expected filter drop at `info` severity, so eight low-confidence
+  rejections could push a real failure out of view.
+
 ### Changed
 
 - **eBird distances now follow your chosen unit system.** The notable-nearby scope, the species and
