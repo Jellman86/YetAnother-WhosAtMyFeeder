@@ -2584,6 +2584,20 @@
     "errors_filtered_summary": "Обнаружений, не прошедших ваши настройки обнаружения: {count}. Это работа фильтра, а не сбой.",
     "errors_filtered_hint": "Измените порог уверенности в разделе «Настройки → Обнаружение», чтобы сохранять больше.",
     "errors_filtered_recent": "Последние",
+    "errors_activity_title": "Что происходило",
+    "errors_activity_subtitle": "Записанные визиты и отфильтрованные кадры в порядке их появления",
+    "errors_activity_window": "С момента запуска этого экземпляра: {started}",
+    "errors_activity_no_window": "Экземпляр не сообщил время запуска, поэтому активность пока нельзя отнести к периоду.",
+    "errors_subsystems_title": "Подробности по подсистемам",
+    "errors_filtered_preview": "Предпросмотр кадра, отфильтрованного как {species}",
+    "errors_filtered_frame_gone": "В Frigate этого кадра уже нет",
+    "errors_drop_reason_row": {
+      "filter_low_confidence": "Не записано, ниже вашего порога уверенности",
+      "filter_below_threshold": "Не записано, ниже порога вида",
+      "filter_blocked_label": "Не записано, эта метка заблокирована",
+      "filter_abstention_label": "Не записано, модель воздержалась",
+      "filter_invalid_score": "Не записано, оценка непригодна"
+    },
     "errors_drop_reason": {
       "filter_low_confidence": "Ниже порога уверенности",
       "filter_below_threshold": "Ниже порога вида",

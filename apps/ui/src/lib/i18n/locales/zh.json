@@ -2584,6 +2584,20 @@
     "errors_filtered_summary": "有{count}项检测未达到您的检测设置。这是过滤器在工作，并非故障。",
     "errors_filtered_hint": "在“设置 → 检测”中调整置信度阈值可保留更多结果。",
     "errors_filtered_recent": "最近",
+    "errors_activity_title": "发生了什么",
+    "errors_activity_subtitle": "按发生顺序显示已记录的到访和被过滤的画面",
+    "errors_activity_window": "自本实例启动起 {started}",
+    "errors_activity_no_window": "本实例未报告启动时间，因此暂时无法将活动归入某个时间段。",
+    "errors_subsystems_title": "子系统详情",
+    "errors_filtered_preview": "预览被过滤为 {species} 的画面",
+    "errors_filtered_frame_gone": "Frigate 中已没有这一画面",
+    "errors_drop_reason_row": {
+      "filter_low_confidence": "未记录，低于你的置信度阈值",
+      "filter_below_threshold": "未记录，低于物种阈值",
+      "filter_blocked_label": "未记录，该标签已被屏蔽",
+      "filter_abstention_label": "未记录，模型未做判断",
+      "filter_invalid_score": "未记录，分数不可用"
+    },
     "errors_drop_reason": {
       "filter_low_confidence": "低于置信度阈值",
       "filter_below_threshold": "低于物种阈值",

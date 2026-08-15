@@ -2584,6 +2584,20 @@
     "errors_filtered_summary": "{count} Erkennungen haben Ihre Erkennungseinstellungen nicht erfüllt. Das ist der Filter bei der Arbeit, kein Fehler.",
     "errors_filtered_hint": "Passen Sie den Konfidenzschwellenwert unter Einstellungen → Erkennung an, um mehr davon zu behalten.",
     "errors_filtered_recent": "Zuletzt",
+    "errors_activity_title": "Was passiert ist",
+    "errors_activity_subtitle": "Erfasste Besuche und herausgefilterte Bilder, in der Reihenfolge ihres Auftretens",
+    "errors_activity_window": "Seit dem Start dieser Instanz, {started}",
+    "errors_activity_no_window": "Diese Instanz hat ihren Startzeitpunkt nicht gemeldet, daher lässt sich die Aktivität noch keinem Zeitfenster zuordnen.",
+    "errors_subsystems_title": "Details zu Teilsystemen",
+    "errors_filtered_preview": "Vorschau des als {species} gefilterten Bildes",
+    "errors_filtered_frame_gone": "Frigate hat dieses Bild nicht mehr",
+    "errors_drop_reason_row": {
+      "filter_low_confidence": "Nicht erfasst, unter Ihrem Konfidenzschwellenwert",
+      "filter_below_threshold": "Nicht erfasst, unter dem Artenschwellenwert",
+      "filter_blocked_label": "Nicht erfasst, diese Bezeichnung ist blockiert",
+      "filter_abstention_label": "Nicht erfasst, das Modell enthielt sich",
+      "filter_invalid_score": "Nicht erfasst, der Wert war unbrauchbar"
+    },
     "errors_drop_reason": {
       "filter_low_confidence": "Unter Konfidenzschwelle",
       "filter_below_threshold": "Unter Artenschwelle",

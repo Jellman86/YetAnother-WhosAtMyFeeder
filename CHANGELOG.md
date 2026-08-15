@@ -15,6 +15,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   downgrading a shared modern-driver dependency
   ([#177](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/pull/177)).
 
+### Added
+
+- **The Health page opens with what your feeder actually did.** Visits it recorded and frames it
+  filtered out now share one thread, in the order they happened, rendered by the same `FieldLog`
+  timeline the dashboard uses rather than a second idiom. Every figure on the page describes one
+  window, measured from when the instance started, and each filtered frame carries its picture on
+  hover or keyboard focus, degrading to a placeholder once Frigate has rotated it away. Subsystem
+  cards keep all of their detail behind a disclosure below.
+
 ### Fixed
 
 - **The Health page no longer calls normal filtering a degraded pipeline.** Any dropped event at

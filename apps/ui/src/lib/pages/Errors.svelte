@@ -19,6 +19,11 @@
     } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
+    import { settingsStore } from '../stores/settings.svelte';
+    import { groupDetectionsIntoVisits, withinDeskWindow } from '../utils/visit-grouping';
+    import { buildHealthTimeline, hiddenEventCount, instanceWindowMs } from '../utils/health-timeline';
+    import FieldLog from '../components/FieldLog.svelte';
 
     const FRIGATE_MISSING_DOCS_URL =
         'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
@@ -83,7 +88,26 @@
         return Number.isFinite(parsed) ? parsed : null;
     });
 
+    // The health counters are measured from startup, so the visits shown beside them
+    // use the same window rather than a rolling day (layout-patterns 1.1).
+    const instanceWindow = $derived(instanceWindowMs(health?.startup_started_at as string | undefined));
+    const reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
+    const windowedDetections = $derived(
+        instanceWindow === null ? [] : withinDeskWindow(detectionsStore.detections, Date.now(), instanceWindow)
+    );
+    const keptVisits = $derived(groupDetectionsIntoVisits(windowedDetections, { reviewThreshold }));
+    const timelineRows = $derived(
+        buildHealthTimeline({
+            visits: keptVisits,
+            filtered: recentFilteredDetections(health?.event_pipeline, 12)
+        })
+    );
+    const timelineHidden = $derived(
+        hiddenEventCount(asNumber(health?.event_pipeline?.started_events), timelineRows.length)
+    );
+
     onMount(() => {
+        void detectionsStore.loadInitial();
         void refreshWorkspace();
     });
 
@@ -375,6 +399,23 @@
         return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length.toLocaleString(), phase }, default: `${startupWarnings.length.toLocaleString()} startup warnings recorded. Latest phase: ${phase}.` });
     }
 
+    function startedAgoText(): string {
+        if (instanceWindow === null) return $_('common.unknown', { default: 'unknown' });
+        const minutes = Math.floor(instanceWindow / 60000);
+        if (minutes < 60) return $_('about.instance.uptime_minutes', { values: { count: minutes }, default: '{count} min' });
+        const hours = Math.floor(minutes / 60);
+        return $_('about.instance.uptime_hours', { values: { count: hours }, default: '{count} h' });
+    }
+
+    function goToDetection(eventId: string): void {
+        if (!eventId) return;
+        window.location.hash = `#/events?event=${encodeURIComponent(eventId)}`;
+    }
+
+    function goToHistory(): void {
+        window.location.hash = '#/events';
+    }
+
     function refreshedAgoText(): string | null {
         if (!lastRefreshedAt) return null;
         const diff = Math.floor((Date.now() - lastRefreshedAt) / 1000);
@@ -471,8 +512,54 @@
                 </div>
             {/if}
 
-            <!-- ── Subsystem cards ─────────────────────────────────── -->
-            <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <!-- ── What happened: one thread of kept visits and filtered frames ── -->
+            <section class="card-base mt-6 p-5" data-health-timeline>
+                <header class="flex flex-wrap items-end justify-between gap-3 border-b border-slate-200/70 pb-3 dark:border-slate-700/50">
+                    <div class="min-w-0">
+                        <h3 class="font-display text-xl font-bold text-slate-950 dark:text-white">
+                            {$_('jobs.errors_activity_title', { default: 'What happened' })}
+                        </h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                            {$_('jobs.errors_activity_subtitle', {
+                                default: 'Visits recorded and frames filtered out, in the order they happened'
+                            })}
+                        </p>
+                    </div>
+                    <span class="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        {$_('jobs.errors_activity_window', {
+                            values: { started: startedAgoText() },
+                            default: 'Since this instance started, {started}'
+                        })}
+                    </span>
+                </header>
+
+                {#if instanceWindow === null}
+                    <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+                        {$_('jobs.errors_activity_no_window', {
+                            default: 'This instance has not reported when it started, so activity cannot be placed in a window yet.'
+                        })}
+                    </p>
+                {:else}
+                    <div class="mt-3">
+                        <FieldLog
+                            rows={timelineRows}
+                            hiddenCount={timelineHidden}
+                            loading={detectionsStore.isLoading && timelineRows.length === 0}
+                            onselect={(detection) => goToDetection(detection.frigate_event)}
+                            onopenfiltered={(eventId) => goToDetection(eventId)}
+                            onseeall={() => goToHistory()}
+                        />
+                    </div>
+                {/if}
+            </section>
+
+            <!-- ── Subsystem detail ────────────────────────────────── -->
+            <details class="card-base mt-6 p-0" data-subsystem-detail>
+                <summary class="flex cursor-pointer items-center justify-between gap-3 px-5 py-4 text-xs font-black uppercase tracking-[0.18em] text-slate-500 focus-ring dark:text-slate-400">
+                    <span>{$_('jobs.errors_subsystems_title', { default: 'Subsystem detail' })}</span>
+                    <span class="text-slate-400" aria-hidden="true">+</span>
+                </summary>
+                <div class="grid grid-cols-1 gap-4 px-5 pb-5 md:grid-cols-2 xl:grid-cols-3">
 
                 <!-- Event Pipeline -->
                 <article class="rounded-3xl border p-5 shadow-sm {toneClass(eventPipelineStatus())}">
@@ -692,7 +779,8 @@
                     </div>
                 </article>
 
-            </div>
+                </div>
+            </details>
         </div>
     </section>
 
