@@ -32,6 +32,7 @@ class AuthStore {
     llmEnabled = $state(false);
     llmReady = $state(false);
     ebirdEnabled = $state(false);
+    ebirdDefaultRadiusKm = $state(25);
     inaturalistEnabled = $state(false);
     enrichmentMode = $state("per_enrichment");
     enrichmentSingleProvider = $state("wikipedia");
@@ -87,6 +88,7 @@ class AuthStore {
             this.llmEnabled = status.llm_enabled ?? false;
             this.llmReady = status.llm_ready ?? false;
             this.ebirdEnabled = status.ebird_enabled ?? false;
+            this.ebirdDefaultRadiusKm = status.ebird_default_radius_km ?? 25;
             this.inaturalistEnabled = status.inaturalist_enabled ?? false;
             this.enrichmentMode = status.enrichment_mode ?? "per_enrichment";
             this.enrichmentSingleProvider = status.enrichment_single_provider ?? "wikipedia";

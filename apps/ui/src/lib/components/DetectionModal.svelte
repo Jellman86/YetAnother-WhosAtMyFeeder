@@ -59,6 +59,7 @@
     import { formatTemperature } from '../utils/temperature';
     import { getManualTagSearchOptions } from '../search/manual-tag-search';
     import {
+        formatDistance,
         formatPrecipitation,
         formatWindSpeed,
         getTemperatureUnitForSystem,
@@ -850,7 +851,9 @@
         enrichmentLinksProviders.map((provider) => String(provider || '').toLowerCase())
     );
     const ebirdEnabled = $derived(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled ?? false);
-    const ebirdRadius = $derived(settingsStore.settings?.ebird_default_radius_km ?? 25);
+    const ebirdRadius = $derived(
+        settingsStore.settings?.ebird_default_radius_km ?? authStore.ebirdDefaultRadiusKm ?? 25
+    );
     const ebirdDaysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
     const showEbirdNearby = $derived(
         enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
@@ -1283,6 +1286,12 @@
         )
     );
     const temperatureUnit = $derived(getTemperatureUnitForSystem(weatherUnitSystem));
+    const ebirdRadiusLabel = $derived(
+        formatDistance(ebirdRadius, weatherUnitSystem, {
+            metric: $_('common.unit_km', { default: 'km' }),
+            imperial: $_('common.unit_mi', { default: 'mi' })
+        })
+    );
 
     function formatAudioOffset(offsetSeconds: number): string {
         const abs = Math.abs(offsetSeconds);
@@ -3382,7 +3391,7 @@
                                         <div class="flex items-center gap-1.5 mt-0.5">
                                             <span class="text-[9px] font-bold text-sky-600/60 dark:text-sky-500/60">eBird</span>
                                             <span class="w-0.5 h-0.5 rounded-full bg-sky-300"></span>
-                                            <span class="text-[9px] font-medium text-slate-400">{ebirdRadius}km · {ebirdDaysBack}d</span>
+                                            <span class="text-[9px] font-medium text-slate-400">{ebirdRadiusLabel} · {ebirdDaysBack}d</span>
                                         </div>
                                     </div>
                                 </div>

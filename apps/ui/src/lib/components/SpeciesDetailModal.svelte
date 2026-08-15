@@ -28,6 +28,7 @@
     import { toAppPath } from '../app/url-base';
     import { formatDate as formatDateValue, formatDateTime, formatTime } from '../utils/datetime';
     import { getErrorMessage } from '../utils/error-handling';
+    import { formatDistance, resolveWeatherUnitSystem } from '../utils/weather-units';
 
     interface Props {
         speciesName: string;
@@ -118,8 +119,22 @@
             : (settingsStore.settings?.enrichment_seasonality_source ?? authStore.enrichmentSeasonalitySource ?? 'disabled')
     );
     const ebirdEnabled = $derived(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled ?? false);
-    const ebirdRadius = $derived(settingsStore.settings?.ebird_default_radius_km ?? 25);
+    const ebirdRadius = $derived(
+        settingsStore.settings?.ebird_default_radius_km ?? authStore.ebirdDefaultRadiusKm ?? 25
+    );
     const ebirdDaysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
+    const ebirdWeatherUnitSystem = $derived(
+        resolveWeatherUnitSystem(
+            settingsStore.settings?.location_weather_unit_system ?? authStore.locationWeatherUnitSystem,
+            settingsStore.settings?.location_temperature_unit ?? authStore.locationTemperatureUnit
+        )
+    );
+    const ebirdRadiusLabel = $derived(
+        formatDistance(ebirdRadius, ebirdWeatherUnitSystem, {
+            metric: $_('common.unit_km', { default: 'km' }),
+            imperial: $_('common.unit_mi', { default: 'mi' })
+        })
+    );
     const rangeMapCenter = $derived(
         authStore.canModify && settingsStore.settings?.location_latitude && settingsStore.settings?.location_longitude
             ? [settingsStore.settings.location_latitude, settingsStore.settings.location_longitude] as [number, number]
@@ -720,7 +735,7 @@
                                         <div class="flex flex-col">
                                         <h3 class="text-sm font-semibold text-slate-900 dark:text-white">eBird · {$_('species_detail.recent_sightings')}</h3>
                                             <div class="flex items-center gap-1.5 mt-0.5">
-                                                <span class="text-xs font-medium text-slate-500 dark:text-slate-400">{ebirdRadius}km · {ebirdDaysBack}d</span>
+                                                <span class="text-xs font-medium text-slate-500 dark:text-slate-400">{ebirdRadiusLabel} · {ebirdDaysBack}d</span>
                                             </div>
                                         </div>
                                     </div>

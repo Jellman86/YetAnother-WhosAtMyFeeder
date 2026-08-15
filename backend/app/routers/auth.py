@@ -70,6 +70,7 @@ class AuthStatusResponse(BaseModel):
     llm_enabled: bool = False
     llm_ready: bool = False
     ebird_enabled: bool = False
+    ebird_default_radius_km: int = 25
     inaturalist_enabled: bool = False
     enrichment_mode: str = "per_enrichment"
     enrichment_single_provider: str = "wikipedia"
@@ -279,6 +280,7 @@ async def get_auth_status(request: Request):
         llm_enabled=settings.llm.enabled,
         llm_ready=settings.llm.enabled and bool(settings.llm.api_key),
         ebird_enabled=ebird_active,
+        ebird_default_radius_km=settings.ebird.default_radius_km,
         inaturalist_enabled=settings.inaturalist.enabled,
         enrichment_mode=effective_enrichment["mode"],
         enrichment_single_provider=effective_enrichment["single_provider"],

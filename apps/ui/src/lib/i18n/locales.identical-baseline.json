@@ -71,6 +71,7 @@
     "settings.location.auto",
     "settings.location.celsius",
     "settings.location.fahrenheit",
+    "settings.location.imperial",
     "settings.notifications.mode_standard",
     "settings.pushover.priority_normal",
     "settings.tabs.debug",

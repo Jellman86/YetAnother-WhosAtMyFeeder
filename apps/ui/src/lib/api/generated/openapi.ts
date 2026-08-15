@@ -192,6 +192,7 @@ export interface components {
     birdnet_enabled?: boolean;
     date_format?: string;
     display_common_names?: boolean;
+    ebird_default_radius_km?: number;
     ebird_enabled?: boolean;
     enrichment_links_sources?: Array<string>;
     enrichment_mode?: string;
