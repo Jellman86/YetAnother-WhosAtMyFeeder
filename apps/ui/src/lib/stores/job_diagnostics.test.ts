@@ -663,17 +663,32 @@ describe('jobDiagnosticsStore', () => {
         expect(jobDiagnosticsStore.bundles.length).toBe(0);
     });
 
-    it('renders one saved-bundle library and themed capture fields', () => {
+    it('keeps the export behind a disclosure so the health view stays about health', () => {
         expect(errorsPageSource).toContain('System Status');
         expect(errorsPageSource).toContain('Recent Backend Diagnostics');
-        expect(errorsPageSource).toContain('Export Current JSON');
+        expect(errorsPageSource).toMatch(/<details[^>]*data-diagnostics-export/);
+    });
+
+    it('can still capture, download and clear a bundle', () => {
         expect(errorsPageSource).toContain('Capture Bundle');
+        expect(errorsPageSource).toContain('Download without saving');
+        expect(errorsPageSource).toContain('captureBundle');
+        expect(errorsPageSource).toContain('downloadCurrentJson');
+        expect(errorsPageSource).toContain('downloadBundle(bundle)');
+        expect(errorsPageSource).toContain('removeBundle(bundle.id)');
+        expect(errorsPageSource).toContain('clearBundles()');
+        expect(errorsPageSource).toContain('No captured bundles available yet.');
+    });
+
+    it('keeps the notes that make a bundle worth attaching to a report', () => {
+        expect(errorsPageSource).toContain('bind:value={reportNotes}');
+        expect(errorsPageSource).toContain('bundleNotesPreview(bundle)');
+    });
+
+    it('lists saved bundles as rows rather than nested cards', () => {
+        // layout-patterns 6: rows in a list are separated by hairlines.
+        expect(errorsPageSource).toMatch(/<ul[^>]*divide-y[^>]*>/);
         expect(errorsPageSource).not.toContain('Latest Bundle');
         expect(errorsPageSource).not.toContain('Download Latest');
-        expect(errorsPageSource).toContain('Newest');
-        expect(errorsPageSource).toContain('No captured bundles available yet.');
-        expect(errorsPageSource).toContain('Saved Bundles');
-        expect(errorsPageSource).toContain('rounded-3xl border border-slate-200/80 bg-white/85 px-4 py-3');
-        expect(errorsPageSource).toContain('rounded-2xl border border-slate-200/80 bg-white/85 px-3');
     });
 });

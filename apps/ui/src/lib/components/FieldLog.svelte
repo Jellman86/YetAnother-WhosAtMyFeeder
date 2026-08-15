@@ -17,8 +17,12 @@
          * before, so the dashboard is unaffected.
          */
         rows?: HealthTimelineRow[];
-        /** Filtered frames carry no record to open, so their action is suppressed. */
-        onopenfiltered?: (eventId: string) => void;
+        /** Off when the surrounding page already titles the list and states its window. */
+        showHeader?: boolean;
+        /** Empty-state wording, for pages whose window is not "today". */
+        emptyMessage?: string | null;
+        /** Truncation wording, for the same reason. */
+        hiddenLabel?: string | null;
         /** Visits in the window beyond the ones shown, so truncation is stated. */
         hiddenCount?: number;
         /** Identifying requires owner access, so guests get a read-only row. */
@@ -32,7 +36,9 @@
     let {
         visits = [],
         rows,
-        onopenfiltered,
+        showHeader = true,
+        emptyMessage = null,
+        hiddenLabel = null,
         hiddenCount = 0,
         canIdentify = false,
         loading = false,
@@ -77,6 +83,7 @@
 </script>
 
 <section class="space-y-4" data-dashboard-field-log>
+    {#if showHeader}
     <header class="flex items-end justify-between gap-3 border-b border-slate-200/70 pb-3 dark:border-slate-700/50">
         <div class="min-w-0">
             <h2 class="font-display text-xl font-bold text-slate-950 dark:text-white">
@@ -98,8 +105,9 @@
             </svg>
         </button>
     </header>
+    {/if}
 
-    {#if loading && visits.length === 0}
+    {#if loading && renderRows.length === 0}
         <div class="space-y-2" data-field-log-loading>
             {#each Array(5) as _unused, index (index)}
                 <div class="h-16 animate-pulse rounded-xl bg-slate-100/80 dark:bg-slate-800/50"></div>
@@ -113,7 +121,7 @@
                 </svg>
             </div>
             <p class="font-medium text-slate-500 dark:text-slate-400">
-                {$_('dashboard.waiting_first_visitor')}
+                {emptyMessage ?? $_('dashboard.waiting_first_visitor')}
             </p>
         </div>
     {:else}
@@ -136,7 +144,7 @@
                             <span class="relative mt-[0.4rem] h-1.5 w-1.5 shrink-0 self-start rounded-full bg-slate-400 ring-2 ring-white dark:bg-slate-500 dark:ring-slate-900"></span>
                         </span>
 
-                        <FilteredFramePreview eventId={drop.eventId} label={drop.label} onopen={() => onopenfiltered?.(drop.eventId)} />
+                        <FilteredFramePreview eventId={drop.eventId} label={drop.label} />
 
                         <div class="min-w-0">
                             <p class="truncate text-sm font-semibold italic text-slate-700 dark:text-slate-200">
@@ -277,10 +285,11 @@
                 onclick={() => onseeall?.()}
                 data-field-log-more
             >
-                {$_('dashboard.field_log.earlier', {
-                    values: { count: hiddenCount },
-                    default: '{count} earlier visits today'
-                })}
+                {hiddenLabel ??
+                    $_('dashboard.field_log.earlier', {
+                        values: { count: hiddenCount },
+                        default: '{count} earlier visits today'
+                    })}
                 <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M10 5v10m0 0-4-4m4 4 4-4" />
                 </svg>
