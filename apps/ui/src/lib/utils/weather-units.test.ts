@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    formatDistance,
     formatPrecipitation,
     formatWindSpeed,
     getTemperatureUnitForSystem,
@@ -42,4 +43,36 @@ describe('weather units helpers', () => {
             expect(getTemperatureUnitForSystem(system)).toBe(expected);
         }
     );
+});
+
+describe('distance helpers', () => {
+    it('keeps metric distances in kilometres', () => {
+        expect(formatDistance(25, 'metric')).toBe('25 km');
+    });
+
+    it.each(['imperial', 'british'] as const satisfies ReadonlyArray<WeatherUnitSystem>)(
+        'converts distances to miles for %s',
+        system => {
+            expect(formatDistance(25, system)).toBe('16 mi');
+        }
+    );
+
+    it('keeps one decimal below ten so short radii stay honest', () => {
+        expect(formatDistance(1, 'imperial')).toBe('0.6 mi');
+        expect(formatDistance(1, 'metric')).toBe('1 km');
+    });
+
+    it('drops the decimal from ten upwards', () => {
+        expect(formatDistance(16.09344, 'imperial')).toBe('10 mi');
+    });
+
+    it('returns an empty string for absent or unusable values', () => {
+        expect(formatDistance(null, 'imperial')).toBe('');
+        expect(formatDistance(undefined, 'metric')).toBe('');
+        expect(formatDistance(Number.NaN, 'metric')).toBe('');
+    });
+
+    it('accepts caller-supplied unit labels for i18n', () => {
+        expect(formatDistance(25, 'imperial', { metric: 'km', imperial: 'milles' })).toBe('16 milles');
+    });
 });

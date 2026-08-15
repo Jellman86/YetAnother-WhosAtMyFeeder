@@ -1275,6 +1275,11 @@
             "title": "Display Common Names",
             "type": "boolean"
           },
+          "ebird_default_radius_km": {
+            "default": 25,
+            "title": "Ebird Default Radius Km",
+            "type": "integer"
+          },
           "ebird_enabled": {
             "default": false,
             "title": "Ebird Enabled",

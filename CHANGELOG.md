@@ -17,6 +17,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **eBird distances now follow your chosen unit system.** The notable-nearby scope, the species and
+  detection sighting panels, and the eBird radius field render kilometres for Metric and miles for
+  Imperial and British, instead of always printing km. The radius is still stored and sent to eBird
+  in kilometres because that is what its API accepts, so switching units never rewrites a saved
+  search radius. The unit preference is now labelled **Display Units** rather than Weather Units,
+  since it no longer covers weather alone, and a public dashboard reports the radius the owner
+  actually configured instead of assuming 25 km
+  ([#207](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/207)).
 - **Alternative frame previews now use their retained full-resolution images.** The compact 240px
   JPEGs remain limited to the filmstrip, while selecting a frame or comparing its full-frame peer
   loads the authenticated full-size candidate instead of stretching a thumbnail across the modal.

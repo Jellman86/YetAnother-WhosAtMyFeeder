@@ -3411,6 +3411,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             <!-- Integrations Tab -->
             {#if activeTab === 'integrations'}
                 <IntegrationSettings
+                    weatherUnitSystem={locationWeatherUnitSystem}
                     bind:birdnetEnabled
                     bind:birdnetUrl
                     bind:birdnetExternalUrl

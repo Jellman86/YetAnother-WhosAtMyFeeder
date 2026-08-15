@@ -29,6 +29,7 @@ def reset_auth_config():
     original_initial_setup_complete = settings.auth.initial_setup_complete
     original_public = settings.public_access.enabled
     original_weather_unit_system = settings.location.weather_unit_system
+    original_ebird_radius = settings.ebird.default_radius_km
 
     yield
 
@@ -38,6 +39,7 @@ def reset_auth_config():
     settings.auth.initial_setup_complete = original_initial_setup_complete
     settings.public_access.enabled = original_public
     settings.location.weather_unit_system = original_weather_unit_system
+    settings.ebird.default_radius_km = original_ebird_radius
 
 
 @pytest.mark.asyncio
@@ -103,6 +105,24 @@ async def test_auth_status_exposes_weather_unit_system(client: httpx.AsyncClient
     assert response.status_code == 200
     data = response.json()
     assert data["location_weather_unit_system"] == "imperial"
+
+
+@pytest.mark.asyncio
+async def test_auth_status_exposes_ebird_radius_for_guests(client: httpx.AsyncClient):
+    """A guest dashboard states the search radius it actually used.
+
+    Without this the public view falls back to a hard-coded 25 km and claims a
+    scope the owner never configured.
+    """
+    settings.auth.enabled = True
+    settings.auth.initial_setup_complete = True
+    settings.public_access.enabled = True
+    settings.ebird.default_radius_km = 40
+
+    response = await client.get("/api/auth/status")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["ebird_default_radius_km"] == 40
 
 
 @pytest.mark.asyncio

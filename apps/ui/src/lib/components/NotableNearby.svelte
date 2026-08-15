@@ -6,6 +6,7 @@
     import { getErrorMessage } from '../utils/error-handling';
     import { authStore } from '../stores/auth.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { formatDistance, resolveWeatherUnitSystem } from '../utils/weather-units';
 
     interface Props {
         canConfigure?: boolean;
@@ -33,8 +34,22 @@
             : (settingsStore.settings?.enrichment_rarity_source ?? authStore.enrichmentRaritySource ?? 'disabled')
     );
     const sourceEnabled = $derived(ebirdEnabled && raritySource === 'ebird');
-    const radius = $derived(settingsStore.settings?.ebird_default_radius_km ?? 25);
+    const radius = $derived(
+        settingsStore.settings?.ebird_default_radius_km ?? authStore.ebirdDefaultRadiusKm ?? 25
+    );
     const daysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
+    const weatherUnitSystem = $derived(
+        resolveWeatherUnitSystem(
+            settingsStore.settings?.location_weather_unit_system ?? authStore.locationWeatherUnitSystem,
+            settingsStore.settings?.location_temperature_unit ?? authStore.locationTemperatureUnit
+        )
+    );
+    const radiusLabel = $derived(
+        formatDistance(radius, weatherUnitSystem, {
+            metric: $_('common.unit_km', { default: 'km' }),
+            imperial: $_('common.unit_mi', { default: 'mi' })
+        })
+    );
 
     async function loadNotableNearby(distKm: number, daysBack: number): Promise<void> {
         const version = ++requestVersion;
@@ -98,7 +113,7 @@
         </div>
         {#if sourceEnabled}
             <span class="shrink-0 rounded-full border border-amber-200 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:border-amber-800/60 dark:text-amber-300">
-                {$_('dashboard.notable_nearby.scope', { values: { radius, days: daysBack } })}
+                {$_('dashboard.notable_nearby.scope', { values: { distance: radiusLabel, days: daysBack } })}
             </span>
         {/if}
     </header>
@@ -130,7 +145,7 @@
     {:else if result && result.results.length === 0}
         <div class="rounded-xl border border-dashed border-amber-200 bg-amber-50/40 px-4 py-5 dark:border-amber-900/50 dark:bg-amber-950/10">
             <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
-                {$_('dashboard.notable_nearby.empty', { values: { radius, days: daysBack } })}
+                {$_('dashboard.notable_nearby.empty', { values: { distance: radiusLabel, days: daysBack } })}
             </p>
             <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 {$_('dashboard.notable_nearby.empty_hint')}

@@ -137,7 +137,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `BIRDWEATHER__STATION_TOKEN` | _(unset)_ | BirdWeather station token. |
 | `EBIRD__ENABLED` | `false` | Enable eBird hotspot lookups. |
 | `EBIRD__API_KEY` | _(unset)_ | eBird API key. |
-| `EBIRD__DEFAULT_RADIUS_KM` | `25` | Default hotspot search radius. |
+| `EBIRD__DEFAULT_RADIUS_KM` | `25` | Default hotspot search radius, always in kilometres (1-50) regardless of the display unit system. |
 | `EBIRD__DEFAULT_DAYS_BACK` | `14` | Default hotspot look-back window. |
 | `EBIRD__MAX_RESULTS` | `25` | Max hotspot results. |
 | `EBIRD__LOCALE` | `en` | eBird common-name locale. |
