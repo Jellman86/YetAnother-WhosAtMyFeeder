@@ -45,11 +45,19 @@ function placeholders(value: unknown): string[] {
     return [...value.matchAll(/\{([a-zA-Z0-9_]+)\}/g)].map(match => match[1]).sort();
 }
 
+// Located by scanning rather than by building a regex out of the key, so no
+// caller-supplied text is ever compiled as a pattern.
+const VALUES_SEARCH_WINDOW = 200;
+
 function valuesPassedFor(source: string, key: string): string[] {
-    const call = new RegExp(`${key.replace(/\./g, '\\.')}'[^)]*?values:\\s*\\{([^}]*)\\}`, 's');
-    const match = source.match(call);
-    if (!match) return [];
-    return [...match[1].matchAll(/([a-zA-Z0-9_]+)\s*:/g)].map(m => m[1]).sort();
+    const keyAt = source.indexOf(`'${key}'`);
+    if (keyAt === -1) return [];
+    const valuesAt = source.indexOf('values:', keyAt);
+    if (valuesAt === -1 || valuesAt - keyAt > VALUES_SEARCH_WINDOW) return [];
+    const open = source.indexOf('{', valuesAt);
+    const close = source.indexOf('}', open);
+    if (open === -1 || close === -1) return [];
+    return [...source.slice(open + 1, close).matchAll(/([a-zA-Z0-9_]+)\s*:/g)].map(m => m[1]).sort();
 }
 
 const CONTRACTS: Array<[string, string, string[], string]> = [
