@@ -708,6 +708,7 @@ export interface components {
     generated_at: string;
     health: Record<string, unknown>;
     maintenance_coordinator: Record<string, unknown>;
+    media_sample: components['schemas']['MediaSampleResponse'];
     schema_version: string;
     server: components['schemas']['DiagnosticsBundleServerResponse'];
     startup_warnings: Array<Record<string, unknown>>;
@@ -727,6 +728,7 @@ export interface components {
     diagnostic_events: number;
     health_status: string;
     startup_warning_count: number;
+    video_sample_format?: string;
 };
     DiagnosticsWorkspaceResponse: {
     backend_diagnostics: components['schemas']['BackendDiagnosticsSnapshotResponse'];
@@ -1072,6 +1074,16 @@ export interface components {
     species?: string | null;
     status: "updated" | "unchanged";
     taxa_id?: number | null;
+};
+    MediaSampleResponse: {
+    available?: boolean;
+    bytes_read?: number;
+    codec?: string | null;
+    codec_tag?: string | null;
+    event_id?: string | null;
+    note?: string;
+    safari_compatible?: boolean | null;
+    source?: string | null;
 };
     MessageResponse: {
     message: string;

@@ -15,7 +15,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   downgrading a shared modern-driver dependency
   ([#177](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/pull/177)).
 
-### Added
+- **Diagnostics bundles now say how your clips are packaged.** Safari refuses HEVC tagged `hev1` in
+  a video element while QuickTime plays it happily, so "the download opens fine" never settled
+  whether the packaging was the problem. A bundle now reports the sample format of a recent clip and
+  whether Safari will accept it, read straight from the container without needing ffmpeg in the
+  image. There is a new troubleshooting page covering the fix and the two things about it that are
+  easy to miss ([#167](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/167)).
 
 - **The Health page now says how the feeder is doing in colour, not just in a badge.** The status
   card takes the verdict itself: green when everything is healthy, amber when something is waiting on
