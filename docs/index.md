@@ -59,6 +59,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 Solving common issues and using diagnostic tools.
 - **[🛠 Diagnostics & Logs](troubleshooting/diagnostics.md)** - Using MQTT tests and Backfill reports.
 - **[📼 Frigate Event Not Found](troubleshooting/frigate-event-not-found.md)** - Diagnose short-lived events and missing upstream media.
+- **[🍎 Video Will Not Play in Safari](troubleshooting/safari-video-playback.md)** - Why a clip that opens in QuickTime can still be refused by Safari, and how to check the packaging.
 
 ## Engineering & Quality
 How the project is built and held to standard.

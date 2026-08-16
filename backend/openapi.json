@@ -4925,6 +4925,9 @@
             "title": "Maintenance Coordinator",
             "type": "object"
           },
+          "media_sample": {
+            "$ref": "#/components/schemas/MediaSampleResponse"
+          },
           "schema_version": {
             "title": "Schema Version",
             "type": "string"
@@ -4964,7 +4967,8 @@
           "maintenance_coordinator",
           "startup_warnings",
           "backend_diagnostics",
-          "focused_diagnostics"
+          "focused_diagnostics",
+          "media_sample"
         ],
         "title": "DiagnosticsBundleResponse",
         "type": "object"
@@ -5017,6 +5021,11 @@
           "startup_warning_count": {
             "title": "Startup Warning Count",
             "type": "integer"
+          },
+          "video_sample_format": {
+            "default": "unknown",
+            "title": "Video Sample Format",
+            "type": "string"
           }
         },
         "required": [
@@ -7445,6 +7454,83 @@
           "manual_tagged"
         ],
         "title": "ManualTagResponse",
+        "type": "object"
+      },
+      "MediaSampleResponse": {
+        "description": "How this instance's clips are packaged.\n\nSafari refuses HEVC tagged `hev1` in a video element while QuickTime plays\nit, so a report of \"the download works but the page does not\" is answered\nhere rather than by asking for ffprobe output.",
+        "properties": {
+          "available": {
+            "default": false,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "bytes_read": {
+            "default": 0,
+            "title": "Bytes Read",
+            "type": "integer"
+          },
+          "codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codec"
+          },
+          "codec_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codec Tag"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "safari_compatible": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safari Compatible"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "title": "MediaSampleResponse",
         "type": "object"
       },
       "MessageResponse": {

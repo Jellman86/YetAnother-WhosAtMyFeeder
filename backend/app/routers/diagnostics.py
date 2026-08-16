@@ -6,11 +6,12 @@ from pydantic import BaseModel, Field
 
 from app.auth import AuthContext, require_owner
 from app.services.error_diagnostics import error_diagnostics_history
+from app.services.media_probe import collect_video_sample_diagnostic
 
 router = APIRouter(prefix="/diagnostics", tags=["diagnostics"])
 
 WORKSPACE_SCHEMA_VERSION = "2026-03-12.owner-incident-workspace.v1"
-BUNDLE_SCHEMA_VERSION = "2026-04-09.owner-diagnostics-bundle.v1"
+BUNDLE_SCHEMA_VERSION = "2026-08-15.owner-diagnostics-bundle.v2"
 
 _BACKFILL_STALE_JOB_SECONDS = 600.0
 
@@ -92,12 +93,31 @@ class DiagnosticsBundleSummaryResponse(BaseModel):
     backfill_stale_jobs: int
     backfill_running_jobs: int
     backfill_failed_jobs: int
+    video_sample_format: str = "unknown"
 
 
 class DiagnosticsBundleServerResponse(BaseModel):
     service: str
     version: str
     startup_instance_id: str
+
+
+class MediaSampleResponse(BaseModel):
+    """How this instance's clips are packaged.
+
+    Safari refuses HEVC tagged `hev1` in a video element while QuickTime plays
+    it, so a report of "the download works but the page does not" is answered
+    here rather than by asking for ffprobe output.
+    """
+
+    available: bool = False
+    event_id: str | None = None
+    source: str | None = None
+    bytes_read: int = 0
+    codec_tag: str | None = None
+    codec: str | None = None
+    safari_compatible: bool | None = None
+    note: str = ""
 
 
 class DiagnosticsBundleResponse(BaseModel):
@@ -113,6 +133,7 @@ class DiagnosticsBundleResponse(BaseModel):
     startup_warnings: list[dict[str, Any]]
     backend_diagnostics: BackendDiagnosticsSnapshotResponse
     focused_diagnostics: FocusedDiagnosticsResponse
+    media_sample: MediaSampleResponse
 
 
 class ClearDiagnosticsWorkspaceResponse(BaseModel):
@@ -267,6 +288,8 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
     startup_warnings = workspace.get("startup_warnings") if isinstance(workspace, dict) else []
     startup_warnings = startup_warnings if isinstance(startup_warnings, list) else []
 
+    media_sample = await collect_video_sample_diagnostic()
+
     focused = workspace.get("focused_diagnostics") or {}
     backfill_focus = focused.get("backfill") if isinstance(focused, dict) else {}
     backfill_focus = backfill_focus if isinstance(backfill_focus, dict) else {}
@@ -281,6 +304,7 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
             "backfill_stale_jobs": len(backfill_focus.get("stale_jobs") or []),
             "backfill_running_jobs": len(backfill_focus.get("running_jobs") or []),
             "backfill_failed_jobs": len(backfill_focus.get("failed_jobs") or []),
+            "video_sample_format": media_sample.get("codec_tag") or "unknown",
         },
         "server": {
             "service": health.get("service") or "unknown",
@@ -295,6 +319,7 @@ async def _collect_bundle_payload(limit: int) -> dict[str, Any]:
         "startup_warnings": startup_warnings,
         "backend_diagnostics": backend_diagnostics,
         "focused_diagnostics": workspace.get("focused_diagnostics") or {},
+        "media_sample": media_sample,
     }
 
 
