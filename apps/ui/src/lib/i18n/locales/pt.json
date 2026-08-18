@@ -2169,7 +2169,9 @@
       "legend_external": "o seu broker e navegador",
       "legend_note": "Nada sai da sua rede além das chamadas listadas abaixo.",
       "not_checked": "não verificado",
-      "no_reading": "sem leitura a partir daqui"
+      "no_reading": "sem leitura a partir daqui",
+      "owner_only": "apenas proprietário",
+      "owner_only_detail": "leitura visível ao proprietário"
     },
     "storage": {
       "title": "O que é guardado",
@@ -2184,6 +2186,10 @@
       "inat_desc": "pesquisas de nomes",
       "weather": "API de meteorologia",
       "weather_desc": "condições por deteção",
+      "ebird": "eBird",
+      "ebird_desc": "avistamentos recentes perto da sua localização",
+      "osm": "blocos do OpenStreetMap",
+      "osm_desc": "mapa de avistamentos, carregado pelo navegador de cada visitante",
       "llm": "Análise por LLM",
       "llm_desc": "a sua chave, o seu fornecedor",
       "telemetry": "Telemetria",

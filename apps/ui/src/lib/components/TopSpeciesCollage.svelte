@@ -195,7 +195,7 @@
 
         <button
             type="button"
-            class="absolute inset-x-0 bottom-0 block px-4 pb-4 pt-16 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2"
+            class="absolute inset-x-0 bottom-0 block bg-gradient-to-t from-slate-950/85 via-slate-950/45 to-transparent px-4 pb-4 pt-16 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2"
             onclick={() => onopen?.()}
         >
             <span class="text-xs font-semibold uppercase tracking-[0.16em] text-white/75">

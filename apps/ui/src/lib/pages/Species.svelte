@@ -1678,7 +1678,7 @@
                                 {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-brand-700 dark:text-brand-300">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-slate-400" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
                                 <td class="hidden px-3 py-3 text-right font-semibold lg:table-cell {(deltaForMode(item, sourceMode) ?? 0) > 0 ? 'text-accent-600 dark:text-accent-400' : (deltaForMode(item, sourceMode) ?? 0) < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400'}">{span === 'all' ? '—' : trendForMode(item, sourceMode)}</td>
                                 <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>
-                                <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{(item.avg_confidence ?? 0).toFixed(2)}</td>
+                                <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}</td>
                                 <td class="hidden px-3 py-3 text-slate-500 dark:text-slate-400 lg:table-cell">{formatDate(activityTimestampForMode(item, sourceMode))}</td>
                             </tr>
                         {/each}
@@ -1775,10 +1775,10 @@
                             <path d="M6 8l4 4 4-4"></path>
                         </svg>
                         {#if timeline?.sunrise_range}
-                            <span class="font-semibold normal-case tracking-normal text-amber-600 dark:text-amber-400">{timeline.sunrise_range}</span>
+                            <span class="font-semibold normal-case tracking-normal text-amber-600 dark:text-amber-400">{$_('leaderboard.sunrise')} {timeline.sunrise_range}</span>
                         {/if}
                         {#if timeline?.sunset_range}
-                            <span class="font-semibold normal-case tracking-normal text-orange-600 dark:text-orange-400">{timeline.sunset_range}</span>
+                            <span class="font-semibold normal-case tracking-normal text-orange-600 dark:text-orange-400">{$_('leaderboard.sunset')} {timeline.sunset_range}</span>
                         {/if}
                     </summary>
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">

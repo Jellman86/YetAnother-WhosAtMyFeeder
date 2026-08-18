@@ -2160,7 +2160,9 @@
       "legend_external": "Ihr Broker und Browser",
       "legend_note": "Nichts verlässt Ihr Netzwerk außer den unten aufgeführten Aufrufen.",
       "not_checked": "nicht geprüft",
-      "no_reading": "von hier aus keine Messung"
+      "no_reading": "von hier aus keine Messung",
+      "owner_only": "nur Besitzer",
+      "owner_only_detail": "Messwert nur für den Besitzer sichtbar"
     },
     "storage": {
       "title": "Was gespeichert wird",
@@ -2175,6 +2177,10 @@
       "inat_desc": "Namensabfragen",
       "weather": "Wetter-API",
       "weather_desc": "Bedingungen je Erkennung",
+      "ebird": "eBird",
+      "ebird_desc": "aktuelle Sichtungen in Ihrer Nähe",
+      "osm": "OpenStreetMap-Kacheln",
+      "osm_desc": "Sichtungskarte, geladen vom Browser jedes Betrachters",
       "llm": "LLM-Analyse",
       "llm_desc": "Ihr Schlüssel, Ihr Anbieter",
       "telemetry": "Telemetrie",

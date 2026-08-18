@@ -28,8 +28,13 @@
     let cameraFailed = $state(false);
     let classifier = $state<ClassifierStatus | null>(null);
     let classifierFailed = $state(false);
+    let cameraRequested = false;
 
-    onMount(() => {
+    // Camera status is an owner reading: guests would only collect a 403, so the
+    // request waits for owner access instead of firing and failing on every visit.
+    $effect(() => {
+        if (!authStore.hasOwnerAccess || cameraRequested) return;
+        cameraRequested = true;
         const controller = new AbortController();
 
         void (async () => {
@@ -45,6 +50,12 @@
                 }
             }
         })();
+
+        return () => controller.abort();
+    });
+
+    onMount(() => {
+        const controller = new AbortController();
 
         void (async () => {
             try {
@@ -67,6 +78,14 @@
     const noReading = $_('about.pipeline.no_reading', { default: 'no reading from here' });
     // Steps with no health endpoint to probe. Saying so beats an empty space that reads as a fault.
     const notChecked = $_('about.pipeline.not_checked', { default: 'not checked' });
+    // Readings the backend reserves for the owner. Guests see whose reading it is,
+    // not an "unknown" that looks like a fault in a healthy install.
+    const ownerOnly = $_('about.pipeline.owner_only', { default: 'owner only' });
+    const ownerOnlyDetail = $_('about.pipeline.owner_only_detail', {
+        default: 'reading visible to the owner'
+    });
+
+    const isGuestView = $derived(authStore.statusLoaded && !authStore.hasOwnerAccess);
 
     const birdnetEnabled = $derived(
         settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false
@@ -82,6 +101,7 @@
     );
 
     const cameraSummary = $derived.by(() => {
+        if (isGuestView) return { detail: ownerOnlyDetail, state: ownerOnly, tone: 'off' as Tone };
         if (cameraFailed) return { detail: noReading, state: unknown, tone: 'unknown' as Tone };
         if (!cameraStatus) return { detail: '…', state: null, tone: 'unknown' as Tone };
         const cameras = cameraStatus.cameras ?? [];
@@ -156,13 +176,19 @@
         {
             key: 'notify',
             kind: 'optional',
-            detail: notificationsEnabled
-                ? $_('about.pipeline.notify_on', { default: 'at least one channel configured' })
-                : $_('about.pipeline.notify_off', { default: 'nothing configured' }),
-            state: notificationsEnabled
-                ? $_('about.pipeline.enabled', { default: 'enabled' })
-                : $_('about.pipeline.off', { default: 'off' }),
-            tone: (notificationsEnabled ? 'ok' : 'off') as Tone
+            // Notification channels are only reported in owner settings; a guest
+            // reading "off" would be a guess presented as a measurement.
+            detail: isGuestView
+                ? ownerOnlyDetail
+                : notificationsEnabled
+                  ? $_('about.pipeline.notify_on', { default: 'at least one channel configured' })
+                  : $_('about.pipeline.notify_off', { default: 'nothing configured' }),
+            state: isGuestView
+                ? ownerOnly
+                : notificationsEnabled
+                  ? $_('about.pipeline.enabled', { default: 'enabled' })
+                  : $_('about.pipeline.off', { default: 'off' }),
+            tone: (isGuestView ? 'off' : notificationsEnabled ? 'ok' : 'off') as Tone
         },
         {
             key: 'browser',

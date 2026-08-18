@@ -20,6 +20,12 @@ describe('top species collage contract', () => {
         expect(collageSource).toContain('!reduceMotion && photos.length > TILES');
     });
 
+    it('backs the headline block with its own scrim so the kicker stays legible on bright slices', () => {
+        // The card-wide gradient thins to /35 mid-card, which is where the kicker
+        // sits on short mobile cards; the text block carries its own backing.
+        expect(collageSource).toMatch(/button[^>]*\n?[^>]*bg-gradient-to-t from-slate-950\/85 via-slate-950\/45 to-transparent/);
+    });
+
     it('only uses feeder photographs for source modes they can support', () => {
         expect(leaderboardSource).toContain("sourceMode !== 'heard'");
         expect(leaderboardSource).toContain('sourceLeader.count > 0');

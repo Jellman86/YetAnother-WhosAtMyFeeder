@@ -12,10 +12,19 @@
         { key: 'taxonomy', table: 'taxonomy_cache' }
     ];
 
+    const ebirdEnabled = $derived(
+        Boolean(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled)
+    );
+
+    // eBird sightings ship with a map, and the map tiles are fetched from
+    // OpenStreetMap by each viewer's browser. Both calls are listed because the
+    // panel's promise is that nothing else leaves the network.
     const outbound = $derived([
         { key: 'inat', on: true },
         { key: 'weather', on: true },
-        { key: 'llm', on: Boolean(settingsStore.settings?.llm_enabled) },
+        { key: 'ebird', on: ebirdEnabled },
+        { key: 'osm', on: ebirdEnabled },
+        { key: 'llm', on: Boolean(settingsStore.llmEnabled) },
         { key: 'telemetry', on: Boolean(settingsStore.settings?.telemetry_enabled) }
     ]);
 </script>

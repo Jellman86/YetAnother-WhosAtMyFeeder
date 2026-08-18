@@ -2169,7 +2169,9 @@
       "legend_external": "your broker and browser",
       "legend_note": "Nothing leaves your network except the calls listed below.",
       "not_checked": "not checked",
-      "no_reading": "no reading from here"
+      "no_reading": "no reading from here",
+      "owner_only": "owner only",
+      "owner_only_detail": "reading visible to the owner"
     },
     "storage": {
       "title": "What it stores",
@@ -2184,6 +2186,10 @@
       "inat_desc": "name lookups",
       "weather": "Weather API",
       "weather_desc": "conditions per detection",
+      "ebird": "eBird",
+      "ebird_desc": "recent sightings near your location",
+      "osm": "OpenStreetMap tiles",
+      "osm_desc": "sighting map, loaded by each viewer’s browser",
       "llm": "LLM insight",
       "llm_desc": "your key, your provider",
       "telemetry": "Telemetry",

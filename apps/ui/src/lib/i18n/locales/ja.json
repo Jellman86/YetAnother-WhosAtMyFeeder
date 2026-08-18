@@ -2160,7 +2160,9 @@
       "legend_external": "ブローカーとブラウザ",
       "legend_note": "下に挙げた通信以外、ネットワークの外には何も出ません。",
       "not_checked": "未確認",
-      "no_reading": "ここからは取得できません"
+      "no_reading": "ここからは取得できません",
+      "owner_only": "オーナーのみ",
+      "owner_only_detail": "オーナーにのみ表示される情報"
     },
     "storage": {
       "title": "保存される内容",
@@ -2175,6 +2177,10 @@
       "inat_desc": "名前の照会",
       "weather": "天気 API",
       "weather_desc": "検出ごとの気象情報",
+      "ebird": "eBird",
+      "ebird_desc": "お住まいの地域周辺の最近の観察記録",
+      "osm": "OpenStreetMapタイル",
+      "osm_desc": "観察マップ、各閲覧者のブラウザが読み込みます",
       "llm": "LLM による解説",
       "llm_desc": "あなたの鍵、あなたのプロバイダー",
       "telemetry": "テレメトリー",

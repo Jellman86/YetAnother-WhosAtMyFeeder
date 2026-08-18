@@ -28,8 +28,13 @@
         onopen
     }: Props = $props();
 
-    /** Desktop shows up to this many frames; the rest are counted. */
-    const VISIBLE_FRAMES = 3;
+    /**
+     * Desktop shows up to this many frames; the rest are counted. Two is the cap
+     * because the species name shares the row: a third thumbnail was truncating
+     * names like "House Sparrow" at ordinary desktop widths, and the name is the
+     * primary reading while the stack is a recognition aid.
+     */
+    const VISIBLE_FRAMES = 2;
 
     const stack = $derived(frames.length > 0 ? frames.slice(0, VISIBLE_FRAMES) : [detection]);
 

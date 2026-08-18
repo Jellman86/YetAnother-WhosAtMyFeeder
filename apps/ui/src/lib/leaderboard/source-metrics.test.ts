@@ -38,6 +38,20 @@ describe('leaderboard source metrics', () => {
         expect(trendForMode({ ...row, heard_prev_count: null }, 'heard')).toBe('+3');
     });
 
+    it('keeps a percentage against a tiny baseline out of the trend', () => {
+        expect(trendForMode({ ...row, delta: 92, percent: 9200, prev_count: 1 }, 'seen')).toBe('+92');
+        expect(trendForMode({ ...row, heard_delta: 45, heard_percent: 4500, heard_prev_count: 1 }, 'heard')).toBe('+45');
+        expect(trendForMode({ ...row, delta: 8, percent: 200, prev_count: 4 }, 'seen')).toBe('+8');
+    });
+
+    it('keeps a runaway percentage out even when the baseline is readable', () => {
+        expect(trendForMode({ ...row, delta: 60, percent: 1200, prev_count: 5 }, 'seen')).toBe('+60');
+    });
+
+    it('keeps a modest percentage on a readable baseline', () => {
+        expect(trendForMode({ ...row, delta: 5, percent: 100, prev_count: 5 }, 'seen')).toBe('+5 (100.0%)');
+    });
+
     it('uses the latest evidence timestamp for the combined source', () => {
         expect(activityTimestampForMode(row, 'seen')).toBe(row.last_seen);
         expect(activityTimestampForMode(row, 'heard')).toBe(row.heard_last);

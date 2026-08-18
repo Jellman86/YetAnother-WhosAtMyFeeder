@@ -1,5 +1,4 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
     import { fetchCameraStatuses } from '../api';
     import type { AudioSummaryResponse, CameraStatusResponse, Detection } from '../api';
     import type { DetectionVisit } from '../utils/visit-grouping';
@@ -25,8 +24,13 @@
     let { detections, visits, birdnetEnabled = false, audioSummary = null }: Props = $props();
 
     let cameraStatus = $state<CameraStatusResponse | null>(null);
+    let cameraRequested = false;
 
-    onMount(() => {
+    // Camera status is an owner reading: a guest request only collects a 403, and
+    // the desk already builds its camera rows from the visits a guest can see.
+    $effect(() => {
+        if (!authStore.hasOwnerAccess || cameraRequested) return;
+        cameraRequested = true;
         const controller = new AbortController();
 
         void (async () => {
