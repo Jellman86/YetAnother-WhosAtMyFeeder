@@ -37,6 +37,31 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Guest sessions no longer poll owner-only endpoints into a wall of 403s.** A public visit
+  repeated requests for `/api/settings` and camera status that the backend always refuses, filling
+  the browser console and the server log with expected failures. Settings refresh and both camera
+  status readers now wait for owner access, and the About pipeline tells guests a reading is
+  `owner only` instead of showing an `unknown` that reads as a fault in a healthy install. The
+  notifications step gets the same honesty: a guest sees `owner only` rather than a guessed `off`.
+
+- **Leaderboard trends no longer shout percentages against a baseline of one.** A species moving
+  from 1 visit to 93 rendered `+92 (9200.0%)`. The percentage now only appears when the previous
+  window is big enough to compare against and the ratio stays in a readable range; the count
+  keeps carrying the trend on its own everywhere else. Average confidence in the rankings joins
+  every other confidence in the app as a percentage, and the sunrise and sunset windows next to
+  the weather overlays now say which is which.
+
+- **Field log rows keep the species name whole at desktop widths.** A visit with several frames
+  was truncating names as short as "House Sparrow" while free space sat elsewhere in the row. The
+  thumbnail stack now shows two frames and counts the rest; the name is the primary reading of
+  the row. On the leaderboard hero, the kicker line carries its own scrim so it stays legible
+  when a bright collage slice sits behind it on short mobile cards.
+
+- **The About page now lists every browser-side call the sighting map makes.** The eBird map
+  fetches OpenStreetMap tiles from each viewer's browser, which belongs in the "What leaves your
+  network" panel next to the eBird lookup itself; both rows appear when eBird sightings are
+  enabled, and the panel keeps its promise that nothing unlisted leaves the network.
+
 - **The Health page no longer calls normal filtering a degraded pipeline.** Any dropped event at
   all, including a detection correctly rejected by the confidence threshold or a blocklist, flipped
   the Event Pipeline card to `DEGRADED` while the backend reported the pipeline healthy on the same

@@ -25,6 +25,12 @@ export function deltaForMode(row: SourceMetricRow, mode: SourceMode): number | n
     return row.delta ?? null;
 }
 
+// A ratio against a handful of prior visits reads as noise ("+92 (9200.0%)" from a
+// baseline of one), so the percentage only appears when the previous window is big
+// enough to compare against and the ratio stays inside a readable range.
+const MIN_TREND_BASELINE = 5;
+const MAX_TREND_PERCENT = 1000;
+
 function formatTrend(
     delta: number | null,
     percent: number | null,
@@ -33,6 +39,7 @@ function formatTrend(
     if (!delta) return '0';
     const count = `${delta > 0 ? '+' : ''}${delta}`;
     if (!previousCount || percent === null) return count;
+    if (previousCount < MIN_TREND_BASELINE || Math.abs(percent) >= MAX_TREND_PERCENT) return count;
     return `${count} (${percent.toFixed(1)}%)`;
 }
 

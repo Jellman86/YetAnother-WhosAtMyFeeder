@@ -2,6 +2,7 @@
   "de": [
     "about.links.birdnet",
     "about.links.frigate",
+    "about.outbound.ebird",
     "about.outbound.inat",
     "about.pipeline.audio",
     "about.pipeline.frigate",
@@ -89,6 +90,7 @@
     "about.instance.uptime_minutes",
     "about.links.birdnet",
     "about.links.frigate",
+    "about.outbound.ebird",
     "about.outbound.inat",
     "about.pipeline.audio",
     "about.pipeline.frigate",
@@ -162,6 +164,7 @@
     "about.links.birdnet",
     "about.links.docs",
     "about.links.frigate",
+    "about.outbound.ebird",
     "about.outbound.inat",
     "about.pipeline.audio",
     "about.pipeline.frigate",
@@ -262,6 +265,7 @@
     "about.instance.uptime_minutes",
     "about.links.birdnet",
     "about.links.frigate",
+    "about.outbound.ebird",
     "about.outbound.inat",
     "about.pipeline.audio",
     "about.pipeline.frigate",
@@ -338,6 +342,7 @@
   "ja": [
     "about.links.birdnet",
     "about.links.frigate",
+    "about.outbound.ebird",
     "about.outbound.inat",
     "about.pipeline.audio",
     "about.pipeline.frigate",
@@ -387,6 +392,7 @@
     "about.instance.uptime_minutes",
     "about.links.birdnet",
     "about.links.frigate",
+    "about.outbound.ebird",
     "about.outbound.inat",
     "about.pipeline.audio",
     "about.pipeline.frigate",
@@ -468,6 +474,7 @@
   "ru": [
     "about.links.birdnet",
     "about.links.frigate",
+    "about.outbound.ebird",
     "about.outbound.inat",
     "about.pipeline.audio",
     "about.pipeline.frigate",
@@ -517,6 +524,7 @@
   "zh": [
     "about.links.birdnet",
     "about.links.frigate",
+    "about.outbound.ebird",
     "about.outbound.inat",
     "about.pipeline.audio",
     "about.pipeline.frigate",

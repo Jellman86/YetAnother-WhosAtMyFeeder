@@ -2160,7 +2160,9 @@
       "legend_external": "你的 broker 和浏览器",
       "legend_note": "除下面列出的请求外，没有任何数据离开你的网络。",
       "not_checked": "未检查",
-      "no_reading": "无法从此处读取"
+      "no_reading": "无法从此处读取",
+      "owner_only": "仅所有者",
+      "owner_only_detail": "仅所有者可见的读数"
     },
     "storage": {
       "title": "存储了什么",
@@ -2175,6 +2177,10 @@
       "inat_desc": "名称查询",
       "weather": "天气 API",
       "weather_desc": "每次检测的天气",
+      "ebird": "eBird",
+      "ebird_desc": "您所在位置附近的近期目击记录",
+      "osm": "OpenStreetMap 图块",
+      "osm_desc": "目击地图，由每位访问者的浏览器加载",
       "llm": "LLM 解读",
       "llm_desc": "你的密钥，你的服务商",
       "telemetry": "遥测",

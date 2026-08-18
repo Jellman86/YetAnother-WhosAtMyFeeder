@@ -1,10 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import pipelineSource from './InstancePipeline.svelte?raw';
 import instanceSource from './InstanceSummary.svelte?raw';
+import privacySummarySource from './PrivacySummary.svelte?raw';
 import aboutSource from '../pages/About.svelte?raw';
 import en from '../i18n/locales/en.json';
 
 describe('About surface polish', () => {
+    it('lists every browser-side network call the sighting map makes', () => {
+        // The panel promises "nothing leaves your network except the calls listed
+        // below", and the eBird map fetches OpenStreetMap tiles from each
+        // viewer's browser, so both rows must be in the list.
+        expect(privacySummarySource).toContain("key: 'ebird'");
+        expect(privacySummarySource).toContain("key: 'osm'");
+        expect(en.about.outbound.osm_desc.toLowerCase()).toContain('browser');
+    });
     it('sweeps a pulse along the pipeline in the direction data travels', () => {
         // Svelte scopes @keyframes, so a name referenced from a class resolves to nothing
         // without this prefix. The animation silently does nothing if it is dropped.

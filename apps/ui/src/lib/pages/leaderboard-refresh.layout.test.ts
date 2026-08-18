@@ -3,6 +3,18 @@ import { describe, expect, it } from 'vitest';
 import leaderboardSource from './Species.svelte?raw';
 
 describe('leaderboard field-journal layout', () => {
+    it('names the sunrise and sunset windows instead of showing bare times', () => {
+        expect(leaderboardSource).toContain("{$_('leaderboard.sunrise')} {timeline.sunrise_range}");
+        expect(leaderboardSource).toContain("{$_('leaderboard.sunset')} {timeline.sunset_range}");
+    });
+
+    it('shows average confidence as a percentage like every other confidence', () => {
+        expect(leaderboardSource).toContain(
+            "{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}"
+        );
+        expect(leaderboardSource).not.toContain('avg_confidence ?? 0).toFixed(2)');
+    });
+
     it('puts the working ranking surface before secondary analytics', () => {
         const rankings = leaderboardSource.indexOf('data-leaderboard-rankings');
         const analytics = leaderboardSource.indexOf('data-leaderboard-analytics');
