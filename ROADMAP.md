@@ -114,28 +114,98 @@ The headline work that makes `3.0` a major version: a guided first run, a cleane
 surface, a codebase reviewed to the gold standard, and complete translations.
 
 #### Versioned species catalogue and model mapping 🐦
-**Priority:** P1 | **Effort:** L | **Status:** ☐ Not started, no longer blocked — the data-source
-decision is resolved in
-[`docs/plans/2026-08-19-species-reference-source-decision.md`](docs/plans/2026-08-19-species-reference-source-decision.md),
-which measures source coverage and reconciles this entry with the earlier design
+**Priority:** P1 | **Effort:** M remaining (was L) | **Status:** 🔄 In progress — the catalogue, the
+bundled data and the index mapping are delivered; what remains is making `labels.txt` unnecessary at
+runtime
 
-Create a separate, enrichable SQLite catalogue whose stable taxon records own scientific names,
-locale-specific common names, aliases, regions, and provenance. A versioned mapping table will bind
-each immutable model artifact and raw output index to one canonical taxon. Model sidecars may still
-declare the mapping asset/version needed to validate a download, but production inference will emit
-the model ID, output index, score, and resolved taxon identity rather than treating mutable label
-text as identity.
+Design and measurements:
+[`docs/plans/2026-08-19-species-reference-source-decision.md`](docs/plans/2026-08-19-species-reference-source-decision.md)
+and
+[`docs/plans/2026-08-19-model-output-index-mapping.md`](docs/plans/2026-08-19-model-output-index-mapping.md).
 
-The catalogue must be independently backed up and upgraded, use Alembic-safe attached-database
-migrations or an equivalently reversible versioned importer, and retain the current application DB
-as the owner of detections and user choices. Offline installs keep a bundled baseline; enrichment is
-an explicit, checksum/versioned transaction that never silently rewrites historical identity.
+##### ✅ Delivered
 
-**Acceptance:** every shipped classifier and crop-independent species model has complete,
-checksum-bound index coverage; missing or ambiguous mappings fail closed; common/scientific/locale
-switches do not change filtering or analytics identity; existing `taxonomy_cache` and translation
-rows migrate without loss; backup/restore and rollback are exercised; and tests prove two models
-with different label orders resolve the same bird to the same taxon.
+- **A bundled species reference**, `backend/app/assets/species_reference.db`, 3.87 MB, generated
+  from the IOC World Bird List (CC BY 3.0, attribution in `species_reference.NOTICE.md`). 11,276
+  species, 87,656 localized names covering all eight non-English locales. Refused at runtime if it
+  does not match `species_reference.db.sha256`; the build is reproducible so that digest is
+  checkable. Regenerate with `backend/scripts/build_species_reference.py --ioc <file>`.
+- **No API key is required** for local naming. eBird is an enhancement for species the list does not
+  carry, checked after it.
+- **Model label files are verified** against the checksum the registry publishes, with the verdict
+  reported in classifier status and on the Health page. A changed file is reported, not refused,
+  because customising labels is legitimate.
+- **An output-index mapping**, `model_taxon_map.db`, keyed on the label file's digest so a
+  republished model is a distinct artifact. Coverage measured on the installed models:
+  `rope_vit_b14_inat21` 100%, `convnext_large_inat21` and `eva02_large_inat21` 100%,
+  `mobilenet_v2_birds` 99.9%, `flexivit_il_all` 90.2%, `eu_medium_focalnet_b` 88.1%.
+- **Rebuilt when a model installs or the eBird settings change**, so a fresh install does not wait
+  for a restart.
+- **User renames stay in `taxonomy_cache.manual_common_name`** and outrank every source. They must
+  never move into the reference or the maps: those are rebuilt from their sources, and the reference
+  is refused outright if its digest changes.
+
+##### ☐ Next, in order
+
+1. **Use the mapping for naming.** `detection_service` resolves names from `classification["label"]`.
+   Attach the mapped scientific name at the classifier boundary, where the output index and the
+   model are both known, and prefer it as the lookup key. `_build_classification_results` in
+   `classifier_service.py` is the one shared builder, with three callers. Only the ungrouped path
+   carries a real output index; the grouped path aggregates several indices into one row and must
+   keep using label text. Fall back to the text path whenever a model has no mapping.
+2. **Move grouped labels and display off `labels.txt`.** This is the step that satisfies the exit
+   criterion, and it is a refactor of the path every detection takes, so it belongs on its own
+   branch. `ModelInstance.load()` reads the file into `self.labels` and `self.grouped_labels`; both
+   need to come from the mapping instead, and `build_grouped_classifier_labels` needs a source of
+   grouping that is not the raw file.
+3. **Close the last coverage gap.** About 10% of the European models' labels resolve to no
+   scientific name in any source we hold. Measure what they are before choosing a fourth source;
+   they may be regional or non-bird labels that do not warrant one.
+4. **Explain limits on the Health page.** The Naming Sources card reports numbers but not why they
+   are what they are. Nielsen's heuristics and §5 ask for the reason, not just the state.
+
+##### Where things live
+
+| File | Where | Rebuilt from | Committed |
+| --- | --- | --- | --- |
+| `species_reference.db` | `backend/app/assets/` | IOC workbook, via the generator | yes, with a `.sha256` |
+| `model_taxon_map.db` | beside the application DB | label files, at install and startup | no |
+| `species_names.db` | beside the application DB | eBird, per locale | no |
+
+The last two hold reproducible copies of public data, so they carry no Alembic migration and losing
+them costs one refresh. Anything a user chose belongs in the application database instead.
+
+##### Reproducing the measurements
+
+The figures above were taken from label files on a live deployment, not from fixtures. To repeat
+them, copy the label files out of a running container:
+
+```bash
+docker exec <container> sh -lc 'cat /data/models/<model>/labels.txt'
+```
+
+The models with useful label formats are `rope_vit_b14_inat21` (iNaturalist hierarchy),
+`mobilenet_v2_birds` (paired), `convnext_large_inat21` (bare binomial) and `eu_medium_focalnet_b`
+(common name only). Guessing whether a bare two-word label is a scientific name does not work and
+should not be attempted again: a word list claimed 198 common names as scientific, and a statistical
+discriminator separated the files by only a factor of two. The format is declared in
+`label_integrity._SCIENTIFIC_LABEL_MODELS` instead.
+
+##### Amendments to the exit criteria
+
+- The criterion's "without requiring model label text files at runtime" is **not yet met**. Steps 1
+  and 2 above are what meet it.
+- Index binding is kept, not dropped. An earlier recommendation to drop it was wrong: it measured
+  resolution only and missed that binding raises the flagship model from 57.9% to 100% and removes
+  an unverified runtime input.
+- "Supplies translated names" is met for the eight bundled locales, at 90.5% for Italian and 100%
+  for Chinese, so no release-note limitation is needed for language coverage.
+
+**Acceptance:** every shipped classifier has complete, checksum-bound index coverage; missing or
+ambiguous mappings fail closed; common/scientific/locale switches do not change filtering or
+analytics identity; existing `taxonomy_cache` and translation rows migrate without loss;
+backup/restore and rollback are exercised; and tests prove two models with different label orders
+resolve the same bird to the same taxon (already covered in `test_model_taxon_map.py`).
 
 #### First-run setup wizard 🧭
 **Priority:** P1 | **Effort:** L | **Status:** ✅ Shipped on `dev` — multi-part, hardware-validating, re-runnable from the Settings navigation ([design](docs/plans/2026-07-12-first-run-setup-wizard-design.md))
