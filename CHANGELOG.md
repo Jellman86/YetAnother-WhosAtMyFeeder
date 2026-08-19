@@ -20,6 +20,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   nothing is reachable. It is fetched in one request per language rather than one per species, and a
   name eBird returns unchanged from English is not recorded as a translation.
 
+- **Bird names now work offline, in your language, with no account.** The bundled species reference
+  is now the IOC World Bird List: 11,276 species with names in all eight non-English languages the
+  app presents, redistributed under CC BY 3.0. Italian goes from almost nothing to 90% and Chinese
+  to complete, the European models resolve about 90% of their species locally instead of a third,
+  and an eBird key is no longer needed for any of it. eBird remains as an enhancement for species
+  the list does not carry.
+
 - **A newly installed model can name birds offline straight away.** The naming maps were built once
   at start, so on a fresh install, where nothing is downloaded yet, a model chosen in the setup
   wizard had no local names until the next restart. Installing a model now rebuilds them, and

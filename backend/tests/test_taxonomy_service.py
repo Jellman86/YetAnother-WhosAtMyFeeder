@@ -180,7 +180,10 @@ async def test_get_names_does_not_cache_not_found_when_the_lookup_is_unavailable
         result = await taxonomy_service.get_names("Dryobates pubescens")
 
     assert result["scientific_name"] == "Dryobates pubescens"
-    assert result["common_name"] is None
+    # The bundled reference answers when the provider cannot, so the species is
+    # named rather than left bare. The point of this test is the line below: the
+    # outage is still not recorded as "no such species".
+    assert result["common_name"] == "Downy Woodpecker"
     mock_save.assert_not_called()
 
 

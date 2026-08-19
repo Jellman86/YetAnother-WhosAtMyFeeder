@@ -144,7 +144,7 @@ class TaxonomyService:
             # needs for every covered species. Placed here it costs nothing and
             # gives offline installs, and installs riding out an outage, a name.
             # Local SQLite reads, so off the event loop (CLAUDE.md 4).
-            reference_hit = await asyncio.to_thread(species_reference.lookup, query_name)
+            reference_hit = await asyncio.to_thread(species_reference.lookup, query_name, settings.ebird.locale)
             if reference_hit:
                 # The reference ships English only. A locale the owner has already
                 # pulled from eBird names the bird in their language even now,

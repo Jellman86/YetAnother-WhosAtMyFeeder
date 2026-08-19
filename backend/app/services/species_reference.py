@@ -5,11 +5,10 @@ scientific name and an English common name. It sits between the taxonomy cache
 and iNaturalist: a hit costs one indexed local read, a miss is silent so the
 caller falls through unchanged.
 
-Coverage is partial on purpose. The source is the Google Coral MobileNet bird
-labels, which are Apache-2.0 and therefore redistributable; the iNaturalist
-export is not. Measured against `rope_vit_b14_inat21`, this covers 860 of the
-1,486 birds that model emits, with eBird and iNaturalist filling the rest at
-runtime. See docs/plans/2026-08-19-species-reference-source-decision.md.
+The source is the IOC World Bird List, licensed CC BY 3.0 and therefore
+redistributable, carrying 11,276 species with one curated name per language.
+That covers 95.2% of the birds the flagship model can emit and eight languages
+besides English, so naming works with no API key and no network at all.
 
 Nothing here writes. A reference hit is deliberately not persisted into
 `taxonomy_cache`: the reference carries no iNaturalist taxon id, and caching a
@@ -154,8 +153,35 @@ class SpeciesReference:
         add(right)
         return candidates
 
-    def lookup(self, query_name: Optional[str]) -> Optional[dict[str, Any]]:
-        """Resolve a model label to names, or None to fall through."""
+    def localized_name(self, scientific_name: Optional[str], locale: Optional[str]) -> Optional[str]:
+        """The bundled name for a species in a language, if the list carries one."""
+        scientific = str(scientific_name or "").strip()
+        language = str(locale or "").strip().split("-")[0].split("_")[0].lower()
+        if not scientific or not language or language == "en":
+            return None
+        connection = self._connect()
+        if connection is None:
+            return None
+        try:
+            with self._access:
+                row = connection.execute(
+                    "SELECT n.common_name FROM taxon_name n"
+                    " JOIN taxon t ON t.id = n.taxon_id"
+                    " WHERE t.scientific_name = ? COLLATE NOCASE AND n.locale = ? LIMIT 1",
+                    (scientific, language),
+                ).fetchone()
+        except sqlite3.Error as error:
+            log.warning("Species reference localized lookup failed", error=str(error))
+            return None
+        return row["common_name"] if row else None
+
+    def lookup(self, query_name: Optional[str], locale: Optional[str] = None) -> Optional[dict[str, Any]]:
+        """Resolve a model label to names, or None to fall through.
+
+        A locale returns the bundled name in that language when the list has one,
+        so an offline install names the bird in the owner's language rather than
+        only in English.
+        """
         if not isinstance(query_name, str) or not query_name.strip():
             return None
         connection = self._connect()
@@ -172,9 +198,10 @@ class SpeciesReference:
                         (candidate, candidate),
                     ).fetchone()
                 if row:
+                    localized = self.localized_name(row["scientific_name"], locale) if locale else None
                     return {
                         "scientific_name": row["scientific_name"],
-                        "common_name": row["common_name"],
+                        "common_name": localized or row["common_name"],
                         # The source carries no iNaturalist id, and inventing one
                         # would corrupt identity downstream.
                         "taxa_id": None,
@@ -197,15 +224,20 @@ class SpeciesReference:
                 }
         except sqlite3.Error:
             meta = {}
-        try:
-            count = int(meta.get("taxon_count", "0"))
-        except (TypeError, ValueError):
-            count = 0
+
+        def number(key: str) -> int:
+            try:
+                return int(meta.get(key, "0"))
+            except (TypeError, ValueError):
+                return 0
+
         return {
             "available": True,
-            "taxon_count": count,
+            "taxon_count": number("taxon_count"),
+            "localized_name_count": number("localized_name_count"),
             "schema_version": meta.get("schema_version"),
             "source": meta.get("source"),
+            "source_licence": meta.get("source_licence"),
         }
 
 
