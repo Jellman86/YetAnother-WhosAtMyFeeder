@@ -15,6 +15,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   downgrading a shared modern-driver dependency
   ([#177](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/pull/177)).
 
+- **Bird names now resolve without the internet where we can ship them.** A bundled species
+  reference covering 964 species answers when iNaturalist cannot, so an offline install, or one
+  riding out a provider outage, still names the bird instead of showing a bare label. iNaturalist
+  still answers first when it is reachable, so nothing loses the taxon identity enrichment depends
+  on.
+
 - **Diagnostics bundles now say how your clips are packaged.** Safari refuses HEVC tagged `hev1` in
   a video element while QuickTime plays it happily, so "the download opens fine" never settled
   whether the packaging was the problem. A bundle now reports the sample format of a recent clip and
