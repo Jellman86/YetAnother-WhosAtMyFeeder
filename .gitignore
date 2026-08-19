@@ -219,3 +219,7 @@ playwright-results/
 # these patterns keep the tree clean in the meantime.
 * [2-9]
 * [2-9].*
+
+# macOS finder metadata, which turns up in every directory
+.DS_Store
+**/.DS_Store

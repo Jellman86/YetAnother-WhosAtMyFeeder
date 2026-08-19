@@ -4,7 +4,7 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
-Last reviewed against the GitHub issue tracker on **April 17, 2026**.
+Last reviewed against the GitHub issue tracker on **August 19, 2026**.
 
 ## P0: Active Regressions
 
@@ -12,13 +12,26 @@ Last reviewed against the GitHub issue tracker on **April 17, 2026**.
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
-- **BirdNET-Go source-name drift / `Unknown sensor` fallback:** Some newer BirdNET-Go MQTT payloads appear to omit the stable source-name fields (`nm` / `Source.displayName`) and only publish `sourceId`/`src`. `dev` now falls back to those ID-style fields so Recent Audio and the source picker no longer show `Unknown sensor`, but stable long-term camera mapping still depends on BirdNET-Go exposing a stable published source/display name again. Upstream feature request: `tphakala/birdnet-go#2799`.
+- **#167 Video will not play in Safari:** the likely cause is HEVC packaged as `hev1`, which Safari's
+  video element refuses while QuickTime plays it, so "the download opens fine" does not clear it.
+  Diagnostics bundles now report the sample format of a recent clip, and there is a troubleshooting
+  page at `docs/troubleshooting/safari-video-playback.md`. Waiting on a bundle from the reporter.
+
+## Open on the Tracker
+
+- **#178** Dedicated media retention rotation and favourite protection. Accepted; the durability
+  contract is recorded in `ROADMAP.md` and the stronger behaviour is planned, not shipped.
 
 ## Recently Closed (Context)
 
+- **#207** eBird localization - distances now follow the chosen unit system; closed August 17, 2026.
+- **#189** Mobile UI overlap on manual tagging - fixed and confirmed by the reporter; closed
+  August 15, 2026.
 - **#21** OpenVINO load fails for ConvNeXt - closed after the patched artifact / redownload remediation path shipped.
 - **#19** Incorrect filter application / stale Explorer state - follow-up fixes merged and issue closed on **February 27, 2026**.
-- **#16** No audio detection mapped - original stable-name mapping fix landed and the issue was closed, but newer BirdNET-Go payload drift is now tracked above under Pending Verification.
+- **#16** No audio detection mapped - the stable-name mapping fix landed and the issue was closed.
+  The later BirdNET-Go payload drift is also resolved: upstream `tphakala/birdnet-go#2799` shipped a
+  stable `sourceName` field on May 1, 2026, and `dev` reads it with the older fields as fallback.
 
 ## P1: Untested Integrations (Need Community Testing)
 
