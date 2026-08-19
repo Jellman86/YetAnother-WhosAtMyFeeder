@@ -43,6 +43,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Portuguese installations were getting English bird names from eBird.** eBird publishes its
+  locale codes with underscores and has no plain `pt`, so the regional fallback could never match
+  and every Portuguese lookup quietly resolved to English. Chinese resolved to a variant carrying a
+  quarter of the translated names of the one it should have used. Both now resolve correctly, and
+  an explicit regional choice such as `zh_HK` is still honoured.
+
 - **Guest sessions no longer poll owner-only endpoints into a wall of 403s.** A public visit
   repeated requests for `/api/settings` and camera status that the backend always refuses, filling
   the browser console and the server log with expected failures. Settings refresh and both camera
