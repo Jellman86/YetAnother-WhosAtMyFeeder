@@ -256,3 +256,34 @@ again when the model is loaded. A `labels.txt` altered or corrupted after downlo
 authoritative, and every detection classified against it is written to history under the wrong name.
 That is a model-loading concern rather than a reference one, so it is recorded here rather than
 changed as a side effect.
+
+
+## New installs, and where a user's own names live
+
+### Nothing is populated at first start
+
+The bundled reference ships in the image and works immediately. The two things built at runtime do
+not, because a fresh install has nothing to build from at the moment the refresh runs:
+
+- **The model maps** are refreshed at startup, and a new install has no models yet. The map is now
+  rebuilt when a model download completes, so a model chosen in the setup wizard is mapped straight
+  away rather than at the next restart.
+- **Localized names** are fetched at startup only when eBird is configured, and a new install has no
+  key yet. They are now refreshed when the eBird key, language or enabled flag changes.
+
+Both refreshes are detached and non-fatal. Neither can make a download or a settings save report a
+failure it did not have.
+
+### Renames belong in the application database, not here
+
+`species_reference.db`, `species_names.db` and `model_taxon_map.db` are all rebuilt from their
+sources. The reference is refused outright if it stops matching its checksum. A name a user chose
+would be destroyed by the next rebuild, and writing it into the reference would break the file.
+
+A rename already has a home: `taxonomy_cache.manual_common_name`, added by migration
+`c7d8e9f0a1b2` and applied through `COALESCE(manual_common_name, common_name)`. It is user data, so
+it is Alembic-migrated and backed up with everything else the owner would miss.
+
+It also wins. `get_names` checks the cache before iNaturalist and before the bundled reference, so a
+renamed species keeps its name whatever the reference says. A test asserts this rather than leaving
+it to the ordering staying as it is.

@@ -1668,6 +1668,10 @@ async def update_settings(
         settings.ebird.max_results = update.ebird_max_results
     if "ebird_locale" in fields_set and update.ebird_locale is not None:
         settings.ebird.locale = update.ebird_locale
+    # A new install has no eBird key at startup, so the localized names fetched
+    # then are nothing. Refresh when the key or the language changes rather than
+    # leaving the owner on English until the next restart.
+    ebird_naming_changed = any(field in fields_set for field in ("ebird_api_key", "ebird_locale", "ebird_enabled"))
 
     # iNaturalist settings
     if "inaturalist_enabled" in fields_set and update.inaturalist_enabled is not None:
@@ -1954,6 +1958,12 @@ async def update_settings(
         background_tasks.add_task(telemetry_service.forget_installation, telemetry_installation_id)
 
     await settings.save()
+
+    if ebird_naming_changed:
+        from app.services.localized_names import start_background_refresh
+
+        background_tasks.add_task(start_background_refresh)
+
     if inference_provider_changed or execution_mode_changed:
         from app.services.classifier_service import get_classifier, shutdown_classifier
 
