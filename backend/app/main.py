@@ -859,6 +859,27 @@ async def count_requests(request, call_next):
     return response
 
 
+def _naming_health() -> dict[str, object]:
+    """Where bird names come from when the network cannot answer.
+
+    Reported because a reference or a locale that is not there is invisible
+    otherwise: naming simply falls back and nobody learns why the names are in
+    English or missing.
+    """
+    from app.services.localized_names import localized_names
+    from app.services.species_reference import species_reference
+
+    try:
+        reference = species_reference.status()
+    except Exception:  # pragma: no cover - health must never fail
+        reference = {"available": False}
+    try:
+        localized = localized_names.status()
+    except Exception:  # pragma: no cover
+        localized = {"available": False}
+    return {"species_reference": reference, "localized_names": localized}
+
+
 def build_health_payload() -> dict[str, object]:
     startup_warnings = getattr(app.state, "startup_warnings", [])
     startup_instance_id = getattr(app.state, "startup_instance_id", "unknown")
@@ -895,6 +916,7 @@ def build_health_payload() -> dict[str, object]:
         "service": "ya-wamf-backend",
         "version": APP_VERSION,
         "ml": classifier_health,
+        "naming": _naming_health(),
         "db_pool": db_pool_health,
         "mqtt": mqtt_health,
         "video_classifier": video_health,
