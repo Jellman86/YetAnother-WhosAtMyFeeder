@@ -20,6 +20,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   nothing is reachable. It is fetched in one request per language rather than one per species, and a
   name eBird returns unchanged from English is not recorded as a translation.
 
+- **A newly installed model can name birds offline straight away.** The naming maps were built once
+  at start, so on a fresh install, where nothing is downloaded yet, a model chosen in the setup
+  wizard had no local names until the next restart. Installing a model now rebuilds them, and
+  changing your eBird key or language now refetches the local names for it.
+
 - **The European bird models can now name most of what they detect offline.** Their labels are
   common names, so nothing could be derived from the file itself and they resolved barely a third of
   their species locally. Each label is now matched to a scientific name once, against the bundled

@@ -274,7 +274,7 @@ async def refresh_localized_names(
 _background_task: Optional["asyncio.Task[None]"] = None
 
 
-async def start_background_refresh() -> None:
+async def start_background_refresh(*, force: bool = False) -> None:
     """Schedule a refresh of the configured locale without holding up startup.
 
     Fetching a whole taxonomy is one request but a large response, so it runs
@@ -294,7 +294,7 @@ async def start_background_refresh() -> None:
 
     async def run() -> None:
         try:
-            await refresh_localized_names([locale])
+            await refresh_localized_names([locale], force=force)
         except Exception as error:  # pragma: no cover - guarded by the caller's phase
             log.warning("Localized name refresh failed", locale=locale, error=str(error))
 

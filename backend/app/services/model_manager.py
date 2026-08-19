@@ -703,6 +703,20 @@ if not MODELS_DIR.startswith(_PERSISTENT_MODELS_PREFIX):
     )
 
 
+async def refresh_maps_after_install() -> None:
+    """Rebuild the label maps once a model has landed.
+
+    Never raises: this improves naming, and a naming improvement must not be
+    able to report a successful download as a failure.
+    """
+    try:
+        from app.services import label_enrichment
+
+        await label_enrichment.refresh_model_maps()
+    except Exception as error:
+        log.warning("Could not refresh model maps after install", error=str(error))
+
+
 class ModelManager:
     def __init__(self):
         # Ensure models directory exists
@@ -1944,6 +1958,11 @@ class ModelManager:
                 self._update_download_status(model_id, progress)
 
             log.info("Model downloaded successfully", model_id=model_id, runtime=max_runtime)
+
+            # The map refresh runs at startup, and on a new install there are no
+            # models to map at that point. Without this a model downloaded from
+            # the setup wizard would name nothing offline until the next restart.
+            await refresh_maps_after_install()
 
             # If the downloaded model is the currently active selection, reload the
             # classifier immediately so the new model takes effect without a restart.
