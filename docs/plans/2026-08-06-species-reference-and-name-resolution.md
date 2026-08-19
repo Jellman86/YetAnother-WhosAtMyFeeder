@@ -1,7 +1,9 @@
 # Species reference and name resolution
 
 Date: 2026-08-06
-Status: Superseded in part — the open decisions are resolved in
+Status: Superseded by
+[2026-08-12-versioned-species-catalogue-design.md](2026-08-12-versioned-species-catalogue-design.md),
+which is the accepted design. Kept for the measurements and the option analysis. Superseded in part — the open decisions are resolved in
 [2026-08-19-species-reference-source-decision.md](2026-08-19-species-reference-source-decision.md),
 which measures the coverage this document assumed
 
