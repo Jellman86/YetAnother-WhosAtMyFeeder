@@ -401,6 +401,27 @@ def _runtime_benchmark_enabled() -> bool:
     }
 
 
+def _label_integrity_for(model: object) -> dict[str, object]:
+    """Report whether a loaded model's label file still matches what was published."""
+    from pathlib import Path
+
+    from app.services.label_integrity import LabelVerdict, verify_model_labels
+
+    labels_path = getattr(model, "labels_path", None)
+    if not labels_path:
+        return {"verdict": LabelVerdict.MISSING.value, "label_count": 0}
+    directory = Path(str(labels_path)).parent
+    # A region variant installs as `<parent>/<region>`, so the directory name is
+    # the region and its parent is the model id.
+    region = directory.name if directory.name in {"eu", "na"} else None
+    model_id = directory.parent.name if region else directory.name
+    try:
+        return verify_model_labels(model_id, directory, region=region).as_dict()
+    except Exception as error:  # pragma: no cover - status must never fail
+        log.warning("Could not verify model labels", error=str(error))
+        return {"verdict": "unverifiable", "label_count": 0}
+
+
 def _safe_isinstance(value: Any, expected_type: Any) -> bool:
     return isinstance(expected_type, type) and isinstance(value, expected_type)
 
@@ -4297,6 +4318,9 @@ class ClassifierService:
                         else ("openvino" if _safe_isinstance(model, OpenVINOModelInstance) else "tflite")
                     ),
                     "error": model.error,
+                    # A label file altered after download names every detection
+                    # wrongly, so the verdict is reported rather than only logged.
+                    "labels": _label_integrity_for(model),
                 }
                 for name, model in self._models.items()
             },
