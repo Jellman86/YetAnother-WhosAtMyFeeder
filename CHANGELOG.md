@@ -15,6 +15,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   downgrading a shared modern-driver dependency
   ([#177](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/pull/177)).
 
+- **Bird names can now be in your language without the internet too.** The bundled reference ships
+  English, so a locale you have already pulled from eBird is kept beside the database and used when
+  nothing is reachable. It is fetched in one request per language rather than one per species, and a
+  name eBird returns unchanged from English is not recorded as a translation.
+
 - **Bird names now resolve without the internet where we can ship them.** A bundled species
   reference covering 964 species answers when iNaturalist cannot, so an offline install, or one
   riding out a provider outage, still names the bird instead of showing a bare label. iNaturalist

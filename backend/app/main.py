@@ -69,6 +69,7 @@ from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.utils.tasks import create_background_task
 from app.utils.runtime_flavor import get_image_flavor
+from app.services.localized_names import start_background_refresh
 from app.services.startup_status import startup_status
 from app.ratelimit import limiter
 from app.auth import AuthContext
@@ -488,6 +489,14 @@ async def lifespan(app: FastAPI):
             fatal=False,
             startup_phase="starting_services",
             startup_progress=86,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "localized_names_refresh",
+            start_background_refresh,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=88,
         )
         await _run_lifecycle_phase(
             app,

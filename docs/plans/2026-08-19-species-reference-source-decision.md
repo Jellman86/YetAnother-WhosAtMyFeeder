@@ -1,8 +1,7 @@
 # Species reference: resolving the source decision
 
 Date: 2026-08-19
-Status: Partly implemented — the bundled layer is built and wired in; the eBird
-layer is not yet. Resolves the two open decisions in
+Status: Implemented, except the Italian question. Resolves the two open decisions in
 [2026-08-06-species-reference-and-name-resolution.md](2026-08-06-species-reference-and-name-resolution.md)
 
 ## Decision
@@ -163,10 +162,8 @@ The Dockerfile already downloads that label file with a pinned sha256, so the in
 
 ### Still to do
 
-- Persist eBird taxonomy into `taxon_name` per locale, and a refresh policy. The locale mapping
-  itself is done: `resolve_locale` now compares underscored and hyphenated codes on one form and
-  prefers a regional variant where the bare code is absent or thinner. See below.
-- Decide the Italian and Chinese question.
+- Decide the Italian question. Chinese is answered: fixing the locale resolution moved it from 7.1%
+  to 30.8%, so Italian at 5.8% is the only locale left largely untranslated.
 - The model-output-index mapping, if the roadmap keeps that criterion after the reconciliation above.
 
 
@@ -184,3 +181,22 @@ many translated names.
 Both are fixed. Codes are compared on one normalized form, and a bare language with a thin or absent
 code takes its preferred regional variant. An explicit regional choice such as `zh_HK` is matched
 exactly and is unaffected.
+
+
+### Where localized names ended up
+
+Not in the bundled file, and not in `taxonomy_translations`.
+
+The bundled asset is read-only inside the image and replaced on update, so it cannot accumulate
+anything. `taxonomy_translations` is keyed on an iNaturalist taxon id, which is exactly what a
+reference-resolved species does not have, and its `language_code` column is five characters while
+`zh_SIM` is six.
+
+So localized names live in `species_names.db`, beside the application database, keyed on scientific
+name. It is populated in bulk from eBird, one request per locale rather than one per species, and
+carries no Alembic migration because it holds a reproducible copy of a public reference. Losing it
+costs one refresh.
+
+A name eBird returns unchanged from English is not stored. eBird answers with the English name when
+it has no translation, and recording that would claim a translation we do not have, which is how a
+locale like Italian would have looked complete while being 5.8% translated.
