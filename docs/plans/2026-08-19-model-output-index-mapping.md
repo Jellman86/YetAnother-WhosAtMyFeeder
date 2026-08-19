@@ -1,7 +1,7 @@
 # Mapping model output indices to taxa
 
 Date: 2026-08-19
-Status: Proposed
+Status: Partly implemented
 Supersedes: the recommendation in
 [2026-08-19-species-reference-source-decision.md](2026-08-19-species-reference-source-decision.md)
 to drop the output-index criterion from `ROADMAP.md`
@@ -150,8 +150,35 @@ The three common-name-only models need a build-time taxonomy lookup, which eBird
 
 ## Remaining work
 
-1. Declare the label format in the model spec, so bare-binomial files map without guessing.
-2. Resolve common-name-only labels against a taxonomy at install time.
-3. Build the map during model install, where `labels_sha256` is already verified.
-4. Use it for naming, falling back to the text path when a model has no mapping.
+1. ~~Declare the label format so bare-binomial files map without guessing.~~ Done: the two models
+   whose labels are bare binomials are named in `label_integrity`, taking them from 0% to 100%.
+2. ~~Verify the label file against its published checksum, and build the map from a proven file.~~
+   Done, and the verdict is reported in classifier status.
+3. Resolve common-name-only labels against a taxonomy, which eBird satisfies for about 78%.
+4. Use the map for naming, falling back to the text path when a model has no mapping.
 5. Move grouped labels and display off `labels.txt` so the file is not needed at runtime at all.
+
+### Verification against installed models
+
+Every label file on the reference deployment was checked against the checksum the registry
+publishes. All seven match, so nothing has drifted, and the mechanism works end to end.
+
+| Model | Verdict | Labels | Mapped |
+| --- | --- | ---: | ---: |
+| `rope_vit_b14_inat21` | verified | 10,000 | **10,000** |
+| `convnext_large_inat21` | verified | 10,000 | **9,999** |
+| `eva02_large_inat21` | verified | 10,000 | **9,999** |
+| `mobilenet_v2_birds` | verified | 965 | 964 |
+| `flexivit_il_all` | verified | 550 | 0 |
+| `eu_medium_focalnet_b` | verified | 707 | 0 |
+| `uniformer_s_eu_common` | unverifiable | 707 | 0 |
+
+`uniformer_s_eu_common` is retired. Retired models keep their installed files so an operator can
+roll back, and the registry no longer publishes a checksum for them, so `unverifiable` is the
+correct verdict rather than a fault.
+
+Two pairs of models share a label file and therefore one mapping, which is what keying on the
+file's digest rather than the model name buys.
+
+Region variants such as `small_birds/eu` carry no id of their own and hang off a parent under
+`region_variants`, so resolving their checksum needs the region as well as the parent id.

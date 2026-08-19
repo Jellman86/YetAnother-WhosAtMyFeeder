@@ -20,6 +20,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   nothing is reachable. It is fetched in one request per language rather than one per species, and a
   name eBird returns unchanged from English is not recorded as a translation.
 
+- **Model label files are now checked against the checksum they were published with.** They were
+  verified once at download and never again, so a label file altered afterwards was read as
+  authoritative and every detection classified against it was recorded under the wrong species. The
+  verdict appears in classifier status, and a file that no longer matches is not used to build the
+  species mapping.
+
 - **The bundled species reference is checked before it is trusted.** It ships with a recorded
   checksum and is refused if it does not match, because a reference altered on disk would write
   wrong species names into your history. Regenerating it produces a byte-identical file, so the
