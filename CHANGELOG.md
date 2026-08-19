@@ -20,6 +20,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   nothing is reachable. It is fetched in one request per language rather than one per species, and a
   name eBird returns unchanged from English is not recorded as a translation.
 
+- **The European bird models can now name most of what they detect offline.** Their labels are
+  common names, so nothing could be derived from the file itself and they resolved barely a third of
+  their species locally. Each label is now matched to a scientific name once, against the bundled
+  reference and then eBird, taking `flexivit_il_all` and `eu_medium_focalnet_b` to about 79%.
+
 - **Settings > Health now says where bird names come from.** A new Naming Sources card reports how
   many species can be named without the network, which languages are held locally, and whether any
   model's label file has stopped matching the checksum it was published with. A changed label file

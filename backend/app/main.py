@@ -69,6 +69,7 @@ from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.utils.tasks import create_background_task
 from app.utils.runtime_flavor import get_image_flavor
+from app.services.label_enrichment import start_background_map_refresh
 from app.services.localized_names import start_background_refresh
 from app.services.startup_status import startup_status
 from app.ratelimit import limiter
@@ -489,6 +490,14 @@ async def lifespan(app: FastAPI):
             fatal=False,
             startup_phase="starting_services",
             startup_progress=86,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "model_taxon_map_refresh",
+            start_background_map_refresh,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=87,
         )
         await _run_lifecycle_phase(
             app,
