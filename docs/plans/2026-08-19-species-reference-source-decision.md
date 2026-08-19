@@ -287,3 +287,52 @@ it is Alembic-migrated and backed up with everything else the owner would miss.
 It also wins. `get_names` checks the cache before iNaturalist and before the bundled reference, so a
 renamed species keeps its name whatever the reference says. A test asserts this rather than leaving
 it to the ordering staying as it is.
+
+
+## Superseded: the bundled source is now IOC, not Coral
+
+The layered design above put eBird first at runtime and bundled only the 964 Coral species. That
+made a free eBird account the thing standing between a European owner and names in their own
+language, which is the wrong shape for a self-hosted application.
+
+The IOC World Bird List is licensed **CC BY 3.0** and may be redistributed with attribution. It
+carries 11,276 species and one *curated* name per language, which matters: aggregated sources return
+several candidates with no way to choose between them, and for `Cyanistes caeruleus` GBIF offers
+both `Cinciarella` and `Cinciallegra` as Italian, the second being the name of a different species.
+Shipping that would be worse than shipping English, because the reader cannot tell it is wrong.
+
+### Measured against every source
+
+| | Coral bundled | eBird at runtime | **IOC bundled** |
+| --- | ---: | ---: | ---: |
+| Birds the flagship model emits | 57.9% | 94.9% | **95.2%** |
+| `flexivit_il_all` labels | 32.4% | 78.2% | **90.2%** |
+| `eu_medium_focalnet_b` labels | 33.1% | 77.9% | **88.1%** |
+| Needs an API key | no | **yes** | no |
+
+### Localized names
+
+| Locale | eBird | **IOC** |
+| --- | ---: | ---: |
+| `de` | 98.5% | 98.3% |
+| `es` | 99.9% | 98.2% |
+| `fr` | 100% | 100% |
+| `it` | **5.8%** | **90.5%** |
+| `ja` | 94.4% | 95.4% |
+| `pt` | 100% | 98.8% |
+| `ru` | 92.8% | 96.1% |
+| `zh` | **30.8%** | **100%** |
+
+**This closes the Italian question**, which was the last item left open by this document. Italian
+moves from effectively untranslated to 90.5%, and Chinese to complete, with no key and no network.
+
+### Size
+
+3.87 MB: 11,276 taxa and 87,656 localized names. A reverse index on `(locale, common_name)` would
+have added 2.4 MB and nothing looks names up in that direction, so `taxon_name` is `WITHOUT ROWID`
+and keyed only on the way it is read.
+
+### What eBird is for now
+
+An enhancement rather than a requirement: species IOC does not carry, and locales beyond the eight
+bundled. The runtime store and its refresh remain, checked after the bundled list.

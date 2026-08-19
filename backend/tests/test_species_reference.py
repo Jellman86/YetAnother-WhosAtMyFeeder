@@ -138,7 +138,7 @@ def test_the_shipped_database_covers_the_measured_species():
         pytest.skip("bundled reference not present in this checkout")
 
     status = species_reference.status()
-    assert status["taxon_count"] >= 900
+    assert status["taxon_count"] >= 10_000
 
     result = species_reference.lookup("Haemorhous cassinii")
     assert result is not None
@@ -297,7 +297,7 @@ async def test_the_reference_answer_stays_english_when_no_translation_is_held(mo
     from app.services.taxonomy import taxonomy_service as module
 
     monkeypatch.setattr(module, "localized_names", LocalizedNameStore(tmp_path / "empty.db"))
-    monkeypatch.setattr(settings.ebird, "locale", "de")
+    monkeypatch.setattr(settings.ebird, "locale", "en")
 
     async def not_found(_name):
         return None
@@ -416,50 +416,123 @@ def test_the_shipped_reference_matches_its_recorded_digest():
     assert species_reference.available is True
 
 
+def _ioc_workbook(tmp_path, rows):
+    """A minimal xlsx in the shape the IOC file uses."""
+    import zipfile
+
+    def esc(v):
+        return str(v).replace("&", "&amp;").replace("<", "&lt;")
+
+    headings = ["seq", "Order", "Family", "IOC14.2", "English", "German", "Italian", "Chinese"]
+    all_rows = [headings] + rows
+    sheet = ['<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>']
+    for r_index, row in enumerate(all_rows, start=1):
+        cells = "".join(
+            f'<c r="{chr(65 + c_index)}{r_index}" t="inlineStr"><is><t>{esc(value)}</t></is></c>'
+            for c_index, value in enumerate(row)
+        )
+        sheet.append(f'<row r="{r_index}">{cells}</row>')
+    sheet.append("</sheetData></worksheet>")
+
+    path = tmp_path / "ioc.xlsx"
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(
+            "xl/sharedStrings.xml", '<sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>'
+        )
+        archive.writestr("xl/worksheets/sheet1.xml", "".join(sheet))
+    return path
+
+
+def _generator():
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    import build_species_reference
+
+    return build_species_reference
+
+
 def test_the_build_is_reproducible(tmp_path):
     """A recorded digest is only meaningful if regenerating produces the same file."""
     import hashlib
-    import sys
-    from pathlib import Path
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-    from build_species_reference import build
-
-    labels = tmp_path / "labels.txt"
-    labels.write_text(
-        "Haemorhous cassinii (Cassin's Finch)\nCyanistes caeruleus (Eurasian Blue Tit)\n",
-        encoding="utf-8",
+    build = _generator().build
+    source = _ioc_workbook(
+        tmp_path,
+        [
+            [
+                "1",
+                "PASSERIFORMES",
+                "Paridae",
+                "Cyanistes caeruleus",
+                "Eurasian Blue Tit",
+                "Blaumeise",
+                "Cinciarella",
+                "青山雀",
+            ],
+            [
+                "2",
+                "PASSERIFORMES",
+                "Turdidae",
+                "Erithacus rubecula",
+                "European Robin",
+                "Rotkehlchen",
+                "Pettirosso",
+                "欧亚鸲",
+            ],
+        ],
     )
 
-    first_path = tmp_path / "one.db"
-    second_path = tmp_path / "two.db"
-    first_count, first_digest = build(labels, first_path)
-    second_count, second_digest = build(labels, second_path)
+    first, second = tmp_path / "one.db", tmp_path / "two.db"
+    first_taxa, first_names, first_digest = build(source, first)
+    second_taxa, second_names, second_digest = build(source, second)
 
-    assert first_count == second_count == 2
+    # Two species, each with German, Italian and Chinese.
+    assert (first_taxa, first_names) == (second_taxa, second_names) == (2, 6)
     assert first_digest == second_digest
-    assert hashlib.sha256(first_path.read_bytes()).hexdigest() == first_digest
-    assert first_path.with_suffix(".db.sha256").read_text(encoding="utf-8").split()[0] == first_digest
+    assert hashlib.sha256(first.read_bytes()).hexdigest() == first_digest
+    assert first.with_suffix(".db.sha256").read_text(encoding="utf-8").split()[0] == first_digest
 
 
-def test_duplicate_and_unusable_labels_are_handled_deterministically(tmp_path):
-    import sys
-    from pathlib import Path
+def test_the_parser_keeps_species_and_skips_everything_else(tmp_path):
+    parse_ioc = _generator().parse_ioc
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-    from build_species_reference import parse_labels
-
-    pairs = parse_labels(
+    taxa = parse_ioc(
         [
-            "Haemorhous cassinii (Cassin's Finch)",
+            {"IOC14.2": "Cyanistes caeruleus", "English": "Eurasian Blue Tit", "Italian": "Cinciarella"},
             # A repeat keeps the first entry, so regeneration is stable.
-            "haemorhous cassinii (Duplicate Different Case)",
-            # Anything not in the paired form is skipped rather than guessed at.
-            "No parentheses here",
-            "",
-            "   ",
-            "Cyanistes caeruleus ()",
+            {"IOC14.2": "cyanistes caeruleus", "English": "Duplicate", "Italian": "Doppione"},
+            # Order and family rows carry a single word, not a binomial.
+            {"IOC14.2": "PASSERIFORMES", "English": ""},
+            {"IOC14.2": "", "English": "No name at all"},
         ]
     )
 
-    assert pairs == [("Haemorhous cassinii", "Cassin's Finch")]
+    assert [taxon["scientific_name"] for taxon in taxa] == ["Cyanistes caeruleus"]
+    assert taxa[0]["names"] == {"it": "Cinciarella"}
+
+
+def test_a_language_with_no_name_is_simply_absent(tmp_path):
+    parse_ioc = _generator().parse_ioc
+
+    taxa = parse_ioc([{"IOC14.2": "Erithacus rubecula", "English": "European Robin", "Italian": "   "}])
+
+    assert taxa[0]["names"] == {}
+    assert taxa[0]["common_name"] == "European Robin"
+
+
+def test_the_shipped_reference_carries_the_languages_we_present():
+    """The point of bundling: names in the owner's language with no key and no network."""
+    if not species_reference.available:
+        pytest.skip("bundled reference not present in this checkout")
+
+    status = species_reference.status()
+    assert status["taxon_count"] > 10_000
+    assert status["localized_name_count"] > 80_000
+    assert status["source_licence"] == "CC-BY-3.0"
+
+    for locale, expected in (("de", "Blaumeise"), ("it", "Cinciarella"), ("fr", "Mésange bleue")):
+        assert species_reference.lookup("Cyanistes caeruleus", locale)["common_name"] == expected
+    # English remains the fallback when no locale is asked for.
+    assert species_reference.lookup("Cyanistes caeruleus")["common_name"] == "Eurasian Blue Tit"
