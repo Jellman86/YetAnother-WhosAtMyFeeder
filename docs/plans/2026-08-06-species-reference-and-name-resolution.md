@@ -1,7 +1,9 @@
 # Species reference and name resolution
 
 Date: 2026-08-06
-Status: Proposed — blocked on a data-source decision (see Open decisions)
+Status: Superseded in part — the open decisions are resolved in
+[2026-08-19-species-reference-source-decision.md](2026-08-19-species-reference-source-decision.md),
+which measures the coverage this document assumed
 
 ## Decision
 
@@ -127,8 +129,9 @@ Both must be resolved before implementation starts.
    full tree and common names, but states no licence for it; its open-data documentation addresses
    photographs only. Redistributing it cannot be justified on the public terms. The bundled
    MobileNet labels are Apache-2.0 (Google Coral, see `backend/app/assets/mobilenet-v2-inat-bird.NOTICE.md`)
-   and pair 965 scientific names with common names, which is a permissively licensed alternative
-   covering the bird species this project cares about.
+   and pair 965 scientific names with common names. **Measured since: this covers only 860 of the
+   1,486 birds the flagship model can emit, leaving 42% without a local name.** See the source
+   decision above.
 2. **Whether reference data belongs in the repository.** Model assets are deliberately not committed
    today — `backend/app/assets/labels.txt` is a three-line placeholder, and real labels arrive with
    the model. Committing a species table would change that policy.
