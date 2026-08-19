@@ -2,6 +2,7 @@ import httpx
 import os
 import structlog
 
+from app.services.localized_names import localized_names
 from app.services.species_reference import species_reference
 import asyncio
 import aiosqlite
@@ -143,10 +144,17 @@ class TaxonomyService:
             # gives offline installs, and installs riding out an outage, a name.
             reference_hit = species_reference.lookup(query_name)
             if reference_hit:
+                # The reference ships English only. A locale the owner has already
+                # pulled from eBird names the bird in their language even now,
+                # with nothing reachable.
+                localized = localized_names.lookup(reference_hit.get("scientific_name"), settings.ebird.locale)
+                if localized:
+                    reference_hit["common_name"] = localized
                 log.info(
                     "Taxonomy resolved from bundled reference",
                     query=query_name,
                     scientific_name=reference_hit.get("scientific_name"),
+                    localized=bool(localized),
                     lookup_unavailable=lookup_unavailable,
                 )
                 # Not cached: the row would carry no taxon id, and a later lookup

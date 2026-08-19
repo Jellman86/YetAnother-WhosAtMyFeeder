@@ -257,3 +257,61 @@ async def test_an_uncovered_species_still_records_the_negative(monkeypatch):
     assert result["common_name"] is None
     assert len(saved) == 1
     assert saved[0]["is_not_found"] is True
+
+
+@pytest.mark.asyncio
+async def test_the_reference_answer_is_localized_when_the_store_has_the_name(monkeypatch, tmp_path):
+    """An offline install still names the bird in the owner's language."""
+    from app.config import settings
+    from app.services.localized_names import LocalizedNameStore
+    from app.services.taxonomy import taxonomy_service as module
+
+    store = LocalizedNameStore(tmp_path / "names.db")
+    store.upsert_many("de", [("Cyanistes caeruleus", "Blaumeise")])
+    monkeypatch.setattr(module, "localized_names", store)
+    monkeypatch.setattr(settings.ebird, "locale", "de")
+
+    async def not_found(_name):
+        return None
+
+    async def empty_cache(_query, db=None):
+        return None
+
+    async def noop_save(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(module.taxonomy_service, "_lookup_inaturalist", not_found)
+    monkeypatch.setattr(module.taxonomy_service, "_get_from_cache", empty_cache)
+    monkeypatch.setattr(module.taxonomy_service, "_save_to_cache", noop_save)
+
+    result = await module.taxonomy_service.get_names("Cyanistes caeruleus")
+
+    assert result["scientific_name"] == "Cyanistes caeruleus"
+    assert result["common_name"] == "Blaumeise"
+
+
+@pytest.mark.asyncio
+async def test_the_reference_answer_stays_english_when_no_translation_is_held(monkeypatch, tmp_path):
+    from app.config import settings
+    from app.services.localized_names import LocalizedNameStore
+    from app.services.taxonomy import taxonomy_service as module
+
+    monkeypatch.setattr(module, "localized_names", LocalizedNameStore(tmp_path / "empty.db"))
+    monkeypatch.setattr(settings.ebird, "locale", "de")
+
+    async def not_found(_name):
+        return None
+
+    async def empty_cache(_query, db=None):
+        return None
+
+    async def noop_save(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(module.taxonomy_service, "_lookup_inaturalist", not_found)
+    monkeypatch.setattr(module.taxonomy_service, "_get_from_cache", empty_cache)
+    monkeypatch.setattr(module.taxonomy_service, "_save_to_cache", noop_save)
+
+    result = await module.taxonomy_service.get_names("Cyanistes caeruleus")
+
+    assert result["common_name"] == "Eurasian Blue Tit"
