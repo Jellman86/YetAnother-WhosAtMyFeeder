@@ -163,7 +163,24 @@ The Dockerfile already downloads that label file with a pinned sha256, so the in
 
 ### Still to do
 
-- Persist eBird taxonomy into `taxon_name` per locale, with `pt` mapped to `pt_BR` and `zh` to
-  `zh_SIM`, and a refresh policy.
+- Persist eBird taxonomy into `taxon_name` per locale, and a refresh policy. The locale mapping
+  itself is done: `resolve_locale` now compares underscored and hyphenated codes on one form and
+  prefers a regional variant where the bare code is absent or thinner. See below.
 - Decide the Italian and Chinese question.
 - The model-output-index mapping, if the roadmap keeps that criterion after the reconciliation above.
+
+
+### The locale mapping was a live bug, not just a gap
+
+`resolve_locale` normalized the *requested* locale from `pt_BR` to `pt-BR`, but compared it against
+eBird's published codes unchanged, which use underscores. Its regional fallback tested
+`code.startswith("pt-")` against values like `pt_AO`, so it could never match. eBird publishes no
+bare `pt` either, so a Portuguese installation fell through every branch to English and silently
+received English bird names.
+
+Chinese resolved to the supported but sparse `zh` rather than `zh_SIM`, which carries four times as
+many translated names.
+
+Both are fixed. Codes are compared on one normalized form, and a bare language with a thin or absent
+code takes its preferred regional variant. An explicit regional choice such as `zh_HK` is matched
+exactly and is unaffected.
