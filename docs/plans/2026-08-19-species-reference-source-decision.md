@@ -1,6 +1,10 @@
 # Species reference: resolving the source decision
 
 Date: 2026-08-19
+Note: the accepted design is
+[2026-08-12-versioned-species-catalogue-design.md](2026-08-12-versioned-species-catalogue-design.md);
+this document supplies its source measurements. See
+[2026-08-19-species-catalogue-reconciliation.md](2026-08-19-species-catalogue-reconciliation.md).
 Status: Implemented, except the Italian question. Resolves the two open decisions in
 [2026-08-06-species-reference-and-name-resolution.md](2026-08-06-species-reference-and-name-resolution.md)
 
