@@ -154,7 +154,9 @@ The three common-name-only models need a build-time taxonomy lookup, which eBird
    whose labels are bare binomials are named in `label_integrity`, taking them from 0% to 100%.
 2. ~~Verify the label file against its published checksum, and build the map from a proven file.~~
    Done, and the verdict is reported in classifier status.
-3. Resolve common-name-only labels against a taxonomy, which eBird satisfies for about 78%.
+3. ~~Resolve common-name-only labels against a taxonomy.~~ Done: the bundled reference answers
+   first, then eBird, once per label file rather than per detection. Measured, `flexivit_il_all`
+   goes from 0 to 438 of 550 (79.6%) and `eu_medium_focalnet_b` from 0 to 561 of 707 (79.3%).
 4. Use the map for naming, falling back to the text path when a model has no mapping.
 5. Move grouped labels and display off `labels.txt` so the file is not needed at runtime at all.
 
@@ -182,3 +184,23 @@ file's digest rather than the model name buys.
 
 Region variants such as `small_birds/eu` carry no id of their own and hang off a parent under
 `region_variants`, so resolving their checksum needs the region as well as the parent id.
+
+
+## Coverage after resolving common names
+
+| Model | Labels | From the file | Resolved | Total | Rate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `rope_vit_b14_inat21` | 10,000 | 10,000 | 0 | 10,000 | **100%** |
+| `convnext_large_inat21` | 10,000 | 9,999 | 0 | 9,999 | **100%** |
+| `eva02_large_inat21` | 10,000 | 9,999 | 0 | 9,999 | **100%** |
+| `mobilenet_v2_birds` | 965 | 964 | 0 | 964 | 99.9% |
+| `flexivit_il_all` | 550 | 0 | 438 | 438 | **79.6%** |
+| `eu_medium_focalnet_b` | 707 | 0 | 561 | 561 | **79.3%** |
+
+The European models were the worst served by text matching, at about a third, and are the ones this
+helps most. The remaining fifth is names no source we have carries; adding a fourth source would be
+the way to close it, and the gap is measured rather than assumed.
+
+Resolution happens once per label file, not per detection. eBird's taxonomy is fetched once and
+every label is then a dictionary lookup, so the cost does not grow with the number of models
+installed.

@@ -188,6 +188,45 @@ class ModelTaxonMap:
         log.info("Model taxon map built", model_key=key, labels=len(ordered), mapped=len(rows))
         return len(rows)
 
+    def add(self, model_key: str, entries: Sequence[tuple[int, str]], *, source: str = "label") -> int:
+        """Add mappings for indices that have none, leaving existing ones alone.
+
+        The label file is the better authority, so a row it supplied is never
+        replaced by one resolved from a common name.
+        """
+        key = str(model_key or "").strip()
+        if not key:
+            return 0
+        connection = self._connect()
+        if connection is None:
+            return 0
+
+        rows = [
+            (key, int(index), str(scientific).strip(), source)
+            for index, scientific in entries
+            if isinstance(index, int) and index >= 0 and str(scientific or "").strip()
+        ]
+        if not rows:
+            return 0
+
+        try:
+            with self._access:
+                connection.executemany(
+                    "INSERT INTO model_taxon_map (model_key, output_index, scientific_name, source_label)"
+                    " VALUES (?, ?, ?, ?) ON CONFLICT (model_key, output_index) DO NOTHING",
+                    rows,
+                )
+                connection.execute(
+                    "UPDATE model_taxon_coverage SET mapped ="
+                    " (SELECT COUNT(*) FROM model_taxon_map WHERE model_key = ?) WHERE model_key = ?",
+                    (key, key),
+                )
+                connection.commit()
+        except sqlite3.Error as error:
+            log.warning("Could not extend model taxon map", model_key=key, error=str(error))
+            return 0
+        return len(rows)
+
     def lookup(self, model_key: str, output_index: int) -> Optional[str]:
         key = str(model_key or "").strip()
         if not key or not isinstance(output_index, int) or output_index < 0:
