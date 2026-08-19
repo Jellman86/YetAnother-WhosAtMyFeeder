@@ -1,6 +1,8 @@
 import httpx
 import os
 import structlog
+
+from app.services.species_reference import species_reference
 import asyncio
 import aiosqlite
 from typing import Any, Optional, Dict
@@ -134,6 +136,27 @@ class TaxonomyService:
                 break
 
         if not result:
+            # The bundled reference answers when the network could not. It is
+            # deliberately here rather than ahead of iNaturalist: a hit carries no
+            # taxon id, so resolving from it first would cost enrichment the id it
+            # needs for every covered species. Placed here it costs nothing and
+            # gives offline installs, and installs riding out an outage, a name.
+            reference_hit = species_reference.lookup(query_name)
+            if reference_hit:
+                log.info(
+                    "Taxonomy resolved from bundled reference",
+                    query=query_name,
+                    scientific_name=reference_hit.get("scientific_name"),
+                    lookup_unavailable=lookup_unavailable,
+                )
+                # Not cached: the row would carry no taxon id, and a later lookup
+                # with the network back should still be able to supply one.
+                return {
+                    "scientific_name": reference_hit.get("scientific_name"),
+                    "common_name": reference_hit.get("common_name"),
+                    "taxa_id": None,
+                }
+
             # 4. Save Failure to Cache (to prevent retrying forever), but only when
             # iNaturalist actually answered. Recording a provider outage as
             # "no such species" would withhold the name until something repairs it.

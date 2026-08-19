@@ -197,6 +197,9 @@ agents/
 data/
 *.db
 backend/data/*.db
+# The species reference is a shipped, checksum-verified asset, not a runtime
+# database. It must survive the *.db rule above.
+!backend/app/assets/species_reference.db
 backend/data/models/
 # apps/telemetry-worker/ # Un-ignored to allow tracking source
 apps/telemetry-worker/.wrangler/

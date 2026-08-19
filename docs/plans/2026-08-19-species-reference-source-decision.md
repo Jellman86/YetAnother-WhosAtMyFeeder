@@ -1,7 +1,8 @@
 # Species reference: resolving the source decision
 
 Date: 2026-08-19
-Status: Proposed — resolves the two open decisions in
+Status: Partly implemented — the bundled layer is built and wired in; the eBird
+layer is not yet. Resolves the two open decisions in
 [2026-08-06-species-reference-and-name-resolution.md](2026-08-06-species-reference-and-name-resolution.md)
 
 ## Decision
@@ -129,3 +130,40 @@ Label counts and formats were read from the model directories of a live deployme
 The eBird figures come from `/ref/taxonomy/ebird` called with that deployment's configured key, once
 per locale. Coverage percentages are set intersections on lower-cased scientific names; the
 localization figures count species whose returned common name differs from the English one.
+
+
+## Implementation notes
+
+### Where the bundled layer actually sits
+
+It resolves *after* iNaturalist, not before it. Placing it first was tried and rejected: the
+reference carries no iNaturalist taxon id, so answering from it first cost the id for every covered
+species, which enrichment needs. The full test suite caught this immediately.
+
+That placement is also the honest one. The earlier document established that the network cost is
+already one bounded, cached, two-second delay on first sight, so removing it was never the prize.
+The prize is that an offline install, or one riding out an iNaturalist outage, gets a name at all.
+
+A reference hit is not written to `taxonomy_cache`, because a row with no taxon id would stop a
+later lookup supplying one.
+
+### Shipping the asset
+
+`backend/app/assets/species_reference.db` is committed. `.gitignore` carries `*.db`, so the file
+needed an explicit negation; a test asserts it is not ignored, because the failure mode is silent
+and the layer would simply never exist in a release.
+
+Regenerate with:
+
+```bash
+python backend/scripts/build_species_reference.py --labels /path/to/mobilenet_v2_birds/labels.txt
+```
+
+The Dockerfile already downloads that label file with a pinned sha256, so the input is verified.
+
+### Still to do
+
+- Persist eBird taxonomy into `taxon_name` per locale, with `pt` mapped to `pt_BR` and `zh` to
+  `zh_SIM`, and a refresh policy.
+- Decide the Italian and Chinese question.
+- The model-output-index mapping, if the roadmap keeps that criterion after the reconciliation above.
