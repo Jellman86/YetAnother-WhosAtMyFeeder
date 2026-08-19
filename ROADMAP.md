@@ -114,7 +114,10 @@ The headline work that makes `3.0` a major version: a guided first run, a cleane
 surface, a codebase reviewed to the gold standard, and complete translations.
 
 #### Versioned species catalogue and model mapping 🐦
-**Priority:** P1 | **Effort:** L | **Status:** ☐ Not started — required before `3.0`
+**Priority:** P1 | **Effort:** L | **Status:** ☐ Not started, no longer blocked — the data-source
+decision is resolved in
+[`docs/plans/2026-08-19-species-reference-source-decision.md`](docs/plans/2026-08-19-species-reference-source-decision.md),
+which measures source coverage and reconciles this entry with the earlier design
 
 Create a separate, enrichable SQLite catalogue whose stable taxon records own scientific names,
 locale-specific common names, aliases, regions, and provenance. A versioned mapping table will bind
