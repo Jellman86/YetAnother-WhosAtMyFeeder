@@ -21,7 +21,6 @@ import hashlib
 import re
 import sqlite3
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 
 SCHEMA_VERSION = "1"
@@ -107,7 +106,9 @@ def build(labels_path: Path, output_path: Path) -> tuple[int, str]:
                 ("source", SOURCE_NAME),
                 ("source_licence", "Apache-2.0"),
                 ("taxon_count", str(len(pairs))),
-                ("generated_at", datetime.now(timezone.utc).isoformat()),
+                # Deliberately no build timestamp: the output must be
+                # reproducible, so a reviewer can regenerate and compare digests.
+                # The input is identified by its own checksum instead.
                 ("labels_sha256", hashlib.sha256(labels_path.read_bytes()).hexdigest()),
             ],
         )
@@ -117,6 +118,10 @@ def build(labels_path: Path, output_path: Path) -> tuple[int, str]:
         connection.close()
 
     digest = hashlib.sha256(output_path.read_bytes()).hexdigest()
+    # Recorded beside the asset so the runtime can refuse a file that no longer
+    # matches what was generated. Committed, and diffable, unlike the database.
+    sidecar = output_path.with_suffix(output_path.suffix + ".sha256")
+    sidecar.write_text(f"{digest}  {output_path.name}\n", encoding="utf-8")
     return len(pairs), digest
 
 
@@ -133,6 +138,7 @@ def main() -> int:
     count, digest = build(args.labels, args.output)
     print(f"Wrote {args.output} with {count} taxa")
     print(f"sha256 {digest}")
+    print(f"Wrote {args.output.with_suffix(args.output.suffix + '.sha256')}")
     return 0
 
 

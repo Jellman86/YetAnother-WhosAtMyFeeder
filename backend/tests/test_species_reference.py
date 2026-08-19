@@ -341,3 +341,125 @@ def test_concurrent_lookups_share_one_connection_safely():
         thread.join()
 
     assert errors == []
+
+
+# ── Integrity ────────────────────────────────────────────────────────────────
+
+
+def _reference_with_digest(tmp_path, digest: str | None):
+    """A minimal reference plus an optional recorded digest beside it."""
+    import sqlite3
+
+    path = tmp_path / "ref.db"
+    connection = sqlite3.connect(path)
+    connection.executescript(
+        """
+        CREATE TABLE reference_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
+        CREATE TABLE taxon (
+            id INTEGER PRIMARY KEY,
+            scientific_name TEXT NOT NULL,
+            common_name TEXT,
+            source TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX idx_taxon_scientific ON taxon (scientific_name COLLATE NOCASE);
+        """
+    )
+    connection.execute(
+        "INSERT INTO taxon (scientific_name, common_name, source) VALUES ('Cyanistes caeruleus', 'Blue Tit', 't')"
+    )
+    connection.execute("INSERT INTO reference_meta (key, value) VALUES ('taxon_count', '1')")
+    connection.commit()
+    connection.close()
+    if digest is not None:
+        (tmp_path / "ref.db.sha256").write_text(digest, encoding="utf-8")
+    return SpeciesReference(path)
+
+
+def _digest_of(path) -> str:
+    import hashlib
+
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def test_a_reference_matching_its_recorded_digest_is_used(tmp_path):
+    reference = _reference_with_digest(tmp_path, None)
+    digest = _digest_of(tmp_path / "ref.db")
+    (tmp_path / "ref.db.sha256").write_text(f"{digest}  species_reference.db\n", encoding="utf-8")
+
+    assert reference.lookup("Cyanistes caeruleus")["common_name"] == "Blue Tit"
+
+
+def test_a_reference_that_does_not_match_its_digest_is_refused(tmp_path):
+    """Wrong names written into detection history are worse than no names."""
+    reference = _reference_with_digest(tmp_path, "0" * 64)
+
+    assert reference.available is False
+    assert reference.lookup("Cyanistes caeruleus") is None
+
+
+def test_a_reference_with_no_recorded_digest_is_still_usable(tmp_path):
+    """A locally regenerated file has no sidecar; that is not a corruption signal."""
+    reference = _reference_with_digest(tmp_path, None)
+
+    assert reference.lookup("Cyanistes caeruleus") is not None
+
+
+def test_the_shipped_reference_matches_its_recorded_digest():
+    from app.services.species_reference import DEFAULT_REFERENCE_PATH
+
+    sidecar = DEFAULT_REFERENCE_PATH.with_suffix(DEFAULT_REFERENCE_PATH.suffix + ".sha256")
+    if not DEFAULT_REFERENCE_PATH.is_file() or not sidecar.is_file():
+        pytest.skip("bundled reference not present in this checkout")
+
+    recorded = sidecar.read_text(encoding="utf-8").split()[0]
+    assert _digest_of(DEFAULT_REFERENCE_PATH) == recorded
+    assert species_reference.available is True
+
+
+def test_the_build_is_reproducible(tmp_path):
+    """A recorded digest is only meaningful if regenerating produces the same file."""
+    import hashlib
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from build_species_reference import build
+
+    labels = tmp_path / "labels.txt"
+    labels.write_text(
+        "Haemorhous cassinii (Cassin's Finch)\nCyanistes caeruleus (Eurasian Blue Tit)\n",
+        encoding="utf-8",
+    )
+
+    first_path = tmp_path / "one.db"
+    second_path = tmp_path / "two.db"
+    first_count, first_digest = build(labels, first_path)
+    second_count, second_digest = build(labels, second_path)
+
+    assert first_count == second_count == 2
+    assert first_digest == second_digest
+    assert hashlib.sha256(first_path.read_bytes()).hexdigest() == first_digest
+    assert first_path.with_suffix(".db.sha256").read_text(encoding="utf-8").split()[0] == first_digest
+
+
+def test_duplicate_and_unusable_labels_are_handled_deterministically(tmp_path):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+    from build_species_reference import parse_labels
+
+    pairs = parse_labels(
+        [
+            "Haemorhous cassinii (Cassin's Finch)",
+            # A repeat keeps the first entry, so regeneration is stable.
+            "haemorhous cassinii (Duplicate Different Case)",
+            # Anything not in the paired form is skipped rather than guessed at.
+            "No parentheses here",
+            "",
+            "   ",
+            "Cyanistes caeruleus ()",
+        ]
+    )
+
+    assert pairs == [("Haemorhous cassinii", "Cassin's Finch")]
