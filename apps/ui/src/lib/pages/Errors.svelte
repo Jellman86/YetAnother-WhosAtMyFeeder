@@ -51,10 +51,27 @@
         acquire_timeouts?: unknown;
     }
 
+    interface ModelHealth {
+        loaded?: boolean;
+        error?: string | null;
+        /** Whether the label file still matches the checksum it was published with. */
+        labels?: { verdict?: string; label_count?: number };
+    }
+
+    interface NamingHealth {
+        species_reference?: { available?: boolean; taxon_count?: number; source?: string | null };
+        localized_names?: { available?: boolean; locales?: Record<string, number> };
+    }
+
     interface DiagnosticsHealth extends Record<string, unknown> {
         event_pipeline?: MetricGroup;
         mqtt?: MetricGroup;
-        ml?: { live_image?: MetricGroup; background_image?: MetricGroup };
+        ml?: {
+            live_image?: MetricGroup;
+            background_image?: MetricGroup;
+            models?: Record<string, ModelHealth>;
+        };
+        naming?: NamingHealth;
         notification_dispatcher?: MetricGroup;
         db_pool?: MetricGroup;
     }
@@ -420,6 +437,48 @@
         return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length.toLocaleString(), phase }, default: `${startupWarnings.length.toLocaleString()} startup warnings recorded. Latest phase: ${phase}.` });
     }
 
+    function namingStatus(): string {
+        const models = health?.ml?.models ?? {};
+        const verdicts = Object.values(models).map(model => model?.labels?.verdict);
+        // A label file that no longer matches what was published names every
+        // detection from it wrongly, so it outranks anything else here.
+        if (verdicts.includes('changed')) return 'critical';
+        if (verdicts.includes('missing')) return 'degraded';
+        return health?.naming?.species_reference?.available ? 'ok' : 'unknown';
+    }
+
+    function namingSummary(): string {
+        const models = health?.ml?.models ?? {};
+        const changed = Object.entries(models)
+            .filter(([, model]) => model?.labels?.verdict === 'changed')
+            .map(([name]) => name);
+        if (changed.length > 0) {
+            return $_('jobs.errors_naming_labels_changed', {
+                values: { models: changed.join(', ') },
+                default: 'The label file for {models} does not match the checksum it was published with. Species names taken from it are not trustworthy.'
+            });
+        }
+        const taxa = asNumber(health?.naming?.species_reference?.taxon_count);
+        if (!health?.naming?.species_reference?.available) {
+            return $_('jobs.errors_naming_no_reference', {
+                default: 'No bundled species reference, so names come from the network only.'
+            });
+        }
+        return $_('jobs.errors_naming_ok', {
+            values: { count: taxa.toLocaleString() },
+            default: '{count} species can be named without the network.'
+        });
+    }
+
+    function namingLocales(): string {
+        const locales = health?.naming?.localized_names?.locales ?? {};
+        const names = Object.keys(locales);
+        if (names.length === 0) {
+            return $_('jobs.errors_naming_no_locales', { default: 'English only' });
+        }
+        return names.sort().join(', ');
+    }
+
     function startedAgoText(): string {
         if (instanceWindow === null) return $_('common.unknown', { default: 'unknown' });
         const minutes = Math.floor(instanceWindow / 60000);
@@ -750,6 +809,28 @@
                                 <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_queue_size', { default: 'Queue Size' })}</span><span>{asNumber(health?.notification_dispatcher?.queue_size).toLocaleString()} / {asNumber(health?.notification_dispatcher?.queue_max).toLocaleString()}</span></div>
                                 <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_db_wait_max', { default: 'DB Wait Max' })}</span><span>{asNumber(health?.db_pool?.acquire_wait_max_ms).toLocaleString()}ms</span></div>
                                 <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_db_timeouts', { default: 'DB Timeouts' })}</span><span>{asNumber(health?.db_pool?.acquire_timeouts).toLocaleString()}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Naming sources -->
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(namingStatus())}">
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_naming', { default: 'Naming Sources' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{namingStatus()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{namingSummary()}</p>
+                            <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_offline_species', { default: 'Offline Species' })}</span><span>{asNumber(health?.naming?.species_reference?.taxon_count).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_languages', { default: 'Languages' })}</span><span>{namingLocales()}</span></div>
                             </div>
                         </div>
                     </div>

@@ -20,6 +20,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   nothing is reachable. It is fetched in one request per language rather than one per species, and a
   name eBird returns unchanged from English is not recorded as a translation.
 
+- **Settings > Health now says where bird names come from.** A new Naming Sources card reports how
+  many species can be named without the network, which languages are held locally, and whether any
+  model's label file has stopped matching the checksum it was published with. A changed label file
+  names every detection from it wrongly, and that was previously visible only in a log line.
+
 - **Model label files are now checked against the checksum they were published with.** They were
   verified once at download and never again, so a label file altered afterwards was read as
   authoritative and every detection classified against it was recorded under the wrong species. The
