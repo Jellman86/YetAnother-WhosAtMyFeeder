@@ -236,3 +236,23 @@ the only permissively licensed source available, not of the matching.
 - No duplicate common names in the reference, so a common-name match cannot resolve ambiguously.
 - All 8,514 non-bird labels in the iNat model were checked against the reference: **none** resolves
   to a bird. A moth cannot be named a finch.
+
+
+### Integrity of the shipped asset
+
+The generator writes `species_reference.db.sha256` beside the database, and the runtime refuses a
+file that does not match it. A reference altered on disk would write wrong species names into
+detection history, which is worse than shipping no reference at all, so the failure is closed rather
+than tolerated. A locally regenerated file with no sidecar is still used: absence is not corruption.
+
+The build is reproducible. It carries no timestamp, so regenerating from the same labels produces a
+byte-identical file, which is the only thing that makes a recorded digest checkable by a reviewer.
+The input is identified by its own checksum in `reference_meta` instead.
+
+### An adjacent gap, not addressed here
+
+`labels_sha256` is verified when a model is downloaded and staged, but the label file is not checked
+again when the model is loaded. A `labels.txt` altered or corrupted after download is read as
+authoritative, and every detection classified against it is written to history under the wrong name.
+That is a model-loading concern rather than a reference one, so it is recorded here rather than
+changed as a side effect.

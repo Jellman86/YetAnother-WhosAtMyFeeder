@@ -18,6 +18,7 @@ row without one would stop enrichment ever resolving it.
 
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 import threading
 from pathlib import Path
@@ -30,6 +31,9 @@ from app.utils.classifier_labels import normalize_classifier_label
 log = structlog.get_logger()
 
 DEFAULT_REFERENCE_PATH = Path(__file__).resolve().parent.parent / "assets" / "species_reference.db"
+
+#: Read in 1MB chunks so verification never holds the whole file in memory.
+_DIGEST_CHUNK_BYTES = 1024 * 1024
 
 
 def _parenthetical_halves(value: str) -> tuple[Optional[str], Optional[str]]:
@@ -76,6 +80,9 @@ class SpeciesReference:
                 log.info("Species reference not bundled; naming will use the network", path=str(self._path))
                 self._disabled = True
                 return None
+            if not self._verify_digest():
+                self._disabled = True
+                return None
             try:
                 connection = sqlite3.connect(f"file:{self._path}?mode=ro", uri=True, check_same_thread=False)
                 connection.row_factory = sqlite3.Row
@@ -87,6 +94,47 @@ class SpeciesReference:
                 return None
             self._connection = connection
             return connection
+
+    def _verify_digest(self) -> bool:
+        """Check the file against the digest recorded beside it, when there is one.
+
+        A shipped asset that no longer matches what was generated is refused
+        rather than trusted: a silently altered reference would write wrong
+        species names into detection history, which is worse than no names at
+        all. A locally regenerated file has no sidecar, and that is not a
+        corruption signal.
+        """
+        sidecar = self._path.with_suffix(self._path.suffix + ".sha256")
+        if not sidecar.is_file():
+            return True
+        try:
+            expected = sidecar.read_text(encoding="utf-8").split()[0].strip().lower()
+        except (OSError, IndexError):
+            log.warning("Species reference digest unreadable; using the file as found", path=str(sidecar))
+            return True
+        if len(expected) != 64:
+            log.warning("Species reference digest malformed; using the file as found", path=str(sidecar))
+            return True
+
+        digest = hashlib.sha256()
+        try:
+            with open(self._path, "rb") as handle:
+                for chunk in iter(lambda: handle.read(_DIGEST_CHUNK_BYTES), b""):
+                    digest.update(chunk)
+        except OSError as error:
+            log.warning("Species reference unreadable; naming will use the network", error=str(error))
+            return False
+
+        actual = digest.hexdigest()
+        if actual != expected:
+            log.error(
+                "Species reference does not match its recorded digest; refusing it",
+                path=str(self._path),
+                expected=expected,
+                actual=actual,
+            )
+            return False
+        return True
 
     def _candidates(self, query: str) -> list[str]:
         """Every form of the query worth matching, in order of preference."""
