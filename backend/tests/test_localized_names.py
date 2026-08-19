@@ -183,3 +183,81 @@ async def test_a_broken_ebird_costs_nothing(store, monkeypatch):
 )
 def test_refresh_is_due_only_after_the_interval(recorded, due):
     assert module._needs_refresh(recorded) is due
+
+
+# ── Hardening ────────────────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_only_real_species_are_stored(store, monkeypatch):
+    """get_taxonomy asks for issf, spuh and slash forms too; those are not species."""
+    from app.services import ebird_service as ebird_module
+
+    async def get_taxonomy(locale=None):
+        if str(locale or "en") == "en":
+            return [
+                {"sciName": "Anas platyrhynchos", "comName": "Mallard", "category": "species"},
+                {"sciName": "Anas platyrhynchos/rubripes", "comName": "Mallard/Black Duck", "category": "slash"},
+                {"sciName": "Anas sp.", "comName": "duck sp.", "category": "spuh"},
+                {"sciName": "Anas platyrhynchos domesticus", "comName": "Domestic Mallard", "category": "issf"},
+            ]
+        return [
+            {"sciName": "Anas platyrhynchos", "comName": "Stockente", "category": "species"},
+            {"sciName": "Anas platyrhynchos/rubripes", "comName": "Stockente/Dunkelente", "category": "slash"},
+            {"sciName": "Anas sp.", "comName": "Ente sp.", "category": "spuh"},
+            {"sciName": "Anas platyrhynchos domesticus", "comName": "Hausente", "category": "issf"},
+        ]
+
+    monkeypatch.setattr(ebird_module.ebird_service, "get_taxonomy", get_taxonomy)
+
+    stored = await module.refresh_locale_from_ebird("de", store=store)
+
+    assert stored == 1
+    assert store.lookup("Anas platyrhynchos", "de") == "Stockente"
+    assert store.lookup("Anas platyrhynchos/rubripes", "de") is None
+    assert store.lookup("Anas sp.", "de") is None
+
+
+@pytest.mark.asyncio
+async def test_an_entry_with_no_category_is_still_accepted(store, monkeypatch):
+    """Not every caller or fixture carries the field; absence must not empty the store."""
+    from app.services import ebird_service as ebird_module
+
+    async def get_taxonomy(locale=None):
+        name = "Blaumeise" if str(locale or "en") != "en" else "Eurasian Blue Tit"
+        return [{"sciName": "Cyanistes caeruleus", "comName": name}]
+
+    monkeypatch.setattr(ebird_module.ebird_service, "get_taxonomy", get_taxonomy)
+
+    assert await module.refresh_locale_from_ebird("de", store=store) == 1
+
+
+def test_concurrent_readers_and_writers_do_not_trip_over_the_connection(store):
+    """One connection is shared, so access has to be serialized."""
+    import threading
+
+    store.upsert_many("de", [(f"Genus species{i}", f"Name {i}") for i in range(50)])
+    errors: list[BaseException] = []
+
+    def read() -> None:
+        try:
+            for i in range(200):
+                store.lookup(f"Genus species{i % 50}", "de")
+        except BaseException as error:  # noqa: BLE001 - recorded for the assertion
+            errors.append(error)
+
+    def write() -> None:
+        try:
+            for i in range(50):
+                store.upsert_many("fr", [(f"Genus species{i}", f"Nom {i}")])
+        except BaseException as error:  # noqa: BLE001
+            errors.append(error)
+
+    threads = [threading.Thread(target=read) for _ in range(4)] + [threading.Thread(target=write) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []
+    assert store.lookup("Genus species7", "fr") == "Nom 7"

@@ -200,3 +200,39 @@ costs one refresh.
 A name eBird returns unchanged from English is not stored. eBird answers with the English name when
 it has no translation, and recording that would claim a translation we do not have, which is how a
 locale like Italian would have looked complete while being 5.8% translated.
+
+
+## What the bundled reference does and does not do
+
+**It does not replace model label files.** The classifier loads `labels.txt` and indexes into it to
+turn an output index into label text; the reference takes that text and resolves names from it. Both
+are needed, and the reference cannot remove the label file while it keys on text.
+
+That matters for the 3.0 exit criterion, which asks for names "without requiring model label text
+files at runtime". Meeting it as written needs the output-index mapping this document recommends
+dropping. The two positions are still unreconciled in `ROADMAP.md`, and that is a release-scope call.
+
+### Measured resolution per model
+
+Against the committed reference, using label files from a live deployment:
+
+| Model | Labels | Resolved | Rate |
+| --- | ---: | ---: | ---: |
+| `rope_vit_b14_inat21` | 10,000 | 860 | 8.6% of all, 57.9% of its 1,486 birds |
+| `convnext_large_inat21` | 10,000 | 860 | as above |
+| `eva02_large_inat21` | 10,000 | 860 | as above |
+| `mobilenet_v2_birds` | 965 | 964 | 99.9% |
+| `flexivit_il_all` | 550 | 178 | 32.4% |
+| `eu_medium_focalnet_b` | 707 | 234 | 33.1% |
+| `uniformer_s_eu_common` | 707 | 234 | 33.1% |
+
+**The European models get the least from it.** The bundled source is Google Coral's bird set, which
+leans North American, so labels like `African blue tit`, `Algerian nuthatch` and `Arabian babbler`
+are simply absent. Those installs depend on eBird and iNaturalist as before. This is a property of
+the only permissively licensed source available, not of the matching.
+
+### Correctness checks
+
+- No duplicate common names in the reference, so a common-name match cannot resolve ambiguously.
+- All 8,514 non-bird labels in the iNat model were checked against the reference: **none** resolves
+  to a bird. A moth cannot be named a finch.

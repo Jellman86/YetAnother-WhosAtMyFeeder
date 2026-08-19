@@ -1,11 +1,12 @@
-import httpx
+import asyncio
 import os
+
+import aiosqlite
+import httpx
 import structlog
 
 from app.services.localized_names import localized_names
 from app.services.species_reference import species_reference
-import asyncio
-import aiosqlite
 from typing import Any, Optional, Dict
 from datetime import datetime
 from app.database import get_db
@@ -142,7 +143,8 @@ class TaxonomyService:
             # taxon id, so resolving from it first would cost enrichment the id it
             # needs for every covered species. Placed here it costs nothing and
             # gives offline installs, and installs riding out an outage, a name.
-            reference_hit = species_reference.lookup(query_name)
+            # Local SQLite reads, so off the event loop (CLAUDE.md 4).
+            reference_hit = await asyncio.to_thread(species_reference.lookup, query_name)
             if reference_hit:
                 # The reference ships English only. A locale the owner has already
                 # pulled from eBird names the bird in their language even now,
