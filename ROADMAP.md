@@ -152,7 +152,7 @@ consumers of the current mapping**: anything taught to trust that key has to be 
 
 | Phase | State |
 | --- | --- |
-| 0. Freeze the contract and provenance gate | ☐ |
+| 0. Freeze the contract and provenance gate | 🔄 mostly delivered ([freeze note](docs/plans/2026-08-19-species-catalogue-phase0-freeze.md)): pinned sources (IOC 14.2, CoL COL26.7 by DOI, eBird 2025) in a machine-checked manifest with a licence/redistribution gate; per-artifact label grammar declared in the registry; 100%-coverage artifact [inventory](docs/reviews/2026-08-19-species-catalogue-phase0-inventory.md) held current by a regression test. Remaining: the synonym/split-lump mapping report, which needs Phase 1's CoL import |
 | 1. Catalogue schema and deterministic builder | 🔄 seed and builder exist; schema, Catalogue of Life import for non-bird classes, seed-then-copy into `/data`, and the dedicated Alembic stream remain |
 | 2. Checksum-bound model mappings | 🔄 label verification exists; `model_artifacts` keyed on the model checksum and `model_output_taxa` with class kinds remain |
 | 3. Shadow resolution and historical backfill | ☐ |
@@ -162,8 +162,11 @@ consumers of the current mapping**: anything taught to trust that key has to be 
 ##### Cheap, independent of the phases
 
 - Explain naming limits on the Health page rather than only reporting numbers (§5).
-- Measure the ~10% of European model labels that resolve to no scientific name in any held source,
-  before deciding whether a further source is warranted.
+- ✅ Measured: 84 of 707 European model labels (11.9%) resolve to no scientific name in the bundled
+  IOC reference, dominated by stripped possessive apostrophes (`Audouins gull`) that a Phase 2
+  apostrophe-insensitive alias rule should recover — see the
+  [Phase 0 inventory](docs/reviews/2026-08-19-species-catalogue-phase0-inventory.md). No further
+  source is warranted before that rule exists.
 
 **3.0 gate:** all supported models and regional variants have complete mappings; normal inference
 and reads work offline; locale changes affect display only; catalogue refresh is transactional and

@@ -31,12 +31,28 @@ _HIERARCHY = re.compile(r"^\d+(?:_[A-Za-z\-]+)+$")
 #: `Haemorhous cassinii (Cassin's Finch)`
 _PAIRED = re.compile(r"^\s*(?P<scientific>[^()]+?)\s*\((?P<common>.+)\)\s*$")
 #: `Genus species`. This shape cannot separate `Cyanistes caeruleus` from
-#: `African crake`, so it is honoured only when the caller states that the label
-#: file holds scientific names. Tested against the real label files, a word-list
-#: of adjectives claimed 198 common names as scientific, and a statistical
-#: discriminator separated the files by only a factor of two. Neither is worth
-#: shipping when the alternative is to say so and resolve by lookup instead.
+#: `African crake`, so it is honoured only when the artifact declares that its
+#: label file holds scientific names. Tested against the real label files, a
+#: word-list of adjectives claimed 198 common names as scientific, and a
+#: statistical discriminator separated the files by only a factor of two.
+#: Neither is worth shipping when the alternative is to say so and resolve by
+#: lookup instead.
 _BINOMIAL = re.compile(r"^(?P<genus>[A-Z][a-z]+)\s+(?P<epithet>[a-z][a-z-]+)$")
+
+#: Every label grammar an artifact may declare. The registry declares one per
+#: artifact; the shape of a line is never trusted to reveal it. The NABirds
+#: files are the proof: `Lesser Goldfinch (Female/juvenile)` matches the paired
+#: shape exactly, and reading it that way records a common name as a
+#: scientific one.
+LABEL_FORMATS = frozenset(
+    {
+        "scientific_hierarchy",
+        "scientific_binomial",
+        "scientific_paired_common",
+        "common_name",
+        "detector_classes",
+    }
+)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS model_taxon_map (
@@ -54,18 +70,19 @@ CREATE TABLE IF NOT EXISTS model_taxon_coverage (
 """
 
 
-def scientific_name_from_label(label: Optional[str], *, assume_scientific: bool = False) -> Optional[str]:
+def scientific_name_from_label(label: Optional[str], *, label_format: Optional[str] = None) -> Optional[str]:
     """Read the scientific name out of a model label, or None if it carries none.
 
-    Only the two formats that *guarantee* a scientific name are read without
-    being told: the iNaturalist hierarchy, whose last two parts are the genus and
-    species, and the paired form, whose left half is the scientific name by
-    construction. A bare `Genus species` is indistinguishable from a common name
-    of the same shape, so it is read only when `assume_scientific` says the file
-    holds scientific names.
+    The declared `label_format` decides how a line is read. Only the
+    iNaturalist hierarchy is read without a declaration, because it is the one
+    shape a common name cannot take. The paired form used to be read undeclared
+    too, until the NABirds files showed `Lesser Goldfinch (Female/juvenile)`
+    wearing the same shape; a plumage qualifier is not a common name and
+    `Lesser Goldfinch` is not a scientific one.
 
-    None is the honest answer everywhere else, and the caller resolves that label
-    against a taxonomy instead of guessing at it.
+    None is the honest answer everywhere else — including an unknown declared
+    format, where guessing would defeat the declaration — and the caller
+    resolves that label against a taxonomy instead.
     """
     if not isinstance(label, str):
         return None
@@ -73,24 +90,29 @@ def scientific_name_from_label(label: Optional[str], *, assume_scientific: bool 
     if not text:
         return None
 
-    if _HIERARCHY.match(text):
-        parts = text.split("_")
-        if len(parts) < 3:
-            return None
-        genus, species = parts[-2], parts[-1]
-        if not genus or not species:
-            return None
-        return f"{genus[:1].upper()}{genus[1:]} {species.lower()}"
+    if label_format in (None, "scientific_hierarchy"):
+        if _HIERARCHY.match(text):
+            parts = text.split("_")
+            if len(parts) < 3:
+                return None
+            genus, species = parts[-2], parts[-1]
+            if not genus or not species:
+                return None
+            return f"{genus[:1].upper()}{genus[1:]} {species.lower()}"
+        return None
 
-    paired = _PAIRED.match(text)
-    if paired:
-        scientific = paired.group("scientific").strip()
-        return scientific or None
+    if label_format == "scientific_paired_common":
+        paired = _PAIRED.match(text)
+        if paired:
+            return paired.group("scientific").strip() or None
+        return None
 
-    if assume_scientific:
+    if label_format == "scientific_binomial":
         binomial = _BINOMIAL.match(text)
         if binomial:
             return f"{binomial.group('genus')} {binomial.group('epithet')}"
+        return None
+
     return None
 
 
@@ -146,7 +168,7 @@ class ModelTaxonMap:
         model_key: str,
         labels: Sequence[str] | Iterable[str],
         *,
-        assume_scientific: bool = False,
+        label_format: Optional[str] = None,
     ) -> int:
         """Derive and store the mapping for one model artifact.
 
@@ -163,7 +185,7 @@ class ModelTaxonMap:
         ordered = list(labels)
         rows = []
         for index, label in enumerate(ordered):
-            scientific = scientific_name_from_label(label, assume_scientific=assume_scientific)
+            scientific = scientific_name_from_label(label, label_format=label_format)
             if scientific:
                 rows.append((key, index, scientific, str(label).strip()))
 

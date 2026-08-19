@@ -453,6 +453,37 @@ def _generator():
     return build_species_reference
 
 
+def _pinned_manifest(tmp_path, source_path, *, content_sha256=None, version="14.2-test"):
+    """A manifest that pins the fixture workbook, so the gate admits it."""
+    import hashlib
+    import json
+
+    digest = content_sha256 if content_sha256 is not None else hashlib.sha256(source_path.read_bytes()).hexdigest()
+    path = tmp_path / "species_sources.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "sources": [
+                    {
+                        "id": "ioc-world-bird-list",
+                        "name": "IOC World Bird List (Multilingual)",
+                        "role": "bird-vernacular-names",
+                        "version": version,
+                        "url": "https://www.worldbirdnames.org/",
+                        "licence": "CC-BY-3.0",
+                        "citation": "IOC World Bird List. https://www.worldbirdnames.org/",
+                        "redistribution": "bundled",
+                        "content_sha256": digest,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
 def test_the_build_is_reproducible(tmp_path):
     """A recorded digest is only meaningful if regenerating produces the same file."""
     import hashlib
@@ -484,15 +515,44 @@ def test_the_build_is_reproducible(tmp_path):
         ],
     )
 
+    manifest = _pinned_manifest(tmp_path, source)
     first, second = tmp_path / "one.db", tmp_path / "two.db"
-    first_taxa, first_names, first_digest = build(source, first)
-    second_taxa, second_names, second_digest = build(source, second)
+    first_taxa, first_names, first_digest = build(source, first, manifest_path=manifest)
+    second_taxa, second_names, second_digest = build(source, second, manifest_path=manifest)
 
     # Two species, each with German, Italian and Chinese.
     assert (first_taxa, first_names) == (second_taxa, second_names) == (2, 6)
     assert first_digest == second_digest
     assert hashlib.sha256(first.read_bytes()).hexdigest() == first_digest
     assert first.with_suffix(".db.sha256").read_text(encoding="utf-8").split()[0] == first_digest
+
+
+def test_the_build_refuses_a_source_that_is_not_the_pinned_release(tmp_path):
+    """Adopting a new IOC release means updating the manifest, not just building."""
+    build = _generator().build
+    source = _ioc_workbook(tmp_path, [["1", "P", "F", "Cyanistes caeruleus", "Eurasian Blue Tit", "", "", ""]])
+    manifest = _pinned_manifest(tmp_path, source, content_sha256="c" * 64)
+
+    with pytest.raises(SystemExit, match="[Pp]rovenance"):
+        build(source, tmp_path / "refused.db", manifest_path=manifest)
+
+
+def test_the_build_records_the_pinned_release_version(tmp_path):
+    import sqlite3
+
+    build = _generator().build
+    source = _ioc_workbook(tmp_path, [["1", "P", "F", "Cyanistes caeruleus", "Eurasian Blue Tit", "", "", ""]])
+    output = tmp_path / "versioned.db"
+
+    build(source, output, manifest_path=_pinned_manifest(tmp_path, source, version="15.9-example"))
+
+    connection = sqlite3.connect(f"file:{output}?mode=ro", uri=True)
+    try:
+        recorded = dict(connection.execute("SELECT key, value FROM reference_meta").fetchall())
+    finally:
+        connection.close()
+    assert recorded["source_version"] == "15.9-example"
+    assert recorded["source_licence"] == "CC-BY-3.0"
 
 
 def test_the_parser_keeps_species_and_skips_everything_else(tmp_path):

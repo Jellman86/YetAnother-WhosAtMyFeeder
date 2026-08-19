@@ -137,3 +137,66 @@ def test_a_retired_model_is_unverifiable_rather_than_changed(model_dir):
     result = verify_model_labels("uniformer_s_eu_common", model_dir)
 
     assert result.verdict is LabelVerdict.UNVERIFIABLE
+
+
+def test_the_declared_label_format_is_read_from_the_registry():
+    from app.services.label_integrity import published_label_format
+
+    assert published_label_format("convnext_large_inat21") == "scientific_binomial"
+    assert published_label_format("rope_vit_b14_inat21") == "scientific_hierarchy"
+    assert published_label_format("small_birds", region="na") == "common_name"
+    assert published_label_format("bird_crop_detector") == "detector_classes"
+    assert published_label_format("no_such_model_at_all") is None
+
+
+def test_the_check_carries_the_declared_format(model_dir):
+    result = verify_model_labels("rope_vit_b14_inat21", model_dir, expected_sha256=_digest(model_dir / "labels.txt"))
+
+    assert result.label_format == "scientific_hierarchy"
+
+
+def _verified_check(tmp_path, model_id, lines, region=None):
+    directory = tmp_path / model_id
+    directory.mkdir(exist_ok=True)
+    labels = directory / "labels.txt"
+    labels.write_text("".join(f"{line}\n" for line in lines), encoding="utf-8")
+    return verify_model_labels(model_id, directory, expected_sha256=_digest(labels), region=region)
+
+
+def test_a_declared_binomial_file_is_mapped_from_its_own_labels(tmp_path):
+    from app.services.model_taxon_map import ModelTaxonMap
+
+    mapping = ModelTaxonMap(tmp_path / "map.db")
+    check = _verified_check(tmp_path, "convnext_large_inat21", ["Cyanistes caeruleus", "Erithacus rubecula"])
+
+    assert build_map_for_verified_labels(check, mapping=mapping) == 2
+    assert mapping.lookup(check.actual_sha256, 0) == "Cyanistes caeruleus"
+
+
+def test_a_plumage_parenthetical_is_not_read_as_a_scientific_name(tmp_path):
+    """The NABirds files carry `Common Name (plumage)` labels. Reading the paired
+    shape undeclared recorded `Lesser Goldfinch` as a scientific name."""
+    from app.services.model_taxon_map import ModelTaxonMap
+
+    mapping = ModelTaxonMap(tmp_path / "map.db")
+    check = _verified_check(
+        tmp_path,
+        "small_birds",
+        ["Lesser Goldfinch (Female/juvenile)", "American Goldfinch (Breeding Male)"],
+        region="na",
+    )
+
+    assert check.label_format == "common_name"
+    assert build_map_for_verified_labels(check, mapping=mapping) == 0
+    assert mapping.lookup(check.actual_sha256, 0) is None
+
+
+def test_a_crop_detector_file_is_never_mapped_to_species(tmp_path):
+    """COCO classes such as `kite` are not taxa; the detector is outside the species mapping."""
+    from app.services.model_taxon_map import ModelTaxonMap
+
+    mapping = ModelTaxonMap(tmp_path / "map.db")
+    check = _verified_check(tmp_path, "bird_crop_detector_accurate_yolox_tiny", ["person", "bicycle", "kite"])
+
+    assert check.label_format == "detector_classes"
+    assert build_map_for_verified_labels(check, mapping=mapping) == 0

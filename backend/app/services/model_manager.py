@@ -66,6 +66,7 @@ REMOTE_REGISTRY = [
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_model_config.json",
         "sha256": "2b79e6a7fb1ec6a33f332b9b10d82d9de4b7b49dcd26b5946921bb356895c954",
         "labels_sha256": "a9d03262d23184d1a74b5b309fe85fcfc9ea7ad48a21fe1dd21372496f836fbc",
+        "label_format": "detector_classes",
         "input_size": 300,
         "preprocessing": {
             "color_space": "RGB",
@@ -98,6 +99,7 @@ REMOTE_REGISTRY = [
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/bird_crop_detector_accurate_yolox_tiny_model_config.json",
         "sha256": "427cc366d34e27ff7a03e2899b5e3671425c262ea2291f88bb942bc1cc70b0f7",
         "labels_sha256": "bd17f1ee35d5f3c862a4894605855abbb9dda4b0621fdb0ac4c2c8c7bb7e730a",
+        "label_format": "detector_classes",
         "input_size": 416,
         "preprocessing": {
             "color_space": "BGR",
@@ -136,6 +138,7 @@ REMOTE_REGISTRY = [
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/mobilenet_v2_birds_model_config.json",
         "sha256": "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9",
         "labels_sha256": "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277",
+        "label_format": "scientific_paired_common",
         "input_size": 224,
         "preprocessing": {
             "color_space": "RGB",
@@ -197,6 +200,7 @@ REMOTE_REGISTRY = [
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_eu_mobilenet_v4_l_candidate_model_config.json",
                 "sha256": "dccbb727fce3ed0eba460a857de5c2203e8858364de5093d45b9a8c364eb7786",
                 "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
+                "label_format": "common_name",
                 "file_size_mb": 122.7,
                 "input_size": 384,
                 "supported_inference_providers": ["cpu", "intel_cpu"],
@@ -225,6 +229,7 @@ REMOTE_REGISTRY = [
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/small_birds_na_efficientnet_b0_candidate_model_config.json",
                 "sha256": "2ffd557011229b1705750a4f38274379af0f28f61730bf41fe9b87b31e6d1821",
                 "labels_sha256": "ca3a5500fd0aa02f3f969ee304733c76384a38b92da82b802b614246fcd2a57d",
+                "label_format": "common_name",
                 "file_size_mb": 18.0,
                 "input_size": 224,
                 "preprocessing": {
@@ -273,6 +278,7 @@ REMOTE_REGISTRY = [
         "sha256": "4717dd31182c8bbcd1058f7dee1c6099feb604a44d6576315386c4d6d9f781f6",
         "weights_sha256": "b6157639e013433bb28deae7da5653144822dcaeebfec14fa743c86cd91907c2",
         "labels_sha256": "f2b1294bc0b3a943425655e8b74cd7489e623d0ec7fa6dc5ce57cc85a93f8ac5",
+        "label_format": "scientific_binomial",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -312,6 +318,7 @@ REMOTE_REGISTRY = [
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/eu_medium_focalnet_b_model_config.json",
         "sha256": "2a639ad3c7324a7dbdd800b7ffaf5b42ed7e1297d7cc172e213ce731affcd76d",
         "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
+        "label_format": "common_name",
         "input_size": 384,
         "preprocessing": {
             "color_space": "RGB",
@@ -354,6 +361,7 @@ REMOTE_REGISTRY = [
         "sha256": "951c2cf3ca828db604bcd06a64d8eae46b757bb5f6535021675f1c4fe60963a4",
         "weights_sha256": "5b14d70b10086efe2530577fbe57b06cbf1fc01a897b73fd5c33028bb722db0b",
         "labels_sha256": "f65bff0e822832ba992c7a4ef60366ffe22f465d00747e163af07a8f139fc74c",
+        "label_format": "common_name",
         "input_size": 240,
         "preprocessing": {
             "color_space": "RGB",
@@ -418,6 +426,7 @@ REMOTE_REGISTRY = [
                 "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/medium_birds_eu_convnext_v2_tiny_256_candidate_model_config.json",
                 "sha256": "3daeaa8069a927f9114ef576c31b72dc445416574e1914a61779f2fc83f00d11",
                 "labels_sha256": "0946dccf33af161902a5e34e4ba73be7b1ad25d5a875f9bc7690d84830c2ecb0",
+                "label_format": "common_name",
                 "file_size_mb": 108.5,
                 "input_size": 256,
                 "supported_inference_providers": ["cpu", "intel_cpu", "intel_gpu"],
@@ -446,6 +455,7 @@ REMOTE_REGISTRY = [
                 "sha256": "5c3e6b63f865dd94b1c283e551e892c2a45cb5499f06d87daf888c1d7266d015",
                 "weights_sha256": "46d188c7baa1c917d23115d1d8f9e8a469796e50ae7e3dbdb45972320e55bcca",
                 "labels_sha256": "040ef98617b146efe34fa8db4276d191226de69332a1219749dde991472beb11",
+                "label_format": "common_name",
                 "file_size_mb": 333.0,
                 "input_size": 224,
                 "preprocessing": {
@@ -497,6 +507,7 @@ REMOTE_REGISTRY = [
         "model_config_url": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/releases/download/models/rope_vit_b14_inat21_model_config.json",
         "sha256": "59e80421d89d3018af817c09d1ab9da4b0e379830302d04d3c660dece5e3c0aa",
         "labels_sha256": "6ec358029cdad4cb9182e159f7eee44fba5a3842e2c81590e2b8a2f11cc0f188",
+        "label_format": "scientific_hierarchy",
         "input_size": 224,
         "preprocessing": {
             "color_space": "RGB",
@@ -543,6 +554,7 @@ REMOTE_REGISTRY = [
         "sha256": "319d7a73a24444bcb698265a21aa0621527f94c67baf9a3cb62ae7b8e1104fbc",
         "weights_sha256": "371e73e5a430350dabac9790e6abc3977ac697ea5fcd1c04b0aee9aa130933da",
         "labels_sha256": "f2b1294bc0b3a943425655e8b74cd7489e623d0ec7fa6dc5ce57cc85a93f8ac5",
+        "label_format": "scientific_binomial",
         "input_size": 336,
         "preprocessing": {
             "color_space": "RGB",
