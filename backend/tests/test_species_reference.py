@@ -315,3 +315,29 @@ async def test_the_reference_answer_stays_english_when_no_translation_is_held(mo
     result = await module.taxonomy_service.get_names("Cyanistes caeruleus")
 
     assert result["common_name"] == "Eurasian Blue Tit"
+
+
+def test_concurrent_lookups_share_one_connection_safely():
+    """The reference is read from the event path; a shared connection needs serializing."""
+    import threading
+
+    if not species_reference.available:
+        pytest.skip("bundled reference not present in this checkout")
+
+    errors: list[BaseException] = []
+
+    def read() -> None:
+        try:
+            for _ in range(200):
+                species_reference.lookup("Haemorhous cassinii")
+                species_reference.lookup("Nothing at all")
+        except BaseException as error:  # noqa: BLE001
+            errors.append(error)
+
+    threads = [threading.Thread(target=read) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []

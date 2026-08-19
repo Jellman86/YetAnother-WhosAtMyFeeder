@@ -53,6 +53,9 @@ class SpeciesReference:
         self._path = path
         self._connection: Optional[sqlite3.Connection] = None
         self._lock = threading.Lock()
+        # sqlite3 connections are not safe for concurrent use, and this one is
+        # shared by every caller resolving a name.
+        self._access = threading.Lock()
         self._disabled = False
 
     @property
@@ -113,12 +116,13 @@ class SpeciesReference:
 
         try:
             for candidate in self._candidates(query_name):
-                row = connection.execute(
-                    "SELECT scientific_name, common_name FROM taxon"
-                    " WHERE scientific_name = ? COLLATE NOCASE"
-                    " OR common_name = ? COLLATE NOCASE LIMIT 1",
-                    (candidate, candidate),
-                ).fetchone()
+                with self._access:
+                    row = connection.execute(
+                        "SELECT scientific_name, common_name FROM taxon"
+                        " WHERE scientific_name = ? COLLATE NOCASE"
+                        " OR common_name = ? COLLATE NOCASE LIMIT 1",
+                        (candidate, candidate),
+                    ).fetchone()
                 if row:
                     return {
                         "scientific_name": row["scientific_name"],
@@ -138,10 +142,11 @@ class SpeciesReference:
         if connection is None:
             return {"available": False, "taxon_count": 0, "schema_version": None, "source": None}
         try:
-            meta = {
-                row["key"]: row["value"]
-                for row in connection.execute("SELECT key, value FROM reference_meta").fetchall()
-            }
+            with self._access:
+                meta = {
+                    row["key"]: row["value"]
+                    for row in connection.execute("SELECT key, value FROM reference_meta").fetchall()
+                }
         except sqlite3.Error:
             meta = {}
         try:

@@ -60,6 +60,9 @@ class LocalizedNameStore:
         self._path = Path(path) if path is not None else default_store_path()
         self._connection: Optional[sqlite3.Connection] = None
         self._lock = threading.Lock()
+        # sqlite3 connections are not safe for concurrent use, and this one is
+        # shared: read from the event path, written by the refresh task.
+        self._access = threading.Lock()
         self._disabled = False
 
     def _parent_is_writable(self) -> bool:
@@ -129,17 +132,18 @@ class LocalizedNameStore:
             return 0
 
         try:
-            connection.executemany(
-                "INSERT INTO species_name (scientific_name, locale, common_name) VALUES (?, ?, ?)"
-                " ON CONFLICT (scientific_name, locale) DO UPDATE SET common_name = excluded.common_name",
-                rows,
-            )
-            connection.execute(
-                "INSERT INTO locale_refresh (locale, refreshed_at) VALUES (?, ?)"
-                " ON CONFLICT (locale) DO UPDATE SET refreshed_at = excluded.refreshed_at",
-                (locale_key, datetime.now(timezone.utc).isoformat()),
-            )
-            connection.commit()
+            with self._access:
+                connection.executemany(
+                    "INSERT INTO species_name (scientific_name, locale, common_name) VALUES (?, ?, ?)"
+                    " ON CONFLICT (scientific_name, locale) DO UPDATE SET common_name = excluded.common_name",
+                    rows,
+                )
+                connection.execute(
+                    "INSERT INTO locale_refresh (locale, refreshed_at) VALUES (?, ?)"
+                    " ON CONFLICT (locale) DO UPDATE SET refreshed_at = excluded.refreshed_at",
+                    (locale_key, datetime.now(timezone.utc).isoformat()),
+                )
+                connection.commit()
         except sqlite3.Error as error:
             log.warning("Could not store localized names", locale=locale_key, error=str(error))
             return 0
@@ -154,10 +158,11 @@ class LocalizedNameStore:
         if connection is None:
             return None
         try:
-            row = connection.execute(
-                "SELECT common_name FROM species_name WHERE scientific_name = ? AND locale = ?",
-                (scientific_key, locale_key),
-            ).fetchone()
+            with self._access:
+                row = connection.execute(
+                    "SELECT common_name FROM species_name WHERE scientific_name = ? AND locale = ?",
+                    (scientific_key, locale_key),
+                ).fetchone()
         except sqlite3.Error as error:
             log.warning("Localized name lookup failed", error=str(error))
             return None
@@ -168,16 +173,17 @@ class LocalizedNameStore:
         if connection is None:
             return {"available": False, "locales": {}, "refreshed_at": {}}
         try:
-            locales = {
-                row["locale"]: row["count"]
-                for row in connection.execute(
-                    "SELECT locale, COUNT(*) AS count FROM species_name GROUP BY locale"
-                ).fetchall()
-            }
-            refreshed = {
-                row["locale"]: row["refreshed_at"]
-                for row in connection.execute("SELECT locale, refreshed_at FROM locale_refresh").fetchall()
-            }
+            with self._access:
+                locales = {
+                    row["locale"]: row["count"]
+                    for row in connection.execute(
+                        "SELECT locale, COUNT(*) AS count FROM species_name GROUP BY locale"
+                    ).fetchall()
+                }
+                refreshed = {
+                    row["locale"]: row["refreshed_at"]
+                    for row in connection.execute("SELECT locale, refreshed_at FROM locale_refresh").fetchall()
+                }
         except sqlite3.Error:
             return {"available": False, "locales": {}, "refreshed_at": {}}
         return {"available": True, "locales": locales, "refreshed_at": refreshed}
@@ -227,9 +233,16 @@ async def refresh_locale_from_ebird(locale: str, *, store: Optional[LocalizedNam
     english = {
         _key(item.get("sciName")): str(item.get("comName") or "")
         for item in english_items or []
-        if isinstance(item, dict)
+        if isinstance(item, dict) and str(item.get("category") or "species") == "species"
     }
-    entries = [(item.get("sciName"), item.get("comName")) for item in localized_items or [] if isinstance(item, dict)]
+    # get_taxonomy also requests issf, spuh and slash forms. A subspecies, a
+    # "duck sp." or an "A/B" pair is not a species, and storing one would offer a
+    # name for something the classifier can never emit.
+    entries = [
+        (item.get("sciName"), item.get("comName"))
+        for item in localized_items or []
+        if isinstance(item, dict) and str(item.get("category") or "species") == "species"
+    ]
     if not entries:
         return 0
 
