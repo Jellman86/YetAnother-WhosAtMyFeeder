@@ -153,7 +153,7 @@ consumers of the current mapping**: anything taught to trust that key has to be 
 | Phase | State |
 | --- | --- |
 | 0. Freeze the contract and provenance gate | 🔄 mostly delivered ([freeze note](docs/plans/2026-08-19-species-catalogue-phase0-freeze.md)): pinned sources (IOC 14.2, CoL COL26.7 by DOI, eBird 2025) in a machine-checked manifest with a licence/redistribution gate; per-artifact label grammar declared in the registry; 100%-coverage artifact [inventory](docs/reviews/2026-08-19-species-catalogue-phase0-inventory.md) held current by a regression test. Remaining: the synonym/split-lump mapping report, which needs Phase 1's CoL import |
-| 1. Catalogue schema and deterministic builder | 🔄 seed and builder exist; schema, Catalogue of Life import for non-bird classes, seed-then-copy into `/data`, and the dedicated Alembic stream remain |
+| 1. Catalogue schema and deterministic builder | 🔄 the dedicated Alembic stream and full catalogue schema are delivered (single-head, reversible, CI-smoked, constraints in-schema); the IOC seed and its builder exist. Remaining: the transactional staging importer, the Catalogue of Life import for non-bird classes, and seed-then-copy into `/data` |
 | 2. Checksum-bound model mappings | 🔄 label verification exists; `model_artifacts` keyed on the model checksum and `model_output_taxa` with class kinds remain |
 | 3. Shadow resolution and historical backfill | ☐ |
 | 4. Make catalogue identity authoritative | ☐ retires the scientific-name key |

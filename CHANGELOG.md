@@ -8,6 +8,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **The species catalogue database now has its own versioned schema.** Phase 1 groundwork for the
+  versioned species catalogue: a dedicated, single-head Alembic stream
+  (`backend/alembic_catalog.ini`, `backend/migrations_catalog/`) creates `/data/species_catalog.db`
+  with the full designed schema — opaque species identity with synonym links, provider taxon
+  concepts, RFC 5646 translated names, fail-closed aliases, checksum-keyed model artifacts, the
+  output-index mapping with declared class kinds, transactional release records (at most one
+  active), and owner name overrides that survive refreshes. Constraints live in the schema, the
+  stream is reversible and idempotent, and CI now smokes it and enforces one head per stream
+  alongside the detections database.
+
 - **The species catalogue's sources are now a frozen, machine-checked contract.** Phase 0 of the
   versioned species catalogue: `backend/app/assets/species_sources.json` pins every source species
   data may come from — the IOC World Bird List 14.2 already bundled, Catalogue of Life COL26.7
