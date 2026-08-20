@@ -50,6 +50,8 @@ class _Bundle:
     concepts: list[sqlite3.Row]
     names: list[sqlite3.Row]
     aliases: list[sqlite3.Row]
+    model_artifacts: list[sqlite3.Row]
+    model_outputs: list[sqlite3.Row]
 
 
 def _schema_revision(connection: sqlite3.Connection) -> Optional[str]:
@@ -96,6 +98,12 @@ def _read_bundle(bundle_path: Path) -> _Bundle:
             names=connection.execute("SELECT * FROM species_names ORDER BY species_id, language_tag, name").fetchall(),
             aliases=connection.execute(
                 "SELECT * FROM species_aliases ORDER BY alias, alias_kind, species_id"
+            ).fetchall(),
+            model_artifacts=connection.execute("SELECT * FROM model_artifacts ORDER BY model_sha256").fetchall(),
+            model_outputs=connection.execute(
+                "SELECT t.*, a.model_sha256 AS artifact_sha256 FROM model_output_taxa t"
+                " JOIN model_artifacts a ON a.id = t.model_artifact_id"
+                " ORDER BY a.model_sha256, t.output_index"
             ).fetchall(),
         )
     finally:
@@ -248,6 +256,55 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
                         alias["confidence"],
                     ),
                 )
+
+            outputs_by_artifact: dict[str, list[sqlite3.Row]] = {}
+            for output in bundle.model_outputs:
+                outputs_by_artifact.setdefault(output["artifact_sha256"], []).append(output)
+            for artifact in bundle.model_artifacts:
+                existing_artifact = live.execute(
+                    "SELECT id, mapping_set_sha256 FROM model_artifacts WHERE model_sha256 = ?",
+                    (artifact["model_sha256"],),
+                ).fetchone()
+                if existing_artifact:
+                    # The artifact checksum owns its mapping. A same-checksum
+                    # artifact with a different mapping set is a build defect
+                    # to surface, never something to silently rewrite.
+                    if existing_artifact["mapping_set_sha256"] != artifact["mapping_set_sha256"]:
+                        log.warning(
+                            "Bundle carries a different mapping for an already-registered artifact; keeping the "
+                            "registered mapping",
+                            model_sha256=artifact["model_sha256"],
+                        )
+                    continue
+                cursor = live.execute(
+                    "INSERT INTO model_artifacts"
+                    " (registry_id, model_sha256, mapping_set_sha256, output_width, runtime, model_version, state)"
+                    " VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        artifact["registry_id"],
+                        artifact["model_sha256"],
+                        artifact["mapping_set_sha256"],
+                        artifact["output_width"],
+                        artifact["runtime"],
+                        artifact["model_version"],
+                        artifact["state"],
+                    ),
+                )
+                new_artifact_id = int(cursor.lastrowid or 0)
+                for output in outputs_by_artifact.get(artifact["model_sha256"], []):
+                    species_id = id_map[output["species_id"]] if output["species_id"] is not None else None
+                    live.execute(
+                        "INSERT INTO model_output_taxa"
+                        " (model_artifact_id, output_index, class_kind, species_id, source_label)"
+                        " VALUES (?, ?, ?, ?, ?)",
+                        (
+                            new_artifact_id,
+                            output["output_index"],
+                            output["class_kind"],
+                            species_id,
+                            output["source_label"],
+                        ),
+                    )
 
             _before_activation(live)
             live.execute("UPDATE catalogue_releases SET state = 'retired' WHERE state = 'active'")

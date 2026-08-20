@@ -42,6 +42,7 @@ SOURCE_NAME = "ioc-world-bird-list"
 COL_SOURCE_NAME = "catalogue-of-life"
 DEFAULT_REFERENCE = _BACKEND_DIR / "app" / "assets" / "species_reference.db"
 DEFAULT_COL_CONCEPTS = _BACKEND_DIR / "app" / "assets" / "col_nonbird_concepts.json"
+DEFAULT_MODEL_MAPPINGS = _BACKEND_DIR / "app" / "assets" / "model_output_mappings.json"
 DEFAULT_OUTPUT = _BACKEND_DIR / "app" / "assets" / "species_catalog_seed.db"
 _ENGLISH_TAG = "en"
 
@@ -88,6 +89,7 @@ def build(
     *,
     manifest_path: Path | None = None,
     col_concepts_path: Path | None = None,
+    model_mappings_path: Path | None = None,
 ) -> str:
     meta, taxa, names = _reference_rows(reference_path)
     if not taxa:
@@ -119,6 +121,7 @@ def build(
     upgrade_catalog(output_path)
 
     connection = sqlite3.connect(output_path)
+    concept_species: dict[tuple[str, str], int] = {}
     try:
         connection.execute("PRAGMA foreign_keys = ON")
         for species_id, (_, scientific, english) in enumerate(taxa, start=1):
@@ -131,6 +134,7 @@ def build(
                 " VALUES (?, ?, ?, ?, ?)",
                 (species_id, source.id, scientific, source.version, scientific),
             )
+            concept_species[(source.id, scientific)] = species_id
 
             localized = names.get(taxa[species_id - 1][0], [])
             rows = ([(_ENGLISH_TAG, english)] if english else []) + localized
@@ -171,6 +175,7 @@ def build(
                             "accepted",
                         ),
                     )
+                    concept_species[(col_source.id, entry["accepted_col_id"])] = species_id
                 # A class resolved through a synonym keeps its label text
                 # reachable: the alias records that Catalogue of Life reads
                 # the label's name as this accepted taxon.
@@ -186,6 +191,57 @@ def build(
                     " VALUES (?, 'model_label', NULL, 'unresolved', ?)",
                     (entry["scientific_name"], col_source.id),
                 )
+
+        if model_mappings_path is not None:
+            mappings = json.loads(Path(model_mappings_path).read_text(encoding="utf-8"))
+            label_files = mappings.get("label_files") or {}
+            for artifact in sorted(mappings.get("artifacts") or [], key=lambda a: str(a["artifact_id"])):
+                entry = label_files.get(artifact["labels_sha256"])
+                if entry is None:
+                    raise SystemExit(
+                        f"Mapping artifact '{artifact['artifact_id']}' references label file"
+                        f" {artifact['labels_sha256']} which the mappings record does not carry"
+                    )
+                mapping_digest = hashlib.sha256()
+                for row in entry["outputs"]:
+                    mapping_digest.update(
+                        f"{row['index']}|{row['kind']}|{row.get('provider', '')}"
+                        f"|{row.get('taxon', '')}|{row['label']}\n".encode()
+                    )
+                cursor = connection.execute(
+                    "INSERT INTO model_artifacts"
+                    " (registry_id, model_sha256, mapping_set_sha256, output_width, runtime)"
+                    " VALUES (?, ?, ?, ?, ?)",
+                    (
+                        artifact["artifact_id"],
+                        artifact["model_sha256"],
+                        mapping_digest.hexdigest(),
+                        entry["output_width"],
+                        artifact["runtime"],
+                    ),
+                )
+                artifact_row_id = cursor.lastrowid
+                for row in entry["outputs"]:
+                    if "unresolved" in row:
+                        # An unresolved species class stays a visible gap; the
+                        # artifact is not activatable from the catalogue until
+                        # it is resolved or explicitly declared.
+                        continue
+                    species_id = None
+                    if row["kind"] == "species":
+                        species_id = concept_species.get((row["provider"], row["taxon"]))
+                        if species_id is None:
+                            raise SystemExit(
+                                f"Mapping for '{artifact['artifact_id']}' references concept"
+                                f" ({row['provider']}, {row['taxon']}) which this catalogue does not hold;"
+                                " regenerate model_output_mappings.json against the current sources"
+                            )
+                    connection.execute(
+                        "INSERT INTO model_output_taxa"
+                        " (model_artifact_id, output_index, class_kind, species_id, source_label)"
+                        " VALUES (?, ?, ?, ?, ?)",
+                        (artifact_row_id, row["index"], row["kind"], species_id, row["label"]),
+                    )
 
         connection.execute(
             "INSERT INTO catalogue_releases"
@@ -208,11 +264,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", type=Path, default=DEFAULT_REFERENCE)
     parser.add_argument("--col-concepts", type=Path, default=DEFAULT_COL_CONCEPTS)
+    parser.add_argument("--model-mappings", type=Path, default=DEFAULT_MODEL_MAPPINGS)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
     col_concepts = args.col_concepts if args.col_concepts.is_file() else None
-    digest = build(args.reference, args.output, col_concepts_path=col_concepts)
+    model_mappings = args.model_mappings if args.model_mappings.is_file() else None
+    digest = build(args.reference, args.output, col_concepts_path=col_concepts, model_mappings_path=model_mappings)
     size_mb = args.output.stat().st_size / 1024 / 1024
     print(f"Wrote {args.output} ({size_mb:.2f} MB)")
     print(f"sha256 {digest}")

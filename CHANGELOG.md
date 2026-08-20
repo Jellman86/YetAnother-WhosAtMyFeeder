@@ -8,6 +8,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **Every supported classifier's outputs are now mapped in the catalogue by model checksum.** A
+  deterministic compiler resolves each output index of every registry artifact through the seed
+  catalogue by its declared label grammar: 21,650 of 23,332 indices resolve to canonical species
+  identities (an apostrophe-insensitive match recovered most of the measured European shortfall,
+  and taxonomy synonyms like iNat21's *Bufotes balearicus* land on their accepted identity),
+  `background` and `Unknown` are declared class kinds, and 1,679 unresolved indices remain visible
+  gaps rather than guesses ([coverage report](docs/reviews/2026-08-20-model-output-mapping-coverage.md)).
+  The committed mapping record ties to the registry by regression test, the seed build folds it
+  into `model_artifacts` and `model_output_taxa`, and release imports carry mappings with the
+  artifact checksum owning its mapping set.
+
 - **The species catalogue now knows the 8,514 non-bird classes the wildlife models can emit.**
   Their scientific names are resolved against the pinned Catalogue of Life COL26.7 release
   (admitted through the provenance gate, with the export digest now recorded in the source

@@ -36,4 +36,16 @@ def connection_content_digest(connection: sqlite3.Connection) -> str:
         digest.update(
             f"alias|{alias}|{alias_kind}|{species_id if species_id is not None else ''}|{resolution}\n".encode()
         )
+    for model_sha256, mapping_set_sha256, output_width in connection.execute(
+        "SELECT model_sha256, mapping_set_sha256, output_width FROM model_artifacts ORDER BY model_sha256"
+    ):
+        digest.update(f"artifact|{model_sha256}|{mapping_set_sha256 or ''}|{output_width}\n".encode())
+    for model_sha256, output_index, class_kind, species_id in connection.execute(
+        "SELECT a.model_sha256, t.output_index, t.class_kind, t.species_id FROM model_output_taxa t"
+        " JOIN model_artifacts a ON a.id = t.model_artifact_id"
+        " ORDER BY a.model_sha256, t.output_index"
+    ):
+        digest.update(
+            f"output|{model_sha256}|{output_index}|{class_kind}|{species_id if species_id is not None else ''}\n".encode()
+        )
     return digest.hexdigest()
