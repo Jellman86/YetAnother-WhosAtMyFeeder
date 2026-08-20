@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **A fresh installation now starts with a complete species catalogue.** The image builds a
+  deterministic seed release of `/data/species_catalog.db` from the committed IOC reference
+  (11,276 species with their translated names, admitted through the source provenance gate), and
+  first start copies it into `/data` atomically. An initialisation marker distinguishes a genuinely
+  fresh install from a catalogue that has gone missing: a lost catalogue may have held owner
+  enrichments, so it is reported and left for the owner instead of being silently replaced by the
+  seed. A seed that fails its recorded digest is refused, and none of this can block startup.
+
 - **The species catalogue database now has its own versioned schema.** Phase 1 groundwork for the
   versioned species catalogue: a dedicated, single-head Alembic stream
   (`backend/alembic_catalog.ini`, `backend/migrations_catalog/`) creates `/data/species_catalog.db`

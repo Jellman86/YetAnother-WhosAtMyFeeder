@@ -165,11 +165,13 @@ RUN useradd -m -u 1000 appuser && \
 
 COPY --from=ui-builder /ui/dist /usr/share/nginx/html
 COPY backend/alembic.ini /app/alembic.ini
+COPY backend/alembic_catalog.ini /app/alembic_catalog.ini
 COPY backend/download_model.py /app/download_model.py
 COPY backend/app /app/app
 COPY backend/scripts /app/scripts
 COPY backend/locales /app/locales
 COPY backend/migrations /app/migrations
+COPY backend/migrations_catalog /app/migrations_catalog
 COPY docker/monolith/nginx-main.conf /etc/nginx/nginx.conf
 COPY docker/monolith/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/monolith/entrypoint.sh /usr/local/bin/yawamf-entrypoint.sh
@@ -190,6 +192,14 @@ RUN set -eux; \
         "${coral_base}/inat_bird_labels.txt"; \
     echo "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9  /app/app/assets/model.tflite" | sha256sum -c -; \
     echo "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277  /app/app/assets/labels.txt" | sha256sum -c -
+
+# Build the seed species catalogue from the committed, digest-verified IOC
+# reference. The build is deterministic and passes the provenance gate in
+# species_sources.json; first start copies it into /data only when no
+# catalogue has ever been initialised.
+RUN python /app/scripts/build_species_catalog_seed.py \
+        --reference /app/app/assets/species_reference.db \
+        --output /app/app/assets/species_catalog_seed.db
 
 ENV DB_PATH=/data/speciesid.db
 ENV HOME=/tmp

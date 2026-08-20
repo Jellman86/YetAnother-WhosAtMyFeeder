@@ -83,10 +83,12 @@ RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app /data /config
 
 COPY --chown=appuser:appuser alembic.ini /app/alembic.ini
+COPY --chown=appuser:appuser alembic_catalog.ini /app/alembic_catalog.ini
 COPY --chown=appuser:appuser download_model.py /app/download_model.py
 COPY --chown=appuser:appuser app /app/app
 COPY --chown=appuser:appuser locales /app/locales
 COPY --chown=appuser:appuser migrations /app/migrations
+COPY --chown=appuser:appuser migrations_catalog /app/migrations_catalog
 
 # Set environment variables
 ENV DB_PATH=/data/speciesid.db

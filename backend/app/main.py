@@ -456,6 +456,16 @@ async def lifespan(app: FastAPI):
             startup_phase="database",
             startup_progress=68,
         )
+        from app.services.species_catalog_store import start_species_catalog
+
+        await _run_lifecycle_phase(
+            app,
+            "species_catalog_init",
+            start_species_catalog,
+            fatal=False,
+            startup_phase="database",
+            startup_progress=70,
+        )
         await _run_lifecycle_phase(
             app,
             "notification_dispatcher_start",

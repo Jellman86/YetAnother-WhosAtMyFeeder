@@ -200,6 +200,9 @@ backend/data/*.db
 # The species reference is a shipped, checksum-verified asset, not a runtime
 # database. It must survive the *.db rule above.
 !backend/app/assets/species_reference.db
+# The seed catalogue is generated at image build from the reference; neither
+# the file nor its digest sidecar belongs in the repository.
+backend/app/assets/species_catalog_seed.db.sha256
 backend/data/models/
 # apps/telemetry-worker/ # Un-ignored to allow tracking source
 apps/telemetry-worker/.wrangler/
