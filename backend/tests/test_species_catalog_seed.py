@@ -190,6 +190,137 @@ def test_foreign_keys_hold_in_the_built_seed(built):
         connection.close()
 
 
+def _col_concepts(tmp_path, *, export_sha256: str) -> Path:
+    path = tmp_path / "col_nonbird_concepts.json"
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "source": {"id": "catalogue-of-life", "version": "COL26.7-test", "export_sha256": export_sha256},
+                "concepts": [
+                    {
+                        "scientific_name": "Lumbricus terrestris",
+                        "kingdom": "Animalia",
+                        "label_class": "Clitellata",
+                        "col_id": "C1",
+                        "col_status": "accepted",
+                        "accepted_col_id": "C1",
+                        "accepted_scientific_name": "Lumbricus terrestris",
+                    },
+                    {
+                        "scientific_name": "Old synonymus",
+                        "kingdom": "Fungi",
+                        "label_class": "Agaricomycetes",
+                        "col_id": "S1",
+                        "col_status": "synonym",
+                        "accepted_col_id": "A1",
+                        "accepted_scientific_name": "Nova acceptus",
+                    },
+                ],
+                "unresolved": [
+                    {
+                        "scientific_name": "Mysteria incognita",
+                        "kingdom": "Plantae",
+                        "label_class": "Magnoliopsida",
+                        "reason": "not in the release",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def _manifest_with_col(tmp_path, *, ioc_sha256: str, col_sha256: str) -> Path:
+    path = tmp_path / "sources_with_col.json"
+    payload = json.loads(_manifest(tmp_path, pinned_sha256=ioc_sha256).read_text(encoding="utf-8"))
+    payload["sources"].append(
+        {
+            "id": "catalogue-of-life",
+            "name": "Catalogue of Life",
+            "role": "canonical-taxonomy",
+            "version": "COL26.7-test",
+            "url": "https://www.checklistbank.org/dataset/315777",
+            "licence": "CC-BY-4.0",
+            "citation": "Catalogue of Life, COL26.7.",
+            "redistribution": "build-input",
+            "content_sha256": col_sha256,
+        }
+    )
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+class TestColConcepts:
+    @pytest.fixture
+    def built_with_col(self, tmp_path):
+        ioc_pinned = hashlib.sha256(b"the ioc workbook the manifest froze").hexdigest()
+        col_pinned = hashlib.sha256(b"the col export the manifest froze").hexdigest()
+        reference = _fixture_reference(tmp_path, source_sha256=ioc_pinned)
+        manifest = _manifest_with_col(tmp_path, ioc_sha256=ioc_pinned, col_sha256=col_pinned)
+        col = _col_concepts(tmp_path, export_sha256=col_pinned)
+        output = tmp_path / "seed_with_col.db"
+        seed_builder.build(reference, output, manifest_path=manifest, col_concepts_path=col)
+        return output
+
+    def test_non_bird_concepts_become_species_beside_the_birds(self, built_with_col):
+        assert _query(built_with_col, "SELECT COUNT(*) FROM species")[0][0] == 5  # 3 IOC + 2 CoL
+
+        worm = _query(
+            built_with_col,
+            "SELECT provider, provider_taxon_id, source_release, scientific_name FROM species_concepts"
+            " WHERE scientific_name = 'Lumbricus terrestris'",
+        )
+        assert worm == [("catalogue-of-life", "C1", "COL26.7-test", "Lumbricus terrestris")]
+
+    def test_a_synonym_resolved_class_keeps_its_label_text_as_an_alias(self, built_with_col):
+        alias = _query(
+            built_with_col,
+            "SELECT a.alias, a.resolution, c.scientific_name FROM species_aliases a"
+            " JOIN species_concepts c ON c.species_id = a.species_id WHERE a.alias = 'Old synonymus'",
+        )
+        assert alias == [("Old synonymus", "resolved", "Nova acceptus")]
+
+    def test_an_unresolved_class_is_recorded_without_a_guess(self, built_with_col):
+        rows = _query(
+            built_with_col,
+            "SELECT species_id, resolution FROM species_aliases WHERE alias = 'Mysteria incognita'",
+        )
+        assert rows == [(None, "unresolved")]
+
+    def test_the_release_manifest_records_both_sources(self, built_with_col):
+        manifest_json = _query(built_with_col, "SELECT source_manifest FROM catalogue_releases")[0][0]
+        ids = {source["id"] for source in json.loads(manifest_json)["sources"]}
+        assert ids == {"ioc-world-bird-list", "catalogue-of-life"}
+
+    def test_a_col_artifact_that_does_not_match_the_pin_is_refused(self, tmp_path):
+        ioc_pinned = hashlib.sha256(b"the ioc workbook the manifest froze").hexdigest()
+        reference = _fixture_reference(tmp_path, source_sha256=ioc_pinned)
+        manifest = _manifest_with_col(tmp_path, ioc_sha256=ioc_pinned, col_sha256="d" * 64)
+        col = _col_concepts(tmp_path, export_sha256="e" * 64)
+
+        with pytest.raises(SystemExit, match="[Pp]rovenance"):
+            seed_builder.build(reference, tmp_path / "refused.db", manifest_path=manifest, col_concepts_path=col)
+
+
+def test_the_committed_assets_build_the_full_catalogue(tmp_path):
+    """Both real assets together: every IOC bird plus every resolved non-bird class."""
+    reference = ASSETS / "species_reference.db"
+    col = ASSETS / "col_nonbird_concepts.json"
+    if not reference.is_file() or not col.is_file():
+        pytest.skip("bundled assets not present in this checkout")
+
+    output = tmp_path / "full_seed.db"
+    seed_builder.build(reference, output, col_concepts_path=col)
+
+    # 7,878 resolved classes collapse onto 7,865 accepted taxa: 12 lumps share an identity.
+    assert _query(output, "SELECT COUNT(*) FROM species")[0][0] == 11276 + 7865
+    assert _query(output, "SELECT COUNT(*) FROM species_concepts WHERE provider = 'catalogue-of-life'")[0][0] == 7865
+    assert _query(output, "SELECT COUNT(*) FROM species_aliases WHERE resolution = 'resolved'")[0][0] == 342
+    assert _query(output, "SELECT COUNT(*) FROM species_aliases WHERE resolution = 'unresolved'")[0][0] == 636
+
+
 def test_the_committed_reference_builds_a_complete_seed(tmp_path):
     """The real asset, not a fixture: the whole IOC list survives the trip."""
     reference = ASSETS / "species_reference.db"

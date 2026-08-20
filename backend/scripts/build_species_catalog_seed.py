@@ -39,7 +39,9 @@ from app.services.species_provenance import (  # noqa: E402
 )
 
 SOURCE_NAME = "ioc-world-bird-list"
+COL_SOURCE_NAME = "catalogue-of-life"
 DEFAULT_REFERENCE = _BACKEND_DIR / "app" / "assets" / "species_reference.db"
+DEFAULT_COL_CONCEPTS = _BACKEND_DIR / "app" / "assets" / "col_nonbird_concepts.json"
 DEFAULT_OUTPUT = _BACKEND_DIR / "app" / "assets" / "species_catalog_seed.db"
 _ENGLISH_TAG = "en"
 
@@ -68,37 +70,48 @@ def _frozen_on(manifest_path: Path | None) -> str:
     return f"{frozen}T00:00:00Z"
 
 
-def build(reference_path: Path, output_path: Path, *, manifest_path: Path | None = None) -> str:
+def _source_record(source) -> dict[str, object]:
+    return {
+        "id": source.id,
+        "version": source.version,
+        "licence": source.licence,
+        "citation": source.citation,
+        "url": source.url,
+        "redistribution": source.redistribution,
+        "content_sha256": source.content_sha256,
+    }
+
+
+def build(
+    reference_path: Path,
+    output_path: Path,
+    *,
+    manifest_path: Path | None = None,
+    col_concepts_path: Path | None = None,
+) -> str:
     meta, taxa, names = _reference_rows(reference_path)
     if not taxa:
         raise SystemExit(f"No taxa found in {reference_path}")
 
+    manifest = load_source_manifest(manifest_path)
     try:
-        source = require_build_source(
-            load_source_manifest(manifest_path),
-            SOURCE_NAME,
-            content_sha256=str(meta.get("source_sha256") or ""),
-        )
+        source = require_build_source(manifest, SOURCE_NAME, content_sha256=str(meta.get("source_sha256") or ""))
     except SourceProvenanceError as error:
         raise SystemExit(f"Provenance gate refused the build: {error}") from error
 
+    col_source = None
+    col_concepts: dict[str, object] = {}
+    if col_concepts_path is not None:
+        col_concepts = json.loads(Path(col_concepts_path).read_text(encoding="utf-8"))
+        recorded = str((col_concepts.get("source") or {}).get("export_sha256") or "")
+        try:
+            col_source = require_build_source(manifest, COL_SOURCE_NAME, content_sha256=recorded)
+        except SourceProvenanceError as error:
+            raise SystemExit(f"Provenance gate refused the build: {error}") from error
+
     generated_at = _frozen_on(manifest_path)
-    source_manifest = json.dumps(
-        {
-            "sources": [
-                {
-                    "id": source.id,
-                    "version": source.version,
-                    "licence": source.licence,
-                    "citation": source.citation,
-                    "url": source.url,
-                    "redistribution": source.redistribution,
-                    "content_sha256": source.content_sha256,
-                }
-            ]
-        },
-        sort_keys=True,
-    )
+    sources = [_source_record(source)] + ([_source_record(col_source)] if col_source else [])
+    source_manifest = json.dumps({"sources": sources}, sort_keys=True)
 
     if output_path.exists():
         output_path.unlink()
@@ -129,6 +142,51 @@ def build(reference_path: Path, output_path: Path, *, manifest_path: Path | None
                     (species_id, language_tag, name, source.id, source.version),
                 )
 
+        if col_source is not None:
+            next_species_id = len(taxa) + 1
+            # Several model classes can resolve to one accepted taxon when the
+            # taxonomy has lumped them since the model was trained; they share
+            # one species identity, exactly as the design's mapping policy says.
+            species_by_accepted_id: dict[str, int] = {}
+            for entry in col_concepts.get("concepts") or []:
+                species_id = species_by_accepted_id.get(entry["accepted_col_id"])
+                if species_id is None:
+                    species_id = next_species_id
+                    next_species_id += 1
+                    species_by_accepted_id[entry["accepted_col_id"]] = species_id
+                    connection.execute(
+                        "INSERT INTO species (species_id, rank, status) VALUES (?, 'species', 'accepted')",
+                        (species_id,),
+                    )
+                    connection.execute(
+                        "INSERT INTO species_concepts"
+                        " (species_id, provider, provider_taxon_id, source_release, scientific_name, status)"
+                        " VALUES (?, ?, ?, ?, ?, ?)",
+                        (
+                            species_id,
+                            col_source.id,
+                            entry["accepted_col_id"],
+                            col_source.version,
+                            entry["accepted_scientific_name"],
+                            "accepted",
+                        ),
+                    )
+                # A class resolved through a synonym keeps its label text
+                # reachable: the alias records that Catalogue of Life reads
+                # the label's name as this accepted taxon.
+                if entry["col_status"] == "synonym":
+                    connection.execute(
+                        "INSERT INTO species_aliases (alias, alias_kind, species_id, resolution, source)"
+                        " VALUES (?, 'synonym', ?, 'resolved', ?)",
+                        (entry["scientific_name"], species_id, col_source.id),
+                    )
+            for entry in col_concepts.get("unresolved") or []:
+                connection.execute(
+                    "INSERT INTO species_aliases (alias, alias_kind, species_id, resolution, source)"
+                    " VALUES (?, 'model_label', NULL, 'unresolved', ?)",
+                    (entry["scientific_name"], col_source.id),
+                )
+
         connection.execute(
             "INSERT INTO catalogue_releases"
             " (schema_version, source_manifest, content_sha256, generated_at, state)"
@@ -149,10 +207,12 @@ def build(reference_path: Path, output_path: Path, *, manifest_path: Path | None
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", type=Path, default=DEFAULT_REFERENCE)
+    parser.add_argument("--col-concepts", type=Path, default=DEFAULT_COL_CONCEPTS)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
-    digest = build(args.reference, args.output)
+    col_concepts = args.col_concepts if args.col_concepts.is_file() else None
+    digest = build(args.reference, args.output, col_concepts_path=col_concepts)
     size_mb = args.output.stat().st_size / 1024 / 1024
     print(f"Wrote {args.output} ({size_mb:.2f} MB)")
     print(f"sha256 {digest}")

@@ -13,7 +13,7 @@ the source freeze itself is `backend/app/assets/species_sources.json`.
 | Source | Role | Pinned release | Licence | Redistribution | Content sha256 |
 | --- | --- | --- | --- | --- | --- |
 | IOC World Bird List (Multilingual) | bird-vernacular-names | 14.2 | CC-BY-3.0 | bundled | `6a3ec96c0ca71435f9f4929517b6c7aec2d8e2661cd22c4eec3ceb44e8290a5c` |
-| Catalogue of Life | canonical-taxonomy | COL26.7 | CC-BY-4.0 | build-input | pinned by release identifier |
+| Catalogue of Life | canonical-taxonomy | COL26.7 | CC-BY-4.0 | build-input | `16156412fdca217280c5dee7fca1e5fbc16891280a9df953e1b07598bc69eefa` |
 | eBird Taxonomy | bird-crosswalk | 2025 | eBird API Terms of Use | runtime-fetch | pinned by release identifier |
 | iNaturalist Taxonomy | on-demand-enrichment | — | unspecified | forbidden | pinned by release identifier |
 | Google Coral iNat bird labels | legacy-model-labels | test_data@104342d2 | Apache-2.0 | bundled | `a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277` |

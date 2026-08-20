@@ -24,8 +24,8 @@
       "licence": "CC-BY-4.0",
       "citation": "Catalogue of Life, COL26.7 (2026-07-14). https://doi.org/10.48580/dgyhw",
       "redistribution": "build-input",
-      "content_sha256": null,
-      "notes": "Pinned base release for accepted scientific names, synonym relationships, and the 8,514 non-bird classes the 10,000-class models emit. Pinned by DOI 10.48580/dgyhw (ChecklistBank dataset 315777, issued 2026-07-14); the export digest is recorded here when the Phase 1 import first downloads it."
+      "content_sha256": "16156412fdca217280c5dee7fca1e5fbc16891280a9df953e1b07598bc69eefa",
+      "notes": "Pinned base release for accepted scientific names, synonym relationships, and the 8,514 non-bird classes the 10,000-class models emit. Pinned by DOI 10.48580/dgyhw (ChecklistBank dataset 315777, issued 2026-07-14). The recorded digest is the ColDP export zip downloaded 2026-08-20; build_col_nonbird_concepts.py refuses any other file."
     },
     {
       "id": "ebird-taxonomy",

@@ -49,6 +49,7 @@ class _Bundle:
     species: list[sqlite3.Row]
     concepts: list[sqlite3.Row]
     names: list[sqlite3.Row]
+    aliases: list[sqlite3.Row]
 
 
 def _schema_revision(connection: sqlite3.Connection) -> Optional[str]:
@@ -93,6 +94,9 @@ def _read_bundle(bundle_path: Path) -> _Bundle:
                 "SELECT * FROM species_concepts ORDER BY species_id, provider, provider_taxon_id"
             ).fetchall(),
             names=connection.execute("SELECT * FROM species_names ORDER BY species_id, language_tag, name").fetchall(),
+            aliases=connection.execute(
+                "SELECT * FROM species_aliases ORDER BY alias, alias_kind, species_id"
+            ).fetchall(),
         )
     finally:
         connection.close()
@@ -218,6 +222,32 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
                     ),
                 )
             names_added = live.total_changes - names_before
+
+            for alias in bundle.aliases:
+                mapped = id_map.get(alias["species_id"]) if alias["species_id"] is not None else None
+                if mapped is None:
+                    # SQLite treats NULLs as distinct in unique constraints, so
+                    # unresolved aliases are deduplicated explicitly.
+                    exists = live.execute(
+                        "SELECT 1 FROM species_aliases"
+                        " WHERE alias = ? AND alias_kind = ? AND species_id IS NULL AND source = ?",
+                        (alias["alias"], alias["alias_kind"], alias["source"]),
+                    ).fetchone()
+                    if exists:
+                        continue
+                live.execute(
+                    "INSERT INTO species_aliases (alias, alias_kind, species_id, resolution, source, confidence)"
+                    " VALUES (?, ?, ?, ?, ?, ?)"
+                    " ON CONFLICT (alias, alias_kind, species_id, source) DO NOTHING",
+                    (
+                        alias["alias"],
+                        alias["alias_kind"],
+                        mapped,
+                        alias["resolution"],
+                        alias["source"],
+                        alias["confidence"],
+                    ),
+                )
 
             _before_activation(live)
             live.execute("UPDATE catalogue_releases SET state = 'retired' WHERE state = 'active'")

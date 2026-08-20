@@ -8,6 +8,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **The species catalogue now knows the 8,514 non-bird classes the wildlife models can emit.**
+  Their scientific names are resolved against the pinned Catalogue of Life COL26.7 release
+  (admitted through the provenance gate, with the export digest now recorded in the source
+  manifest): 7,536 exact accepted matches, 342 resolved through unambiguous synonyms with the
+  label text kept as an alias, 12 taxonomy lumps sharing one identity, and 636 unresolved classes
+  recorded explicitly rather than guessed
+  ([report](docs/reviews/2026-08-20-col-nonbird-mapping-report.md)). The committed identity
+  artifact folds into the seed build, so a fresh installation's catalogue covers birds and
+  non-birds alike, and release imports carry aliases with the same never-guess semantics.
+
 - **Catalogue releases can now be imported transactionally, and rolled back.** A built release
   bundle is validated (schema revision, exactly one release row, recorded content digest recomputed
   in canonical order, foreign-key integrity) and then staged and activated inside a single

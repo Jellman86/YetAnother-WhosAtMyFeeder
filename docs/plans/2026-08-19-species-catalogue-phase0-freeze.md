@@ -71,11 +71,14 @@ must never resolve to a bird.
 - The shared iNat21 binomial file parses 9,999 of 10,000 labels as binomials; the exceptions and
   the 8,514 non-bird classes await the pinned Catalogue of Life import.
 
-## What Phase 0 still owes
+## The mapping report
 
 The design also asks for a report of **exact, synonym, split/lump, aggregate, hybrid, and
-unresolved** mappings against the canonical taxonomy. The synonym and split/lump analysis needs
-the pinned COL26.7 export and the eBird crosswalk actually loaded, which is the first act of
-Phase 1's importer; producing it before that machinery exists would mean a throwaway pipeline.
-The unresolved and non-species portions are already recorded in the inventory. The roadmap keeps
-Phase 0 marked in progress until that report exists.
+unresolved** mappings against the canonical taxonomy. Delivered on 2026-08-20 for the non-bird
+classes:
+[`docs/reviews/2026-08-20-col-nonbird-mapping-report.md`](../reviews/2026-08-20-col-nonbird-mapping-report.md)
+resolves the 8,514 non-bird classes against the pinned COL26.7 export — 7,536 exact accepted
+matches, 342 through unambiguous synonyms, 12 lumps sharing an accepted identity, and 636
+unresolved listed with reasons, nothing guessed. The bird-side split/lump analysis against the
+eBird crosswalk is a per-installation runtime concern (eBird is a `runtime-fetch` source) and
+lands with the Phase 2/3 crosswalk work rather than here.

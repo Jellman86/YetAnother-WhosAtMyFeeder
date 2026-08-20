@@ -291,3 +291,54 @@ def test_rollback_keeps_species_added_by_the_newer_release(live, bundle):
 
     still_there = _query(live, "SELECT species_id FROM species WHERE species_id = ?", (ostrich[0][0],))
     assert len(still_there) == 1
+
+
+def test_aliases_travel_with_the_release_and_do_not_duplicate(live, tmp_path):
+    """A bundle's aliases are remapped and imported; unresolved ones (NULL
+    species) are deduplicated explicitly because SQLite's unique constraint
+    cannot see two NULLs as equal."""
+    connection = sqlite3.connect(live)
+    try:
+        connection.execute(
+            "INSERT INTO species_aliases (alias, alias_kind, species_id, resolution, source)"
+            " VALUES ('Mysteria incognita', 'model_label', NULL, 'unresolved', 'catalogue-of-life')"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    pinned = hashlib.sha256(b"release with aliases").hexdigest()
+    reference = _reference(
+        tmp_path / "ref3.db",
+        [(1, "Cyanistes caeruleus", "Eurasian Blue Tit")],
+        [],
+        source_sha256=pinned,
+    )
+    manifest = _manifest(tmp_path / "m3.json", pinned_sha256=pinned, version="16.0-test")
+    bundle_path = tmp_path / "bundle3.db"
+    seed_builder.build(reference, bundle_path, manifest_path=manifest)
+    connection = sqlite3.connect(bundle_path)
+    try:
+        connection.execute(
+            "INSERT INTO species_aliases (alias, alias_kind, species_id, resolution, source)"
+            " VALUES ('Parus caeruleus', 'synonym', 1, 'resolved', 'catalogue-of-life')"
+        )
+        connection.execute(
+            "INSERT INTO species_aliases (alias, alias_kind, species_id, resolution, source)"
+            " VALUES ('Mysteria incognita', 'model_label', NULL, 'unresolved', 'catalogue-of-life')"
+        )
+        # Re-record the content digest so the tampered-bundle guard admits it.
+        from app.services.species_catalog_release import connection_content_digest
+
+        connection.execute("UPDATE catalogue_releases SET content_sha256 = ?", (connection_content_digest(connection),))
+        connection.commit()
+    finally:
+        connection.close()
+
+    import_release(bundle_path, catalog_path=live)
+
+    tit = _query(live, "SELECT species_id FROM species_concepts WHERE provider_taxon_id = 'Cyanistes caeruleus'")[0][0]
+    resolved = _query(live, "SELECT species_id FROM species_aliases WHERE alias = 'Parus caeruleus'")
+    assert resolved == [(tit,)]
+    unresolved = _query(live, "SELECT COUNT(*) FROM species_aliases WHERE alias = 'Mysteria incognita'")
+    assert unresolved[0][0] == 1

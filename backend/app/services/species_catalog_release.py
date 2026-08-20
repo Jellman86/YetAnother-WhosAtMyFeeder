@@ -29,4 +29,11 @@ def connection_content_digest(connection: sqlite3.Connection) -> str:
         "SELECT species_id, language_tag, name FROM species_names ORDER BY species_id, language_tag, name"
     ):
         digest.update(f"name|{species_id}|{language_tag}|{name}\n".encode())
+    for alias, alias_kind, species_id, resolution in connection.execute(
+        "SELECT alias, alias_kind, species_id, resolution FROM species_aliases"
+        " ORDER BY alias, alias_kind, species_id, resolution"
+    ):
+        digest.update(
+            f"alias|{alias}|{alias_kind}|{species_id if species_id is not None else ''}|{resolution}\n".encode()
+        )
     return digest.hexdigest()
