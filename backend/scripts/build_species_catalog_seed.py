@@ -30,6 +30,7 @@ if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
 from app.services.species_catalog_migrations import upgrade_catalog  # noqa: E402
+from app.services.species_catalog_release import connection_content_digest  # noqa: E402
 from app.services.species_provenance import (  # noqa: E402
     SourceProvenanceError,
     default_manifest_path,
@@ -104,7 +105,6 @@ def build(reference_path: Path, output_path: Path, *, manifest_path: Path | None
     output_path.parent.mkdir(parents=True, exist_ok=True)
     upgrade_catalog(output_path)
 
-    content = hashlib.sha256()
     connection = sqlite3.connect(output_path)
     try:
         connection.execute("PRAGMA foreign_keys = ON")
@@ -118,7 +118,6 @@ def build(reference_path: Path, output_path: Path, *, manifest_path: Path | None
                 " VALUES (?, ?, ?, ?, ?)",
                 (species_id, source.id, scientific, source.version, scientific),
             )
-            content.update(f"species|{species_id}|{scientific}\n".encode())
 
             localized = names.get(taxa[species_id - 1][0], [])
             rows = ([(_ENGLISH_TAG, english)] if english else []) + localized
@@ -129,13 +128,12 @@ def build(reference_path: Path, output_path: Path, *, manifest_path: Path | None
                     " VALUES (?, ?, ?, 'vernacular', 1, ?, ?)",
                     (species_id, language_tag, name, source.id, source.version),
                 )
-                content.update(f"name|{species_id}|{language_tag}|{name}\n".encode())
 
         connection.execute(
             "INSERT INTO catalogue_releases"
             " (schema_version, source_manifest, content_sha256, generated_at, state)"
             " VALUES (1, ?, ?, ?, 'active')",
-            (source_manifest, content.hexdigest(), generated_at),
+            (source_manifest, connection_content_digest(connection), generated_at),
         )
         connection.commit()
         connection.execute("VACUUM")

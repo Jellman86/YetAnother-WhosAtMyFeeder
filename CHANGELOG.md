@@ -8,6 +8,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **Catalogue releases can now be imported transactionally, and rolled back.** A built release
+  bundle is validated (schema revision, exactly one release row, recorded content digest recomputed
+  in canonical order, foreign-key integrity) and then staged and activated inside a single
+  transaction against the live catalogue; interruption at any point leaves the previous release
+  active with no partial rows. Species identity is stable across releases — a taxon already known
+  through a provider concept keeps its `species_id`, identities are never deleted, and names from
+  every release coexist with their provenance — so rolling back to a retired release is one
+  reversible state change. Owner overrides are never touched, and re-importing the same bundle is
+  a no-op.
+
 - **A fresh installation now starts with a complete species catalogue.** The image builds a
   deterministic seed release of `/data/species_catalog.db` from the committed IOC reference
   (11,276 species with their translated names, admitted through the source provenance gate), and
