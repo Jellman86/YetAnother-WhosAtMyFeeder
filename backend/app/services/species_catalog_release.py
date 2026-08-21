@@ -49,3 +49,22 @@ def connection_content_digest(connection: sqlite3.Connection) -> str:
             f"output|{model_sha256}|{output_index}|{class_kind}|{species_id if species_id is not None else ''}\n".encode()
         )
     return digest.hexdigest()
+
+
+def release_content_digest(
+    connection: sqlite3.Connection,
+    *,
+    schema_version: int,
+    source_manifest: str,
+    generated_at: str,
+) -> str:
+    """The digest a release records, covering content *and* its own metadata.
+
+    The release row's provenance record, timestamp, and schema version are part
+    of what the digest attests: without them a built bundle's source manifest
+    could be edited after the fact and still verify.
+    """
+    digest = hashlib.sha256()
+    digest.update(f"release|{schema_version}|{generated_at}|{source_manifest}\n".encode())
+    digest.update(connection_content_digest(connection).encode())
+    return digest.hexdigest()

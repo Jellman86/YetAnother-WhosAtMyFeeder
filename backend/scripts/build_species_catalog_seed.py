@@ -30,7 +30,7 @@ if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
 from app.services.species_catalog_migrations import upgrade_catalog  # noqa: E402
-from app.services.species_catalog_release import connection_content_digest  # noqa: E402
+from app.services.species_catalog_release import release_content_digest  # noqa: E402
 from app.services.species_provenance import (  # noqa: E402
     SourceProvenanceError,
     default_manifest_path,
@@ -247,7 +247,13 @@ def build(
             "INSERT INTO catalogue_releases"
             " (schema_version, source_manifest, content_sha256, generated_at, state)"
             " VALUES (1, ?, ?, ?, 'active')",
-            (source_manifest, connection_content_digest(connection), generated_at),
+            (
+                source_manifest,
+                release_content_digest(
+                    connection, schema_version=1, source_manifest=source_manifest, generated_at=generated_at
+                ),
+                generated_at,
+            ),
         )
         connection.commit()
         connection.execute("VACUUM")

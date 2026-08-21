@@ -151,3 +151,36 @@ def test_an_adopted_existing_catalogue_gains_the_marker(seed, catalog_path, tmp_
 
     assert result.state is CatalogState.READY
     assert marker.is_file()
+
+
+def test_an_empty_shell_catalogue_is_replaced_when_a_seed_appears(seed, catalog_path, tmp_path):
+    """The split image shipped no seed at first, leaving an empty migrated
+    catalogue behind the marker. There is nothing in it to lose, so a later
+    seed-carrying image replaces it instead of honouring the marker forever."""
+    empty_first = ensure_catalog_ready(catalog_path=catalog_path, seed_path=tmp_path / "no_seed_yet.db")
+    assert empty_first.state is CatalogState.INITIALIZED_EMPTY
+
+    healed = ensure_catalog_ready(catalog_path=catalog_path, seed_path=seed)
+
+    assert healed.state is CatalogState.SEEDED
+    assert _species_count(catalog_path) == 1
+
+
+def test_a_catalogue_with_a_release_is_never_replaced_by_the_seed(seed, catalog_path):
+    """Only a genuinely empty shell may be replaced; any release means content."""
+    ensure_catalog_ready(catalog_path=catalog_path, seed_path=seed)
+    connection = sqlite3.connect(catalog_path)
+    try:
+        connection.execute("INSERT INTO species_name_overrides (species_id, language_tag, name) VALUES (1, '', 'Mine')")
+        connection.commit()
+    finally:
+        connection.close()
+
+    again = ensure_catalog_ready(catalog_path=catalog_path, seed_path=seed)
+
+    assert again.state is CatalogState.READY
+    connection = sqlite3.connect(catalog_path)
+    try:
+        assert connection.execute("SELECT name FROM species_name_overrides").fetchall() == [("Mine",)]
+    finally:
+        connection.close()

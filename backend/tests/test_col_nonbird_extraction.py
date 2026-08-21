@@ -10,6 +10,8 @@ name with several accepted candidates, an `ambiguous synonym`, or a
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 from build_col_nonbird_concepts import ColUsage, resolve_needles  # noqa: E402
@@ -130,3 +132,54 @@ class TestResolution:
         assert [entry.scientific_name for entry in result.resolved] == ["Aa first", "Zz top"]
         assert result.resolved[0].kingdom == "Fungi"
         assert result.resolved[0].label_class == "Agaricomycetes"
+
+
+def test_a_duplicate_binomial_across_classes_fails_loudly(tmp_path):
+    """A cross-kingdom homonym pair must not silently collapse into one class."""
+    from build_col_nonbird_concepts import _needles_from_labels
+
+    labels = tmp_path / "labels.txt"
+    labels.write_text(
+        "00001_Animalia_Chordata_Amphibia_Anura_Ranidae_Rana_dubia\n"
+        "00002_Plantae_Tracheophyta_Magnoliopsida_Rosales_Rosaceae_Rana_dubia\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="[Dd]uplicate binomial"):
+        _needles_from_labels(labels)
+
+
+def test_a_reordered_export_header_is_refused(tmp_path):
+    """The scan reads columns by position; a reordered export must fail loudly."""
+    import zipfile
+
+    from build_col_nonbird_concepts import _scan_export
+
+    reordered = tmp_path / "reordered.zip"
+    with zipfile.ZipFile(reordered, "w") as archive:
+        archive.writestr(
+            "NameUsage.tsv",
+            "col:ID\tcol:scientificName\tcol:status\tcol:rank\tcol:parentID\nX1\tRana dubia\taccepted\tspecies\tP1\n",
+        )
+
+    with pytest.raises(SystemExit, match="columns changed"):
+        _scan_export(reordered, {"rana dubia": ("Rana dubia", "Animalia", "Amphibia")})
+
+
+def test_a_truncated_data_row_is_refused_and_blank_lines_are_skipped(tmp_path):
+    import zipfile
+
+    from build_col_nonbird_concepts import _scan_export
+
+    header = "col:ID\tcol:parentID\tcol:status\tcol:rank\tcol:scientificName\tcol:authorship\n"
+    ok = tmp_path / "ok.zip"
+    with zipfile.ZipFile(ok, "w") as archive:
+        archive.writestr("NameUsage.tsv", header + "\nX1\tP1\taccepted\tspecies\tRana dubia\t\n")
+    usages, _ = _scan_export(ok, {"rana dubia": ("Rana dubia", "Animalia", "Amphibia")})
+    assert len(usages["rana dubia"]) == 1
+
+    truncated = tmp_path / "truncated.zip"
+    with zipfile.ZipFile(truncated, "w") as archive:
+        archive.writestr("NameUsage.tsv", header + "X1\tP1\taccepted\n")
+    with pytest.raises(SystemExit, match="[Tt]runcated"):
+        _scan_export(truncated, {"rana dubia": ("Rana dubia", "Animalia", "Amphibia")})

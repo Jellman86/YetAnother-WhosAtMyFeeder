@@ -58,9 +58,22 @@
         labels?: { verdict?: string; label_count?: number };
     }
 
+    interface CatalogArtifactHealth {
+        registry_id?: string;
+        output_width?: number;
+        mapped_outputs?: number;
+        unresolved_outputs?: number;
+        complete?: boolean;
+    }
+
     interface NamingHealth {
         species_reference?: { available?: boolean; taxon_count?: number; source?: string | null };
         localized_names?: { available?: boolean; locales?: Record<string, number> };
+        species_catalog?: {
+            available?: boolean;
+            species_count?: number;
+            artifacts?: CatalogArtifactHealth[];
+        };
     }
 
     interface DiagnosticsHealth extends Record<string, unknown> {
@@ -479,6 +492,42 @@
         return names.sort().join(', ');
     }
 
+    function catalogSpecies(): string {
+        const catalog = health?.naming?.species_catalog;
+        if (!catalog?.available) {
+            return $_('common.unknown', { default: 'unknown' });
+        }
+        return asNumber(catalog.species_count).toLocaleString();
+    }
+
+    function catalogSummary(): string | null {
+        const catalog = health?.naming?.species_catalog;
+        if (!catalog?.available) {
+            return $_('jobs.errors_naming_catalog_missing', {
+                default: 'No species catalogue yet. Names come from the bundled reference and model label files.'
+            });
+        }
+        if (asNumber(catalog.species_count) === 0) {
+            return $_('jobs.errors_naming_catalog_empty', {
+                default: 'The species catalogue is empty. Names come from the bundled reference and model label files.'
+            });
+        }
+        const artifacts = catalog.artifacts ?? [];
+        const unresolved = artifacts.reduce((total, artifact) => total + asNumber(artifact?.unresolved_outputs), 0);
+        if (unresolved > 0) {
+            return $_('jobs.errors_naming_catalog_gaps', {
+                values: { unresolved: unresolved.toLocaleString() },
+                default: '{unresolved} model output classes have no catalogue identity yet and keep their original label text.'
+            });
+        }
+        if (artifacts.length > 0) {
+            return $_('jobs.errors_naming_catalog_ok', {
+                default: 'Every mapped model output resolves to a catalogue identity.'
+            });
+        }
+        return null;
+    }
+
     function startedAgoText(): string {
         if (instanceWindow === null) return $_('common.unknown', { default: 'unknown' });
         const minutes = Math.floor(instanceWindow / 60000);
@@ -831,7 +880,11 @@
                             <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
                                 <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_offline_species', { default: 'Offline Species' })}</span><span>{asNumber(health?.naming?.species_reference?.taxon_count).toLocaleString()}</span></div>
                                 <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_languages', { default: 'Languages' })}</span><span>{namingLocales()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_catalog', { default: 'Catalogue species' })}</span><span>{catalogSpecies()}</span></div>
                             </div>
+                            {#if catalogSummary()}
+                                <p class="mt-3 text-xs font-semibold opacity-80">{catalogSummary()}</p>
+                            {/if}
                         </div>
                     </div>
                 </article>

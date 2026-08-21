@@ -328,9 +328,19 @@ def test_aliases_travel_with_the_release_and_do_not_duplicate(live, tmp_path):
             " VALUES ('Mysteria incognita', 'model_label', NULL, 'unresolved', 'catalogue-of-life')"
         )
         # Re-record the content digest so the tampered-bundle guard admits it.
-        from app.services.species_catalog_release import connection_content_digest
+        from app.services.species_catalog_release import release_content_digest
 
-        connection.execute("UPDATE catalogue_releases SET content_sha256 = ?", (connection_content_digest(connection),))
+        release = connection.execute(
+            "SELECT schema_version, source_manifest, generated_at FROM catalogue_releases"
+        ).fetchone()
+        connection.execute(
+            "UPDATE catalogue_releases SET content_sha256 = ?",
+            (
+                release_content_digest(
+                    connection, schema_version=release[0], source_manifest=release[1], generated_at=release[2]
+                ),
+            ),
+        )
         connection.commit()
     finally:
         connection.close()
@@ -342,3 +352,79 @@ def test_aliases_travel_with_the_release_and_do_not_duplicate(live, tmp_path):
     assert resolved == [(tit,)]
     unresolved = _query(live, "SELECT COUNT(*) FROM species_aliases WHERE alias = 'Mysteria incognita'")
     assert unresolved[0][0] == 1
+
+
+def test_a_bundle_with_forged_release_metadata_is_refused(live, bundle):
+    """The digest covers the release row's own provenance, not only content."""
+    connection = sqlite3.connect(bundle)
+    try:
+        connection.execute("UPDATE catalogue_releases SET source_manifest = '{\"sources\": []}'")
+        connection.commit()
+    finally:
+        connection.close()
+
+    with pytest.raises(CatalogImportError, match="digest"):
+        import_release(bundle, catalog_path=live)
+
+
+def test_a_divergent_mapping_for_a_registered_artifact_fails_the_import(tmp_path):
+    """A same-checksum artifact with a different mapping set is a build defect;
+    per the safety model the release fails closed instead of warning."""
+    live = _build_mapped_seed(tmp_path, "live_conflict.db", label="Eurasian blue tit")
+    bundle = _build_mapped_seed(tmp_path, "bundle_conflict.db", label="European robin")
+
+    with pytest.raises(CatalogImportError, match="different mapping set"):
+        import_release(bundle, catalog_path=live)
+
+
+def _build_mapped_seed(tmp_path, output_name, *, label):
+    """Two seeds whose only difference is one mapped label, sharing the
+    artifact checksum, so their mapping sets diverge."""
+    import json as json_module
+
+    pinned = hashlib.sha256(b"conflict workbook").hexdigest()
+    reference_path = tmp_path / "conflict_ref.db"
+    if not reference_path.exists():
+        _reference(
+            reference_path,
+            [(1, "Cyanistes caeruleus", "Eurasian Blue Tit"), (2, "Erithacus rubecula", "European Robin")],
+            [],
+            source_sha256=pinned,
+        )
+    manifest = _manifest(tmp_path / f"conflict_manifest_{output_name}.json", pinned_sha256=pinned, version="17.0-test")
+    mappings = tmp_path / f"conflict_mappings_{output_name}.json"
+    taxon = "Cyanistes caeruleus" if label == "Eurasian blue tit" else "Erithacus rubecula"
+    mappings.write_text(
+        json_module.dumps(
+            {
+                "schema_version": 1,
+                "label_files": {
+                    "labelsha-conflict": {
+                        "label_format": "common_name",
+                        "output_width": 1,
+                        "outputs": [
+                            {
+                                "index": 0,
+                                "kind": "species",
+                                "label": label,
+                                "provider": "ioc-world-bird-list",
+                                "taxon": taxon,
+                            }
+                        ],
+                    }
+                },
+                "artifacts": [
+                    {
+                        "artifact_id": "conflict_model",
+                        "model_sha256": "c" * 64,
+                        "labels_sha256": "labelsha-conflict",
+                        "runtime": "onnx",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    path = tmp_path / output_name
+    seed_builder.build(reference_path, path, manifest_path=manifest, model_mappings_path=mappings)
+    return path

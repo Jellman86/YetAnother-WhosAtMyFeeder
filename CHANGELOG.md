@@ -8,6 +8,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **Settings > Health now reports the species catalogue honestly, in every language.** The Naming
+  Sources card shows whether a catalogue is present, how many species it holds, and states in
+  plain words how many model output classes still have no catalogue identity and keep their
+  original label text, so a number is never left to explain itself. Behind it, a new status
+  service reports the active catalogue release, per-artifact mapping coverage, and an activation
+  check that resolves a model checksum directly against the catalogue and verifies the output
+  tensor width, with `unregistered`, `incomplete_mapping`, and `width_mismatch` verdicts. The
+  check is advisory until label-file authority is retired before 3.0, because several supported
+  models still carry honestly-unresolved classes.
+
 - **Every supported classifier's outputs are now mapped in the catalogue by model checksum.** A
   deterministic compiler resolves each output index of every registry artifact through the seed
   catalogue by its declared label grammar: 21,650 of 23,332 indices resolve to canonical species

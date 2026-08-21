@@ -46,10 +46,12 @@ def test_returns_nothing_when_the_label_carries_no_scientific_name(label):
     assert scientific_name_from_label(label) is None
 
 
-def test_the_paired_form_is_read_only_when_declared():
+def test_the_paired_form_is_read_only_when_declared_or_binomial_shaped():
     """`Lesser Goldfinch (Female/juvenile)` is the same shape as
-    `Haemorhous cassinii (Cassin's Finch)`, so the shape alone proves nothing.
-    Reading it undeclared put a common name into the map as a scientific name."""
+    `Haemorhous cassinii (Cassin's Finch)`, so the parenthetical alone proves
+    nothing. Undeclared files (sideloaded Coral-style models) read the paired
+    form only when the left half is binomial-shaped: a lowercase epithet is
+    what a plumage-qualified common name cannot have."""
     paired = "Haemorhous cassinii (Cassin's Finch)"
     plumage = "Lesser Goldfinch (Female/juvenile)"
 
@@ -58,7 +60,7 @@ def test_the_paired_form_is_read_only_when_declared():
         scientific_name_from_label("  Haemorhous cassinii  (Cassin's Finch) ", label_format="scientific_paired_common")
         == "Haemorhous cassinii"
     )
-    assert scientific_name_from_label(paired) is None
+    assert scientific_name_from_label(paired) == "Haemorhous cassinii"
     assert scientific_name_from_label(plumage) is None
     assert scientific_name_from_label(plumage, label_format="common_name") is None
 
