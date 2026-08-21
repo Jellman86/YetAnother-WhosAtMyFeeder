@@ -27,7 +27,8 @@ DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score
                       CASE WHEN f.detection_id IS NULL THEN 0 ELSE 1 END AS is_favorite,
                       d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked,
                       d.frigate_status, d.frigate_missing_since, d.frigate_last_checked_at, d.frigate_last_error,
-                      d.video_classification_input_source, d.video_classification_diagnostics"""
+                      d.video_classification_input_source, d.video_classification_diagnostics,
+                      d.species_id, d.model_artifact_id, d.model_output_index"""
 
 
 @dataclass
@@ -62,6 +63,10 @@ class Detection:
     scientific_name: Optional[str] = None
     common_name: Optional[str] = None
     taxa_id: Optional[int] = None
+    # Canonical catalogue identity and artifact provenance (Phase 3)
+    species_id: Optional[int] = None
+    model_artifact_id: Optional[int] = None
+    model_output_index: Optional[int] = None
     notified_at: Optional[datetime] = None
     frigate_status: str = "present"
     frigate_missing_since: Optional[datetime] = None
@@ -342,6 +347,11 @@ def _row_to_detection(row: aiosqlite.Row) -> Detection:
             d.video_classification_diagnostics = parsed_diagnostics if isinstance(parsed_diagnostics, dict) else None
         except (TypeError, ValueError, json.JSONDecodeError):
             d.video_classification_diagnostics = None
+
+    if len(row) > 48:
+        d.species_id = row[46]
+        d.model_artifact_id = row[47]
+        d.model_output_index = row[48]
 
     return d
 
@@ -935,6 +945,9 @@ class DetectionRepository:
         audio_species: str | None,
         audio_score: float | None,
         manual_override: bool,
+        species_id: int | None = None,
+        model_artifact_id: int | None = None,
+        model_output_index: int | None = None,
     ) -> bool:
         """Update the canonical identity without racing a manual correction.
 
@@ -953,6 +966,9 @@ class DetectionRepository:
                 scientific_name = ?,
                 common_name = ?,
                 taxa_id = ?,
+                species_id = ?,
+                model_artifact_id = ?,
+                model_output_index = ?,
                 audio_confirmed = ?,
                 audio_species = ?,
                 audio_score = ?,
@@ -968,6 +984,9 @@ class DetectionRepository:
                 scientific_name,
                 common_name,
                 taxa_id,
+                species_id,
+                model_artifact_id,
+                model_output_index,
                 1 if audio_confirmed else 0,
                 audio_species,
                 audio_score,
@@ -1209,8 +1228,8 @@ class DetectionRepository:
         try:
             await self.db.execute(
                 """
-                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO detections (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
                     detection.detection_time,
@@ -1237,6 +1256,9 @@ class DetectionRepository:
                     detection.scientific_name,
                     detection.common_name,
                     detection.taxa_id,
+                    detection.species_id,
+                    detection.model_artifact_id,
+                    detection.model_output_index,
                     1 if detection.manual_tagged else 0,
                     "present",
                     None,
@@ -1405,6 +1427,9 @@ class DetectionRepository:
             getattr(detection, "scientific_name", None),
             getattr(detection, "common_name", None),
             getattr(detection, "taxa_id", None),
+            detection.species_id,
+            detection.model_artifact_id,
+            detection.model_output_index,
             1 if detection.manual_tagged else 0,
             "present",
             None,
@@ -1416,8 +1441,8 @@ class DetectionRepository:
         await self.db.execute(
             """
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             insert_params,
         )
@@ -1481,6 +1506,9 @@ class DetectionRepository:
                     THEN COALESCE(:taxa_id, taxa_id)
                     ELSE :taxa_id
                 END,
+                species_id = :species_id,
+                model_artifact_id = :model_artifact_id,
+                model_output_index = :model_output_index,
                 manual_tagged = manual_tagged,
                 frigate_status = 'present',
                 frigate_missing_since = NULL,
@@ -1521,6 +1549,9 @@ class DetectionRepository:
                 "scientific_name": getattr(detection, "scientific_name", None),
                 "common_name": getattr(detection, "common_name", None),
                 "taxa_id": getattr(detection, "taxa_id", None),
+                "species_id": detection.species_id,
+                "model_artifact_id": detection.model_artifact_id,
+                "model_output_index": detection.model_output_index,
                 "checked_at": checked_at,
                 "frigate_event": detection.frigate_event,
             },
@@ -1546,8 +1577,8 @@ class DetectionRepository:
         await self.db.execute(
             """
             INSERT OR IGNORE INTO detections
-            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (detection_time, detection_index, score, display_name, category_name, frigate_event, camera_name, is_hidden, frigate_score, sub_label, audio_confirmed, audio_species, audio_score, temperature, weather_condition, weather_cloud_cover, weather_wind_speed, weather_wind_direction, weather_precipitation, weather_rain, weather_snowfall, scientific_name, common_name, taxa_id, species_id, model_artifact_id, model_output_index, manual_tagged, frigate_status, frigate_missing_since, frigate_last_checked_at, frigate_last_error)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 detection.detection_time,
@@ -1574,6 +1605,9 @@ class DetectionRepository:
                 detection.scientific_name,
                 detection.common_name,
                 detection.taxa_id,
+                detection.species_id,
+                detection.model_artifact_id,
+                detection.model_output_index,
                 1 if detection.manual_tagged else 0,
                 "present",
                 None,

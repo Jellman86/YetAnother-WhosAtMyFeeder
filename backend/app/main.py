@@ -901,6 +901,12 @@ def _naming_health() -> dict[str, object]:
         catalog = catalog_status_module.species_catalog_status.status()
     except Exception:  # pragma: no cover
         catalog = {"available": False, "species_count": 0, "active_release": None, "artifacts": []}
+    try:
+        from app.services.species_catalog_resolver import species_catalog_resolver
+
+        catalog["shadow"] = species_catalog_resolver.stats()
+    except Exception:  # pragma: no cover
+        pass
     return {"species_reference": reference, "localized_names": localized, "species_catalog": catalog}
 
 
