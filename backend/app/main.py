@@ -466,6 +466,9 @@ async def lifespan(app: FastAPI):
             startup_phase="database",
             startup_progress=70,
         )
+        from app.services.species_catalog_backfill import start_background_catalog_backfill
+
+        create_background_task(start_background_catalog_backfill(), name="species_catalog_backfill")
         await _run_lifecycle_phase(
             app,
             "notification_dispatcher_start",
@@ -905,6 +908,12 @@ def _naming_health() -> dict[str, object]:
         from app.services.species_catalog_resolver import species_catalog_resolver
 
         catalog["shadow"] = species_catalog_resolver.stats()
+    except Exception:  # pragma: no cover
+        pass
+    try:
+        from app.services.species_catalog_backfill import last_backfill_summary
+
+        catalog["backfill"] = last_backfill_summary()
     except Exception:  # pragma: no cover
         pass
     return {"species_reference": reference, "localized_names": localized, "species_catalog": catalog}

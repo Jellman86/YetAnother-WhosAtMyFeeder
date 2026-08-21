@@ -58,6 +58,10 @@ class SpeciesCatalogResolver:
         # concept's scientific name plus every resolved alias, so a label
         # still using a recorded synonym counts as the same bird.
         self._accepted_names: dict[int, set[str]] = {}
+        # The inverse, for the historical backfill: a casefolded name held by
+        # exactly one species resolves; one held by several is ambiguous and
+        # resolves nothing.
+        self._name_to_species: dict[str, Optional[int]] = {}
         self._stats_lock = threading.Lock()
         self._agreements = 0
         self._mismatches = 0
@@ -119,9 +123,18 @@ class SpeciesCatalogResolver:
         finally:
             connection.close()
 
+        name_to_species: dict[str, Optional[int]] = {}
+        for species_id, names in accepted.items():
+            for name in names:
+                if name not in name_to_species:
+                    name_to_species[name] = species_id
+                elif name_to_species[name] != species_id:
+                    name_to_species[name] = None
+
         self._artifact_ids = artifact_ids
         self._outputs = outputs
         self._accepted_names = accepted
+        self._name_to_species = name_to_species
 
     def shadow_resolve(
         self,
@@ -195,6 +208,27 @@ class SpeciesCatalogResolver:
             model_artifact_id=entry.artifact_row_id,
             model_output_index=output_index,
         )
+
+    def resolve_scientific_name(self, scientific_name: Optional[str]) -> tuple[Optional[int], str]:
+        """Resolve a bare scientific name to one catalogue identity, or say why not.
+
+        Returns `(species_id, "resolved")`, `(None, "ambiguous")` when the
+        catalogue holds the name for more than one species, `(None, "unknown")`
+        when no source holds it, or `(None, "unavailable")` without a
+        catalogue. Used by the historical backfill, which never guesses.
+        """
+        name = str(scientific_name or "").strip()
+        if not name:
+            return None, "unknown"
+        if not self._ensure_loaded():
+            return None, "unavailable"
+        key = name.casefold()
+        if key not in self._name_to_species:
+            return None, "unknown"
+        species_id = self._name_to_species[key]
+        if species_id is None:
+            return None, "ambiguous"
+        return species_id, "resolved"
 
     def stats(self) -> dict[str, Any]:
         with self._stats_lock:
