@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **New detections now carry canonical catalogue identity, shadow-verified.** Phase 3 of the
+  versioned species catalogue begins: every live classification records which model artifact
+  (by checksum) and output index produced it, and gains an opaque `species_id` only when the
+  catalogue and the existing label path agree on the identity — a recorded synonym counts as the
+  same bird. Disagreements are counted and surfaced in the Health payload's shadow statistics
+  and withheld from history rather than persisted; a missing catalogue or unregistered model
+  degrades to exactly the pre-catalogue behaviour. The three new detection columns arrive by a
+  reversible migration and the historical name snapshots are untouched.
+
 - **Settings > Health now reports the species catalogue honestly, in every language.** The Naming
   Sources card shows whether a catalogue is present, how many species it holds, and states in
   plain words how many model output classes still have no catalogue identity and keep their

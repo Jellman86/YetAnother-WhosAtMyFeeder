@@ -33,6 +33,9 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             scientific_name TEXT,
             common_name TEXT,
             taxa_id INTEGER,
+            species_id INTEGER,
+            model_artifact_id INTEGER,
+            model_output_index INTEGER,
             video_classification_score FLOAT,
             video_classification_label TEXT,
             video_classification_index INTEGER,
@@ -1283,3 +1286,56 @@ async def test_delete_audio_detections_older_than_returns_zero_when_nothing_expi
         async with db.execute("SELECT COUNT(*) FROM audio_detections") as cursor:
             (remaining,) = await cursor.fetchone()
         assert remaining == 1
+
+
+@pytest.mark.asyncio
+async def test_catalog_identity_and_provenance_round_trip():
+    """Phase 3: a detection stores its canonical species_id and artifact
+    provenance, and reads them back; absent values stay None."""
+
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+        await _round_trip_catalog_identity(repo)
+
+
+async def _round_trip_catalog_identity(repo):
+    from app.utils.api_datetime import utc_naive_now
+
+    await repo.create(
+        Detection(
+            detection_time=utc_naive_now(),
+            detection_index=42,
+            score=0.91,
+            display_name="Eurasian Blue Tit",
+            category_name="Cyanistes caeruleus",
+            frigate_event="evt-catalog-1",
+            camera_name="feeder",
+            scientific_name="Cyanistes caeruleus",
+            species_id=4815,
+            model_artifact_id=7,
+            model_output_index=42,
+        )
+    )
+    await repo.create(
+        Detection(
+            detection_time=utc_naive_now(),
+            detection_index=1,
+            score=0.5,
+            display_name="Unknown Bird",
+            category_name="Unknown Bird",
+            frigate_event="evt-catalog-2",
+            camera_name="feeder",
+        )
+    )
+
+    with_identity = await repo.get_by_frigate_event("evt-catalog-1")
+    assert with_identity.species_id == 4815
+    assert with_identity.model_artifact_id == 7
+    assert with_identity.model_output_index == 42
+
+    without_identity = await repo.get_by_frigate_event("evt-catalog-2")
+    assert without_identity.species_id is None
+    assert without_identity.model_artifact_id is None
+    assert without_identity.model_output_index is None

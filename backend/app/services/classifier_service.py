@@ -2815,6 +2815,15 @@ class ClassifierService:
         snapshot.update(dict(self._bird_model_artifact_metadata or {}))
         return snapshot
 
+    def active_model_sha256(self) -> Optional[str]:
+        """The digest of the loaded classification model file, or None.
+
+        Computed once when the model loads; this is the checksum the species
+        catalogue keys its output mappings on.
+        """
+        value = str((self._bird_model_artifact_metadata or {}).get("model_sha256") or "").strip().lower()
+        return value or None
+
     def _gpu_runtime_settings_snapshot(self) -> dict[str, Any]:
         startup_self_test_enabled = _openvino_gpu_startup_self_test_enabled() and not self._worker_process_mode
         return {
