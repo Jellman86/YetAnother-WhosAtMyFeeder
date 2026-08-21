@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from pathlib import Path
 from typing import Any, Optional
 
@@ -28,9 +29,45 @@ from app.services.species_catalog_migrations import default_catalog_path
 log = structlog.get_logger()
 
 
+def _manifest_sources(source_manifest: object) -> list[dict[str, Any]]:
+    """Pinned source ids/versions from a release's manifest, defensively.
+
+    The column is free text copied from bundles; anything that is not the
+    expected object shape yields an empty list rather than an exception on
+    the health path.
+    """
+    try:
+        payload = json.loads(str(source_manifest or ""))
+    except ValueError:
+        return []
+    if not isinstance(payload, dict):
+        return []
+    sources = payload.get("sources")
+    if not isinstance(sources, list):
+        return []
+    return [
+        {"id": source.get("id"), "version": source.get("version")} for source in sources if isinstance(source, dict)
+    ]
+
+
+_UNAVAILABLE_STATUS: dict[str, Any] = {
+    "available": False,
+    "species_count": 0,
+    "active_release": None,
+    "artifacts": [],
+}
+
+
 class SpeciesCatalogStatus:
     def __init__(self, path: Optional[Path] = None) -> None:
         self._path = path
+        # The status answer changes only when a release is imported or the
+        # file is replaced, while the health surface polls it every few
+        # seconds; cache it keyed on the file's identity so a poll costs one
+        # stat() rather than a connection and COUNT scans.
+        self._lock = threading.Lock()
+        self._cache_key: Optional[tuple[int, int]] = None
+        self._cache_value: Optional[dict[str, Any]] = None
 
     def _resolved_path(self) -> Path:
         return Path(self._path or default_catalog_path())
@@ -49,23 +86,38 @@ class SpeciesCatalogStatus:
         return connection
 
     def status(self) -> dict[str, Any]:
-        """The catalogue's active release, size, and per-artifact coverage."""
+        """The catalogue's active release, size, and per-artifact coverage.
+
+        Cached on the file's (mtime, size): a poll pays one stat() until an
+        import or replacement changes the file.
+        """
+        try:
+            stat = self._resolved_path().stat()
+            cache_key = (stat.st_mtime_ns, stat.st_size)
+        except OSError:
+            return dict(_UNAVAILABLE_STATUS)
+
+        with self._lock:
+            if cache_key == self._cache_key and self._cache_value is not None:
+                return dict(self._cache_value)
+            value = self._compute_status()
+            self._cache_key = cache_key
+            self._cache_value = value
+            return dict(value)
+
+    def _compute_status(self) -> dict[str, Any]:
         connection = self._connect()
         if connection is None:
-            return {"available": False, "species_count": 0, "active_release": None, "artifacts": []}
+            return dict(_UNAVAILABLE_STATUS)
         try:
             release_row = connection.execute(
                 "SELECT source_manifest, generated_at FROM catalogue_releases WHERE state = 'active'"
             ).fetchone()
             active_release: Optional[dict[str, Any]] = None
             if release_row:
-                try:
-                    sources = json.loads(release_row["source_manifest"]).get("sources") or []
-                except ValueError:
-                    sources = []
                 active_release = {
                     "generated_at": release_row["generated_at"],
-                    "sources": [{"id": source.get("id"), "version": source.get("version")} for source in sources],
+                    "sources": _manifest_sources(release_row["source_manifest"]),
                 }
 
             species_count = connection.execute("SELECT COUNT(*) FROM species").fetchone()[0]
@@ -96,7 +148,7 @@ class SpeciesCatalogStatus:
             }
         except sqlite3.Error as error:
             log.warning("Species catalogue status query failed", error=str(error))
-            return {"available": False, "species_count": 0, "active_release": None, "artifacts": []}
+            return dict(_UNAVAILABLE_STATUS)
         finally:
             connection.close()
 

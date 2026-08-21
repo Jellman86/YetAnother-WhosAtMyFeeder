@@ -2570,6 +2570,7 @@
     "errors_naming_no_locales": "Apenas inglês",
     "errors_metric_catalog": "Espécies do catálogo",
     "errors_naming_catalog_missing": "Ainda não há catálogo de espécies. Os nomes vêm da referência incluída e dos ficheiros de etiquetas dos modelos.",
+    "errors_naming_catalog_empty": "O catálogo de espécies está vazio. Os nomes vêm da referência incluída e dos ficheiros de etiquetas dos modelos.",
     "errors_naming_catalog_gaps": "{unresolved} classes de saída dos modelos ainda não têm identidade no catálogo e mantêm o texto original da etiqueta.",
     "errors_naming_catalog_ok": "Cada saída de modelo mapeada corresponde a uma identidade do catálogo.",
     "errors_metric_offline_species": "Espécies offline",

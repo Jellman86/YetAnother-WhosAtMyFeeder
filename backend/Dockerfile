@@ -89,6 +89,15 @@ COPY --chown=appuser:appuser app /app/app
 COPY --chown=appuser:appuser locales /app/locales
 COPY --chown=appuser:appuser migrations /app/migrations
 COPY --chown=appuser:appuser migrations_catalog /app/migrations_catalog
+COPY --chown=appuser:appuser scripts /app/scripts
+
+# Build the seed species catalogue so the split image seeds first start the
+# same way the monolith does; an existing empty catalogue is also replaced by
+# this seed on upgrade.
+RUN python /app/scripts/build_species_catalog_seed.py \
+        --reference /app/app/assets/species_reference.db \
+        --output /app/app/assets/species_catalog_seed.db && \
+    chown appuser:appuser /app/app/assets/species_catalog_seed.db /app/app/assets/species_catalog_seed.db.sha256
 
 # Set environment variables
 ENV DB_PATH=/data/speciesid.db

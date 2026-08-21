@@ -25,7 +25,7 @@ from typing import Optional
 import structlog
 
 from app.services.species_catalog_migrations import catalog_migration_heads, default_catalog_path
-from app.services.species_catalog_release import connection_content_digest
+from app.services.species_catalog_release import release_content_digest
 
 log = structlog.get_logger()
 
@@ -79,7 +79,12 @@ def _read_bundle(bundle_path: Path) -> _Bundle:
             raise CatalogImportError(f"A bundle must hold exactly one release, found {len(releases)}")
         release = releases[0]
 
-        recomputed = connection_content_digest(connection)
+        recomputed = release_content_digest(
+            connection,
+            schema_version=int(release["schema_version"]),
+            source_manifest=str(release["source_manifest"]),
+            generated_at=str(release["generated_at"]),
+        )
         if recomputed != release["content_sha256"]:
             raise CatalogImportError(
                 "Bundle content does not match its recorded digest: "
@@ -108,6 +113,19 @@ def _read_bundle(bundle_path: Path) -> _Bundle:
         )
     finally:
         connection.close()
+
+
+def _rollback_quietly(live: sqlite3.Connection) -> None:
+    """Roll back if a transaction is still open.
+
+    A failed COMMIT (disk full, I/O error) already ends the transaction, and a
+    ROLLBACK then raises its own error, masking the real cause. The original
+    exception is the one worth surfacing.
+    """
+    try:
+        live.execute("ROLLBACK")
+    except sqlite3.Error:
+        pass
 
 
 def _before_activation(connection: sqlite3.Connection) -> None:
@@ -267,13 +285,15 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
                 ).fetchone()
                 if existing_artifact:
                     # The artifact checksum owns its mapping. A same-checksum
-                    # artifact with a different mapping set is a build defect
-                    # to surface, never something to silently rewrite.
+                    # artifact arriving with a different mapping set is a build
+                    # defect, and per §1 it fails the whole import closed
+                    # rather than being silently skipped or rewritten; a
+                    # deliberate mapping correction needs an explicit
+                    # supersession policy, not a quiet overwrite.
                     if existing_artifact["mapping_set_sha256"] != artifact["mapping_set_sha256"]:
-                        log.warning(
-                            "Bundle carries a different mapping for an already-registered artifact; keeping the "
-                            "registered mapping",
-                            model_sha256=artifact["model_sha256"],
+                        raise CatalogImportError(
+                            "Bundle carries a different mapping set for already-registered artifact "
+                            f"{artifact['model_sha256']}; refusing the release"
                         )
                     continue
                 cursor = live.execute(
@@ -314,10 +334,10 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
             )
             live.execute("COMMIT")
         except CatalogImportError:
-            live.execute("ROLLBACK")
+            _rollback_quietly(live)
             raise
         except Exception as error:
-            live.execute("ROLLBACK")
+            _rollback_quietly(live)
             raise CatalogImportError(f"Import interrupted, previous release left active: {error}") from error
     finally:
         live.close()
@@ -356,10 +376,10 @@ def rollback_to_release(release_id: int, catalog_path: Optional[Path] = None) ->
             )
             live.execute("COMMIT")
         except CatalogImportError:
-            live.execute("ROLLBACK")
+            _rollback_quietly(live)
             raise
         except Exception as error:
-            live.execute("ROLLBACK")
+            _rollback_quietly(live)
             raise CatalogImportError(f"Rollback interrupted, nothing changed: {error}") from error
     finally:
         live.close()

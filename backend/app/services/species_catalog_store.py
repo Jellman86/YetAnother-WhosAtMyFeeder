@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
+import sqlite3
 import tempfile
 from dataclasses import dataclass
 from enum import Enum
@@ -110,6 +111,30 @@ def _copy_seed_atomically(seed_path: Path, catalog_path: Path) -> None:
         raise
 
 
+def _is_empty_shell(catalog_path: Path) -> bool:
+    """True when the catalogue holds no release, no species, and no owner data.
+
+    An install that started from an image without a seed (the split backend
+    image, or a dev checkout) initialises an empty migrated catalogue. There
+    is nothing in it to lose, so a later image that does carry a seed may
+    replace it — unlike a catalogue with any release or override, which is
+    never touched.
+    """
+    try:
+        connection = sqlite3.connect(f"file:{catalog_path}?mode=ro", uri=True)
+    except sqlite3.Error:
+        return False
+    try:
+        for table in ("catalogue_releases", "species", "species_name_overrides"):
+            if connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]:
+                return False
+        return True
+    except sqlite3.Error:
+        return False
+    finally:
+        connection.close()
+
+
 def ensure_catalog_ready(catalog_path: Path | None = None, seed_path: Path | None = None) -> CatalogStatus:
     """Migrate an existing catalogue, or seed a genuinely fresh install."""
     path = Path(catalog_path or default_catalog_path())
@@ -118,6 +143,12 @@ def ensure_catalog_ready(catalog_path: Path | None = None, seed_path: Path | Non
     try:
         if path.is_file():
             upgrade_catalog(path)
+            if seed.is_file() and _is_empty_shell(path) and _seed_digest_ok(seed):
+                _copy_seed_atomically(seed, path)
+                upgrade_catalog(path)
+                _write_marker(path)
+                log.info("Empty species catalogue replaced with the image seed", path=str(path), seed=str(seed))
+                return CatalogStatus(CatalogState.SEEDED, str(path))
             if not _marker_path(path).is_file():
                 _write_marker(path)
             return CatalogStatus(CatalogState.READY, str(path))

@@ -125,7 +125,7 @@ class CatalogResolver:
         return value, False
 
     def resolve_scientific(self, scientific: str) -> tuple[Optional[tuple[str, str]], bool]:
-        key = scientific.translate(_HYBRID_SIGNS).casefold().strip()
+        key = " ".join(scientific.translate(_HYBRID_SIGNS).casefold().split())
         reference, ambiguous = self._get(self._by_scientific, key)
         if reference or ambiguous:
             return reference, ambiguous
@@ -194,7 +194,16 @@ def compile_mappings(labels_dir: Path, seed_path: Path) -> dict[str, object]:
     for artifact in classifiers:
         if not artifact.labels_sha256:
             raise SystemExit(f"Classifier artifact '{artifact.artifact_id}' publishes no labels checksum")
-        if artifact.labels_sha256 in label_files:
+        existing = label_files.get(artifact.labels_sha256)
+        if existing is not None:
+            # A shared label file is compiled once; every artifact sharing it
+            # must declare the same grammar or the second one would silently
+            # inherit the first's resolution.
+            if existing["label_format"] != artifact.label_format:
+                raise SystemExit(
+                    f"Artifact '{artifact.artifact_id}' declares label_format '{artifact.label_format}'"
+                    f" but label file {artifact.labels_sha256} was compiled as '{existing['label_format']}'"
+                )
             continue
         labels = _read_labels(labels_dir, artifact.labels_sha256)
         rows = map_labels(labels, artifact.label_format, resolver)

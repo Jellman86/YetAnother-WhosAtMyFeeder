@@ -141,6 +141,16 @@ def upgrade() -> None:
             sa.UniqueConstraint("alias", "alias_kind", "species_id", "source", name="uq_species_aliases_row"),
         )
         op.create_index("idx_species_aliases_alias", "species_aliases", [sa.text("alias COLLATE NOCASE")])
+        # SQLite treats NULLs as distinct in the unique constraint above, so
+        # unresolved aliases (species_id IS NULL) need their own uniqueness or
+        # they duplicate silently on every writer.
+        op.create_index(
+            "uq_species_aliases_unresolved",
+            "species_aliases",
+            ["alias", "alias_kind", "source"],
+            unique=True,
+            sqlite_where=sa.text("species_id IS NULL"),
+        )
 
     if not _has_table(inspector, "model_artifacts"):
         op.create_table(

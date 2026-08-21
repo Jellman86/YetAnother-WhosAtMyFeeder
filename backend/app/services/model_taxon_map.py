@@ -73,12 +73,14 @@ CREATE TABLE IF NOT EXISTS model_taxon_coverage (
 def scientific_name_from_label(label: Optional[str], *, label_format: Optional[str] = None) -> Optional[str]:
     """Read the scientific name out of a model label, or None if it carries none.
 
-    The declared `label_format` decides how a line is read. Only the
-    iNaturalist hierarchy is read without a declaration, because it is the one
-    shape a common name cannot take. The paired form used to be read undeclared
-    too, until the NABirds files showed `Lesser Goldfinch (Female/juvenile)`
-    wearing the same shape; a plumage qualifier is not a common name and
-    `Lesser Goldfinch` is not a scientific one.
+    The declared `label_format` decides how a line is read. Without a
+    declaration (a model outside the registry) only two shapes are read: the
+    iNaturalist hierarchy, which a common name cannot take, and the paired
+    form when its left half is binomial-shaped. The bare paired shape alone
+    proves nothing — the NABirds files showed `Lesser Goldfinch
+    (Female/juvenile)` wearing it, and `Lesser Goldfinch` is not a scientific
+    name — but `Haemorhous cassinii (Cassin's Finch)` announces itself by its
+    lowercase epithet, and sideloaded Coral-style models rely on it.
 
     None is the honest answer everywhere else — including an unknown declared
     format, where guessing would defeat the declaration — and the caller
@@ -90,15 +92,19 @@ def scientific_name_from_label(label: Optional[str], *, label_format: Optional[s
     if not text:
         return None
 
-    if label_format in (None, "scientific_hierarchy"):
+    if label_format is None:
         if _HIERARCHY.match(text):
-            parts = text.split("_")
-            if len(parts) < 3:
-                return None
-            genus, species = parts[-2], parts[-1]
-            if not genus or not species:
-                return None
-            return f"{genus[:1].upper()}{genus[1:]} {species.lower()}"
+            return _hierarchy_scientific(text)
+        paired = _PAIRED.match(text)
+        if paired:
+            left = paired.group("scientific").strip()
+            if _BINOMIAL.match(left):
+                return left
+        return None
+
+    if label_format == "scientific_hierarchy":
+        if _HIERARCHY.match(text):
+            return _hierarchy_scientific(text)
         return None
 
     if label_format == "scientific_paired_common":
@@ -114,6 +120,16 @@ def scientific_name_from_label(label: Optional[str], *, label_format: Optional[s
         return None
 
     return None
+
+
+def _hierarchy_scientific(text: str) -> Optional[str]:
+    parts = text.split("_")
+    if len(parts) < 3:
+        return None
+    genus, species = parts[-2], parts[-1]
+    if not genus or not species:
+        return None
+    return f"{genus[:1].upper()}{genus[1:]} {species.lower()}"
 
 
 def default_map_path() -> Path:

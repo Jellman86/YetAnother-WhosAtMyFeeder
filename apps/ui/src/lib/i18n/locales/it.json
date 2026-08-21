@@ -2570,6 +2570,7 @@
     "errors_naming_no_locales": "Solo inglese",
     "errors_metric_catalog": "Specie del catalogo",
     "errors_naming_catalog_missing": "Nessun catalogo delle specie per ora. I nomi provengono dal riferimento incluso e dai file di etichette dei modelli.",
+    "errors_naming_catalog_empty": "Il catalogo delle specie è vuoto. I nomi provengono dal riferimento incluso e dai file di etichette dei modelli.",
     "errors_naming_catalog_gaps": "{unresolved} classi di output dei modelli non hanno ancora un'identità nel catalogo e mantengono il testo originale dell'etichetta.",
     "errors_naming_catalog_ok": "Ogni output di modello mappato corrisponde a un'identità del catalogo.",
     "errors_metric_offline_species": "Specie offline",

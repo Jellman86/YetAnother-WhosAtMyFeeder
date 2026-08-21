@@ -2570,6 +2570,7 @@
     "errors_naming_no_locales": "Nur Englisch",
     "errors_metric_catalog": "Katalogarten",
     "errors_naming_catalog_missing": "Noch kein Artenkatalog. Namen stammen aus der mitgelieferten Referenz und den Labeldateien der Modelle.",
+    "errors_naming_catalog_empty": "Der Artenkatalog ist leer. Namen stammen aus der mitgelieferten Referenz und den Labeldateien der Modelle.",
     "errors_naming_catalog_gaps": "{unresolved} Modellklassen haben noch keine Katalogidentität und behalten ihren ursprünglichen Labeltext.",
     "errors_naming_catalog_ok": "Jede zugeordnete Modellausgabe verweist auf eine Katalogidentität.",
     "errors_metric_offline_species": "Offline-Arten",

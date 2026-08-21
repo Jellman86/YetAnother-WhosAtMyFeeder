@@ -507,6 +507,11 @@
                 default: 'No species catalogue yet. Names come from the bundled reference and model label files.'
             });
         }
+        if (asNumber(catalog.species_count) === 0) {
+            return $_('jobs.errors_naming_catalog_empty', {
+                default: 'The species catalogue is empty. Names come from the bundled reference and model label files.'
+            });
+        }
         const artifacts = catalog.artifacts ?? [];
         const unresolved = artifacts.reduce((total, artifact) => total + asNumber(artifact?.unresolved_outputs), 0);
         if (unresolved > 0) {

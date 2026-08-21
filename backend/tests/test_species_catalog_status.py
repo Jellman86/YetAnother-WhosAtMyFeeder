@@ -199,3 +199,34 @@ def test_the_health_payload_carries_the_catalogue(catalog, monkeypatch):
 
     assert naming["species_catalog"]["available"] is True
     assert naming["species_catalog"]["species_count"] == 2
+
+
+def test_a_malformed_source_manifest_degrades_gracefully(catalog):
+    """The manifest column is free text; valid-but-wrong JSON must not crash
+    the health path or hide a healthy catalogue."""
+    connection = sqlite3.connect(catalog)
+    try:
+        connection.execute("UPDATE catalogue_releases SET source_manifest = '[]'")
+        connection.commit()
+    finally:
+        connection.close()
+
+    status = SpeciesCatalogStatus(catalog).status()
+
+    assert status["available"] is True
+    assert status["species_count"] == 2
+    assert status["active_release"]["sources"] == []
+
+
+def test_status_is_cached_until_the_file_changes(catalog):
+    service = SpeciesCatalogStatus(catalog)
+    first = service.status()
+
+    connection = sqlite3.connect(catalog)
+    try:
+        connection.execute("INSERT INTO species (rank, status) VALUES ('species', 'accepted')")
+        connection.commit()
+    finally:
+        connection.close()
+
+    assert service.status()["species_count"] == first["species_count"] + 1

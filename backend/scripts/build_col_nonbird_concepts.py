@@ -144,8 +144,39 @@ def _needles_from_labels(labels_path: Path) -> dict[str, tuple[str, str, str]]:
         if len(parts) < 8 or parts[3] == "Aves":
             continue
         name = f"{parts[-2]} {parts[-1]}"
-        needles[name.casefold()] = (name, parts[1], parts[3])
+        key = name.casefold()
+        # Two classes sharing one binomial (a cross-kingdom homonym) cannot
+        # share a needle: one of them would silently vanish from both the
+        # resolved and unresolved lists. None exist today; fail loudly if one
+        # ever does rather than dropping a class.
+        existing = needles.get(key)
+        if existing is not None and existing != (name, parts[1], parts[3]):
+            raise SystemExit(
+                f"Duplicate binomial across classes: '{name}' appears as {existing[1]}/{existing[2]}"
+                f" and {parts[1]}/{parts[3]}; resolve these classes manually before building"
+            )
+        needles[key] = (name, parts[1], parts[3])
     return needles
+
+
+_EXPECTED_COLUMNS = ("col:ID", "col:parentID", "col:status", "col:rank", "col:scientificName")
+
+
+def _open_name_usage(archive: zipfile.ZipFile) -> io.TextIOWrapper:
+    """Open the usage table and prove the columns are where the parser reads.
+
+    The export is parsed by position; a re-pinned release that reorders or
+    renames columns must fail here rather than silently reading statuses out
+    of the wrong field.
+    """
+    text = io.TextIOWrapper(archive.open("NameUsage.tsv"), encoding="utf-8")
+    header = tuple(text.readline().rstrip("\n").split("\t")[: len(_EXPECTED_COLUMNS)])
+    if header != _EXPECTED_COLUMNS:
+        raise SystemExit(
+            f"NameUsage.tsv columns changed: expected {_EXPECTED_COLUMNS} first, found {header};"
+            " update the parser against the new export layout"
+        )
+    return text
 
 
 def _scan_export(
@@ -154,11 +185,13 @@ def _scan_export(
     """Two streaming passes: matching usages, then the synonym parents."""
     usages_by_name: dict[str, list[ColUsage]] = {}
     with zipfile.ZipFile(col_zip) as archive:
-        with archive.open("NameUsage.tsv") as handle:
-            text = io.TextIOWrapper(handle, encoding="utf-8")
-            text.readline()
+        with _open_name_usage(archive) as text:
             for line in text:
                 cols = line.rstrip("\n").split("\t")
+                if len(cols) < len(_EXPECTED_COLUMNS):
+                    if line.strip():
+                        raise SystemExit(f"Truncated NameUsage.tsv row: {line!r}")
+                    continue
                 key = cols[4].casefold()
                 if key in needles:
                     usages_by_name.setdefault(key, []).append(ColUsage(cols[0], cols[1], cols[2], cols[3]))
@@ -168,11 +201,11 @@ def _scan_export(
         }
         parents: dict[str, tuple[str, str, str]] = {}
         if wanted_parents:
-            with archive.open("NameUsage.tsv") as handle:
-                text = io.TextIOWrapper(handle, encoding="utf-8")
-                text.readline()
+            with _open_name_usage(archive) as text:
                 for line in text:
                     cols = line.rstrip("\n").split("\t")
+                    if len(cols) < len(_EXPECTED_COLUMNS):
+                        continue
                     if cols[0] in wanted_parents:
                         parents[cols[0]] = (cols[4], cols[2], cols[3])
     return usages_by_name, parents
