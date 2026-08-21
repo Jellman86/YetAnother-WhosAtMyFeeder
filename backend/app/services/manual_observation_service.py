@@ -438,9 +438,25 @@ class ManualObservationService:
             saved_longitude = draft.longitude
             saved_location_source = draft.location_source
         event_id = f"manual_{draft_id}"
+        # A manual identity is human-asserted, so it carries no model artifact
+        # provenance; canonical identity attaches only when the chosen name
+        # resolves to exactly one catalogue species, the same conservative rule
+        # the historical backfill uses.
+        species_id = None
+        chosen_scientific = str(taxonomy.get("scientific_name") or "").strip()
+        if chosen_scientific:
+            try:
+                from app.services.species_catalog_resolver import species_catalog_resolver
+
+                species_id, _reason = await asyncio.to_thread(
+                    species_catalog_resolver.resolve_scientific_name, chosen_scientific
+                )
+            except Exception as error:
+                log.debug("Manual observation catalogue resolution unavailable", error=str(error))
         detection = Detection(
             detection_time=utc_naive_datetime(observed_at) if observed_at else utc_naive_now(),
             detection_index=0,
+            species_id=species_id,
             score=max(0.0, min(1.0, score)),
             display_name=normalized_label,
             category_name=normalized_label,

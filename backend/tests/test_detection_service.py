@@ -1057,3 +1057,63 @@ async def test_apply_video_result_records_blocked_flag_and_skips_promotion(mock_
     # No audio correlation or broadcast since we returned early
     mock_deps["audio"].correlate_species.assert_not_called()
     mock_deps["broadcaster"].broadcast.assert_not_called()
+
+
+class TestCatalogRefinementResolution:
+    """The refinement path resolves through the catalogue only while the
+    refining model is still the loaded one; a queued result applied after a
+    model switch must not record false provenance."""
+
+    @pytest.mark.asyncio
+    async def test_a_result_from_the_still_active_model_resolves(self, monkeypatch):
+        from app.services import detection_service as module
+        from app.services.species_catalog_resolver import ShadowResolution
+
+        class FakeClassifier:
+            def get_status(self):
+                return {"effective_model_id": "rope_vit_b14_inat21"}
+
+            def active_model_sha256(self):
+                return "a" * 64
+
+        monkeypatch.setattr(module, "get_classifier", lambda: FakeClassifier())
+        monkeypatch.setattr(
+            module.species_catalog_resolver,
+            "shadow_resolve",
+            lambda sha, index, name, event: ShadowResolution(
+                verdict="agree", species_id=5, model_artifact_id=3, model_output_index=index
+            ),
+        )
+
+        result = await module._catalog_identity_for_refinement("rope_vit_b14_inat21", 7, "Cyanistes caeruleus", "evt")
+
+        assert result.verdict == "agree"
+        assert result.species_id == 5
+        assert result.model_output_index == 7
+
+    @pytest.mark.asyncio
+    async def test_a_result_from_a_since_swapped_model_is_not_attributed(self, monkeypatch):
+        from app.services import detection_service as module
+
+        class FakeClassifier:
+            def get_status(self):
+                return {"effective_model_id": "convnext_large_inat21"}
+
+            def active_model_sha256(self):
+                return "a" * 64
+
+        monkeypatch.setattr(module, "get_classifier", lambda: FakeClassifier())
+
+        result = await module._catalog_identity_for_refinement("rope_vit_b14_inat21", 7, "Cyanistes caeruleus", "evt")
+
+        assert result.verdict == "unavailable"
+        assert result.species_id is None
+        assert result.model_artifact_id is None
+
+    @pytest.mark.asyncio
+    async def test_a_negative_index_never_resolves(self):
+        from app.services import detection_service as module
+
+        result = await module._catalog_identity_for_refinement("rope_vit_b14_inat21", -1, "Cyanistes caeruleus", "evt")
+
+        assert result.verdict == "unavailable"
