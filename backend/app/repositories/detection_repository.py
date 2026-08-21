@@ -1560,6 +1560,30 @@ class DetectionRepository:
         await self.db.commit()
         return (False, updated)
 
+    async def distinct_scientific_names_without_identity(self) -> list[str]:
+        """Every distinct scientific name on rows that have no canonical identity yet."""
+        cursor = await self.db.execute(
+            "SELECT DISTINCT scientific_name FROM detections"
+            " WHERE species_id IS NULL AND scientific_name IS NOT NULL AND TRIM(scientific_name) != ''"
+        )
+        rows = await cursor.fetchall()
+        return [str(row[0]) for row in rows]
+
+    async def assign_species_id_by_scientific_name(self, scientific_name: str, species_id: int) -> int:
+        """Backfill one resolved name onto its identity-less rows; returns rows changed.
+
+        Only `species_id` is written: name snapshots and artifact provenance
+        are never touched, and an identity already present is never replaced.
+        """
+        await self.db.execute(
+            "UPDATE detections SET species_id = ?"
+            " WHERE species_id IS NULL AND LOWER(TRIM(scientific_name)) = LOWER(TRIM(?))",
+            (species_id, scientific_name),
+        )
+        changed = await self._last_statement_changes()
+        await self.db.commit()
+        return changed
+
     async def insert_if_not_exists(self, detection: Detection) -> bool:
         """Atomically insert a detection only if it doesn't already exist.
 

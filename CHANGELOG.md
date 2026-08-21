@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **Existing detection history gains canonical identity where it is certain.** A conservative
+  backfill runs detached at startup: a row whose recorded scientific name resolves to exactly one
+  catalogue identity (a concept or a recorded synonym) gains a `species_id`; an ambiguous name, a
+  name no held source carries, or a row without a scientific name stays exactly as it is and is
+  counted. Nothing else is written — name snapshots, artifact provenance, and already-assigned
+  identities are never touched, re-running is a no-op, and the outcome is reported in the Health
+  payload beside the shadow statistics.
+
 - **New detections now carry canonical catalogue identity, shadow-verified.** Phase 3 of the
   versioned species catalogue begins: every live classification records which model artifact
   (by checksum) and output index produced it, and gains an opaque `species_id` only when the
