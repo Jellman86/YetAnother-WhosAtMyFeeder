@@ -53,6 +53,38 @@ async def _catalog_shadow_resolution(
         return ShadowResolution(verdict="unavailable")
 
 
+async def _catalog_identity_for_refinement(
+    refinement_model_id: str | None, output_index: int | None, scientific_name: str | None, frigate_event: str
+) -> ShadowResolution:
+    """Shadow-resolve a queued refinement result, guarding against model swaps.
+
+    A video result can be applied after the owner switches models; attributing
+    it to the currently loaded artifact would record false provenance, so the
+    result resolves only while the refining model is still the active one.
+    """
+    if not isinstance(output_index, int) or output_index < 0:
+        return ShadowResolution(verdict="unavailable")
+    try:
+        classifier = get_classifier()
+        status = classifier.get_status()
+        current_model_id = str(status.get("effective_model_id") or status.get("active_model_id") or "").strip()
+        if refinement_model_id and current_model_id and refinement_model_id != current_model_id:
+            return ShadowResolution(verdict="unavailable")
+        model_sha256 = classifier.active_model_sha256()
+        if not model_sha256:
+            return ShadowResolution(verdict="unavailable")
+        return await asyncio.to_thread(
+            species_catalog_resolver.shadow_resolve,
+            model_sha256,
+            output_index,
+            scientific_name,
+            frigate_event,
+        )
+    except Exception as error:
+        log.debug("Catalogue refinement resolution unavailable", event_id=frigate_event, error=str(error))
+        return ShadowResolution(verdict="unavailable")
+
+
 TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(0.5, float(os.getenv("TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "3")))
 
 
@@ -786,6 +818,10 @@ class DetectionService:
                 else:
                     audio_confirmed, audio_species, audio_score = False, None, None
 
+                shadow = await _catalog_identity_for_refinement(
+                    video_model_id, video_index, scientific_name, frigate_event
+                )
+
                 primary_updated = await repo.update_primary_classification(
                     frigate_event=frigate_event,
                     display_name=display_name,
@@ -799,6 +835,9 @@ class DetectionService:
                     audio_species=audio_species,
                     audio_score=audio_score,
                     manual_override=manual_tagged,
+                    species_id=shadow.species_id,
+                    model_artifact_id=shadow.model_artifact_id,
+                    model_output_index=shadow.model_output_index,
                 )
                 if not primary_updated:
                     log.info(

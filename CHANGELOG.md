@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **Every identity-writing pipeline now speaks the same canonical language.** Video refinements
+  shadow-resolve their winning output through the catalogue before replacing a primary
+  identification, with a guard so a queued result applied after a model switch is never
+  attributed to the wrong artifact. Manual observations attach canonical identity only when the
+  chosen name resolves to exactly one catalogue species, and carry no artifact provenance because
+  a manual identity is human-asserted. Historical backfill imports already resolve through the
+  shared save path.
+
 - **Existing detection history gains canonical identity where it is certain.** A conservative
   backfill runs detached at startup: a row whose recorded scientific name resolves to exactly one
   catalogue identity (a concept or a recorded synonym) gains a `species_id`; an ambiguous name, a
