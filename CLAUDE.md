@@ -73,9 +73,16 @@ pass before any commit. "It builds" is not "it works".
   committed runtime code, and there must not be one.
 - **Every schema change ships a migration in the same commit.** Never edit an
   already-released migration; add a new one.
-- **Single head, reversible, idempotent.** There is exactly one Alembic head. Each
-  migration has a working `downgrade`; `upgrade → downgrade → upgrade` is a no-op
-  against an up-to-date database. CI enforces all three (see §9).
+- **Single head, reversible, idempotent.** There is exactly one Alembic head per
+  migration stream. Each migration has a working `downgrade`;
+  `upgrade → downgrade → upgrade` is a no-op against an up-to-date database. CI
+  enforces all three (see §9).
+- **Two independent migration streams.** `backend/migrations/` versions
+  `/data/speciesid.db` (detection history) via `alembic.ini`;
+  `backend/migrations_catalog/` versions `/data/species_catalog.db` (the species
+  catalogue) via `alembic_catalog.ini`. Neither stream may reference the other's
+  revisions, and no runtime code may hold cross-database foreign keys — the shared
+  value is an opaque `species_id`.
 - **Constraints belong in the schema**: `UNIQUE` (e.g. `frigate_event`), indexes,
   required columns, enum handling. Do not rely on application code to enforce what
   the database can enforce.

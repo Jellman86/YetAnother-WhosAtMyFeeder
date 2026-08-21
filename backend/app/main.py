@@ -456,6 +456,16 @@ async def lifespan(app: FastAPI):
             startup_phase="database",
             startup_progress=68,
         )
+        from app.services.species_catalog_store import start_species_catalog
+
+        await _run_lifecycle_phase(
+            app,
+            "species_catalog_init",
+            start_species_catalog,
+            fatal=False,
+            startup_phase="database",
+            startup_progress=70,
+        )
         await _run_lifecycle_phase(
             app,
             "notification_dispatcher_start",
@@ -877,6 +887,7 @@ def _naming_health() -> dict[str, object]:
     """
     from app.services.localized_names import localized_names
     from app.services.species_reference import species_reference
+    from app.services import species_catalog_status as catalog_status_module
 
     try:
         reference = species_reference.status()
@@ -886,7 +897,11 @@ def _naming_health() -> dict[str, object]:
         localized = localized_names.status()
     except Exception:  # pragma: no cover
         localized = {"available": False}
-    return {"species_reference": reference, "localized_names": localized}
+    try:
+        catalog = catalog_status_module.species_catalog_status.status()
+    except Exception:  # pragma: no cover
+        catalog = {"available": False, "species_count": 0, "active_release": None, "artifacts": []}
+    return {"species_reference": reference, "localized_names": localized, "species_catalog": catalog}
 
 
 def build_health_payload() -> dict[str, object]:

@@ -8,6 +8,65 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **Settings > Health now reports the species catalogue honestly, in every language.** The Naming
+  Sources card shows whether a catalogue is present, how many species it holds, and states in
+  plain words how many model output classes still have no catalogue identity and keep their
+  original label text, so a number is never left to explain itself. Behind it, a new status
+  service reports the active catalogue release, per-artifact mapping coverage, and an activation
+  check that resolves a model checksum directly against the catalogue and verifies the output
+  tensor width, with `unregistered`, `incomplete_mapping`, and `width_mismatch` verdicts. The
+  check is advisory until label-file authority is retired before 3.0, because several supported
+  models still carry honestly-unresolved classes.
+
+- **Every supported classifier's outputs are now mapped in the catalogue by model checksum.** A
+  deterministic compiler resolves each output index of every registry artifact through the seed
+  catalogue by its declared label grammar: 21,650 of 23,332 indices resolve to canonical species
+  identities (an apostrophe-insensitive match recovered most of the measured European shortfall,
+  and taxonomy synonyms like iNat21's *Bufotes balearicus* land on their accepted identity),
+  `background` and `Unknown` are declared class kinds, and 1,679 unresolved indices remain visible
+  gaps rather than guesses ([coverage report](docs/reviews/2026-08-20-model-output-mapping-coverage.md)).
+  The committed mapping record ties to the registry by regression test, the seed build folds it
+  into `model_artifacts` and `model_output_taxa`, and release imports carry mappings with the
+  artifact checksum owning its mapping set.
+
+- **The species catalogue now knows the 8,514 non-bird classes the wildlife models can emit.**
+  Their scientific names are resolved against the pinned Catalogue of Life COL26.7 release
+  (admitted through the provenance gate, with the export digest now recorded in the source
+  manifest): 7,536 exact accepted matches, 342 resolved through unambiguous synonyms with the
+  label text kept as an alias, 12 taxonomy lumps sharing one identity, and 636 unresolved classes
+  recorded explicitly rather than guessed
+  ([report](docs/reviews/2026-08-20-col-nonbird-mapping-report.md)). The committed identity
+  artifact folds into the seed build, so a fresh installation's catalogue covers birds and
+  non-birds alike, and release imports carry aliases with the same never-guess semantics.
+
+- **Catalogue releases can now be imported transactionally, and rolled back.** A built release
+  bundle is validated (schema revision, exactly one release row, recorded content digest recomputed
+  in canonical order, foreign-key integrity) and then staged and activated inside a single
+  transaction against the live catalogue; interruption at any point leaves the previous release
+  active with no partial rows. Species identity is stable across releases — a taxon already known
+  through a provider concept keeps its `species_id`, identities are never deleted, and names from
+  every release coexist with their provenance — so rolling back to a retired release is one
+  reversible state change. Owner overrides are never touched, and re-importing the same bundle is
+  a no-op.
+
+- **A fresh installation now starts with a complete species catalogue.** The image builds a
+  deterministic seed release of `/data/species_catalog.db` from the committed IOC reference
+  (11,276 species with their translated names, admitted through the source provenance gate), and
+  first start copies it into `/data` atomically. An initialisation marker distinguishes a genuinely
+  fresh install from a catalogue that has gone missing: a lost catalogue may have held owner
+  enrichments, so it is reported and left for the owner instead of being silently replaced by the
+  seed. A seed that fails its recorded digest is refused, and none of this can block startup.
+
+- **The species catalogue database now has its own versioned schema.** Phase 1 groundwork for the
+  versioned species catalogue: a dedicated, single-head Alembic stream
+  (`backend/alembic_catalog.ini`, `backend/migrations_catalog/`) creates `/data/species_catalog.db`
+  with the full designed schema — opaque species identity with synonym links, provider taxon
+  concepts, RFC 5646 translated names, fail-closed aliases, checksum-keyed model artifacts, the
+  output-index mapping with declared class kinds, transactional release records (at most one
+  active), and owner name overrides that survive refreshes. Constraints live in the schema, the
+  stream is reversible and idempotent, and CI now smokes it and enforces one head per stream
+  alongside the detections database.
+
 - **The species catalogue's sources are now a frozen, machine-checked contract.** Phase 0 of the
   versioned species catalogue: `backend/app/assets/species_sources.json` pins every source species
   data may come from — the IOC World Bird List 14.2 already bundled, Catalogue of Life COL26.7

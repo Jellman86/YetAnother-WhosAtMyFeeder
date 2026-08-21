@@ -65,6 +65,23 @@ class TestShippedManifest:
         assert sources["catalogue-of-life"].version
         assert sources["ebird-taxonomy"].version
 
+    def test_the_catalogue_of_life_export_is_pinned_by_digest(self):
+        """Recorded when the COL26.7 ColDP export was first downloaded; the
+        non-bird extraction refuses any other file."""
+        sources = load_source_manifest()
+
+        assert sources["catalogue-of-life"].content_sha256
+        assert len(sources["catalogue-of-life"].content_sha256) == 64
+
+    def test_the_col_concepts_artifact_matches_the_manifest_pin(self):
+        artifact = json.loads((ASSETS / "col_nonbird_concepts.json").read_text(encoding="utf-8"))
+        sources = load_source_manifest()
+
+        assert artifact["source"]["export_sha256"] == sources["catalogue-of-life"].content_sha256
+        assert artifact["source"]["version"] == sources["catalogue-of-life"].version
+        assert artifact["counts"]["resolved"] == len(artifact["concepts"])
+        assert artifact["counts"]["unresolved"] == len(artifact["unresolved"])
+
     def test_the_manifest_matches_the_shipped_reference_database(self):
         """The manifest's IOC checksum is the digest the committed asset was built from."""
         sources = load_source_manifest()

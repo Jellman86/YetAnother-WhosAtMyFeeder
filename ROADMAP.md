@@ -152,16 +152,18 @@ consumers of the current mapping**: anything taught to trust that key has to be 
 
 | Phase | State |
 | --- | --- |
-| 0. Freeze the contract and provenance gate | 🔄 mostly delivered ([freeze note](docs/plans/2026-08-19-species-catalogue-phase0-freeze.md)): pinned sources (IOC 14.2, CoL COL26.7 by DOI, eBird 2025) in a machine-checked manifest with a licence/redistribution gate; per-artifact label grammar declared in the registry; 100%-coverage artifact [inventory](docs/reviews/2026-08-19-species-catalogue-phase0-inventory.md) held current by a regression test. Remaining: the synonym/split-lump mapping report, which needs Phase 1's CoL import |
-| 1. Catalogue schema and deterministic builder | 🔄 seed and builder exist; schema, Catalogue of Life import for non-bird classes, seed-then-copy into `/data`, and the dedicated Alembic stream remain |
-| 2. Checksum-bound model mappings | 🔄 label verification exists; `model_artifacts` keyed on the model checksum and `model_output_taxa` with class kinds remain |
+| 0. Freeze the contract and provenance gate | ✅ delivered ([freeze note](docs/plans/2026-08-19-species-catalogue-phase0-freeze.md)): pinned sources (IOC 14.2, CoL COL26.7 by DOI and export digest, eBird 2025) in a machine-checked manifest with a licence/redistribution gate; per-artifact label grammar declared in the registry; 100%-coverage artifact [inventory](docs/reviews/2026-08-19-species-catalogue-phase0-inventory.md) held current by a regression test; and the [non-bird mapping report](docs/reviews/2026-08-20-col-nonbird-mapping-report.md) (exact/synonym/lump/unresolved, nothing guessed). Bird-side split/lump analysis rides with the Phase 2/3 eBird crosswalk |
+| 1. Catalogue schema and deterministic builder | ✅ delivered: the dedicated Alembic stream, full catalogue schema, deterministic seed build from IOC plus the 7,865 Catalogue of Life non-bird taxa, marker-guarded seed-then-copy into `/data`, and the transactional release importer with rollback (single-head, reversible, CI-smoked, constraints in-schema; interrupted imports leave the previous release active; identities are never deleted; a lost catalogue is reported, never silently replaced) |
+| 2. Checksum-bound model mappings | 🔄 the compiled mappings and the diagnostics are delivered: every supported classifier artifact is registered in the catalogue by its model checksum, with 21,650 of 23,332 output indices resolved to canonical identities, declared `background`/`unknown` class kinds, and 1,679 unresolved indices left as visible gaps ([coverage report](docs/reviews/2026-08-20-model-output-mapping-coverage.md)); the Health page reports the active release, coverage, and gaps in plain words, and the activation check (checksum resolved against SQLite, tensor width verified, unregistered/incomplete/width-mismatch verdicts) exists and is tested. Remaining: flipping that check from advisory to enforced at model selection, which lands with Phase 5's retirement of label-file authority so gap-bearing supported models are not broken in the meantime |
 | 3. Shadow resolution and historical backfill | ☐ |
 | 4. Make catalogue identity authoritative | ☐ retires the scientific-name key |
 | 5. Remove label-file authority before `3.0` | ☐ |
 
 ##### Cheap, independent of the phases
 
-- Explain naming limits on the Health page rather than only reporting numbers (§5).
+- ✅ The Health page's Naming Sources card now explains its limits in words: whether a species
+  catalogue exists, how many species it holds, and how many model output classes still have no
+  catalogue identity and keep their label text.
 - ✅ Measured: 84 of 707 European model labels (11.9%) resolve to no scientific name in the bundled
   IOC reference, dominated by stripped possessive apostrophes (`Audouins gull`) that a Phase 2
   apostrophe-insensitive alias rule should recover — see the
