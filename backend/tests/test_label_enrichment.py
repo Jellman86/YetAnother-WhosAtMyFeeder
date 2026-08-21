@@ -94,7 +94,7 @@ async def test_an_index_already_mapped_is_left_alone(mapping, sources):
     """The label file is the better authority; enrichment only fills gaps."""
     labels = ["Turdus migratorius", "African blue tit"]
     check = _check(labels)
-    mapping.build(check.actual_sha256, labels, assume_scientific=True)
+    mapping.build(check.actual_sha256, labels, label_format="scientific_binomial")
     assert mapping.lookup(check.actual_sha256, 0) == "Turdus migratorius"
 
     await enrich_unmapped_labels(check, mapping=mapping)
@@ -127,3 +127,20 @@ async def test_a_fully_mapped_model_costs_no_lookups(mapping, monkeypatch):
 
     assert await enrich_unmapped_labels(check, mapping=mapping) == 0
     assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_a_crop_detector_file_is_not_enriched(mapping, sources):
+    """A COCO class such as `kite` must never resolve to a bird."""
+    check = LabelCheck(
+        "bird_crop_detector_accurate_yolox_tiny",
+        LabelVerdict.VERIFIED,
+        "labels-coco",
+        "labels-coco",
+        3,
+        ("person", "bicycle", "kite"),
+        "detector_classes",
+    )
+
+    assert await enrich_unmapped_labels(check, mapping=mapping) == 0
+    assert mapping.lookup("labels-coco", 2) is None

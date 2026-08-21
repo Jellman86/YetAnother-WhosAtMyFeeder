@@ -8,6 +8,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **The species catalogue's sources are now a frozen, machine-checked contract.** Phase 0 of the
+  versioned species catalogue: `backend/app/assets/species_sources.json` pins every source species
+  data may come from — the IOC World Bird List 14.2 already bundled, Catalogue of Life COL26.7
+  (DOI 10.48580/dgyhw) for canonical taxonomy, the eBird 2025 taxonomy as the runtime crosswalk,
+  and an explicit refusal to redistribute iNaturalist data — each with its licence, citation, and
+  redistribution decision. The reference builder now refuses a source outside that manifest or an
+  input file that is not the pinned release. A generated inventory
+  (`docs/reviews/2026-08-19-species-catalogue-phase0-inventory.md`) covers 100% of supported model
+  artifact checksums with their label grammar and measured name resolution, and a regression test
+  keeps it current with the registry.
+
 - **Legacy Intel GPU compute support for Gen8, Gen9, and Gen11 hardware.** The `full` and `intel`
   images now include Intel's pinned `legacy1` OpenCL and Level Zero packages alongside the modern
   driver stack, restoring OpenVINO discovery on hardware such as Coffee Lake. Every downloaded
@@ -80,6 +91,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   cards keep all of their detail behind a disclosure below.
 
 ### Fixed
+
+- **A plumage label can no longer be recorded as a scientific name.** The label grammar is now
+  declared per model artifact in the registry instead of inferred from each line's shape. The
+  NABirds label files carry entries like `Lesser Goldfinch (Female/juvenile)`, which wear the same
+  `Scientific (Common)` shape as the Coral labels, so the automatic taxon map recorded common names
+  as scientific names for the North American regional models. Those labels now resolve through the
+  bundled reference instead, and crop-detector class lists (where COCO's `kite` could have met the
+  same fate) are excluded from species mapping and name enrichment entirely.
 
 - **Portuguese installations were getting English bird names from eBird.** eBird publishes its
   locale codes with underscores and has no plain `pt`, so the regional fallback could never match

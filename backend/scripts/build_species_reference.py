@@ -28,9 +28,18 @@ import zipfile
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+_BACKEND_DIR = Path(__file__).resolve().parents[1]
+if str(_BACKEND_DIR) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_DIR))
+
+from app.services.species_provenance import (  # noqa: E402
+    SourceProvenanceError,
+    load_source_manifest,
+    require_build_source,
+)
+
 SCHEMA_VERSION = "2"
 SOURCE_NAME = "ioc-world-bird-list"
-SOURCE_LICENCE = "CC-BY-3.0"
 
 _NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 
@@ -154,7 +163,16 @@ def parse_ioc(records: list[dict[str, str]]) -> list[dict[str, object]]:
     return taxa
 
 
-def build(source_path: Path, output_path: Path) -> tuple[int, int, str]:
+def build(source_path: Path, output_path: Path, *, manifest_path: Path | None = None) -> tuple[int, int, str]:
+    # The provenance gate: the input must be the release the manifest froze.
+    # A new IOC release is adopted by updating species_sources.json in the same
+    # commit, never by building from whatever file happens to be at hand.
+    source_digest = hashlib.sha256(source_path.read_bytes()).hexdigest()
+    try:
+        source = require_build_source(load_source_manifest(manifest_path), SOURCE_NAME, content_sha256=source_digest)
+    except SourceProvenanceError as error:
+        raise SystemExit(f"Provenance gate refused the build: {error}") from error
+
     taxa = parse_ioc(_read_sheet(source_path))
     if not taxa:
         raise SystemExit(f"No usable species rows found in {source_path}")
@@ -181,10 +199,11 @@ def build(source_path: Path, output_path: Path) -> tuple[int, int, str]:
             [
                 ("schema_version", SCHEMA_VERSION),
                 ("source", SOURCE_NAME),
-                ("source_licence", SOURCE_LICENCE),
+                ("source_licence", source.licence),
+                ("source_version", source.version or ""),
                 ("taxon_count", str(len(taxa))),
                 ("localized_name_count", str(localized)),
-                ("source_sha256", hashlib.sha256(source_path.read_bytes()).hexdigest()),
+                ("source_sha256", source_digest),
             ],
         )
         connection.commit()

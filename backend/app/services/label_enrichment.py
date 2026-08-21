@@ -80,8 +80,12 @@ async def enrich_unmapped_labels(
     The label file is the better authority, so an index it already mapped is
     never overwritten. A file reported as changed is not enriched at all: adding
     names to an altered file's mapping would make it more authoritative, not less.
+    Detector class lists are never enriched: a COCO class like `kite` resolving
+    to a bird would put a non-taxon into the species mapping.
     """
     if check.verdict in (LabelVerdict.CHANGED, LabelVerdict.MISSING):
+        return 0
+    if check.label_format == "detector_classes":
         return 0
     if not check.actual_sha256 or not check.labels:
         return 0

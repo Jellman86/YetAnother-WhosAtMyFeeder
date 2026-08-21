@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "frozen_on": "2026-08-19",
+  "comment": "The frozen contract for where species data may come from. Every source the catalogue touches is pinned here with its licence, citation, and an explicit redistribution decision. Build tooling admits sources through app.services.species_provenance.require_build_source; a source outside this manifest fails the build. See docs/plans/2026-08-12-versioned-species-catalogue-design.md (Phase 0).",
+  "sources": [
+    {
+      "id": "ioc-world-bird-list",
+      "name": "IOC World Bird List (Multilingual)",
+      "role": "bird-vernacular-names",
+      "version": "14.2",
+      "url": "https://www.worldbirdnames.org/new/ioc-lists/master-list-2/",
+      "licence": "CC-BY-3.0",
+      "citation": "IOC World Bird List, Frank Gill, David Donsker & Pamela Rasmussen (Eds). https://www.worldbirdnames.org/",
+      "redistribution": "bundled",
+      "content_sha256": "6a3ec96c0ca71435f9f4929517b6c7aec2d8e2661cd22c4eec3ceb44e8290a5c",
+      "notes": "One curated name per species per language; 11,276 species, 87,656 localized names. Built into app/assets/species_reference.db, whose reference_meta records this same source digest. Chosen over aggregated sources because they return several vernacular candidates with nothing to choose between them (see docs/plans/2026-08-19-species-catalogue-reconciliation.md)."
+    },
+    {
+      "id": "catalogue-of-life",
+      "name": "Catalogue of Life",
+      "role": "canonical-taxonomy",
+      "version": "COL26.7",
+      "url": "https://www.checklistbank.org/dataset/315777",
+      "licence": "CC-BY-4.0",
+      "citation": "Catalogue of Life, COL26.7 (2026-07-14). https://doi.org/10.48580/dgyhw",
+      "redistribution": "build-input",
+      "content_sha256": null,
+      "notes": "Pinned base release for accepted scientific names, synonym relationships, and the 8,514 non-bird classes the 10,000-class models emit. Pinned by DOI 10.48580/dgyhw (ChecklistBank dataset 315777, issued 2026-07-14); the export digest is recorded here when the Phase 1 import first downloads it."
+    },
+    {
+      "id": "ebird-taxonomy",
+      "name": "eBird Taxonomy",
+      "role": "bird-crosswalk",
+      "version": "2025",
+      "url": "https://api.ebird.org/v2/ref/taxonomy/ebird",
+      "licence": "eBird API Terms of Use",
+      "citation": "eBird Taxonomy v2025, Cornell Lab of Ornithology. https://science.ebird.org/en/use-ebird-data/the-ebird-taxonomy",
+      "redistribution": "runtime-fetch",
+      "content_sha256": null,
+      "notes": "Validates scientific names, species codes, hybrids, and aggregates. Fetched per installation under the owner's own API key, so no eBird data is redistributed. The annual release is pinned by the API's version parameter."
+    },
+    {
+      "id": "inaturalist",
+      "name": "iNaturalist Taxonomy",
+      "role": "on-demand-enrichment",
+      "version": null,
+      "url": "https://api.inaturalist.org/v1/taxa",
+      "licence": "unspecified",
+      "citation": "iNaturalist. https://www.inaturalist.org/",
+      "redistribution": "forbidden",
+      "content_sha256": null,
+      "notes": "The taxonomy export states no licence, so redistribution cannot be justified; it remains a per-installation runtime lookup only, exactly as it is today. Recording the refusal here is what keeps a future build from quietly bundling it."
+    },
+    {
+      "id": "google-coral-inat-bird-labels",
+      "name": "Google Coral iNat bird labels",
+      "role": "legacy-model-labels",
+      "version": "test_data@104342d2",
+      "url": "https://raw.githubusercontent.com/google-coral/test_data/104342d2d3480b3e66203073dac24f4e2dbb4c41/inat_bird_labels.txt",
+      "licence": "Apache-2.0",
+      "citation": "Google Coral test_data (Apache-2.0). https://github.com/google-coral/test_data",
+      "redistribution": "bundled",
+      "content_sha256": "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277",
+      "notes": "The MobileNet V2 label file: 964 scientific/common pairs plus a background class. Pinned to the same commit and checksum the model registry downloads and verifies."
+    }
+  ]
+}
