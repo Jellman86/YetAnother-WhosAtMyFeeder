@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **An expired Frigate event is no longer reported as a warning on every page load.** Frigate
+  retires events long before YA-WAMF retires detections, so an older detection's upstream event is
+  gone for good. The events list checks media availability for every row it renders, and logged a
+  warning each time it found one missing: 958 log lines in 22 hours from 29 events on a reference
+  deployment, for a condition that is expected, permanent and needs nobody. Real warnings were
+  buried underneath. The condition is now stated once per event per window, at info, in words that
+  say what it means for the detection. Frigate is still asked every time, so a restored event or a
+  transient failure during a Frigate restart is never answered from stale memory.
+
 ### Changed
 
 - **NumPy 2 is now supported, and the numeric contract behind it is tested.** The dependency cap

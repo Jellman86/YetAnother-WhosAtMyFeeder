@@ -253,7 +253,10 @@ class FrigateClient:
             if resp.status_code == 200:
                 return resp.json(), None
             if resp.status_code == 404:
-                log.warning("Event not found", event_id=event_id)
+                # Expected once Frigate's retention passes the event by, and
+                # permanent when it does. The caller decides whether a given
+                # sighting is worth reporting; see `frigate_event_absence`.
+                log.debug("Event not found", event_id=event_id)
                 return None, "event_not_found"
             log.warning("Failed to fetch event", event_id=event_id, status=resp.status_code)
             return None, f"event_http_{resp.status_code}"
