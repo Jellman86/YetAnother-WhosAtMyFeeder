@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **NumPy 2 is now supported, and the numeric contract behind it is tested.** The dependency cap
+  moved from `numpy<2.0.0` to `numpy<3.0.0`, which takes the container from NumPy 1.26 to 2.x. A
+  major NumPy bump can break two things quietly: the binary interface every compiled extension
+  links against, and NEP 50 value-based casting, which decides whether `float32` arithmetic stays
+  `float32`. Neither was covered, because the test suite mocks every inference runtime. Both are
+  now covered by a contract test that runs the classifier's real probability normalisation,
+  softmax, preprocessing branches and quantisation path, and exercises OpenCV across the array
+  boundary. Verified byte-identical between 1.26.4 and 2.5.2 before the cap was raised.
+
 ### Added
 
 - **The clock format is now yours to choose.** Settings > Appearance gains a time format control
