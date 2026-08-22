@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **Success and "needs your attention" are no longer the same colour.** The shipped Blue Tit theme
+  paints the secondary accent amber, and success states were built on that accent, so a passed
+  check and a warning rendered identically. In the shared diagnostic dialog the two sat in the
+  same expression: a `passed` step and a `warning` step both came out amber, which removed the
+  distinction the dialog exists to draw. Confirmed, passed, healthy, connected and verified states
+  now use a dedicated semantic green that no theme can repaint, while amber goes back to meaning
+  only "this needs a person". Affects the Frigate, MQTT, notification and model test flows, the
+  first-run wizard, integration status, and success badges throughout. Reported in #243.
+
 ### Added
 
 - **Every identity-writing pipeline now speaks the same canonical language.** Video refinements

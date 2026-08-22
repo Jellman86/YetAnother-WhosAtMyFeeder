@@ -793,7 +793,7 @@
                                                         <div class="flex items-center gap-2 mt-0.5">
                                                             <p class="text-xs font-medium text-slate-400">{formatEbirdDate(obs.observed_at)}</p>
                                                             {#if obs.obs_valid}
-                                                                <span class="w-1 h-1 rounded-full bg-accent-400" title="{$_('species_detail.valid_observation')}"></span>
+                                                                <span class="w-1 h-1 rounded-full bg-success-400" title="{$_('species_detail.valid_observation')}"></span>
                                                             {/if}
                                                         </div>
                                                     </div>

@@ -39,6 +39,12 @@ Amber is reserved for "this needs a person". It is not decoration and it is not 
 Green means confirmed or healthy, brand blue means normal emphasis. A row is never coloured to
 mean "recent" or "interesting".
 
+Success is therefore its own semantic scale, `success-*`, and never the theme's secondary accent.
+`accent-*` is a brand colour: the classic theme paints it emerald and the shipped bluetit theme
+paints it amber. Anything meaning confirmed, passed, healthy, connected or verified must use
+`success-*` so it stays green in every theme. A theme may repaint `--accent-*`; it must never
+define `--success-*`.
+
 ### 1.4 Density is affordable only with a way to look closer
 
 Small thumbnails let a day fit on a screen, and a 34px thumbnail cannot settle whether a 56% blur

@@ -194,7 +194,7 @@
                flex flex-col h-full
                text-left w-full animate-entrance
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
-               {isVerified ? 'ring-2 ring-accent-500/20 dark:ring-accent-500/10' : ''}
+               {isVerified ? 'ring-2 ring-success-500/20 dark:ring-success-500/10' : ''}
                {analysisActive ? 'border-2 border-indigo-400/90 dark:border-indigo-300/90 ring-2 ring-indigo-500/30 dark:ring-indigo-300/25 bg-indigo-50/10 dark:bg-indigo-500/10 shadow-[0_0_0_1px_rgba(99,102,241,0.12)]' : ''}
                {selectionMode && selected && !analysisActive ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35 dark:ring-cyan-300/20 bg-cyan-50/20 dark:bg-cyan-500/5' : ''}"
         style="animation-delay: {index * 40}ms"

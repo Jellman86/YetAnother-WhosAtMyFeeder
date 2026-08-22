@@ -167,7 +167,7 @@
             <ol class="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
                 {#each displayStages as stage, index}
                     <li class="flex items-start gap-3 p-3.5 {stage.state === 'failed' ? 'bg-red-50/70 dark:bg-red-950/20' : stage.state === 'warning' ? 'bg-amber-50/70 dark:bg-amber-950/20' : stage.state === 'running' ? 'bg-brand-50/60 dark:bg-brand-950/15' : ''}">
-                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-black {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-amber-500 text-white' : stage.state === 'passed' ? 'bg-accent-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-brand-500 text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}">
+                        <span class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-black {stage.state === 'failed' ? 'bg-red-600 text-white' : stage.state === 'warning' ? 'bg-amber-500 text-white' : stage.state === 'passed' ? 'bg-success-600 text-white' : stage.state === 'running' ? 'animate-pulse bg-brand-500 text-white' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-300'}">
                             {stageIcon(stage.state) || index + 1}
                         </span>
                         <div class="min-w-0 flex-1 space-y-0.5">
@@ -186,7 +186,7 @@
             </ol>
 
             {#if result && revealed >= resolvedCount}
-                <div role="status" class="rounded-2xl border p-4 {result.ok ? 'border-accent-200 bg-accent-50 text-accent-900 dark:border-accent-900/60 dark:bg-accent-950/20 dark:text-accent-100' : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100'}">
+                <div role="status" class="rounded-2xl border p-4 {result.ok ? 'border-success-200 bg-success-50 text-success-900 dark:border-success-900/60 dark:bg-success-950/20 dark:text-success-100' : 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-100'}">
                     <p class="font-bold">{result.message}</p>
                     {#if result.hint}
                         <p class="mt-1 text-sm">{result.hint}</p>

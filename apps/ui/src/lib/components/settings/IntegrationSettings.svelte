@@ -729,7 +729,7 @@
             </div>
             {#if inaturalistConnectedUser}
                 <div class="flex items-center justify-between gap-2 p-3 bg-accent-50 dark:bg-accent-900/20 rounded-xl">
-                    <span class="text-sm text-accent-700 dark:text-accent-300">{$_('settings.integrations.inaturalist.connected', { values: { user: inaturalistConnectedUser } })}</span>
+                    <span class="text-sm text-success-700 dark:text-success-300">{$_('settings.integrations.inaturalist.connected', { values: { user: inaturalistConnectedUser } })}</span>
                     <button
                         type="button"
                         onclick={async () => {
