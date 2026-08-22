@@ -443,10 +443,17 @@
     "language_desc": "Modifie le texte de l'interface et le contenu des notifications.",
     "date_format": {
       "label": "Format de date",
-      "desc": "Choisissez le format d’affichage des dates et heures.",
+      "desc": "Choisissez le format d’affichage des dates.",
       "us": "États-Unis (MM/JJ/AAAA)",
       "uk": "Royaume-Uni (JJ/MM/AAAA)",
       "ymd": "Japon/Chine (AAAA-MM-JJ)"
+    },
+    "time_format": {
+      "label": "Format de l’heure",
+      "desc": "Choisissez un affichage sur 12 ou 24 heures.",
+      "locale": "Suivre la langue du navigateur",
+      "h12": "12 heures (1:45 PM)",
+      "h24": "24 heures (13:45)"
     },
     "video_circuit": {
       "title": "Analyse vidéo en pause",

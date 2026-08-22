@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     public_access: PublicAccessSettings = PublicAccessSettings()
     species_info_source: str = Field(default="auto", description="Species info source: auto, inat, or wikipedia")
     date_format: str = Field(default="locale", description="Date format: locale, mdy, dmy, ymd")
+    time_format: str = Field(default="locale", description="Time format: locale, 12h, 24h")
 
     # General app settings
     log_level: str = "INFO"

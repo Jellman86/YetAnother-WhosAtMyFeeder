@@ -453,6 +453,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
 
     species_info_source = os.environ.get("SPECIES_INFO__SOURCE", "auto")
     date_format = os.environ.get("DISPLAY__DATE_FORMAT", "locale")
+    time_format = os.environ.get("DISPLAY__TIME_FORMAT", "locale")
 
     # Load from config file if it exists, env vars take precedence
     if config_path.exists():
@@ -675,6 +676,8 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
 
             if "date_format" in file_data and "DISPLAY__DATE_FORMAT" not in os.environ:
                 date_format = file_data["date_format"]
+            if "time_format" in file_data and "DISPLAY__TIME_FORMAT" not in os.environ:
+                time_format = file_data["time_format"]
 
             log.info("Loaded config from file", path=str(config_path))
         except Exception as e:
@@ -784,5 +787,6 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         public_access=PublicAccessSettings(**public_access_data),
         species_info_source=species_info_source,
         date_format=date_format,
+        time_format=time_format,
         api_key=api_key,
     )

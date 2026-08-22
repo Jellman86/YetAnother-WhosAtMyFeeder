@@ -213,6 +213,7 @@ export interface components {
     public_access_enabled: boolean;
     public_access_show_ai_conversation?: boolean;
     scientific_name_primary?: boolean;
+    time_format?: string;
     username?: string | null;
 };
     BackendDiagnosticEventResponse: {
@@ -1395,6 +1396,7 @@ export interface components {
     telemetry_installation_id?: string | null;
     telemetry_payload_preview?: Record<string, unknown> | null;
     telemetry_platform?: string | null;
+    time_format?: string | null;
     trust_frigate_sublabel?: boolean;
     trusted_proxy_hosts?: Array<string> | null;
     update_check_enabled?: boolean;
@@ -1565,6 +1567,7 @@ export interface components {
     strict_non_finite_output?: boolean | null;
     telemetry_enabled?: boolean | null;
     telemetry_health_enabled?: boolean | null;
+    time_format?: string | null;
     trust_frigate_sublabel?: boolean;
     trusted_proxy_hosts?: Array<string> | null;
     video_classification_delay?: number | null;

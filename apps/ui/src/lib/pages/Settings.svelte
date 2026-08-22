@@ -1272,6 +1272,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let publicAccessRateLimitPerMinute = $state(30);
     let publicAccessExternalBaseUrl = $state('');
     let dateFormat = $state('dmy');
+    let timeFormat = $state('locale');
     let debugUiEnabled = $state(false);
     let strictNonFiniteOutput = $state(true);
 
@@ -1844,6 +1845,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessRateLimitPerMinute', val: publicAccessRateLimitPerMinute, store: s.public_access_rate_limit_per_minute ?? 30 },
             { key: 'publicAccessExternalBaseUrl', val: publicAccessExternalBaseUrl, store: s.public_access_external_base_url ?? '' },
             { key: 'dateFormat', val: dateFormat, store: s.date_format ?? 'dmy' },
+            { key: 'timeFormat', val: timeFormat, store: s.time_format ?? 'locale' },
 
             // Notifications
             { key: 'discordEnabled', val: discordEnabled, store: s.notifications_discord_enabled ?? false },
@@ -2876,8 +2878,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             publicAccessExternalBaseUrl = settings.public_access_external_base_url ?? '';
             if (settings.date_format === 'mdy' || settings.date_format === 'dmy' || settings.date_format === 'ymd') {
                 dateFormat = settings.date_format;
+                timeFormat = settings.time_format ?? 'locale';
             } else {
                 dateFormat = 'dmy';
+                timeFormat = 'locale';
             }
             debugUiEnabled = settings.debug_ui_enabled ?? false;
 
@@ -3147,6 +3151,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 public_access_rate_limit_per_minute: publicAccessRateLimitPerMinute,
                 public_access_external_base_url: publicAccessExternalBaseUrl.trim() || null,
                 date_format: dateFormat,
+                time_format: timeFormat,
 
                 // Notifications
                 notifications_discord_enabled: discordEnabled,
@@ -3600,6 +3605,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {currentTheme}
                     currentLocale={$locale || 'en'}
                     currentDateFormat={dateFormat}
+                    currentTimeFormat={timeFormat}
                     bind:displayCommonNames
                     bind:scientificNamePrimary
                     {setTheme}
@@ -3609,6 +3615,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     {setColorTheme}
                     {setLanguage}
                     setDateFormat={(value) => (dateFormat = value)}
+                    setTimeFormat={(value) => (timeFormat = value)}
                 />
             {/if}
 

@@ -85,6 +85,7 @@ class AuthStatusResponse(BaseModel):
     location_weather_unit_system: str = "metric"
     location_temperature_unit: str = "celsius"
     date_format: str = "locale"
+    time_format: str = "locale"
     username: Optional[str] = None
     needs_initial_setup: bool = False
     https_warning: bool = False  # True if auth enabled over HTTP
@@ -295,6 +296,7 @@ async def get_auth_status(request: Request):
         location_weather_unit_system=settings.location.weather_unit_system,
         location_temperature_unit=settings.location.temperature_unit,
         date_format=settings.date_format,
+        time_format=settings.time_format,
         username=username if auth_level == AuthLevel.OWNER else None,
         needs_initial_setup=needs_setup,
         https_warning=https_warning,

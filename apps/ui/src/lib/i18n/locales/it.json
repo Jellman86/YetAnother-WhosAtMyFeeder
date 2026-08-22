@@ -452,10 +452,17 @@
     "language_desc": "Cambia il testo dell'interfaccia e il contenuto delle notifiche.",
     "date_format": {
       "label": "Formato data",
-      "desc": "Scegli il formato di visualizzazione per date e orari.",
+      "desc": "Scegli il formato di visualizzazione per le date.",
       "us": "Stati Uniti (MM/GG/AAAA)",
       "uk": "Regno Unito (GG/MM/AAAA)",
       "ymd": "Giappone/Cina (AAAA-MM-GG)"
+    },
+    "time_format": {
+      "label": "Formato ora",
+      "desc": "Scegli un orologio a 12 o 24 ore.",
+      "locale": "Segui la lingua del browser",
+      "h12": "12 ore (1:45 PM)",
+      "h24": "24 ore (13:45)"
     },
     "video_circuit": {
       "title": "Analisi Video In Pausa",
