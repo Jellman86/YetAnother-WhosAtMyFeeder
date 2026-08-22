@@ -115,7 +115,7 @@ The headline work that makes `3.0` a major version: a guided first run, a cleane
 surface, a codebase reviewed to the gold standard, and complete translations.
 
 #### Versioned species catalogue and model-output identity 🗂️
-**Priority:** P1 | **Effort:** XL | **Status:** 🔄 Phases 1 and 2 partly delivered
+**Priority:** P1 | **Effort:** XL | **Status:** 🔄 Phases 0, 1 and 3 delivered; Phase 2 partly; Phase 4 next
 
 Design: [`docs/plans/2026-08-12-versioned-species-catalogue-design.md`](docs/plans/2026-08-12-versioned-species-catalogue-design.md).
 What is already built, what it is worth and what has to be reworked:
