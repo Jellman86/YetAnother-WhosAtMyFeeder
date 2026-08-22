@@ -31,6 +31,14 @@
   --accent-300: 110 231 183;--accent-400: 52 211 153;  --accent-500: 16 185 129;
   --accent-600: 5 150 105;  --accent-700: 4 120 87;    --accent-800: 6 95 70;
   --accent-900: 6 78 59;    --accent-950: 2 44 34;
+
+  /* Semantic, never re-themed: layout-patterns.md §1.3 gives green to
+     "confirmed or healthy" and reserves amber for "this needs a person".
+     A theme may repaint --accent-*; it may not repaint success. */
+  --success-50: 236 253 245; --success-100: 209 250 229;--success-200: 167 243 208;
+  --success-300: 110 231 183;--success-400: 52 211 153; --success-500: 16 185 129;
+  --success-600: 5 150 105;  --success-700: 4 120 87;   --success-800: 6 95 70;
+  --success-900: 6 78 59;    --success-950: 2 44 34;
 }
 
 html.theme-bluetit {
@@ -242,7 +250,7 @@ html[data-theme='dark'] {
   }
 
   .badge-success {
-    @apply bg-emerald-100/80 dark:bg-emerald-900/30 border-emerald-200/70 dark:border-emerald-700/40 text-emerald-700 dark:text-emerald-300;
+    @apply bg-success-100/80 dark:bg-success-900/30 border-success-200/70 dark:border-success-700/40 text-success-700 dark:text-success-300;
   }
 }
 
@@ -411,17 +419,6 @@ html.theme-bluetit.dark {
   background-color: rgba(30, 58, 138, 0.25);
 }
 
-/* Badges */
-.theme-bluetit:not(.dark) .badge-success {
-  background-color: rgba(254, 243, 199, 0.8);
-  border-color: rgba(253, 230, 138, 0.7);
-  color: #92400e;
-}
-.theme-bluetit.dark .badge-success {
-  background-color: rgba(120, 53, 15, 0.3);
-  border-color: rgba(180, 83, 9, 0.4);
-  color: #fcd34d;
-}
 
 /* Text gradient */
 .theme-bluetit:not(.dark) .text-gradient {

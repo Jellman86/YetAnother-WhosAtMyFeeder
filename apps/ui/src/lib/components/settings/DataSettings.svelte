@@ -421,8 +421,8 @@
                     </SettingsRow>
 
                     {#if cacheHighQualityEventSnapshots}
-                        <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-accent-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
-                            <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-accent-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-success-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
+                            <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 {#if cropDetectorReady}
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                                 {:else}
