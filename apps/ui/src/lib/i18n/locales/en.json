@@ -452,10 +452,17 @@
     "language_desc": "Changes UI text and notification content.",
     "date_format": {
       "label": "Date format",
-      "desc": "Pick a default display format for dates and times.",
+      "desc": "Pick a default display format for dates.",
       "us": "United States (MM/DD/YYYY)",
       "uk": "United Kingdom (DD/MM/YYYY)",
       "ymd": "Japan/China (YYYY-MM-DD)"
+    },
+    "time_format": {
+      "label": "Time format",
+      "desc": "Choose a 12 hour or 24 hour clock.",
+      "locale": "Follow browser language",
+      "h12": "12 hour (1:45 PM)",
+      "h24": "24 hour (13:45)"
     },
     "video_circuit": {
       "title": "Video Analysis Paused",

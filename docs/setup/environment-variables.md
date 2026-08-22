@@ -51,6 +51,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CONTAINER_LOG_MAX_FILES` | `3` | Compose-only number of rotated monolithic container log files to retain. |
 | `SPECIES_INFO__SOURCE` | `auto` | Species info source: `auto`, `inat`, `wikipedia`. |
 | `DISPLAY__DATE_FORMAT` | `locale` | Date format: `locale`, `mdy`, `dmy`, `ymd`. |
+| `DISPLAY__TIME_FORMAT` | `locale` | Clock format: `locale`, `12h`, `24h`. `locale` follows the browser. |
 
 ## Frigate & MQTT (Connection)
 

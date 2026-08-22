@@ -188,6 +188,7 @@ export interface Settings {
     public_access_external_base_url?: string | null;
     species_info_source?: string;
     date_format?: string;
+    time_format?: string;
 }
 
 export type UpdateSettings = Partial<Settings>;

@@ -443,10 +443,17 @@
     "language_desc": "更改用户界面文本和通知内容。",
     "date_format": {
       "label": "日期格式",
-      "desc": "选择日期与时间的显示格式。",
+      "desc": "选择日期的显示格式。",
       "us": "美国 (MM/DD/YYYY)",
       "uk": "英国 (DD/MM/YYYY)",
       "ymd": "日本/中国 (YYYY-MM-DD)"
+    },
+    "time_format": {
+      "label": "时间格式",
+      "desc": "选择 12 小时制或 24 小时制。",
+      "locale": "跟随浏览器语言",
+      "h12": "12 小时制（下午 1:45）",
+      "h24": "24 小时制（13:45）"
     },
     "video_circuit": {
       "title": "视频分析已暂停",

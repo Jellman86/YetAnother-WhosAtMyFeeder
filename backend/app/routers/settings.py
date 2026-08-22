@@ -985,6 +985,7 @@ class SettingsUpdate(BaseModel):
 
     species_info_source: Optional[str] = "auto"
     date_format: Optional[str] = None
+    time_format: Optional[str] = None
     appearance_font_theme: Optional[str] = None
     appearance_color_theme: Optional[str] = None
 
@@ -1064,6 +1065,17 @@ class SettingsUpdate(BaseModel):
         allowed = {"locale", "mdy", "dmy", "ymd"}
         if normalized not in allowed:
             raise ValueError("date_format must be one of: locale, mdy, dmy, ymd")
+        return normalized
+
+    @field_validator("time_format")
+    @classmethod
+    def validate_time_format(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        normalized = v.strip().lower()
+        allowed = {"locale", "12h", "24h"}
+        if normalized not in allowed:
+            raise ValueError("time_format must be one of: locale, 12h, 24h")
         return normalized
 
 
@@ -1410,6 +1422,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "public_access_external_base_url": settings.public_access.external_base_url,
         "species_info_source": settings.species_info_source,
         "date_format": settings.date_format,
+        "time_format": settings.time_format,
     }
 
 
@@ -1797,6 +1810,8 @@ async def update_settings(
 
     if "date_format" in fields_set and update.date_format is not None:
         settings.date_format = update.date_format
+    if "time_format" in fields_set and update.time_format is not None:
+        settings.time_format = update.time_format
 
     # Notifications - Discord
     if "notifications_discord_enabled" in fields_set and update.notifications_discord_enabled is not None:

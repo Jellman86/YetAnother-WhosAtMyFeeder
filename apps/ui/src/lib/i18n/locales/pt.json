@@ -452,10 +452,17 @@
     "language_desc": "Altera o texto da interface e conteúdo das notificações.",
     "date_format": {
       "label": "Formato de data",
-      "desc": "Escolha o formato de exibição para datas e horas.",
+      "desc": "Escolha o formato de exibição para as datas.",
       "us": "Estados Unidos (MM/DD/AAAA)",
       "uk": "Reino Unido (DD/MM/AAAA)",
       "ymd": "Japão/China (AAAA-MM-DD)"
+    },
+    "time_format": {
+      "label": "Formato da hora",
+      "desc": "Escolha um relógio de 12 ou de 24 horas.",
+      "locale": "Seguir o idioma do navegador",
+      "h12": "12 horas (1:45 PM)",
+      "h24": "24 horas (13:45)"
     },
     "video_circuit": {
       "title": "Análise de Vídeo Pausada",

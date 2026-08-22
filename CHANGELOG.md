@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **The clock format is now yours to choose.** Settings > Appearance gains a time format control
+  alongside the existing date format: follow the browser, 12 hour, or 24 hour. Pinning the date
+  format previously left the clock to the browser's locale, so choosing `DD/MM/YYYY` on a US
+  locale produced `22/08/2026 1:45:00 PM`, a European date beside an American clock in the same
+  string. The date format description no longer claims to cover times, because it never did.
+  Also available as `DISPLAY__TIME_FORMAT`. Requested in #247.
+
 ### Fixed
 
 - **Success and "needs your attention" are no longer the same colour.** The shipped Blue Tit theme

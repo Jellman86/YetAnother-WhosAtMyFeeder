@@ -443,10 +443,17 @@
     "language_desc": "Ändert UI-Text und Benachrichtigungsinhalt.",
     "date_format": {
       "label": "Datumsformat",
-      "desc": "Standardanzeigeformat für Datum und Uhrzeit wählen.",
+      "desc": "Standardanzeigeformat für das Datum wählen.",
       "us": "USA (MM/TT/JJJJ)",
       "uk": "Vereinigtes Königreich (TT/MM/JJJJ)",
       "ymd": "Japan/China (JJJJ-MM-TT)"
+    },
+    "time_format": {
+      "label": "Zeitformat",
+      "desc": "12-Stunden- oder 24-Stunden-Anzeige wählen.",
+      "locale": "Browsersprache folgen",
+      "h12": "12-Stunden-Format (1:45 PM)",
+      "h24": "24-Stunden-Format (13:45)"
     },
     "video_circuit": {
       "title": "Videoanalyse pausiert",

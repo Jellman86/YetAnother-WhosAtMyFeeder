@@ -1384,6 +1384,11 @@
             "title": "Scientific Name Primary",
             "type": "boolean"
           },
+          "time_format": {
+            "default": "locale",
+            "title": "Time Format",
+            "type": "string"
+          },
           "username": {
             "anyOf": [
               {
@@ -10224,6 +10229,17 @@
             ],
             "title": "Telemetry Platform"
           },
+          "time_format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Format"
+          },
           "trust_frigate_sublabel": {
             "default": true,
             "title": "Trust Frigate Sublabel",
@@ -12084,6 +12100,17 @@
             "default": false,
             "description": "Enable anonymous health issue diagnostics",
             "title": "Telemetry Health Enabled"
+          },
+          "time_format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Format"
           },
           "trust_frigate_sublabel": {
             "default": true,

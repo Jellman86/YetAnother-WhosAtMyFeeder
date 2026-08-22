@@ -2,6 +2,7 @@ import { settingsStore } from '../stores/settings.svelte';
 import { authStore } from '../stores/auth.svelte';
 
 export type DateFormat = 'locale' | 'mdy' | 'dmy' | 'ymd';
+export type TimeFormat = 'locale' | '12h' | '24h';
 
 type DateInput = string | number | Date | null | undefined;
 
@@ -11,6 +12,26 @@ function getDateFormat(): DateFormat {
         return format;
     }
     return 'locale';
+}
+
+function getTimeFormat(): TimeFormat {
+    const format = settingsStore.settings?.time_format ?? authStore.timeFormat ?? 'locale';
+    if (format === '12h' || format === '24h' || format === 'locale') {
+        return format;
+    }
+    return 'locale';
+}
+
+/**
+ * `hour12` overrides whatever the browser locale would have chosen. Leaving it
+ * undefined is not the same as setting it false: undefined defers to the locale,
+ * which is what 'locale' means here.
+ */
+function hourCycleOptions(): Pick<Intl.DateTimeFormatOptions, 'hour12'> {
+    const format = getTimeFormat();
+    if (format === '24h') return { hour12: false };
+    if (format === '12h') return { hour12: true };
+    return {};
 }
 
 function pad2(value: number): string {
@@ -52,15 +73,19 @@ export function formatDateTime(value: DateInput): string {
     if (!date) return typeof value === 'string' ? value : '';
 
     const format = getDateFormat();
+    const hourCycle = hourCycleOptions();
     if (format === 'locale') {
-        return date.toLocaleString();
+        return date.toLocaleString([], hourCycle);
     }
 
-    return `${formatDateParts(date, format)} ${date.toLocaleTimeString()}`;
+    return `${formatDateParts(date, format)} ${date.toLocaleTimeString([], hourCycle)}`;
 }
 
 export function formatTime(value: DateInput, options?: Intl.DateTimeFormatOptions): string {
     const date = toDate(value);
     if (!date) return typeof value === 'string' ? value : '';
-    return date.toLocaleTimeString([], options ?? { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], {
+        ...(options ?? { hour: '2-digit', minute: '2-digit' }),
+        ...hourCycleOptions(),
+    });
 }

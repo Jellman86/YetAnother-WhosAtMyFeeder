@@ -11,6 +11,7 @@
         currentTheme,
         currentLocale,
         currentDateFormat,
+        currentTimeFormat,
         setTheme,
         setLanguage,
         currentFontTheme,
@@ -18,12 +19,14 @@
         currentColorTheme,
         setColorTheme,
         setDateFormat,
+        setTimeFormat,
         displayCommonNames = $bindable(true),
         scientificNamePrimary = $bindable(false)
     }: {
         currentTheme: Theme;
         currentLocale: string;
         currentDateFormat: string;
+        currentTimeFormat: string;
         setTheme: (theme: Theme) => void;
         setLanguage: (lang: string) => void | Promise<void>;
         currentFontTheme: FontTheme;
@@ -31,6 +34,7 @@
         currentColorTheme: ColorTheme;
         setColorTheme: (color: ColorTheme) => void;
         setDateFormat: (format: string) => void;
+        setTimeFormat: (format: string) => void;
         displayCommonNames: boolean;
         scientificNamePrimary: boolean;
     } = $props();
@@ -114,6 +118,25 @@
                 { value: 'mdy', label: $_('settings.date_format.us') },
                 { value: 'dmy', label: $_('settings.date_format.uk') },
                 { value: 'ymd', label: $_('settings.date_format.ymd') }
+            ]}
+        />
+    </SettingsRow>
+
+    <SettingsRow
+        labelId="setting-time-format"
+        label={$_('settings.time_format.label')}
+        description={$_('settings.time_format.desc')}
+        layout="stacked"
+    >
+        <SettingsSelect
+            id="time-format-select"
+            value={currentTimeFormat}
+            ariaLabel={$_('settings.time_format.label')}
+            onchange={(v) => setTimeFormat(v)}
+            options={[
+                { value: 'locale', label: $_('settings.time_format.locale') },
+                { value: '12h', label: $_('settings.time_format.h12') },
+                { value: '24h', label: $_('settings.time_format.h24') }
             ]}
         />
     </SettingsRow>
