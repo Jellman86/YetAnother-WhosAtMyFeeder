@@ -14,6 +14,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.config import settings
 from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
+from app.services.frigate_event_absence import frigate_event_absence
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
@@ -267,18 +268,27 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                     "has_clip": bool(media and media.suffix.lower() in {".mp4", ".mov", ".webm"}),
                     "has_snapshot": bool(snapshot),
                 }
+            # Frigate is always asked, so a restored event or a transient 404
+            # during a Frigate restart is never reported from stale memory. The
+            # absence record only throttles logging.
             try:
-                event_data, _error = await frigate_client.get_event_with_error(
+                event_data, error = await frigate_client.get_event_with_error(
                     event_id,
                     timeout=CLIP_CHECK_TIMEOUT_SECONDS,
                 )
                 cached_flags = cached_media_flags(event_id)
                 if not event_data:
+                    if error == "event_not_found" and frigate_event_absence.record_absent(event_id):
+                        log.info(
+                            "Frigate no longer has this event; serving cached media only",
+                            event_id=event_id,
+                        )
                     return event_id, {
                         "has_frigate_event": False,
                         "has_clip": cached_flags["has_clip"],
                         "has_snapshot": cached_flags["has_snapshot"],
                     }
+                frigate_event_absence.record_present(event_id)
                 return event_id, {
                     "has_frigate_event": True,
                     "has_clip": bool(event_data.get("has_clip", False)) or cached_flags["has_clip"],
