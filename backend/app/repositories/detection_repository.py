@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta, date, timezone
 import aiosqlite
@@ -4152,10 +4152,13 @@ class DetectionRepository:
     ) -> tuple[int, bool]:
         """Insert one BirdNET detection and report whether this call created it."""
         payload = json.dumps(raw_data or {}, ensure_ascii=True)
+        from app.services.audio_identity import resolve_audio_identity
+
         cursor = await self.db.execute(
             """INSERT INTO audio_detections (
-                   timestamp, species, confidence, sensor_id, raw_data, scientific_name, source_event_id
-               ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                   timestamp, species, confidence, sensor_id, raw_data, scientific_name, source_event_id,
+                   species_id
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(source_event_id) DO NOTHING""",
             (
                 serialize_storage_datetime(timestamp),
@@ -4165,6 +4168,10 @@ class DetectionRepository:
                 payload,
                 scientific_name,
                 source_event_id,
+                # Resolved at ingest so audio and visual detections of one bird
+                # share an identity. Unresolvable names record nothing and keep
+                # behaving exactly as they do today.
+                resolve_audio_identity(scientific_name),
             ),
         )
         inserted = cursor.rowcount > 0
@@ -4525,6 +4532,48 @@ class DetectionRepository:
             "sources": sources,
         }
 
+    async def backfill_audio_species_ids(self, *, resolver: Any = None, batch_size: int = 500) -> dict[str, int]:
+        """Give existing audio detections the identity new ones will carry.
+
+        Required rather than optional: grouping audio by identity while older
+        rows have none would split a species at the upgrade boundary, which is
+        the exact failure this phase removes.
+
+        Conservative and idempotent. Only rows with no identity are considered,
+        a name is resolved once rather than per row, and anything the catalogue
+        cannot pin to exactly one species is counted and left alone.
+        """
+        from app.services.audio_identity import resolve_audio_identity
+
+        async with self.db.execute(
+            """
+            SELECT scientific_name, COUNT(*) FROM audio_detections
+            WHERE species_id IS NULL AND scientific_name IS NOT NULL AND TRIM(scientific_name) != ''
+            GROUP BY scientific_name
+            """
+        ) as cursor:
+            pending = await cursor.fetchall()
+
+        identified = 0
+        unresolved = 0
+        for scientific_name, row_count in pending:
+            species_id = resolve_audio_identity(scientific_name, resolver=resolver)
+            if species_id is None:
+                unresolved += int(row_count or 0)
+                continue
+            await self.db.execute(
+                """
+                UPDATE audio_detections SET species_id = ?
+                WHERE species_id IS NULL AND scientific_name = ?
+                """,
+                (species_id, scientific_name),
+            )
+            identified += await self._last_statement_changes()
+
+        if identified:
+            await self.db.commit()
+        return {"identified": identified, "unresolved": unresolved, "names_seen": len(pending)}
+
     async def get_audio_species_counts(
         self,
         window_start: datetime,
@@ -4547,7 +4596,15 @@ class DetectionRepository:
 
         query = """
             SELECT
-                COALESCE(NULLIF(LOWER(scientific_name), ''), LOWER(species)) AS unified_id,
+                -- Identity first, so one bird reported under two names counts
+                -- once; the text keys stay underneath for rows the catalogue
+                -- cannot identify. Namespaced for the same reason detections
+                -- are: ids from different databases share number ranges.
+                COALESCE(
+                    'species:' || CAST(species_id AS TEXT),
+                    'name:' || NULLIF(LOWER(scientific_name), ''),
+                    'label:' || LOWER(species)
+                ) AS unified_id,
                 MAX(species) AS species,
                 MAX(scientific_name) AS scientific_name,
                 SUM(CASE WHEN timestamp >= ? AND timestamp < ? THEN 1 ELSE 0 END) AS window_count,
