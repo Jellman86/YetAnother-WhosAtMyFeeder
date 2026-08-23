@@ -227,3 +227,35 @@ def test_live_grouping_and_the_rollup_key_are_deliberately_different():
     legacy = DetectionRepository._legacy_rollup_key_sql()
     assert live != legacy, "the rollup key is pinned on purpose; see _legacy_rollup_key_sql"
     assert "species:" in live
+
+
+@pytest.mark.asyncio
+async def test_the_species_filter_does_not_scan_the_table_to_find_an_identity(seeded_repository):
+    """A user reported the species filter being slower than the others.
+
+    The identity clause must be concrete ids, not a subquery over `detections`.
+    A subquery is evaluated once but still scans the table, and measured on a
+    96,108 row database that was 54ms against 16ms resolved.
+    """
+    repo, add = seeded_repository
+    await add(display_name="Dunnock", scientific_name="Prunella modularis", species_id=10081)
+
+    _join, condition, params = await repo._canonical_species_query_parts(
+        detection_alias="d",
+        species_name="Prunella modularis",
+    )
+    assert "SELECT" not in condition.upper(), f"identity must not be a subquery: {condition}"
+    assert "species_id IN (" in condition
+    assert 10081 in params
+
+
+@pytest.mark.asyncio
+async def test_a_name_with_no_recorded_identity_adds_no_clause(seeded_repository):
+    repo, add = seeded_repository
+    await add(display_name="Unknown Bird")
+
+    _join, condition, params = await repo._canonical_species_query_parts(
+        detection_alias="d",
+        species_name="Unknown Bird",
+    )
+    assert "species_id IN (" not in condition, "an absent identity must not widen the filter"

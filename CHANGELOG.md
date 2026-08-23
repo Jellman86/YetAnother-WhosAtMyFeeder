@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **Filtering the events list by a species is faster.** A user reported that the species filter was
+  noticeably slower than the date and camera filters, which are effectively instant. Measured on a
+  96,108 row copy of a real database it took 26ms, and the plan showed the taxonomy join scanning
+  once per detection row because a predicate wrapped in `LOWER()` cannot use an ordinary index.
+  Indexes matching those expressions are now in place. The catalogue identity introduced with
+  species grouping is also resolved to concrete ids before the query is built rather than left as a
+  subquery over the whole table, which had taken the same filter to 41ms; it is now 29ms end to
+  end. The remaining cost is the taxonomy join itself and is not addressed here.
+
 ### Changed
 
 - **Species are counted by catalogue identity rather than by name text.** Phase 4 of the versioned
