@@ -180,9 +180,77 @@ def ensure_catalog_ready(catalog_path: Path | None = None, seed_path: Path | Non
         return CatalogStatus(CatalogState.FAILED, str(path), str(error))
 
 
+def offer_seed_release(
+    catalog_path: Path | None = None,
+    seed_path: Path | None = None,
+    *,
+    importer=None,
+) -> dict[str, object]:
+    """Offer the shipped seed to an existing catalogue as a release.
+
+    `ensure_catalog_ready` seeds only a genuinely fresh install, because a live
+    catalogue may hold owner overrides and imported releases and replacing the
+    file would lose them. The consequence was that a newer shipped catalogue
+    never reached an existing install at all.
+
+    The release importer is built for exactly this and was never called. It
+    already verifies the schema head, that the bundle holds one release, its
+    content digest and its foreign keys, and it returns `already_imported`
+    when the digest is one the catalogue has seen, so offering the same seed on
+    every startup costs a digest comparison.
+
+    Never raises: a catalogue that cannot take a new release still serves the
+    one it has.
+    """
+    path = Path(catalog_path or default_catalog_path())
+    seed = Path(seed_path or DEFAULT_SEED_PATH)
+
+    if not path.is_file():
+        return {"status": "no_catalogue", "release_id": None, "detail": str(path)}
+    if not seed.is_file():
+        return {"status": "no_seed", "release_id": None, "detail": str(seed)}
+
+    if importer is None:
+        from app.services.species_catalog_importer import import_release
+
+        importer = import_release
+
+    try:
+        result = importer(seed, path)
+    except Exception as error:
+        log.warning("Shipped catalogue release not imported", seed=str(seed), error=str(error))
+        return {"status": "failed", "release_id": None, "detail": str(error)}
+
+    return {
+        "status": getattr(result, "status", "imported"),
+        "release_id": getattr(result, "release_id", None),
+        "detail": str(seed),
+    }
+
+
 async def start_species_catalog() -> None:
     """Startup phase wrapper: never raises, reports the outcome."""
     import asyncio
 
     status = await asyncio.to_thread(ensure_catalog_ready)
     log.info("Species catalogue startup state", state=status.state.value, path=status.path, detail=status.detail)
+
+    # A fresh install has just taken the seed wholesale; an existing one is
+    # offered it as a release so a newer shipped catalogue actually arrives.
+    if status.state in {CatalogState.READY, CatalogState.SEEDED}:
+        outcome = await asyncio.to_thread(offer_seed_release)
+        _record_release_offer(outcome)
+        log.info("Shipped catalogue release offer", **outcome)
+
+
+_last_release_offer: dict[str, object] = {"status": "not_attempted", "release_id": None, "detail": ""}
+
+
+def _record_release_offer(outcome: dict[str, object]) -> None:
+    global _last_release_offer
+    _last_release_offer = dict(outcome)
+
+
+def last_release_offer() -> dict[str, object]:
+    """What the most recent seed offer did, for the Health payload."""
+    return dict(_last_release_offer)

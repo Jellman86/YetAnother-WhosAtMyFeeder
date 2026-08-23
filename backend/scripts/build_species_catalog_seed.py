@@ -42,6 +42,7 @@ SOURCE_NAME = "ioc-world-bird-list"
 COL_SOURCE_NAME = "catalogue-of-life"
 DEFAULT_REFERENCE = _BACKEND_DIR / "app" / "assets" / "species_reference.db"
 DEFAULT_COL_CONCEPTS = _BACKEND_DIR / "app" / "assets" / "col_nonbird_concepts.json"
+DEFAULT_BIRD_SYNONYMS = _BACKEND_DIR / "app" / "assets" / "col_bird_synonyms.json"
 DEFAULT_MODEL_MAPPINGS = _BACKEND_DIR / "app" / "assets" / "model_output_mappings.json"
 DEFAULT_OUTPUT = _BACKEND_DIR / "app" / "assets" / "species_catalog_seed.db"
 _ENGLISH_TAG = "en"
@@ -89,6 +90,7 @@ def build(
     *,
     manifest_path: Path | None = None,
     col_concepts_path: Path | None = None,
+    bird_synonyms_path: Path | None = None,
     model_mappings_path: Path | None = None,
 ) -> str:
     meta, taxa, names = _reference_rows(reference_path)
@@ -145,6 +147,38 @@ def build(
                     " VALUES (?, ?, ?, 'vernacular', 1, ?, ?)",
                     (species_id, language_tag, name, source.id, source.version),
                 )
+
+        # Bird synonyms, from the same pinned Catalogue of Life release that
+        # supplies non-bird taxonomy. IOC keeps ownership of bird names; this
+        # records only that a species has been called something else, which
+        # IOC's multilingual export does not carry. Without it a renamed taxon
+        # counts twice: BirdNET reports `Corvus monedula` where IOC 14.2 says
+        # `Coloeus monedula`, and nothing joined them.
+        if bird_synonyms_path is not None:
+            synonyms = json.loads(Path(bird_synonyms_path).read_text(encoding="utf-8"))
+            # Reuse the mapping the IOC pass already built rather than
+            # reconstructing it, so the two cannot drift apart.
+            by_accepted = {
+                scientific.casefold(): species_id
+                for (provider, scientific), species_id in concept_species.items()
+                if provider == source.id
+            }
+            written = 0
+            for entry in synonyms.get("synonyms") or []:
+                alias = str(entry.get("alias") or "").strip()
+                accepted = str(entry.get("accepted") or "").strip()
+                species_id = by_accepted.get(accepted.casefold())
+                # Fail closed: an alias naming a species this build does not
+                # hold is dropped rather than attached to a guess.
+                if not alias or species_id is None:
+                    continue
+                connection.execute(
+                    "INSERT OR IGNORE INTO species_aliases (alias, alias_kind, species_id, resolution, source)"
+                    " VALUES (?, 'synonym', ?, 'resolved', ?)",
+                    (alias, species_id, "catalogue-of-life"),
+                )
+                written += 1
+            print(f"  bird synonyms recorded: {written}", file=sys.stderr)
 
         if col_source is not None:
             next_species_id = len(taxa) + 1
@@ -270,13 +304,21 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--reference", type=Path, default=DEFAULT_REFERENCE)
     parser.add_argument("--col-concepts", type=Path, default=DEFAULT_COL_CONCEPTS)
+    parser.add_argument("--bird-synonyms", type=Path, default=DEFAULT_BIRD_SYNONYMS)
     parser.add_argument("--model-mappings", type=Path, default=DEFAULT_MODEL_MAPPINGS)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     args = parser.parse_args()
 
     col_concepts = args.col_concepts if args.col_concepts.is_file() else None
+    bird_synonyms = args.bird_synonyms if args.bird_synonyms.is_file() else None
     model_mappings = args.model_mappings if args.model_mappings.is_file() else None
-    digest = build(args.reference, args.output, col_concepts_path=col_concepts, model_mappings_path=model_mappings)
+    digest = build(
+        args.reference,
+        args.output,
+        col_concepts_path=col_concepts,
+        bird_synonyms_path=bird_synonyms,
+        model_mappings_path=model_mappings,
+    )
     size_mb = args.output.stat().st_size / 1024 / 1024
     print(f"Wrote {args.output} ({size_mb:.2f} MB)")
     print(f"sha256 {digest}")
