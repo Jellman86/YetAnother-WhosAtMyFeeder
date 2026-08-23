@@ -675,6 +675,56 @@ def _build_classification_results(
     ]
 
 
+def _resolve_model_labels(
+    labels_path: str,
+    label_grouping: dict,
+    *,
+    model_sha256: Optional[str] = None,
+    context: str = "model",
+) -> tuple[list[str], list[str], str]:
+    """Labels and their grouping, preferring the catalogue over the label file.
+
+    `labels.txt` is verified when a model is downloaded and never again, so every
+    inference since has trusted whatever is on disk. The catalogue holds the same
+    labels compiled from a file that was proven at install time.
+
+    The catalogue is used only when it holds a complete, contiguous set matching
+    the model's declared output width; anything short of that falls back to the
+    file, so a model it does not know behaves exactly as it does today.
+
+    Returns the labels, the grouped labels, and which source supplied them.
+    """
+    labels: list[str] = []
+    source = "none"
+
+    if model_sha256:
+        try:
+            from app.services.catalogue_labels import catalogue_labels_for_model
+
+            from_catalogue = catalogue_labels_for_model(model_sha256)
+        except Exception as error:  # pragma: no cover - defensive
+            log.debug("Catalogue labels unavailable", context=context, error=str(error))
+            from_catalogue = None
+        if from_catalogue:
+            labels = normalize_classifier_labels(from_catalogue)
+            source = "catalogue"
+
+    if not labels and os.path.exists(labels_path):
+        try:
+            with open(labels_path, "r", encoding="utf-8", errors="replace") as handle:
+                labels = normalize_classifier_labels(line.strip() for line in handle.readlines() if line.strip())
+            source = "label_file"
+        except Exception as error:
+            log.error("Failed to load labels", context=context, error=str(error))
+            return [], [], "none"
+
+    grouped: list[str] = []
+    strategy = str((label_grouping or {}).get("strategy") or "").strip()
+    if strategy and labels:
+        grouped = build_grouped_classifier_labels(labels, strategy=strategy)
+    return labels, grouped, source
+
+
 def _resolve_grouped_labels(
     labels: list[str],
     *,
@@ -1702,12 +1752,16 @@ class ModelInstance:
         labels_path: str,
         preprocessing: Optional[dict] = None,
         label_grouping: Optional[dict] = None,
+        model_sha256: Optional[str] = None,
     ):
         self.name = name
         self.model_path = model_path
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
+        # None means "read the label file", which is what every caller that has
+        # not been given a checksum should keep doing.
+        self.model_sha256 = model_sha256
         self.interpreter = None
         self.labels: list[str] = []
         self.grouped_labels: list[str] = []
@@ -1723,19 +1777,14 @@ class ModelInstance:
             if self.loaded:
                 return True
 
-            # Load labels first
-            if os.path.exists(self.labels_path):
-                try:
-                    with open(self.labels_path, "r", encoding="utf-8", errors="replace") as f:
-                        self.labels = normalize_classifier_labels(
-                            line.strip() for line in f.readlines() if line.strip()
-                        )
-                    strategy = str(self.label_grouping.get("strategy") or "").strip()
-                    if strategy:
-                        self.grouped_labels = build_grouped_classifier_labels(self.labels, strategy=strategy)
-                    log.info(f"Loaded {len(self.labels)} labels for {self.name}")
-                except Exception as e:
-                    log.error(f"Failed to load labels for {self.name}", error=str(e))
+            self.labels, self.grouped_labels, label_source = _resolve_model_labels(
+                self.labels_path,
+                self.label_grouping,
+                model_sha256=self.model_sha256,
+                context=self.name,
+            )
+            if self.labels:
+                log.info(f"Loaded {len(self.labels)} labels for {self.name}", label_source=label_source)
 
             if not os.path.exists(self.model_path):
                 self.error = f"Model file not found: {self.model_path}"
@@ -1997,12 +2046,16 @@ class ONNXModelInstance:
         label_grouping: Optional[dict] = None,
         input_size: int = 384,
         ort_providers: Optional[list[str]] = None,
+        model_sha256: Optional[str] = None,
     ):
         self.name = name
         self.model_path = model_path
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
+        # None means "read the label file", which is what any caller without a
+        # checksum should keep doing.
+        self.model_sha256 = model_sha256
         self.input_size = input_size
         self.ort_providers = list(ort_providers or ["CPUExecutionProvider"])
         self.session = None
@@ -2026,17 +2079,14 @@ class ONNXModelInstance:
             log.error("ONNX Runtime not installed")
             return False
 
-        # Load labels first
-        if os.path.exists(self.labels_path):
-            try:
-                with open(self.labels_path, "r", encoding="utf-8", errors="replace") as f:
-                    self.labels = normalize_classifier_labels(line.strip() for line in f.readlines() if line.strip())
-                strategy = str(self.label_grouping.get("strategy") or "").strip()
-                if strategy:
-                    self.grouped_labels = build_grouped_classifier_labels(self.labels, strategy=strategy)
-                log.info(f"Loaded {len(self.labels)} labels for ONNX model {self.name}")
-            except Exception as e:
-                log.error(f"Failed to load labels for {self.name}", error=str(e))
+        self.labels, self.grouped_labels, label_source = _resolve_model_labels(
+            self.labels_path,
+            self.label_grouping,
+            model_sha256=self.model_sha256,
+            context=self.name,
+        )
+        if self.labels:
+            log.info(f"Loaded {len(self.labels)} labels for ONNX model {self.name}", label_source=label_source)
 
         if not os.path.exists(self.model_path):
             self.error = f"ONNX model file not found: {self.model_path}"
@@ -2225,12 +2275,16 @@ class OpenVINOModelInstance:
         input_size: int = 384,
         device_name: str = "CPU",
         startup_self_test_enabled: bool | None = None,
+        model_sha256: Optional[str] = None,
     ):
         self.name = name
         self.model_path = model_path
         self.labels_path = labels_path
         self.preprocessing = preprocessing or {}
         self.label_grouping = dict(label_grouping or {})
+        # None means "read the label file", which is what any caller without a
+        # checksum should keep doing.
+        self.model_sha256 = model_sha256
         self.input_size = input_size
         self.device_name = device_name
         self._startup_self_test_enabled = (
@@ -2337,16 +2391,14 @@ class OpenVINOModelInstance:
             log.error("OpenVINO runtime not installed")
             return False
 
-        if os.path.exists(self.labels_path):
-            try:
-                with open(self.labels_path, "r", encoding="utf-8", errors="replace") as f:
-                    self.labels = normalize_classifier_labels(line.strip() for line in f.readlines() if line.strip())
-                strategy = str(self.label_grouping.get("strategy") or "").strip()
-                if strategy:
-                    self.grouped_labels = build_grouped_classifier_labels(self.labels, strategy=strategy)
-                log.info(f"Loaded {len(self.labels)} labels for OpenVINO model {self.name}")
-            except Exception as e:
-                log.error(f"Failed to load labels for {self.name}", error=str(e))
+        self.labels, self.grouped_labels, label_source = _resolve_model_labels(
+            self.labels_path,
+            self.label_grouping,
+            model_sha256=self.model_sha256,
+            context=self.name,
+        )
+        if self.labels:
+            log.info(f"Loaded {len(self.labels)} labels for OpenVINO model {self.name}", label_source=label_source)
 
         if not os.path.exists(self.model_path):
             self.error = f"ONNX model file not found: {self.model_path}"
@@ -2747,6 +2799,7 @@ class ClassifierService:
         return model_path, labels_path
 
     def _resolve_active_bird_model_spec(self) -> dict[str, Any]:
+        from app.services.catalogue_labels import published_model_sha256
         from app.services.model_manager import model_manager
 
         spec = dict(model_manager.get_active_model_spec() or {})
@@ -2773,6 +2826,10 @@ class ClassifierService:
 
         return {
             "model_id": model_id,
+            # The registry's published checksum for these weights, which is what
+            # the catalogue keys its output mapping on. Resolved here so the
+            # loaders can ask the catalogue for labels instead of the file.
+            "model_sha256": published_model_sha256(model_id, region=spec.get("resolved_region")),
             "model_path": model_path,
             "labels_path": labels_path,
             "input_size": input_size,
@@ -3646,6 +3703,10 @@ class ClassifierService:
         spec = self._resolve_active_bird_model_spec()
         model_path = str(spec["model_path"])
         labels_path = str(spec["labels_path"])
+        # Lets the loaders take labels from the catalogue, which compiled them
+        # from a label file proven at install time, rather than from whatever is
+        # on disk now. Absent or unrecognised, they read the file as before.
+        model_sha256 = spec.get("model_sha256")
         input_size = int(spec["input_size"])
         preprocessing = spec.get("preprocessing")
         runtime = str(spec["runtime"])
@@ -3745,6 +3806,7 @@ class ClassifierService:
                     input_size=input_size,
                     device_name=openvino_device,
                     startup_self_test_enabled=not self._worker_process_mode,
+                    model_sha256=model_sha256,
                 )
                 if bird_model.load():
                     if (
