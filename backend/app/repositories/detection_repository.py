@@ -736,19 +736,17 @@ class DetectionRepository:
         detection_alias: str,
         species_name: str,
     ) -> tuple[str, str, list]:
-        has_taxonomy_cache = await self._table_exists("taxonomy_cache")
+        # No join. Its only job was to reach a detection whose own scientific
+        # name is absent, through its display name, to the species searched
+        # for, and the alias resolver already produces those names. The join
+        # cost a scan of the whole taxonomy cache per detection row, because
+        # its conditions are ORs across different columns wrapped in LOWER(),
+        # which no index can serve.
         join_sql = ""
-        if has_taxonomy_cache:
-            join_sql = (
-                " LEFT JOIN taxonomy_cache tc_filter"
-                f" ON (({detection_alias}.scientific_name IS NOT NULL AND LOWER(tc_filter.scientific_name) = LOWER({detection_alias}.scientific_name))"
-                f" OR ({detection_alias}.scientific_name IS NULL AND (LOWER(tc_filter.scientific_name) = LOWER({detection_alias}.display_name)"
-                f" OR LOWER(tc_filter.common_name) = LOWER({detection_alias}.display_name))))"
-            )
         condition, params = await self._build_canonical_species_condition(
             detection_alias=detection_alias,
             species_name=species_name,
-            has_taxonomy_cache=has_taxonomy_cache,
+            has_taxonomy_cache=False,
         )
 
         # Grouping keys on catalogue identity, so filtering has to follow it or
@@ -1736,7 +1734,12 @@ class DetectionRepository:
         frigate_event: str | None = None,
     ) -> list[Detection]:
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
-        needs_taxonomy_cache = bool(has_taxonomy_cache and (species or species_any or taxa_id is not None))
+        # The join is kept only for a `taxa_id` filter, which still reads the
+        # cached taxon id for a detection that has none of its own. Species
+        # filtering no longer needs it: the alias resolver supplies the names
+        # the join used to reach, and the join cost a scan of the whole
+        # taxonomy cache per detection row plus a DISTINCT over every column.
+        needs_taxonomy_cache = bool(has_taxonomy_cache and taxa_id is not None)
         query = (
             """
             SELECT """
@@ -1771,7 +1774,7 @@ class DetectionRepository:
             species_condition, species_params = await self._build_canonical_species_condition(
                 detection_alias="d",
                 species_name=species,
-                has_taxonomy_cache=needs_taxonomy_cache,
+                has_taxonomy_cache=False,
             )
             conditions.append(species_condition)
             params.extend(species_params)
@@ -1782,7 +1785,7 @@ class DetectionRepository:
                 clause, clause_params = await self._build_canonical_species_condition(
                     detection_alias="d",
                     species_name=species_name,
-                    has_taxonomy_cache=needs_taxonomy_cache,
+                    has_taxonomy_cache=False,
                 )
                 any_clauses.append(clause)
                 any_params.extend(clause_params)
@@ -1839,7 +1842,12 @@ class DetectionRepository:
     ) -> int:
         """Get total count of detections, optionally filtered."""
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
-        needs_taxonomy_cache = bool(has_taxonomy_cache and (species or species_any or taxa_id is not None))
+        # The join is kept only for a `taxa_id` filter, which still reads the
+        # cached taxon id for a detection that has none of its own. Species
+        # filtering no longer needs it: the alias resolver supplies the names
+        # the join used to reach, and the join cost a scan of the whole
+        # taxonomy cache per detection row plus a DISTINCT over every column.
+        needs_taxonomy_cache = bool(has_taxonomy_cache and taxa_id is not None)
         query = f"""
             SELECT {"COUNT(DISTINCT d.id)" if needs_taxonomy_cache else "COUNT(*)"}
             FROM detections d
@@ -1869,7 +1877,7 @@ class DetectionRepository:
             species_condition, species_params = await self._build_canonical_species_condition(
                 detection_alias="d",
                 species_name=species,
-                has_taxonomy_cache=needs_taxonomy_cache,
+                has_taxonomy_cache=False,
             )
             conditions.append(species_condition)
             params.extend(species_params)
@@ -1880,7 +1888,7 @@ class DetectionRepository:
                 clause, clause_params = await self._build_canonical_species_condition(
                     detection_alias="d",
                     species_name=species_name,
-                    has_taxonomy_cache=needs_taxonomy_cache,
+                    has_taxonomy_cache=False,
                 )
                 any_clauses.append(clause)
                 any_params.extend(clause_params)

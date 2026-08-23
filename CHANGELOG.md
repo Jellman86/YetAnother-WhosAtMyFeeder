@@ -8,6 +8,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Filtering the events list by species is no longer dominated by a taxonomy join.** A user
+  reported the species filter being noticeably slower than the date and camera filters. The join
+  onto `taxonomy_cache` was the cause: its conditions are ORs across different columns wrapped in
+  `LOWER(...)`, a shape no index can serve, so the whole cache was scanned once per detection row
+  and the join forced a `DISTINCT` over every selected column on top. The join only ever resolved a
+  detection whose own scientific name is absent, through its display name, and the alias resolver
+  already produces those names. Measured on a 96,118 row database across five species, total time
+  falls from 541ms to 310ms and the worst case from 247ms to 63ms; two already-fast lookups get
+  slower by roughly 15ms, because resolving the identity up front costs more than the join saved
+  where the join was cheap. The join is kept for a `taxa_id` filter, which still reads the cached
+  taxon id for a detection that has none of its own. Result sets are unchanged, checked across all
+  85 names the data holds.
+
+
 - **An existing install now gets the model output rows it was missing.** An artifact's mapping
   digest is computed over the whole source mapping, including outputs nothing could resolve, while
   the rows actually stored were a filtered subset of it. A live catalogue could therefore hold
