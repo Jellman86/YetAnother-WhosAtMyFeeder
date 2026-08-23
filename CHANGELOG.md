@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **A model's labels are read from the catalogue rather than its label file.** `labels.txt` is
+  verified when a model is downloaded and never again, so every inference since has trusted
+  whatever is on disk. The catalogue holds a row per output index carrying the same label,
+  compiled from a file that was proven at install time, so that is where the labels now come from.
+  It is used only when the catalogue holds a complete, contiguous set matching the model's declared
+  output width: a short mapping would truncate a model's classes and a gap would shift every label
+  after it onto the wrong class, so both are refused and the file is read instead. A model the
+  catalogue does not know, or a catalogue that is absent or unreadable, behaves exactly as before.
+  Verified against a live install: the catalogue reproduces all ten installed label files byte for
+  byte, 34,746 labels in total.
+
 ### Fixed
 
 - **Filtering the events list by species is no longer dominated by a taxonomy join.** A user
