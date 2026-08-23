@@ -6,6 +6,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **Species are counted by catalogue identity rather than by name text.** Phase 4 of the versioned
+  species catalogue begins. A scientific name is not stable: when a taxon is split, lumped or
+  synonymised, `Parus caeruleus` and `Cyanistes caeruleus` become two different birds to anything
+  keying on the text, so a leaderboard divides and a species page shows half its sightings with
+  nothing to warn anyone. Grouping now prefers the catalogue's opaque `species_id`, which does not
+  move when a name does, and keeps the existing taxon and name keys underneath so a detection the
+  catalogue cannot identify groups exactly as it did before. Each source is namespaced, because
+  `species_id` and `taxa_id` are integers from different databases with overlapping ranges and
+  would otherwise merge unrelated species. Verified against a year of real detections: the same 42
+  groups before and after, with no group split and none merged. The daily rollup keeps writing
+  the key format already on disk, because it persists that key and the table holds aggregate
+  history whose detections no longer exist; migrating it is a separate step.
+
 ### Added
 
 - **Installed models can be deleted from Settings > Detection.** Models are the largest thing

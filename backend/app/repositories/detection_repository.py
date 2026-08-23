@@ -585,7 +585,66 @@ class DetectionRepository:
         ]
 
     @staticmethod
-    def _canonical_key_sql(*, detection_alias: str = "d", taxonomy_alias: str = "tc") -> str:
+    def _canonical_key_sql(
+        *,
+        detection_alias: str = "d",
+        taxonomy_alias: str | None = "tc",
+    ) -> str:
+        """The key that decides whether two detections are the same bird.
+
+        Catalogue identity first, then the older text keys for rows the
+        catalogue cannot identify, so nothing that groups today stops grouping.
+
+        A scientific name is not stable. When a taxon is split, lumped or
+        synonymised, `Parus caeruleus` and `Cyanistes caeruleus` become two
+        different birds to anything keying on the text, and history divides with
+        nothing to warn anyone. The catalogue's opaque `species_id` does not
+        move when a name does.
+
+        Each source is namespaced because `species_id` and `taxa_id` are
+        integers from different databases with overlapping ranges: on a live
+        install `taxa_id` spans 487 to 1,289,423 and `species_id` spans 1,391 to
+        17,542. Cast bare into one key space they would merge unrelated species.
+        `'species:' || NULL` is NULL, so an absent id still falls through.
+        """
+        taxon_id = (
+            f"COALESCE({detection_alias}.taxa_id, {taxonomy_alias}.taxa_id)"
+            if taxonomy_alias
+            else f"{detection_alias}.taxa_id"
+        )
+        scientific = (
+            f"COALESCE({detection_alias}.scientific_name, {taxonomy_alias}.scientific_name)"
+            if taxonomy_alias
+            else f"{detection_alias}.scientific_name"
+        )
+        return (
+            f"COALESCE("
+            f"'species:' || CAST({detection_alias}.species_id AS TEXT), "
+            f"'taxon:' || CAST({taxon_id} AS TEXT), "
+            f"'name:' || LOWER({scientific}), "
+            f"'label:' || LOWER({detection_alias}.display_name))"
+        )
+
+    @staticmethod
+    def _legacy_rollup_key_sql(*, detection_alias: str = "d", taxonomy_alias: str = "tc") -> str:
+        """The grouping rule as it was before catalogue identity, for the rollup only.
+
+        `species_daily_rollup` *persists* this value as half its primary key, so
+        unlike every other use it is not recomputed on read. Writing the new
+        namespaced key would leave the table in two formats either side of an
+        upgrade, and anything grouping on it would split a species at that
+        boundary.
+
+        The obvious remedy, clearing the derived table and rebuilding it, is not
+        available: on the reference deployment 29 rollup rows covering 97
+        detections predate the oldest surviving detection, so the rollup is the
+        only remaining record of them and §1 does not allow discarding it.
+
+        Nothing in production reads this column today; it identifies a row for
+        upsert. Migrating it needs `species_id` on the rollup and a backfill of
+        what is still resolvable, which is its own phase-4 slice and its own
+        migration. Until then the stored format stays exactly as it is.
+        """
         return (
             f"COALESCE(CAST(COALESCE({detection_alias}.taxa_id, {taxonomy_alias}.taxa_id) AS TEXT), "
             f"LOWER(COALESCE({detection_alias}.scientific_name, {taxonomy_alias}.scientific_name)), "
@@ -717,6 +776,27 @@ class DetectionRepository:
             species_name=species_name,
             has_taxonomy_cache=has_taxonomy_cache,
         )
+
+        # Grouping keys on catalogue identity, so filtering has to follow it or
+        # the two disagree: the leaderboard merges a renamed taxon into one row,
+        # and opening that row shows only the rows still carrying the name that
+        # was searched for. Widen the match to every detection sharing a
+        # `species_id` with something the name already matched.
+        #
+        # The inner match is deliberately detection-only: a correlated subquery
+        # cannot see the outer `tc_filter` join, and finding the identity does
+        # not need the taxonomy fallback that finding the rows does.
+        identity_condition, identity_params = await self._build_canonical_species_condition(
+            detection_alias="d_identity",
+            species_name=species_name,
+            has_taxonomy_cache=False,
+        )
+        condition = (
+            f"(({condition}) OR {detection_alias}.species_id IN ("
+            f"SELECT d_identity.species_id FROM detections d_identity "
+            f"WHERE d_identity.species_id IS NOT NULL AND ({identity_condition})))"
+        )
+        params = [*params, *identity_params]
         return join_sql, condition, params
 
     async def _last_statement_changes(self) -> int:
@@ -2992,9 +3072,10 @@ class DetectionRepository:
 
     async def get_species_counts(self) -> list[dict]:
         """Get detection counts per species with taxonomic metadata."""
-        query = """
+        canonical_key = self._canonical_key_sql(taxonomy_alias=None)
+        query = f"""
             SELECT 
-                COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) as unified_id,
+                {canonical_key} as unified_id,
                 COUNT(*) as count, 
                 MAX(d.scientific_name) as scientific_name, 
                 MAX(d.common_name) as common_name,
@@ -3051,6 +3132,9 @@ class DetectionRepository:
                     "scientific_name": row[2],
                     "common_name": row[3],
                     "taxa_id": row[5],
+                    # The grouping key itself, so callers join on it rather than
+                    # rebuilding the same rule and drifting out of step.
+                    "unified_key": row[0],
                     "first_seen": _parse_datetime(row[6]) if row[6] else None,
                     "last_seen": _parse_datetime(row[7]) if row[7] else None,
                     "avg_confidence": row[8] or 0.0,
@@ -3276,7 +3360,7 @@ class DetectionRepository:
                 FROM enriched
                 GROUP BY rollup_date, canonical_key
             """.format(
-                canonical_key=self._canonical_key_sql(detection_alias="d", taxonomy_alias="tc"),
+                canonical_key=self._legacy_rollup_key_sql(detection_alias="d", taxonomy_alias="tc"),
                 taxonomy_join=self._taxonomy_join_sql(detection_alias="d", taxonomy_alias="tc"),
             )
         else:
@@ -3535,19 +3619,19 @@ class DetectionRepository:
     async def get_unified_species_window_metrics(self, lookback_days: int = 30) -> dict[str, dict]:
         """Aggregate recent per-species metrics using a stable unified key.
 
-        Key priority:
-        - taxa_id (stringified)
-        - scientific_name (lowercased)
-        - display_name (lowercased)
+        Keyed by `_canonical_key_sql`, the same rule the leaderboard groups by.
         """
         window = f"-{lookback_days} day"
-        query = """
+        # The same key and the same join as the leaderboard, because the
+        # leaderboard looks its trends up in this result by that key. Matching
+        # only by coincidence is how a species silently shows a flat trend:
+        # without the join a row whose scientific name is absent keys on its
+        # label here and on the cached scientific name there.
+        canonical_key = self._canonical_key_sql()
+        taxonomy_join = self._taxonomy_join_sql()
+        query = f"""
             SELECT
-                COALESCE(
-                    CAST(d.taxa_id AS TEXT),
-                    LOWER(d.scientific_name),
-                    LOWER(d.display_name)
-                ) as unified_key,
+                {canonical_key} as unified_key,
                 SUM(CASE WHEN d.detection_time >= datetime('now','-1 day') THEN 1 ELSE 0 END) as count_1d,
                 SUM(CASE WHEN d.detection_time >= datetime('now','-7 day') THEN 1 ELSE 0 END) as count_7d,
                 SUM(CASE WHEN d.detection_time >= datetime('now','-30 day') THEN 1 ELSE 0 END) as count_30d,
@@ -3557,6 +3641,7 @@ class DetectionRepository:
                 COUNT(DISTINCT CASE WHEN d.detection_time >= datetime('now','-30 day') THEN date(d.detection_time) END) as days_seen_30d,
                 MAX(d.detection_time) as last_seen_recent
             FROM detections d
+            {taxonomy_join}
             WHERE d.detection_time >= datetime('now', ?)
               AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
             GROUP BY unified_key
@@ -3936,7 +4021,8 @@ class DetectionRepository:
 
     async def get_daily_species_counts(self, start_date: datetime, end_date: datetime) -> list[dict]:
         """Get detection counts per species for a specific time range."""
-        query = """
+        canonical_key = self._canonical_key_sql(taxonomy_alias=None)
+        query = f"""
             WITH filtered AS (
                 SELECT
                     d.id,
@@ -3946,7 +4032,7 @@ class DetectionRepository:
                     d.common_name,
                     d.display_name,
                     d.taxa_id,
-                    COALESCE(CAST(d.taxa_id AS VARCHAR), LOWER(d.scientific_name), LOWER(d.display_name)) AS unified_id
+                    {canonical_key} AS unified_id
                 FROM detections d
                 WHERE d.detection_time >= ? AND d.detection_time <= ?
                   AND (d.is_hidden = 0 OR d.is_hidden IS NULL)
