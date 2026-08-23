@@ -194,9 +194,11 @@ RUN set -eux; \
     echo "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277  /app/app/assets/labels.txt" | sha256sum -c -
 
 # Build the seed species catalogue from the committed, digest-verified IOC
-# reference. The build is deterministic and passes the provenance gate in
-# species_sources.json; first start copies it into /data only when no
-# catalogue has ever been initialised.
+# reference, plus the Catalogue of Life assets beside it: non-bird concepts and
+# bird synonyms. The build is deterministic and passes the provenance gate in
+# species_sources.json. First start copies the seed into /data only when no
+# catalogue has ever been initialised; an install that already has one is
+# offered the seed as a release instead, so a newer catalogue still arrives.
 RUN python /app/scripts/build_species_catalog_seed.py \
         --reference /app/app/assets/species_reference.db \
         --output /app/app/assets/species_catalog_seed.db

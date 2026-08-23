@@ -6,6 +6,26 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **A bird that has been renamed no longer counts twice.** The catalogue takes bird names from the
+  IOC World Bird List, whose multilingual export carries one curated name per species per language
+  and no taxonomic history, so nothing recorded that a species had been called something else. On a
+  live install that showed as the Eurasian Jackdaw appearing twice in the audio list: BirdNET-Go
+  reports `Corvus monedula`, IOC 14.2 calls that bird `Coloeus monedula` after the jackdaw genus
+  split, and with no synonym recorded they were two birds. The catalogue now carries 7,256 bird
+  synonyms taken from the same pinned Catalogue of Life release that already supplies non-bird
+  taxonomy, verified against its recorded checksum. IOC keeps ownership of names; Catalogue of Life
+  supplies only the crosswalk. No API key and no network at runtime.
+
+- **A newer shipped catalogue now reaches an install that already has one.** The catalogue is only
+  copied from the shipped seed on a genuinely fresh install, because a live one may hold owner
+  renames and imported releases. That meant a newer catalogue never arrived anywhere else, and the
+  release importer built for exactly that was never called. The shipped seed is now offered as a
+  release at startup: idempotent, transactional, verified against its own digest and foreign keys,
+  never fatal, and reported. Measured against a copy of a live catalogue, it matched all 19,141
+  existing species without adding one, and left owner overrides untouched.
+
 ### Changed
 
 - **The daily rollup is keyed on catalogue identity like everything else.** It was the one place
