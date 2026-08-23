@@ -75,6 +75,7 @@ async def _create_rollup_table(db: aiosqlite.Connection) -> None:
             min_confidence FLOAT,
             first_seen TIMESTAMP,
             last_seen TIMESTAMP,
+            species_id INTEGER,
             PRIMARY KEY (rollup_date, canonical_key)
         )
     """)

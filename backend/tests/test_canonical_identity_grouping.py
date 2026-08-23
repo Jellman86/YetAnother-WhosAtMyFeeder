@@ -207,26 +207,30 @@ async def test_the_leaderboard_returns_the_key_its_metrics_are_looked_up_by(seed
     assert metrics[rows[0]["unified_key"]]["count_30d"] >= 2
 
 
-def test_the_rollup_keeps_writing_the_key_format_already_on_disk():
-    """`species_daily_rollup` persists its key as half the primary key.
+def test_the_rollup_now_writes_the_same_key_as_live_grouping():
+    """The rollup was pinned to the old format until its rows could be re-keyed.
 
-    Writing the namespaced key would leave the table in two formats either side
-    of an upgrade, splitting a species at that boundary. The derived table
-    cannot simply be rebuilt: on a live install 29 rollup rows covering 97
-    detections predate the oldest surviving detection, so it is the only record
-    of them.
+    Migration `f6a1d3e75b28` rewrites the stored keys and gives the table a
+    `species_id`, so the pin is gone and both branches of the rollup build now
+    use the one shared rule. Two key formats in one table is what the pin
+    existed to prevent, and this is what replaces it.
     """
-    legacy = DetectionRepository._legacy_rollup_key_sql()
-    assert "species:" not in legacy
-    assert "taxon:" not in legacy
-    assert "species_id" not in legacy
+    import inspect
+
+    from app.repositories.detection_repository import DetectionRepository
+
+    source = inspect.getsource(DetectionRepository._build_daily_rollup_rows)
+    assert "_legacy_rollup_key_sql" not in source
+    assert "self._canonical_key_sql(" in source
+    # The branch for installs without a taxonomy cache builds its key inline,
+    # so it is checked by shape rather than by call.
+    assert "'species:' || CAST(species_id AS TEXT)" in source
 
 
-def test_live_grouping_and_the_rollup_key_are_deliberately_different():
-    live = DetectionRepository._canonical_key_sql()
-    legacy = DetectionRepository._legacy_rollup_key_sql()
-    assert live != legacy, "the rollup key is pinned on purpose; see _legacy_rollup_key_sql"
-    assert "species:" in live
+def test_the_legacy_rollup_key_is_gone_rather_than_left_lying_around():
+    from app.repositories.detection_repository import DetectionRepository
+
+    assert not hasattr(DetectionRepository, "_legacy_rollup_key_sql")
 
 
 @pytest.mark.asyncio

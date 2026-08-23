@@ -626,32 +626,6 @@ class DetectionRepository:
         )
 
     @staticmethod
-    def _legacy_rollup_key_sql(*, detection_alias: str = "d", taxonomy_alias: str = "tc") -> str:
-        """The grouping rule as it was before catalogue identity, for the rollup only.
-
-        `species_daily_rollup` *persists* this value as half its primary key, so
-        unlike every other use it is not recomputed on read. Writing the new
-        namespaced key would leave the table in two formats either side of an
-        upgrade, and anything grouping on it would split a species at that
-        boundary.
-
-        The obvious remedy, clearing the derived table and rebuilding it, is not
-        available: on the reference deployment 29 rollup rows covering 97
-        detections predate the oldest surviving detection, so the rollup is the
-        only remaining record of them and §1 does not allow discarding it.
-
-        Nothing in production reads this column today; it identifies a row for
-        upsert. Migrating it needs `species_id` on the rollup and a backfill of
-        what is still resolvable, which is its own phase-4 slice and its own
-        migration. Until then the stored format stays exactly as it is.
-        """
-        return (
-            f"COALESCE(CAST(COALESCE({detection_alias}.taxa_id, {taxonomy_alias}.taxa_id) AS TEXT), "
-            f"LOWER(COALESCE({detection_alias}.scientific_name, {taxonomy_alias}.scientific_name)), "
-            f"LOWER({detection_alias}.display_name))"
-        )
-
-    @staticmethod
     def _taxonomy_join_sql(*, detection_alias: str = "d", taxonomy_alias: str = "tc") -> str:
         return (
             f"LEFT JOIN taxonomy_cache {taxonomy_alias} "
@@ -3361,6 +3335,7 @@ class DetectionRepository:
                         d.camera_name,
                         d.score,
                         d.detection_time,
+                        d.species_id,
                         {canonical_key} as canonical_key
                     FROM detections d
                     {taxonomy_join}
@@ -3386,11 +3361,15 @@ class DetectionRepository:
                     MAX(score) as max_confidence,
                     MIN(score) as min_confidence,
                     MIN(detection_time) as first_seen,
-                    MAX(detection_time) as last_seen
+                    MAX(detection_time) as last_seen,
+                    -- Stored alongside the key rather than only inside it, so
+                    -- the column and the key cannot disagree and the identity
+                    -- is joinable without parsing a string.
+                    MAX(species_id) as species_id
                 FROM enriched
                 GROUP BY rollup_date, canonical_key
             """.format(
-                canonical_key=self._legacy_rollup_key_sql(detection_alias="d", taxonomy_alias="tc"),
+                canonical_key=self._canonical_key_sql(detection_alias="d", taxonomy_alias="tc"),
                 taxonomy_join=self._taxonomy_join_sql(detection_alias="d", taxonomy_alias="tc"),
             )
         else:
@@ -3405,7 +3384,16 @@ class DetectionRepository:
                         camera_name,
                         score,
                         detection_time,
-                        COALESCE(CAST(taxa_id AS TEXT), LOWER(scientific_name), LOWER(display_name)) as canonical_key
+                        species_id,
+                        -- Same key as the joined branch above, so an install
+                        -- without a taxonomy cache does not end up with a
+                        -- differently-keyed rollup.
+                        COALESCE(
+                            'species:' || CAST(species_id AS TEXT),
+                            'taxon:' || CAST(taxa_id AS TEXT),
+                            'name:' || LOWER(scientific_name),
+                            'label:' || LOWER(display_name)
+                        ) as canonical_key
                     FROM detections
                     WHERE detection_time >= ? AND detection_time < ?
                       AND (is_hidden = 0 OR is_hidden IS NULL)
@@ -3429,7 +3417,11 @@ class DetectionRepository:
                     MAX(score) as max_confidence,
                     MIN(score) as min_confidence,
                     MIN(detection_time) as first_seen,
-                    MAX(detection_time) as last_seen
+                    MAX(detection_time) as last_seen,
+                    -- Stored alongside the key rather than only inside it, so
+                    -- the column and the key cannot disagree and the identity
+                    -- is joinable without parsing a string.
+                    MAX(species_id) as species_id
                 FROM enriched
                 GROUP BY rollup_date, canonical_key
             """
@@ -3462,13 +3454,15 @@ class DetectionRepository:
                         max_confidence=excluded.max_confidence,
                         min_confidence=excluded.min_confidence,
                         first_seen=excluded.first_seen,
-                        last_seen=excluded.last_seen
+                        last_seen=excluded.last_seen,
+                        species_id=excluded.species_id
                 """
             await self.db.executemany(
                 f"""INSERT INTO {table_name}
                         (rollup_date, canonical_key, display_name, scientific_name, common_name, taxa_id,
-                         detection_count, camera_count, avg_confidence, max_confidence, min_confidence, first_seen, last_seen)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                         detection_count, camera_count, avg_confidence, max_confidence, min_confidence, first_seen,
+                         last_seen, species_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     {conflict_sql}""",
                 rows,
             )
