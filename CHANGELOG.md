@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **The daily rollup is keyed on catalogue identity like everything else.** It was the one place
+  the grouping key is stored rather than recomputed, and it forms half the primary key, so it had
+  been pinned to the old format to avoid a table holding two formats either side of an upgrade.
+  Rebuilding it was never an option: on a real install 29 rollup rows covering 97 detections
+  predate the oldest surviving detection, so the rollup is the only record of them. The keys are
+  now rewritten in place, with identity resolved from detection history rather than the catalogue
+  so the migration stays inside one database, and only where history is unanimous: a row matching
+  more than one identity keeps a text key rather than being assigned a guess. Verified against
+  that install, 193 rows and 843 detections before and after, 150 rows gaining an identity, and
+  the 29 irreplaceable rows untouched.
+
 ### Added
 
 - **Audio detections carry catalogue identity.** Audio correlation was the last read path keyed on
