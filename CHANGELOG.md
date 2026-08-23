@@ -6,6 +6,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **An existing install now gets the model output rows it was missing.** An artifact's mapping
+  digest is computed over the whole source mapping, including outputs nothing could resolve, while
+  the rows actually stored were a filtered subset of it. A live catalogue could therefore hold
+  9,293 rows for a 10,000-output model under a digest asserting the mapping was complete, and the
+  importer skipped the artifact because the digests matched. Recording every output reached fresh
+  installs only. A matching digest means the source mapping is identical, so a row the catalogue
+  lacks is absent rather than different: those rows are now added, including when the release
+  itself is already held, because completing a mapping is a repair rather than an import. A row
+  that would *change* is still refused, since that is a correction and needs its own supersession
+  policy. On a live catalogue this added 2,434 rows across ten artifacts, left every existing row
+  untouched, and left coverage reporting unchanged.
+
 ### Changed
 
 - **Every model output is now recorded, including the ones nothing could identify.** An output whose
