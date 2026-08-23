@@ -154,10 +154,16 @@ class SpeciesCatalogResolver:
             return ShadowResolution(verdict="unregistered")
 
         entry = self._outputs.get(checksum, {}).get(output_index)
-        if entry is None:
+        # An index the catalogue cannot identify now carries a row holding the
+        # model's own label, so the label text does not depend on `labels.txt`.
+        # That row says `unknown`, which means exactly what an absent row meant:
+        # nothing here knows what this output is. Reporting it as `non_species`
+        # would claim knowledge that it is not a species, which is a different
+        # and unearned statement.
+        if entry is None or entry.class_kind == "unknown":
             return ShadowResolution(
                 verdict="unresolved_index",
-                model_artifact_id=artifact_row_id,
+                model_artifact_id=(entry.artifact_row_id if entry is not None else artifact_row_id),
                 model_output_index=output_index,
             )
 

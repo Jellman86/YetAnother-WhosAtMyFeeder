@@ -6,6 +6,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **Every model output is now recorded, including the ones nothing could identify.** An output whose
+  species could not be resolved was skipped entirely, so for 707 of a 10,000-class model's outputs
+  the catalogue held nothing at all, not even the label the model uses. That is what kept
+  `labels.txt` load-bearing at runtime. Those rows now exist, carrying the label and an explicit
+  `unknown` class. Coverage counts identified outputs rather than rows, so a model is not called
+  complete merely because every index has a row: the reported figures are unchanged, except that
+  two models drop by one apiece where an output explicitly declared `unknown` had been counted as
+  mapped. An unknown output also reads as an unresolved gap rather than a non-species class, since
+  "we cannot identify this" and "this is not a species" are different claims.
+
 ### Fixed
 
 - **A bird that has been renamed no longer counts twice.** The catalogue takes bird names from the

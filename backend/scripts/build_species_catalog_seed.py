@@ -257,9 +257,21 @@ def build(
                 artifact_row_id = cursor.lastrowid
                 for row in entry["outputs"]:
                     if "unresolved" in row:
-                        # An unresolved species class stays a visible gap; the
-                        # artifact is not activatable from the catalogue until
-                        # it is resolved or explicitly declared.
+                        # An output nothing could resolve still gets a row, so
+                        # the catalogue knows what the model calls it even when
+                        # it cannot say what it is. Without that the label text
+                        # existed only in `labels.txt`, which is what stopped
+                        # that file being retired.
+                        #
+                        # It is recorded as `unknown`, and coverage counts
+                        # identified outputs rather than rows, so the artifact
+                        # stays incomplete and unactivatable exactly as before.
+                        connection.execute(
+                            "INSERT INTO model_output_taxa"
+                            " (model_artifact_id, output_index, class_kind, species_id, source_label)"
+                            " VALUES (?, ?, 'unknown', NULL, ?)",
+                            (artifact_row_id, row["index"], row["label"]),
+                        )
                         continue
                     species_id = None
                     if row["kind"] == "species":
