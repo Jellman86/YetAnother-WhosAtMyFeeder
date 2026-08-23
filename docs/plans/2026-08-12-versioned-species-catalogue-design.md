@@ -297,6 +297,41 @@ the current taxonomy joins.
 label-file reads; all model flavours pass image smoke tests; the full Definition of Done and `3.0`
 migration evidence are green.
 
+#### The compatibility importer, as shipped
+
+`species_catalog_compatibility.py` derives a mapping for a model the registry does not publish, by
+resolving that model's own labels against the live catalogue. It runs once per startup, detached
+from it, after waiting for the classifier to load the model whose checksum the mapping is keyed on.
+
+It resolves a label only by exact catalogue match — a scientific name, a recorded resolved synonym,
+or an English vernacular name, each also compared in a folded form that drops a trailing qualifier,
+apostrophes and case. Where no format is declared, the label is read every way at once: as a common
+name, as a scientific name, through the two self-announcing shapes `scientific_name_from_label`
+accepts without a declaration, and through the bracketed half of a paired label. An identity is
+recorded only when every reading that reaches one reaches the *same* one. Two readings that
+disagree, and a name more than one species holds, both resolve to nothing. A declared format is
+obeyed exactly, because the declaration exists to stop the shape of a line being trusted.
+
+Four rules keep it safe to run unattended:
+
+- **A registry model is skipped.** Its mapping is reviewed and arrives in the release bundle. One
+  derived from a file on disk must never stand in for one that was checked, not even while the
+  reviewed one is missing.
+- **An artifact the catalogue already holds is never touched**, so a published mapping cannot be
+  overwritten by a derived one.
+- **Every unresolved output still gets a row**, carrying the model's verbatim label and the kind
+  `unknown` — the same shape a published mapping uses for its own gaps — so coverage counts
+  identity rather than the presence of a row, and the label text no longer lives only in
+  `labels.txt`.
+- **The artifact is recorded as locally derived**, under the reserved `local:` registry namespace,
+  and `catalogue_labels_for_model` refuses to serve its labels. Handing them back as catalogue
+  labels would launder the file this work exists to stop trusting, and would report a verification
+  that never happened.
+
+The report — outputs written, resolved, unresolved, and a capped sample of the unresolved ones with
+the reason each failed — is returned by the importer and surfaced in owner diagnostics under
+`species_catalog.local_mapping`.
+
 ## Safety and second-order effects
 
 - **Taxonomic change is not historical correction.** A later split or lump must not silently

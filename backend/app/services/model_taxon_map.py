@@ -132,6 +132,39 @@ def _hierarchy_scientific(text: str) -> Optional[str]:
     return f"{genus[:1].upper()}{genus[1:]} {species.lower()}"
 
 
+#: A trailing `(…)` qualifier: the common half of a paired label, or the
+#: plumage note the NABirds files append to one.
+_TRAILING_PARENTHETICAL = re.compile(r"\s*\([^()]*\)\s*$")
+_APOSTROPHES = str.maketrans("", "", "'\u2019")
+
+
+def paired_common_name(label: Optional[str]) -> Optional[str]:
+    """The bracketed half of a paired label, or None when there is no pair.
+
+    Says nothing about whether that half is a common name: `Cassin's Finch`
+    and `Female/juvenile` both live there. The caller decides by looking the
+    text up, never by its shape.
+    """
+    if not isinstance(label, str):
+        return None
+    paired = _PAIRED.match(label.strip())
+    if not paired:
+        return None
+    return paired.group("common").strip() or None
+
+
+def normalize_common_name(name: str) -> str:
+    """Fold a common name to the form two sources can be compared in.
+
+    Drops a trailing qualifier, apostrophes, and case, and collapses runs of
+    whitespace, so `Cassin\u2019s Finch` and `Cassins finch` meet. Deliberately
+    conservative: it never reorders or drops words, because `Great Grey Owl`
+    and `Grey Great Owl` are not the same claim.
+    """
+    stripped = _TRAILING_PARENTHETICAL.sub("", name)
+    return " ".join(stripped.translate(_APOSTROPHES).casefold().split())
+
+
 def default_map_path() -> Path:
     configured = os.environ.get("DB_PATH")
     if configured:

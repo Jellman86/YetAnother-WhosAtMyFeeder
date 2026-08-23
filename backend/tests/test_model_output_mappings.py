@@ -439,3 +439,17 @@ def test_the_committed_assets_build_a_fully_mapped_catalogue(tmp_path):
         " AND NOT EXISTS (SELECT 1 FROM species s WHERE s.species_id = t.species_id)",
     )
     assert orphans == [(0,)]
+
+
+def test_the_mapping_build_and_the_compatibility_importer_normalise_alike():
+    """One normaliser, two callers. The published mappings and a locally
+    derived one have to agree on when two spellings are the same name; two
+    copies of the rule could drift and quietly stop agreeing."""
+    import build_model_output_mappings as build_module
+
+    from app.services.model_taxon_map import normalize_common_name
+
+    assert build_module._normalize_common is normalize_common_name
+    assert normalize_common_name("Cassin\u2019s Finch") == "cassins finch"
+    assert normalize_common_name("Lesser Goldfinch (Female/juvenile)") == "lesser goldfinch"
+    assert normalize_common_name("  Great   Grey  Owl ") == "great grey owl"
