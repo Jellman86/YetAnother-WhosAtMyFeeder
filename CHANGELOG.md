@@ -6,6 +6,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **Audio detections carry catalogue identity.** Audio correlation was the last read path keyed on
+  name text, so a bird heard and a bird seen were joined by a string. BirdNET-Go reports a
+  scientific name and a scientific name moves. Audio detections now record a `species_id` at
+  ingest, resolved by the same conservative rule the detection backfill follows: a name the
+  catalogue holds for exactly one species gains that identity, anything ambiguous or unknown gains
+  nothing and behaves exactly as before. Existing rows are filled in by a background backfill,
+  which is required rather than optional: grouping by identity while older rows had none would
+  split a species at the upgrade boundary. On a live install this identified 55,998 of 56,026
+  audio detections across 84 species, and the counts are unchanged today.
+
 ### Changed
 
 - **Species are named from the catalogue rather than from whichever detection sorted last.**

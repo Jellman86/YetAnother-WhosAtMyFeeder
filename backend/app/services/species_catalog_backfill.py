@@ -64,6 +64,19 @@ async def backfill_catalog_identity(db, resolver: Optional[SpeciesCatalogResolve
         else:
             summary["names_unresolved"] += 1
 
+    # Audio detections carry the same identity, for the same reason: grouping
+    # audio by identity while older rows have none would split a species at the
+    # upgrade boundary. Reported separately so an audio-only shortfall is
+    # visible rather than folded into the detection numbers.
+    try:
+        audio = await repository.backfill_audio_species_ids(resolver=active_resolver)
+        summary["audio_rows_identified"] = audio.get("identified", 0)
+        summary["audio_rows_unresolved"] = audio.get("unresolved", 0)
+    except Exception as error:  # pragma: no cover - defensive
+        log.warning("Audio identity backfill skipped", error=str(error))
+        summary["audio_rows_identified"] = 0
+        summary["audio_rows_unresolved"] = 0
+
     _record_summary(summary)
     return summary
 
