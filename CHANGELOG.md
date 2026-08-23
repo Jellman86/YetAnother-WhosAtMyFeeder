@@ -6,6 +6,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **Species are named from the catalogue rather than from whichever detection sorted last.**
+  Grouping already keyed on catalogue identity, but the name shown for a group was still taken
+  from one of its rows, so a taxon recorded under two names was counted once and then labelled
+  arbitrarily. One precedence rule now decides, at read time and in one place: an owner's own
+  rename first, then the catalogue's curated name for the reader's language, then English, then
+  the scientific name, and only then whatever the detection already carried. Nothing is written
+  back into a detection's identity, because a name in a language is a rendering and not a fact
+  about the bird. On a real install this changed 3 of 42 species, each toward the IOC spelling:
+  "Eurasian Blackbird" to "Common Blackbird", "Common Wood-Pigeon" to "Common Wood Pigeon", and
+  "Gray-headed" to "Grey-headed". It also brings the Italian and Chinese names that the previous
+  sources largely did not carry.
+
 ### Fixed
 
 - **Deep Video Analysis names the model again.** The card that reports a video classification
