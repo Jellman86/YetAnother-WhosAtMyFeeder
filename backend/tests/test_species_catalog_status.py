@@ -137,8 +137,11 @@ def test_status_reports_the_active_release_and_coverage(catalog):
     assert len(artifacts) == 1
     assert artifacts[0]["registry_id"] == "status_model"
     assert artifacts[0]["output_width"] == 4
-    assert artifacts[0]["mapped_outputs"] == 3
-    assert artifacts[0]["unresolved_outputs"] == 1
+    # Two of the four outputs are identified. Index 2 is declared `unknown`
+    # and index 3 resolved to nothing, and neither is a mapping: coverage
+    # counts identity rather than the presence of a row.
+    assert artifacts[0]["mapped_outputs"] == 2
+    assert artifacts[0]["unresolved_outputs"] == 2
     assert artifacts[0]["complete"] is False
 
 
@@ -152,11 +155,14 @@ class TestActivationCheck:
     def test_a_registered_complete_artifact_is_ready(self, catalog):
         connection = sqlite3.connect(catalog)
         try:
-            # Complete the mapping so the artifact has one row per index.
+            # Give every output an identity. A row alone is no longer enough:
+            # index 2 is declared `unknown` and index 3 resolved to nothing, so
+            # both have to become something the catalogue can name before the
+            # artifact is complete.
             connection.execute(
-                "INSERT INTO model_output_taxa (model_artifact_id, output_index, class_kind, species_id, source_label)"
-                " VALUES (1, 3, 'species', 2, 'Mystery bird')"
+                "UPDATE model_output_taxa SET class_kind='background', source_label='background' WHERE output_index = 2"
             )
+            connection.execute("UPDATE model_output_taxa SET class_kind='species', species_id=2 WHERE output_index = 3")
             connection.commit()
         finally:
             connection.close()
@@ -170,7 +176,8 @@ class TestActivationCheck:
         check = SpeciesCatalogStatus(catalog).activation_check("s" * 64, tensor_width=4)
 
         assert check["verdict"] == "incomplete_mapping"
-        assert check["unresolved_outputs"] == 1
+        # Index 2 is declared `unknown` and index 3 resolved to nothing.
+        assert check["unresolved_outputs"] == 2
 
     def test_a_tensor_width_mismatch_fails_the_check(self, catalog):
         check = SpeciesCatalogStatus(catalog).activation_check("s" * 64, tensor_width=1486)

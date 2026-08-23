@@ -37,7 +37,7 @@ MODEL_SHA = "d" * 64
 @pytest.fixture
 def catalog(tmp_path):
     """A catalogue mapping one artifact: blue tit, a synonym-resolved toad,
-    an unknown class, and one unresolved index."""
+    a genuine non-species class, and one unresolved index."""
     ioc_pinned = hashlib.sha256(b"resolver ioc").hexdigest()
     col_pinned = hashlib.sha256(b"resolver col").hexdigest()
 
@@ -133,7 +133,7 @@ def catalog(tmp_path):
                                 "provider": "catalogue-of-life",
                                 "taxon": "A1",
                             },
-                            {"index": 2, "kind": "unknown", "label": "Unknown"},
+                            {"index": 2, "kind": "background", "label": "background"},
                             {
                                 "index": 3,
                                 "kind": "species",

@@ -124,8 +124,13 @@ class SpeciesCatalogStatus:
 
             artifacts: list[dict[str, Any]] = []
             for row in connection.execute(
+                # Counts identified outputs, not rows. Every output index now
+                # has a row, including ones nothing could resolve, so counting
+                # rows would report a model as fully mapped while hundreds of
+                # its outputs still had no identity.
                 "SELECT a.registry_id, a.model_sha256, a.output_width,"
-                " (SELECT COUNT(*) FROM model_output_taxa t WHERE t.model_artifact_id = a.id) AS mapped"
+                " (SELECT COUNT(*) FROM model_output_taxa t"
+                "  WHERE t.model_artifact_id = a.id AND t.class_kind != 'unknown') AS mapped"
                 " FROM model_artifacts a ORDER BY a.registry_id"
             ):
                 unresolved = int(row["output_width"]) - int(row["mapped"])
@@ -165,7 +170,8 @@ class SpeciesCatalogStatus:
         try:
             row = connection.execute(
                 "SELECT a.id, a.registry_id, a.output_width, a.mapping_set_sha256,"
-                " (SELECT COUNT(*) FROM model_output_taxa t WHERE t.model_artifact_id = a.id) AS mapped"
+                " (SELECT COUNT(*) FROM model_output_taxa t"
+                "  WHERE t.model_artifact_id = a.id AND t.class_kind != 'unknown') AS mapped"
                 " FROM model_artifacts a WHERE a.model_sha256 = ?",
                 (checksum,),
             ).fetchone()
@@ -183,6 +189,8 @@ class SpeciesCatalogStatus:
             "registry_id": row["registry_id"],
             "output_width": int(row["output_width"]),
             "mapped_outputs": int(row["mapped"]),
+            # Same rule as the artifact listing: an `unknown` output is not
+            # mapped, whether it is present as a row or absent entirely.
             "unresolved_outputs": int(row["output_width"]) - int(row["mapped"]),
             "mapping_set_sha256": row["mapping_set_sha256"],
         }

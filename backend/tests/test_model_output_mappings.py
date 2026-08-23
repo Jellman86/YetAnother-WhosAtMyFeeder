@@ -310,11 +310,24 @@ class TestSeedIntegration:
         rows = _query(built, "SELECT class_kind, species_id FROM model_output_taxa WHERE output_index = 1")
         assert rows == [("background", None)]
 
-    def test_an_unresolved_class_is_a_visible_gap_not_a_row(self, built):
+    def test_an_unresolved_class_is_a_row_that_says_it_is_unknown(self, built):
+        """A gap used to be an absent row, which lost the label with it.
+
+        Every output index now has a row, so the catalogue holds what the model
+        calls an output even when it cannot say what it is. The gap is still a
+        gap: the row says `unknown` and coverage counts identity, not rows.
+        """
         indices = {row[0] for row in _query(built, "SELECT output_index FROM model_output_taxa")}
-        assert indices == {0, 1, 3}
         width = _query(built, "SELECT output_width FROM model_artifacts")[0][0]
-        assert len(indices) < width
+        assert indices == set(range(width)), "every output index is present"
+
+        unknown = _query(
+            built,
+            "SELECT output_index, species_id, source_label FROM model_output_taxa WHERE class_kind = 'unknown'",
+        )
+        assert [row[0] for row in unknown] == [2]
+        assert unknown[0][1] is None, "an unknown output claims no identity"
+        assert unknown[0][2], "but it keeps the label the model uses"
 
     def test_a_mapping_that_references_an_unknown_concept_refuses_the_build(self, tmp_path):
         mappings = _mappings_json(tmp_path, taxon_override="Nonexistus maximus")
@@ -358,7 +371,8 @@ class TestImporterCarry:
 
         assert result.status == "already_imported" or result.status == "imported"
         assert _query(live, "SELECT COUNT(*) FROM model_artifacts")[0][0] == 1
-        assert _query(live, "SELECT COUNT(*) FROM model_output_taxa")[0][0] == 3
+        # One row per output index, so the unresolved index counts too.
+        assert _query(live, "SELECT COUNT(*) FROM model_output_taxa")[0][0] == 4
 
 
 ASSETS = Path(__file__).resolve().parents[1] / "app" / "assets"
@@ -417,7 +431,8 @@ def test_the_committed_assets_build_a_fully_mapped_catalogue(tmp_path):
     seed_builder.build(reference, output, col_concepts_path=col, model_mappings_path=mappings)
 
     assert _query(output, "SELECT COUNT(*) FROM model_artifacts")[0][0] == 10
-    assert _query(output, "SELECT COUNT(*) FROM model_output_taxa")[0][0] == 32312
+    # One row per output index across every artifact, unresolved ones included.
+    assert _query(output, "SELECT COUNT(*) FROM model_output_taxa")[0][0] == 34746
     orphans = _query(
         output,
         "SELECT COUNT(*) FROM model_output_taxa t WHERE t.species_id IS NOT NULL"
