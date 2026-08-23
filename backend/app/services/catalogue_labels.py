@@ -23,6 +23,8 @@ from typing import Optional
 
 import structlog
 
+from app.services.species_catalog_compatibility import LOCAL_REGISTRY_PREFIX
+
 log = structlog.get_logger()
 
 
@@ -85,13 +87,19 @@ def catalogue_labels_for_model(
 
     try:
         artifact = connection.execute(
-            "SELECT id, output_width FROM model_artifacts WHERE LOWER(model_sha256) = ?",
+            "SELECT id, output_width, registry_id FROM model_artifacts WHERE LOWER(model_sha256) = ?",
             (checksum,),
         ).fetchone()
         if artifact is None:
             return None
         artifact_id, output_width = int(artifact[0]), int(artifact[1] or 0)
         if output_width <= 0:
+            return None
+        # A locally derived mapping was read out of this model's own
+        # `labels.txt`. Serving it back as catalogue labels would launder the
+        # file this path exists to stop trusting, and would report a
+        # verification that never happened.
+        if str(artifact[2] or "").startswith(LOCAL_REGISTRY_PREFIX):
             return None
 
         rows = connection.execute(

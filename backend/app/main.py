@@ -488,6 +488,9 @@ async def lifespan(app: FastAPI):
             startup_progress=72,
         )
         create_background_task(model_manager.ensure_installed_model_configs(), name="model_config_refresh")
+        from app.services.species_catalog_compatibility import start_background_local_mapping_import
+
+        create_background_task(start_background_local_mapping_import(), name="local_model_mapping_import")
         await _run_lifecycle_phase(
             app,
             "telemetry_start",
@@ -914,6 +917,12 @@ def _naming_health() -> dict[str, object]:
         from app.services.species_catalog_backfill import last_backfill_summary
 
         catalog["backfill"] = last_backfill_summary()
+    except Exception:  # pragma: no cover
+        pass
+    try:
+        from app.services.species_catalog_compatibility import last_local_mapping_report
+
+        catalog["local_mapping"] = last_local_mapping_report()
     except Exception:  # pragma: no cover
         pass
     return {"species_reference": reference, "localized_names": localized, "species_catalog": catalog}

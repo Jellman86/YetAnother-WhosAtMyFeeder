@@ -6,6 +6,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **A model you installed yourself can now be identified by the species catalogue.** Every model in
+  the registry ships a reviewed output mapping, so the catalogue can say what each of its classes
+  is; a model an owner supplied had none, so its detections never gained a canonical identity and
+  its `labels.txt` stayed the only thing that knew what its classes were. Such a model now gets a
+  mapping derived from its own labels, resolved against the live catalogue. It refuses to guess: a
+  label reaches an identity only through an exact catalogue match, and only when every way of
+  reading that label agrees, so a name two species share and a name that is one species' English
+  name and another's scientific name both resolve to nothing rather than to the wrong bird. Every
+  output it cannot name is still recorded, carrying the model's verbatim label, and reported in
+  owner diagnostics under `species_catalog.local_mapping`. A registry model is skipped outright so
+  a mapping derived from a file on disk can never stand in for a reviewed one, an artifact the
+  catalogue already holds is never overwritten, and these labels are never served back as
+  catalogue-verified — they came from the label file this work exists to stop trusting.
+
 ### Changed
 
 - **A model's labels are read from the catalogue rather than its label file.** `labels.txt` is

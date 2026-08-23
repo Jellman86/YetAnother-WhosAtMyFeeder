@@ -25,7 +25,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import sqlite3
 import sys
 import tempfile
@@ -39,14 +38,13 @@ if str(_BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(_BACKEND_DIR))
 
 from app.services.model_registry_inventory import registry_artifacts  # noqa: E402
+from app.services.model_taxon_map import normalize_common_name as _normalize_common  # noqa: E402
 from app.services.model_taxon_map import scientific_name_from_label  # noqa: E402
 
 DEFAULT_OUTPUT = _BACKEND_DIR / "app" / "assets" / "model_output_mappings.json"
 DEFAULT_REPORT = _BACKEND_DIR.parent / "docs" / "reviews" / "2026-08-20-model-output-mapping-coverage.md"
 
 _AMBIGUOUS = object()
-_TRAILING_PARENTHETICAL = re.compile(r"\s*\([^()]*\)\s*$")
-_APOSTROPHES = str.maketrans("", "", "'’")
 _HYBRID_SIGNS = str.maketrans("", "", "×")
 
 
@@ -58,11 +56,6 @@ class OutputRow:
     provider: Optional[str] = None
     taxon: Optional[str] = None
     unresolved: Optional[str] = None
-
-
-def _normalize_common(name: str) -> str:
-    stripped = _TRAILING_PARENTHETICAL.sub("", name)
-    return " ".join(stripped.translate(_APOSTROPHES).casefold().split())
 
 
 class CatalogResolver:
