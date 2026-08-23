@@ -371,6 +371,18 @@ export async function activateModel(modelId: string): Promise<ModelActionResult>
     return handleResponse<ModelActionResult>(response);
 }
 
+export type ModelDeleteResult = components['schemas']['ModelDeleteResponse'];
+
+export async function deleteModel(modelId: string): Promise<ModelDeleteResult> {
+    // Region variants are addressed as `family/region`, so each segment is
+    // encoded separately and the separating slash is preserved.
+    const path = modelId.split('/').map(encodeURIComponent).join('/');
+    const response = await apiFetch(`${API_BASE}/models/${path}`, {
+        method: 'DELETE',
+    });
+    return handleResponse<ModelDeleteResult>(response);
+}
+
 export type ModelValidateResult = components['schemas']['ModelValidateResponse'];
 
 /**

@@ -27,6 +27,10 @@ DOC_ENDPOINT_RE = re.compile(r"`(GET|POST|PUT|PATCH|DELETE)\s+(/[^`\s]+)`")
 
 
 def normalize_path(path: str) -> str:
+    # Starlette path converters (`{id:path}`) are an implementation detail of
+    # the route; FastAPI publishes the parameter as `{id}`, and that is the
+    # shape the documentation describes.
+    path = re.sub(r"\{([^{}:]+):[^{}]+\}", r"{\1}", path)
     if not path.startswith("/"):
         path = "/" + path
     while "//" in path:

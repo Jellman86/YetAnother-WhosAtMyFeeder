@@ -1093,6 +1093,11 @@ export interface components {
     message: string;
     status: string;
 };
+    ModelDeleteResponse: {
+    bytes_freed: number;
+    message: string;
+    status: string;
+};
     ModelFile: {
     name: string;
     size_bytes: number;
@@ -3306,6 +3311,17 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: Array<components['schemas']['InstalledModel']>;
+    };
+  };
+  "/api/models/{model_id}": {
+    delete: {
+      operationId: "delete_model_api_models__model_id__delete";
+      path: {
+    model_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ModelDeleteResponse'];
     };
   };
   "/api/models/{model_id}/activate": {

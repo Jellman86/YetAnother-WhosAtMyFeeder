@@ -2,7 +2,7 @@
     import { get } from 'svelte/store';
     import { _ } from 'svelte-i18n';
     import { onMount, onDestroy } from 'svelte';
-    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, validateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
+    import { fetchAvailableModels, fetchInstalledModels, downloadModel, fetchDownloadStatus, activateModel, deleteModel, validateModel, checkHealth, fetchClassifierStatus, getVisibleTieredModelLineup, groupTieredModelLineup, categorizeModel, MODEL_CATEGORY_INFO, type ModelMetadata, type InstalledModel, type DownloadProgress, type ClassifierStatus, type HealthStatus } from '../../api';
     import { jobProgressStore } from '../../stores/job_progress.svelte';
     import { startModelDownloadProgress, syncModelDownloadProgress } from './model_download_progress';
     import { getRuntimeProviderOrder } from '../../settings/inference-providers';
@@ -332,6 +332,44 @@
             syncModelDownloadProgress(jobProgressStore, model, errorStatus);
         }
     }
+
+    let deleting = $state<string | null>(null);
+
+    function formatBytes(bytes: number): string {
+        if (!Number.isFinite(bytes) || bytes <= 0) return '';
+        const gb = bytes / 1_000_000_000;
+        if (gb >= 1) return `${gb.toFixed(1)} GB`;
+        return `${Math.round(bytes / 1_000_000)} MB`;
+    }
+
+    async function handleDelete(model: InstalledModel | ModelMetadata) {
+        if (deleting) return;
+        const name = 'name' in model && model.name ? model.name : model.id;
+        // Irreversible and large, so the confirmation names the model and says
+        // what getting it back costs.
+        const confirmed = confirm(
+            t('settings.detection.model_manager_delete_confirm', 'Delete {name}? This removes the files from disk. You can download it again later.')
+                .replace('{name}', String(name))
+        );
+        if (!confirmed) return;
+        deleting = model.id;
+        try {
+            const result = await deleteModel(model.id);
+            installedModels = await fetchInstalledModels();
+            const freed = formatBytes(result.bytes_freed ?? 0);
+            if (freed) {
+                deleteNotice = t('settings.detection.model_manager_delete_done', 'Deleted. {size} reclaimed.').replace('{size}', freed);
+            }
+        } catch (e) {
+            console.error(e);
+            const detail = e instanceof Error ? e.message : '';
+            alert(detail || t('settings.detection.model_manager_delete_error', 'Failed to delete model'));
+        } finally {
+            deleting = null;
+        }
+    }
+
+    let deleteNotice = $state<string | null>(null);
 
     async function handleActivate(modelId: string) {
         if (activating) return;
@@ -784,6 +822,18 @@
                                             <span class="flex min-h-11 items-center justify-center px-4 text-sm font-semibold text-brand-700 dark:text-brand-300">
                                                 {$_('settings.detection.model_manager_currently_active', { default: 'Currently active' })}
                                             </span>
+                                        {/if}
+                                        {#if !active}
+                                            <button
+                                                type="button"
+                                                onclick={() => handleDelete(model)}
+                                                disabled={deleting !== null || wizardBusy}
+                                                class="btn btn-ghost min-h-11 px-4 text-rose-700 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-500/10"
+                                            >
+                                                {deleting === model.id
+                                                    ? $_('settings.detection.model_manager_deleting', { default: 'Deleting…' })
+                                                    : $_('settings.detection.model_manager_delete', { default: 'Delete files' })}
+                                            </button>
                                         {/if}
                                     {:else}
                                         <button type="button" onclick={() => handleInstall(model)} disabled={wizardBusy} class="btn btn-primary min-h-11 px-4">
