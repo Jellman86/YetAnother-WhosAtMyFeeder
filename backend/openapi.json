@@ -7570,6 +7570,29 @@
         "title": "ModelActionResponse",
         "type": "object"
       },
+      "ModelDeleteResponse": {
+        "properties": {
+          "bytes_freed": {
+            "title": "Bytes Freed",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "bytes_freed"
+        ],
+        "title": "ModelDeleteResponse",
+        "type": "object"
+      },
       "ModelFile": {
         "properties": {
           "name": {
@@ -21749,6 +21772,60 @@
           }
         ],
         "summary": "Get Installed Models",
+        "tags": [
+          "models"
+        ]
+      }
+    },
+    "/api/models/{model_id}": {
+      "delete": {
+        "description": "Delete an installed model's files. Owner only.\n\nIrreversible: the model has to be downloaded again to come back. The active\nmodel and a model mid-download are both refused, so this cannot take the\nclassifier out from under itself.\n\nThe path converter is deliberate: region variants are addressed as\n`family/region`, so the id contains a slash.",
+        "operationId": "delete_model_api_models__model_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Delete Model",
         "tags": [
           "models"
         ]

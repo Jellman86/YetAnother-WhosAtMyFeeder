@@ -1,8 +1,14 @@
+import asyncio
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel, Field, JsonValue
 from typing import List, Optional
 from app.config import settings
-from app.services.model_manager import is_retired_model, model_manager, registry_artifact_kind
+from app.services.model_manager import (
+    ModelDeletionError,
+    is_retired_model,
+    model_manager,
+    registry_artifact_kind,
+)
 from app.services.model_validation import activation_provider_recommendation, run_validation_probe
 from app.models.ai_models import ModelMetadata, InstalledModel, DownloadProgress
 from app.services.classifier_service import get_classifier
@@ -14,6 +20,12 @@ router = APIRouter()
 class ModelActionResponse(BaseModel):
     status: str
     message: str
+
+
+class ModelDeleteResponse(BaseModel):
+    status: str
+    message: str
+    bytes_freed: int
 
 
 class ModelValidateDevice(BaseModel):
@@ -186,3 +198,27 @@ async def activate_model(model_id: str, background_tasks: BackgroundTasks, auth:
     background_tasks.add_task(classifier.reload_bird_model)
 
     return {"status": "success", "message": f"Model {model_id} activated"}
+
+
+@router.delete("/models/{model_id:path}", response_model=ModelDeleteResponse)
+async def delete_model(model_id: str, auth: AuthContext = Depends(require_owner)):
+    """Delete an installed model's files. Owner only.
+
+    Irreversible: the model has to be downloaded again to come back. The active
+    model and a model mid-download are both refused, so this cannot take the
+    classifier out from under itself.
+
+    The path converter is deliberate: region variants are addressed as
+    `family/region`, so the id contains a slash.
+    """
+    try:
+        freed = await asyncio.to_thread(model_manager.delete_installed_model, model_id)
+    except ModelDeletionError as error:
+        message = str(error)
+        status_code = 404 if "not installed" in message else 409
+        raise HTTPException(status_code=status_code, detail=message) from error
+    return {
+        "status": "deleted",
+        "message": f"Deleted {model_id}. Download it again to restore it.",
+        "bytes_freed": freed,
+    }

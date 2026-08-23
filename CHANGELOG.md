@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **Installed models can be deleted from Settings > Detection.** Models are the largest thing
+  YA-WAMF writes to `/data`, and there was no way to remove one: the only route was emptying the
+  directory and downloading again whatever was still wanted. On one reference deployment that left
+  3.8 GB of models, including a single 1.2 GB model that was not in use. Each installed model now
+  offers **Delete files**, which reports how much space it reclaimed. The active model cannot be
+  deleted, nor can one that is mid-download, and the confirmation names the model and says it can
+  be downloaded again. Region variants such as `medium_birds/eu` are addressed individually, and an
+  emptied family directory is tidied up behind them.
+
 ### Fixed
 
 - **An expired Frigate event is no longer reported as a warning on every page load.** Frigate

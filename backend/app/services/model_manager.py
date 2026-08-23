@@ -3,6 +3,7 @@ import asyncio
 import hashlib
 import json
 import os
+import contextlib
 import shutil
 import threading
 from pathlib import Path
@@ -727,6 +728,10 @@ async def refresh_maps_after_install() -> None:
         await label_enrichment.refresh_model_maps()
     except Exception as error:
         log.warning("Could not refresh model maps after install", error=str(error))
+
+
+class ModelDeletionError(Exception):
+    """A model could not be deleted, with a reason fit to show the owner."""
 
 
 class ModelManager:
@@ -1654,6 +1659,40 @@ class ModelManager:
         for model_id in to_remove:
             del self.active_downloads[model_id]
 
+    def delete_installed_model(self, model_id: str, *, active_model_id: Optional[str] = None) -> int:
+        """Delete an installed model's files. Returns the bytes reclaimed.
+
+        Irreversible: the model must be downloaded again to come back. The
+        caller is responsible for saying so before calling.
+        """
+        candidate = str(model_id or "").strip().strip("/")
+        if not candidate or candidate in {".", ".."}:
+            raise ModelDeletionError("A model id is required.")
+
+        models_root = os.path.realpath(MODELS_DIR)
+        target = os.path.realpath(os.path.join(models_root, candidate))
+
+        # `os.path.realpath` resolves `..` and symlinks, so this single check
+        # covers traversal and a model directory that points somewhere else.
+        if target == models_root or os.path.commonpath([models_root, target]) != models_root:
+            raise ModelDeletionError("That model id is not inside the models directory.")
+        if os.path.islink(os.path.join(models_root, candidate)):
+            raise ModelDeletionError("That model is a link, so it was not followed.")
+        if not os.path.isdir(target):
+            raise ModelDeletionError(f"{candidate} is not installed.")
+
+        active = active_model_id if active_model_id is not None else self.active_model_id
+        if candidate == str(active or "").strip():
+            raise ModelDeletionError("That model is active. Activate a different model before deleting this one.")
+        if self.get_download_status(candidate) is not None:
+            raise ModelDeletionError("That model is downloading. Wait for it to finish before deleting it.")
+
+        freed = _directory_size_bytes(target)
+        shutil.rmtree(target)
+        _remove_empty_family_dir(os.path.dirname(target), models_root)
+        log.info("Deleted installed model", model_id=candidate, bytes_freed=freed)
+        return freed
+
     def get_download_status(self, model_id: str) -> Optional[DownloadProgress]:
         self._cleanup_downloads()
         status_tuple = self.active_downloads.get(model_id)
@@ -2136,6 +2175,24 @@ class ModelManager:
             str(spec.get("labels_path") or "labels.txt"),
             int(spec.get("input_size") or 224),
         )
+
+
+def _directory_size_bytes(path: str) -> int:
+    total = 0
+    for root, _dirs, files in os.walk(path):
+        for name in files:
+            with contextlib.suppress(OSError):
+                total += os.path.getsize(os.path.join(root, name))
+    return total
+
+
+def _remove_empty_family_dir(parent: str, models_root: str) -> None:
+    """Region variants live at `family/region`; drop the family once it empties."""
+    if os.path.realpath(parent) == models_root:
+        return
+    with contextlib.suppress(OSError):
+        if not os.listdir(parent):
+            os.rmdir(parent)
 
 
 model_manager = ModelManager()
