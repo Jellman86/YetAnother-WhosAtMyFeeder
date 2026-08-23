@@ -17,7 +17,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   catalogue cannot identify groups exactly as it did before. Each source is namespaced, because
   `species_id` and `taxa_id` are integers from different databases with overlapping ranges and
   would otherwise merge unrelated species. Verified against a year of real detections: the same 42
-  groups before and after, with no group split and none merged.
+  groups before and after, with no group split and none merged. The daily rollup keeps writing
+  the key format already on disk, because it persists that key and the table holds aggregate
+  history whose detections no longer exist; migrating it is a separate step.
 
 ### Added
 

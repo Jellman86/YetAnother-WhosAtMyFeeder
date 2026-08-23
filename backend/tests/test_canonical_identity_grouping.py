@@ -205,3 +205,25 @@ async def test_the_leaderboard_returns_the_key_its_metrics_are_looked_up_by(seed
         f"{list(metrics)!r}; trends would silently read as flat"
     )
     assert metrics[rows[0]["unified_key"]]["count_30d"] >= 2
+
+
+def test_the_rollup_keeps_writing_the_key_format_already_on_disk():
+    """`species_daily_rollup` persists its key as half the primary key.
+
+    Writing the namespaced key would leave the table in two formats either side
+    of an upgrade, splitting a species at that boundary. The derived table
+    cannot simply be rebuilt: on a live install 29 rollup rows covering 97
+    detections predate the oldest surviving detection, so it is the only record
+    of them.
+    """
+    legacy = DetectionRepository._legacy_rollup_key_sql()
+    assert "species:" not in legacy
+    assert "taxon:" not in legacy
+    assert "species_id" not in legacy
+
+
+def test_live_grouping_and_the_rollup_key_are_deliberately_different():
+    live = DetectionRepository._canonical_key_sql()
+    legacy = DetectionRepository._legacy_rollup_key_sql()
+    assert live != legacy, "the rollup key is pinned on purpose; see _legacy_rollup_key_sql"
+    assert "species:" in live

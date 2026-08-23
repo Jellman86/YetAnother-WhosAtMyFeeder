@@ -626,6 +626,32 @@ class DetectionRepository:
         )
 
     @staticmethod
+    def _legacy_rollup_key_sql(*, detection_alias: str = "d", taxonomy_alias: str = "tc") -> str:
+        """The grouping rule as it was before catalogue identity, for the rollup only.
+
+        `species_daily_rollup` *persists* this value as half its primary key, so
+        unlike every other use it is not recomputed on read. Writing the new
+        namespaced key would leave the table in two formats either side of an
+        upgrade, and anything grouping on it would split a species at that
+        boundary.
+
+        The obvious remedy, clearing the derived table and rebuilding it, is not
+        available: on the reference deployment 29 rollup rows covering 97
+        detections predate the oldest surviving detection, so the rollup is the
+        only remaining record of them and §1 does not allow discarding it.
+
+        Nothing in production reads this column today; it identifies a row for
+        upsert. Migrating it needs `species_id` on the rollup and a backfill of
+        what is still resolvable, which is its own phase-4 slice and its own
+        migration. Until then the stored format stays exactly as it is.
+        """
+        return (
+            f"COALESCE(CAST(COALESCE({detection_alias}.taxa_id, {taxonomy_alias}.taxa_id) AS TEXT), "
+            f"LOWER(COALESCE({detection_alias}.scientific_name, {taxonomy_alias}.scientific_name)), "
+            f"LOWER({detection_alias}.display_name))"
+        )
+
+    @staticmethod
     def _taxonomy_join_sql(*, detection_alias: str = "d", taxonomy_alias: str = "tc") -> str:
         return (
             f"LEFT JOIN taxonomy_cache {taxonomy_alias} "
@@ -3334,7 +3360,7 @@ class DetectionRepository:
                 FROM enriched
                 GROUP BY rollup_date, canonical_key
             """.format(
-                canonical_key=self._canonical_key_sql(detection_alias="d", taxonomy_alias="tc"),
+                canonical_key=self._legacy_rollup_key_sql(detection_alias="d", taxonomy_alias="tc"),
                 taxonomy_join=self._taxonomy_join_sql(detection_alias="d", taxonomy_alias="tc"),
             )
         else:
