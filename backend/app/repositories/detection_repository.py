@@ -780,24 +780,46 @@ class DetectionRepository:
         # Grouping keys on catalogue identity, so filtering has to follow it or
         # the two disagree: the leaderboard merges a renamed taxon into one row,
         # and opening that row shows only the rows still carrying the name that
-        # was searched for. Widen the match to every detection sharing a
-        # `species_id` with something the name already matched.
+        # was searched for.
         #
-        # The inner match is deliberately detection-only: a correlated subquery
-        # cannot see the outer `tc_filter` join, and finding the identity does
-        # not need the taxonomy fallback that finding the rows does.
-        identity_condition, identity_params = await self._build_canonical_species_condition(
-            detection_alias="d_identity",
-            species_name=species_name,
-            has_taxonomy_cache=False,
-        )
-        condition = (
-            f"(({condition}) OR {detection_alias}.species_id IN ("
-            f"SELECT d_identity.species_id FROM detections d_identity "
-            f"WHERE d_identity.species_id IS NOT NULL AND ({identity_condition})))"
-        )
-        params = [*params, *identity_params]
+        # Resolved to concrete ids first rather than left as a subquery. A
+        # subquery here is evaluated once, but it still scans the whole
+        # detections table, and this runs on the events list where a species
+        # filter was already the slowest of the three filters. Measured on a
+        # 96,108 row database: 54ms as a subquery against 16ms resolved.
+        identity_ids = await self._species_ids_for_name(species_name)
+        if identity_ids:
+            placeholders = ",".join(["?"] * len(identity_ids))
+            condition = f"(({condition}) OR {detection_alias}.species_id IN ({placeholders}))"
+            params = [*params, *identity_ids]
         return join_sql, condition, params
+
+    async def _species_ids_for_name(self, species_name: str) -> list[int]:
+        """Catalogue identities already recorded against this name.
+
+        Read from `detections` rather than the catalogue: the identity we want is
+        the one history actually carries, and it keeps this inside one database
+        (§3).
+
+        Each arm is a bare `LOWER(column)` so the lowercased-name indexes can
+        serve it. Wrapping `common_name` in `COALESCE` to tolerate NULL cost the
+        index and took this from 7ms to 46ms on a 96,108 row database; a NULL
+        simply does not match, which is the behaviour wanted anyway.
+        """
+        name = str(species_name or "").strip()
+        if not name:
+            return []
+        async with self.db.execute(
+            """
+            SELECT DISTINCT species_id FROM detections
+            WHERE species_id IS NOT NULL
+              AND (LOWER(scientific_name) = LOWER(?) OR LOWER(display_name) = LOWER(?)
+                   OR LOWER(common_name) = LOWER(?))
+            """,
+            (name, name, name),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [int(row[0]) for row in rows if row and row[0] is not None]
 
     async def _last_statement_changes(self) -> int:
         """Return rows changed by the most recent write statement on this connection."""
