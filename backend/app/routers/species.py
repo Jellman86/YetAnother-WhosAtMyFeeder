@@ -357,16 +357,16 @@ async def _hydrate_species_search_results(
 
 
 def _species_unified_metrics_key(row: dict) -> str | None:
-    taxa_id = row.get("taxa_id")
-    if taxa_id is not None:
-        return str(taxa_id)
-    scientific_name = row.get("scientific_name")
-    if scientific_name:
-        return str(scientific_name).lower()
-    species = row.get("species")
-    if species:
-        return str(species).lower()
-    return None
+    """The grouping key the repository already computed for this row.
+
+    This used to rebuild the key in Python from `taxa_id`, then scientific name,
+    then display name. That is the same rule the repository applies in SQL, and
+    two copies of one rule drift: when the SQL key gained catalogue identity and
+    a namespace, a Python copy would have matched nothing and every species
+    would have shown a flat trend with no error to notice.
+    """
+    key = row.get("unified_key")
+    return str(key) if key else None
 
 
 def _to_utc_naive(dt: datetime | None) -> datetime | None:

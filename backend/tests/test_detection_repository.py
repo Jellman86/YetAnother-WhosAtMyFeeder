@@ -649,11 +649,13 @@ async def test_unified_species_window_metrics_combines_alias_variants():
             )
 
         metrics = await repo.get_unified_species_window_metrics()
-        assert metrics["1234"]["count_7d"] >= 2
+        # Keys are namespaced by source so a taxa_id cannot collide with a
+        # catalogue species_id of the same number.
+        assert metrics["taxon:1234"]["count_7d"] >= 2
 
 
 @pytest.mark.asyncio
-async def test_unified_species_window_metrics_uses_display_name_when_taxa_and_scientific_missing():
+async def test_unified_species_window_metrics_resolves_through_the_taxonomy_cache():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)
         await _create_taxonomy_tables(db)
@@ -681,8 +683,13 @@ async def test_unified_species_window_metrics_uses_display_name_when_taxa_and_sc
         )
 
         metrics = await repo.get_unified_species_window_metrics()
-        assert "house sparrow" in metrics
-        assert "passer domesticus" not in metrics
+        # The detection carries no taxa_id or scientific name of its own, but the
+        # taxonomy cache resolves its label, so it keys on the cached taxon. That
+        # is the same key the leaderboard groups by, which is what lets the
+        # leaderboard find these trends; keying on the label here instead would
+        # match only when the label and the scientific name happen to be equal.
+        assert "taxon:1111" in metrics
+        assert "label:house sparrow" not in metrics
 
 
 @pytest.mark.asyncio
