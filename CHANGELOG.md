@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Deep Video Analysis names the model again.** The card that reports a video classification
+  sometimes showed no model at all, which reads as though none was involved. Two causes, both real.
+  A snapshot fallback ranked its results through a helper that carries no provenance, so no model
+  was ever recorded: on a live install 11 completed classifications had none, every one from a
+  snapshot source. Separately, a regional model is addressed as `parent/region` and region variants
+  are nested under a parent that owns the id, so an exact lookup found nothing and anyone running a
+  regional model saw no name. Regional models now read as "Small Birds (EU)", and a model the
+  registry no longer publishes reports its id rather than disappearing. Reported in #257.
+
 - **Filtering the events list by a species is faster.** A user reported that the species filter was
   noticeably slower than the date and camera filters, which are effectively instant. Measured on a
   96,108 row copy of a real database it took 26ms, and the plan showed the taxonomy join scanning
