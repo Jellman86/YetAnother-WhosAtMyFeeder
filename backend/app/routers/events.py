@@ -223,19 +223,38 @@ def _get_active_model_id_for_feedback() -> str:
 
 
 def _video_classification_model_name(model_id: str | None) -> str | None:
+    """A display name for the model that produced a classification.
+
+    Falls back to the id itself when the registry does not know it. Returning
+    nothing hid the model entirely on the detection card, which reads as "no
+    model was involved" rather than "this model is no longer published" (§5).
+    """
     normalized = str(model_id or "").strip()
     if not normalized:
         return None
     try:
         from app.services.model_manager import REMOTE_REGISTRY
 
-        model_meta = next((m for m in REMOTE_REGISTRY if m["id"] == normalized), None)
+        registry = list(REMOTE_REGISTRY)
     except Exception:
-        model_meta = None
-    if not model_meta:
-        return None
-    name = str(model_meta.get("name") or "").strip()
-    return name or None
+        return normalized
+
+    model_meta = next((m for m in registry if m.get("id") == normalized), None)
+    if model_meta:
+        return str(model_meta.get("name") or "").strip() or normalized
+
+    # A regional model is addressed as `parent/region`; the variant is nested
+    # under its parent and carries no id of its own, so an exact match misses.
+    if "/" in normalized:
+        parent_id, _, region = normalized.partition("/")
+        parent = next((m for m in registry if m.get("id") == parent_id), None)
+        variant = dict((parent or {}).get("region_variants", {}).get(region) or {})
+        if variant or parent:
+            base = str(variant.get("name") or (parent or {}).get("name") or parent_id).strip()
+            label = region.strip().upper()
+            return f"{base} ({label})" if base and label else base or normalized
+
+    return normalized
 
 
 async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:

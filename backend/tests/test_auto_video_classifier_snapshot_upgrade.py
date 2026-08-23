@@ -381,7 +381,15 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
     }
     service._save_results.assert_awaited_once_with(
         "evt-batch-fallback",
-        {"label": "Robin", "score": 0.88, "index": 1, "input_source": "frigate_snapshot"},
+        # `model_id` is recorded so the detection card can name the model that
+        # produced a snapshot fallback, which it previously could not.
+        {
+            "label": "Robin",
+            "score": 0.88,
+            "index": 1,
+            "input_source": "frigate_snapshot",
+            "model_id": "model.tflite",
+        },
         manual_tagged=False,
     )
 
@@ -469,7 +477,15 @@ async def test_process_event_snapshot_fallback_retries_background_overload_then_
     assert service._classifier.classify_async_background.await_count == 2
     service._save_results.assert_awaited_once_with(
         "evt-batch-fallback-retry",
-        {"label": "Robin", "score": 0.88, "index": 1, "input_source": "frigate_snapshot"},
+        # `model_id` is recorded so the detection card can name the model that
+        # produced a snapshot fallback, which it previously could not.
+        {
+            "label": "Robin",
+            "score": 0.88,
+            "index": 1,
+            "input_source": "frigate_snapshot",
+            "model_id": "model.tflite",
+        },
         manual_tagged=False,
     )
     service._record_success.assert_called_once_with("evt-batch-fallback-retry", source="maintenance")
