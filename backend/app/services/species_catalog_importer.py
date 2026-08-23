@@ -171,6 +171,79 @@ def _map_species(live: sqlite3.Connection, bundle: _Bundle) -> tuple[dict[int, i
     return id_map, added, matched
 
 
+def complete_artifact_mapping(live: sqlite3.Connection, *, artifact_row_id: int, bundle_rows) -> int:
+    """Add output rows the live catalogue lacks, and change none that it has.
+
+    Only called when the bundle's `mapping_set_sha256` matches the registered
+    artifact's, which means the source mapping is identical. A row the live
+    catalogue does not hold is therefore absent rather than different, and
+    adding it claims no identity that the mapping did not already carry.
+
+    The digest is computed over the whole source mapping, including outputs
+    nothing could resolve, while the stored rows were once a filtered subset of
+    it. That is why a live catalogue can hold fewer rows than its own digest
+    describes, and why this exists.
+
+    A row that would *change* is refused. That is a mapping correction, and it
+    needs an explicit supersession policy rather than arriving quietly here.
+    """
+    # Read by position so this does not depend on the caller's row factory.
+    existing = {
+        int(index): (str(kind), species_id, str(label))
+        for index, kind, species_id, label in live.execute(
+            "SELECT output_index, class_kind, species_id, source_label FROM model_output_taxa"
+            " WHERE model_artifact_id = ?",
+            (artifact_row_id,),
+        )
+    }
+
+    added = 0
+    for row in bundle_rows:
+        index = int(row["output_index"])
+        incoming = (str(row["class_kind"]), row["species_id"], str(row["source_label"]))
+        held = existing.get(index)
+        if held is not None:
+            if held != incoming:
+                raise CatalogImportError(
+                    f"Bundle mapping for output {index} differs from the one already recorded"
+                    f" for this artifact; refusing to rewrite it"
+                )
+            continue
+        live.execute(
+            "INSERT INTO model_output_taxa (model_artifact_id, output_index, class_kind, species_id, source_label)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (artifact_row_id, index, row["class_kind"], row["species_id"], row["source_label"]),
+        )
+        added += 1
+    return added
+
+
+def _complete_registered_mappings(live: sqlite3.Connection, bundle: "_Bundle") -> int:
+    """Add absent output rows for every artifact already registered here.
+
+    Only artifacts whose `mapping_set_sha256` matches are touched: a differing
+    digest is a mapping change, which `import_release` refuses outright.
+    """
+    added = 0
+    for artifact in bundle.model_artifacts:
+        row = live.execute(
+            "SELECT id, mapping_set_sha256 FROM model_artifacts WHERE model_sha256 = ?",
+            (artifact["model_sha256"],),
+        ).fetchone()
+        if row is None or row["mapping_set_sha256"] != artifact["mapping_set_sha256"]:
+            continue
+        added += complete_artifact_mapping(
+            live,
+            artifact_row_id=int(row["id"]),
+            bundle_rows=[
+                output
+                for output in bundle.model_outputs
+                if str(output["artifact_sha256"]) == str(artifact["model_sha256"])
+            ],
+        )
+    return added
+
+
 def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> ImportResult:
     bundle = _read_bundle(Path(bundle_path))
     path = Path(catalog_path or default_catalog_path())
@@ -192,8 +265,22 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
                 (bundle.release["content_sha256"],),
             ).fetchone()
             if existing:
-                live.execute("ROLLBACK")
-                log.info("Catalogue release already imported", release_id=existing["id"])
+                # The release is already held, but its artifacts may still be
+                # missing output rows: the stored mapping was once a filtered
+                # subset of the mapping its own digest describes. Completing
+                # that is a repair rather than an import, so it happens here
+                # too, adding only rows that are absent.
+                repaired = _complete_registered_mappings(live, bundle)
+                if repaired:
+                    live.execute("COMMIT")
+                    log.info(
+                        "Completed mappings on an already-imported release",
+                        release_id=existing["id"],
+                        outputs_added=repaired,
+                    )
+                else:
+                    live.execute("ROLLBACK")
+                    log.info("Catalogue release already imported", release_id=existing["id"])
                 return ImportResult(status="already_imported", release_id=existing["id"])
 
             cursor = live.execute(
@@ -278,6 +365,7 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
             outputs_by_artifact: dict[str, list[sqlite3.Row]] = {}
             for output in bundle.model_outputs:
                 outputs_by_artifact.setdefault(output["artifact_sha256"], []).append(output)
+            outputs_added = 0
             for artifact in bundle.model_artifacts:
                 existing_artifact = live.execute(
                     "SELECT id, mapping_set_sha256 FROM model_artifacts WHERE model_sha256 = ?",
@@ -295,6 +383,19 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
                             "Bundle carries a different mapping set for already-registered artifact "
                             f"{artifact['model_sha256']}; refusing the release"
                         )
+                    # Same mapping set, so any row the live catalogue lacks is
+                    # absent rather than different. It can hold fewer rows than
+                    # its own digest describes, because outputs nothing could
+                    # resolve were counted in the digest but not stored.
+                    outputs_added += complete_artifact_mapping(
+                        live,
+                        artifact_row_id=int(existing_artifact["id"]),
+                        bundle_rows=[
+                            output
+                            for output in bundle.model_outputs
+                            if str(output["artifact_sha256"]) == str(artifact["model_sha256"])
+                        ],
+                    )
                     continue
                 cursor = live.execute(
                     "INSERT INTO model_artifacts"
@@ -348,6 +449,7 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
         species_added=added,
         species_matched=matched,
         names_added=names_added,
+        outputs_added=outputs_added,
     )
     return ImportResult(
         status="imported",
