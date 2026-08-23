@@ -866,6 +866,17 @@ async def get_species_list(request: Request):
         unknown_labels = settings.classification.unknown_bird_labels
         filtered_stats = []
 
+        # One batched lookup for the whole page rather than a query per row.
+        # A group is named from its catalogue identity so a merged taxon reads
+        # consistently, instead of taking whichever of its rows sorted last.
+        from app.services.species_names import species_name_lookup
+
+        catalogue_names = await asyncio.to_thread(
+            species_name_lookup.display_names,
+            [s.get("species_id") for s in stats if s.get("species_id") is not None],
+            language=lang,
+        )
+
         for s in stats:
             if s["species"] in unknown_labels or should_hide_species_label(s["species"]):
                 continue
@@ -879,7 +890,14 @@ async def get_species_list(request: Request):
 
             common_name = s.get("common_name")
             taxa_id = s.get("taxa_id")
-            if taxa_id:
+            # An owner rename is the person's own decision and outranks every
+            # source. Below it the catalogue is preferred, because its names are
+            # curated per language and cover locales the providers do not.
+            owner_renamed = bool(str(s.get("manual_common_name") or "").strip())
+            catalogue_name = None if owner_renamed else catalogue_names.get(s.get("species_id"))
+            if catalogue_name:
+                common_name = catalogue_name
+            elif taxa_id:
                 if lang != "en":
                     localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
                     if localized:

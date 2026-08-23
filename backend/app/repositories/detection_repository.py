@@ -3138,7 +3138,9 @@ class DetectionRepository:
                 AVG(d.score) as avg_confidence,
                 MAX(d.score) as max_confidence,
                 MIN(d.score) as min_confidence,
-                COUNT(DISTINCT d.camera_name) as camera_count
+                COUNT(DISTINCT d.camera_name) as camera_count,
+                MAX(d.species_id) as species_id,
+                MAX(tc.manual_common_name) as manual_common_name
             FROM detections d
             {taxonomy_join}
             WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
@@ -3163,6 +3165,12 @@ class DetectionRepository:
                     "max_confidence": row[9] or 0.0,
                     "min_confidence": row[10] or 0.0,
                     "camera_count": row[11] or 0,
+                    # The group's catalogue identity, so a name can be chosen
+                    # for the group rather than taken from one of its rows.
+                    # Every row in a group shares it, so MAX is just "the one".
+                    "species_id": int(row[12]) if row[12] is not None else None,
+                    # An owner rename still wins over any catalogue name.
+                    "manual_common_name": row[13],
                 }
                 for row in rows
             ]

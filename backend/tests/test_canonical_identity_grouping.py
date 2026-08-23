@@ -259,3 +259,24 @@ async def test_a_name_with_no_recorded_identity_adds_no_clause(seeded_repository
         species_name="Unknown Bird",
     )
     assert "species_id IN (" not in condition, "an absent identity must not widen the filter"
+
+
+@pytest.mark.asyncio
+async def test_the_leaderboard_exposes_the_species_identity_for_naming(seeded_repository):
+    """Naming a merged group needs its identity, not one of its labels."""
+    repo, add = seeded_repository
+    await add(display_name="Blue Tit", scientific_name="Parus caeruleus", species_id=4242)
+    await add(display_name="Eurasian Blue Tit", scientific_name="Cyanistes caeruleus", species_id=4242)
+
+    rows = await repo.get_species_leaderboard_base()
+    merged = next(r for r in rows if r["count"] == 2)
+    assert merged["species_id"] == 4242
+
+
+@pytest.mark.asyncio
+async def test_a_group_without_identity_reports_none_rather_than_guessing(seeded_repository):
+    repo, add = seeded_repository
+    await add(display_name="Unknown Bird")
+
+    rows = await repo.get_species_leaderboard_base()
+    assert rows[0]["species_id"] is None
