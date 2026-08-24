@@ -22,94 +22,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   catalogue already holds is never overwritten, and these labels are never served back as
   catalogue-verified — they came from the label file this work exists to stop trusting.
 
-### Changed
-
-- **A model's labels are read from the catalogue rather than its label file.** `labels.txt` is
-  verified when a model is downloaded and never again, so every inference since has trusted
-  whatever is on disk. The catalogue holds a row per output index carrying the same label,
-  compiled from a file that was proven at install time, so that is where the labels now come from.
-  It is used only when the catalogue holds a complete, contiguous set matching the model's declared
-  output width: a short mapping would truncate a model's classes and a gap would shift every label
-  after it onto the wrong class, so both are refused and the file is read instead. A model the
-  catalogue does not know, or a catalogue that is absent or unreadable, behaves exactly as before.
-  Verified against a live install: the catalogue reproduces all ten installed label files byte for
-  byte, 34,746 labels in total.
-
-### Fixed
-
-- **Filtering the events list by species is no longer dominated by a taxonomy join.** A user
-  reported the species filter being noticeably slower than the date and camera filters. The join
-  onto `taxonomy_cache` was the cause: its conditions are ORs across different columns wrapped in
-  `LOWER(...)`, a shape no index can serve, so the whole cache was scanned once per detection row
-  and the join forced a `DISTINCT` over every selected column on top. The join only ever resolved a
-  detection whose own scientific name is absent, through its display name, and the alias resolver
-  already produces those names. Measured on a 96,118 row database across five species, total time
-  falls from 541ms to 310ms and the worst case from 247ms to 63ms; two already-fast lookups get
-  slower by roughly 15ms, because resolving the identity up front costs more than the join saved
-  where the join was cheap. The join is kept for a `taxa_id` filter, which still reads the cached
-  taxon id for a detection that has none of its own. Result sets are unchanged, checked across all
-  85 names the data holds.
-
-
-- **An existing install now gets the model output rows it was missing.** An artifact's mapping
-  digest is computed over the whole source mapping, including outputs nothing could resolve, while
-  the rows actually stored were a filtered subset of it. A live catalogue could therefore hold
-  9,293 rows for a 10,000-output model under a digest asserting the mapping was complete, and the
-  importer skipped the artifact because the digests matched. Recording every output reached fresh
-  installs only. A matching digest means the source mapping is identical, so a row the catalogue
-  lacks is absent rather than different: those rows are now added, including when the release
-  itself is already held, because completing a mapping is a repair rather than an import. A row
-  that would *change* is still refused, since that is a correction and needs its own supersession
-  policy. On a live catalogue this added 2,434 rows across ten artifacts, left every existing row
-  untouched, and left coverage reporting unchanged.
-
-### Changed
-
-- **Every model output is now recorded, including the ones nothing could identify.** An output whose
-  species could not be resolved was skipped entirely, so for 707 of a 10,000-class model's outputs
-  the catalogue held nothing at all, not even the label the model uses. That is what kept
-  `labels.txt` load-bearing at runtime. Those rows now exist, carrying the label and an explicit
-  `unknown` class. Coverage counts identified outputs rather than rows, so a model is not called
-  complete merely because every index has a row: the reported figures are unchanged, except that
-  two models drop by one apiece where an output explicitly declared `unknown` had been counted as
-  mapped. An unknown output also reads as an unresolved gap rather than a non-species class, since
-  "we cannot identify this" and "this is not a species" are different claims.
-
-### Fixed
-
-- **A bird that has been renamed no longer counts twice.** The catalogue takes bird names from the
-  IOC World Bird List, whose multilingual export carries one curated name per species per language
-  and no taxonomic history, so nothing recorded that a species had been called something else. On a
-  live install that showed as the Eurasian Jackdaw appearing twice in the audio list: BirdNET-Go
-  reports `Corvus monedula`, IOC 14.2 calls that bird `Coloeus monedula` after the jackdaw genus
-  split, and with no synonym recorded they were two birds. The catalogue now carries 7,256 bird
-  synonyms taken from the same pinned Catalogue of Life release that already supplies non-bird
-  taxonomy, verified against its recorded checksum. IOC keeps ownership of names; Catalogue of Life
-  supplies only the crosswalk. No API key and no network at runtime.
-
-- **A newer shipped catalogue now reaches an install that already has one.** The catalogue is only
-  copied from the shipped seed on a genuinely fresh install, because a live one may hold owner
-  renames and imported releases. That meant a newer catalogue never arrived anywhere else, and the
-  release importer built for exactly that was never called. The shipped seed is now offered as a
-  release at startup: idempotent, transactional, verified against its own digest and foreign keys,
-  never fatal, and reported. Measured against a copy of a live catalogue, it matched all 19,141
-  existing species without adding one, and left owner overrides untouched.
-
-### Changed
-
-- **The daily rollup is keyed on catalogue identity like everything else.** It was the one place
-  the grouping key is stored rather than recomputed, and it forms half the primary key, so it had
-  been pinned to the old format to avoid a table holding two formats either side of an upgrade.
-  Rebuilding it was never an option: on a real install 29 rollup rows covering 97 detections
-  predate the oldest surviving detection, so the rollup is the only record of them. The keys are
-  now rewritten in place, with identity resolved from detection history rather than the catalogue
-  so the migration stays inside one database, and only where history is unanimous: a row matching
-  more than one identity keeps a text key rather than being assigned a guess. Verified against
-  that install, 193 rows and 843 detections before and after, 150 rows gaining an identity, and
-  the 29 irreplaceable rows untouched.
-
-### Added
-
 - **Audio detections carry catalogue identity.** Audio correlation was the last read path keyed on
   name text, so a bird heard and a bird seen were joined by a string. BirdNET-Go reports a
   scientific name and a scientific name moves. Audio detections now record a `species_id` at
@@ -120,57 +32,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   split a species at the upgrade boundary. On a live install this identified 55,998 of 56,026
   audio detections across 84 species, and the counts are unchanged today.
 
-### Changed
-
-- **Species are named from the catalogue rather than from whichever detection sorted last.**
-  Grouping already keyed on catalogue identity, but the name shown for a group was still taken
-  from one of its rows, so a taxon recorded under two names was counted once and then labelled
-  arbitrarily. One precedence rule now decides, at read time and in one place: an owner's own
-  rename first, then the catalogue's curated name for the reader's language, then English, then
-  the scientific name, and only then whatever the detection already carried. Nothing is written
-  back into a detection's identity, because a name in a language is a rendering and not a fact
-  about the bird. On a real install this changed 3 of 42 species, each toward the IOC spelling:
-  "Eurasian Blackbird" to "Common Blackbird", "Common Wood-Pigeon" to "Common Wood Pigeon", and
-  "Gray-headed" to "Grey-headed". It also brings the Italian and Chinese names that the previous
-  sources largely did not carry.
-
-### Fixed
-
-- **Deep Video Analysis names the model again.** The card that reports a video classification
-  sometimes showed no model at all, which reads as though none was involved. Two causes, both real.
-  A snapshot fallback ranked its results through a helper that carries no provenance, so no model
-  was ever recorded: on a live install 11 completed classifications had none, every one from a
-  snapshot source. Separately, a regional model is addressed as `parent/region` and region variants
-  are nested under a parent that owns the id, so an exact lookup found nothing and anyone running a
-  regional model saw no name. Regional models now read as "Small Birds (EU)", and a model the
-  registry no longer publishes reports its id rather than disappearing. Reported in #257.
-
-- **Filtering the events list by a species is faster.** A user reported that the species filter was
-  noticeably slower than the date and camera filters, which are effectively instant. Measured on a
-  96,108 row copy of a real database it took 26ms, and the plan showed the taxonomy join scanning
-  once per detection row because a predicate wrapped in `LOWER()` cannot use an ordinary index.
-  Indexes matching those expressions are now in place. The catalogue identity introduced with
-  species grouping is also resolved to concrete ids before the query is built rather than left as a
-  subquery over the whole table, which had taken the same filter to 41ms; it is now 29ms end to
-  end. The remaining cost is the taxonomy join itself and is not addressed here.
-
-### Changed
-
-- **Species are counted by catalogue identity rather than by name text.** Phase 4 of the versioned
-  species catalogue begins. A scientific name is not stable: when a taxon is split, lumped or
-  synonymised, `Parus caeruleus` and `Cyanistes caeruleus` become two different birds to anything
-  keying on the text, so a leaderboard divides and a species page shows half its sightings with
-  nothing to warn anyone. Grouping now prefers the catalogue's opaque `species_id`, which does not
-  move when a name does, and keeps the existing taxon and name keys underneath so a detection the
-  catalogue cannot identify groups exactly as it did before. Each source is namespaced, because
-  `species_id` and `taxa_id` are integers from different databases with overlapping ranges and
-  would otherwise merge unrelated species. Verified against a year of real detections: the same 42
-  groups before and after, with no group split and none merged. The daily rollup keeps writing
-  the key format already on disk, because it persists that key and the table holds aggregate
-  history whose detections no longer exist; migrating it is a separate step.
-
-### Added
-
 - **Installed models can be deleted from Settings > Detection.** Models are the largest thing
   YA-WAMF writes to `/data`, and there was no way to remove one: the only route was emptying the
   directory and downloading again whatever was still wanted. On one reference deployment that left
@@ -180,49 +41,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   be downloaded again. Region variants such as `medium_birds/eu` are addressed individually, and an
   emptied family directory is tidied up behind them.
 
-### Fixed
-
-- **An expired Frigate event is no longer reported as a warning on every page load.** Frigate
-  retires events long before YA-WAMF retires detections, so an older detection's upstream event is
-  gone for good. The events list checks media availability for every row it renders, and logged a
-  warning each time it found one missing: 958 log lines in 22 hours from 29 events on a reference
-  deployment, for a condition that is expected, permanent and needs nobody. Real warnings were
-  buried underneath. The condition is now stated once per event per window, at info, in words that
-  say what it means for the detection. Frigate is still asked every time, so a restored event or a
-  transient failure during a Frigate restart is never answered from stale memory.
-
-### Changed
-
-- **NumPy 2 is now supported, and the numeric contract behind it is tested.** The dependency cap
-  moved from `numpy<2.0.0` to `numpy<3.0.0`, which takes the container from NumPy 1.26 to 2.x. A
-  major NumPy bump can break two things quietly: the binary interface every compiled extension
-  links against, and NEP 50 value-based casting, which decides whether `float32` arithmetic stays
-  `float32`. Neither was covered, because the test suite mocks every inference runtime. Both are
-  now covered by a contract test that runs the classifier's real probability normalisation,
-  softmax, preprocessing branches and quantisation path, and exercises OpenCV across the array
-  boundary. Verified byte-identical between 1.26.4 and 2.5.2 before the cap was raised.
-
-### Added
-
 - **The clock format is now yours to choose.** Settings > Appearance gains a time format control
   alongside the existing date format: follow the browser, 12 hour, or 24 hour. Pinning the date
   format previously left the clock to the browser's locale, so choosing `DD/MM/YYYY` on a US
   locale produced `22/08/2026 1:45:00 PM`, a European date beside an American clock in the same
   string. The date format description no longer claims to cover times, because it never did.
   Also available as `DISPLAY__TIME_FORMAT`. Requested in #247.
-
-### Fixed
-
-- **Success and "needs your attention" are no longer the same colour.** The shipped Blue Tit theme
-  paints the secondary accent amber, and success states were built on that accent, so a passed
-  check and a warning rendered identically. In the shared diagnostic dialog the two sat in the
-  same expression: a `passed` step and a `warning` step both came out amber, which removed the
-  distinction the dialog exists to draw. Confirmed, passed, healthy, connected and verified states
-  now use a dedicated semantic green that no theme can repaint, while amber goes back to meaning
-  only "this needs a person". Affects the Frigate, MQTT, notification and model test flows, the
-  first-run wizard, integration status, and success badges throughout. Reported in #243.
-
-### Added
 
 - **Every identity-writing pipeline now speaks the same canonical language.** Video refinements
   shadow-resolve their winning output through the catalogue before replacing a primary
@@ -390,60 +214,73 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   hover or keyboard focus, degrading to a placeholder once Frigate has rotated it away. Subsystem
   cards keep all of their detail behind a disclosure below.
 
-### Fixed
-
-- **A plumage label can no longer be recorded as a scientific name.** The label grammar is now
-  declared per model artifact in the registry instead of inferred from each line's shape. The
-  NABirds label files carry entries like `Lesser Goldfinch (Female/juvenile)`, which wear the same
-  `Scientific (Common)` shape as the Coral labels, so the automatic taxon map recorded common names
-  as scientific names for the North American regional models. Those labels now resolve through the
-  bundled reference instead, and crop-detector class lists (where COCO's `kite` could have met the
-  same fate) are excluded from species mapping and name enrichment entirely.
-
-- **Portuguese installations were getting English bird names from eBird.** eBird publishes its
-  locale codes with underscores and has no plain `pt`, so the regional fallback could never match
-  and every Portuguese lookup quietly resolved to English. Chinese resolved to a variant carrying a
-  quarter of the translated names of the one it should have used. Both now resolve correctly, and
-  an explicit regional choice such as `zh_HK` is still honoured.
-
-- **Guest sessions no longer poll owner-only endpoints into a wall of 403s.** A public visit
-  repeated requests for `/api/settings` and camera status that the backend always refuses, filling
-  the browser console and the server log with expected failures. Settings refresh and both camera
-  status readers now wait for owner access, and the About pipeline tells guests a reading is
-  `owner only` instead of showing an `unknown` that reads as a fault in a healthy install. The
-  notifications step gets the same honesty: a guest sees `owner only` rather than a guessed `off`.
-
-- **Leaderboard trends no longer shout percentages against a baseline of one.** A species moving
-  from 1 visit to 93 rendered `+92 (9200.0%)`. The percentage now only appears when the previous
-  window is big enough to compare against and the ratio stays in a readable range; the count
-  keeps carrying the trend on its own everywhere else. Average confidence in the rankings joins
-  every other confidence in the app as a percentage, and the sunrise and sunset windows next to
-  the weather overlays now say which is which.
-
-- **Field log rows keep the species name whole at desktop widths.** A visit with several frames
-  was truncating names as short as "House Sparrow" while free space sat elsewhere in the row. The
-  thumbnail stack now shows two frames and counts the rest; the name is the primary reading of
-  the row. On the leaderboard hero, the kicker line carries its own scrim so it stays legible
-  when a bright collage slice sits behind it on short mobile cards.
-
-- **The About page now lists every browser-side call the sighting map makes.** The eBird map
-  fetches OpenStreetMap tiles from each viewer's browser, which belongs in the "What leaves your
-  network" panel next to the eBird lookup itself; both rows appear when eBird sightings are
-  enabled, and the panel keeps its promise that nothing unlisted leaves the network.
-
-- **The Health page no longer calls normal filtering a degraded pipeline.** Any dropped event at
-  all, including a detection correctly rejected by the confidence threshold or a blocklist, flipped
-  the Event Pipeline card to `DEGRADED` while the backend reported the pipeline healthy on the same
-  screen. Drops are now classified where they are recorded: expected, configuration-driven filtering
-  stays out of the health verdict, and only a drop caused by a fault degrades the card. Filtering
-  gets its own **Filtered Detections** card showing how much each rule rejected and the species and
-  confidence of the most recent ones, so the number stays visible without being dressed up as a
-  failure.
-- **Recent Backend Diagnostics now shows what it says it shows.** The list is headed "warnings and
-  errors" but was also carrying every expected filter drop at `info` severity, so eight low-confidence
-  rejections could push a real failure out of view.
-
 ### Changed
+
+- **A model's labels are read from the catalogue rather than its label file.** `labels.txt` is
+  verified when a model is downloaded and never again, so every inference since has trusted
+  whatever is on disk. The catalogue holds a row per output index carrying the same label,
+  compiled from a file that was proven at install time, so that is where the labels now come from.
+  It is used only when the catalogue holds a complete, contiguous set matching the model's declared
+  output width: a short mapping would truncate a model's classes and a gap would shift every label
+  after it onto the wrong class, so both are refused and the file is read instead. A model the
+  catalogue does not know, or a catalogue that is absent or unreadable, behaves exactly as before.
+  Verified against a live install: the catalogue reproduces all ten installed label files byte for
+  byte, 34,746 labels in total.
+
+- **Every model output is now recorded, including the ones nothing could identify.** An output whose
+  species could not be resolved was skipped entirely, so for 707 of a 10,000-class model's outputs
+  the catalogue held nothing at all, not even the label the model uses. That is what kept
+  `labels.txt` load-bearing at runtime. Those rows now exist, carrying the label and an explicit
+  `unknown` class. Coverage counts identified outputs rather than rows, so a model is not called
+  complete merely because every index has a row: the reported figures are unchanged, except that
+  two models drop by one apiece where an output explicitly declared `unknown` had been counted as
+  mapped. An unknown output also reads as an unresolved gap rather than a non-species class, since
+  "we cannot identify this" and "this is not a species" are different claims.
+
+- **The daily rollup is keyed on catalogue identity like everything else.** It was the one place
+  the grouping key is stored rather than recomputed, and it forms half the primary key, so it had
+  been pinned to the old format to avoid a table holding two formats either side of an upgrade.
+  Rebuilding it was never an option: on a real install 29 rollup rows covering 97 detections
+  predate the oldest surviving detection, so the rollup is the only record of them. The keys are
+  now rewritten in place, with identity resolved from detection history rather than the catalogue
+  so the migration stays inside one database, and only where history is unanimous: a row matching
+  more than one identity keeps a text key rather than being assigned a guess. Verified against
+  that install, 193 rows and 843 detections before and after, 150 rows gaining an identity, and
+  the 29 irreplaceable rows untouched.
+
+- **Species are named from the catalogue rather than from whichever detection sorted last.**
+  Grouping already keyed on catalogue identity, but the name shown for a group was still taken
+  from one of its rows, so a taxon recorded under two names was counted once and then labelled
+  arbitrarily. One precedence rule now decides, at read time and in one place: an owner's own
+  rename first, then the catalogue's curated name for the reader's language, then English, then
+  the scientific name, and only then whatever the detection already carried. Nothing is written
+  back into a detection's identity, because a name in a language is a rendering and not a fact
+  about the bird. On a real install this changed 3 of 42 species, each toward the IOC spelling:
+  "Eurasian Blackbird" to "Common Blackbird", "Common Wood-Pigeon" to "Common Wood Pigeon", and
+  "Gray-headed" to "Grey-headed". It also brings the Italian and Chinese names that the previous
+  sources largely did not carry.
+
+- **Species are counted by catalogue identity rather than by name text.** Phase 4 of the versioned
+  species catalogue begins. A scientific name is not stable: when a taxon is split, lumped or
+  synonymised, `Parus caeruleus` and `Cyanistes caeruleus` become two different birds to anything
+  keying on the text, so a leaderboard divides and a species page shows half its sightings with
+  nothing to warn anyone. Grouping now prefers the catalogue's opaque `species_id`, which does not
+  move when a name does, and keeps the existing taxon and name keys underneath so a detection the
+  catalogue cannot identify groups exactly as it did before. Each source is namespaced, because
+  `species_id` and `taxa_id` are integers from different databases with overlapping ranges and
+  would otherwise merge unrelated species. Verified against a year of real detections: the same 42
+  groups before and after, with no group split and none merged. The daily rollup keeps writing
+  the key format already on disk, because it persists that key and the table holds aggregate
+  history whose detections no longer exist; migrating it is a separate step.
+
+- **NumPy 2 is now supported, and the numeric contract behind it is tested.** The dependency cap
+  moved from `numpy<2.0.0` to `numpy<3.0.0`, which takes the container from NumPy 1.26 to 2.x. A
+  major NumPy bump can break two things quietly: the binary interface every compiled extension
+  links against, and NEP 50 value-based casting, which decides whether `float32` arithmetic stays
+  `float32`. Neither was covered, because the test suite mocks every inference runtime. Both are
+  now covered by a contract test that runs the classifier's real probability normalisation,
+  softmax, preprocessing branches and quantisation path, and exercises OpenCV across the array
+  boundary. Verified byte-identical between 1.26.4 and 2.5.2 before the cap was raised.
 
 - **eBird distances now follow your chosen unit system.** The notable-nearby scope, the species and
   detection sighting panels, and the eBird radius field render kilometres for Metric and miles for
@@ -453,15 +290,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   since it no longer covers weather alone, and a public dashboard reports the radius the owner
   actually configured instead of assuming 25 km
   ([#207](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/207)).
+
 - **Alternative frame previews now use their retained full-resolution images.** The compact 240px
   JPEGs remain limited to the filmstrip, while selecting a frame or comparing its full-frame peer
   loads the authenticated full-size candidate instead of stretching a thumbnail across the modal.
+
 - **Finished jobs now remain newest-first before and after a browser refresh.** Active work keeps
   its queue-admission position while progress arrives, but a completion or failure is placed once
   at its terminal time instead of temporarily inheriting the older job-start time.
+
 - **The Explorer species facet now includes every recorded species.** The desktop list uses the
   remaining viewport height and scrolls only when the complete set is taller than that space;
   smaller filter panels stay bounded and searchable ([#197](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/197)).
+
 - **Manual identifications no longer show stale automatic-analysis warnings.** The earlier video
   evidence remains stored for diagnostics, but once an owner identifies the species the detection
   view stops presenting an inconclusive model run as if it still describes the current result.
@@ -476,42 +317,53 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **Desktop snapshot choices remain selectable at the edge of the filmstrip.** The overflow fade
   is now a separate pointer-transparent layer instead of a mask on the interactive scroller. The
   selected frame uses a subtle lift, scale and shadow rather than a persistent blue outline.
+
 - **Detection media controls no longer cover the bird name or snapshot choices on phones.** The
   title, favourite, playback and full-visit actions, and snapshot rail now form one ordered footer
   that wraps upward as a unit. Full-visit readiness is part of the play action instead of looking
   like a second play button, while the crop/full-frame comparison remains isolated at the top.
+
 - **Detection frame choice now happens in the photograph itself.** The old full-screen crop/frame
   picker is gone. Owners can preview only genuinely retained Frigate frames from the filmstrip,
   compare them against the saved crop or full frame, then explicitly save or cancel. The strip keeps
   its edge fade, 44px controls and unsaved-state label on phones, while media actions share one
   predictable lane instead of overlapping the close control or one another.
+
 - **Notifications and finished-job history no longer grow into an endless page.** Both views show
   20 rows at a time with 10, 20 and 50-row choices, bounded previous/next navigation on phones and
   full page controls on wider screens. Active work remains unpaginated, filters return to page one,
   and a page is clamped automatically when live history shrinks. The Job manager route now opens the
   manager rather than silently rendering the notification timeline again.
+
 - **The detection view says what it identified above the name, not above the photograph.** The
   label sat over a row that opens with a circular reference photo, so it read as a caption for the
   picture rather than for the record. The person glyph beside it is gone: it only restated the words.
+
 - **The crop and full-frame switch no longer collides with the favourite action on phones.** The
   view switch keeps its recovery path for tightly cropped detections, while a dedicated action lane
   gives both controls full-size touch targets without overlap.
+
 - **The options strip no longer shows a native scrollbar** across the image gradient. The bar is
   hidden and a generous trailing-edge fade makes additional frames clear, but only while the strip
   actually overflows, so a strip that fits is not clipped for decoration.
+
 - **The video notice stops nesting a card inside a card.** The notice is already tinted and
   bordered; its technical details added another border and background inside that, and the evidence
   list drew its own rules inside that again. One hairline separates them now.
+
 - **The species reference and nearby sightings are part of the record**, not folded behind a
   disclosure that had to be opened every time.
+
 - **The detection id opens as a little terminal.** The disclosure you click is the window chrome
   itself, and the id is printed as command output with a blinking caret. The window furniture
   follows the viewer's own platform, inside and out: traffic lights over a dark shell on macOS, a
   bevelled Windows 95 title bar over a black DOS box on Windows, and a GNOME close button over
   Ubuntu's aubergine with its green bash prompt on Linux. The caret stops under
   `prefers-reduced-motion`.
+
 - **The species info button has padding.** It carried no padding class at all, so for a guest, whose
   sibling actions are hidden, it collapsed to the height of its own text.
+
 - **The Explorer loses two sets of horizontal rules.** The timeline was wrapped in a line above and
   below, putting one directly above the first row of detections, and the pagination was wrapped the
   same way. Against a grid of cards that already carry strong edges, those read as lines drawn across
@@ -522,40 +374,51 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   short and landscape layouts, and exposes proper dialog and field semantics. Phone notifications
   now use a safe-area-aware lane beneath the detection close control, which remains anchored while
   detection content scrolls or the device rotates. Desktop notification placement stays unchanged.
+
 - **The notification view is owner only.** Every job, error and process event was already hidden
   from guests, so a guest was left with a page that could never hold anything.
+
 - **Pages no longer sit narrower than the header above them.** The page header renders only for
   signed-in owners, at the shell width, while About and the notification view constrained themselves
   to a narrower column. For an owner that read as a broken second header with mismatched edges. Both
   now take the shell width, and About drops the eyebrow that repeated the header's own title.
+
 - **Notifications lead with the capture, like the field log.** A detection whose event is known
   shows its photograph rather than an abstract badge, in a fixed box with a placeholder underneath so
   a missing image cannot shift the row. Every other kind gets an icon for what it is: a warning for a
   failure, a clock for a job in flight, a tick for one that finished, a download for an update, a
   bird for a detection with no capture, a bell for anything else.
+
 - **The timeline rail is drawn correctly.** Its marker was offset against the list border by hand,
   which left the dot 1.5px off the line and hanging outside the box; and because the rail column was
   a grid item, its box stopped at the row padding and the line broke between every entry. Rail and
   marker now share one centred column, the line runs unbroken, and it starts and stops at the outer
   dots instead of dangling past them.
+
 - **The page is the width of a reading surface**, matching About, rather than stretching short rows
   across the full shell.
+
 - **The notification view is one timeline instead of two tabs.** A job that failed is the most
   urgent thing this app can say, and it was filed under a different tab from notifications, one click
   from the place people look. Jobs, errors, birds and updates now share a single chronological river
   grouped into Now, Earlier today, Yesterday and Older, filtered by chips that state their size
   before they are applied. The job manager stays reachable for the controls a timeline cannot carry.
+
 - **The timeline reads real job status.** Active and recent jobs from both local progress and the
   authoritative server snapshot are merged with matching notifications, so failed jobs actually
   appear under Errors without duplicate progress rows. Calendar grouping also follows local-day
   boundaries across daylight-saving changes.
+
 - **Amber went back to meaning one thing.** Progress bars ran a gradient from the attention colour
   through brand into sky, spending the one colour reserved for "this needs a person" on the thing you
   can safely ignore. A job in flight is brand blue; only a failure is amber.
+
 - **Opening a notification is a real control.** It was a paragraph styled to look like an action,
   which could not be focused or clicked.
+
 - **Owner-only filters are hidden rather than shown returning zero**, and a filter left selected as
   access changes falls back instead of stranding a guest on an empty list.
+
 - **The empty page says what will fill it** and offers the field log, rather than reporting that it
   holds nothing across an otherwise blank screen.
 
@@ -595,34 +458,43 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   Broad claims were narrowed to the species, measurement or observation the research supports,
   including chickadee cache recovery after 28 days and the British record of 61 wrens roosting
   together.
+
 - **Corrected several bird myths and overstatements.** Woodpecker skulls work as stiff hammers, not
   shock absorbers; geese have serrated bills rather than teeth; penguins use pebbles as nest
   material rather than marriage proposals; and flocking starlings respond to around seven nearby
   neighbours rather than tracking exactly seven birds.
+
 - **The footer signature drops the sentiment.** "Built with AI assistance for the love of bird
   watching" becomes "Built with AI assistance, and a lot of trial and error", and the string moves
   from `about.built_with_ai` to `footer.built_with_ai`, which is where it is actually used.
+
 - **The footer ticker is stable and safe on narrow screens.** Its mobile layout reserves enough
   room for the bundled translations, skips missing or single-item fact lists safely, clears both
   timers on teardown, and changes facts without fading when reduced motion is requested.
+
 - **The About page speaks in the first person again.** The project description had been written
   as third-party marketing copy about the author ("YA-WAMF is a personal project started to
   experiment with AI-assisted coding"), which is the README's own sentence with the "I" removed,
   and it read like a brochure. It now matches the README's voice. "How It Works" loses its title
   case, the credits line about AI assistants matches the grammar of the lines around it, and the
   Flaticon credit is no longer punctuated with a stray hyphen.
+
 - **The pipeline shows which way the data moves.** A soft pulse sweeps each step in turn, in the
   order a detection actually travels, with the border blooming as it passes. One sweep per nine
   seconds and then a rest, so the page is still while you read it. Off entirely under
   `prefers-reduced-motion`.
+
 - **Steps that were never probed say so.** MQTT and the database had no status chip at all while
   every neighbour had one, which left the row looking ragged and the gap looking like a fault.
   Both now read "not checked", which is the honest label for a step with no health endpoint.
+
 - **The availability strip now explains its state.** It keeps a stable footprint while its request
   loads or cannot be read, and distinguishes those states from a successful window with no measured
   history. It also labels which end is now and shows the availability percentage returned by the API.
+
 - **A step that cannot be read no longer says "unknown" twice**, once in the chip and again in the
   detail line directly beneath it. The detail line now says there is no reading from here.
+
 - **The external link arrows in Reference and thanks** were a bare "↗" character sized by the
   display font, which rendered them far larger than their labels. They are a properly sized icon now.
 
@@ -754,6 +626,137 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   quiet. About states whether the build is up to date, using the update check that already exists.
 
 ### Fixed
+
+- **Filtering the events list by species is no longer dominated by a taxonomy join.** A user
+  reported the species filter being noticeably slower than the date and camera filters. The join
+  onto `taxonomy_cache` was the cause: its conditions are ORs across different columns wrapped in
+  `LOWER(...)`, a shape no index can serve, so the whole cache was scanned once per detection row
+  and the join forced a `DISTINCT` over every selected column on top. The join only ever resolved a
+  detection whose own scientific name is absent, through its display name, and the alias resolver
+  already produces those names. Measured on a 96,118 row database across five species, total time
+  falls from 541ms to 310ms and the worst case from 247ms to 63ms; two already-fast lookups get
+  slower by roughly 15ms, because resolving the identity up front costs more than the join saved
+  where the join was cheap. The join is kept for a `taxa_id` filter, which still reads the cached
+  taxon id for a detection that has none of its own. Result sets are unchanged, checked across all
+  85 names the data holds.
+
+- **An existing install now gets the model output rows it was missing.** An artifact's mapping
+  digest is computed over the whole source mapping, including outputs nothing could resolve, while
+  the rows actually stored were a filtered subset of it. A live catalogue could therefore hold
+  9,293 rows for a 10,000-output model under a digest asserting the mapping was complete, and the
+  importer skipped the artifact because the digests matched. Recording every output reached fresh
+  installs only. A matching digest means the source mapping is identical, so a row the catalogue
+  lacks is absent rather than different: those rows are now added, including when the release
+  itself is already held, because completing a mapping is a repair rather than an import. A row
+  that would *change* is still refused, since that is a correction and needs its own supersession
+  policy. On a live catalogue this added 2,434 rows across ten artifacts, left every existing row
+  untouched, and left coverage reporting unchanged.
+
+- **A bird that has been renamed no longer counts twice.** The catalogue takes bird names from the
+  IOC World Bird List, whose multilingual export carries one curated name per species per language
+  and no taxonomic history, so nothing recorded that a species had been called something else. On a
+  live install that showed as the Eurasian Jackdaw appearing twice in the audio list: BirdNET-Go
+  reports `Corvus monedula`, IOC 14.2 calls that bird `Coloeus monedula` after the jackdaw genus
+  split, and with no synonym recorded they were two birds. The catalogue now carries 7,256 bird
+  synonyms taken from the same pinned Catalogue of Life release that already supplies non-bird
+  taxonomy, verified against its recorded checksum. IOC keeps ownership of names; Catalogue of Life
+  supplies only the crosswalk. No API key and no network at runtime.
+
+- **A newer shipped catalogue now reaches an install that already has one.** The catalogue is only
+  copied from the shipped seed on a genuinely fresh install, because a live one may hold owner
+  renames and imported releases. That meant a newer catalogue never arrived anywhere else, and the
+  release importer built for exactly that was never called. The shipped seed is now offered as a
+  release at startup: idempotent, transactional, verified against its own digest and foreign keys,
+  never fatal, and reported. Measured against a copy of a live catalogue, it matched all 19,141
+  existing species without adding one, and left owner overrides untouched.
+
+- **Deep Video Analysis names the model again.** The card that reports a video classification
+  sometimes showed no model at all, which reads as though none was involved. Two causes, both real.
+  A snapshot fallback ranked its results through a helper that carries no provenance, so no model
+  was ever recorded: on a live install 11 completed classifications had none, every one from a
+  snapshot source. Separately, a regional model is addressed as `parent/region` and region variants
+  are nested under a parent that owns the id, so an exact lookup found nothing and anyone running a
+  regional model saw no name. Regional models now read as "Small Birds (EU)", and a model the
+  registry no longer publishes reports its id rather than disappearing. Reported in #257.
+
+- **Filtering the events list by a species is faster.** A user reported that the species filter was
+  noticeably slower than the date and camera filters, which are effectively instant. Measured on a
+  96,108 row copy of a real database it took 26ms, and the plan showed the taxonomy join scanning
+  once per detection row because a predicate wrapped in `LOWER()` cannot use an ordinary index.
+  Indexes matching those expressions are now in place. The catalogue identity introduced with
+  species grouping is also resolved to concrete ids before the query is built rather than left as a
+  subquery over the whole table, which had taken the same filter to 41ms; it is now 29ms end to
+  end. The remaining cost is the taxonomy join itself and is not addressed here.
+
+- **An expired Frigate event is no longer reported as a warning on every page load.** Frigate
+  retires events long before YA-WAMF retires detections, so an older detection's upstream event is
+  gone for good. The events list checks media availability for every row it renders, and logged a
+  warning each time it found one missing: 958 log lines in 22 hours from 29 events on a reference
+  deployment, for a condition that is expected, permanent and needs nobody. Real warnings were
+  buried underneath. The condition is now stated once per event per window, at info, in words that
+  say what it means for the detection. Frigate is still asked every time, so a restored event or a
+  transient failure during a Frigate restart is never answered from stale memory.
+
+- **Success and "needs your attention" are no longer the same colour.** The shipped Blue Tit theme
+  paints the secondary accent amber, and success states were built on that accent, so a passed
+  check and a warning rendered identically. In the shared diagnostic dialog the two sat in the
+  same expression: a `passed` step and a `warning` step both came out amber, which removed the
+  distinction the dialog exists to draw. Confirmed, passed, healthy, connected and verified states
+  now use a dedicated semantic green that no theme can repaint, while amber goes back to meaning
+  only "this needs a person". Affects the Frigate, MQTT, notification and model test flows, the
+  first-run wizard, integration status, and success badges throughout. Reported in #243.
+
+- **A plumage label can no longer be recorded as a scientific name.** The label grammar is now
+  declared per model artifact in the registry instead of inferred from each line's shape. The
+  NABirds label files carry entries like `Lesser Goldfinch (Female/juvenile)`, which wear the same
+  `Scientific (Common)` shape as the Coral labels, so the automatic taxon map recorded common names
+  as scientific names for the North American regional models. Those labels now resolve through the
+  bundled reference instead, and crop-detector class lists (where COCO's `kite` could have met the
+  same fate) are excluded from species mapping and name enrichment entirely.
+
+- **Portuguese installations were getting English bird names from eBird.** eBird publishes its
+  locale codes with underscores and has no plain `pt`, so the regional fallback could never match
+  and every Portuguese lookup quietly resolved to English. Chinese resolved to a variant carrying a
+  quarter of the translated names of the one it should have used. Both now resolve correctly, and
+  an explicit regional choice such as `zh_HK` is still honoured.
+
+- **Guest sessions no longer poll owner-only endpoints into a wall of 403s.** A public visit
+  repeated requests for `/api/settings` and camera status that the backend always refuses, filling
+  the browser console and the server log with expected failures. Settings refresh and both camera
+  status readers now wait for owner access, and the About pipeline tells guests a reading is
+  `owner only` instead of showing an `unknown` that reads as a fault in a healthy install. The
+  notifications step gets the same honesty: a guest sees `owner only` rather than a guessed `off`.
+
+- **Leaderboard trends no longer shout percentages against a baseline of one.** A species moving
+  from 1 visit to 93 rendered `+92 (9200.0%)`. The percentage now only appears when the previous
+  window is big enough to compare against and the ratio stays in a readable range; the count
+  keeps carrying the trend on its own everywhere else. Average confidence in the rankings joins
+  every other confidence in the app as a percentage, and the sunrise and sunset windows next to
+  the weather overlays now say which is which.
+
+- **Field log rows keep the species name whole at desktop widths.** A visit with several frames
+  was truncating names as short as "House Sparrow" while free space sat elsewhere in the row. The
+  thumbnail stack now shows two frames and counts the rest; the name is the primary reading of
+  the row. On the leaderboard hero, the kicker line carries its own scrim so it stays legible
+  when a bright collage slice sits behind it on short mobile cards.
+
+- **The About page now lists every browser-side call the sighting map makes.** The eBird map
+  fetches OpenStreetMap tiles from each viewer's browser, which belongs in the "What leaves your
+  network" panel next to the eBird lookup itself; both rows appear when eBird sightings are
+  enabled, and the panel keeps its promise that nothing unlisted leaves the network.
+
+- **The Health page no longer calls normal filtering a degraded pipeline.** Any dropped event at
+  all, including a detection correctly rejected by the confidence threshold or a blocklist, flipped
+  the Event Pipeline card to `DEGRADED` while the backend reported the pipeline healthy on the same
+  screen. Drops are now classified where they are recorded: expected, configuration-driven filtering
+  stays out of the health verdict, and only a drop caused by a fault degrades the card. Filtering
+  gets its own **Filtered Detections** card showing how much each rule rejected and the species and
+  confidence of the most recent ones, so the number stays visible without being dressed up as a
+  failure.
+
+- **Recent Backend Diagnostics now shows what it says it shows.** The list is headed "warnings and
+  errors" but was also carrying every expected filter drop at `info` severity, so eight low-confidence
+  rejections could push a real failure out of view.
 
 - **The responsive Events species filter now honours the configured naming preference**
   ([#180](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/180)). Filter values remain
