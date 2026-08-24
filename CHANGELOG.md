@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **A catalogue release may now name an output the catalogue could not name before.** Until now a
+  release carrying any different mapping for an already-registered model failed the whole import
+  closed, which is right for a mapping that rewrites what an output is, but also blocked one that
+  merely fills a gap. An output held as `unknown` with no species carries no claim: it records the
+  model's label and says nothing about what it is, so a release that can name it is adding
+  knowledge rather than correcting a claim. That one difference is now applied. Every other
+  difference still fails the release closed: an identity being replaced or withdrawn, a label being
+  rewritten, or a class kind moving anywhere else.
+
 - **A model you installed yourself can now be identified by the species catalogue.** Every model in
   the registry ships a reviewed output mapping, so the catalogue can say what each of its classes
   is; a model an owner supplied had none, so its detections never gained a canonical identity and
@@ -626,6 +635,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   quiet. About states whether the build is up to date, using the update check that already exists.
 
 ### Fixed
+
+- **Model outputs naming a superseded genus had no catalogue identity, because the mappings were
+  compiled against a seed with no synonyms in it.** The seed builder takes the Catalogue of Life
+  bird synonyms, and the runtime catalogue has carried them since they were added, but the script
+  that compiles the model output mappings never passed them. So `Accipiter gentilis` resolved
+  perfectly well at runtime and was recorded as an unmapped output of a model that names it on the
+  tin. Compiling with the synonyms gives 131 label-file outputs the identity they always had, 175
+  once the models sharing a label file are counted separately: `Accipiter gentilis` to
+  `Astur gentilis`, `Haliaeetus leucogaster` to `Icthyophaga leucogaster`, `Amazilia beryllina` to
+  `Saucerottia beryllina`. Mapped coverage goes from 21,650 to 21,781 of 23,332 outputs. Verified
+  against the committed mappings and against a copy of a live catalogue: no output changed from one
+  species to another, none lost an identity, and no label text changed.
 
 - **A bird could be recorded as the wrong species because the taxonomy lookup took whatever ranked
   first.** iNaturalist's `/v1/taxa?q=` is a search, not a lookup: it ranks by relevance and matches

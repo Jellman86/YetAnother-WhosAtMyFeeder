@@ -428,3 +428,131 @@ def _build_mapped_seed(tmp_path, output_name, *, label):
     path = tmp_path / output_name
     seed_builder.build(reference_path, path, manifest_path=manifest, model_mappings_path=mappings)
     return path
+
+
+def _build_two_output_seed(tmp_path, output_name, *, second_resolved, second_label="European robin"):
+    """Two seeds sharing one artifact checksum, differing only in whether the
+    second output resolved to a catalogue identity."""
+    import json as json_module
+
+    pinned = hashlib.sha256(b"supersession workbook").hexdigest()
+    reference_path = tmp_path / "supersession_ref.db"
+    if not reference_path.exists():
+        _reference(
+            reference_path,
+            [(1, "Cyanistes caeruleus", "Eurasian Blue Tit"), (2, "Erithacus rubecula", "European Robin")],
+            [],
+            source_sha256=pinned,
+        )
+    manifest = _manifest(
+        tmp_path / f"supersession_manifest_{output_name}.json", pinned_sha256=pinned, version="18.0-test"
+    )
+    second = {"index": 1, "kind": "species", "label": second_label}
+    if second_resolved:
+        second["provider"] = "ioc-world-bird-list"
+        second["taxon"] = "Erithacus rubecula"
+    else:
+        second["unresolved"] = "no catalogue identity"
+
+    mappings = tmp_path / f"supersession_mappings_{output_name}.json"
+    mappings.write_text(
+        json_module.dumps(
+            {
+                "schema_version": 1,
+                "label_files": {
+                    "labelsha-supersession": {
+                        "label_format": "common_name",
+                        "output_width": 2,
+                        "outputs": [
+                            {
+                                "index": 0,
+                                "kind": "species",
+                                "label": "Eurasian blue tit",
+                                "provider": "ioc-world-bird-list",
+                                "taxon": "Cyanistes caeruleus",
+                            },
+                            second,
+                        ],
+                    }
+                },
+                "artifacts": [
+                    {
+                        "artifact_id": "supersession_model",
+                        "model_sha256": "d" * 64,
+                        "labels_sha256": "labelsha-supersession",
+                        "runtime": "onnx",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    path = tmp_path / output_name
+    seed_builder.build(reference_path, path, manifest_path=manifest, model_mappings_path=mappings)
+    return path
+
+
+def _outputs(catalog_path):
+    connection = sqlite3.connect(catalog_path)
+    try:
+        return connection.execute(
+            "SELECT output_index, class_kind, species_id, source_label FROM model_output_taxa ORDER BY output_index"
+        ).fetchall()
+    finally:
+        connection.close()
+
+
+def _mapping_digest(catalog_path):
+    connection = sqlite3.connect(catalog_path)
+    try:
+        return connection.execute("SELECT mapping_set_sha256 FROM model_artifacts").fetchone()[0]
+    finally:
+        connection.close()
+
+
+def test_an_output_that_had_no_identity_may_gain_one(tmp_path):
+    """A rebuilt mapping that names an output nothing could name before is not
+    a correction: no claim is being replaced, because none was made. The
+    catalogue recorded `unknown` with the model's own label, and the release
+    that can name it should be able to say so."""
+    live = _build_two_output_seed(tmp_path, "gain_live.db", second_resolved=False)
+    bundle = _build_two_output_seed(tmp_path, "gain_bundle.db", second_resolved=True)
+    assert _outputs(live)[1][1:3] == ("unknown", None)
+    before_digest = _mapping_digest(live)
+
+    result = import_release(bundle, catalog_path=live)
+
+    assert result.status == "imported"
+    index, kind, species_id, label = _outputs(live)[1]
+    assert (kind, label) == ("species", "European robin")
+    assert species_id is not None
+    # The artifact now carries the mapping set it was actually given, so a
+    # later import of the same release is a no-op rather than another upgrade.
+    assert _mapping_digest(live) != before_digest
+
+
+def test_an_identity_that_was_recorded_is_never_replaced(tmp_path):
+    """The reverse direction is a correction of a claim already made, and that
+    still needs a deliberate supersession rather than arriving in a release."""
+    live = _build_two_output_seed(tmp_path, "swap_live.db", second_resolved=True)
+    bundle = _build_two_output_seed(tmp_path, "swap_bundle.db", second_resolved=False)
+    before = _outputs(live)
+
+    with pytest.raises(CatalogImportError, match="different mapping set"):
+        import_release(bundle, catalog_path=live)
+
+    assert _outputs(live) == before
+
+
+def test_an_output_whose_label_changed_is_refused(tmp_path):
+    """A different label is a different model output, whatever it resolves to."""
+    live = _build_two_output_seed(tmp_path, "label_live.db", second_resolved=False)
+    bundle = _build_two_output_seed(
+        tmp_path, "label_bundle.db", second_resolved=True, second_label="Something else entirely"
+    )
+    before = _outputs(live)
+
+    with pytest.raises(CatalogImportError, match="different mapping set"):
+        import_release(bundle, catalog_path=live)
+
+    assert _outputs(live) == before

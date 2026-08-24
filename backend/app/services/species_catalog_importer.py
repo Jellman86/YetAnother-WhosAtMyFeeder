@@ -171,6 +171,60 @@ def _map_species(live: sqlite3.Connection, bundle: _Bundle) -> tuple[dict[int, i
     return id_map, added, matched
 
 
+def _mapped_outputs(outputs, id_map: dict[int, int]) -> list[dict]:
+    """Bundle output rows with their species ids translated to live ones.
+
+    The bundle numbers its species from its own build. Writing those numbers
+    into the live catalogue would bind an output to whichever species happens
+    to hold that number here.
+    """
+    return [
+        {
+            "output_index": output["output_index"],
+            "class_kind": output["class_kind"],
+            "species_id": id_map[output["species_id"]] if output["species_id"] is not None else None,
+            "source_label": output["source_label"],
+        }
+        for output in outputs
+    ]
+
+
+def _identity_gains(
+    held: dict[int, tuple[str, Optional[int], str]], incoming: list[dict]
+) -> Optional[list[tuple[int, int]]]:
+    """The outputs this mapping names that the catalogue could not, or None.
+
+    An output the catalogue holds as `unknown` with no species carries no
+    claim: it records the model's label and says nothing about what it is.
+    A release that can name it is therefore adding knowledge, not correcting
+    a claim, and that is the one difference a mapping set may carry.
+
+    Every other difference returns None so the caller refuses the release:
+    an identity being replaced or withdrawn, a label being rewritten, or a
+    class kind moving between anything else. Those are corrections, and a
+    correction needs a deliberate supersession rather than a quiet arrival.
+    """
+    gains: list[tuple[int, int]] = []
+    for row in incoming:
+        index = int(row["output_index"])
+        current = held.get(index)
+        if current is None:
+            # Absent rather than different; added by `complete_artifact_mapping`.
+            continue
+        candidate = (str(row["class_kind"]), row["species_id"], str(row["source_label"]))
+        if current == candidate:
+            continue
+        if current[2] != candidate[2]:
+            return None
+        gained_identity = (
+            current[0] == "unknown" and current[1] is None and candidate[0] == "species" and candidate[1] is not None
+        )
+        if not gained_identity:
+            return None
+        gains.append((index, int(candidate[1])))
+    return gains
+
+
 def complete_artifact_mapping(live: sqlite3.Connection, *, artifact_row_id: int, bundle_rows) -> int:
     """Add output rows the live catalogue lacks, and change none that it has.
 
@@ -372,29 +426,54 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
                     (artifact["model_sha256"],),
                 ).fetchone()
                 if existing_artifact:
-                    # The artifact checksum owns its mapping. A same-checksum
-                    # artifact arriving with a different mapping set is a build
-                    # defect, and per §1 it fails the whole import closed
-                    # rather than being silently skipped or rewritten; a
-                    # deliberate mapping correction needs an explicit
-                    # supersession policy, not a quiet overwrite.
+                    artifact_row_id = int(existing_artifact["id"])
+                    incoming = _mapped_outputs(outputs_by_artifact.get(artifact["model_sha256"], []), id_map)
                     if existing_artifact["mapping_set_sha256"] != artifact["mapping_set_sha256"]:
-                        raise CatalogImportError(
-                            "Bundle carries a different mapping set for already-registered artifact "
-                            f"{artifact['model_sha256']}; refusing the release"
+                        # The artifact checksum owns its mapping, so a
+                        # same-checksum artifact arriving with a different one
+                        # fails the whole import closed per §1 -- unless the
+                        # only difference is that outputs the catalogue could
+                        # not name have been named. That withdraws nothing and
+                        # rewrites nothing, so it is applied and the artifact
+                        # records the mapping set it was actually given.
+                        held = {
+                            int(index): (str(kind), species_id, str(label))
+                            for index, kind, species_id, label in live.execute(
+                                "SELECT output_index, class_kind, species_id, source_label FROM model_output_taxa"
+                                " WHERE model_artifact_id = ?",
+                                (artifact_row_id,),
+                            )
+                        }
+                        gains = _identity_gains(held, incoming)
+                        if gains is None:
+                            raise CatalogImportError(
+                                "Bundle carries a different mapping set for already-registered artifact "
+                                f"{artifact['model_sha256']}; refusing the release"
+                            )
+                        for output_index, species_id in gains:
+                            live.execute(
+                                "UPDATE model_output_taxa SET class_kind = 'species', species_id = ?"
+                                " WHERE model_artifact_id = ? AND output_index = ?",
+                                (species_id, artifact_row_id, output_index),
+                            )
+                        live.execute(
+                            "UPDATE model_artifacts SET mapping_set_sha256 = ? WHERE id = ?",
+                            (artifact["mapping_set_sha256"], artifact_row_id),
                         )
-                    # Same mapping set, so any row the live catalogue lacks is
-                    # absent rather than different. It can hold fewer rows than
-                    # its own digest describes, because outputs nothing could
-                    # resolve were counted in the digest but not stored.
+                        if gains:
+                            log.info(
+                                "Outputs the catalogue could not name have been named by this release",
+                                model_sha256=artifact["model_sha256"],
+                                outputs_named=len(gains),
+                            )
+                    # Any row the live catalogue lacks is absent rather than
+                    # different. It can hold fewer rows than its own digest
+                    # describes, because outputs nothing could resolve were
+                    # counted in the digest but not stored.
                     outputs_added += complete_artifact_mapping(
                         live,
-                        artifact_row_id=int(existing_artifact["id"]),
-                        bundle_rows=[
-                            output
-                            for output in bundle.model_outputs
-                            if str(output["artifact_sha256"]) == str(artifact["model_sha256"])
-                        ],
+                        artifact_row_id=artifact_row_id,
+                        bundle_rows=incoming,
                     )
                     continue
                 cursor = live.execute(

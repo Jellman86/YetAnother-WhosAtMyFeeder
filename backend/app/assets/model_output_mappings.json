@@ -30125,19 +30125,22 @@
      "index": 3111,
      "kind": "species",
      "label": "03111_Animalia_Chordata_Aves_Accipitriformes_Accipitridae_Accipiter_badius",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Tachyspiza badia"
     },
     {
      "index": 3112,
      "kind": "species",
      "label": "03112_Animalia_Chordata_Aves_Accipitriformes_Accipitridae_Accipiter_cooperii",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Astur cooperii"
     },
     {
      "index": 3113,
      "kind": "species",
      "label": "03113_Animalia_Chordata_Aves_Accipitriformes_Accipitridae_Accipiter_gentilis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Astur gentilis"
     },
     {
      "index": 3114,
@@ -30157,7 +30160,8 @@
      "index": 3116,
      "kind": "species",
      "label": "03116_Animalia_Chordata_Aves_Accipitriformes_Accipitridae_Accipiter_trivirgatus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Lophospiza trivirgata"
     },
     {
      "index": 3117,
@@ -30478,13 +30482,15 @@
      "index": 3162,
      "kind": "species",
      "label": "03162_Animalia_Chordata_Aves_Accipitriformes_Accipitridae_Haliaeetus_leucogaster",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Icthyophaga leucogaster"
     },
     {
      "index": 3163,
      "kind": "species",
      "label": "03163_Animalia_Chordata_Aves_Accipitriformes_Accipitridae_Haliaeetus_vocifer",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Icthyophaga vocifer"
     },
     {
      "index": 3164,
@@ -31428,13 +31434,15 @@
      "index": 3298,
      "kind": "species",
      "label": "03298_Animalia_Chordata_Aves_Caprimulgiformes_Trochilidae_Amazilia_beryllina",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Saucerottia beryllina"
     },
     {
      "index": 3299,
      "kind": "species",
      "label": "03299_Animalia_Chordata_Aves_Caprimulgiformes_Trochilidae_Amazilia_cyanocephala",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Saucerottia cyanocephala"
     },
     {
      "index": 3300,
@@ -31530,7 +31538,8 @@
      "index": 3313,
      "kind": "species",
      "label": "03313_Animalia_Chordata_Aves_Caprimulgiformes_Trochilidae_Chlorostilbon_canivetii",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cynanthus canivetii"
     },
     {
      "index": 3314,
@@ -31592,7 +31601,8 @@
      "index": 3322,
      "kind": "species",
      "label": "03322_Animalia_Chordata_Aves_Caprimulgiformes_Trochilidae_Hylocharis_leucotis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Basilinna leucotis"
     },
     {
      "index": 3323,
@@ -33069,7 +33079,8 @@
      "index": 3535,
      "kind": "species",
      "label": "03535_Animalia_Chordata_Aves_Columbiformes_Columbidae_Streptopelia_chinensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Spilopelia chinensis"
     },
     {
      "index": 3536,
@@ -33096,7 +33107,8 @@
      "index": 3539,
      "kind": "species",
      "label": "03539_Animalia_Chordata_Aves_Columbiformes_Columbidae_Streptopelia_senegalensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Spilopelia senegalensis"
     },
     {
      "index": 3540,
@@ -33731,13 +33743,15 @@
      "index": 3630,
      "kind": "species",
      "label": "03630_Animalia_Chordata_Aves_Galliformes_Phasianidae_Falcipennis_canadensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Canachites canadensis"
     },
     {
      "index": 3631,
      "kind": "species",
      "label": "03631_Animalia_Chordata_Aves_Galliformes_Phasianidae_Francolinus_pondicerianus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ortygornis pondicerianus"
     },
     {
      "index": 3632,
@@ -33840,13 +33854,15 @@
      "index": 3646,
      "kind": "species",
      "label": "03646_Animalia_Chordata_Aves_Gruiformes_Gruidae_Anthropoides_paradiseus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Grus paradisea"
     },
     {
      "index": 3647,
      "kind": "species",
      "label": "03647_Animalia_Chordata_Aves_Gruiformes_Gruidae_Anthropoides_virgo",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Grus virgo"
     },
     {
      "index": 3648,
@@ -33964,7 +33980,8 @@
      "index": 3664,
      "kind": "species",
      "label": "03664_Animalia_Chordata_Aves_Gruiformes_Rallidae_Gallirallus_philippensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Hypotaenidia philippensis"
     },
     {
      "index": 3665,
@@ -34033,7 +34050,8 @@
      "index": 3674,
      "kind": "species",
      "label": "03674_Animalia_Chordata_Aves_Musophagiformes_Musophagidae_Corythaixoides_concolor",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Crinifer concolor"
     },
     {
      "index": 3675,
@@ -34528,13 +34546,15 @@
      "index": 3745,
      "kind": "species",
      "label": "03745_Animalia_Chordata_Aves_Passeriformes_Corvidae_Calocitta_colliei",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cyanocorax colliei"
     },
     {
      "index": 3746,
      "kind": "species",
      "label": "03746_Animalia_Chordata_Aves_Passeriformes_Corvidae_Calocitta_formosa",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cyanocorax formosus"
     },
     {
      "index": 3747,
@@ -34616,7 +34636,8 @@
      "index": 3758,
      "kind": "species",
      "label": "03758_Animalia_Chordata_Aves_Passeriformes_Corvidae_Corvus_monedula",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Coloeus monedula"
     },
     {
      "index": 3759,
@@ -34748,7 +34769,8 @@
      "index": 3777,
      "kind": "species",
      "label": "03777_Animalia_Chordata_Aves_Passeriformes_Corvidae_Psilorhinus_morio",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cyanocorax morio"
     },
     {
      "index": 3778,
@@ -35010,7 +35032,8 @@
      "index": 3815,
      "kind": "species",
      "label": "03815_Animalia_Chordata_Aves_Passeriformes_Fringillidae_Coccothraustes_vespertinus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Hesperiphona vespertina"
     },
     {
      "index": 3816,
@@ -35708,13 +35731,15 @@
      "index": 3915,
      "kind": "species",
      "label": "03915_Animalia_Chordata_Aves_Passeriformes_Leiothrichidae_Garrulax_perspicillatus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Pterorhinus perspicillatus"
     },
     {
      "index": 3916,
      "kind": "species",
      "label": "03916_Animalia_Chordata_Aves_Passeriformes_Leiothrichidae_Turdoides_striata",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Argya striata"
     },
     {
      "index": 3917,
@@ -37537,7 +37562,8 @@
      "index": 4177,
      "kind": "species",
      "label": "04177_Animalia_Chordata_Aves_Passeriformes_Regulidae_Regulus_calendula",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Corthylio calendula"
     },
     {
      "index": 4178,
@@ -37739,19 +37765,22 @@
      "index": 4206,
      "kind": "species",
      "label": "04206_Animalia_Chordata_Aves_Passeriformes_Sylviidae_Sylvia_communis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Curruca communis"
     },
     {
      "index": 4207,
      "kind": "species",
      "label": "04207_Animalia_Chordata_Aves_Passeriformes_Sylviidae_Sylvia_curruca",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Curruca curruca"
     },
     {
      "index": 4208,
      "kind": "species",
      "label": "04208_Animalia_Chordata_Aves_Passeriformes_Sylviidae_Sylvia_melanocephala",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Curruca melanocephala"
     },
     {
      "index": 4209,
@@ -37841,7 +37870,8 @@
      "index": 4221,
      "kind": "species",
      "label": "04221_Animalia_Chordata_Aves_Passeriformes_Thraupidae_Pipraeidea_bonariensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Rauenia bonariensis"
     },
     {
      "index": 4222,
@@ -38875,7 +38905,8 @@
      "index": 4369,
      "kind": "species",
      "label": "04369_Animalia_Chordata_Aves_Pelecaniformes_Ardeidae_Bubulcus_ibis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ardea ibis"
     },
     {
      "index": 4370,
@@ -38958,19 +38989,22 @@
      "index": 4381,
      "kind": "species",
      "label": "04381_Animalia_Chordata_Aves_Pelecaniformes_Ardeidae_Ixobrychus_exilis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Botaurus exilis"
     },
     {
      "index": 4382,
      "kind": "species",
      "label": "04382_Animalia_Chordata_Aves_Pelecaniformes_Ardeidae_Ixobrychus_minutus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Botaurus minutus"
     },
     {
      "index": 4383,
      "kind": "species",
      "label": "04383_Animalia_Chordata_Aves_Pelecaniformes_Ardeidae_Ixobrychus_sinensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Botaurus sinensis"
     },
     {
      "index": 4384,
@@ -39353,13 +39387,15 @@
      "index": 4438,
      "kind": "species",
      "label": "04438_Animalia_Chordata_Aves_Piciformes_Picidae_Dryobates_albolarvatus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leuconotopicus albolarvatus"
     },
     {
      "index": 4439,
      "kind": "species",
      "label": "04439_Animalia_Chordata_Aves_Piciformes_Picidae_Dryobates_borealis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leuconotopicus borealis"
     },
     {
      "index": 4440,
@@ -39393,7 +39429,8 @@
      "index": 4444,
      "kind": "species",
      "label": "04444_Animalia_Chordata_Aves_Piciformes_Picidae_Dryobates_villosus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leuconotopicus villosus"
     },
     {
      "index": 4445,
@@ -39784,7 +39821,8 @@
      "index": 4500,
      "kind": "species",
      "label": "04500_Animalia_Chordata_Aves_Psittaciformes_Cacatuidae_Calyptorhynchus_funereus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Zanda funerea"
     },
     {
      "index": 4501,
@@ -40133,7 +40171,8 @@
      "index": 4550,
      "kind": "species",
      "label": "04550_Animalia_Chordata_Aves_Strigiformes_Strigidae_Ciccaba_virgata",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Strix virgata"
     },
     {
      "index": 4551,
@@ -40293,19 +40332,22 @@
      "index": 4573,
      "kind": "species",
      "label": "04573_Animalia_Chordata_Aves_Suliformes_Phalacrocoracidae_Phalacrocorax_aristotelis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Gulosus aristotelis"
     },
     {
      "index": 4574,
      "kind": "species",
      "label": "04574_Animalia_Chordata_Aves_Suliformes_Phalacrocoracidae_Phalacrocorax_auritus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nannopterum auritum"
     },
     {
      "index": 4575,
      "kind": "species",
      "label": "04575_Animalia_Chordata_Aves_Suliformes_Phalacrocoracidae_Phalacrocorax_brasilianus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nannopterum brasilianum"
     },
     {
      "index": 4576,
@@ -40325,13 +40367,15 @@
      "index": 4578,
      "kind": "species",
      "label": "04578_Animalia_Chordata_Aves_Suliformes_Phalacrocoracidae_Phalacrocorax_pelagicus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Urile pelagicus"
     },
     {
      "index": 4579,
      "kind": "species",
      "label": "04579_Animalia_Chordata_Aves_Suliformes_Phalacrocoracidae_Phalacrocorax_penicillatus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Urile penicillatus"
     },
     {
      "index": 4580,
@@ -78341,7 +78385,8 @@
      "index": 31,
      "kind": "species",
      "label": "Psilorhinus morio (Brown Jay)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cyanocorax morio"
     },
     {
      "index": 32,
@@ -78429,13 +78474,15 @@
      "index": 44,
      "kind": "species",
      "label": "Calocitta formosa (White-throated Magpie-Jay)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cyanocorax formosus"
     },
     {
      "index": 45,
      "kind": "species",
      "label": "Calocitta colliei (Black-throated Magpie-Jay)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cyanocorax colliei"
     },
     {
      "index": 46,
@@ -78803,7 +78850,8 @@
      "index": 98,
      "kind": "species",
      "label": "Serinus mozambicus (Yellow-fronted Canary)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Crithagra mozambica"
     },
     {
      "index": 99,
@@ -78857,7 +78905,8 @@
      "index": 106,
      "kind": "species",
      "label": "Phalacrocorax pelagicus (Pelagic Cormorant)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Urile pelagicus"
     },
     {
      "index": 107,
@@ -78904,7 +78953,8 @@
      "index": 113,
      "kind": "species",
      "label": "Carduelis cannabina (Eurasian Linnet)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Linaria cannabina"
     },
     {
      "index": 114,
@@ -78985,13 +79035,15 @@
      "index": 125,
      "kind": "species",
      "label": "Picoides nuttallii (Nuttall's Woodpecker)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Dryobates nuttallii"
     },
     {
      "index": 126,
      "kind": "species",
      "label": "Picoides scalaris (Ladder-backed Woodpecker)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Dryobates scalaris"
     },
     {
      "index": 127,
@@ -79011,13 +79063,15 @@
      "index": 129,
      "kind": "species",
      "label": "Phalacrocorax brasilianus (Neotropic Cormorant)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nannopterum brasilianum"
     },
     {
      "index": 130,
      "kind": "species",
      "label": "Picoides pubescens (Downy Woodpecker)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Dryobates pubescens"
     },
     {
      "index": 131,
@@ -79037,7 +79091,8 @@
      "index": 133,
      "kind": "species",
      "label": "Picoides villosus (Hairy Woodpecker)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leuconotopicus villosus"
     },
     {
      "index": 134,
@@ -79120,7 +79175,8 @@
      "index": 145,
      "kind": "species",
      "label": "Chen rossii (Ross's Goose)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Anser rossii"
     },
     {
      "index": 146,
@@ -79168,7 +79224,8 @@
      "index": 152,
      "kind": "species",
      "label": "Amazilia beryllina (Berylline Hummingbird)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Saucerottia beryllina"
     },
     {
      "index": 153,
@@ -79188,7 +79245,8 @@
      "index": 155,
      "kind": "species",
      "label": "Sylvia communis (Greater Whitethroat)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Curruca communis"
     },
     {
      "index": 156,
@@ -79201,7 +79259,8 @@
      "index": 157,
      "kind": "species",
      "label": "Coccothraustes vespertinus (Evening Grosbeak)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Hesperiphona vespertina"
     },
     {
      "index": 158,
@@ -79484,7 +79543,8 @@
      "index": 198,
      "kind": "species",
      "label": "Ammodramus maritimus (Seaside Sparrow)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ammospiza maritima"
     },
     {
      "index": 199,
@@ -79900,7 +79960,8 @@
      "index": 258,
      "kind": "species",
      "label": "Regulus calendula (Ruby-crowned Kinglet)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Corthylio calendula"
     },
     {
      "index": 259,
@@ -80221,7 +80282,8 @@
      "index": 304,
      "kind": "species",
      "label": "Ixobrychus exilis (Least Bittern)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Botaurus exilis"
     },
     {
      "index": 305,
@@ -80381,7 +80443,8 @@
      "index": 327,
      "kind": "species",
      "label": "Anas penelope (Eurasian Wigeon)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Mareca penelope"
     },
     {
      "index": 328,
@@ -81063,7 +81126,8 @@
      "index": 426,
      "kind": "species",
      "label": "Francolinus pondicerianus (Grey Francolin)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ortygornis pondicerianus"
     },
     {
      "index": 427,
@@ -81124,7 +81188,8 @@
      "index": 435,
      "kind": "species",
      "label": "Phalacrocorax auritus (Double-crested Cormorant)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nannopterum auritum"
     },
     {
      "index": 436,
@@ -81137,7 +81202,8 @@
      "index": 437,
      "kind": "species",
      "label": "Phalacrocorax penicillatus (Brandt's Cormorant)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Urile penicillatus"
     },
     {
      "index": 438,
@@ -81860,7 +81926,8 @@
      "index": 541,
      "kind": "species",
      "label": "Anas querquedula (Garganey)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Spatula querquedula"
     },
     {
      "index": 542,
@@ -82090,7 +82157,8 @@
      "index": 574,
      "kind": "species",
      "label": "Bubulcus ibis (Cattle Egret)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ardea ibis"
     },
     {
      "index": 575,
@@ -82103,7 +82171,8 @@
      "index": 576,
      "kind": "species",
      "label": "Porphyrio martinicus (Purple Gallinule)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Porphyrio martinica"
     },
     {
      "index": 577,
@@ -82179,7 +82248,8 @@
      "index": 587,
      "kind": "species",
      "label": "Accipiter gentilis (Northern Goshawk)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Astur gentilis"
     },
     {
      "index": 588,
@@ -82464,7 +82534,8 @@
      "index": 628,
      "kind": "species",
      "label": "Streptopelia senegalensis (Laughing Dove)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Spilopelia senegalensis"
     },
     {
      "index": 629,
@@ -82491,7 +82562,8 @@
      "index": 632,
      "kind": "species",
      "label": "Haliaeetus vocifer (African Fish-Eagle)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Icthyophaga vocifer"
     },
     {
      "index": 633,
@@ -82504,7 +82576,8 @@
      "index": 634,
      "kind": "species",
      "label": "Ciccaba virgata (Mottled Owl)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Strix virgata"
     },
     {
      "index": 635,
@@ -82942,19 +83015,22 @@
      "index": 697,
      "kind": "species",
      "label": "Oreothlypis peregrina (Tennessee Warbler)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leiothlypis peregrina"
     },
     {
      "index": 698,
      "kind": "species",
      "label": "Oreothlypis celata (Orange-crowned Warbler)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leiothlypis celata"
     },
     {
      "index": 699,
      "kind": "species",
      "label": "Oreothlypis ruficapilla (Nashville Warbler)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leiothlypis ruficapilla"
     },
     {
      "index": 700,
@@ -83224,7 +83300,8 @@
      "index": 738,
      "kind": "species",
      "label": "Accipiter cooperii (Cooper's Hawk)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Astur cooperii"
     },
     {
      "index": 739,
@@ -83387,7 +83464,8 @@
      "index": 762,
      "kind": "species",
      "label": "Falcipennis canadensis (Spruce Grouse)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Canachites canadensis"
     },
     {
      "index": 763,
@@ -83817,7 +83895,8 @@
      "index": 824,
      "kind": "species",
      "label": "Anas discors (Blue-winged Teal)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Spatula discors"
     },
     {
      "index": 825,
@@ -83829,7 +83908,8 @@
      "index": 826,
      "kind": "species",
      "label": "Anas clypeata (Northern Shoveler)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Spatula clypeata"
     },
     {
      "index": 827,
@@ -83849,7 +83929,8 @@
      "index": 829,
      "kind": "species",
      "label": "Anas americana (American Wigeon)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Mareca americana"
     },
     {
      "index": 830,
@@ -83973,7 +84054,8 @@
      "index": 847,
      "kind": "species",
      "label": "Chen caerulescens (Snow Goose)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Anser caerulescens"
     },
     {
      "index": 848,
@@ -84084,7 +84166,8 @@
      "index": 863,
      "kind": "species",
      "label": "Picoides albolarvatus (White-headed Woodpecker)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leuconotopicus albolarvatus"
     },
     {
      "index": 864,
@@ -84213,7 +84296,8 @@
      "index": 882,
      "kind": "species",
      "label": "Haliaeetus leucogaster (White-bellied Sea-Eagle)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Icthyophaga leucogaster"
     },
     {
      "index": 883,
@@ -84260,7 +84344,8 @@
      "index": 889,
      "kind": "species",
      "label": "Hylocharis leucotis (White-eared Hummingbird)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Basilinna leucotis"
     },
     {
      "index": 890,
@@ -84287,7 +84372,8 @@
      "index": 893,
      "kind": "species",
      "label": "Streptopelia chinensis (Spotted Dove)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Spilopelia chinensis"
     },
     {
      "index": 894,
@@ -84685,7 +84771,8 @@
      "index": 951,
      "kind": "species",
      "label": "Corvus monedula (Eurasian Jackdaw)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Coloeus monedula"
     },
     {
      "index": 952,
@@ -109910,19 +109997,22 @@
      "index": 3111,
      "kind": "species",
      "label": "Accipiter badius",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Tachyspiza badia"
     },
     {
      "index": 3112,
      "kind": "species",
      "label": "Accipiter cooperii",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Astur cooperii"
     },
     {
      "index": 3113,
      "kind": "species",
      "label": "Accipiter gentilis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Astur gentilis"
     },
     {
      "index": 3114,
@@ -109942,7 +110032,8 @@
      "index": 3116,
      "kind": "species",
      "label": "Accipiter trivirgatus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Lophospiza trivirgata"
     },
     {
      "index": 3117,
@@ -110263,13 +110354,15 @@
      "index": 3162,
      "kind": "species",
      "label": "Haliaeetus leucogaster",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Icthyophaga leucogaster"
     },
     {
      "index": 3163,
      "kind": "species",
      "label": "Haliaeetus vocifer",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Icthyophaga vocifer"
     },
     {
      "index": 3164,
@@ -111213,13 +111306,15 @@
      "index": 3298,
      "kind": "species",
      "label": "Amazilia beryllina",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Saucerottia beryllina"
     },
     {
      "index": 3299,
      "kind": "species",
      "label": "Amazilia cyanocephala",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Saucerottia cyanocephala"
     },
     {
      "index": 3300,
@@ -111315,7 +111410,8 @@
      "index": 3313,
      "kind": "species",
      "label": "Chlorostilbon canivetii",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cynanthus canivetii"
     },
     {
      "index": 3314,
@@ -111377,7 +111473,8 @@
      "index": 3322,
      "kind": "species",
      "label": "Hylocharis leucotis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Basilinna leucotis"
     },
     {
      "index": 3323,
@@ -112854,7 +112951,8 @@
      "index": 3535,
      "kind": "species",
      "label": "Streptopelia chinensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Spilopelia chinensis"
     },
     {
      "index": 3536,
@@ -112881,7 +112979,8 @@
      "index": 3539,
      "kind": "species",
      "label": "Streptopelia senegalensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Spilopelia senegalensis"
     },
     {
      "index": 3540,
@@ -113516,13 +113615,15 @@
      "index": 3630,
      "kind": "species",
      "label": "Falcipennis canadensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Canachites canadensis"
     },
     {
      "index": 3631,
      "kind": "species",
      "label": "Francolinus pondicerianus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ortygornis pondicerianus"
     },
     {
      "index": 3632,
@@ -113625,13 +113726,15 @@
      "index": 3646,
      "kind": "species",
      "label": "Anthropoides paradiseus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Grus paradisea"
     },
     {
      "index": 3647,
      "kind": "species",
      "label": "Anthropoides virgo",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Grus virgo"
     },
     {
      "index": 3648,
@@ -113749,7 +113852,8 @@
      "index": 3664,
      "kind": "species",
      "label": "Gallirallus philippensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Hypotaenidia philippensis"
     },
     {
      "index": 3665,
@@ -113818,7 +113922,8 @@
      "index": 3674,
      "kind": "species",
      "label": "Corythaixoides concolor",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Crinifer concolor"
     },
     {
      "index": 3675,
@@ -114313,13 +114418,15 @@
      "index": 3745,
      "kind": "species",
      "label": "Calocitta colliei",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cyanocorax colliei"
     },
     {
      "index": 3746,
      "kind": "species",
      "label": "Calocitta formosa",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cyanocorax formosus"
     },
     {
      "index": 3747,
@@ -114401,7 +114508,8 @@
      "index": 3758,
      "kind": "species",
      "label": "Corvus monedula",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Coloeus monedula"
     },
     {
      "index": 3759,
@@ -114533,7 +114641,8 @@
      "index": 3777,
      "kind": "species",
      "label": "Psilorhinus morio",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cyanocorax morio"
     },
     {
      "index": 3778,
@@ -114795,7 +114904,8 @@
      "index": 3815,
      "kind": "species",
      "label": "Coccothraustes vespertinus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Hesperiphona vespertina"
     },
     {
      "index": 3816,
@@ -115493,13 +115603,15 @@
      "index": 3915,
      "kind": "species",
      "label": "Garrulax perspicillatus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Pterorhinus perspicillatus"
     },
     {
      "index": 3916,
      "kind": "species",
      "label": "Turdoides striata",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Argya striata"
     },
     {
      "index": 3917,
@@ -117322,7 +117434,8 @@
      "index": 4177,
      "kind": "species",
      "label": "Regulus calendula",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Corthylio calendula"
     },
     {
      "index": 4178,
@@ -117524,19 +117637,22 @@
      "index": 4206,
      "kind": "species",
      "label": "Sylvia communis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Curruca communis"
     },
     {
      "index": 4207,
      "kind": "species",
      "label": "Sylvia curruca",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Curruca curruca"
     },
     {
      "index": 4208,
      "kind": "species",
      "label": "Sylvia melanocephala",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Curruca melanocephala"
     },
     {
      "index": 4209,
@@ -117626,7 +117742,8 @@
      "index": 4221,
      "kind": "species",
      "label": "Pipraeidea bonariensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Rauenia bonariensis"
     },
     {
      "index": 4222,
@@ -118660,7 +118777,8 @@
      "index": 4369,
      "kind": "species",
      "label": "Bubulcus ibis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ardea ibis"
     },
     {
      "index": 4370,
@@ -118743,19 +118861,22 @@
      "index": 4381,
      "kind": "species",
      "label": "Ixobrychus exilis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Botaurus exilis"
     },
     {
      "index": 4382,
      "kind": "species",
      "label": "Ixobrychus minutus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Botaurus minutus"
     },
     {
      "index": 4383,
      "kind": "species",
      "label": "Ixobrychus sinensis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Botaurus sinensis"
     },
     {
      "index": 4384,
@@ -119138,13 +119259,15 @@
      "index": 4438,
      "kind": "species",
      "label": "Dryobates albolarvatus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leuconotopicus albolarvatus"
     },
     {
      "index": 4439,
      "kind": "species",
      "label": "Dryobates borealis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leuconotopicus borealis"
     },
     {
      "index": 4440,
@@ -119178,7 +119301,8 @@
      "index": 4444,
      "kind": "species",
      "label": "Dryobates villosus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leuconotopicus villosus"
     },
     {
      "index": 4445,
@@ -119569,7 +119693,8 @@
      "index": 4500,
      "kind": "species",
      "label": "Calyptorhynchus funereus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Zanda funerea"
     },
     {
      "index": 4501,
@@ -119918,7 +120043,8 @@
      "index": 4550,
      "kind": "species",
      "label": "Ciccaba virgata",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Strix virgata"
     },
     {
      "index": 4551,
@@ -120078,19 +120204,22 @@
      "index": 4573,
      "kind": "species",
      "label": "Phalacrocorax aristotelis",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Gulosus aristotelis"
     },
     {
      "index": 4574,
      "kind": "species",
      "label": "Phalacrocorax auritus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nannopterum auritum"
     },
     {
      "index": 4575,
      "kind": "species",
      "label": "Phalacrocorax brasilianus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nannopterum brasilianum"
     },
     {
      "index": 4576,
@@ -120110,13 +120239,15 @@
      "index": 4578,
      "kind": "species",
      "label": "Phalacrocorax pelagicus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Urile pelagicus"
     },
     {
      "index": 4579,
      "kind": "species",
      "label": "Phalacrocorax penicillatus",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Urile penicillatus"
     },
     {
      "index": 4580,
