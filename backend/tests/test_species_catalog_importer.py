@@ -623,7 +623,7 @@ def test_a_mapping_that_drops_outputs_is_refused(tmp_path):
     before = _outputs(live)
     assert len(before) == 2
 
-    with pytest.raises(CatalogImportError, match="different mapping set"):
+    with pytest.raises(CatalogImportError, match="refusing the release"):
         import_release(bundle, catalog_path=live)
 
     assert _outputs(live) == before
@@ -653,3 +653,24 @@ def test_repairing_an_already_imported_release_never_writes_a_bundle_species_num
     # is left for a real import to place.
     assert [row[0] for row in restored] == [1]
     assert restored[0][1:3] == ("unknown", None)
+
+
+def test_a_bundle_declaring_a_different_output_width_is_refused(tmp_path):
+    """One model checksum cannot have two output counts. Accepting it would
+    leave the artifact row and its mapping describing different tensors, and
+    the label reader compares the two to decide whether it may serve them."""
+    live = _build_two_output_seed(tmp_path, "width_live.db", second_resolved=False)
+    bundle = _build_two_output_seed(tmp_path, "width_bundle.db", second_resolved=True)
+
+    connection = sqlite3.connect(live)
+    try:
+        connection.execute("UPDATE model_artifacts SET output_width = 7")
+        connection.commit()
+    finally:
+        connection.close()
+    before = _outputs(live)
+
+    with pytest.raises(CatalogImportError, match="different output width"):
+        import_release(bundle, catalog_path=live)
+
+    assert _outputs(live) == before
