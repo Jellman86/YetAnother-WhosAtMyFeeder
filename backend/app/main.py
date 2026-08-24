@@ -925,6 +925,12 @@ def _naming_health() -> dict[str, object]:
         catalog["local_mapping"] = last_local_mapping_report()
     except Exception:  # pragma: no cover
         pass
+    try:
+        from app.services.species_catalog_overrides import override_summary
+
+        catalog["owner_renames"] = override_summary()
+    except Exception:  # pragma: no cover
+        pass
     return {"species_reference": reference, "localized_names": localized, "species_catalog": catalog}
 
 

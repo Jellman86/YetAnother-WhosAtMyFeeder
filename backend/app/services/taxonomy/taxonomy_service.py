@@ -463,6 +463,7 @@ class TaxonomyService:
                 return None
         finally:
             await cursor.close()
+        await self._mirror_override_to_catalogue(scientific_name, common_name)
         return await self.get_common_name_override(scientific_name, db)
 
     async def clear_common_name_override(
@@ -479,7 +480,36 @@ class TaxonomyService:
                 return None
         finally:
             await cursor.close()
+        await self._mirror_override_to_catalogue(scientific_name, None)
         return await self.get_common_name_override(scientific_name, db)
+
+    async def _mirror_override_to_catalogue(self, scientific_name: str, common_name: Optional[str]) -> None:
+        """Record the rename in the catalogue, against the species it names.
+
+        The catalogue is the store of record: it keys on the species rather
+        than on a spelling of it, and it survives a taxon being renamed
+        upstream. The detection-database copy above is kept because the
+        pre-3.0 name-recovery readers still consult it.
+
+        Never fatal. A rename the owner made is already saved by the time this
+        runs, and a catalogue that cannot take it is a naming gap rather than a
+        lost decision.
+        """
+        import asyncio
+
+        from app.services.species_catalog_overrides import clear_catalogue_override, write_catalogue_override
+        from app.services.species_catalog_resolver import species_catalog_resolver
+
+        try:
+            species_id, _ = await asyncio.to_thread(species_catalog_resolver.resolve_scientific_name, scientific_name)
+            if species_id is None:
+                return
+            if common_name:
+                await asyncio.to_thread(write_catalogue_override, species_id, common_name)
+            else:
+                await asyncio.to_thread(clear_catalogue_override, species_id)
+        except Exception as error:  # pragma: no cover - defensive
+            log.debug("Owner rename not mirrored to the catalogue", name=scientific_name, error=str(error))
 
     async def get_localized_common_name(
         self, taxa_id: int, lang: str, db: Optional[aiosqlite.Connection] = None

@@ -77,6 +77,20 @@ async def backfill_catalog_identity(db, resolver: Optional[SpeciesCatalogResolve
         summary["audio_rows_identified"] = 0
         summary["audio_rows_unresolved"] = 0
 
+    # Owner renames move to the catalogue in the same pass, because they are
+    # the one piece of naming the owner authored and they were living in a
+    # cache of provider answers.
+    try:
+        from app.services.species_catalog_overrides import migrate_cache_overrides
+
+        overrides = await migrate_cache_overrides(db)
+        summary["overrides_migrated"] = overrides.get("migrated", 0)
+        summary["overrides_unresolved"] = overrides.get("unresolved", 0)
+    except Exception as error:  # pragma: no cover - defensive
+        log.warning("Owner rename migration skipped", error=str(error))
+        summary["overrides_migrated"] = 0
+        summary["overrides_unresolved"] = 0
+
     _record_summary(summary)
     return summary
 

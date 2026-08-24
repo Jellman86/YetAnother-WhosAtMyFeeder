@@ -236,6 +236,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **A species you have renamed is now recorded in the species catalogue, against the species rather
+  than against a spelling of its name.** A rename is the one piece of naming an owner authored, and
+  it lived in `taxonomy_cache` beside columns that are a cache of provider answers and can be
+  refetched at will. It was keyed on a scientific name, so a taxon renamed upstream lost the name
+  its owner had given it. The catalogue has held an override table since its first migration, and
+  the shared naming rule already prefers it over every other source, but nothing ever wrote to it,
+  which is why that precedence had to be written out again wherever a name was chosen. Renames now
+  go to the catalogue, keyed on the species, and existing ones are carried over on startup. The
+  copy in the detection database is still written and still read, because the pre-3.0 name-recovery
+  paths consult it; the catalogue is the store of record. The migration only fills gaps, so a name
+  you have since changed or cleared is never resurrected by a later startup, and a rename whose
+  name resolves to no single catalogue species is counted and left where it is rather than attached
+  to a guess. Owner diagnostics report how many renames the catalogue holds.
+
 - **Removed a second, name-keyed way of reading the daily rollup that nothing used.** Species
   aggregation moved to the catalogue's stable identity, and the leaderboard and its trends now
   group on one shared key. The rollup reader that predated it stayed behind: 128 lines that grouped
