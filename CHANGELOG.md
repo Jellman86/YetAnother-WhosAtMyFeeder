@@ -627,6 +627,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A bird could be recorded as the wrong species because the taxonomy lookup took whatever ranked
+  first.** iNaturalist's `/v1/taxa?q=` is a search, not a lookup: it ranks by relevance and matches
+  synonyms, so the species asked about is not reliably the first result. The lookup asked for a
+  single result and took it without checking it was the name it had asked for. Measured against the
+  live API with 45 real labels from the flagship model, 3 were wrong: `Buteo buteo` resolved to the
+  subfamily `Buteoninae`, `Clanga clanga` to the genus `Clanga`, and `Circus cyaneus` (Hen Harrier)
+  to `Circus hudsonius`, the Northern Harrier of North America, because the two were split and the
+  older name still matches. A live install had recorded a Goldcrest as a Ruby-crowned Kinglet for
+  the same reason. The lookup now asks for a page of candidates and takes only one whose matched
+  term, scientific name, or English common name is exactly what was asked for; a genuine rename
+  still resolves, because a model trained on `Regulus calendula` asks for that name and the taxon
+  now called `Corthylio calendula` reports matching on precisely it. When nothing on the page is
+  the name asked for, the bundled reference answers and the model's own label stands, rather than a
+  different species being written into history.
+
 - **Filtering the events list by species is no longer dominated by a taxonomy join.** A user
   reported the species filter being noticeably slower than the date and camera filters. The join
   onto `taxonomy_cache` was the cause: its conditions are ORs across different columns wrapped in

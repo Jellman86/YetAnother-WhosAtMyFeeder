@@ -78,6 +78,42 @@ class TaxonomyLookupUnavailable(Exception):
     """
 
 
+#: `/v1/taxa?q=` is a search, not a lookup: it ranks by relevance and matches
+#: synonyms, so the species asked for is not reliably first. Asking for one
+#: result leaves nothing to check it against. Ten is enough for the exact match
+#: to be on the page in every recorded case while staying one request.
+_LOOKUP_PAGE_SIZE = 10
+
+
+def _fold_for_match(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.casefold().split())
+
+
+def _matching_taxon(results: list, query: str) -> Optional[Dict]:
+    """The first candidate that is actually the name that was asked for.
+
+    A candidate counts when the term it matched on, its scientific name, or its
+    English common name is exactly the query. `matched_term` is what makes a
+    genuine rename work: a model trained on `Regulus calendula` asks for that
+    name, and the taxon now called `Corthylio calendula` reports matching on
+    precisely it. The same field is what rejects the fuzzy hit, because for the
+    query `Regulus regulus` that taxon reports matching on `Regulus calendula`,
+    which is a different bird.
+    """
+    wanted = _fold_for_match(query)
+    if not wanted:
+        return None
+    for taxon in results:
+        if not isinstance(taxon, dict):
+            continue
+        for field in ("matched_term", "name", "preferred_common_name"):
+            if _fold_for_match(taxon.get(field)) == wanted:
+                return taxon
+    return None
+
+
 class TaxonomyService:
     """Service to handle bidirectional scientific <-> common name lookups using iNaturalist."""
 
@@ -301,7 +337,7 @@ class TaxonomyService:
         because "we could not ask" says nothing about whether the taxon exists.
         """
         try:
-            params = {"q": name, "per_page": 1, "locale": "en"}
+            params = {"q": name, "per_page": _LOOKUP_PAGE_SIZE, "locale": "en"}
 
             client = await self._get_client()
             resp = await client.get(self.API_URL, params=params)
@@ -321,7 +357,19 @@ class TaxonomyService:
             if not isinstance(results, list) or not results or not isinstance(results[0], dict):
                 raise ValueError("iNaturalist response has no usable result")
 
-            taxon = results[0]
+            taxon = _matching_taxon(results, name)
+            if taxon is None:
+                # The provider answered and holds nothing it agrees is this
+                # name. Saying so leaves the model's own label standing, which
+                # is the honest outcome; taking the top hit instead recorded a
+                # Goldcrest as a Ruby-crowned Kinglet.
+                log.info(
+                    "iNaturalist returned no result matching the name asked for",
+                    query=name,
+                    candidates=len(results),
+                )
+                return None
+
             scientific_name = taxon.get("name")
             taxa_id = taxon.get("id")
             if not isinstance(scientific_name, str) or not scientific_name.strip():
