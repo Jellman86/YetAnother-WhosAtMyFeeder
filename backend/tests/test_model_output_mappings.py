@@ -397,8 +397,13 @@ def test_the_committed_mappings_cover_every_classifier_artifact():
 
 
 def test_the_committed_mapping_coverage_is_what_was_measured():
-    """Pinned from the 2026-08-20 compile; a change here is a review event,
-    not drift (see docs/reviews/2026-08-20-model-output-mapping-coverage.md)."""
+    """Pinned from the compile; a change here is a review event, not drift
+    (see docs/reviews/2026-08-20-model-output-mapping-coverage.md).
+
+    Recompiled once the seed the mappings are built against started carrying
+    the Catalogue of Life bird synonyms: 131 outputs naming a superseded genus
+    gained the identity they always had at runtime, and none changed.
+    """
     mappings = json.loads((ASSETS / "model_output_mappings.json").read_text(encoding="utf-8"))
 
     total = mapped = declared = unresolved = 0
@@ -413,9 +418,9 @@ def test_the_committed_mapping_coverage_is_what_was_measured():
                 declared += 1
 
     assert total == 23332
-    assert mapped == 21650
+    assert mapped == 21781
     assert declared == 3  # two Unknown classes and one background class
-    assert unresolved == 1679
+    assert unresolved == 1548
 
 
 def test_the_committed_assets_build_a_fully_mapped_catalogue(tmp_path):

@@ -175,7 +175,17 @@ def _build_temp_seed() -> Path:
     staging = Path(tempfile.mkdtemp(prefix="yawamf_mapping_seed_"))
     seed_path = staging / "seed.db"
     col = seed_builder.DEFAULT_COL_CONCEPTS if seed_builder.DEFAULT_COL_CONCEPTS.is_file() else None
-    seed_builder.build(seed_builder.DEFAULT_REFERENCE, seed_path, col_concepts_path=col)
+    # The synonyms have to be in the seed the mappings are compiled against, or
+    # every label still using a superseded name resolves to nothing here while
+    # resolving perfectly well at runtime. That is how `Accipiter gentilis`
+    # came to be an unmapped output of a model that names it on the tin.
+    synonyms = seed_builder.DEFAULT_BIRD_SYNONYMS if seed_builder.DEFAULT_BIRD_SYNONYMS.is_file() else None
+    seed_builder.build(
+        seed_builder.DEFAULT_REFERENCE,
+        seed_path,
+        col_concepts_path=col,
+        bird_synonyms_path=synonyms,
+    )
     return seed_path
 
 
