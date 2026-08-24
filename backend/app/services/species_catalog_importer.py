@@ -438,13 +438,25 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
             outputs_added = 0
             for artifact in bundle.model_artifacts:
                 existing_artifact = live.execute(
-                    "SELECT id, mapping_set_sha256, registry_id FROM model_artifacts WHERE model_sha256 = ?",
+                    "SELECT id, mapping_set_sha256, registry_id, output_width FROM model_artifacts"
+                    " WHERE model_sha256 = ?",
                     (artifact["model_sha256"],),
                 ).fetchone()
                 if existing_artifact:
                     artifact_row_id = int(existing_artifact["id"])
                     incoming = _mapped_outputs(outputs_by_artifact.get(artifact["model_sha256"], []), id_map)
                     locally_derived = str(existing_artifact["registry_id"] or "").startswith(LOCAL_REGISTRY_PREFIX)
+                    if not locally_derived and int(existing_artifact["output_width"] or 0) != int(
+                        artifact["output_width"] or 0
+                    ):
+                        # One model checksum, two output counts. Whichever is
+                        # right, the artifact row and its mapping would stop
+                        # describing the same tensor, and the label reader
+                        # compares the two to decide whether it may serve them.
+                        raise CatalogImportError(
+                            "Bundle declares a different output width for already-registered artifact "
+                            f"{artifact['model_sha256']}; refusing the release"
+                        )
                     if locally_derived:
                         # This install derived a mapping for a model nobody had
                         # published, from that model's own labels. A published
