@@ -241,3 +241,23 @@ class TestFillingTheCatalogueFromTheDetectionDatabase:
             summary = await migrate_cache_overrides(db, catalog_path=catalog)
 
         assert summary["status"] == "unavailable"
+
+
+class TestNotAskingForMoreAccessThanIsNeeded:
+    def test_renames_can_be_counted_on_a_read_only_catalogue(self, catalog):
+        """Diagnostics count renames on every health poll. Taking a writable
+        handle there would report nothing available on a catalogue mounted
+        read-only, when the data reads perfectly well."""
+        import os
+        import stat
+
+        from app.services.species_catalog_overrides import catalogue_override_count
+
+        write_catalogue_override(1, "Bluetit", catalog_path=catalog)
+        os.chmod(catalog, stat.S_IRUSR)
+        try:
+            assert catalogue_override_count(catalog) == 1
+            # And a write against it fails rather than raising.
+            assert write_catalogue_override(2, "Robin", catalog_path=catalog) is False
+        finally:
+            os.chmod(catalog, stat.S_IRUSR | stat.S_IWUSR)

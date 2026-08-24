@@ -27,6 +27,8 @@ import structlog
 from app.services.species_catalog_migrations import catalog_migration_heads, default_catalog_path
 from app.services.species_catalog_release import release_content_digest
 
+from app.services.species_catalog_compatibility import LOCAL_REGISTRY_PREFIX
+
 log = structlog.get_logger()
 
 
@@ -204,6 +206,13 @@ def _identity_gains(
     class kind moving between anything else. Those are corrections, and a
     correction needs a deliberate supersession rather than a quiet arrival.
     """
+    # An index the catalogue holds and the mapping no longer describes means
+    # the mapping shrank. Recording that mapping's digest while keeping rows it
+    # does not contain would have the catalogue claim a mapping it does not
+    # hold, so it is a difference like any other.
+    if set(held) - {int(row["output_index"]) for row in incoming}:
+        return None
+
     gains: list[tuple[int, int]] = []
     for row in incoming:
         index = int(row["output_index"])
@@ -289,10 +298,17 @@ def _complete_registered_mappings(live: sqlite3.Connection, bundle: "_Bundle") -
         added += complete_artifact_mapping(
             live,
             artifact_row_id=int(row["id"]),
+            # Only rows that carry no identity. This repair runs before any
+            # species mapping is built, so a bundle's species number cannot be
+            # translated to a live one here, and writing it raw would bind an
+            # output to whichever species happens to hold that number in this
+            # catalogue. The rows this exists to restore are exactly the ones
+            # with no identity: outputs nothing could resolve, counted in the
+            # mapping digest but filtered out before they were stored.
             bundle_rows=[
                 output
                 for output in bundle.model_outputs
-                if str(output["artifact_sha256"]) == str(artifact["model_sha256"])
+                if str(output["artifact_sha256"]) == str(artifact["model_sha256"]) and output["species_id"] is None
             ],
         )
     return added
@@ -422,13 +438,30 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
             outputs_added = 0
             for artifact in bundle.model_artifacts:
                 existing_artifact = live.execute(
-                    "SELECT id, mapping_set_sha256 FROM model_artifacts WHERE model_sha256 = ?",
+                    "SELECT id, mapping_set_sha256, registry_id FROM model_artifacts WHERE model_sha256 = ?",
                     (artifact["model_sha256"],),
                 ).fetchone()
                 if existing_artifact:
                     artifact_row_id = int(existing_artifact["id"])
                     incoming = _mapped_outputs(outputs_by_artifact.get(artifact["model_sha256"], []), id_map)
-                    if existing_artifact["mapping_set_sha256"] != artifact["mapping_set_sha256"]:
+                    locally_derived = str(existing_artifact["registry_id"] or "").startswith(LOCAL_REGISTRY_PREFIX)
+                    if locally_derived:
+                        # This install derived a mapping for a model nobody had
+                        # published, from that model's own labels. A published
+                        # mapping is reviewed and outranks it outright. Refusing
+                        # the release because it disagrees with a local guess
+                        # would block every future catalogue update for this
+                        # owner, which is a far worse failure than replacing a
+                        # mapping that was never authoritative.
+                        log.info(
+                            "Replacing a locally derived mapping with the published one",
+                            model_sha256=artifact["model_sha256"],
+                            was=existing_artifact["registry_id"],
+                        )
+                        live.execute("DELETE FROM model_output_taxa WHERE model_artifact_id = ?", (artifact_row_id,))
+                        live.execute("DELETE FROM model_artifacts WHERE id = ?", (artifact_row_id,))
+                        existing_artifact = None
+                    elif existing_artifact["mapping_set_sha256"] != artifact["mapping_set_sha256"]:
                         # The artifact checksum owns its mapping, so a
                         # same-checksum artifact arriving with a different one
                         # fails the whole import closed per §1 -- unless the
@@ -466,16 +499,17 @@ def import_release(bundle_path: Path, catalog_path: Optional[Path] = None) -> Im
                                 model_sha256=artifact["model_sha256"],
                                 outputs_named=len(gains),
                             )
-                    # Any row the live catalogue lacks is absent rather than
-                    # different. It can hold fewer rows than its own digest
-                    # describes, because outputs nothing could resolve were
-                    # counted in the digest but not stored.
-                    outputs_added += complete_artifact_mapping(
-                        live,
-                        artifact_row_id=artifact_row_id,
-                        bundle_rows=incoming,
-                    )
-                    continue
+                    if existing_artifact is not None:
+                        # Any row the live catalogue lacks is absent rather
+                        # than different. It can hold fewer rows than its own
+                        # digest describes, because outputs nothing could
+                        # resolve were counted in the digest but not stored.
+                        outputs_added += complete_artifact_mapping(
+                            live,
+                            artifact_row_id=artifact_row_id,
+                            bundle_rows=incoming,
+                        )
+                        continue
                 cursor = live.execute(
                     "INSERT INTO model_artifacts"
                     " (registry_id, model_sha256, mapping_set_sha256, output_width, runtime, model_version, state)"
