@@ -8,6 +8,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **Diagnostics now name the sources the species catalogue is built from, and their licences.** The
+  catalogue redistributes work from the IOC World Bird List under CC BY 3.0 and the Catalogue of
+  Life under CC BY 4.0, both of which require attribution, and nothing in the running application
+  showed it: the Naming Sources card reported how many species the catalogue held but not where any
+  of them came from. It now lists each pinned source in the active release with its version,
+  licence, and citation as the source gave it, so the attribution belongs to the release actually
+  running rather than to whatever the documentation last said. Alongside it, in plain words: the
+  catalogue is a separate file from your detection history, rolling one back changes names and
+  never your recorded sightings, and a backup of the data directory covers both. Documented in full
+  under Taxonomy & Naming.
+
 - **A catalogue release may now name an output the catalogue could not name before.** Until now a
   release carrying any different mapping for an already-registered model failed the whole import
   closed, which is right for a mapping that rewrites what an output is, but also blocked one that

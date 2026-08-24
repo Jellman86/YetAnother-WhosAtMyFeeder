@@ -131,7 +131,19 @@ def test_status_reports_the_active_release_and_coverage(catalog):
 
     assert status["available"] is True
     assert status["species_count"] == 2
-    assert status["active_release"]["sources"] == [{"id": "ioc-world-bird-list", "version": "14.2-test"}]
+    # The citation and licence travel with the version: the catalogue
+    # redistributes work under CC BY terms, and an owner cannot attribute what
+    # diagnostics never show them. `name` is not here because the seed builder
+    # does not persist it, and a field that is always null is not provenance.
+    assert status["active_release"]["sources"] == [
+        {
+            "id": "ioc-world-bird-list",
+            "version": "14.2-test",
+            "licence": "CC-BY-3.0",
+            "citation": "IOC World Bird List.",
+            "url": "https://www.worldbirdnames.org/",
+        }
+    ]
 
     artifacts = status["artifacts"]
     assert len(artifacts) == 1
