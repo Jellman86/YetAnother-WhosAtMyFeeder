@@ -40,7 +40,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   owner diagnostics under `species_catalog.local_mapping`. A registry model is skipped outright so
   a mapping derived from a file on disk can never stand in for a reviewed one, an artifact the
   catalogue already holds is never overwritten, and these labels are never served back as
-  catalogue-verified — they came from the label file this work exists to stop trusting.
+  catalogue-verified — they came from the label file this work exists to stop trusting. If that
+  model is later published, the reviewed mapping replaces the derived one: a mapping compiled from
+  a file on disk was never authoritative, and refusing the release because it disagreed with one
+  would block every future catalogue update for that owner.
 
 - **Audio detections carry catalogue identity.** Audio correlation was the last read path keyed on
   name text, so a bird heard and a bird seen were joined by a string. BirdNET-Go reports a

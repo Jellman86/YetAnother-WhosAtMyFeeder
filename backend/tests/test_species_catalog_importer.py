@@ -430,7 +430,9 @@ def _build_mapped_seed(tmp_path, output_name, *, label):
     return path
 
 
-def _build_two_output_seed(tmp_path, output_name, *, second_resolved, second_label="European robin"):
+def _build_two_output_seed(
+    tmp_path, output_name, *, second_resolved, second_label="European robin", second_present=True
+):
     """Two seeds sharing one artifact checksum, differing only in whether the
     second output resolved to a catalogue identity."""
     import json as json_module
@@ -462,7 +464,7 @@ def _build_two_output_seed(tmp_path, output_name, *, second_resolved, second_lab
                 "label_files": {
                     "labelsha-supersession": {
                         "label_format": "common_name",
-                        "output_width": 2,
+                        "output_width": 2 if second_present else 1,
                         "outputs": [
                             {
                                 "index": 0,
@@ -471,7 +473,7 @@ def _build_two_output_seed(tmp_path, output_name, *, second_resolved, second_lab
                                 "provider": "ioc-world-bird-list",
                                 "taxon": "Cyanistes caeruleus",
                             },
-                            second,
+                            *([second] if second_present else []),
                         ],
                     }
                 },
@@ -556,3 +558,98 @@ def test_an_output_whose_label_changed_is_refused(tmp_path):
         import_release(bundle, catalog_path=live)
 
     assert _outputs(live) == before
+
+
+def _artifact_row(catalog_path):
+    connection = sqlite3.connect(catalog_path)
+    try:
+        return connection.execute(
+            "SELECT registry_id, mapping_set_sha256, output_width FROM model_artifacts"
+        ).fetchone()
+    finally:
+        connection.close()
+
+
+def _register_local_artifact(catalog_path, *, model_sha256, labels):
+    """Stand in for a model the owner installed themselves, mapped by the
+    compatibility importer rather than by a release."""
+    from app.services.species_catalog_compatibility import import_local_model_mapping
+
+    return import_local_model_mapping(
+        model_id="owner_model",
+        model_sha256=model_sha256,
+        labels=labels,
+        runtime="onnx",
+        catalog_path=catalog_path,
+    )
+
+
+def test_a_published_mapping_replaces_one_this_install_derived_for_itself(tmp_path):
+    """A model the owner sideloaded gets a mapping derived from its own labels.
+    If that model is later published, the reviewed mapping has to be able to
+    land: refusing it because it disagrees with a locally derived guess would
+    block every future catalogue release for that owner.
+    """
+    live = _build_two_output_seed(tmp_path, "local_live.db", second_resolved=False)
+    connection = sqlite3.connect(live)
+    try:
+        connection.execute("DELETE FROM model_output_taxa")
+        connection.execute("DELETE FROM model_artifacts")
+        connection.commit()
+    finally:
+        connection.close()
+
+    report = _register_local_artifact(live, model_sha256="d" * 64, labels=["Eurasian Blue Tit", "European Robin"])
+    assert report.verdict == "imported"
+    assert _artifact_row(live)[0].startswith("local:")
+
+    bundle = _build_two_output_seed(tmp_path, "local_bundle.db", second_resolved=True)
+    result = import_release(bundle, catalog_path=live)
+
+    assert result.status == "imported"
+    registry_id, _, _ = _artifact_row(live)
+    # The reviewed mapping now owns the artifact, under its published id.
+    assert registry_id == "supersession_model"
+    assert [row[3] for row in _outputs(live)] == ["Eurasian blue tit", "European robin"]
+
+
+def test_a_mapping_that_drops_outputs_is_refused(tmp_path):
+    """Fewer outputs for the same model checksum is a build defect. Accepting
+    it would leave rows the mapping no longer describes while recording that
+    mapping's digest, so the catalogue would claim a mapping it does not hold.
+    """
+    live = _build_two_output_seed(tmp_path, "shrink_live.db", second_resolved=True)
+    bundle = _build_two_output_seed(tmp_path, "shrink_bundle.db", second_resolved=True, second_present=False)
+    before = _outputs(live)
+    assert len(before) == 2
+
+    with pytest.raises(CatalogImportError, match="different mapping set"):
+        import_release(bundle, catalog_path=live)
+
+    assert _outputs(live) == before
+
+
+def test_repairing_an_already_imported_release_never_writes_a_bundle_species_number(tmp_path):
+    """The repair runs before any species mapping is built, so a bundle's own
+    species numbering cannot be translated. Restoring a row that carries one
+    would bind the output to whichever species holds that number here."""
+    # The same release on both sides, so the import takes the already-imported
+    # repair path. Output 0 carries an identity, output 1 does not.
+    live = _build_two_output_seed(tmp_path, "repair_live.db", second_resolved=False)
+    bundle = _build_two_output_seed(tmp_path, "repair_bundle.db", second_resolved=False)
+
+    connection = sqlite3.connect(live)
+    try:
+        connection.execute("DELETE FROM model_output_taxa")
+        connection.commit()
+    finally:
+        connection.close()
+
+    result = import_release(bundle, catalog_path=live)
+    assert result.status == "already_imported"
+
+    restored = _outputs(live)
+    # Only the identity-free row comes back; the one carrying a species number
+    # is left for a real import to place.
+    assert [row[0] for row in restored] == [1]
+    assert restored[0][1:3] == ("unknown", None)

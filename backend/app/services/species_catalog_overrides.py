@@ -34,19 +34,29 @@ log = structlog.get_logger()
 ALL_LANGUAGES = ""
 
 
-def _open_writable(catalog_path: Optional[Path]) -> Optional[sqlite3.Connection]:
+def _open(catalog_path: Optional[Path], *, writable: bool) -> Optional[sqlite3.Connection]:
+    """A catalogue connection that holds the override table, or None.
+
+    Reads ask for a read-only handle rather than a write-capable one they do
+    not need: the health surface counts renames on every poll, and taking a
+    writable handle there would contend with an import and would fail outright
+    on a catalogue mounted read-only, reporting nothing available when the data
+    reads perfectly well.
+    """
     path = Path(catalog_path or default_catalog_path())
     if not path.is_file():
         return None
+    connection: Optional[sqlite3.Connection] = None
     try:
-        connection = sqlite3.connect(path)
-        connection.execute("PRAGMA foreign_keys = ON")
+        if writable:
+            connection = sqlite3.connect(path)
+            connection.execute("PRAGMA foreign_keys = ON")
+        else:
+            connection = sqlite3.connect(f"file:{path}?mode=ro", uri=True)
         connection.execute("SELECT 1 FROM species_name_overrides LIMIT 1").fetchone()
     except sqlite3.Error:
-        try:
+        if connection is not None:
             connection.close()
-        except (sqlite3.Error, UnboundLocalError):  # pragma: no cover - defensive
-            pass
         return None
     return connection
 
@@ -69,7 +79,7 @@ def write_catalogue_override(
     if not cleaned or species_id is None:
         return False
 
-    connection = _open_writable(catalog_path)
+    connection = _open(catalog_path, writable=True)
     if connection is None:
         return False
     on_conflict = (
@@ -107,7 +117,7 @@ def clear_catalogue_override(
     if species_id is None:
         return False
 
-    connection = _open_writable(catalog_path)
+    connection = _open(catalog_path, writable=True)
     if connection is None:
         return False
     try:
@@ -127,7 +137,7 @@ def clear_catalogue_override(
 
 def catalogue_override_count(catalog_path: Optional[Path] = None) -> Optional[int]:
     """How many renames the catalogue holds, or None if it cannot be read."""
-    connection = _open_writable(catalog_path)
+    connection = _open(catalog_path, writable=False)
     if connection is None:
         return None
     try:
