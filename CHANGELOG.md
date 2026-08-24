@@ -236,6 +236,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Removed a second, name-keyed way of reading the daily rollup that nothing used.** Species
+  aggregation moved to the catalogue's stable identity, and the leaderboard and its trends now
+  group on one shared key. The rollup reader that predated it stayed behind: 128 lines that grouped
+  by display name, kept compiling, and kept a branch for a schema no migrated database has. Nothing
+  in the application called it; it survived only because three tests used it to check that rollups
+  had been written. Those tests now read the rollup table directly, which is what they were
+  actually asking, so the behaviour stays covered and the duplicate reader goes.
+
 - **A model's labels are read from the catalogue rather than its label file.** `labels.txt` is
   verified when a model is downloaded and never again, so every inference since has trusted
   whatever is on disk. The catalogue holds a row per output index carrying the same label,

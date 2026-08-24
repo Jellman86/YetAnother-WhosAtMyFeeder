@@ -3074,35 +3074,6 @@ class DetectionRepository:
             out.append((bucket_start, count))
         return out
 
-    async def get_species_counts(self) -> list[dict]:
-        """Get detection counts per species with taxonomic metadata."""
-        canonical_key = self._canonical_key_sql(taxonomy_alias=None)
-        query = f"""
-            SELECT 
-                {canonical_key} as unified_id,
-                COUNT(*) as count, 
-                MAX(d.scientific_name) as scientific_name, 
-                MAX(d.common_name) as common_name,
-                MAX(d.display_name) as display_name,
-                MAX(d.taxa_id) as taxa_id
-            FROM detections d
-            WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
-            GROUP BY unified_id
-            ORDER BY count DESC
-        """
-        async with self.db.execute(query) as cursor:
-            rows = await cursor.fetchall()
-            return [
-                {
-                    "species": row[4],
-                    "count": row[1],
-                    "scientific_name": row[2],
-                    "common_name": row[3],
-                    "taxa_id": row[5],
-                }
-                for row in rows
-            ]
-
     async def get_species_leaderboard_base(self) -> list[dict]:
         """Get leaderboard base stats per species with taxonomy and time bounds."""
         canonical_key = self._canonical_key_sql()
@@ -3560,70 +3531,6 @@ class DetectionRepository:
             await self.db.rollback()
             raise
 
-    async def get_rollup_metrics(self, lookback_days: int = 30) -> dict[str, dict]:
-        """Aggregate rollup metrics for leaderboard windows."""
-        window = f"-{lookback_days} day"
-        rollup_columns = await self._table_columns("species_daily_rollup")
-        if "canonical_key" in rollup_columns:
-            query = """
-                SELECT
-                    canonical_key,
-                    COALESCE(MAX(common_name), MIN(display_name)) as display_name,
-                    SUM(CASE WHEN rollup_date >= date('now','-1 day') THEN detection_count ELSE 0 END) as count_1d,
-                    SUM(CASE WHEN rollup_date >= date('now','-7 day') THEN detection_count ELSE 0 END) as count_7d,
-                    SUM(CASE WHEN rollup_date >= date('now','-30 day') THEN detection_count ELSE 0 END) as count_30d,
-                    SUM(CASE WHEN rollup_date >= date('now','-14 day')
-                              AND rollup_date < date('now','-7 day') THEN detection_count ELSE 0 END) as count_prev_7d,
-                    SUM(CASE WHEN rollup_date >= date('now','-14 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_14d,
-                    SUM(CASE WHEN rollup_date >= date('now','-30 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_30d,
-                    MAX(last_seen) as last_seen_recent
-                FROM species_daily_rollup
-                WHERE rollup_date >= date('now', ?)
-                GROUP BY canonical_key
-            """
-        else:
-            query = """
-            SELECT
-                display_name,
-                SUM(CASE WHEN rollup_date >= date('now','-1 day') THEN detection_count ELSE 0 END) as count_1d,
-                SUM(CASE WHEN rollup_date >= date('now','-7 day') THEN detection_count ELSE 0 END) as count_7d,
-                SUM(CASE WHEN rollup_date >= date('now','-30 day') THEN detection_count ELSE 0 END) as count_30d,
-                SUM(CASE WHEN rollup_date >= date('now','-14 day')
-                          AND rollup_date < date('now','-7 day') THEN detection_count ELSE 0 END) as count_prev_7d,
-                    SUM(CASE WHEN rollup_date >= date('now','-14 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_14d,
-                    SUM(CASE WHEN rollup_date >= date('now','-30 day') AND detection_count > 0 THEN 1 ELSE 0 END) as days_seen_30d,
-                    MAX(last_seen) as last_seen_recent
-                FROM species_daily_rollup
-                WHERE rollup_date >= date('now', ?)
-                GROUP BY display_name
-            """
-        async with self.db.execute(query, (window,)) as cursor:
-            rows = await cursor.fetchall()
-        metrics: dict[str, dict] = {}
-        if "canonical_key" in rollup_columns:
-            for row in rows:
-                metrics[row[1]] = {
-                    "count_1d": row[2] or 0,
-                    "count_7d": row[3] or 0,
-                    "count_30d": row[4] or 0,
-                    "count_prev_7d": row[5] or 0,
-                    "days_seen_14d": row[6] or 0,
-                    "days_seen_30d": row[7] or 0,
-                    "last_seen_recent": _parse_datetime(row[8]) if row[8] else None,
-                }
-        else:
-            for row in rows:
-                metrics[row[0]] = {
-                    "count_1d": row[1] or 0,
-                    "count_7d": row[2] or 0,
-                    "count_30d": row[3] or 0,
-                    "count_prev_7d": row[4] or 0,
-                    "days_seen_14d": row[5] or 0,
-                    "days_seen_30d": row[6] or 0,
-                    "last_seen_recent": _parse_datetime(row[7]) if row[7] else None,
-                }
-        return metrics
-
     async def get_total_daily_counts(self, days: int = 30) -> list[dict]:
         """Get total detection counts per day for the last N days (inclusive)."""
         if days <= 0:
@@ -3693,41 +3600,6 @@ class DetectionRepository:
                 "last_seen_recent": _parse_datetime(row[7]) if row[7] else None,
             }
         return metrics
-
-    async def get_rollup_metrics_for_species(self, species: list[str], lookback_days: int = 30) -> dict:
-        """Aggregate rollup metrics for a set of species as a single group."""
-        if not species:
-            return {}
-        placeholders = ",".join(["?"] * len(species))
-        query = f"""
-            SELECT 
-                SUM(CASE WHEN rollup_date >= date('now','-1 day') THEN detection_count ELSE 0 END) as count_1d,
-                SUM(CASE WHEN rollup_date >= date('now','-7 day') THEN detection_count ELSE 0 END) as count_7d,
-                SUM(CASE WHEN rollup_date >= date('now','-30 day') THEN detection_count ELSE 0 END) as count_30d,
-                SUM(CASE WHEN rollup_date >= date('now','-14 day') 
-                          AND rollup_date < date('now','-7 day') THEN detection_count ELSE 0 END) as count_prev_7d,
-                COUNT(DISTINCT CASE WHEN rollup_date >= date('now','-14 day') AND detection_count > 0 THEN rollup_date END) as days_seen_14d,
-                COUNT(DISTINCT CASE WHEN rollup_date >= date('now','-30 day') AND detection_count > 0 THEN rollup_date END) as days_seen_30d,
-                MAX(last_seen) as last_seen_recent
-            FROM species_daily_rollup
-            WHERE rollup_date >= date('now', ?)
-              AND display_name IN ({placeholders})
-        """
-        window = f"-{lookback_days} day"
-        params = [window] + species
-        async with self.db.execute(query, params) as cursor:
-            row = await cursor.fetchone()
-        if not row:
-            return {}
-        return {
-            "count_1d": row[0] or 0,
-            "count_7d": row[1] or 0,
-            "count_30d": row[2] or 0,
-            "count_prev_7d": row[3] or 0,
-            "days_seen_14d": row[4] or 0,
-            "days_seen_30d": row[5] or 0,
-            "last_seen_recent": _parse_datetime(row[6]) if row[6] else None,
-        }
 
     async def get_window_metrics_for_species_name(self, species_name: str, lookback_days: int = 30) -> dict:
         """Aggregate recent per-species metrics directly from detections."""
