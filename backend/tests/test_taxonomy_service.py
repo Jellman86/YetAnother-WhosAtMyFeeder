@@ -362,3 +362,78 @@ async def test_the_lookup_asks_for_more_than_one_candidate(taxonomy_service):
         await taxonomy_service._lookup_inaturalist("Regulus regulus")
 
     assert client.get.await_args.kwargs["params"]["per_page"] > 1
+
+
+@pytest.mark.asyncio
+async def test_setting_a_rename_records_it_against_the_resolved_species(taxonomy_service):
+    """The detection database keeps its copy for the pre-3.0 readers, and the
+    catalogue gets the same rename keyed on the species it names."""
+    written: list[tuple[int, str]] = []
+    cursor = AsyncMock()
+    cursor.rowcount = 1
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=cursor)
+
+    with (
+        patch(
+            "app.services.species_catalog_resolver.species_catalog_resolver.resolve_scientific_name",
+            return_value=(4242, "resolved"),
+        ),
+        patch(
+            "app.services.species_catalog_overrides.write_catalogue_override",
+            side_effect=lambda species_id, name: written.append((species_id, name)) or True,
+        ),
+        patch.object(taxonomy_service, "get_common_name_override", AsyncMock(return_value={"ok": True})),
+    ):
+        await taxonomy_service.set_common_name_override("Cyanistes caeruleus", "Bluetit", db)
+
+    assert written == [(4242, "Bluetit")]
+
+
+@pytest.mark.asyncio
+async def test_clearing_a_rename_clears_it_in_the_catalogue_too(taxonomy_service):
+    cleared: list[int] = []
+    cursor = AsyncMock()
+    cursor.rowcount = 1
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=cursor)
+
+    with (
+        patch(
+            "app.services.species_catalog_resolver.species_catalog_resolver.resolve_scientific_name",
+            return_value=(4242, "resolved"),
+        ),
+        patch(
+            "app.services.species_catalog_overrides.clear_catalogue_override",
+            side_effect=lambda species_id: cleared.append(species_id) or True,
+        ),
+        patch.object(taxonomy_service, "get_common_name_override", AsyncMock(return_value={"ok": True})),
+    ):
+        await taxonomy_service.clear_common_name_override("Cyanistes caeruleus", db)
+
+    assert cleared == [4242]
+
+
+@pytest.mark.asyncio
+async def test_a_rename_of_a_name_the_catalogue_cannot_place_is_still_saved(taxonomy_service):
+    """The owner's decision is already stored by the time the catalogue is
+    asked. A name it cannot resolve is a naming gap, never a lost rename."""
+    cursor = AsyncMock()
+    cursor.rowcount = 1
+    db = AsyncMock()
+    db.execute = AsyncMock(return_value=cursor)
+
+    with (
+        patch(
+            "app.services.species_catalog_resolver.species_catalog_resolver.resolve_scientific_name",
+            return_value=(None, "unknown"),
+        ),
+        patch(
+            "app.services.species_catalog_overrides.write_catalogue_override",
+            side_effect=AssertionError("must not be called without a resolved species"),
+        ),
+        patch.object(taxonomy_service, "get_common_name_override", AsyncMock(return_value={"ok": True})),
+    ):
+        result = await taxonomy_service.set_common_name_override("Troglodytidae", "Wrens", db)
+
+    assert result == {"ok": True}
