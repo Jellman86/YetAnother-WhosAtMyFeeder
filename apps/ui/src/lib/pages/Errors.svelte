@@ -515,6 +515,11 @@
     // The catalogue redistributes work under CC BY terms. Attribution the
     // owner is never shown is not attribution, so the citation is rendered as
     // the source gave it rather than summarised.
+    //
+    // Rendered without an each-key on purpose: the list is short, static for a
+    // given release, and never reordered, while a duplicate key throws. A
+    // manifest that listed one source twice would take down the page whose
+    // whole job is to work when something is wrong.
     function catalogSources(): Array<{ heading: string; citation: string }> {
         const sources = health?.naming?.species_catalog?.active_release?.sources ?? [];
         return sources
@@ -919,7 +924,7 @@
                                 <div class="mt-4 border-t border-current/20 pt-3">
                                     <span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_catalog_sources', { default: 'Catalogue sources' })}</span>
                                     <ul class="mt-2 space-y-2 text-xs">
-                                        {#each catalogSources() as source (source.heading)}
+                                        {#each catalogSources() as source}
                                             <li>
                                                 <span class="font-semibold">{source.heading}</span>
                                                 {#if source.citation}
