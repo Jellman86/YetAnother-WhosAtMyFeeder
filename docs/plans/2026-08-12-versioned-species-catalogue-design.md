@@ -1,7 +1,7 @@
 # Versioned species catalogue and model-output identity
 
 **Roadmap item:** [The Road to 3.0 §1.2, Versioned species catalogue and model-output identity](../../ROADMAP.md#versioned-species-catalogue-and-model-output-identity-%EF%B8%8F)
-**Status:** Proposed, required before `3.0`
+**Status:** In progress, required before `3.0`. Phases 0, 1, 3 and 4 delivered; Phase 2's activation check is deliberately advisory until Phase 5 retires label-file authority; Phase 5 is mostly delivered — see [The Road to 3.0](../../ROADMAP.md#versioned-species-catalogue-and-model-output-identity-%EF%B8%8F) for the per-phase state.
 **Scope:** Replace label-text identity with a dedicated, versioned, enrichable SQLite species catalogue that owns scientific names, source identifiers, synonyms, translated common names, and the exact output-index mapping for every supported classifier artifact.
 
 ## Outcome
