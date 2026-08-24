@@ -2585,6 +2585,8 @@
     "errors_naming_catalog_empty": "Il catalogo delle specie è vuoto. I nomi provengono dal riferimento incluso e dai file di etichette dei modelli.",
     "errors_naming_catalog_gaps": "{unresolved} classi di output dei modelli non hanno ancora un'identità nel catalogo e mantengono il testo originale dell'etichetta.",
     "errors_naming_catalog_ok": "Ogni output di modello mappato corrisponde a un'identità del catalogo.",
+    "errors_catalog_sources": "Fonti del catalogo",
+    "errors_catalog_rollback": "Il catalogo è un file separato dalla cronologia dei rilevamenti. Ripristinarne una versione precedente cambia i nomi, mai gli avvistamenti registrati, e un backup della cartella dei dati copre entrambi.",
     "errors_metric_offline_species": "Specie offline",
     "errors_metric_languages": "Lingue",
     "errors_metric_started": "Avviati",

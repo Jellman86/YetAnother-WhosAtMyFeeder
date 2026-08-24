@@ -2449,6 +2449,8 @@
     "errors_naming_catalog_empty": "The species catalogue is empty. Names come from the bundled reference and model label files.",
     "errors_naming_catalog_gaps": "{unresolved} model output classes have no catalogue identity yet and keep their original label text.",
     "errors_naming_catalog_ok": "Every mapped model output resolves to a catalogue identity.",
+    "errors_catalog_sources": "Catalogue sources",
+    "errors_catalog_rollback": "The catalogue is a separate file from your detection history. Rolling one back changes names, never your recorded sightings, and a backup of the data directory covers both.",
     "errors_metric_offline_species": "Offline Species",
     "errors_metric_languages": "Languages",
     "errors_metric_started": "Started",

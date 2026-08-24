@@ -2585,6 +2585,8 @@
     "errors_naming_catalog_empty": "Der Artenkatalog ist leer. Namen stammen aus der mitgelieferten Referenz und den Labeldateien der Modelle.",
     "errors_naming_catalog_gaps": "{unresolved} Modellklassen haben noch keine Katalogidentität und behalten ihren ursprünglichen Labeltext.",
     "errors_naming_catalog_ok": "Jede zugeordnete Modellausgabe verweist auf eine Katalogidentität.",
+    "errors_catalog_sources": "Katalogquellen",
+    "errors_catalog_rollback": "Der Katalog ist eine eigene Datei, getrennt von Ihrem Erkennungsverlauf. Ein Rollback ändert Namen, niemals Ihre aufgezeichneten Sichtungen, und eine Sicherung des Datenverzeichnisses umfasst beides.",
     "errors_metric_offline_species": "Offline-Arten",
     "errors_metric_languages": "Sprachen",
     "errors_metric_started": "Gestartet",

@@ -2585,6 +2585,8 @@
     "errors_naming_catalog_empty": "物种目录为空。名称来自内置参考和模型标签文件。",
     "errors_naming_catalog_gaps": "{unresolved} 个模型输出类别尚无目录身份，仍使用原始标签文本。",
     "errors_naming_catalog_ok": "所有已映射的模型输出都对应目录中的身份。",
+    "errors_catalog_sources": "目录来源",
+    "errors_catalog_rollback": "目录与检测历史是两个独立的文件。回滚只会更改名称，绝不会影响已记录的观察结果，备份数据目录即可同时保护两者。",
     "errors_metric_offline_species": "离线物种",
     "errors_metric_languages": "语言",
     "errors_metric_started": "已开始",

@@ -2585,6 +2585,8 @@
     "errors_naming_catalog_empty": "El catálogo de especies está vacío. Los nombres provienen de la referencia incluida y de los archivos de etiquetas de los modelos.",
     "errors_naming_catalog_gaps": "{unresolved} clases de salida de los modelos aún no tienen identidad en el catálogo y conservan su texto de etiqueta original.",
     "errors_naming_catalog_ok": "Cada salida de modelo asignada se resuelve en una identidad del catálogo.",
+    "errors_catalog_sources": "Fuentes del catálogo",
+    "errors_catalog_rollback": "El catálogo es un archivo independiente de su historial de detecciones. Revertirlo cambia los nombres, nunca sus avistamientos registrados, y una copia de seguridad del directorio de datos cubre ambos.",
     "errors_metric_offline_species": "Especies sin conexión",
     "errors_metric_languages": "Idiomas",
     "errors_metric_started": "Iniciados",

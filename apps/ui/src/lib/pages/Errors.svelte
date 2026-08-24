@@ -58,6 +58,14 @@
         labels?: { verdict?: string; label_count?: number };
     }
 
+    interface CatalogSource {
+        id?: string | null;
+        version?: string | null;
+        licence?: string | null;
+        citation?: string | null;
+        url?: string | null;
+    }
+
     interface CatalogArtifactHealth {
         registry_id?: string;
         output_width?: number;
@@ -73,6 +81,10 @@
             available?: boolean;
             species_count?: number;
             artifacts?: CatalogArtifactHealth[];
+            active_release?: {
+                generated_at?: string | null;
+                sources?: CatalogSource[];
+            } | null;
         };
     }
 
@@ -500,6 +512,24 @@
         return asNumber(catalog.species_count).toLocaleString();
     }
 
+    // The catalogue redistributes work under CC BY terms. Attribution the
+    // owner is never shown is not attribution, so the citation is rendered as
+    // the source gave it rather than summarised.
+    function catalogSources(): Array<{ heading: string; citation: string }> {
+        const sources = health?.naming?.species_catalog?.active_release?.sources ?? [];
+        return sources
+            .filter((source) => Boolean(source?.id))
+            .map((source) => {
+                const version = String(source.version ?? '').trim();
+                const licence = String(source.licence ?? '').trim();
+                const heading = [String(source.id).trim(), version].filter(Boolean).join(' ');
+                return {
+                    heading: licence ? `${heading} (${licence})` : heading,
+                    citation: String(source.citation ?? '').trim()
+                };
+            });
+    }
+
     function catalogSummary(): string | null {
         const catalog = health?.naming?.species_catalog;
         if (!catalog?.available) {
@@ -884,6 +914,22 @@
                             </div>
                             {#if catalogSummary()}
                                 <p class="mt-3 text-xs font-semibold opacity-80">{catalogSummary()}</p>
+                            {/if}
+                            {#if catalogSources().length > 0}
+                                <div class="mt-4 border-t border-current/20 pt-3">
+                                    <span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_catalog_sources', { default: 'Catalogue sources' })}</span>
+                                    <ul class="mt-2 space-y-2 text-xs">
+                                        {#each catalogSources() as source (source.heading)}
+                                            <li>
+                                                <span class="font-semibold">{source.heading}</span>
+                                                {#if source.citation}
+                                                    <span class="mt-0.5 block opacity-70">{source.citation}</span>
+                                                {/if}
+                                            </li>
+                                        {/each}
+                                    </ul>
+                                    <p class="mt-3 text-xs opacity-70">{$_('jobs.errors_catalog_rollback', { default: 'The catalogue is a separate file from your detection history. Rolling one back changes names, never your recorded sightings, and a backup of the data directory covers both.' })}</p>
+                                </div>
                             {/if}
                         </div>
                     </div>

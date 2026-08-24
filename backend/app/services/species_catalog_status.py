@@ -30,11 +30,14 @@ log = structlog.get_logger()
 
 
 def _manifest_sources(source_manifest: object) -> list[dict[str, Any]]:
-    """Pinned source ids/versions from a release's manifest, defensively.
+    """Pinned sources from a release's manifest, defensively.
 
-    The column is free text copied from bundles; anything that is not the
-    expected object shape yields an empty list rather than an exception on
-    the health path.
+    Carries the citation and licence as well as the version, because the
+    catalogue redistributes work under CC BY terms and an owner cannot
+    attribute what they are never shown. Every field is optional: the column
+    is free text copied from bundles, and anything that is not the expected
+    object shape yields an empty list rather than an exception on the health
+    path.
     """
     try:
         payload = json.loads(str(source_manifest or ""))
@@ -46,7 +49,15 @@ def _manifest_sources(source_manifest: object) -> list[dict[str, Any]]:
     if not isinstance(sources, list):
         return []
     return [
-        {"id": source.get("id"), "version": source.get("version")} for source in sources if isinstance(source, dict)
+        {
+            "id": source.get("id"),
+            "version": source.get("version"),
+            "licence": source.get("licence"),
+            "citation": source.get("citation"),
+            "url": source.get("url"),
+        }
+        for source in sources
+        if isinstance(source, dict)
     ]
 
 
