@@ -2,6 +2,7 @@ import pytest
 import aiosqlite
 from datetime import datetime, timedelta
 from app.repositories.detection_repository import DetectionRepository, Detection
+from conftest import rollup_counts_by_display_name
 
 
 async def _create_detections_table(db: aiosqlite.Connection) -> None:
@@ -264,10 +265,10 @@ async def test_species_rollup_metrics():
             )
         )
         await repo.ensure_recent_rollups(30)
-        metrics = await repo.get_rollup_metrics()
+        counts = await rollup_counts_by_display_name(repo)
 
-        assert metrics["Robin"]["count_7d"] >= 1
-        assert metrics["Sparrow"]["count_7d"] >= 1
+        assert counts["Robin"] >= 1
+        assert counts["Sparrow"] >= 1
 
 
 @pytest.mark.asyncio
@@ -556,10 +557,10 @@ async def test_rollup_metrics_collapse_common_and_scientific_aliases():
         )
 
         await repo.ensure_recent_rollups(30)
-        metrics = await repo.get_rollup_metrics()
+        counts = await rollup_counts_by_display_name(repo)
 
-        assert list(metrics.keys()) == ["Blue Tit"]
-        assert metrics["Blue Tit"]["count_7d"] >= 2
+        assert list(counts.keys()) == ["Blue Tit"]
+        assert counts["Blue Tit"] >= 2
 
 
 @pytest.mark.asyncio
