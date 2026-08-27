@@ -239,6 +239,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The two percentages on a detection now say what each one measures.** A detection panel shows how
+  sure the camera was that it saw a bird at all, and how sure the classifier is about which species.
+  They measure different things and will rarely agree, but only one of them was labelled, and it was
+  labelled "Frigate bird score" — the name of a product a viewer has no reason to know, where every
+  other fact beside it says something plain like "Seen" or "Heard nearby" (#269). It now reads
+  "Spotted as a bird", with an explanation on hover of what it is and why it differs from the species
+  match. The species score, previously a bare percentage next to the word "confident" with no noun
+  saying confident of what, is now named too. Translated into all nine languages, and the retired
+  "FRIGATE: n%" string that nothing rendered any more is gone.
+
+
 - **A detection card now keeps its time and its confidence together.** The score sat alone in the
   opposite corner from the time, one type size larger, so the two facts a card states about a
   sighting were diagonally apart at two different weights and the score read like a control rather
