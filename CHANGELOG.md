@@ -704,6 +704,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Database pool diagnostics no longer report an average above their own maximum.** The pool
+  reported an average wait and hold measured over the whole life of the process, next to a maximum
+  measured over the last five minutes. On any install that had been up for a while, the early slow
+  waits stayed in the average long after they had aged out of the maximum, so `/health` and any
+  diagnostics bundle showed an average larger than the maximum beside it. Both averages are now
+  taken over the same five-minute window as the maximum, so the pair can be read together. The
+  all-time high-water marks are unchanged and still reported separately.
+
 - **Times no longer claim a precision the data does not have.** A detection read `07:38` in one
   place and `07:38:00` in another, because the formatter that pairs a date with a time asked for
   neither hour nor minute and took the locale default, which carries seconds. Twenty-four places

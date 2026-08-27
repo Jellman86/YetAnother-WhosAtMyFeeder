@@ -338,7 +338,6 @@ class DatabasePool:
         self._lock = asyncio.Lock()
         self._acquire_count = 0
         self._slow_acquire_count = 0
-        self._acquire_wait_total_ms = 0.0
         self._acquire_wait_lifetime_max_ms = 0.0
         # Rolling samples of (monotonic_ts, waited_ms). Older entries age out
         # of the live windowed max so one slow acquire doesn't degrade health
@@ -349,8 +348,6 @@ class DatabasePool:
         # the symptom of an exhausted pool; hold time is the cause, and without
         # it diagnostics can report a 17-second stall while naming nothing.
         self._hold_samples: deque[tuple[float, float]] = deque(maxlen=DB_POOL_WAIT_SAMPLE_CAP)
-        self._hold_count = 0
-        self._hold_total_ms = 0.0
         self._hold_lifetime_max_ms = 0.0
         self._slow_hold_count = 0
         self._slow_hold_last_label: Optional[str] = None
@@ -446,7 +443,6 @@ class DatabasePool:
         waited_ms = (time.monotonic() - started) * 1000.0
         self._checked_out[id(conn)] = (time.monotonic(), label or "unlabelled")
         self._acquire_count += 1
-        self._acquire_wait_total_ms += waited_ms
         self._record_wait_sample(waited_ms)
         if waited_ms >= DB_POOL_SLOW_ACQUIRE_WARN_MS:
             self._slow_acquire_count += 1
@@ -535,10 +531,7 @@ class DatabasePool:
         self._wait_samples.append((now, waited_ms))
         if waited_ms > self._acquire_wait_lifetime_max_ms:
             self._acquire_wait_lifetime_max_ms = waited_ms
-        cutoff = now - DB_POOL_WAIT_WINDOW_SECONDS
-        samples = self._wait_samples
-        while samples and samples[0][0] < cutoff:
-            samples.popleft()
+        self._prune(self._wait_samples)
 
     def _record_hold_sample(self, conn: aiosqlite.Connection, hold_ms: Optional[float] = None) -> None:
         """Record how long a connection was held and warn when it was too long.
@@ -557,13 +550,9 @@ class DatabasePool:
 
         now = time.monotonic()
         self._hold_samples.append((now, hold_ms))
-        self._hold_count += 1
-        self._hold_total_ms += hold_ms
         if hold_ms > self._hold_lifetime_max_ms:
             self._hold_lifetime_max_ms = hold_ms
-        cutoff = now - DB_POOL_WAIT_WINDOW_SECONDS
-        while self._hold_samples and self._hold_samples[0][0] < cutoff:
-            self._hold_samples.popleft()
+        self._prune(self._hold_samples)
 
         if hold_ms >= DB_POOL_SLOW_HOLD_WARN_MS:
             self._slow_hold_count += 1
@@ -585,28 +574,46 @@ class DatabasePool:
         started, label = min(self._checked_out.values(), key=lambda entry: entry[0])
         return label, (now - started) * 1000.0
 
-    def _windowed_hold_max_ms(self) -> float:
-        """Return the longest hold within the live window, expiring old entries."""
+    @staticmethod
+    def _prune(samples: deque[tuple[float, float]]) -> deque[tuple[float, float]]:
+        """Drop samples that have aged out of the live window."""
         cutoff = time.monotonic() - DB_POOL_WAIT_WINDOW_SECONDS
-        samples = self._hold_samples
         while samples and samples[0][0] < cutoff:
             samples.popleft()
+        return samples
+
+    def _windowed_hold_max_ms(self) -> float:
+        """Return the longest hold within the live window, expiring old entries."""
+        samples = self._prune(self._hold_samples)
+        return max((h for _, h in samples), default=0.0)
+
+    def _windowed_hold_avg_ms(self) -> float:
+        """The mean hold within the live window.
+
+        Averaged over the same samples as `_windowed_hold_max_ms` so the two
+        numbers describe one span of time and can be read against each other.
+        A lifetime average beside a windowed maximum reads as broken arithmetic
+        once the early slow holds age out.
+        """
+        samples = self._prune(self._hold_samples)
         if not samples:
             return 0.0
-        return max(h for _, h in samples)
+        return sum(h for _, h in samples) / len(samples)
 
     def _windowed_wait_max_ms(self) -> float:
         """Return the largest wait within the live window, expiring old entries."""
-        cutoff = time.monotonic() - DB_POOL_WAIT_WINDOW_SECONDS
-        samples = self._wait_samples
-        while samples and samples[0][0] < cutoff:
-            samples.popleft()
+        samples = self._prune(self._wait_samples)
+        return max((w for _, w in samples), default=0.0)
+
+    def _windowed_wait_avg_ms(self) -> float:
+        """The mean wait within the live window, matching the windowed maximum."""
+        samples = self._prune(self._wait_samples)
         if not samples:
             return 0.0
-        return max(w for _, w in samples)
+        return sum(w for _, w in samples) / len(samples)
 
     def get_status(self) -> dict:
-        avg_wait_ms = (self._acquire_wait_total_ms / self._acquire_count) if self._acquire_count > 0 else 0.0
+        avg_wait_ms = self._windowed_wait_avg_ms()
         return {
             "initialized": self._initialized,
             "pool_size": self.pool_size,
@@ -623,7 +630,7 @@ class DatabasePool:
 
     def _hold_status(self) -> dict:
         """Hold-time diagnostics: what the pool's connections are being used for."""
-        avg_hold_ms = (self._hold_total_ms / self._hold_count) if self._hold_count > 0 else 0.0
+        avg_hold_ms = self._windowed_hold_avg_ms()
         longest_label, longest_ms = self._longest_active_hold()
         return {
             "checked_out": len(self._checked_out),
