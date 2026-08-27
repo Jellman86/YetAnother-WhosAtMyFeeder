@@ -17,6 +17,26 @@ Last reviewed against the GitHub issue tracker on **August 19, 2026**.
   Diagnostics bundles now report the sample format of a recent clip, and there is a troubleshooting
   page at `docs/troubleshooting/safari-video-playback.md`. Waiting on a bundle from the reporter.
 
+## Known Remaining Exposure
+
+- **Six read paths still resolve species names under a held database connection.** The fix for
+  #300/#301 removed the connection holds around Frigate, weather, AI and inference work, and around
+  the species filter's name resolution. These six remain, and each resolves a localized common name
+  inside a loop that also reads from the database, so the split is a refactor rather than a
+  rearrangement:
+  `events.py` events list (680-902), `species.py` (859-970, 1002-1093, 1108-1320), `stats.py`
+  (291-424), `ebird.py` (265-478), and `detection_service.py` (631-908).
+
+  The cost only lands on a cache miss: a species not yet in `taxonomy_translations` for the
+  requested language costs one iNaturalist request with a ten-second timeout. A steady-state install
+  is unaffected; a fresh install, or the first load after switching language, is not. When it
+  happens the pool now logs `Slow DB connection hold` naming the handler, `db_pool.hold_ms_max`
+  rises, and health reports `degraded`, so it is visible rather than silent.
+
+  The durable fix is for a render path never to block on a third-party API: resolve names from
+  cache only and enrich in the background. That is a behaviour change (a new species' localized name
+  would appear on the next load) and is a maintainer decision, not a mechanical one.
+
 ## Open on the Tracker
 
 - **#178** Dedicated media retention rotation and favourite protection. Accepted; the durability

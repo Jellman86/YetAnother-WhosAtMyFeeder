@@ -716,32 +716,37 @@ async def backfill_weather(
                 status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
             )
 
+        # Read, then fetch, then write. The weather archive is an external host
+        # and can be slow or down; a backfill is long-running by nature, so a
+        # connection held across that call is capacity lost for the whole run.
         async with get_db() as db:
-            repo = DetectionRepository(db)
-            detections = await repo.list_for_weather_backfill(
+            detections = await DetectionRepository(db).list_for_weather_backfill(
                 start.strftime("%Y-%m-%d %H:%M:%S"), end.strftime("%Y-%m-%d %H:%M:%S"), backfill_request.only_missing
             )
 
-            if not detections:
-                return WeatherBackfillResponse(
-                    status="completed",
-                    processed=0,
-                    updated=0,
-                    skipped=0,
-                    errors=0,
-                    message="No detections found in range",
-                )
+        if not detections:
+            return WeatherBackfillResponse(
+                status="completed",
+                processed=0,
+                updated=0,
+                skipped=0,
+                errors=0,
+                message="No detections found in range",
+            )
 
-            hourly = await weather_service.get_hourly_weather(start, end)
-            if not hourly:
-                return WeatherBackfillResponse(
-                    status="completed",
-                    processed=len(detections),
-                    updated=0,
-                    skipped=len(detections),
-                    errors=0,
-                    message="Weather archive unavailable for range",
-                )
+        hourly = await weather_service.get_hourly_weather(start, end)
+        if not hourly:
+            return WeatherBackfillResponse(
+                status="completed",
+                processed=len(detections),
+                updated=0,
+                skipped=len(detections),
+                errors=0,
+                message="Weather archive unavailable for range",
+            )
+
+        async with get_db() as db:
+            repo = DetectionRepository(db)
 
             updated = 0
             skipped = 0
@@ -854,35 +859,40 @@ async def _start_weather_backfill_async(
                     status_code=400, detail=i18n_service.translate("errors.backfill.invalid_time_range", lang)
                 )
 
+            # Read, then fetch, then write. This job runs unattended and can
+            # cover months of detections; a connection held across the weather
+            # archive call is capacity taken from the UI for the whole run.
             async with get_db() as db:
-                repo = DetectionRepository(db)
-                detections = await repo.list_for_weather_backfill(
+                detections = await DetectionRepository(db).list_for_weather_backfill(
                     start.strftime("%Y-%m-%d %H:%M:%S"),
                     end.strftime("%Y-%m-%d %H:%M:%S"),
                     backfill_request.only_missing,
                 )
 
-                job.total = len(detections)
-                _touch_job(job)
-                last_broadcast = 0
-                broadcast_every = max(1, job.total // 20) if job.total else 1
-                await broadcaster.broadcast({"type": "backfill_started", "data": _job_payload(job)})
-                if not detections:
-                    job.status = "completed"
-                    job.message = "No detections found in range"
-                    job.finished_at = _now_iso()
-                    await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
-                    return
+            job.total = len(detections)
+            _touch_job(job)
+            last_broadcast = 0
+            broadcast_every = max(1, job.total // 20) if job.total else 1
+            await broadcaster.broadcast({"type": "backfill_started", "data": _job_payload(job)})
+            if not detections:
+                job.status = "completed"
+                job.message = "No detections found in range"
+                job.finished_at = _now_iso()
+                await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
+                return
 
-                hourly = await weather_service.get_hourly_weather(start, end)
-                if not hourly:
-                    job.processed = job.total
-                    job.skipped = job.total
-                    job.status = "completed"
-                    job.message = "Weather archive unavailable for range"
-                    job.finished_at = _now_iso()
-                    await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
-                    return
+            hourly = await weather_service.get_hourly_weather(start, end)
+            if not hourly:
+                job.processed = job.total
+                job.skipped = job.total
+                job.status = "completed"
+                job.message = "Weather archive unavailable for range"
+                job.finished_at = _now_iso()
+                await broadcaster.broadcast({"type": "backfill_complete", "data": _job_payload(job)})
+                return
+
+            async with get_db() as db:
+                repo = DetectionRepository(db)
 
                 for det in detections:
                     try:

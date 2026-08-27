@@ -47,6 +47,11 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CONFIG_FILE` | `/config/config.json` | Path to the persisted config file. |
 | `LOG_LEVEL` | `INFO` | Log verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
 | `DB_PRE_MIGRATION_BACKUP_RETENTION` | `10` | Number of newest automatic pre-migration database backups to keep; values below `1` still retain one restore point. Manual backups are unaffected. |
+| `DB_POOL_SIZE` | `5` | Database connections shared by every request. Each carries its own 64 MB page cache, so raising this costs memory. |
+| `DB_POOL_ACQUIRE_TIMEOUT_SECONDS` | `60` | How long a request waits for a free connection before being refused with `503`. Defaults to twice `DB_BUSY_TIMEOUT_MS` so a write blocked on the database lock is never refused. Detection ingest always waits regardless of this setting. `0` waits indefinitely. |
+| `DB_POOL_SLOW_HOLD_WARN_MS` | `1000` | Log a warning naming any code that keeps a connection longer than this. A hold this long means work that does not need a connection is running under one. |
+| `DB_POOL_SLOW_ACQUIRE_WARN_MS` | `250` | Log a warning when a request waits longer than this for a connection. |
+| `DB_BUSY_TIMEOUT_MS` | `30000` | How long SQLite waits for the database lock before giving up on a statement. |
 | `CONTAINER_LOG_MAX_SIZE` | `10m` | Compose-only size at which the monolithic container's JSON log rotates. |
 | `CONTAINER_LOG_MAX_FILES` | `3` | Compose-only number of rotated monolithic container log files to retain. |
 | `SPECIES_INFO__SOURCE` | `auto` | Species info source: `auto`, `inat`, `wikipedia`. |

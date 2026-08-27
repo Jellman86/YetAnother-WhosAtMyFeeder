@@ -10,6 +10,37 @@ describe('jobDiagnosticsStore', () => {
         vi.setSystemTime(new Date('2026-03-06T12:00:00.000Z'));
     });
 
+    it('names the code holding a database connection, not just the wait it caused', () => {
+        // An owner reading a bundle can act on "app.routers.ai:analyze_event held
+        // a connection for 12s". They cannot act on "requests waited 17s".
+        jobDiagnosticsStore.ingestHealth({
+            status: 'degraded',
+            db_pool: {
+                acquire_wait_max_ms: 120,
+                hold_ms_max: 12000,
+                slow_hold_last_label: 'app.routers.ai:analyze_event'
+            }
+        });
+
+        const holdGroup = jobDiagnosticsStore.groups.find(
+            (group) => group.component === 'db_pool' && group.reasonCode === 'connection_held_too_long'
+        );
+        expect(holdGroup).toBeTruthy();
+        expect(holdGroup?.message).toContain('app.routers.ai:analyze_event');
+        expect(holdGroup?.message).toContain('12000ms');
+    });
+
+    it('does not report a healthy pool as holding connections too long', () => {
+        jobDiagnosticsStore.ingestHealth({
+            status: 'ok',
+            db_pool: { acquire_wait_max_ms: 4, hold_ms_max: 45, slow_hold_last_label: null }
+        });
+
+        expect(
+            jobDiagnosticsStore.groups.some((group) => group.reasonCode === 'connection_held_too_long')
+        ).toBe(false);
+    });
+
     it('deduplicates repeated errors into one grouped record', () => {
         jobDiagnosticsStore.recordError({
             source: 'sse',
