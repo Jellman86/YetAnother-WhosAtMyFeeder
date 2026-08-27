@@ -28,6 +28,10 @@ from app.database import (
     get_db_pool_status,
     DatabasePoolTimeout,
 )
+from app.services.media_integrity_scan import (
+    get_media_integrity_scan_status,
+    run_media_integrity_scan,
+)
 from app.services.mqtt_service import mqtt_service
 from app.services.classifier_service import get_classifier, shutdown_classifier
 from app.services.event_processor import EventProcessor
@@ -185,6 +189,7 @@ event_processor: EventProcessor | None = None
 
 # Cleanup task control
 cleanup_task = None
+media_integrity_task = None
 cleanup_running = True
 heartbeat_task = None
 heartbeat_running = True
@@ -242,45 +247,6 @@ async def run_cleanup():
         if deleted_share_links > 0:
             log.info("Video share-link cleanup completed", deleted_count=deleted_share_links)
 
-        # Scheduled media-integrity scan. The UI writes the single daily toggle to
-        # both legacy booleans; preserve one-sided legacy configs as scoped scans.
-        if settings.maintenance.auto_purge_missing_clips and settings.maintenance.auto_purge_missing_snapshots:
-            try:
-                from app.routers.settings import _purge_missing_all_media
-
-                result = await _purge_missing_all_media()
-                if any(
-                    result.get(key, 0) > 0
-                    for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")
-                ):
-                    log.info("Scheduled media integrity scan completed", **result)
-            except Exception as e:
-                log.error("Scheduled media integrity scan failed", error=str(e))
-        elif settings.maintenance.auto_purge_missing_clips:
-            try:
-                from app.routers.settings import _purge_missing_media
-
-                result = await _purge_missing_media("clip")
-                if any(
-                    result.get(key, 0) > 0
-                    for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")
-                ):
-                    log.info("Scheduled purge missing clips completed", **result)
-            except Exception as e:
-                log.error("Scheduled purge missing clips failed", error=str(e))
-        elif settings.maintenance.auto_purge_missing_snapshots:
-            try:
-                from app.routers.settings import _purge_missing_media
-
-                result = await _purge_missing_media("snapshot")
-                if any(
-                    result.get(key, 0) > 0
-                    for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")
-                ):
-                    log.info("Scheduled purge missing snapshots completed", **result)
-            except Exception as e:
-                log.error("Scheduled purge missing snapshots failed", error=str(e))
-
         # Scheduled analyze unknowns
         if settings.maintenance.auto_analyze_unknowns:
             try:
@@ -325,6 +291,33 @@ async def cleanup_scheduler():
         except BaseException as e:
             # Catch-all for anything else (unlikely but safe)
             log.critical("Cleanup task critical failure", error=str(e))
+            await asyncio.sleep(3600)
+
+
+async def media_integrity_scheduler():
+    """Background task that runs the media integrity scan on its own interval.
+
+    Deliberately sleeps before its first run rather than scanning at startup:
+    the scan asks Frigate about a batch of events, and startup is when Frigate,
+    the model and the migrations are already competing for the box. An owner who
+    wants it now has the button in Settings.
+    """
+    while cleanup_running:
+        try:
+            interval_hours = max(1, int(settings.maintenance.media_integrity_scan_interval_hours))
+            for _ in range(interval_hours):
+                if not cleanup_running:
+                    break
+                await asyncio.sleep(3600)
+
+            if cleanup_running and settings.maintenance.media_integrity_scan_enabled:
+                result = await run_media_integrity_scan()
+                if result.status not in ("disabled", "nothing_to_check"):
+                    log.info("Scheduled media integrity scan finished", **result.as_dict())
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            log.error("Media integrity scan task error", error=str(e))
             await asyncio.sleep(3600)
 
 
@@ -426,18 +419,20 @@ async def _start_heartbeat_scheduler_task(instance_id: str) -> None:
 
 
 async def _start_cleanup_scheduler_task() -> None:
-    global cleanup_task
+    global cleanup_task, media_integrity_task
     cleanup_task = create_background_task(cleanup_scheduler(), name="cleanup_scheduler")
+    media_integrity_task = create_background_task(media_integrity_scheduler(), name="media_integrity_scheduler")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global cleanup_task, cleanup_running, heartbeat_task, heartbeat_running
+    global cleanup_task, media_integrity_task, cleanup_running, heartbeat_task, heartbeat_running
     test_mode = _is_testing()
 
     # Startup
     cleanup_running = True
     cleanup_task = None
+    media_integrity_task = None
     heartbeat_running = not test_mode
     heartbeat_task = None
     app.state.startup_warnings = []
@@ -588,6 +583,12 @@ async def lifespan(app: FastAPI):
         cleanup_task.cancel()
         try:
             await cleanup_task
+        except asyncio.CancelledError:
+            pass
+    if media_integrity_task and not test_mode:
+        media_integrity_task.cancel()
+        try:
+            await media_integrity_task
         except asyncio.CancelledError:
             pass
     if not test_mode:
@@ -1015,6 +1016,7 @@ def build_health_payload() -> dict[str, object]:
         "ml": classifier_health,
         "naming": _naming_health(),
         "db_pool": db_pool_health,
+        "media_integrity_scan": get_media_integrity_scan_status(),
         "mqtt": mqtt_health,
         "video_classifier": video_health,
         "high_quality_snapshots": high_quality_snapshot_health,

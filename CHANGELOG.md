@@ -239,6 +239,33 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Detections no longer claim Frigate still has an event it retired days ago.** `frigate_status`,
+  `frigate_missing_since` and `frigate_last_error` are shown in the interface, and the
+  upstream-missing behaviour is a real setting with three options, but almost nothing ever ran it.
+  It was reached from the maintenance buttons, from the automatic video classifier, and from a
+  scheduled scan that was off by default and, when on, read every row in the table and asked Frigate
+  about each one on every cycle. On a year of history against Frigate's few days of retention that
+  is tens of thousands of requests per run, nearly all of them about events that were retired months
+  ago and will never come back, which is a fair reason to leave it off. So it stayed off, and the
+  database drifted: on the reference deployment every one of 799 detections said `present`,
+  including 44 whose events Frigate answered 404 for, and 89% had not been checked in over a week.
+
+  The scan is now bounded and knows what it has already asked. It takes the least recently confirmed
+  detections first, a thousand per run by default, every six hours; it records a check when Frigate
+  confirms one, so a healthy detection stops being asked about; and it never re-asks about a
+  detection already known missing, because Frigate does not un-retire an event. A large history
+  works through over several runs rather than flooding Frigate in one, and Health reports how many
+  are still waiting so the drain is visible.
+
+  It does nothing at all when Frigate is unreachable. "We could not ask" must never be recorded as
+  "upstream no longer has it" — on the `delete` behaviour that mistake destroys history during an
+  outage the owner is probably already dealing with. A single event that fails to read is left
+  alone for the same reason.
+
+  The read path still does not do this work. A list endpoint must not mutate history as a side
+  effect of rendering a page.
+
+
 - **The interface no longer slows to a crawl, or stops loading entirely, while the server waits on
   something that is not the database.** The server keeps five database connections and serves every
   request from them. A request handler is meant to hold one only while statements are running, but
@@ -302,6 +329,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   closed, on every shutdown that raced a request. A closed pool now discards what it is handed.
 
 ### Changed
+
+- **The media integrity scan is named for what it does.** Its settings were `auto_purge_missing_clips`
+  and `auto_purge_missing_snapshots`, but with the default `mark_missing` behaviour they purge
+  nothing, they mark. An owner who wants their history marked was unlikely to tick a box labelled
+  purge, so the setting that would have kept `frigate_status` honest was the one they were correctly
+  avoiding. They are now `media_integrity_scan_enabled` and `media_integrity_scan_media`, with
+  `media_integrity_scan_interval_hours` and `media_integrity_scan_batch_size` alongside. The old keys
+  keep working and are still reported, and an install that enabled only the clip scan keeps getting
+  only the clip scan: collapsing both flags into one switch would quietly widen what counts as
+  missing, and on `delete` that widens what gets removed.
+
 
 - **A species you have renamed is now recorded in the species catalogue, against the species rather
   than against a spelling of its name.** A rename is the one piece of naming an owner authored, and

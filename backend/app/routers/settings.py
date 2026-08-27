@@ -38,6 +38,7 @@ from app.config_models import (
     BlockedSpeciesEntry,
     DEFAULT_LLM_MODEL,
     FrigateMissingBehavior,
+    MediaIntegrityScanMedia,
     normalize_blocked_species_entries,
     normalize_crop_override_map,
     normalize_crop_model_override,
@@ -737,9 +738,21 @@ class SettingsUpdate(BaseModel):
         "mark_missing",
         description="How YA-WAMF should react when Frigate no longer has the event or retained media",
     )
-    auto_purge_missing_clips: bool = Field(False, description="Purge detections without clips during scheduled cleanup")
+    auto_purge_missing_clips: bool = Field(
+        False, description="Deprecated: use media_integrity_scan_enabled with media='clip'"
+    )
     auto_purge_missing_snapshots: bool = Field(
-        False, description="Purge detections without snapshots during scheduled cleanup"
+        False, description="Deprecated: use media_integrity_scan_enabled with media='snapshot'"
+    )
+    media_integrity_scan_enabled: bool = Field(
+        False, description="Periodically re-check detections against Frigate and apply the missing-media behaviour"
+    )
+    media_integrity_scan_media: MediaIntegrityScanMedia = Field(
+        "any", description="Which media must be absent upstream for a detection to count as missing"
+    )
+    media_integrity_scan_interval_hours: int = Field(6, ge=1, le=168, description="Hours between media integrity scans")
+    media_integrity_scan_batch_size: int = Field(
+        1000, ge=1, le=20000, description="Maximum detections re-checked against Frigate in one scan"
     )
     auto_analyze_unknowns: bool = Field(False, description="Analyze unknown detections during scheduled cleanup")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
@@ -1257,6 +1270,10 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "frigate_missing_behavior": settings.maintenance.frigate_missing_behavior,
         "auto_purge_missing_clips": settings.maintenance.auto_purge_missing_clips,
         "auto_purge_missing_snapshots": settings.maintenance.auto_purge_missing_snapshots,
+        "media_integrity_scan_enabled": settings.maintenance.media_integrity_scan_enabled,
+        "media_integrity_scan_media": settings.maintenance.media_integrity_scan_media,
+        "media_integrity_scan_interval_hours": settings.maintenance.media_integrity_scan_interval_hours,
+        "media_integrity_scan_batch_size": settings.maintenance.media_integrity_scan_batch_size,
         "auto_analyze_unknowns": settings.maintenance.auto_analyze_unknowns,
         "blocked_labels": settings.classification.blocked_labels,
         "blocked_species": settings.classification.blocked_species,
@@ -1562,10 +1579,33 @@ async def update_settings(
         settings.maintenance.auto_delete_missing_clips = update.auto_delete_missing_clips
     if "frigate_missing_behavior" in fields_set:
         settings.maintenance.frigate_missing_behavior = update.frigate_missing_behavior
+    # An older client still writes only the legacy pair. Mirror it onto the scan
+    # so its intent lands, and keep writing the legacy fields so a downgrade
+    # reads back what it wrote.
     if "auto_purge_missing_clips" in fields_set:
         settings.maintenance.auto_purge_missing_clips = update.auto_purge_missing_clips
     if "auto_purge_missing_snapshots" in fields_set:
         settings.maintenance.auto_purge_missing_snapshots = update.auto_purge_missing_snapshots
+    legacy_written = {"auto_purge_missing_clips", "auto_purge_missing_snapshots"} & fields_set
+    if legacy_written and "media_integrity_scan_enabled" not in fields_set:
+        clips = settings.maintenance.auto_purge_missing_clips
+        snapshots = settings.maintenance.auto_purge_missing_snapshots
+        settings.maintenance.media_integrity_scan_enabled = bool(clips or snapshots)
+        if clips or snapshots:
+            settings.maintenance.media_integrity_scan_media = (
+                "any" if clips and snapshots else ("clip" if clips else "snapshot")
+            )
+    if "media_integrity_scan_enabled" in fields_set:
+        settings.maintenance.media_integrity_scan_enabled = update.media_integrity_scan_enabled
+        # Keep the legacy pair truthful for a client that only reads those.
+        settings.maintenance.auto_purge_missing_clips = update.media_integrity_scan_enabled
+        settings.maintenance.auto_purge_missing_snapshots = update.media_integrity_scan_enabled
+    if "media_integrity_scan_media" in fields_set:
+        settings.maintenance.media_integrity_scan_media = update.media_integrity_scan_media
+    if "media_integrity_scan_interval_hours" in fields_set:
+        settings.maintenance.media_integrity_scan_interval_hours = update.media_integrity_scan_interval_hours
+    if "media_integrity_scan_batch_size" in fields_set:
+        settings.maintenance.media_integrity_scan_batch_size = update.media_integrity_scan_batch_size
     if "auto_analyze_unknowns" in fields_set:
         settings.maintenance.auto_analyze_unknowns = update.auto_analyze_unknowns
     if "blocked_labels" in fields_set:

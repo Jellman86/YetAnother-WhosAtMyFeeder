@@ -11,6 +11,7 @@ from app.services.bird_model_region_resolver import normalize_bird_model_region
 log = structlog.get_logger()
 
 FrigateMissingBehavior = Literal["mark_missing", "keep", "delete"]
+MediaIntegrityScanMedia = Literal["any", "clip", "snapshot"]
 
 
 def normalize_crop_model_override(value: Any) -> str:
@@ -459,11 +460,34 @@ class MaintenanceSettings(BaseModel):
         default="mark_missing",
         description="How YA-WAMF should react when Frigate no longer has an event or retained media",
     )
+    # Superseded by the `media_integrity_scan_*` fields below. Kept readable and
+    # writable so an existing config, an older client and the documented
+    # environment variables all keep working; the validator maps them.
     auto_purge_missing_clips: bool = Field(
-        default=False, description="Purge detections without clips during scheduled cleanup"
+        default=False, description="Deprecated: use media_integrity_scan_enabled with media='clip'"
     )
     auto_purge_missing_snapshots: bool = Field(
-        default=False, description="Purge detections without snapshots during scheduled cleanup"
+        default=False, description="Deprecated: use media_integrity_scan_enabled with media='snapshot'"
+    )
+    media_integrity_scan_enabled: bool = Field(
+        default=False,
+        description=(
+            "Periodically ask Frigate whether it still holds each detection's event and media, "
+            "and apply the configured upstream-missing behaviour"
+        ),
+    )
+    media_integrity_scan_media: MediaIntegrityScanMedia = Field(
+        default="any",
+        description="Which media must be absent upstream for a detection to count as missing",
+    )
+    media_integrity_scan_interval_hours: int = Field(
+        default=6, ge=1, le=168, description="Hours between media integrity scans"
+    )
+    media_integrity_scan_batch_size: int = Field(
+        default=1000,
+        ge=1,
+        le=20000,
+        description="Maximum detections re-checked against Frigate in one scan",
     )
     auto_analyze_unknowns: bool = Field(
         default=False, description="Analyze unknown detections during scheduled cleanup"
@@ -483,6 +507,31 @@ class MaintenanceSettings(BaseModel):
             normalized["frigate_missing_behavior"] = "delete"
         else:
             normalized["frigate_missing_behavior"] = "mark_missing"
+        return normalized
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_purge_flags(cls, value: Any) -> Any:
+        """Carry the old per-media purge flags onto the media integrity scan.
+
+        Someone who enabled only the clip scan keeps getting only the clip scan:
+        collapsing both flags into one switch would quietly widen what counts as
+        missing for them, and on `delete` that widens what gets removed.
+        """
+        if not isinstance(value, dict):
+            return value
+        normalized = dict(value)
+        if "media_integrity_scan_enabled" in normalized:
+            return normalized
+        clips = bool(normalized.get("auto_purge_missing_clips"))
+        snapshots = bool(normalized.get("auto_purge_missing_snapshots"))
+        if not clips and not snapshots:
+            return normalized
+        normalized["media_integrity_scan_enabled"] = True
+        if "media_integrity_scan_media" not in normalized:
+            normalized["media_integrity_scan_media"] = (
+                "any" if clips and snapshots else ("clip" if clips else "snapshot")
+            )
         return normalized
 
 

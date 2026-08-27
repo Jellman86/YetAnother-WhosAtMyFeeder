@@ -1330,6 +1330,10 @@ export interface components {
     media_cache_high_quality_event_snapshots?: boolean;
     media_cache_retention_days?: number;
     media_cache_snapshots?: boolean;
+    media_integrity_scan_batch_size?: number;
+    media_integrity_scan_enabled?: boolean;
+    media_integrity_scan_interval_hours?: number;
+    media_integrity_scan_media?: "any" | "clip" | "snapshot";
     mqtt_auth?: boolean;
     mqtt_password?: string | null;
     mqtt_port?: number;
@@ -1505,6 +1509,10 @@ export interface components {
     media_cache_high_quality_event_snapshots?: boolean;
     media_cache_retention_days?: number;
     media_cache_snapshots?: boolean;
+    media_integrity_scan_batch_size?: number;
+    media_integrity_scan_enabled?: boolean;
+    media_integrity_scan_interval_hours?: number;
+    media_integrity_scan_media?: "any" | "clip" | "snapshot";
     mqtt_auth?: boolean;
     mqtt_password?: string | null;
     mqtt_port?: number;
