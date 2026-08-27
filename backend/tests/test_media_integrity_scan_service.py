@@ -370,3 +370,52 @@ async def test_a_manual_scan_takes_the_same_slot_so_it_cannot_race_the_schedule(
     finally:
         await maintenance_coordinator.release("scheduled-scan")
         settings.auth.enabled = original_auth
+
+
+@pytest.mark.asyncio
+async def test_health_carries_the_result_of_the_last_completed_scan():
+    """The issue asks for this work to be visible in Health.
+
+    Reporting `enabled` is not enough: an owner needs to see that a scan
+    actually ran and what it did. This was missed first time round, and only
+    surfaced because triggering a scan out-of-process left Health showing
+    `last_run: null` — correct there, since the state is per-process, but it
+    meant nothing proved the in-process path records anything at all.
+    """
+    from app.services.media_integrity_scan import get_media_integrity_scan_status
+
+    await _insert("evt-recorded")
+    assert get_media_integrity_scan_status()["last_run"] is None
+
+    with (
+        patch.object(scan_module.frigate_client, "get_version", new=AsyncMock(return_value="0.14")),
+        patch.object(
+            scan_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=(None, "event_not_found")),
+        ),
+    ):
+        await run_media_integrity_scan()
+
+    last = get_media_integrity_scan_status()["last_run"]
+    assert last is not None, "A completed scan must be visible in Health"
+    assert last["status"] == "completed"
+    assert last["checked"] == 1
+    assert last["marked_missing_count"] == 1
+    assert last["finished_at"], "Health must say when the scan finished"
+
+
+@pytest.mark.asyncio
+async def test_health_records_a_scan_that_did_nothing_too():
+    """A scan that stood down is as worth seeing as one that acted: an owner
+    watching a stale history needs to know whether it ran and found nothing, or
+    could not reach Frigate."""
+    from app.services.media_integrity_scan import get_media_integrity_scan_status
+
+    await _insert("evt-blocked")
+    with patch.object(scan_module.frigate_client, "get_version", new=AsyncMock(return_value=None)):
+        await run_media_integrity_scan()
+
+    last = get_media_integrity_scan_status()["last_run"]
+    assert last["status"] == "frigate_unreachable"
+    assert last["finished_at"]
