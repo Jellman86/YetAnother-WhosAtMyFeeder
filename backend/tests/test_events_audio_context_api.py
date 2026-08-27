@@ -9,6 +9,7 @@ from app.main import app
 from app.database import get_db, init_db, close_db
 from app.config import settings
 from app.repositories.detection_repository import DetectionRepository
+from app.routers.audio import AUDIO_SUPPRESSED_BY_MAPPING_HEADER
 
 
 def assert_audio_species_matches(actual: list[str], expected: list[str | set[str]]) -> None:
@@ -135,6 +136,97 @@ async def test_events_include_audio_context_species_for_unmatched_audio(client: 
 
 
 @pytest.mark.asyncio
+async def test_event_audio_context_marks_late_species_match_as_visual_confirmation(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"feeder-cam": "BirdCam"}
+
+    target = datetime.now(timezone.utc).replace(microsecond=0)
+    event_id = f"evt-late-audio-match-{int(target.timestamp())}"
+    async with get_db() as db:
+        await db.execute(
+            """INSERT INTO detections (
+                   detection_time, detection_index, score, display_name, category_name,
+                   frigate_event, camera_name, is_hidden, manual_tagged, audio_confirmed,
+                   scientific_name, common_name
+               ) VALUES (?, 1, 0.88, ?, ?, ?, 'feeder-cam', 0, 0, 0, ?, ?)""",
+            (
+                target.isoformat(sep=" "),
+                "Blue Tit",
+                "Cyanistes caeruleus",
+                event_id,
+                "Cyanistes caeruleus",
+                "Blue Tit",
+            ),
+        )
+        await db.execute(
+            """INSERT INTO audio_detections
+               (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                (target + timedelta(seconds=12)).isoformat(sep=" "),
+                "Eurasian Blue Tit",
+                0.79,
+                "BirdCam",
+                json.dumps({"nm": "BirdCam", "detectionId": 991122}),
+                "Cyanistes caeruleus",
+            ),
+        )
+        await db.commit()
+
+    try:
+        response = await client.get(f"/api/audio/context/event/{event_id}")
+        assert response.status_code == 200, response.text
+        payload = response.json()
+        late_match = next(item for item in payload if item["scientific_name"] == "Cyanistes caeruleus")
+        assert late_match["matches_visual"] is True
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+            await db.execute(
+                "DELETE FROM audio_detections WHERE sensor_id = ? AND scientific_name = ?",
+                ("BirdCam", "Cyanistes caeruleus"),
+            )
+            await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_unmapped_event_camera_suppresses_all_audio_context(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"other-camera": "OtherMic"}
+
+    target = datetime.now(timezone.utc).replace(microsecond=0)
+    event_id = f"evt-unmapped-audio-{int(target.timestamp())}"
+    async with get_db() as db:
+        await db.execute(
+            """INSERT INTO detections (
+                   detection_time, detection_index, score, display_name, category_name,
+                   frigate_event, camera_name, is_hidden, manual_tagged
+               ) VALUES (?, 1, 0.8, 'Blue Tit', 'Blue Tit', ?, 'unmapped-camera', 0, 0)""",
+            (target.isoformat(sep=" "), event_id),
+        )
+        await db.execute(
+            """INSERT INTO audio_detections
+               (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+               VALUES (?, 'Blue Tit', 0.9, 'GardenMic', ?, 'Cyanistes caeruleus')""",
+            (target.isoformat(sep=" "), json.dumps({"nm": "GardenMic"})),
+        )
+        await db.commit()
+
+    try:
+        response = await client.get(f"/api/audio/context/event/{event_id}")
+        assert response.status_code == 200, response.text
+        assert response.json() == []
+        assert int(response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER]) >= 1
+    finally:
+        async with get_db() as db:
+            await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+            await db.execute("DELETE FROM audio_detections WHERE sensor_id = 'GardenMic'")
+            await db.commit()
+
+
+@pytest.mark.asyncio
 async def test_events_handles_mixed_naive_and_aware_timestamps_for_audio_context(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.public_access.enabled = False
@@ -244,3 +336,76 @@ async def test_events_normalize_non_utc_audio_offsets_before_context_filtering(c
         [item["species"] for item in response.json()],
         [{"Passer domesticus", "House Sparrow"}],
     )
+
+
+@pytest.mark.asyncio
+async def test_audio_context_reports_detections_suppressed_by_camera_mapping(client: httpx.AsyncClient):
+    """An empty result must say whether audio was absent or excluded by the mapping.
+
+    A camera mapped to its own microphone hides audio heard on a different one.
+    Reporting that as plainly "no nearby audio" is indistinguishable from a silent
+    window, so the caller cannot tell a quiet garden from a filtered one.
+    """
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"feeder-cam": "BirdCam"}
+
+    target = datetime.now(timezone.utc).replace(microsecond=0)
+
+    async with get_db() as db:
+        await db.execute(
+            "DELETE FROM audio_detections WHERE timestamp >= ? AND timestamp <= ?",
+            (
+                (target - timedelta(minutes=5)).isoformat(sep=" "),
+                (target + timedelta(minutes=5)).isoformat(sep=" "),
+            ),
+        )
+        # Heard on a different microphone than the one this camera maps to.
+        await db.execute(
+            """INSERT INTO audio_detections (timestamp, species, confidence, sensor_id, raw_data, scientific_name)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                (target - timedelta(seconds=30)).isoformat(sep=" "),
+                "Common Wood-Pigeon",
+                0.53,
+                "PatioMic",
+                json.dumps({"nm": "PatioMic", "src": "rtsp_patio"}),
+                "Columba palumbus",
+            ),
+        )
+        await db.commit()
+
+    response = await client.get(
+        "/api/audio/context",
+        params={"timestamp": target.isoformat(), "camera": "feeder-cam", "window_seconds": 300},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == []
+    assert response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] == "1"
+
+
+@pytest.mark.asyncio
+async def test_audio_context_reports_no_suppression_for_a_genuinely_silent_window(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    settings.frigate.camera_audio_mapping = {"feeder-cam": "BirdCam"}
+
+    target = datetime.now(timezone.utc).replace(microsecond=0) - timedelta(days=400)
+
+    async with get_db() as db:
+        await db.execute(
+            "DELETE FROM audio_detections WHERE timestamp >= ? AND timestamp <= ?",
+            (
+                (target - timedelta(minutes=5)).isoformat(sep=" "),
+                (target + timedelta(minutes=5)).isoformat(sep=" "),
+            ),
+        )
+        await db.commit()
+
+    response = await client.get(
+        "/api/audio/context",
+        params={"timestamp": target.isoformat(), "camera": "feeder-cam", "window_seconds": 300},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == []
+    assert response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] == "0"

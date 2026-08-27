@@ -20,6 +20,16 @@ const DEFAULT_PRECIP_LABELS: UnitLabels = {
     british: 'mm'
 };
 
+// British measures distance in miles even though it keeps Celsius and millimetres,
+// so distance follows wind rather than precipitation.
+const DEFAULT_DISTANCE_LABELS: UnitLabels = {
+    metric: 'km',
+    imperial: 'mi',
+    british: 'mi'
+};
+
+export const KM_PER_MILE = 1.609344;
+
 export function resolveWeatherUnitSystem(
     weatherUnitSystem?: string | null,
     legacyTemperatureUnit?: string | null
@@ -88,4 +98,29 @@ export function formatPrecipitation(
     if (converted < 0.1) return `${converted.toFixed(2)}${label}`;
     if (converted < 1) return `${converted.toFixed(1)}${label}`;
     return `${converted.toFixed(0)}${label}`;
+}
+
+export function convertDistance(valueKm: number | null | undefined, system: WeatherUnitSystem): number | null {
+    if (valueKm === null || valueKm === undefined || Number.isNaN(valueKm)) {
+        return null;
+    }
+    return system === 'metric' ? valueKm : valueKm / KM_PER_MILE;
+}
+
+export function formatDistance(
+    valueKm: number | null | undefined,
+    system: WeatherUnitSystem,
+    labels: UnitLabels = DEFAULT_DISTANCE_LABELS
+): string {
+    const converted = convertDistance(valueKm, system);
+    if (converted === null) {
+        return '';
+    }
+    const label = system === 'british'
+        ? (labels.british ?? labels.imperial)
+        : labels[system];
+    // A one-mile radius shown as a whole number would overstate a two-kilometre
+    // search by a third, so short distances keep a decimal.
+    const rounded = converted < 10 ? Number(converted.toFixed(1)) : Math.round(converted);
+    return `${rounded} ${label}`;
 }

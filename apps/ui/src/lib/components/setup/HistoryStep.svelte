@@ -72,7 +72,7 @@
                 ] as option}
                     <label class="cursor-pointer">
                         <input class="peer sr-only" type="radio" name="setup-history-range" value={option.value} bind:group={dateRange} />
-                        <span class="btn btn-secondary flex min-h-11 items-center justify-center px-3 py-2 text-center peer-checked:border-brand-500 peer-checked:bg-brand-50 peer-checked:text-brand-800 dark:peer-checked:bg-brand-950/30 dark:peer-checked:text-brand-200">
+                        <span class="btn btn-secondary flex min-h-11 items-center justify-center px-3 py-2 text-center peer-checked:border-brand-500 peer-checked:bg-brand-50 peer-checked:text-brand-800 peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500/50 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-white dark:peer-checked:bg-brand-950/30 dark:peer-checked:text-brand-200 dark:peer-focus-visible:ring-offset-surface-dark">
                             {option.label}
                         </span>
                     </label>

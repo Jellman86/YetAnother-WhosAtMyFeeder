@@ -14,6 +14,12 @@
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
     import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
     import { testBirdNET, testBirdWeather, testMQTTPublish, checkBirdNetReachability } from '../../api/maintenance';
+    import type { WeatherUnitSystem } from '../../utils/weather-units';
+    import {
+        ebirdRadiusFromDisplayValue,
+        ebirdRadiusToDisplayValue,
+        getEbirdRadiusBounds
+    } from '../../utils/ebird-radius';
 
     let {
         birdnetEnabled = $bindable(true),
@@ -33,6 +39,7 @@
         ebirdApiKey = $bindable(''),
         ebirdApiKeySaved = $bindable(false),
         ebirdDefaultRadiusKm = $bindable(25),
+        weatherUnitSystem = 'metric',
         ebirdDefaultDaysBack = $bindable(14),
         ebirdMaxResults = $bindable(25),
         ebirdLocale = $bindable('en'),
@@ -82,6 +89,7 @@
         ebirdApiKey: string;
         ebirdApiKeySaved: boolean;
         ebirdDefaultRadiusKm: number;
+        weatherUnitSystem?: WeatherUnitSystem;
         ebirdDefaultDaysBack: number;
         ebirdMaxResults: number;
         ebirdLocale: string;
@@ -108,6 +116,41 @@
         birdweatherStationTokenSaved: boolean;
         onActionFeedback: (type: 'success' | 'error', text: string) => void;
     } = $props();
+
+    // The radius is stored in kilometres because that is what eBird's API accepts.
+    // Only the field the owner reads and edits changes with their unit preference,
+    // so opening settings and saving without touching it cannot move the value.
+    const ebirdRadiusBounds = $derived(getEbirdRadiusBounds(weatherUnitSystem));
+    const ebirdRadiusDisplayValue = $derived(
+        ebirdRadiusToDisplayValue(ebirdDefaultRadiusKm, weatherUnitSystem)
+    );
+    const ebirdRadiusUnitLabel = $derived(
+        weatherUnitSystem === 'metric'
+            ? $_('common.unit_km', { default: 'km' })
+            : $_('common.unit_mi', { default: 'mi' })
+    );
+    const ebirdRadiusHelp = $derived(
+        $_('settings.integrations.ebird.radius_help', {
+            values: {
+                min: ebirdRadiusBounds.min,
+                max: ebirdRadiusBounds.max,
+                unit: ebirdRadiusUnitLabel
+            },
+            default: 'eBird accepts {min} to {max} {unit}.'
+        })
+    );
+
+    // An empty or half-typed field leaves the saved radius alone rather than
+    // collapsing it to zero, so clearing the box to retype it is not destructive.
+    function updateEbirdRadius(entered: string): void {
+        const parsed = Number(entered.trim());
+        const storedKm = ebirdRadiusFromDisplayValue(
+            entered.trim() === '' || Number.isNaN(parsed) ? null : parsed,
+            weatherUnitSystem
+        );
+        if (storedKm === null) return;
+        ebirdDefaultRadiusKm = storedKm;
+    }
 
     let inatDefaultsTouched = $state(false);
     let inatConnecting = $state(false);
@@ -686,7 +729,7 @@
             </div>
             {#if inaturalistConnectedUser}
                 <div class="flex items-center justify-between gap-2 p-3 bg-accent-50 dark:bg-accent-900/20 rounded-xl">
-                    <span class="text-sm text-accent-700 dark:text-accent-300">{$_('settings.integrations.inaturalist.connected', { values: { user: inaturalistConnectedUser } })}</span>
+                    <span class="text-sm text-success-700 dark:text-success-300">{$_('settings.integrations.inaturalist.connected', { values: { user: inaturalistConnectedUser } })}</span>
                     <button
                         type="button"
                         onclick={async () => {
@@ -871,17 +914,22 @@
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <SettingsRow
                     labelId="setting-ebird-radius"
-                    label={$_('settings.integrations.ebird.radius')}
+                    label={$_('settings.integrations.ebird.radius', {
+                        values: { unit: ebirdRadiusUnitLabel }
+                    })}
+                    description={ebirdRadiusHelp}
                     layout="stacked"
                 >
                     <SettingsInput
                         id="ebird-radius"
                         type="number"
-                        min={1}
-                        max={50}
-                        value={ebirdDefaultRadiusKm}
-                        ariaLabel={$_('settings.integrations.ebird.radius')}
-                        oninput={(v) => (ebirdDefaultRadiusKm = Number(v) || 0)}
+                        min={ebirdRadiusBounds.min}
+                        max={ebirdRadiusBounds.max}
+                        value={ebirdRadiusDisplayValue}
+                        ariaLabel={$_('settings.integrations.ebird.radius', {
+                            values: { unit: ebirdRadiusUnitLabel }
+                        })}
+                        oninput={(v) => updateEbirdRadius(v)}
                     />
                 </SettingsRow>
                 <SettingsRow

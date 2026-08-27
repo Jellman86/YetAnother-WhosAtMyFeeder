@@ -1,4 +1,5 @@
 <script lang="ts">
+    import TopSpeciesCollage from '../components/TopSpeciesCollage.svelte';
     import { onDestroy, tick } from 'svelte';
     import {
         analyzeLeaderboardGraph,
@@ -20,6 +21,13 @@
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import { defaultLeaderboardChartPreferences } from '../leaderboard/chart-defaults';
     import { buildLeaderboardAnalysisPromptConfig } from '../leaderboard/analysis-config';
+    import {
+        activityTimestampForMode,
+        countForMode,
+        deltaForMode,
+        trendForMode,
+        type SourceMode
+    } from '../leaderboard/source-metrics';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { themeStore } from '../stores/theme.svelte';
@@ -48,6 +56,7 @@
         taxa_id?: number | null;
         count: number;
         prev_count?: number | null;
+        heard_prev_count?: number | null;
         delta?: number | null;
         percent?: number | null;
         first_seen?: string | null;
@@ -56,7 +65,7 @@
         camera_count?: number | null;
     };
     type TrendMode = 'off' | 'smooth' | 'both';
-    type SourceMode = 'seen' | 'heard' | 'both';
+    type AudioLoadState = 'disabled' | 'loading' | 'ready' | 'error';
 
     // A leaderboard row enriched for the table: naming + merged BirdNET "heard" data.
     type LeaderboardTableRow = LeaderboardRow & {
@@ -72,10 +81,12 @@
 
     let species: LeaderboardRow[] = $state([]);
     let audioSpecies = $state<AudioSpeciesLeaderboardItem[]>([]);
+    let audioLoadState = $state<AudioLoadState>('disabled');
     let sourceMode = $state<SourceMode>('seen');
     let loading = $state(true);
     let error = $state<string | null>(null);
     let span = $state<LeaderboardSpan>('month');
+    let leaderboardWindow = $state<{ start: string; end: string } | null>(null);
     let includeUnknownBird = $state(false);
     let selectedSpecies = $state<string | null>(null);
     let timeline = $state<DetectionsTimelineSpanResponse | null>(null);
@@ -168,16 +179,33 @@
     let maxCount = $derived(Math.max(...leaderboardSpecies().map(s => s.count || 0), 1));
 
     let topByCount = $derived(sortedSpecies()[0]);
+
+    let leaderboardRows = $derived(leaderboardTableRows(sourceMode));
+    let sourceLeader = $derived(leaderboardRows[0] ?? null);
     let topByTrend = $derived(
         span === 'all'
             ? null
-            : [...processedSpecies()].sort((a, b) => (b.delta || 0) - (a.delta || 0))[0]
+            : [...leaderboardRows]
+                .filter((row) => (deltaForMode(row, sourceMode) ?? 0) > 0)
+                .sort(
+                    (a, b) => (deltaForMode(b, sourceMode) ?? 0) - (deltaForMode(a, sourceMode) ?? 0)
+                )[0] ?? null
     );
-    let mostRecent = $derived([...processedSpecies()].sort((a, b) => {
-        const aTime = a.last_seen ? new Date(a.last_seen).getTime() : 0;
-        const bTime = b.last_seen ? new Date(b.last_seen).getTime() : 0;
+    let mostRecent = $derived([...leaderboardRows].sort((a, b) => {
+        const aTime = Date.parse(activityTimestampForMode(a, sourceMode) ?? '') || 0;
+        const bTime = Date.parse(activityTimestampForMode(b, sourceMode) ?? '') || 0;
         return bTime - aTime;
-    })[0]);
+    })[0] ?? null);
+    let showRisingHighlight = $derived(
+        span !== 'all' && Boolean(topByTrend && topByTrend.species !== sourceLeader?.species)
+    );
+    let showRecentHighlight = $derived(
+        Boolean(
+            mostRecent
+                && mostRecent.species !== sourceLeader?.species
+                && (!topByTrend || mostRecent.species !== topByTrend.species)
+        )
+    );
 
     // Lookup of BirdNET "heard" rollups keyed by scientific name (preferred) and
     // localized species name, so we can merge them onto the visual leaderboard rows.
@@ -201,8 +229,8 @@
 
     // Rows for the leaderboard table: visual species with heard data merged in, plus
     // (in Heard/Both modes) audio-only species that were never seen on camera. Sort key
-    // follows the active source toggle. Charts/stats/podium still use the visual-only
-    // derived lists above, so they are unaffected.
+    // follows the active source toggle. Visual analytics remain separate, while the
+    // podium and ranking list follow the source the user selected.
     function leaderboardTableRows(mode: SourceMode): LeaderboardTableRow[] {
         const showCommon = settingsStore.displayCommonNames;
         const preferSci = settingsStore.scientificNamePrimary;
@@ -221,6 +249,7 @@
                 displayName: naming.primary,
                 subName: naming.secondary,
                 heard_count: heard?.heard_count ?? 0,
+                heard_prev_count: heard?.heard_prev_count ?? null,
                 heard_delta: heard?.heard_delta ?? null,
                 heard_percent: heard?.heard_percent ?? null,
                 heard_avg: heard?.avg_confidence ?? null,
@@ -251,6 +280,7 @@
                     displayName: a.species,
                     subName: a.scientific_name ?? null,
                     heard_count: a.heard_count,
+                    heard_prev_count: a.heard_prev_count,
                     heard_delta: a.heard_delta,
                     heard_percent: a.heard_percent,
                     heard_avg: a.avg_confidence,
@@ -272,7 +302,10 @@
         return rows;
     }
 
-    let maxHeard = $derived(Math.max(...leaderboardTableRows(sourceMode).map((r) => r.heard_count || 0), 1));
+    let maxHeard = $derived(Math.max(...leaderboardRows.map((row) => row.heard_count || 0), 1));
+    let sourceTotal = $derived(
+        leaderboardRows.reduce((total, row) => total + countForMode(row, sourceMode), 0)
+    );
 
     const leaderboardStale = new StaleTracker(120_000); // 2 minutes
 
@@ -360,16 +393,28 @@
         const requestedSpan = span;
         loading = true;
         error = null;
+        leaderboardWindow = null;
+        audioLoadState = birdnetEnabled ? 'loading' : 'disabled';
+        if (!birdnetEnabled) audioSpecies = [];
         // Fetch species and timeline independently so a chart/weather failure
         // doesn't make the leaderboard table disappear.
         try {
-            species = requestedSpan === 'all'
-                ? await fetchSpecies(controller.signal).then(mapAllTimeSpecies)
-                : await fetchLeaderboardSpecies(requestedSpan, controller.signal).then(mapWindowSpecies);
+            if (requestedSpan === 'all') {
+                species = await fetchSpecies(controller.signal).then(mapAllTimeSpecies);
+                leaderboardWindow = null;
+            } else {
+                const response = await fetchLeaderboardSpecies(requestedSpan, controller.signal);
+                species = mapWindowSpecies(response);
+                leaderboardWindow = {
+                    start: response.window_start,
+                    end: response.window_end
+                };
+            }
         } catch (e) {
             if (loadGeneration !== leaderboardLoadGeneration || controller.signal.aborted) return;
             error = $_('leaderboard.load_failed');
             species = [];
+            leaderboardWindow = null;
             if (isTransientRequestError(e)) {
                 logger.warn('Leaderboard species fetch failed (transient)', {
                     message: getErrorMessage(e)
@@ -397,8 +442,10 @@
         // visual leaderboard, so it is handled independently and degrades to empty.
         if (audioResult.status === 'fulfilled') {
             audioSpecies = audioResult.value?.species ?? [];
+            audioLoadState = birdnetEnabled ? 'ready' : 'disabled';
         } else {
             audioSpecies = [];
+            audioLoadState = 'error';
             if (isTransientRequestError(audioResult.reason)) {
                 logger.warn('Audio species leaderboard fetch failed (transient)', {
                     message: getErrorMessage(audioResult.reason)
@@ -534,37 +581,6 @@
     function formatDate(value?: string | null): string {
         if (!value) return '—';
         return formatDateTime(value);
-    }
-
-    function formatTrend(delta?: number | null, percent?: number | null): string {
-        if (!delta) return '0';
-        if (percent === undefined || percent === null) {
-            return `${delta > 0 ? '+' : ''}${delta}`;
-        }
-        return `${delta > 0 ? '+' : ''}${delta} (${percent.toFixed(1)}%)`;
-    }
-
-    function rowCountForMode(row: LeaderboardTableRow, mode: SourceMode): number {
-        if (mode === 'heard') return row.heard_count;
-        if (mode === 'both') return row.count + row.heard_count;
-        return row.count;
-    }
-
-    function rowDeltaForMode(row: LeaderboardTableRow, mode: SourceMode): number | null {
-        if (mode === 'heard') return row.heard_delta;
-        if (mode === 'both') return (row.delta ?? 0) + (row.heard_delta ?? 0);
-        return row.delta ?? null;
-    }
-
-    function rowTrendForMode(row: LeaderboardTableRow, mode: SourceMode): string {
-        const delta = rowDeltaForMode(row, mode);
-        if (mode === 'heard') return formatTrend(delta, row.heard_percent);
-        if (mode === 'both') return formatTrend(delta, null);
-        return formatTrend(delta, row.percent);
-    }
-
-    function rowLastActivityForMode(row: LeaderboardTableRow, mode: SourceMode): string {
-        return formatDate(mode === 'heard' ? row.heard_last : row.last_seen);
     }
 
     function getHeroBlurb(info: SpeciesInfo | null): string | null {
@@ -1503,13 +1519,21 @@
         </div>
     {/if}
 
-    {#if loading && leaderboardSpecies().length === 0}
+    {#if loading && leaderboardRows.length === 0}
         <div class="space-y-3">
             {#each [1, 2, 3, 4, 5, 6] as _}
                 <div class="h-16 bg-slate-100 dark:bg-slate-800 rounded-xl animate-pulse"></div>
             {/each}
         </div>
-    {:else if leaderboardSpecies().length === 0}
+    {:else if sourceMode !== 'seen' && audioLoadState === 'error'}
+        <div class="border-y border-rose-200 bg-rose-50/60 px-4 py-6 text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/20 dark:text-rose-200" role="status">
+            <h3 class="font-semibold">{$_('leaderboard.audio_unavailable_title', { default: 'BirdNET results unavailable' })}</h3>
+            <p class="mt-1 text-sm">{$_('leaderboard.audio_unavailable_desc', { default: 'The listening leaderboard could not be loaded. Seen results are still available.' })}</p>
+            <button class="btn btn-secondary mt-3 min-h-11 px-3 py-2 text-xs" onclick={loadLeaderboard}>
+                {$_('common.retry')}
+            </button>
+        </div>
+    {:else if leaderboardRows.length === 0}
         <div class="border-y border-slate-200 py-14 text-center dark:border-slate-700">
             <span class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-500/10 text-brand-600 dark:text-brand-400" aria-hidden="true">
                 <svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -1519,86 +1543,57 @@
             </span>
             <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2">{$_('leaderboard.no_species')}</h3>
             <p class="text-slate-500 dark:text-slate-400">
-                {species.length > 0 && !includeUnknownBird
+                {sourceMode === 'heard'
+                    ? $_('leaderboard.no_audio_species', { default: 'No BirdNET detections were recorded in this period.' })
+                    : species.length > 0 && !includeUnknownBird
                     ? $_('leaderboard.only_unknown_desc')
                     : $_('leaderboard.no_species_desc')}
             </p>
         </div>
     {:else}
-        <section class="overflow-hidden rounded-[2rem] border border-brand-200/80 bg-gradient-to-br from-brand-50/80 via-white to-accent-50/60 dark:border-brand-800/60 dark:from-brand-950/35 dark:via-slate-900/40 dark:to-accent-950/25" data-leaderboard-featured>
-            <div class="grid lg:grid-cols-[minmax(0,1fr)_17rem]">
-                <div class="p-6 md:p-8">
-                    <div class="flex items-center gap-3 text-sm font-semibold text-brand-700 dark:text-brand-300">
-                        <svg data-leaderboard-section-icon aria-hidden="true" class="h-8 w-8 rounded-xl border border-brand-200 bg-white/80 p-1.5 text-brand-600 dark:border-brand-700 dark:bg-slate-900/60 dark:text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" />
+        {#if sourceMode !== 'heard' && sourceLeader && sourceLeader.count > 0}
+            <TopSpeciesCollage
+                species={sourceLeader.species}
+                displayName={sourceLeader.displayName}
+                subName={sourceLeader.subName}
+                seenCount={sourceLeader.count}
+                heardCount={sourceLeader.heard_count}
+                {span}
+                sourceMode={sourceMode}
+                windowStart={leaderboardWindow?.start ?? null}
+                windowEnd={leaderboardWindow?.end ?? null}
+                onopen={() => (selectedSpecies = sourceLeader.species)}
+            />
+        {/if}
 
-                        </svg>
-                        {$_('leaderboard.featured')}
-                    </div>
-                    <div class="mt-5 flex flex-col gap-5 sm:flex-row sm:items-start">
-                        <span
-                            data-leaderboard-species-portrait
-                            class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full border-4 border-white/90 bg-white/70 text-brand-500 shadow-md ring-1 ring-brand-200 dark:border-slate-800 dark:bg-slate-800 dark:text-brand-300 dark:ring-brand-700"
-                        >
-                            {#if heroPortraitInfo?.thumbnail_url}
-                                <img src={heroPortraitInfo.thumbnail_url} alt="" class="h-full w-full object-cover" />
-                            {:else}
-                                <svg class="h-9 w-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
-                            {/if}
-                        </span>
-                        <div class="min-w-0 flex-1">
-                            <h3 class="text-2xl font-bold text-slate-950 dark:text-white md:text-3xl">{topByCount?.displayName || '—'}</h3>
-                            {#if topByCount?.subName}
-                                <p class="mt-1 text-sm italic text-slate-500 dark:text-slate-400">{topByCount.subName}</p>
-                            {/if}
-                            {#if heroBlurb}
-                                <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300">{heroBlurb}</p>
-                            {/if}
-                            <div class="mt-5 flex flex-wrap items-center gap-3">
-                                <button
-                                    type="button"
-                                    onclick={() => topByCount && (selectedSpecies = topByCount.species)}
-                                    class="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:bg-brand-500 dark:text-slate-950 dark:hover:bg-brand-400"
-                                >
-                                    {$_('leaderboard.view_details')}
-                                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
-                                </button>
-                                {#if heroSource}
-                                    <a href={heroSource.url} target="_blank" rel="noopener noreferrer" class="inline-flex min-h-11 items-center gap-2 px-1 text-sm font-semibold text-brand-700 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:text-brand-300">
-                                        {heroSource.source === 'wikipedia' ? $_('actions.read_more_wikipedia') : $_('actions.read_more_source', { values: { source: $_('common.source_inaturalist', { default: 'iNaturalist' }) } })}
-                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14 4h6v6m0-6L10 14m-1-8H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" /></svg>
-                                    </a>
-                                {/if}
-                            </div>
+        {#if showRisingHighlight || showRecentHighlight}
+            <dl class="grid border-y border-slate-200 dark:border-slate-700 {showRisingHighlight && showRecentHighlight ? 'md:grid-cols-2' : ''}" data-leaderboard-highlights>
+                {#if showRisingHighlight && topByTrend}
+                    <div class="flex min-w-0 items-center gap-3 py-4 {showRecentHighlight ? 'md:pr-5' : ''}">
+                        <svg class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 17 5-5 4 4 7-9m-5 0h5v5" /></svg>
+                        <div class="min-w-0">
+                            <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.rising')}</dt>
+                            <dd class="truncate font-semibold text-slate-900 dark:text-white">
+                                {topByTrend.displayName}
+                                <span class="font-normal text-amber-700 dark:text-amber-300">· {trendForMode(topByTrend, sourceMode)}</span>
+                            </dd>
                         </div>
                     </div>
-                </div>
-                <dl class="grid grid-cols-2 border-t border-brand-200/70 bg-white/40 dark:border-brand-800/50 dark:bg-slate-950/15 lg:grid-cols-1 lg:border-l lg:border-t-0">
-                    <div class="p-4 lg:px-6"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{selectedCountLabel()}</dt><dd class="mt-1 text-2xl font-bold text-brand-700 dark:text-brand-300">{topByCount?.count?.toLocaleString() || '—'}</dd></div>
-                    <div class="border-l border-brand-200/70 p-4 dark:border-brand-800/50 lg:border-l-0 lg:border-t lg:px-6"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.trend')}</dt><dd class="mt-1 text-lg font-bold text-slate-900 dark:text-white">{span === 'all' ? '—' : formatTrend(topByCount?.delta, topByCount?.percent)}</dd></div>
-                    <div class="border-t border-brand-200/70 p-4 dark:border-brand-800/50 lg:px-6"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.cameras')}</dt><dd class="mt-1 text-lg font-bold text-slate-900 dark:text-white">{(topByCount?.camera_count ?? 0).toLocaleString()}</dd></div>
-                    <div class="border-l border-t border-brand-200/70 p-4 dark:border-brand-800/50 lg:border-l-0 lg:px-6"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.last_seen')}</dt><dd class="mt-1 text-sm font-semibold text-slate-700 dark:text-slate-300">{formatDate(topByCount?.last_seen)}</dd></div>
-                </dl>
-            </div>
-        </section>
-
-        <dl class="grid border-y border-slate-200 dark:border-slate-700 md:grid-cols-3" data-leaderboard-highlights>
-            <div class="flex min-w-0 items-center gap-3 py-4 md:pr-5">
-                <svg class="h-5 w-5 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20V12h4v8M10 20V7h4v13M16 20V4h4v16" /></svg>
-                <div class="min-w-0"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.most_active')}</dt><dd class="truncate font-semibold text-slate-900 dark:text-white">{topByCount?.displayName || '—'} <span class="font-normal text-brand-700 dark:text-brand-300">· {(topByCount?.count || 0).toLocaleString()}</span></dd></div>
-            </div>
-            {#if span !== 'all'}
-                <div class="flex min-w-0 items-center gap-3 border-t border-slate-200 py-4 dark:border-slate-700 md:border-l md:border-t-0 md:px-5">
-                    <svg class="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m4 17 5-5 4 4 7-9m-5 0h5v5" /></svg>
-                    <div class="min-w-0"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.rising')}</dt><dd class="truncate font-semibold text-slate-900 dark:text-white">{topByTrend?.displayName || '—'} <span class="font-normal text-amber-700 dark:text-amber-300">· {formatTrend(topByTrend?.delta, topByTrend?.percent)}</span></dd></div>
-                </div>
-            {/if}
-            <div class="flex min-w-0 items-center gap-3 border-t border-slate-200 py-4 dark:border-slate-700 md:border-l md:border-t-0 md:pl-5">
-                <svg class="h-5 w-5 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" d="M12 8v4l3 2" /></svg>
-                <div class="min-w-0"><dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.most_recent')}</dt><dd class="truncate font-semibold text-slate-900 dark:text-white">{mostRecent?.displayName || '—'} <span class="font-normal text-brand-700 dark:text-brand-300">· {formatDate(mostRecent?.last_seen)}</span></dd></div>
-            </div>
-        </dl>
-
+                {/if}
+                {#if showRecentHighlight && mostRecent}
+                    <div class="flex min-w-0 items-center gap-3 py-4 {showRisingHighlight ? 'border-t border-slate-200 dark:border-slate-700 md:border-l md:border-t-0 md:pl-5' : ''}">
+                        <svg class="h-5 w-5 shrink-0 text-brand-600 dark:text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path stroke-linecap="round" d="M12 8v4l3 2" /></svg>
+                        <div class="min-w-0">
+                            <dt class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('leaderboard.most_recent')}</dt>
+                            <dd class="truncate font-semibold text-slate-900 dark:text-white">
+                                {mostRecent.displayName}
+                                <span class="font-normal text-brand-700 dark:text-brand-300">· {formatDate(activityTimestampForMode(mostRecent, sourceMode))}</span>
+                            </dd>
+                        </div>
+                    </div>
+                {/if}
+            </dl>
+        {/if}
         <section class="space-y-5" data-leaderboard-rankings>
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                 <div class="flex items-center gap-3">
@@ -1610,12 +1605,12 @@
                         <p class="text-sm text-slate-500 dark:text-slate-400">{$_('leaderboard.all_species')}</p>
                     </div>
                 </div>
-                <p class="text-sm text-slate-500 dark:text-slate-400">{spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)} · {totalDetections.toLocaleString()}</p>
+                <p class="text-sm text-slate-500 dark:text-slate-400">{spanLabel()} · {formatRangeCompact(timeline?.window_start, timeline?.window_end)} · {sourceTotal.toLocaleString()}</p>
             </div>
 
             {#key `${sourceMode}-${span}`}
                 <div class="divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700 md:hidden" data-leaderboard-mobile-rankings>
-                {#each leaderboardTableRows(sourceMode) as item, index (`mobile-${item.species}|${item.audio_only}|${index}`)}
+                {#each leaderboardRows as item, index (`mobile-${item.species}|${item.audio_only}|${index}`)}
                     <button
                         type="button"
                         onclick={() => selectedSpecies = item.species}
@@ -1637,11 +1632,14 @@
                                 {#if item.audio_only}<span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"><svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 0 1-14 0m7 7v4m-4 0h8M9 5a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0V5z" /></svg>{$_('leaderboard.audio_only', { default: 'Audio only' })}</span>{/if}
                             </span>
                             {#if item.subName}<span class="mt-0.5 block truncate text-xs italic text-slate-500 dark:text-slate-400">{item.subName}</span>{/if}
-                            <span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">{$_('leaderboard.last_seen')}: {rowLastActivityForMode(item, sourceMode)}</span>
+                            <span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">
+                                {sourceMode === 'heard' ? $_('audio.card.last_heard') : sourceMode === 'both' ? $_('leaderboard.most_recent') : $_('leaderboard.last_seen')}:
+                                {formatDate(activityTimestampForMode(item, sourceMode))}
+                            </span>
                         </span>
                         <span class="shrink-0 text-right">
-                            <span class="block text-base font-bold text-slate-900 dark:text-white">{rowCountForMode(item, sourceMode).toLocaleString()}</span>
-                            <span class="block text-xs font-semibold {(rowDeltaForMode(item, sourceMode) ?? 0) > 0 ? 'text-accent-600 dark:text-accent-400' : (rowDeltaForMode(item, sourceMode) ?? 0) < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400'}">{span === 'all' ? '—' : rowTrendForMode(item, sourceMode)}</span>
+                            <span class="block text-base font-bold text-slate-900 dark:text-white">{countForMode(item, sourceMode).toLocaleString()}</span>
+                            <span class="block text-xs font-semibold {(deltaForMode(item, sourceMode) ?? 0) > 0 ? 'text-accent-600 dark:text-accent-400' : (deltaForMode(item, sourceMode) ?? 0) < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400'}">{span === 'all' ? '—' : trendForMode(item, sourceMode)}</span>
                         </span>
                         <svg class="h-4 w-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m8 5 5 5-5 5" /></svg>
                     </button>
@@ -1659,11 +1657,11 @@
                             <th scope="col" class="hidden px-3 py-3 text-right lg:table-cell">{$_('leaderboard.trend')}</th>
                             <th scope="col" class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.cameras')}</th>
                             <th scope="col" class="hidden px-3 py-3 text-right xl:table-cell">{$_('leaderboard.avg_confidence')}</th>
-                            <th scope="col" class="hidden w-36 px-3 py-3 lg:table-cell">{$_('leaderboard.last_seen')}</th>
+                            <th scope="col" class="hidden w-36 px-3 py-3 lg:table-cell">{sourceMode === 'heard' ? $_('audio.card.last_heard') : sourceMode === 'both' ? $_('leaderboard.most_recent') : $_('leaderboard.last_seen')}</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
-                        {#each leaderboardTableRows(sourceMode) as item, index (`desktop-${item.species}|${item.audio_only}|${index}`)}
+                        {#each leaderboardRows as item, index (`desktop-${item.species}|${item.audio_only}|${index}`)}
                             {@const rowCountPct = maxCount > 0 ? Math.round((item.count / maxCount) * 100) : 0}
                             {@const rowHeardPct = maxHeard > 0 ? Math.round((item.heard_count / maxHeard) * 100) : 0}
                             <tr class="transition hover:bg-slate-50/80 dark:hover:bg-slate-800/35">
@@ -1677,11 +1675,11 @@
                                     </button>
                                 </td>
                                 <td class="px-3 py-3 text-right"><span class="font-semibold tabular-nums text-slate-700 dark:text-slate-200">{item.count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-accent-500/70" style="width: {rowCountPct}%"></span></span></td>
-                                {#if birdnetEnabled}<td class="px-3 py-3 text-right"><span class="font-semibold tabular-nums text-brand-700 dark:text-brand-300">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowHeardPct}%"></span></span></td>{/if}
-                                <td class="hidden px-3 py-3 text-right font-semibold lg:table-cell {(item.delta ?? 0) > 0 ? 'text-accent-600 dark:text-accent-400' : (item.delta ?? 0) < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400'}">{span === 'all' ? '—' : formatTrend(item.delta, item.percent)}</td>
+                                {#if birdnetEnabled}<td class="px-3 py-3 text-right">{#if audioLoadState === 'ready'}<span class="font-semibold tabular-nums text-brand-700 dark:text-brand-300">{item.heard_count.toLocaleString()}</span><span class="ml-auto mt-1 block h-1 w-14 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700"><span class="block h-full rounded-full bg-brand-500/70" style="width: {rowHeardPct}%"></span></span>{:else}<span class="text-slate-400" title={$_('common.unavailable')}>—</span>{/if}</td>{/if}
+                                <td class="hidden px-3 py-3 text-right font-semibold lg:table-cell {(deltaForMode(item, sourceMode) ?? 0) > 0 ? 'text-accent-600 dark:text-accent-400' : (deltaForMode(item, sourceMode) ?? 0) < 0 ? 'text-rose-500 dark:text-rose-400' : 'text-slate-400'}">{span === 'all' ? '—' : trendForMode(item, sourceMode)}</td>
                                 <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{(item.camera_count ?? 0).toLocaleString()}</td>
-                                <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{(item.avg_confidence ?? 0).toFixed(2)}</td>
-                                <td class="hidden px-3 py-3 text-slate-500 dark:text-slate-400 lg:table-cell">{formatDate(item.last_seen)}</td>
+                                <td class="hidden px-3 py-3 text-right text-slate-600 dark:text-slate-300 xl:table-cell">{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}</td>
+                                <td class="hidden px-3 py-3 text-slate-500 dark:text-slate-400 lg:table-cell">{formatDate(activityTimestampForMode(item, sourceMode))}</td>
                             </tr>
                         {/each}
                     </tbody>
@@ -1777,10 +1775,10 @@
                             <path d="M6 8l4 4 4-4"></path>
                         </svg>
                         {#if timeline?.sunrise_range}
-                            <span class="font-semibold normal-case tracking-normal text-amber-600 dark:text-amber-400">{timeline.sunrise_range}</span>
+                            <span class="font-semibold normal-case tracking-normal text-amber-600 dark:text-amber-400">{$_('leaderboard.sunrise')} {timeline.sunrise_range}</span>
                         {/if}
                         {#if timeline?.sunset_range}
-                            <span class="font-semibold normal-case tracking-normal text-orange-600 dark:text-orange-400">{timeline.sunset_range}</span>
+                            <span class="font-semibold normal-case tracking-normal text-orange-600 dark:text-orange-400">{$_('leaderboard.sunset')} {timeline.sunset_range}</span>
                         {/if}
                     </summary>
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">

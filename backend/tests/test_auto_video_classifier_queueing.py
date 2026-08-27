@@ -204,6 +204,24 @@ def test_active_manual_job_snapshot_reports_real_frame_progress():
     assert job["updated_at"] is not None
 
 
+def test_active_job_snapshot_preserves_original_queue_timestamp():
+    service = AutoVideoClassifierService()
+    service._active_metadata["evt-stable-order"] = {
+        "source": "maintenance",
+        "queued_at_epoch": 1_700_000_000.0,
+        "started_at_epoch": 1_700_000_010.0,
+        "updated_at_epoch": 1_700_000_020.0,
+        "phase": "analyzing",
+        "current": 1,
+        "total": 15,
+    }
+
+    job = service.get_jobs_snapshot()[0]
+
+    assert job["created_at"] == "2023-11-14T22:13:20+00:00"
+    assert job["updated_at"] == "2023-11-14T22:13:40+00:00"
+
+
 @pytest.mark.asyncio
 async def test_queue_classification_respects_bounded_capacity(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(auto_video_classifier_module, "MAX_PENDING_QUEUE", 2)

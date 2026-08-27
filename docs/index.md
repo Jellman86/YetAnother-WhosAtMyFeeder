@@ -59,6 +59,8 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 Solving common issues and using diagnostic tools.
 - **[🛠 Diagnostics & Logs](troubleshooting/diagnostics.md)** - Using MQTT tests and Backfill reports.
 - **[📼 Frigate Event Not Found](troubleshooting/frigate-event-not-found.md)** - Diagnose short-lived events and missing upstream media.
+- **[🐌 Slow Interface, or a Page That Never Loads](troubleshooting/slow-interface.md)** - Reading the connection pool in a diagnostics bundle when the UI stalls.
+- **[🍎 Video Will Not Play in Safari](troubleshooting/safari-video-playback.md)** - Why a clip that opens in QuickTime can still be refused by Safari, and how to check the packaging.
 
 ## Engineering & Quality
 How the project is built and held to standard.
@@ -67,8 +69,10 @@ How the project is built and held to standard.
 - **[🧑‍💻 Code-Quality Standard](standards/code-quality.md)** - The researched code-craft bar for Python/FastAPI + Svelte 5/TypeScript, with authoritative sources.
 - **[🎨 UI/UX Standard](standards/ui-ux.md)** - Usability (Nielsen's heuristics), accessibility (WCAG 2.2 AA), and visual craft (Refactoring UI).
 - **[📣 Writing a Release](development/releasing.md)** - The human-first GitHub Release standard, template, and checklist.
-- **[🎁 YA-WAMF 2.17.0 Release Notes](releases/v2.17.0.md)** - Manual observations, safer reclassification, and installation-aware acceleration.
+- **[🎁 YA-WAMF 2.18.0 Release Notes](releases/v2.18.0.md)** - Offline bird names in your language, a dashboard built around your day, and an interface that no longer stalls.
 - **[🏅 Gold-Standard Review (2026-07-07)](reviews/2026-07-07-project-quality-and-gold-standard-review.md)** - Honest assessment against the standards and the path to close remaining gaps.
 - **[🌍 Translation Editorial Review (2026-07-20)](reviews/2026-07-20-translation-editorial-review.md)** - Locale coverage, editorial findings, permanent regression gates, and the native-review limitation.
 - **[🍓 Raspberry Pi Assessment (2026-07-21)](reviews/2026-07-21-raspberry-pi-assessment.md)** - What the ARM64 image and QEMU inference gate prove, plus the physical-hardware exit criteria.
+- **[🗂️ Species Catalogue Phase 0 Inventory (2026-08-19)](reviews/2026-08-19-species-catalogue-phase0-inventory.md)** - The pinned species-data sources, every supported model artifact with its declared label grammar, and measured name resolution.
+- **[🍄 Non-bird Classes vs Catalogue of Life (2026-08-20)](reviews/2026-08-20-col-nonbird-mapping-report.md)** - How the 8,514 non-bird model classes resolve against the pinned COL26.7 release, with every unresolved class listed rather than guessed.
 - **[🗺️ Roadmap](../ROADMAP.md)** - The single forward-looking plan: the Road to 3.0, the prioritised open backlog, and the delivered-features catalogue.

@@ -145,7 +145,7 @@ export interface UpdateStatus {
 }
 
 export async function fetchUpdateStatus(): Promise<UpdateStatus> {
-    const response = await apiFetch(`${API_BASE}/update-status`);
+    const response = await apiFetch(`${API_BASE}/update-status`, { cache: 'no-store' });
     return handleResponse<UpdateStatus>(response);
 }
 

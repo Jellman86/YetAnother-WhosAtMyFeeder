@@ -37,7 +37,27 @@ def test_openvino_version_constraint():
     content = _load_requirements()
     openvino_lines = [line.strip() for line in content.splitlines() if line.strip().startswith("openvino")]
     assert openvino_lines, "openvino requirement missing"
-    assert all(line.partition(";")[0].strip() == "openvino>=2026.2.1,<2027.0" for line in openvino_lines)
+    assert all(line.partition(";")[0].strip() == "openvino>=2026.3.0,<2027.0" for line in openvino_lines)
+
+
+def test_cpu_onnxruntime_floor_is_consistent_across_runtime_flavors():
+    backend_root = Path(__file__).resolve().parents[1]
+    requirements = {
+        flavor: (backend_root / f"requirements-provider-{flavor}.txt").read_text(encoding="utf-8")
+        for flavor in ("cpu", "intel", "full")
+    }
+
+    assert "onnxruntime>=1.28.0" in requirements["cpu"]
+    assert "onnxruntime>=1.28.0" in requirements["intel"]
+    assert 'onnxruntime>=1.28.0 ; platform_machine == "aarch64"' in requirements["full"]
+    assert "onnxruntime-gpu[cuda,cudnn]>=1.24.0,<1.27.0" in requirements["full"]
+
+
+def test_openvino_floor_is_consistent_across_intel_capable_flavors():
+    backend_root = Path(__file__).resolve().parents[1]
+    for flavor in ("intel", "full"):
+        content = (backend_root / f"requirements-provider-{flavor}.txt").read_text(encoding="utf-8")
+        assert "openvino>=2026.3.0,<2027.0" in content
 
 
 def test_msal_pin_is_compatible_with_cryptography_pin():

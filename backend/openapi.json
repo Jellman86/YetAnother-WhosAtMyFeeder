@@ -729,9 +729,25 @@
             "title": "Confidence",
             "type": "number"
           },
+          "matches_visual": {
+            "default": false,
+            "title": "Matches Visual",
+            "type": "boolean"
+          },
           "offset_seconds": {
             "title": "Offset Seconds",
             "type": "integer"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
           },
           "sensor_id": {
             "anyOf": [
@@ -1259,6 +1275,11 @@
             "title": "Display Common Names",
             "type": "boolean"
           },
+          "ebird_default_radius_km": {
+            "default": 25,
+            "title": "Ebird Default Radius Km",
+            "type": "integer"
+          },
           "ebird_enabled": {
             "default": false,
             "title": "Ebird Enabled",
@@ -1362,6 +1383,11 @@
             "default": false,
             "title": "Scientific Name Primary",
             "type": "boolean"
+          },
+          "time_format": {
+            "default": "locale",
+            "title": "Time Format",
+            "type": "string"
           },
           "username": {
             "anyOf": [
@@ -2767,6 +2793,74 @@
           "deleted_count"
         ],
         "title": "ClearFeedbackResponse",
+        "type": "object"
+      },
+      "CommonNameOverrideRequest": {
+        "properties": {
+          "common_name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Common Name",
+            "type": "string"
+          },
+          "scientific_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Scientific Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scientific_name",
+          "common_name"
+        ],
+        "title": "CommonNameOverrideRequest",
+        "type": "object"
+      },
+      "CommonNameOverrideResponse": {
+        "properties": {
+          "effective_common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Common Name"
+          },
+          "manual_common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Manual Common Name"
+          },
+          "provider_common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Common Name"
+          },
+          "scientific_name": {
+            "title": "Scientific Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scientific_name"
+        ],
+        "title": "CommonNameOverrideResponse",
         "type": "object"
       },
       "ConnectivityResponse": {
@@ -4836,6 +4930,9 @@
             "title": "Maintenance Coordinator",
             "type": "object"
           },
+          "media_sample": {
+            "$ref": "#/components/schemas/MediaSampleResponse"
+          },
           "schema_version": {
             "title": "Schema Version",
             "type": "string"
@@ -4875,7 +4972,8 @@
           "maintenance_coordinator",
           "startup_warnings",
           "backend_diagnostics",
-          "focused_diagnostics"
+          "focused_diagnostics",
+          "media_sample"
         ],
         "title": "DiagnosticsBundleResponse",
         "type": "object"
@@ -4928,6 +5026,11 @@
           "startup_warning_count": {
             "title": "Startup Warning Count",
             "type": "integer"
+          },
+          "video_sample_format": {
+            "default": "unknown",
+            "title": "Video Sample Format",
+            "type": "string"
           }
         },
         "required": [
@@ -5279,6 +5382,11 @@
             ],
             "title": "Common Name"
           },
+          "count": {
+            "default": 0,
+            "title": "Count",
+            "type": "integer"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
@@ -5317,9 +5425,44 @@
         "title": "EventFilterSpecies",
         "type": "object"
       },
+      "EventFilterTotals": {
+        "description": "Counts for the facets that are a flag rather than a value.",
+        "properties": {
+          "audio_matched": {
+            "default": 0,
+            "title": "Audio Matched",
+            "type": "integer"
+          },
+          "favorites": {
+            "default": 0,
+            "title": "Favorites",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "video_analysed": {
+            "default": 0,
+            "title": "Video Analysed",
+            "type": "integer"
+          }
+        },
+        "title": "EventFilterTotals",
+        "type": "object"
+      },
       "EventFilters": {
         "description": "Available filter options for events.",
         "properties": {
+          "camera_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "default": {},
+            "title": "Camera Counts",
+            "type": "object"
+          },
           "cameras": {
             "items": {
               "type": "string"
@@ -5333,6 +5476,15 @@
             },
             "title": "Species",
             "type": "array"
+          },
+          "totals": {
+            "$ref": "#/components/schemas/EventFilterTotals",
+            "default": {
+              "audio_matched": 0,
+              "favorites": 0,
+              "total": 0,
+              "video_analysed": 0
+            }
           }
         },
         "required": [
@@ -7213,6 +7365,17 @@
       "ManualTagResponse": {
         "description": "Response returned after applying or skipping a manual species tag.",
         "properties": {
+          "category_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Name"
+          },
           "common_name": {
             "anyOf": [
               {
@@ -7227,6 +7390,10 @@
           "event_id": {
             "title": "Event Id",
             "type": "string"
+          },
+          "manual_tagged": {
+            "title": "Manual Tagged",
+            "type": "boolean"
           },
           "new_species": {
             "title": "New Species",
@@ -7288,9 +7455,87 @@
         "required": [
           "status",
           "event_id",
-          "new_species"
+          "new_species",
+          "manual_tagged"
         ],
         "title": "ManualTagResponse",
+        "type": "object"
+      },
+      "MediaSampleResponse": {
+        "description": "How this instance's clips are packaged.\n\nSafari refuses HEVC tagged `hev1` in a video element while QuickTime plays\nit, so a report of \"the download works but the page does not\" is answered\nhere rather than by asking for ffprobe output.",
+        "properties": {
+          "available": {
+            "default": false,
+            "title": "Available",
+            "type": "boolean"
+          },
+          "bytes_read": {
+            "default": 0,
+            "title": "Bytes Read",
+            "type": "integer"
+          },
+          "codec": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codec"
+          },
+          "codec_tag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Codec Tag"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "safari_compatible": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Safari Compatible"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "title": "MediaSampleResponse",
         "type": "object"
       },
       "MessageResponse": {
@@ -7323,6 +7568,29 @@
           "message"
         ],
         "title": "ModelActionResponse",
+        "type": "object"
+      },
+      "ModelDeleteResponse": {
+        "properties": {
+          "bytes_freed": {
+            "title": "Bytes Freed",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message",
+          "bytes_freed"
+        ],
+        "title": "ModelDeleteResponse",
         "type": "object"
       },
       "ModelFile": {
@@ -7988,6 +8256,50 @@
         "title": "PurgeMissingMediaResponse",
         "type": "object"
       },
+      "ReadinessResponse": {
+        "properties": {
+          "db_pool_initialized": {
+            "title": "Db Pool Initialized",
+            "type": "boolean"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "startup_instance_id": {
+            "title": "Startup Instance Id",
+            "type": "string"
+          },
+          "startup_started_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startup Started At"
+          },
+          "startup_warnings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Startup Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ready",
+          "db_pool_initialized",
+          "startup_warnings",
+          "startup_instance_id",
+          "startup_started_at"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      },
       "ReclassifyResponse": {
         "description": "Response from reclassification.",
         "properties": {
@@ -8167,8 +8479,19 @@
             "title": "Event Id",
             "type": "string"
           },
+          "recording_state": {
+            "enum": [
+              "complete",
+              "partial"
+            ],
+            "title": "Recording State",
+            "type": "string"
+          },
           "status": {
-            "const": "ready",
+            "enum": [
+              "ready",
+              "partial"
+            ],
             "title": "Status",
             "type": "string"
           }
@@ -8176,6 +8499,7 @@
         "required": [
           "event_id",
           "status",
+          "recording_state",
           "cached"
         ],
         "title": "RecordingClipFetchResponse",
@@ -8361,6 +8685,21 @@
               }
             ],
             "title": "Appearance Color Theme"
+          },
+          "appearance_explorer_view": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cards",
+                  "list"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appearance Explorer View"
           },
           "appearance_font_theme": {
             "anyOf": [
@@ -9167,6 +9506,31 @@
             "title": "Media Cache Snapshots",
             "type": "boolean"
           },
+          "media_integrity_scan_batch_size": {
+            "default": 1000,
+            "title": "Media Integrity Scan Batch Size",
+            "type": "integer"
+          },
+          "media_integrity_scan_enabled": {
+            "default": false,
+            "title": "Media Integrity Scan Enabled",
+            "type": "boolean"
+          },
+          "media_integrity_scan_interval_hours": {
+            "default": 6,
+            "title": "Media Integrity Scan Interval Hours",
+            "type": "integer"
+          },
+          "media_integrity_scan_media": {
+            "default": "any",
+            "enum": [
+              "any",
+              "clip",
+              "snapshot"
+            ],
+            "title": "Media Integrity Scan Media",
+            "type": "string"
+          },
           "mqtt_auth": {
             "default": false,
             "title": "Mqtt Auth",
@@ -9928,6 +10292,17 @@
             ],
             "title": "Telemetry Platform"
           },
+          "time_format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Format"
+          },
           "trust_frigate_sublabel": {
             "default": true,
             "title": "Trust Frigate Sublabel",
@@ -10148,6 +10523,21 @@
             ],
             "title": "Appearance Color Theme"
           },
+          "appearance_explorer_view": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cards",
+                  "list"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appearance Explorer View"
+          },
           "appearance_font_theme": {
             "anyOf": [
               {
@@ -10254,13 +10644,13 @@
           },
           "auto_purge_missing_clips": {
             "default": false,
-            "description": "Purge detections without clips during scheduled cleanup",
+            "description": "Deprecated: use media_integrity_scan_enabled with media='clip'",
             "title": "Auto Purge Missing Clips",
             "type": "boolean"
           },
           "auto_purge_missing_snapshots": {
             "default": false,
-            "description": "Purge detections without snapshots during scheduled cleanup",
+            "description": "Deprecated: use media_integrity_scan_enabled with media='snapshot'",
             "title": "Auto Purge Missing Snapshots",
             "type": "boolean"
           },
@@ -11041,6 +11431,39 @@
             "title": "Media Cache Snapshots",
             "type": "boolean"
           },
+          "media_integrity_scan_batch_size": {
+            "default": 1000,
+            "description": "Maximum detections re-checked against Frigate in one scan",
+            "maximum": 20000.0,
+            "minimum": 1.0,
+            "title": "Media Integrity Scan Batch Size",
+            "type": "integer"
+          },
+          "media_integrity_scan_enabled": {
+            "default": false,
+            "description": "Periodically re-check detections against Frigate and apply the missing-media behaviour",
+            "title": "Media Integrity Scan Enabled",
+            "type": "boolean"
+          },
+          "media_integrity_scan_interval_hours": {
+            "default": 6,
+            "description": "Hours between media integrity scans",
+            "maximum": 168.0,
+            "minimum": 1.0,
+            "title": "Media Integrity Scan Interval Hours",
+            "type": "integer"
+          },
+          "media_integrity_scan_media": {
+            "default": "any",
+            "description": "Which media must be absent upstream for a detection to count as missing",
+            "enum": [
+              "any",
+              "clip",
+              "snapshot"
+            ],
+            "title": "Media Integrity Scan Media",
+            "type": "string"
+          },
           "mqtt_auth": {
             "default": false,
             "description": "Enable MQTT authentication",
@@ -11789,6 +12212,17 @@
             "description": "Enable anonymous health issue diagnostics",
             "title": "Telemetry Health Enabled"
           },
+          "time_format": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Format"
+          },
           "trust_frigate_sublabel": {
             "default": true,
             "description": "Trust Frigate sublabels when available",
@@ -12220,6 +12654,17 @@
               }
             ],
             "title": "Frame Offset Seconds"
+          },
+          "image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image Url"
           },
           "ranking_score": {
             "title": "Ranking Score",
@@ -13562,6 +14007,97 @@
         "title": "UpdateStatusResponse",
         "type": "object"
       },
+      "UptimeBucketResponse": {
+        "properties": {
+          "samples": {
+            "title": "Samples",
+            "type": "integer"
+          },
+          "start": {
+            "title": "Start",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "up",
+              "down",
+              "unknown"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "state",
+          "samples"
+        ],
+        "title": "UptimeBucketResponse",
+        "type": "object"
+      },
+      "UptimeWindowResponse": {
+        "properties": {
+          "bucket_minutes": {
+            "title": "Bucket Minutes",
+            "type": "integer"
+          },
+          "buckets": {
+            "items": {
+              "$ref": "#/components/schemas/UptimeBucketResponse"
+            },
+            "title": "Buckets",
+            "type": "array"
+          },
+          "heartbeat_interval_minutes": {
+            "title": "Heartbeat Interval Minutes",
+            "type": "integer"
+          },
+          "longest_gap_minutes": {
+            "title": "Longest Gap Minutes",
+            "type": "integer"
+          },
+          "longest_gap_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longest Gap Start"
+          },
+          "uptime_ratio": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uptime Ratio"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "window_start",
+          "window_end",
+          "bucket_minutes",
+          "heartbeat_interval_minutes",
+          "buckets",
+          "longest_gap_minutes"
+        ],
+        "title": "UptimeWindowResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -14139,7 +14675,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.17.0"
+    "version": "2.18.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -14264,7 +14800,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-YAWAMF-Audio-Suppressed-By-Mapping": {
+                "description": "Audio detections in the window excluded by the camera mapping.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -14325,7 +14870,16 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "Successful Response",
+            "headers": {
+              "X-YAWAMF-Audio-Suppressed-By-Mapping": {
+                "description": "Audio detections in the window excluded by the camera mapping.",
+                "schema": {
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              }
+            }
           },
           "422": {
             "content": {
@@ -19355,6 +19909,63 @@
         "summary": "Get Snapshot Candidates"
       }
     },
+    "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg": {
+      "get": {
+        "description": "Return the retained full-resolution candidate for the large preview surface.",
+        "operationId": "get_snapshot_candidate_image_api_frigate__event_id__snapshot_candidates__candidate_id__image_jpg_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "maxLength": 160,
+              "minLength": 1,
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Snapshot Candidate Image"
+      }
+    },
     "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg": {
       "get": {
         "operationId": "get_snapshot_candidate_thumbnail_api_frigate__event_id__snapshot_candidates__candidate_id__thumbnail_jpg_get",
@@ -21254,6 +21865,60 @@
         ]
       }
     },
+    "/api/models/{model_id}": {
+      "delete": {
+        "description": "Delete an installed model's files. Owner only.\n\nIrreversible: the model has to be downloaded again to come back. The active\nmodel and a model mid-download are both refused, so this cannot take the\nclassifier out from under itself.\n\nThe path converter is deliberate: region variants are addressed as\n`family/region`, so the id contains a slash.",
+        "operationId": "delete_model_api_models__model_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "title": "Model Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Delete Model",
+        "tags": [
+          "models"
+        ]
+      }
+    },
     "/api/models/{model_id}/activate": {
       "post": {
         "description": "Set a specific model as the active classifier. Owner only.\n\nPost-install selection gate: a model this host has never validated cannot be\nactivated through the API \u2014 the caller must run `/validate` first. This guards\nevery path (Model Manager, the settings picker, a raw POST), not just the UI.",
@@ -21923,6 +22588,158 @@
           }
         ],
         "summary": "Get Species List"
+      }
+    },
+    "/api/species/common-name-override": {
+      "delete": {
+        "description": "Clear a common-name override and restore the cached provider value.",
+        "operationId": "clear_common_name_override_api_species_common_name_override_delete",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scientific_name",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Scientific Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonNameOverrideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Clear Common Name Override"
+      },
+      "get": {
+        "description": "Read the manual common-name override for one cached taxon.",
+        "operationId": "get_common_name_override_api_species_common_name_override_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "scientific_name",
+            "required": true,
+            "schema": {
+              "maxLength": 200,
+              "minLength": 1,
+              "title": "Scientific Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonNameOverrideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Common Name Override"
+      },
+      "put": {
+        "description": "Set a durable common-name override while retaining provider data.",
+        "operationId": "set_common_name_override_api_species_common_name_override_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommonNameOverrideRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonNameOverrideResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Set Common Name Override"
       }
     },
     "/api/species/search": {
@@ -22609,6 +23426,75 @@
         ]
       }
     },
+    "/api/stats/uptime": {
+      "get": {
+        "description": "Availability over a recent window, derived from heartbeat rows.\n\nA bucket with no heartbeat is reported as down; a bucket from before the first\nheartbeat ever recorded is reported as unknown, because a fresh install has no\nhistory and that is not an outage.",
+        "operationId": "get_uptime_api_stats_uptime_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 168,
+              "minimum": 1,
+              "title": "Hours",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "bucket_minutes",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 240,
+              "minimum": 5,
+              "title": "Bucket Minutes",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UptimeWindowResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Uptime",
+        "tags": [
+          "stats"
+        ]
+      }
+    },
     "/api/system-telemetry": {
       "get": {
         "description": "Return one live host-utilization sample for the sidebar's rolling graph.",
@@ -22988,7 +23874,11 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health Check Health Get",
+                  "type": "object"
+                }
               }
             },
             "description": "Successful Response"
@@ -23022,7 +23912,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
               }
             },
             "description": "Successful Response"

@@ -7,7 +7,7 @@ import structlog
 import re
 import unicodedata
 from typing import Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
@@ -247,12 +247,16 @@ async def _lookup_species_search_taxonomy(
 
 
 def _species_search_result_key(result: dict) -> str:
-    taxa_id = result.get("taxa_id")
-    if taxa_id is not None:
-        return f"taxa:{taxa_id}"
+    # Scientific name is the stable identity across the sources this endpoint
+    # searches. Keying on taxa id first split one species into two rows whenever
+    # the id resolved for the classifier label but not the stored detection label,
+    # or the reverse.
     scientific_name = str(result.get("scientific_name") or "").strip()
     if scientific_name:
         return f"sci:{scientific_name.casefold()}"
+    taxa_id = result.get("taxa_id")
+    if taxa_id is not None:
+        return f"taxa:{taxa_id}"
     common_name = str(result.get("common_name") or "").strip()
     if common_name:
         return f"common:{common_name.casefold()}"
@@ -353,16 +357,16 @@ async def _hydrate_species_search_results(
 
 
 def _species_unified_metrics_key(row: dict) -> str | None:
-    taxa_id = row.get("taxa_id")
-    if taxa_id is not None:
-        return str(taxa_id)
-    scientific_name = row.get("scientific_name")
-    if scientific_name:
-        return str(scientific_name).lower()
-    species = row.get("species")
-    if species:
-        return str(species).lower()
-    return None
+    """The grouping key the repository already computed for this row.
+
+    This used to rebuild the key in Python from `taxa_id`, then scientific name,
+    then display name. That is the same rule the repository applies in SQL, and
+    two copies of one rule drift: when the SQL key gained catalogue identity and
+    a namespace, a Python copy would have matched nothing and every species
+    would have shown a flat trend with no error to notice.
+    """
+    key = row.get("unified_key")
+    return str(key) if key else None
 
 
 def _to_utc_naive(dt: datetime | None) -> datetime | None:
@@ -862,6 +866,17 @@ async def get_species_list(request: Request):
         unknown_labels = settings.classification.unknown_bird_labels
         filtered_stats = []
 
+        # One batched lookup for the whole page rather than a query per row.
+        # A group is named from its catalogue identity so a merged taxon reads
+        # consistently, instead of taking whichever of its rows sorted last.
+        from app.services.species_names import species_name_lookup
+
+        catalogue_names = await asyncio.to_thread(
+            species_name_lookup.display_names,
+            [s.get("species_id") for s in stats if s.get("species_id") is not None],
+            language=lang,
+        )
+
         for s in stats:
             if s["species"] in unknown_labels or should_hide_species_label(s["species"]):
                 continue
@@ -875,7 +890,14 @@ async def get_species_list(request: Request):
 
             common_name = s.get("common_name")
             taxa_id = s.get("taxa_id")
-            if taxa_id:
+            # An owner rename is the person's own decision and outranks every
+            # source. Below it the catalogue is preferred, because its names are
+            # curated per language and cover locales the providers do not.
+            owner_renamed = bool(str(s.get("manual_common_name") or "").strip())
+            catalogue_name = None if owner_renamed else catalogue_names.get(s.get("species_id"))
+            if catalogue_name:
+                common_name = catalogue_name
+            elif taxa_id:
                 if lang != "en":
                     localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
                     if localized:
@@ -1302,6 +1324,72 @@ async def get_species_stats(
 class SpeciesCacheClearResponse(BaseModel):
     status: str
     species: str
+
+
+class CommonNameOverrideRequest(BaseModel):
+    scientific_name: str = Field(min_length=1, max_length=200)
+    common_name: str = Field(min_length=1, max_length=120)
+
+
+class CommonNameOverrideResponse(BaseModel):
+    scientific_name: str
+    provider_common_name: str | None = None
+    manual_common_name: str | None = None
+    effective_common_name: str | None = None
+
+
+@router.get("/species/common-name-override", response_model=CommonNameOverrideResponse)
+async def get_common_name_override(
+    scientific_name: str = Query(min_length=1, max_length=200),
+    _auth: AuthContext = Depends(require_owner),
+) -> CommonNameOverrideResponse:
+    """Read the manual common-name override for one cached taxon."""
+    async with get_db() as db:
+        result = await taxonomy_service.get_common_name_override(scientific_name.strip(), db)
+    if not result:
+        raise HTTPException(status_code=404, detail="Species not found in taxonomy cache")
+    return CommonNameOverrideResponse(**result)
+
+
+@router.put("/species/common-name-override", response_model=CommonNameOverrideResponse)
+async def set_common_name_override(
+    payload: CommonNameOverrideRequest,
+    _auth: AuthContext = Depends(require_owner),
+) -> CommonNameOverrideResponse:
+    """Set a durable common-name override while retaining provider data."""
+    scientific_name = payload.scientific_name.strip()
+    common_name = payload.common_name.strip()
+    if not scientific_name or not common_name:
+        raise HTTPException(status_code=422, detail="Names cannot be blank")
+    async with get_db() as db:
+        result = await taxonomy_service.set_common_name_override(scientific_name, common_name, db)
+        if not result:
+            raise HTTPException(status_code=404, detail="Species not found in taxonomy cache")
+        await DetectionRepository(db).update_common_name_for_scientific_name(
+            scientific_name, result["effective_common_name"]
+        )
+        await db.commit()
+    log.info("Set manual common name", scientific_name=scientific_name)
+    return CommonNameOverrideResponse(**result)
+
+
+@router.delete("/species/common-name-override", response_model=CommonNameOverrideResponse)
+async def clear_common_name_override(
+    scientific_name: str = Query(min_length=1, max_length=200),
+    _auth: AuthContext = Depends(require_owner),
+) -> CommonNameOverrideResponse:
+    """Clear a common-name override and restore the cached provider value."""
+    normalized_name = scientific_name.strip()
+    async with get_db() as db:
+        result = await taxonomy_service.clear_common_name_override(normalized_name, db)
+        if not result:
+            raise HTTPException(status_code=404, detail="Species not found in taxonomy cache")
+        await DetectionRepository(db).update_common_name_for_scientific_name(
+            normalized_name, result["effective_common_name"]
+        )
+        await db.commit()
+    log.info("Cleared manual common name", scientific_name=normalized_name)
+    return CommonNameOverrideResponse(**result)
 
 
 @router.delete("/species/{species_name}/cache", response_model=SpeciesCacheClearResponse)

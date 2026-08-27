@@ -101,7 +101,9 @@ export interface components {
     AudioContextDetectionResponse: {
     birdnet_id?: number | null;
     confidence: number;
+    matches_visual?: boolean;
     offset_seconds: number;
+    scientific_name?: string | null;
     sensor_id?: string | null;
     source_name?: string | null;
     species: string;
@@ -190,6 +192,7 @@ export interface components {
     birdnet_enabled?: boolean;
     date_format?: string;
     display_common_names?: boolean;
+    ebird_default_radius_km?: number;
     ebird_enabled?: boolean;
     enrichment_links_sources?: Array<string>;
     enrichment_mode?: string;
@@ -210,6 +213,7 @@ export interface components {
     public_access_enabled: boolean;
     public_access_show_ai_conversation?: boolean;
     scientific_name_primary?: boolean;
+    time_format?: string;
     username?: string | null;
 };
     BackendDiagnosticEventResponse: {
@@ -429,6 +433,16 @@ export interface components {
     deleted_count: number;
     message: string;
     status: string;
+};
+    CommonNameOverrideRequest: {
+    common_name: string;
+    scientific_name: string;
+};
+    CommonNameOverrideResponse: {
+    effective_common_name?: string | null;
+    manual_common_name?: string | null;
+    provider_common_name?: string | null;
+    scientific_name: string;
 };
     ConnectivityResponse: {
     frigate: components['schemas']['ConnectivityResult'];
@@ -695,6 +709,7 @@ export interface components {
     generated_at: string;
     health: Record<string, unknown>;
     maintenance_coordinator: Record<string, unknown>;
+    media_sample: components['schemas']['MediaSampleResponse'];
     schema_version: string;
     server: components['schemas']['DiagnosticsBundleServerResponse'];
     startup_warnings: Array<Record<string, unknown>>;
@@ -714,6 +729,7 @@ export interface components {
     diagnostic_events: number;
     health_status: string;
     startup_warning_count: number;
+    video_sample_format?: string;
 };
     DiagnosticsWorkspaceResponse: {
     backend_diagnostics: components['schemas']['BackendDiagnosticsSnapshotResponse'];
@@ -760,14 +776,23 @@ export interface components {
 };
     EventFilterSpecies: {
     common_name?: string | null;
+    count?: number;
     display_name: string;
     scientific_name?: string | null;
     taxa_id?: number | null;
     value: string;
 };
+    EventFilterTotals: {
+    audio_matched?: number;
+    favorites?: number;
+    total?: number;
+    video_analysed?: number;
+};
     EventFilters: {
+    camera_counts?: Record<string, number>;
     cameras: Array<string>;
     species: Array<components['schemas']['EventFilterSpecies']>;
+    totals?: components['schemas']['EventFilterTotals'];
 };
     EventsCountResponse: {
     count: number;
@@ -1040,8 +1065,10 @@ export interface components {
     status: "saved";
 };
     ManualTagResponse: {
+    category_name?: string | null;
     common_name?: string | null;
     event_id: string;
+    manual_tagged: boolean;
     new_species: string;
     old_species?: string | null;
     scientific_name?: string | null;
@@ -1049,10 +1076,25 @@ export interface components {
     status: "updated" | "unchanged";
     taxa_id?: number | null;
 };
+    MediaSampleResponse: {
+    available?: boolean;
+    bytes_read?: number;
+    codec?: string | null;
+    codec_tag?: string | null;
+    event_id?: string | null;
+    note?: string;
+    safari_compatible?: boolean | null;
+    source?: string | null;
+};
     MessageResponse: {
     message: string;
 };
     ModelActionResponse: {
+    message: string;
+    status: string;
+};
+    ModelDeleteResponse: {
+    bytes_freed: number;
     message: string;
     status: string;
 };
@@ -1148,6 +1190,13 @@ export interface components {
     missing: number;
     status: string;
 };
+    ReadinessResponse: {
+    db_pool_initialized: boolean;
+    ready: boolean;
+    startup_instance_id: string;
+    startup_started_at: string | null;
+    startup_warnings: Array<Record<string, unknown>>;
+};
     ReclassifyResponse: {
     actual_strategy: "snapshot" | "video";
     event_id: string;
@@ -1171,7 +1220,8 @@ export interface components {
     cached: boolean;
     clip_variant?: "recording";
     event_id: string;
-    status: "ready";
+    recording_state: "complete" | "partial";
+    status: "ready" | "partial";
 };
     ReverseGeocodeResponse: {
     country?: string | null;
@@ -1197,6 +1247,7 @@ export interface components {
     accessibility_zen_mode?: boolean | null;
     ai_pricing_json?: string | null;
     appearance_color_theme?: string | null;
+    appearance_explorer_view?: "cards" | "list" | null;
     appearance_font_theme?: string | null;
     audio_buffer_hours?: number;
     audio_correlation_window_seconds?: number;
@@ -1280,6 +1331,10 @@ export interface components {
     media_cache_high_quality_event_snapshots?: boolean;
     media_cache_retention_days?: number;
     media_cache_snapshots?: boolean;
+    media_integrity_scan_batch_size?: number;
+    media_integrity_scan_enabled?: boolean;
+    media_integrity_scan_interval_hours?: number;
+    media_integrity_scan_media?: "any" | "clip" | "snapshot";
     mqtt_auth?: boolean;
     mqtt_password?: string | null;
     mqtt_port?: number;
@@ -1351,6 +1406,7 @@ export interface components {
     telemetry_installation_id?: string | null;
     telemetry_payload_preview?: Record<string, unknown> | null;
     telemetry_platform?: string | null;
+    time_format?: string | null;
     trust_frigate_sublabel?: boolean;
     trusted_proxy_hosts?: Array<string> | null;
     update_check_enabled?: boolean;
@@ -1374,6 +1430,7 @@ export interface components {
     accessibility_zen_mode?: boolean | null;
     ai_pricing_json?: string | null;
     appearance_color_theme?: string | null;
+    appearance_explorer_view?: "cards" | "list" | null;
     appearance_font_theme?: string | null;
     audio_buffer_hours?: number;
     audio_correlation_window_seconds?: number;
@@ -1454,6 +1511,10 @@ export interface components {
     media_cache_high_quality_event_snapshots?: boolean;
     media_cache_retention_days?: number;
     media_cache_snapshots?: boolean;
+    media_integrity_scan_batch_size?: number;
+    media_integrity_scan_enabled?: boolean;
+    media_integrity_scan_interval_hours?: number;
+    media_integrity_scan_media?: "any" | "clip" | "snapshot";
     mqtt_auth?: boolean;
     mqtt_password?: string | null;
     mqtt_port?: number;
@@ -1521,6 +1582,7 @@ export interface components {
     strict_non_finite_output?: boolean | null;
     telemetry_enabled?: boolean | null;
     telemetry_health_enabled?: boolean | null;
+    time_format?: string | null;
     trust_frigate_sublabel?: boolean;
     trusted_proxy_hosts?: Array<string> | null;
     video_classification_delay?: number | null;
@@ -1577,6 +1639,7 @@ export interface components {
     crop_strategy?: string | null;
     frame_index: number;
     frame_offset_seconds?: number | null;
+    image_url?: string | null;
     ranking_score: number;
     selected: boolean;
     snapshot_source?: string | null;
@@ -1773,6 +1836,21 @@ export interface components {
     latest_version?: string | null;
     release_url: string;
     update_available: boolean;
+};
+    UptimeBucketResponse: {
+    samples: number;
+    start: string;
+    state: "up" | "down" | "unknown";
+};
+    UptimeWindowResponse: {
+    bucket_minutes: number;
+    buckets: Array<components['schemas']['UptimeBucketResponse']>;
+    heartbeat_interval_minutes: number;
+    longest_gap_minutes: number;
+    longest_gap_start?: string | null;
+    uptime_ratio?: number | null;
+    window_end: string;
+    window_start: string;
 };
     ValidationError: {
     ctx?: Record<string, unknown>;
@@ -2814,6 +2892,18 @@ export interface paths {
       response: components['schemas']['SnapshotCandidateListResponse'];
     };
   };
+  "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg": {
+    get: {
+      operationId: "get_snapshot_candidate_image_api_frigate__event_id__snapshot_candidates__candidate_id__image_jpg_get";
+      path: {
+    candidate_id: string;
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
   "/api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg": {
     get: {
       operationId: "get_snapshot_candidate_thumbnail_api_frigate__event_id__snapshot_candidates__candidate_id__thumbnail_jpg_get";
@@ -3233,6 +3323,17 @@ export interface paths {
       response: Array<components['schemas']['InstalledModel']>;
     };
   };
+  "/api/models/{model_id}": {
+    delete: {
+      operationId: "delete_model_api_models__model_id__delete";
+      path: {
+    model_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ModelDeleteResponse'];
+    };
+  };
   "/api/models/{model_id}/activate": {
     post: {
       operationId: "activate_model_api_models__model_id__activate_post";
@@ -3374,6 +3475,33 @@ export interface paths {
       response: Array<components['schemas']['SpeciesCountItem']>;
     };
   };
+  "/api/species/common-name-override": {
+    get: {
+      operationId: "get_common_name_override_api_species_common_name_override_get";
+      path: never;
+      query: {
+    scientific_name: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['CommonNameOverrideResponse'];
+    };
+    put: {
+      operationId: "set_common_name_override_api_species_common_name_override_put";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['CommonNameOverrideRequest'];
+      response: components['schemas']['CommonNameOverrideResponse'];
+    };
+    delete: {
+      operationId: "clear_common_name_override_api_species_common_name_override_delete";
+      path: never;
+      query: {
+    scientific_name: string;
+};
+      requestBody: unknown;
+      response: components['schemas']['CommonNameOverrideResponse'];
+    };
+  };
   "/api/species/search": {
     get: {
       operationId: "search_species_api_species_search_get";
@@ -3508,6 +3636,18 @@ export interface paths {
       response: components['schemas']['DetectionsTimelineSpanResponse'];
     };
   };
+  "/api/stats/uptime": {
+    get: {
+      operationId: "get_uptime_api_stats_uptime_get";
+      path: never;
+      query: {
+    bucket_minutes?: number;
+    hours?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['UptimeWindowResponse'];
+    };
+  };
   "/api/system-telemetry": {
     get: {
       operationId: "get_system_telemetry_api_system_telemetry_get";
@@ -3596,7 +3736,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: Record<string, unknown>;
     };
   };
   "/metrics": {
@@ -3614,7 +3754,7 @@ export interface paths {
       path: never;
       query: never;
       requestBody: unknown;
-      response: unknown;
+      response: components['schemas']['ReadinessResponse'];
     };
   };
 }

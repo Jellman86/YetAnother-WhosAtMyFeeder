@@ -2,6 +2,7 @@ import asyncio
 import time
 import weakref
 from datetime import datetime, timedelta, timezone
+from typing import Literal
 
 import httpx
 import structlog
@@ -18,24 +19,30 @@ log = structlog.get_logger()
 
 FULL_VISIT_FETCH_RETRY_ATTEMPTS = 2
 FULL_VISIT_FETCH_RETRY_DELAY_SECONDS = 2.0
-FULL_VISIT_FETCH_READY_GRACE_SECONDS = 2.0
+FULL_VISIT_FETCH_READY_GRACE_SECONDS = 12.0
+FULL_VISIT_PARTIAL_UPGRADE_ATTEMPTS = 2
+FULL_VISIT_PARTIAL_UPGRADE_RETRY_DELAY_SECONDS = 10.0
+FULL_VISIT_PARTIAL_UPGRADE_STATE_TTL_SECONDS = 24 * 60 * 60
 FULL_VISIT_RECONCILE_INTERVAL_SECONDS = 300.0
 FULL_VISIT_RECONCILE_LOOKBACK_HOURS = 24
 FULL_VISIT_RECONCILE_LIMIT = 100
 FULL_VISIT_FAILURE_COOLDOWN_SECONDS = 1800.0
 FULL_VISIT_QUEUE_MAX = 128
 FULL_VISIT_WORKERS = 2
+RecordingFetchOutcome = Literal["complete", "partial", "unavailable"]
 
 
 class FullVisitClipService:
     def __init__(self) -> None:
         self._event_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = weakref.WeakValueDictionary()
         self._failure_retry_after: dict[str, float] = {}
+        self._partial_upgrade_attempts: dict[str, tuple[int, float]] = {}
         self._running = False
         self._task: asyncio.Task | None = None
         self._queue: asyncio.Queue[tuple[str, str | None, str, str]] = asyncio.Queue(maxsize=FULL_VISIT_QUEUE_MAX)
         self._queued_ids: set[str] = set()
         self._active_ids: set[str] = set()
+        self._job_timestamps: dict[str, tuple[float, float]] = {}
         self._workers: list[asyncio.Task] = []
         self._queue_full_rejections = 0
         # Queue workers, reconciliation and direct calls all share this ceiling.
@@ -70,6 +77,28 @@ class FullVisitClipService:
     def _mark_fetch_success(self, event_id: str) -> None:
         self._failure_retry_after.pop(event_id, None)
 
+    def _partial_upgrade_exhausted(self, event_id: str) -> bool:
+        self._sweep_partial_upgrade_attempts()
+        attempts, _updated_at = self._partial_upgrade_attempts.get(event_id, (0, 0.0))
+        return attempts >= FULL_VISIT_PARTIAL_UPGRADE_ATTEMPTS
+
+    def _record_partial_upgrade_attempt(self, event_id: str) -> None:
+        self._sweep_partial_upgrade_attempts()
+        attempts, _updated_at = self._partial_upgrade_attempts.get(event_id, (0, 0.0))
+        self._partial_upgrade_attempts[event_id] = (
+            min(FULL_VISIT_PARTIAL_UPGRADE_ATTEMPTS, attempts + 1),
+            time.monotonic(),
+        )
+
+    def _clear_partial_upgrade_attempts(self, event_id: str) -> None:
+        self._partial_upgrade_attempts.pop(event_id, None)
+
+    def _sweep_partial_upgrade_attempts(self) -> None:
+        expiry = time.monotonic() - FULL_VISIT_PARTIAL_UPGRADE_STATE_TTL_SECONDS
+        for expired_id, (_attempts, updated_at) in list(self._partial_upgrade_attempts.items()):
+            if updated_at <= expiry:
+                self._partial_upgrade_attempts.pop(expired_id, None)
+
     @staticmethod
     def _minimum_acceptable_duration_seconds(expected_duration_seconds: float) -> float:
         expected = max(1.0, float(expected_duration_seconds))
@@ -78,9 +107,10 @@ class FullVisitClipService:
 
     async def _wait_until_recording_window_complete(self, event_id: str, lang: str) -> float:
         _camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
-        remaining_seconds = float(end_ts) - time.time()
+        ready_at = float(end_ts) + FULL_VISIT_FETCH_READY_GRACE_SECONDS
+        remaining_seconds = ready_at - time.time()
         if remaining_seconds > 0:
-            await asyncio.sleep(remaining_seconds + FULL_VISIT_FETCH_READY_GRACE_SECONDS)
+            await asyncio.sleep(remaining_seconds)
         return self._minimum_acceptable_duration_seconds(float(end_ts - start_ts))
 
     def trigger_background(
@@ -107,6 +137,8 @@ class FullVisitClipService:
             )
             return False
         self._queued_ids.add(event_id)
+        now = time.time()
+        self._job_timestamps.setdefault(event_id, (now, now))
         return True
 
     async def start(self) -> None:
@@ -144,6 +176,8 @@ class FullVisitClipService:
                 break
         self._queued_ids.clear()
         self._active_ids.clear()
+        self._job_timestamps.clear()
+        self._partial_upgrade_attempts.clear()
 
     async def _worker_loop(self, worker_index: int) -> None:
         while self._running:
@@ -155,6 +189,8 @@ class FullVisitClipService:
                 break
             self._queued_ids.discard(event_id)
             self._active_ids.add(event_id)
+            created_at, _updated_at = self._job_timestamps.get(event_id, (time.time(), time.time()))
+            self._job_timestamps[event_id] = (created_at, time.time())
             try:
                 await self.trigger_for_event(event_id, camera, source=source, lang=lang)
             except asyncio.CancelledError:
@@ -168,9 +204,11 @@ class FullVisitClipService:
                 )
             finally:
                 self._active_ids.discard(event_id)
+                self._job_timestamps.pop(event_id, None)
                 self._queue.task_done()
 
     def get_status(self) -> dict[str, object]:
+        self._sweep_partial_upgrade_attempts()
         return {
             "enabled": self._auto_generation_enabled(),
             "running": self._running,
@@ -180,6 +218,11 @@ class FullVisitClipService:
             "queue_capacity": FULL_VISIT_QUEUE_MAX,
             "queue_full_rejections": self._queue_full_rejections,
             "cooldowns": len(self._failure_retry_after),
+            "partial_upgrades_exhausted": sum(
+                1
+                for attempts, _updated_at in self._partial_upgrade_attempts.values()
+                if attempts >= FULL_VISIT_PARTIAL_UPGRADE_ATTEMPTS
+            ),
         }
 
     def get_jobs_snapshot(self) -> list[dict[str, object]]:
@@ -190,8 +233,9 @@ class FullVisitClipService:
             jobs.append(self._job_snapshot(event_id, "queued", "waiting"))
         return jobs
 
-    @staticmethod
-    def _job_snapshot(event_id: str, status: str, phase: str) -> dict[str, object]:
+    def _job_snapshot(self, event_id: str, status: str, phase: str) -> dict[str, object]:
+        now = time.time()
+        created_at, updated_at = self._job_timestamps.setdefault(event_id, (now, now))
         return {
             "id": f"full_visit:{event_id}",
             "event_id": event_id,
@@ -203,8 +247,8 @@ class FullVisitClipService:
             "total": 0,
             "unit": "items",
             "route": f"/events?detection={event_id}",
-            "created_at": None,
-            "updated_at": None,
+            "created_at": datetime.fromtimestamp(created_at, tz=timezone.utc).isoformat(),
+            "updated_at": datetime.fromtimestamp(updated_at, tz=timezone.utc).isoformat(),
             "error": None,
         }
 
@@ -250,14 +294,16 @@ class FullVisitClipService:
                 min_duration_seconds=min_duration_seconds,
             ):
                 self._mark_fetch_success(event_id)
+                self._clear_partial_upgrade_attempts(event_id)
                 return True
 
             partial_path = media_cache.get_recording_clip_path(event_id)
             partial_duration = media_cache.get_recording_clip_duration_seconds(event_id)
-            if partial_path and partial_duration is not None:
+            usable_partial = partial_path is not None and partial_duration is not None
+            if usable_partial and self._partial_upgrade_exhausted(event_id):
                 self._mark_fetch_success(event_id)
                 log.info(
-                    "Using retained partial recording clip",
+                    "Using retained partial recording clip after bounded upgrade attempts",
                     event_id=event_id,
                     camera=camera,
                     source=source,
@@ -276,9 +322,14 @@ class FullVisitClipService:
                 return False
 
             for attempt in range(FULL_VISIT_FETCH_RETRY_ATTEMPTS):
-                ready = await self._fetch_once(event_id, lang)
-                if ready:
+                outcome = await self._fetch_once(
+                    event_id,
+                    lang,
+                    min_duration_seconds=min_duration_seconds,
+                )
+                if outcome == "complete":
                     self._mark_fetch_success(event_id)
+                    self._clear_partial_upgrade_attempts(event_id)
                     log.info(
                         "Automatic full-visit clip ready",
                         event_id=event_id,
@@ -287,8 +338,32 @@ class FullVisitClipService:
                         attempt=attempt + 1,
                     )
                     return True
+                if outcome == "partial":
+                    usable_partial = True
+                    partial_duration = media_cache.get_recording_clip_duration_seconds(event_id)
+                    self._record_partial_upgrade_attempt(event_id)
+                    if not self._partial_upgrade_exhausted(event_id):
+                        await asyncio.sleep(FULL_VISIT_PARTIAL_UPGRADE_RETRY_DELAY_SECONDS)
+                        continue
+                    break
+                if usable_partial:
+                    self._record_partial_upgrade_attempt(event_id)
+                    if self._partial_upgrade_exhausted(event_id):
+                        break
                 if attempt < FULL_VISIT_FETCH_RETRY_ATTEMPTS - 1:
                     await asyncio.sleep(FULL_VISIT_FETCH_RETRY_DELAY_SECONDS)
+
+            if usable_partial:
+                self._mark_fetch_success(event_id)
+                log.info(
+                    "Retaining playable partial recording after bounded upgrade attempts",
+                    event_id=event_id,
+                    camera=camera,
+                    source=source,
+                    actual_duration_seconds=round(partial_duration, 2) if partial_duration is not None else None,
+                    upgrade_attempts=self._partial_upgrade_attempts.get(event_id, (0, 0.0))[0],
+                )
+                return True
 
         self._mark_fetch_failure(event_id)
         log.info(
@@ -335,7 +410,9 @@ class FullVisitClipService:
                 min_duration_seconds=min_duration_seconds,
             ):
                 continue
-            if media_cache.get_recording_clip_duration_seconds(detection.frigate_event) is not None:
+            if media_cache.get_recording_clip_duration_seconds(
+                detection.frigate_event
+            ) is not None and self._partial_upgrade_exhausted(detection.frigate_event):
                 continue
             ready = await self.trigger_for_event(
                 detection.frigate_event,
@@ -363,25 +440,38 @@ class FullVisitClipService:
                 log.error("Automatic full-visit reconcile loop failed", error=str(exc))
                 await asyncio.sleep(60)
 
-    async def _fetch_once(self, event_id: str, lang: str) -> bool:
+    async def _fetch_once(
+        self,
+        event_id: str,
+        lang: str,
+        *,
+        min_duration_seconds: float,
+    ) -> RecordingFetchOutcome:
         camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
         clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
         headers = frigate_client._get_headers()
 
         client = httpx.AsyncClient(timeout=120.0)
-        req = client.build_request("GET", clip_url, headers=headers)
-        response = await client.send(req, stream=True)
+        response: httpx.Response | None = None
         try:
+            req = client.build_request("GET", clip_url, headers=headers)
+            response = await client.send(req, stream=True)
             if await _is_no_recordings_response(response) or response.status_code == 404:
-                return False
+                return "unavailable"
             response.raise_for_status()
             cached = await media_cache.cache_recording_clip_streaming(event_id, response.aiter_bytes())
-            return bool(cached)
+            if not cached:
+                return "unavailable"
+            duration = media_cache.get_recording_clip_duration_seconds(event_id)
+            if duration is None:
+                return "unavailable"
+            return "complete" if duration >= min_duration_seconds else "partial"
         except (httpx.TimeoutException, httpx.RequestError, httpx.HTTPStatusError) as exc:
             log.warning("Automatic full-visit fetch failed", event_id=event_id, error=str(exc))
-            return False
+            return "unavailable"
         finally:
-            await response.aclose()
+            if response is not None:
+                await response.aclose()
             await client.aclose()
 
 

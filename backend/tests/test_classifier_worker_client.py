@@ -6,6 +6,7 @@ from app.services.classifier_worker_client import ClassifierWorkerClient
 from app.services.classifier_worker_protocol import (
     build_classify_request,
     build_heartbeat_event,
+    build_progress_event,
     build_ready_event,
     build_runtime_recovery_event,
     encode_protocol_message,
@@ -136,6 +137,44 @@ async def test_classifier_worker_client_tracks_heartbeat_state():
     assert status["busy"] is True
     assert status["last_heartbeat_monotonic"] is not None
 
+    process.finish()
+    await client.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_client_treats_progress_as_worker_liveness():
+    process = _FakeProcess()
+
+    async def _factory(**_kwargs):
+        return process
+
+    client = ClassifierWorkerClient(
+        worker_name="video-progress",
+        worker_generation=12,
+        heartbeat_timeout_seconds=5.0,
+        process_factory=_factory,
+    )
+    await client.start()
+    process.feed(build_ready_event(worker_generation=12))
+    await asyncio.wait_for(client.wait_until_ready(), timeout=0.2)
+    ready_activity = client.get_status()["last_activity_monotonic"]
+
+    await asyncio.sleep(0.01)
+    process.feed(
+        build_progress_event(
+            worker_generation=12,
+            request_id="req-progress",
+            work_id="video-progress-1",
+            lease_token=3,
+            current_frame=19,
+            total_frames=20,
+            frame_score=0.91,
+            top_label="Blue Tit",
+        )
+    )
+    await asyncio.wait_for(client.next_event(), timeout=0.2)
+
+    assert client.get_status()["last_activity_monotonic"] > ready_activity
     process.finish()
     await client.wait_closed()
 

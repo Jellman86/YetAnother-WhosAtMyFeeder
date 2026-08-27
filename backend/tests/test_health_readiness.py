@@ -19,6 +19,7 @@ async def test_health_degraded_when_startup_warnings_present(client: httpx.Async
     app.state.startup_warnings = [{"phase": "telemetry_start", "error": "boom"}]
     response = await client.get("/health")
     assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store, max-age=0"
     body = response.json()
     assert body["status"] == "degraded"
     assert body["startup_warnings"]
@@ -29,6 +30,7 @@ async def test_ready_503_when_startup_warnings_present(client: httpx.AsyncClient
     app.state.startup_warnings = [{"phase": "telemetry_start", "error": "boom"}]
     response = await client.get("/ready")
     assert response.status_code == 503
+    assert response.headers["cache-control"] == "no-store, max-age=0"
     body = response.json()
     assert body["ready"] is False
     assert body["startup_warnings"]
@@ -39,6 +41,7 @@ async def test_ready_ok_in_test_mode_without_warnings(client: httpx.AsyncClient)
     app.state.startup_warnings = []
     response = await client.get("/ready")
     assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store, max-age=0"
     body = response.json()
     assert body["ready"] is True
 

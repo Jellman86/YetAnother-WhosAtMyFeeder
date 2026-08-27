@@ -338,13 +338,13 @@
 
                 <SettingsRow
                     labelId="setting-auto-media-integrity"
-                    label={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}
-                    description={$_('settings.data.media_integrity_note', { default: 'These scans apply the selected upstream-missing policy instead of always deleting detections.' })}
+                    label={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan periodically' })}
+                    description={$_('settings.data.media_integrity_note', { default: 'Re-checks a batch of detections against Frigate every few hours and applies the upstream-missing behaviour above. It never deletes anything while Frigate is unreachable, and a long history takes several runs to work through.' })}
                 >
                     <SettingsToggle
                         checked={autoMediaIntegrityScan}
                         labelledBy="setting-auto-media-integrity"
-                        srLabel={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}
+                        srLabel={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan periodically' })}
                         onchange={(v) => setAutoMediaIntegrityScan(v)}
                     />
                 </SettingsRow>
@@ -421,8 +421,8 @@
                     </SettingsRow>
 
                     {#if cacheHighQualityEventSnapshots}
-                        <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-accent-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
-                            <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-accent-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <div class="flex items-start gap-3 border-l-2 {cropDetectorReady ? 'border-success-400' : 'border-slate-300 dark:border-slate-600'} py-1 pl-3">
+                            <svg class="mt-0.5 h-4 w-4 flex-none {cropDetectorReady ? 'text-success-500' : 'text-slate-400'}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 {#if cropDetectorReady}
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                                 {:else}

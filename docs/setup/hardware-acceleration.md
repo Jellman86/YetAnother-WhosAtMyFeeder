@@ -105,6 +105,12 @@ also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable)
 
 `Auto` is recommended unless you have a reason to pin a device.
 
+The `full` and `intel` images also carry Intel's pinned `legacy1` OpenCL/Level Zero runtime for
+Gen8, Gen9, and Gen11 integrated graphics (including Broadwell, Skylake/Kaby Lake, Coffee Lake, and
+Ice Lake families). It coexists with the current driver rather than replacing it. Hardware support
+still depends on the host kernel/device mapping, so run the normal compatibility sweep before
+selecting `intel_gpu`; an enumerated device alone is not treated as validated inference.
+
 The selector is capability-aware. It only offers providers that are included in
 the running image, pass the host runtime/device probe, and are safe in the global
 model contract or pass that model's current installation sweep. Options begin

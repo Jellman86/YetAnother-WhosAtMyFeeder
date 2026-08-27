@@ -2,7 +2,7 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from types import SimpleNamespace
-from app.services.event_processor import EventProcessor
+from app.services.event_processor import CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS, EventProcessor
 from app.services.classification_admission import ClassificationLeaseExpiredError
 from app.services.classifier_service import LiveImageClassificationOverloadedError
 
@@ -363,6 +363,73 @@ async def test_end_event_recovers_detection_when_initial_ingest_created_no_row()
     processor._classify_snapshot.assert_awaited_once()
     processor._handle_detection_save_and_notify.assert_awaited_once()
     processor._handle_terminal_event_enrichment.assert_awaited_once()
+
+
+def _filtered_event_processor() -> EventProcessor:
+    """Processor whose classifier succeeds but whose filter rejects the result."""
+    processor = EventProcessor(MagicMock())
+    processor.detection_service.get_detection_by_frigate_event = AsyncMock(return_value=None)
+    processor._classify_snapshot = AsyncMock(  # type: ignore[method-assign]
+        return_value=(
+            [{"label": "Pontederia crassipes", "score": 0.05, "index": 1}],
+            b"img",
+            "frigate_snapshot_cropped",
+        )
+    )
+    processor._handle_detection_save_and_notify = AsyncMock()  # type: ignore[method-assign]
+    processor._handle_terminal_event_enrichment = AsyncMock()  # type: ignore[method-assign]
+    processor.detection_service.filter_and_label = MagicMock(return_value=(None, "low_confidence"))
+    return processor
+
+
+@pytest.mark.asyncio
+async def test_end_event_skips_terminal_recovery_when_classification_was_already_rejected():
+    processor = _filtered_event_processor()
+
+    new_payload = (
+        b'{"type":"new","after":{"id":"evt-filtered-end","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
+    await processor.process_mqtt_message(new_payload)
+    assert processor._classify_snapshot.await_count == 1
+
+    end_payload = (
+        b'{"type":"end","after":{"id":"evt-filtered-end","label":"bird","camera":"cam1",'
+        b'"start_time":1700000000,"end_time":1700000004}}'
+    )
+    await processor.process_mqtt_message(end_payload)
+
+    assert processor._classify_snapshot.await_count == 1
+    processor._handle_detection_save_and_notify.assert_not_awaited()
+    processor._handle_terminal_event_enrichment.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_update_event_still_reclassifies_after_classification_filter_rejection():
+    processor = _filtered_event_processor()
+
+    new_payload = (
+        b'{"type":"new","after":{"id":"evt-filtered-update","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
+    await processor.process_mqtt_message(new_payload)
+
+    update_payload = (
+        b'{"type":"update","after":{"id":"evt-filtered-update","label":"bird","camera":"cam1","start_time":1700000000}}'
+    )
+    await processor.process_mqtt_message(update_payload)
+
+    assert processor._classify_snapshot.await_count == 2
+
+
+def test_classification_decided_tombstone_expires_after_ttl():
+    processor = EventProcessor(MagicMock())
+
+    with patch("app.services.event_processor.time.monotonic", return_value=1000.0):
+        processor._mark_classification_decided_tombstone("evt-ttl")
+        assert processor._is_classification_decided_tombstone_active("evt-ttl") is True
+
+    expired_at = 1000.0 + CLASSIFICATION_DECIDED_TOMBSTONE_TTL_SECONDS + 1.0
+    with patch("app.services.event_processor.time.monotonic", return_value=expired_at):
+        assert processor._is_classification_decided_tombstone_active("evt-ttl") is False
 
 
 @pytest.mark.asyncio
@@ -1714,3 +1781,66 @@ def test_record_stage_failure_defaults_unknown_exception_type():
 
     kwargs = mock_history.record.call_args.kwargs
     assert kwargs["context"]["error_type"] == "UnknownError"
+
+
+def test_drop_reason_severity_separates_expected_filtering_from_faults():
+    """Expected filtering and real faults must not share one counter.
+
+    The Errors page reads these to decide whether the pipeline is healthy, so a
+    detection rejected by the confidence threshold must never be indistinguishable
+    from a snapshot fetch that failed.
+    """
+    from app.services.event_processor import drop_reason_severity
+
+    for expected in (
+        "filter_low_confidence",
+        "filter_below_threshold",
+        "filter_blocked_label",
+        "filter_abstention_label",
+        "filter_invalid_score",
+    ):
+        assert drop_reason_severity(expected) == "info"
+
+    for fault in (
+        "classify_snapshot_unavailable",
+        "classify_snapshot_timeout",
+        "save_and_notify_failed",
+    ):
+        assert drop_reason_severity(fault) == "error"
+
+    for warning in (
+        "classify_snapshot_overloaded",
+        "classifier_empty_results",
+        "end_recovery_lookup_failed",
+        "live_event_stale",
+    ):
+        assert drop_reason_severity(warning) == "warning"
+
+
+def test_get_status_reports_expected_and_fault_drops_separately():
+    processor = EventProcessor(MagicMock())
+    processor._record_drop("evt-1", "filter_low_confidence", label="Sparrow", score=0.12)
+    processor._record_drop("evt-2", "filter_low_confidence", label="Rabbit", score=0.2)
+    processor._record_drop("evt-3", "filter_blocked_label", label="Mountain Lion")
+    processor._record_drop("evt-4", "classifier_empty_results")
+
+    status = processor.get_status()
+
+    assert status["dropped_events"] == 4
+    assert status["expected_drops"] == 3
+    assert status["fault_drops"] == 1
+    assert status["expected_drop_reasons"] == {"filter_low_confidence": 2, "filter_blocked_label": 1}
+    assert status["fault_drop_reasons"] == {"classifier_empty_results": 1}
+
+
+def test_expected_filtering_alone_leaves_the_pipeline_healthy():
+    """A feeder that filters low-confidence frames is working, not degraded."""
+    processor = EventProcessor(MagicMock())
+    for index in range(12):
+        processor._record_drop(f"evt-{index}", "filter_low_confidence", label="Rabbit", score=0.2)
+
+    status = processor.get_status()
+
+    assert status["status"] == "ok"
+    assert status["fault_drops"] == 0
+    assert status["expected_drops"] == 12

@@ -2,16 +2,15 @@ import { describe, expect, it } from 'vitest';
 import detectionModalSource from './DetectionModal.svelte?raw';
 
 describe('DetectionModal snapshot regeneration', () => {
-    it('offers regeneration from the empty snapshot-candidate state', () => {
-        const emptyStateIndex = detectionModalSource.indexOf("allSnapshotFrameCandidates.length === 0");
-        expect(emptyStateIndex).toBeGreaterThan(0);
-        const populatedStateIndex = detectionModalSource.indexOf("modelSnapshotCandidates.length === 0", emptyStateIndex);
-        expect(populatedStateIndex).toBeGreaterThan(emptyStateIndex);
-        const emptyStateSource = detectionModalSource.slice(emptyStateIndex, populatedStateIndex);
+    it('offers regeneration directly from the inline rail', () => {
+        const railIndex = detectionModalSource.indexOf('data-detection-inline-frame-picker');
+        expect(railIndex).toBeGreaterThan(0);
+        const railSource = detectionModalSource.slice(railIndex);
 
-        expect(emptyStateSource).toContain('handleGenerateSnapshotCandidates');
-        expect(emptyStateSource).toContain('detection.snapshot_regenerate');
-        expect(emptyStateSource).toContain('Regenerate snapshots');
+        expect(railSource).toContain('{:else if canGenerateSnapshotCandidates}');
+        expect(railSource).toContain('handleGenerateSnapshotCandidates');
+        expect(railSource).toContain('detection.snapshot_regenerate');
+        expect(railSource).toContain('Regenerate snapshots');
     });
 
     it('distinguishes regeneration success from no selectable candidates', () => {
@@ -19,8 +18,8 @@ describe('DetectionModal snapshot regeneration', () => {
         expect(detectionModalSource).toContain('snapshotCandidates.length > 0');
     });
 
-    it('avoids duplicate regenerate actions when the candidate list is empty', () => {
-        expect(detectionModalSource).toContain('canGenerateSnapshotCandidates && allSnapshotFrameCandidates.length > 0');
+    it('exposes one regenerate control rather than duplicating it by candidate state', () => {
+        expect(detectionModalSource.match(/onclick=\{\(event\) => \{ event\.stopPropagation\(\); void handleGenerateSnapshotCandidates\(\); \}\}/g)).toHaveLength(1);
     });
 
     it('does not apply regeneration results to a different detection after async work', () => {

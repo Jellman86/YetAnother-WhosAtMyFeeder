@@ -1,29 +1,63 @@
 import { fetchUpdateStatus, shouldShowUpdateBanner, type UpdateStatus } from '../api';
+import { StaleTracker } from '../utils/stale_tracker';
+import { refreshCoordinator } from './refresh_coordinator.svelte';
 
 // Dismissal is keyed on the version, so dismissing one update doesn't hide a later, newer one.
 const DISMISSED_KEY = 'update-banner-dismissed-version';
+export const UPDATE_STATUS_MAX_AGE_MS = 15 * 60 * 1000;
 
 /**
  * Shared update-availability state so the update banner and the sidebar indicator stay in
  * sync from a single check, and a dismiss is honoured everywhere. An update prompt is never
  * critical, so a failed fetch just leaves the status null (nothing shown).
  */
-class UpdateStatusStore {
+export class UpdateStatusStore {
     status = $state<UpdateStatus | null>(null);
     dismissedVersion = $state<string | null>(null);
-    private loaded = false;
+    private initialized = false;
+    private loadPromise: Promise<void> | null = null;
+    private pollTimer: ReturnType<typeof setInterval> | null = null;
+    private readonly staleTracker = new StaleTracker(UPDATE_STATUS_MAX_AGE_MS);
+
+    constructor() {
+        refreshCoordinator.register(() => this.refreshIfStale());
+    }
 
     async load(): Promise<void> {
-        if (this.loaded) return;
-        this.loaded = true;
-        if (typeof localStorage !== 'undefined') {
-            this.dismissedVersion = localStorage.getItem(DISMISSED_KEY);
+        if (!this.initialized) {
+            this.initialized = true;
+            if (typeof localStorage !== 'undefined') {
+                this.dismissedVersion = localStorage.getItem(DISMISSED_KEY);
+            }
+            this.startPolling();
         }
-        try {
-            this.status = await fetchUpdateStatus();
-        } catch {
-            this.status = null;
-        }
+        await this.refreshIfStale();
+    }
+
+    async refreshIfStale(): Promise<void> {
+        if (this.loadPromise) return this.loadPromise;
+        if (!this.staleTracker.isStale()) return;
+
+        this.loadPromise = (async () => {
+            try {
+                this.status = await fetchUpdateStatus();
+                this.staleTracker.touch();
+            } catch {
+                // Keep a last-known status if one exists. A failed first check remains stale,
+                // so navigation, visibility recovery, or the poll will retry automatically.
+            } finally {
+                this.loadPromise = null;
+            }
+        })();
+        return this.loadPromise;
+    }
+
+    private startPolling(): void {
+        if (this.pollTimer !== null || typeof window === 'undefined') return;
+        this.pollTimer = window.setInterval(() => {
+            if (document.hidden) return;
+            void this.refreshIfStale();
+        }, UPDATE_STATUS_MAX_AGE_MS);
     }
 
     dismiss(): void {

@@ -77,6 +77,11 @@ SNAPSHOT_NO_STORE_HEADERS = {
     "Cache-Control": "no-store, max-age=0",
     "Pragma": "no-cache",
 }
+RECORDING_CLIP_READY_HEADER = "X-YAWAMF-Recording-Clip-Ready"
+RECORDING_CLIP_STATE_HEADER = "X-YAWAMF-Recording-Clip-State"
+RECORDING_CLIP_DURATION_HEADER = "X-YAWAMF-Recording-Clip-Duration"
+CLIP_VARIANT_HEADER = "X-YAWAMF-Clip-Variant"
+RecordingClipCacheState = Literal["complete", "partial"]
 HIGH_QUALITY_SNAPSHOT_SOURCES = {
     "high_quality_snapshot",
     "high_quality_bird_crop",
@@ -255,6 +260,19 @@ def _candidate_thumbnail_url(request: Request, event_id: str, candidate_id: str)
     )
 
 
+def _candidate_image_url(request: Request, event_id: str, candidate_id: str) -> str:
+    import time
+
+    return (
+        request.url_for(
+            "get_snapshot_candidate_image",
+            event_id=event_id,
+            candidate_id=candidate_id,
+        ).path
+        + f"?v={int(time.time())}"
+    )
+
+
 async def _build_snapshot_candidates_response(request: Request, event_id: str) -> "SnapshotCandidateListResponse":
     status = await _build_snapshot_status(event_id, check_original_frigate_snapshot=False)
     candidates = await _list_snapshot_candidates(event_id)
@@ -312,6 +330,15 @@ async def _build_snapshot_candidates_response(request: Request, event_id: str) -
                 selected=bool(candidate.get("selected")),
                 snapshot_source=(
                     str(candidate.get("snapshot_source")) if candidate.get("snapshot_source") is not None else None
+                ),
+                image_url=(
+                    _candidate_image_url(
+                        request,
+                        event_id,
+                        str(candidate.get("candidate_id") or ""),
+                    )
+                    if str(candidate.get("image_ref") or "").strip()
+                    else None
                 ),
                 thumbnail_url=_candidate_thumbnail_url(
                     request,
@@ -435,8 +462,9 @@ class VideoShareRevokeResponse(BaseModel):
 
 class RecordingClipFetchResponse(BaseModel):
     event_id: str
-    status: Literal["ready"]
+    status: Literal["ready", "partial"]
     clip_variant: Literal["recording"] = "recording"
+    recording_state: RecordingClipCacheState
     cached: bool
 
 
@@ -498,6 +526,7 @@ class SnapshotCandidateResponse(BaseModel):
     ranking_score: float
     selected: bool
     snapshot_source: str | None = None
+    image_url: str | None = None
     thumbnail_url: str | None = None
 
 
@@ -856,25 +885,65 @@ def _minimum_acceptable_recording_clip_duration_seconds(start_ts: int, end_ts: i
 
 
 async def _get_valid_cached_recording_clip_path(event_id: str, lang: str):
+    cached_path, state, _duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
+        event_id,
+        lang,
+    )
+    return (cached_path if state == "complete" else None), camera_name, start_ts, end_ts
+
+
+async def _get_cached_recording_clip_details(
+    event_id: str,
+    lang: str,
+    *,
+    resolve_context: bool = True,
+) -> tuple[FilePath | None, RecordingClipCacheState | None, float | None, str | None, int | None, int | None]:
     from app.services.media_cache import media_cache
 
-    raw_cached_path = None
+    raw_cached_path: FilePath | None = None
     if settings.media_cache.enabled:
         raw_cached_path = media_cache.get_recording_clip_path(event_id)
     if not raw_cached_path:
+        if not resolve_context:
+            return None, None, None, None, None, None
         camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
-        return None, camera_name, start_ts, end_ts
+        return None, None, None, camera_name, start_ts, end_ts
 
     try:
         camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
     except HTTPException:
-        return raw_cached_path, None, None, None
+        duration = media_cache.get_recording_clip_duration_seconds(event_id)
+        state: RecordingClipCacheState | None = "partial" if duration is not None else None
+        return (raw_cached_path if state else None), state, duration, None, None, None
 
-    cached_path = media_cache.get_recording_clip_path(
+    min_duration = _minimum_acceptable_recording_clip_duration_seconds(start_ts, end_ts)
+    complete_path = media_cache.get_recording_clip_path(
         event_id,
-        min_duration_seconds=_minimum_acceptable_recording_clip_duration_seconds(start_ts, end_ts),
+        min_duration_seconds=min_duration,
     )
-    return cached_path, camera_name, start_ts, end_ts
+    duration = media_cache.get_recording_clip_duration_seconds(event_id)
+    if complete_path:
+        return complete_path, "complete", duration, camera_name, start_ts, end_ts
+    if duration is None:
+        return None, None, None, camera_name, start_ts, end_ts
+    return raw_cached_path, "partial", duration, camera_name, start_ts, end_ts
+
+
+def _recording_clip_response_headers(
+    state: RecordingClipCacheState,
+    duration_seconds: float | None,
+    *,
+    include_variant: bool = False,
+) -> dict[str, str]:
+    headers = {
+        RECORDING_CLIP_READY_HEADER: "cached" if state == "complete" else "partial",
+        RECORDING_CLIP_STATE_HEADER: state,
+    }
+    if duration_seconds is not None:
+        headers[RECORDING_CLIP_DURATION_HEADER] = f"{duration_seconds:.2f}"
+    if include_variant:
+        headers[CLIP_VARIANT_HEADER] = "recording"
+    return headers
 
 
 async def _is_no_recordings_response(response: httpx.Response) -> bool:
@@ -929,21 +998,24 @@ async def _recording_clip_exists_for_share(event_id: str, lang: str) -> bool:
         await response.aclose()
 
 
-async def _fetch_recording_clip_ready(event_id: str, lang: str) -> bool:
+async def _fetch_recording_clip_ready(event_id: str, lang: str) -> RecordingClipCacheState:
     from app.services.media_cache import media_cache, _MIN_VALID_CLIP_BYTES
 
-    cached_path, camera_name, start_ts, end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
-    if cached_path:
-        return True
+    cached_path, state, _duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
+        event_id,
+        lang,
+    )
+    if cached_path and state == "complete":
+        return "complete"
 
     lock = _recording_clip_fetch_lock(event_id)
     async with lock:
-        cached_path = media_cache.get_recording_clip_path(
+        cached_path, state, _duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
             event_id,
-            min_duration_seconds=_minimum_acceptable_recording_clip_duration_seconds(start_ts, end_ts),
+            lang,
         )
-        if cached_path:
-            return True
+        if cached_path and state == "complete":
+            return "complete"
 
         clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
         headers = frigate_client._get_headers()
@@ -963,7 +1035,15 @@ async def _fetch_recording_clip_ready(event_id: str, lang: str) -> bool:
                     raise HTTPException(
                         status_code=404, detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
                     )
-                return True
+                _path, cached_state, _duration, _camera, _start, _end = await _get_cached_recording_clip_details(
+                    event_id,
+                    lang,
+                )
+                if cached_state is None:
+                    raise HTTPException(
+                        status_code=404, detail=i18n_service.translate("errors.proxy.clip_not_found", lang)
+                    )
+                return cached_state
 
             total_size = 0
             async for chunk in response.aiter_bytes():
@@ -971,7 +1051,7 @@ async def _fetch_recording_clip_ready(event_id: str, lang: str) -> bool:
                     total_size += len(chunk)
             if total_size < _MIN_VALID_CLIP_BYTES:
                 raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.clip_not_found", lang))
-            return True
+            return "complete"
         except HTTPException:
             raise
         except httpx.TimeoutException:
@@ -1461,6 +1541,31 @@ async def get_snapshot_candidate_thumbnail(
     return Response(content=thumbnail_bytes, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
 
+@router.get("/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg", response_class=Response)
+async def get_snapshot_candidate_image(
+    event_id: str = Path(..., min_length=1, max_length=64),
+    candidate_id: str = Path(..., min_length=1, max_length=160),
+    auth: AuthContext = Depends(require_owner),
+):
+    """Return the retained full-resolution candidate for the large preview surface."""
+    del auth
+    if not validate_event_id(event_id):
+        raise HTTPException(status_code=400, detail="Invalid event ID format")
+    candidates = await _list_snapshot_candidates(event_id)
+    candidate = next((item for item in candidates if str(item.get("candidate_id") or "") == candidate_id), None)
+    if candidate is None:
+        raise HTTPException(status_code=404, detail="Snapshot candidate not found")
+    from app.services.media_cache import media_cache
+
+    image_ref = str(candidate.get("image_ref") or "").strip()
+    if not image_ref:
+        raise HTTPException(status_code=404, detail="Snapshot candidate image unavailable")
+    image_bytes = await media_cache.get_snapshot(image_ref)
+    if not image_bytes:
+        raise HTTPException(status_code=404, detail="Snapshot candidate image unavailable")
+    return Response(content=image_bytes, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
+
+
 @router.post("/frigate/{event_id}/snapshot/apply", response_model=SnapshotApplyResponse)
 async def apply_snapshot_candidate(
     request_body: SnapshotApplyRequest,
@@ -1739,17 +1844,23 @@ async def check_clip_exists(
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.clip_disabled", lang))
 
     if settings.media_cache.enabled:
-        recording_cached_path = media_cache.get_recording_clip_path(event_id)
-        if recording_cached_path:
-            try:
-                _validated_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(
-                    event_id, lang
-                )
-                recording_cached_path = _validated_path
-            except HTTPException:
-                pass
-        if recording_cached_path:
-            return Response(status_code=200)
+        (
+            recording_cached_path,
+            recording_state,
+            duration,
+            _camera,
+            _start,
+            _end,
+        ) = await _get_cached_recording_clip_details(event_id, lang, resolve_context=False)
+        if recording_cached_path and recording_state:
+            return Response(
+                status_code=200,
+                headers=_recording_clip_response_headers(
+                    recording_state,
+                    duration,
+                    include_variant=True,
+                ),
+            )
         if settings.media_cache.cache_clips and media_cache.get_clip_path(event_id):
             return Response(status_code=200)
 
@@ -1811,12 +1922,18 @@ async def check_recording_clip_exists(
     if event_id in _head_response_cache:
         cached_time, cached_status = _head_response_cache[event_id]
         if now - cached_time < HEAD_CACHE_TTL:
-            return Response(status_code=cached_status, headers={"X-YAWAMF-Recording-Clip-Ready": "cached"})
+            return Response(status_code=cached_status)
 
     if settings.media_cache.enabled:
-        cached_path, camera_name, start_ts, end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
-        if cached_path:
-            return Response(status_code=200, headers={"X-YAWAMF-Recording-Clip-Ready": "cached"})
+        cached_path, state, duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
+            event_id,
+            lang,
+        )
+        if cached_path and state:
+            return Response(
+                status_code=200,
+                headers=_recording_clip_response_headers(state, duration),
+            )
     else:
         camera_name, start_ts, end_ts = await _get_recording_clip_context(event_id, lang)
     clip_url = frigate_client.get_camera_recording_clip_url(camera_name, start_ts, end_ts)
@@ -1872,12 +1989,13 @@ async def fetch_recording_clip(
     if not _has_valid_share_context(request, event_id):
         await require_event_access(event_id, auth, lang)
 
-    ready = await _fetch_recording_clip_ready(event_id, lang)
+    recording_state = await _fetch_recording_clip_ready(event_id, lang)
     return RecordingClipFetchResponse(
         event_id=event_id,
-        status="ready",
+        status="ready" if recording_state == "complete" else "partial",
         clip_variant="recording",
-        cached=bool(ready and settings.media_cache.enabled),
+        recording_state=recording_state,
+        cached=bool(settings.media_cache.enabled),
     )
 
 
@@ -1928,29 +2046,36 @@ async def proxy_clip(
 
     # Check cache first
     if settings.media_cache.enabled:
-        recording_cached_path = media_cache.get_recording_clip_path(event_id)
-        if recording_cached_path:
-            try:
-                _validated_path, _camera_name, _start_ts, _end_ts = await _get_valid_cached_recording_clip_path(
-                    event_id, lang
-                )
-                recording_cached_path = _validated_path
-            except HTTPException:
-                pass
-        if recording_cached_path:
+        (
+            recording_cached_path,
+            recording_state,
+            duration,
+            _camera,
+            _start,
+            _end,
+        ) = await _get_cached_recording_clip_details(event_id, lang, resolve_context=False)
+        if recording_cached_path and recording_state:
             log.info(
                 "proxy_clip_recording_cache_hit",
                 event_id=event_id,
+                recording_state=recording_state,
+                recording_duration_seconds=round(duration, 2) if duration is not None else None,
                 download=download_requested,
                 duration_ms=round((perf_counter() - request_started) * 1000, 2),
+            )
+            response_headers = _recording_clip_response_headers(
+                recording_state,
+                duration,
+                include_variant=True,
+            )
+            response_headers["Content-Disposition"] = (
+                f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
             )
             return FileResponse(
                 path=recording_cached_path,
                 media_type="video/mp4",
                 filename=f"{event_id}.mp4",
-                headers={
-                    "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
-                },
+                headers=response_headers,
             )
         if settings.media_cache.cache_clips:
             cached_path = media_cache.get_clip_path(event_id)
@@ -2121,21 +2246,28 @@ async def proxy_recording_clip(
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.proxy.download_forbidden", lang))
 
     if settings.media_cache.enabled:
-        cached_path, camera_name, start_ts, end_ts = await _get_valid_cached_recording_clip_path(event_id, lang)
-        if cached_path:
+        cached_path, state, duration, camera_name, start_ts, end_ts = await _get_cached_recording_clip_details(
+            event_id,
+            lang,
+        )
+        if cached_path and state:
             log.info(
                 "proxy_recording_clip_cache_hit",
                 event_id=event_id,
+                recording_state=state,
+                recording_duration_seconds=round(duration, 2) if duration is not None else None,
                 download=download_requested,
                 duration_ms=round((perf_counter() - request_started) * 1000, 2),
+            )
+            response_headers = _recording_clip_response_headers(state, duration)
+            response_headers["Content-Disposition"] = (
+                f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4"
             )
             return FileResponse(
                 path=cached_path,
                 media_type="video/mp4",
                 filename=f"{event_id}_recording.mp4",
-                headers={
-                    "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4"
-                },
+                headers=response_headers,
             )
 
     else:

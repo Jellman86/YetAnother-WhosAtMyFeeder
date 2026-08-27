@@ -3,6 +3,18 @@ import { describe, expect, it } from 'vitest';
 import leaderboardSource from './Species.svelte?raw';
 
 describe('leaderboard field-journal layout', () => {
+    it('names the sunrise and sunset windows instead of showing bare times', () => {
+        expect(leaderboardSource).toContain("{$_('leaderboard.sunrise')} {timeline.sunrise_range}");
+        expect(leaderboardSource).toContain("{$_('leaderboard.sunset')} {timeline.sunset_range}");
+    });
+
+    it('shows average confidence as a percentage like every other confidence', () => {
+        expect(leaderboardSource).toContain(
+            "{item.avg_confidence != null ? `${Math.round(item.avg_confidence * 100)}%` : '—'}"
+        );
+        expect(leaderboardSource).not.toContain('avg_confidence ?? 0).toFixed(2)');
+    });
+
     it('puts the working ranking surface before secondary analytics', () => {
         const rankings = leaderboardSource.indexOf('data-leaderboard-rankings');
         const analytics = leaderboardSource.indexOf('data-leaderboard-analytics');
@@ -34,15 +46,15 @@ describe('leaderboard field-journal layout', () => {
     });
 
     it('uses accessible section icons and touch-sized controls', () => {
-        expect(leaderboardSource.match(/data-leaderboard-section-icon/g) ?? []).toHaveLength(3);
-        expect(leaderboardSource.match(/data-leaderboard-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(3);
+        expect(leaderboardSource.match(/data-leaderboard-section-icon/g) ?? []).toHaveLength(2);
+        expect(leaderboardSource.match(/data-leaderboard-section-icon[^>]+aria-hidden="true"/g) ?? []).toHaveLength(2);
         expect(leaderboardSource).toContain('min-h-11');
         expect(leaderboardSource).toContain('focus-visible:ring-2 focus-visible:ring-brand-500');
     });
 
     it('uses round species portraits throughout the ranking surface', () => {
-        expect(leaderboardSource.match(/data-leaderboard-species-portrait/g) ?? []).toHaveLength(3);
-        expect(leaderboardSource.match(/data-leaderboard-species-portrait[^>]+rounded-full/g) ?? []).toHaveLength(3);
+        expect(leaderboardSource.match(/data-leaderboard-species-portrait/g) ?? []).toHaveLength(2);
+        expect(leaderboardSource.match(/data-leaderboard-species-portrait[^>]+rounded-full/g) ?? []).toHaveLength(2);
     });
 
     it('exposes toggle state and table headings to assistive technology', () => {
@@ -57,5 +69,26 @@ describe('leaderboard field-journal layout', () => {
         expect(leaderboardSource).toContain('data-leaderboard-audio-history-link');
         expect(leaderboardSource).toContain("href={toAppPath('/audio')}");
         expect(leaderboardSource).toContain("$_('nav.audio_history')");
+    });
+
+    it('does not turn an unavailable BirdNET result into measured zero activity', () => {
+        expect(leaderboardSource).toContain("type AudioLoadState = 'disabled' | 'loading' | 'ready' | 'error'");
+        expect(leaderboardSource).toContain("audioLoadState = 'error'");
+        expect(leaderboardSource).toContain("sourceMode !== 'seen' && audioLoadState === 'error'");
+        expect(leaderboardSource).toContain('leaderboard.audio_unavailable_title');
+        expect(leaderboardSource).toContain('let leaderboardRows = $derived(leaderboardTableRows(sourceMode))');
+    });
+
+    it('uses source-aware comparisons in both ranking layouts', () => {
+        expect(leaderboardSource).toContain('heard_prev_count: heard?.heard_prev_count ?? null');
+        expect(leaderboardSource).toContain('trendForMode(item, sourceMode)');
+        expect(leaderboardSource).toContain('deltaForMode(item, sourceMode)');
+        expect(leaderboardSource).toContain('activityTimestampForMode(item, sourceMode)');
+    });
+
+    it('keeps distinct rising and recent facts without repeating the leader', () => {
+        expect(leaderboardSource).toContain('data-leaderboard-highlights');
+        expect(leaderboardSource).toContain('topByTrend.species !== sourceLeader?.species');
+        expect(leaderboardSource).toContain('mostRecent.species !== sourceLeader?.species');
     });
 });

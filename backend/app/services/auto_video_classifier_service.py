@@ -173,6 +173,42 @@ def _empty_timeout_state() -> dict[JobSource, dict[str, object]]:
     }
 
 
+def _active_model_id_or_none() -> str | None:
+    """The model currently doing classification, or nothing if it cannot be known."""
+    try:
+        from app.services.model_manager import model_manager
+
+        return str(getattr(model_manager, "active_model_id", "") or "").strip() or None
+    except Exception:
+        return None
+
+
+def attach_classification_provenance(
+    result: dict,
+    *,
+    input_source: str | None,
+    model_id: str | None,
+) -> dict:
+    """Record which model and which input produced a classification.
+
+    The video path builds its results with provenance attached. The snapshot
+    fallback ranks probabilities through a helper that carries none, so the
+    model id was never recorded and the detection card could not name the model
+    that did the work. Measured on a live install: 11 completed classifications
+    with no model id, every one from a snapshot source.
+
+    Anything the classifier already reported wins; this only fills gaps, so a
+    result that knows its own model is never relabelled with the active one.
+    """
+    enriched = dict(result)
+    if input_source:
+        enriched.setdefault("input_source", input_source)
+    normalized_model_id = str(model_id or "").strip()
+    if normalized_model_id:
+        enriched.setdefault("model_id", normalized_model_id)
+    return enriched
+
+
 class AutoVideoClassifierService:
     """
     Service to automatically classify video clips from Frigate events.
@@ -460,11 +496,17 @@ class AutoVideoClassifierService:
                         name=f"video_classifier:{frigate_event}",
                     )
                     self._active_tasks[frigate_event] = task
+                    pending_metadata = self._pending_metadata.get(frigate_event, {})
+                    started_at_epoch = time.time()
                     self._active_metadata[frigate_event] = {
                         "source": source,
                         "started_at": time.monotonic(),
-                        "started_at_epoch": time.time(),
-                        "updated_at_epoch": time.time(),
+                        # Keep the queue admission time as the job's identity timestamp.
+                        # Replacing it with the worker start time made rows jump whenever
+                        # queued work became active.
+                        "queued_at_epoch": pending_metadata.get("queued_at_epoch", started_at_epoch),
+                        "started_at_epoch": started_at_epoch,
+                        "updated_at_epoch": started_at_epoch,
                         "phase": "preparing",
                         "current": 0,
                         "total": int(settings.classification.video_classification_frames or 0),
@@ -878,7 +920,7 @@ class AutoVideoClassifierService:
             )
         for event_id, metadata in self._active_metadata.items():
             source = "manual" if metadata.get("manual_requested") else str(metadata.get("source") or "maintenance")
-            started_at = metadata.get("started_at_epoch")
+            started_at = metadata.get("queued_at_epoch") or metadata.get("started_at_epoch")
             updated_at = metadata.get("updated_at_epoch")
             kind = "reclassify" if source == "manual" else "auto_video" if source == "live" else "video_analysis"
             started_iso = (
@@ -1739,6 +1781,10 @@ class AutoVideoClassifierService:
                         source in {"manual", "maintenance"} or frigate_event in self._manual_requested_ids
                     ) and snapshot_fallback_requested():
                         timeout_context["snapshot_fallback_attempted"] = True
+                        await self._broadcast_snapshot_fallback(
+                            frigate_event,
+                            reason="video_timeout",
+                        )
                         snapshot_error = await self._classify_from_snapshot(
                             frigate_event,
                             camera,
@@ -1781,12 +1827,41 @@ class AutoVideoClassifierService:
                     return
                 except VideoClassificationWorkerError as exc:
                     reason_code = exc.reason_code
+                    worker_context = {"error": reason_code}
+                    if snapshot_fallback_requested():
+                        worker_context["snapshot_fallback_attempted"] = True
+                        await self._broadcast_snapshot_fallback(
+                            frigate_event,
+                            reason=reason_code,
+                        )
+                        snapshot_error = await self._classify_from_snapshot(
+                            frigate_event,
+                            camera,
+                            event_data=event_data,
+                            manual_tagged=manual_reclassification_requested(),
+                        )
+                        worker_context["snapshot_fallback_recovered"] = snapshot_error is None
+                        if snapshot_error is not None:
+                            worker_context["snapshot_fallback_error"] = snapshot_error
+                        self._record_diagnostic(
+                            frigate_event,
+                            reason_code=reason_code,
+                            message="Video classification worker failed; snapshot fallback was attempted",
+                            severity="warning" if snapshot_error is None else "error",
+                            context=worker_context,
+                        )
+                        if snapshot_error is None:
+                            self._record_success(frigate_event, source=source)
+                        else:
+                            self._record_failure(frigate_event, snapshot_error, source=source)
+                        return
+
                     self._record_diagnostic(
                         frigate_event,
                         reason_code=reason_code,
                         message="Video classification worker failed before producing results",
                         severity="error",
-                        context={"error": reason_code},
+                        context=worker_context,
                     )
                     await self._update_status(frigate_event, "failed", error=reason_code, broadcast=True)
                     self._record_failure(frigate_event, reason_code, source=source)
@@ -2632,8 +2707,11 @@ class AutoVideoClassifierService:
                 reason=reason or "snapshot_no_usable_result",
             )
             return reason or "snapshot_no_usable_result"
-        top_with_provenance = dict(top)
-        top_with_provenance.setdefault("input_source", provenance.input_source)
+        top_with_provenance = attach_classification_provenance(
+            top,
+            input_source=provenance.input_source,
+            model_id=_active_model_id_or_none(),
+        )
         await self._save_results(
             frigate_event,
             top_with_provenance,

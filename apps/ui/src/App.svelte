@@ -147,7 +147,8 @@
   $effect(() => {
       if (!authStore.statusLoaded || !authStore.statusHealthy) return;
       if (authStore.needsInitialSetup) return;
-      const isOwnerOnly = currentRoute.startsWith('/settings') || currentRoute.startsWith('/diagnostics/model-eval') || currentRoute.startsWith('/observations/new');
+      const isOwnerOnly = isNotificationRoute(currentRoute)
+          || currentRoute.startsWith('/settings') || currentRoute.startsWith('/diagnostics/model-eval') || currentRoute.startsWith('/observations/new');
       if (!isOwnerOnly) return;
 
       if (!authStore.showSettings) {

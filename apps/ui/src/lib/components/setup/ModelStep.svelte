@@ -411,7 +411,7 @@
                     </div>
                 {/if}
                 {#if verified.length}
-                    <p class="mt-2 text-xs text-accent-700 dark:text-accent-300">{$_('setup.model.verified', { values: { list: verified.join(', ') }, default: `Validated providers: ${verified.join(', ')}` })}</p>
+                    <p class="mt-2 text-xs text-success-700 dark:text-success-300">{$_('setup.model.verified', { values: { list: verified.join(', ') }, default: `Validated providers: ${verified.join(', ')}` })}</p>
                 {/if}
             </div>
         {/if}
@@ -466,7 +466,7 @@
             <div role="alert" class="rounded-md bg-amber-50 p-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">{errorMsg}</div>
         {/if}
         {#if validationMsg}
-            <div role="status" class="rounded-md bg-accent-50 p-2 text-sm text-accent-800 dark:bg-accent-900/20 dark:text-accent-200">{validationMsg}</div>
+            <div role="status" class="rounded-md bg-success-50 p-2 text-sm text-success-800 dark:bg-success-900/20 dark:text-success-200">{validationMsg}</div>
         {/if}
 
         {#if results}
@@ -482,7 +482,7 @@
                                     {m.active_provider ? providerLabel(m.active_provider as InferenceProvider) : (m.device ?? 'CPU')}{#if m.mean_latency_ms} · {m.mean_latency_ms.toFixed(0)} ms{/if}
                                 </p>
                             </div>
-                            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {rowOk(m) ? 'bg-accent-100 text-accent-800 dark:bg-accent-900/30 dark:text-accent-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'}">
+                            <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold {rowOk(m) ? 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-200' : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'}">
                                 {rowOk(m) ? $_('setup.model.row_ok', { default: 'Runs' }) : $_('setup.model.row_warn', { default: 'Check' })}
                             </span>
                         </li>

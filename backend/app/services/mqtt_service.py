@@ -786,9 +786,12 @@ class MQTTService:
                     frigate_topic = f"{settings.frigate.main_topic}/events"
                     await client.subscribe(frigate_topic)
 
-                    # BirdNET Topic (BirdNET-Go default)
-                    birdnet_topic = settings.frigate.audio_topic
-                    await client.subscribe(birdnet_topic)
+                    # BirdNET Topic (BirdNET-Go default). Disabled means no broker
+                    # subscription and therefore no accidental ingest.
+                    birdnet_enabled = bool(settings.frigate.birdnet_enabled)
+                    birdnet_topic = settings.frigate.audio_topic if birdnet_enabled else None
+                    if birdnet_topic:
+                        await client.subscribe(birdnet_topic)
 
                     # Frigate Availability Topic (liveness heartbeat — retained, online/offline)
                     availability_topic = f"{settings.frigate.main_topic}/available"
@@ -796,10 +799,9 @@ class MQTTService:
 
                     self._connection_started_monotonic = self._now_monotonic()
                     self._topic_last_message_monotonic = {}
-                    self._topic_message_counts = {
-                        frigate_topic: 0,
-                        birdnet_topic: 0,
-                    }
+                    self._topic_message_counts = {frigate_topic: 0}
+                    if birdnet_topic:
+                        self._topic_message_counts[birdnet_topic] = 0
                     self._backlog_wait_started_monotonic = None
                     self._audio_active_task = None
                     self._audio_pending_payload = None
@@ -807,7 +809,10 @@ class MQTTService:
                     self._frigate_availability = None
                     self._frigate_availability_monotonic = None
 
-                    log.info("Connected to MQTT", topics=[frigate_topic, birdnet_topic, availability_topic])
+                    subscribed_topics = [frigate_topic, availability_topic]
+                    if birdnet_topic:
+                        subscribed_topics.append(birdnet_topic)
+                    log.info("Connected to MQTT", topics=subscribed_topics, birdnet_enabled=birdnet_enabled)
 
                     # Reset backoff on successful connection
                     self._reset_backoff()
@@ -821,10 +826,16 @@ class MQTTService:
                             # Watchdog requested a reconnect; bail out of the loop cleanly.
                             if self._intentional_reconnect:
                                 break
-                            if self.paused:
-                                continue
-                            # Check for topic changes in settings
-                            if settings.frigate.audio_topic != birdnet_topic:
+                            current_birdnet_enabled = bool(settings.frigate.birdnet_enabled)
+                            if current_birdnet_enabled != birdnet_enabled:
+                                log.info(
+                                    "MQTT BirdNET integration setting changed, reconnecting...",
+                                    old=birdnet_enabled,
+                                    new=current_birdnet_enabled,
+                                )
+                                self._last_reconnect_reason = "birdnet_enabled_changed"
+                                break
+                            if birdnet_enabled and settings.frigate.audio_topic != birdnet_topic:
                                 log.info(
                                     "MQTT Audio topic changed in settings, reconnecting...",
                                     old=birdnet_topic,
@@ -832,6 +843,8 @@ class MQTTService:
                                 )
                                 self._last_reconnect_reason = "audio_topic_changed"
                                 break  # This breaks the 'async for', causing a reconnection with new settings
+                            if self.paused:
+                                continue
 
                             topic = message.topic.value
                             if topic == availability_topic:
@@ -849,7 +862,7 @@ class MQTTService:
                                     message.payload,
                                     event_id=(meta or {}).get("event_id"),
                                 )
-                            elif topic == birdnet_topic:
+                            elif birdnet_topic and topic == birdnet_topic:
                                 log.info("Received MQTT message on birdnet topic", payload_len=len(message.payload))
                                 await self._wait_for_handler_slot()
                                 self._schedule_audio_message(event_processor, message.payload)

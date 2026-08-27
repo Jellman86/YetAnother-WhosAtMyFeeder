@@ -1,31 +1,125 @@
 import { describe, expect, it } from 'vitest';
 
 import dashboardSource from './Dashboard.svelte?raw';
+import fieldLogSource from '../components/FieldLog.svelte?raw';
+import notableNearbySource from '../components/NotableNearby.svelte?raw';
 import histogramSource from '../components/DailyHistogram.svelte?raw';
-import heroSource from '../components/LatestDetectionHero.svelte?raw';
+import previewSource from '../components/DetectionPreview.svelte?raw';
 import recentAudioSource from '../components/RecentAudio.svelte?raw';
-import statsSource from '../components/StatsRibbon.svelte?raw';
+import reviewQueueSource from '../components/ReviewQueueCard.svelte?raw';
 import visitorsSource from '../components/TopVisitors.svelte?raw';
 
-describe('dashboard live observation desk layout', () => {
-    it('keeps the latest visitor as the primary anchor before supporting activity', () => {
-        const observationDesk = dashboardSource.indexOf('data-dashboard-observation-desk');
+describe('dashboard field desk layout', () => {
+    it('leads with the chronological log and docks the outstanding work beside it', () => {
+        const fieldDesk = dashboardSource.indexOf('data-dashboard-field-desk');
+        const fieldLog = dashboardSource.indexOf('<FieldLog');
+        const reviewQueue = dashboardSource.indexOf('<ReviewQueueCard');
         const topVisitors = dashboardSource.indexOf('data-dashboard-top-visitors');
-        const discoveryFeed = dashboardSource.indexOf('data-dashboard-discovery-feed');
 
-        expect(observationDesk).toBeGreaterThan(-1);
-        expect(topVisitors).toBeGreaterThan(observationDesk);
-        expect(discoveryFeed).toBeGreaterThan(topVisitors);
+        expect(fieldDesk).toBeGreaterThan(-1);
+        expect(fieldLog).toBeGreaterThan(fieldDesk);
+        expect(reviewQueue).toBeGreaterThan(fieldLog);
+        expect(topVisitors).toBeGreaterThan(reviewQueue);
     });
 
-    it('uses one divided overview surface instead of four metric cards', () => {
-        expect(statsSource).toContain('data-dashboard-overview');
-        expect(statsSource).toContain('<dl');
-        expect(statsSource).toContain('divide-x');
-        expect(statsSource.match(/card-base/g) ?? []).toHaveLength(0);
-        expect(statsSource).toContain('data-dashboard-top-visitor-portrait');
-        expect(statsSource).toContain('rounded-full');
+    it('places location-level notable reports beneath the field log, not in a detection', () => {
+        expect(dashboardSource).toContain('data-dashboard-field-log-column');
+        expect(dashboardSource).toContain('<NotableNearby');
+        expect(notableNearbySource).toContain('data-dashboard-notable-nearby');
+        expect(notableNearbySource).toContain('fetchEbirdNotable({ distKm, daysBack })');
+        expect(notableNearbySource).toContain('dashboard.notable_nearby.scope');
     });
+
+    it('handles a disabled notable datasource without making an eBird request', () => {
+        expect(notableNearbySource).toContain('if (!sourceEnabled)');
+        expect(notableNearbySource).toContain('dashboard.notable_nearby.unavailable');
+        expect(notableNearbySource).toContain('{#if canConfigure}');
+        expect(notableNearbySource).toContain('dashboard.notable_nearby.configure');
+        expect(notableNearbySource).toContain('role="alert"');
+        expect(notableNearbySource).toContain('dashboard.notable_nearby.retry');
+    });
+
+    it('keeps top visitors at full width instead of compressing it into the rail', () => {
+        const aside = dashboardSource.indexOf('<aside');
+        const asideEnd = dashboardSource.indexOf('</aside>');
+        const topVisitors = dashboardSource.indexOf('data-dashboard-top-visitors');
+
+        expect(topVisitors).toBeGreaterThan(-1);
+        // The component lays out horizontally; an 18rem rail breaks it.
+        expect(topVisitors > aside && topVisitors < asideEnd).toBe(false);
+    });
+
+    it('keeps the review queue and its actions to owners', () => {
+        // Identify and hide are owner-only calls, so a guest must not be offered them.
+        expect(dashboardSource).toContain('let canReview = $derived(authStore.hasOwnerAccess)');
+        expect(dashboardSource).toContain('{#if canReview}');
+        expect(dashboardSource).toContain('{#if reviewSessionOpen && canReview}');
+        expect(dashboardSource).toContain('canIdentify={canReview}');
+        expect(fieldLogSource).toContain('{#if visit.needsReview && canIdentify}');
+    });
+
+    it('folds repeat frames into visits instead of printing one card per frame', () => {
+        expect(dashboardSource).toContain('groupDetectionsIntoVisits(deskDetections, { reviewThreshold })');
+        expect(dashboardSource).toContain('buildReviewQueue(deskDetections, { reviewThreshold })');
+        expect(dashboardSource).not.toContain('LatestDetectionHero');
+        expect(dashboardSource).not.toContain('data-dashboard-discovery-feed');
+    });
+
+    it('describes one window everywhere so the desk cannot contradict itself', () => {
+        expect(dashboardSource).toContain('withinDeskWindow(detectionsStore.detections)');
+        expect(dashboardSource).toContain('detections={deskDetections}');
+        // The overview ribbon is replaced by the compact day bar.
+        expect(dashboardSource).not.toContain('StatsRibbon');
+        expect(dashboardSource).toContain('<DayBar');
+    });
+
+    it('keeps every visit row reachable and shows why a row is flagged', () => {
+        expect(fieldLogSource).toContain('data-field-log-row');
+        expect(fieldLogSource).toContain('data-needs-review');
+        // Colour alone must not carry the flag (CLAUDE.md §5).
+        expect(fieldLogSource).toContain('dashboard.field_log.needs_name');
+        expect(fieldLogSource).toContain('dashboard.field_log.identify');
+        expect(fieldLogSource).toContain('min-h-11');
+    });
+
+    it('draws the day as one thread and says when it is only showing part of it', () => {
+        // The spine runs behind the nodes; without it the rows read as unrelated cards.
+        expect(fieldLogSource).toContain('The spine runs behind the nodes');
+        expect(fieldLogSource).toContain('data-field-log-more');
+        expect(fieldLogSource).toContain('dashboard.field_log.earlier');
+        expect(dashboardSource).toContain('hiddenCount={hiddenVisitCount}');
+    });
+
+    it('states both empty and loading states rather than rendering nothing', () => {
+        expect(fieldLogSource).toContain('data-field-log-loading');
+        expect(fieldLogSource).toContain('dashboard.waiting_first_visitor');
+        expect(reviewQueueSource).toContain('dashboard.review_queue.empty');
+    });
+
+    it('opens the capture preview on hover and on keyboard focus, and dismisses it', () => {
+        // Every frame in a visit previews itself, so the handlers take the frame index.
+        expect(previewSource).toContain('onmouseenter={() => show(index)}');
+        expect(previewSource).toContain('onfocusin={() => show(index)}');
+        expect(previewSource).toContain('let openIndex = $state<number | null>(null)');
+        expect(previewSource).toContain('dashboard.field_log.preview_frame_position');
+        expect(previewSource).toContain('onfocusout={handleFocusOut}');
+        expect(previewSource).toContain("event.key === 'Escape'");
+        // The pointer must be able to travel into the panel (WCAG 2.2 SC 1.4.13).
+        expect(previewSource).toContain('CLOSE_GRACE_MS');
+        expect(previewSource).toContain('motion-reduce:animate-none');
+        expect(previewSource).toContain('aria-expanded={openIndex === index}');
+        expect(previewSource).toContain('focus-ring');
+    });
+
+    it('reuses the existing thumbnail proxy for the preview instead of a second endpoint', () => {
+        expect(previewSource).toContain("import { getThumbnailUrl } from '../api'");
+        expect(previewSource).toContain('loading="lazy"');
+        expect(previewSource.match(/getThumbnailUrl/g) ?? []).toHaveLength(3);
+        expect(previewSource).toContain('onopen?.(frame)');
+        expect(fieldLogSource).toContain('onopen={(frame) => onselect?.(frame)}');
+        expect(previewSource).toContain('min-h-11 min-w-11');
+    });
+
 
     it('presents activity and audio as quiet operational sections', () => {
         expect(histogramSource).toContain('data-dashboard-activity');
@@ -43,10 +137,6 @@ describe('dashboard live observation desk layout', () => {
         expect(visitorsSource).toContain('<ol');
         expect(visitorsSource).toContain('rounded-full');
         expect(visitorsSource).not.toContain('card-base');
-        expect(heroSource).toContain('data-dashboard-hero-species-portrait');
-        expect(heroSource).toContain('rounded-full');
-        expect(statsSource).toContain('data-dashboard-species-icon');
-        expect(statsSource).toContain('data-icon-family="lucide-feather"');
     });
 
     it('finishes the audio preview without a doubled bottom rule', () => {

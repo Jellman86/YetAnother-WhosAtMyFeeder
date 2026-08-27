@@ -80,3 +80,39 @@ def test_filter_and_label_rejects_structured_blocked_species_by_common_name():
         assert reason == "blocked_label"
     finally:
         _restore_classification_settings(saved)
+
+
+def test_filter_and_label_blocks_species_scoring_inside_the_unknown_catchall_band():
+    """A blocked species must not be saved, including under the Unknown Bird catch-all.
+
+    Scores between min_confidence and threshold are saved as an Unknown Bird
+    catch-all rather than dropped. The blocked-species check therefore has to run
+    before that gate, otherwise a blocked species re-enters history under a
+    different name.
+    """
+    service = DetectionService(MagicMock())
+    saved = _with_classification_settings(
+        blocked_labels=["Grey Squirrel"],
+        blocked_species=[],
+        min_confidence=0.5,
+        threshold=0.7,
+    )
+    try:
+        # Control: an unblocked label in the same band is saved as Unknown Bird,
+        # so the catch-all really is reachable at this score.
+        allowed, allowed_reason = service.filter_and_label(
+            classification={"label": "Some Bird", "score": 0.6, "index": 1},
+            frigate_event="evt-catchall-allowed",
+        )
+        assert allowed is not None
+        assert allowed["label"] == "Unknown Bird"
+        assert allowed_reason == "unknown_catchall"
+
+        blocked, blocked_reason = service.filter_and_label(
+            classification={"label": "Grey Squirrel", "score": 0.6, "index": 1},
+            frigate_event="evt-catchall-blocked",
+        )
+        assert blocked is None
+        assert blocked_reason == "blocked_label"
+    finally:
+        _restore_classification_settings(saved)

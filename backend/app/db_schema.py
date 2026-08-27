@@ -46,6 +46,11 @@ detections = Table(
     Column("scientific_name", String),
     Column("common_name", String),
     Column("taxa_id", Integer),
+    # Canonical catalogue identity and artifact provenance (Phase 3). Opaque
+    # references into /data/species_catalog.db — no cross-database FK by design.
+    Column("species_id", Integer),
+    Column("model_artifact_id", Integer),
+    Column("model_output_index", Integer),
     Column("notified_at", TIMESTAMP),
     # Video classification columns
     Column("video_classification_score", Float),
@@ -78,6 +83,7 @@ Index("idx_detections_camera_time", detections.c.camera_name, detections.c.detec
 Index("idx_detections_scientific", detections.c.scientific_name)
 Index("idx_detections_common", detections.c.common_name)
 Index("idx_detections_taxa_id", detections.c.taxa_id)
+Index("idx_detections_species_id", detections.c.species_id)
 Index("idx_detections_frigate_event", detections.c.frigate_event)
 Index("idx_detections_video_status", detections.c.video_classification_status)
 Index("idx_detections_notified_at", detections.c.notified_at)
@@ -279,3 +285,16 @@ detection_favorites = Table(
 
 Index("idx_detection_favorites_detection_id", detection_favorites.c.detection_id)
 Index("idx_detection_favorites_created_at", detection_favorites.c.created_at)
+
+# Heartbeats written on a fixed interval. A stretch with no rows is a stretch where
+# the application was not running, which is how the About page reports availability.
+health_samples = Table(
+    "health_samples",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("sampled_at", TIMESTAMP, nullable=False),
+    Column("instance_id", String, nullable=False),
+    Column("created_at", TIMESTAMP, server_default=func.now()),
+)
+
+Index("idx_health_samples_sampled_at", health_samples.c.sampled_at)

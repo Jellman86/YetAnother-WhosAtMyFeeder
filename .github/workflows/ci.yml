@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -52,6 +52,15 @@ jobs:
           python -m alembic downgrade -1
           python -m alembic upgrade head
 
+      - name: Species catalogue migration smoke test
+        run: |
+          cd backend
+          export SPECIES_CATALOG_PATH=/tmp/yawamf-ci-species-catalog.db
+          rm -f "$SPECIES_CATALOG_PATH"
+          python -m alembic -c alembic_catalog.ini upgrade head
+          python -m alembic -c alembic_catalog.ini downgrade -1
+          python -m alembic -c alembic_catalog.ini upgrade head
+
       - name: Migration path matrix
         run: |
           cd backend
@@ -71,12 +80,13 @@ jobs:
           from alembic.config import Config
           from alembic.script import ScriptDirectory
 
-          script = ScriptDirectory.from_config(Config("alembic.ini"))
-          heads = script.get_heads()
-          if len(heads) != 1:
-              print(f"Expected 1 Alembic head, found {len(heads)}: {heads}")
-              sys.exit(1)
-          print(f"Alembic head OK: {heads[0]}")
+          for ini in ("alembic.ini", "alembic_catalog.ini"):
+              script = ScriptDirectory.from_config(Config(ini))
+              heads = script.get_heads()
+              if len(heads) != 1:
+                  print(f"{ini}: expected 1 Alembic head, found {len(heads)}: {heads}")
+                  sys.exit(1)
+              print(f"{ini}: Alembic head OK: {heads[0]}")
           PY
 
       - name: OpenAPI artifact up to date

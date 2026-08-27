@@ -21,6 +21,17 @@ from app.utils.public_access import effective_public_events_days
 
 router = APIRouter(prefix="/audio", tags=["audio"])
 log = structlog.get_logger()
+AUDIO_SUPPRESSED_BY_MAPPING_HEADER = "X-YAWAMF-Audio-Suppressed-By-Mapping"
+AUDIO_CONTEXT_RESPONSE_METADATA = {
+    200: {
+        "headers": {
+            AUDIO_SUPPRESSED_BY_MAPPING_HEADER: {
+                "description": "Audio detections in the window excluded by the camera mapping.",
+                "schema": {"type": "integer", "minimum": 0},
+            }
+        }
+    }
+}
 
 
 class AudioSourceResponse(BaseModel):
@@ -107,6 +118,12 @@ class AudioSpeciesLeaderboardResponse(BaseModel):
 
 class AudioContextDetectionResponse(AudioDetectionResponse):
     offset_seconds: int
+    scientific_name: str | None = None
+    matches_visual: bool = False
+
+
+def _normalized_species_aliases(*values: str | None) -> set[str]:
+    return {value.strip().casefold() for value in values if isinstance(value, str) and value.strip()}
 
 
 class AudioHistoryQuery(BaseModel):
@@ -464,10 +481,15 @@ async def get_audio_clip(
     )
 
 
-@router.get("/context", response_model=list[AudioContextDetectionResponse])
+@router.get(
+    "/context",
+    response_model=list[AudioContextDetectionResponse],
+    responses=AUDIO_CONTEXT_RESPONSE_METADATA,
+)
 @guest_rate_limit()
 async def get_audio_context(
     request: Request,
+    response: Response,
     timestamp: datetime = Query(..., description="ISO timestamp for the visual detection"),
     camera: str | None = Query(default=None, description="Camera name for sensor mapping"),
     window_seconds: int = Query(default=300, ge=5, le=3600),
@@ -479,14 +501,12 @@ async def get_audio_context(
     if target_time.tzinfo is None:
         target_time = target_time.replace(tzinfo=timezone.utc)
 
-    mapping_value = None
-    if camera and settings.frigate.camera_audio_mapping:
-        mapping_value = settings.frigate.camera_audio_mapping.get(camera)
+    mapping_value = "*" if not camera else (settings.frigate.camera_audio_mapping or {}).get(camera)
 
     lang = get_user_language(request) or "en"
     async with get_db() as db:
         repo = DetectionRepository(db)
-        detections = await repo.get_audio_context(
+        detections, suppressed_by_mapping = await repo.get_audio_context(
             target_time=target_time, window_seconds=window_seconds, mapping_value=mapping_value, limit=limit
         )
         await localize_audio_detections(detections, lang, db)
@@ -494,13 +514,19 @@ async def get_audio_context(
     if hide_sensor:
         for detection in detections:
             detection["sensor_id"] = None
+    response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] = str(suppressed_by_mapping)
     return detections
 
 
-@router.get("/context/event/{event_id}", response_model=list[AudioContextDetectionResponse])
+@router.get(
+    "/context/event/{event_id}",
+    response_model=list[AudioContextDetectionResponse],
+    responses=AUDIO_CONTEXT_RESPONSE_METADATA,
+)
 @guest_rate_limit()
 async def get_event_audio_context(
     request: Request,
+    response: Response,
     event_id: str = ApiPath(..., min_length=1, max_length=255),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
@@ -529,18 +555,31 @@ async def get_event_audio_context(
         if settings.frigate.camera_audio_mapping:
             mapping_value = settings.frigate.camera_audio_mapping.get(event.camera_name)
 
-        detections = await repo.get_audio_context(
+        detections, suppressed_by_mapping = await repo.get_audio_context(
             target_time=event.detection_time,
             window_seconds=settings.frigate.audio_correlation_window_seconds,
             mapping_value=mapping_value,
             limit=8,
         )
+        visual_aliases = _normalized_species_aliases(
+            event.display_name,
+            event.category_name,
+            event.scientific_name,
+            event.common_name,
+        )
+        for detection in detections:
+            audio_aliases = _normalized_species_aliases(
+                detection.get("species"),
+                detection.get("scientific_name"),
+            )
+            detection["matches_visual"] = bool(visual_aliases.intersection(audio_aliases))
         await localize_audio_detections(detections, lang, db)
 
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     if hide_sensor:
         for detection in detections:
             detection["sensor_id"] = None
+    response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] = str(suppressed_by_mapping)
     return detections
 
 

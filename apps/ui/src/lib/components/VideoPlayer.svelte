@@ -6,6 +6,7 @@
         fetchVideoShareInfo,
         getClipUrl,
         getRecordingClipUrl,
+        RECORDING_CLIP_STATE_HEADER,
         listVideoShareLinks,
         revokeVideoShareLink,
         updateVideoShareLink,
@@ -52,7 +53,7 @@
     let videoForbidden = $state(false);
     let retryCount = $state(0);
     let playbackState = $state<PlaybackState>('idle');
-    let fullVisitPromoted = $state(false);
+    let recordingClipState = $state<'none' | 'partial' | 'complete'>('none');
 
     function appendQueryParam(url: string, key: string, value: string): string {
         const separator = url.includes('?') ? '&' : '?';
@@ -73,11 +74,15 @@
     let canShareClip = $derived(!authStore.isGuest);
     let canManageShareLinks = $derived(!shareToken && !authStore.isGuest);
     let shortEventId = $derived(frigateEvent.split('-').pop() ?? frigateEvent);
-    let clipVariantLabel = $derived(
-        fullVisitPromoted
-            ? $_('video_player.full_visit_badge', { default: 'Full visit' })
-            : $_('video_player.clip_badge', { default: 'Clip' })
-    );
+    let clipVariantLabel = $derived.by(() => {
+        if (recordingClipState === 'complete') {
+            return $_('video_player.full_visit_badge', { default: 'Full visit' });
+        }
+        if (recordingClipState === 'partial') {
+            return $_('video_player.partial_visit_badge', { default: 'Partial visit' });
+        }
+        return $_('video_player.clip_badge', { default: 'Clip' });
+    });
     let shareExpiresAt = $state<string | null>(null);
     let shareWatermarkLabel = $state<string | null>(null);
     let shareManagerOpen = $state(false);
@@ -549,6 +554,7 @@
         const timeoutId = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
         let status: number | null = null;
         let fetched = false;
+        let state: 'none' | 'partial' | 'complete' = 'none';
 
         try {
             let response = await fetch(recordingClipUrlBase, { method: 'HEAD', signal: controller.signal });
@@ -557,6 +563,12 @@
             }
             status = response.status;
             fetched = response.headers.get('X-YAWAMF-Recording-Clip-Ready') === 'cached';
+            const rawState = response.headers.get(RECORDING_CLIP_STATE_HEADER)?.toLowerCase();
+            if (rawState === 'partial' || rawState === 'complete') {
+                state = rawState;
+            } else if (fetched) {
+                state = 'complete';
+            }
         } catch (error) {
             logger.warn('video_player_recording_probe_failed', {
                 frigateEvent,
@@ -567,9 +579,9 @@
             clearTimeout(timeoutId);
         }
 
-        const nextPromoted = !!status && status >= 200 && status < 300 && fetched;
-        if (nextPromoted !== fullVisitPromoted) {
-            fullVisitPromoted = nextPromoted;
+        const nextState = status && status >= 200 && status < 300 ? state : 'none';
+        if (nextState !== recordingClipState) {
+            recordingClipState = nextState;
         }
     }
 
@@ -587,7 +599,7 @@
             frigateEvent,
             token,
             retryCount,
-            clipKind: fullVisitPromoted ? 'full_visit' : 'event_clip',
+            clipKind: recordingClipState === 'complete' ? 'full_visit' : recordingClipState === 'partial' ? 'partial_visit' : 'event_clip',
             clipUrl: sanitizedUrl(clipUrl)
         });
 
@@ -628,7 +640,7 @@
 
     onMount(() => {
         mounted = true;
-        fullVisitPromoted = initialFullVisitPromoted;
+        recordingClipState = initialFullVisitPromoted ? 'complete' : 'none';
         lockDocumentScroll();
         logger.info('video_player_modal_open', { frigateEvent });
         if (shareToken) {
@@ -659,7 +671,7 @@
             logger.debug('video_player_waiting_for_video_element', { frigateEvent });
             return;
         }
-        const configureKey = `${frigateEvent}|${clipUrl}|${fullVisitPromoted ? 'full' : 'clip'}`;
+        const configureKey = `${frigateEvent}|${clipUrl}|${recordingClipState}`;
         if (configureKey === lastConfiguredKey) return;
         lastConfiguredKey = configureKey;
         void configurePlayer();

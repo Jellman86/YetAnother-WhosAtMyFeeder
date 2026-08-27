@@ -255,8 +255,13 @@ The script creates a timestamped backup of the original model before replacement
 ### Startup Health Signals
 Use these endpoints and lifecycle logs to quickly pinpoint startup failures:
 
-- `GET /health`: includes `startup_warnings` and sets `status=degraded` if a non-fatal startup phase failed.
-- `GET /ready`: returns `200` only when backend startup is ready for traffic; returns `503` with details when DB or startup phases are not ready.
+- `GET /health`: includes `startup_warnings` and sets `status=degraded` if a non-fatal startup
+  phase failed.
+- `GET /ready`: returns `200` only when backend startup is ready for traffic; returns `503` with
+  details when DB or startup phases are not ready. Use the same public host and port as the web app;
+  both supported frontend proxies forward this exact path to the backend.
+- Health and readiness responses use `Cache-Control: no-store, max-age=0`, so reverse proxies and
+  browsers do not retain stale operational state.
 - Backend logs now emit per-phase lifecycle events:
   - `Lifecycle phase starting`
   - `Lifecycle phase completed`

@@ -4,7 +4,7 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
-Last reviewed against the GitHub issue tracker on **April 17, 2026**.
+Last reviewed against the GitHub issue tracker on **August 19, 2026**.
 
 ## P0: Active Regressions
 
@@ -12,13 +12,46 @@ Last reviewed against the GitHub issue tracker on **April 17, 2026**.
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
-- **BirdNET-Go source-name drift / `Unknown sensor` fallback:** Some newer BirdNET-Go MQTT payloads appear to omit the stable source-name fields (`nm` / `Source.displayName`) and only publish `sourceId`/`src`. `dev` now falls back to those ID-style fields so Recent Audio and the source picker no longer show `Unknown sensor`, but stable long-term camera mapping still depends on BirdNET-Go exposing a stable published source/display name again. Upstream feature request: `tphakala/birdnet-go#2799`.
+- **#167 Video will not play in Safari:** the likely cause is HEVC packaged as `hev1`, which Safari's
+  video element refuses while QuickTime plays it, so "the download opens fine" does not clear it.
+  Diagnostics bundles now report the sample format of a recent clip, and there is a troubleshooting
+  page at `docs/troubleshooting/safari-video-playback.md`. Waiting on a bundle from the reporter.
+
+## Known Remaining Exposure
+
+- **Six read paths still resolve species names under a held database connection.** The fix for
+  #300/#301 removed the connection holds around Frigate, weather, AI and inference work, and around
+  the species filter's name resolution. These six remain, and each resolves a localized common name
+  inside a loop that also reads from the database, so the split is a refactor rather than a
+  rearrangement:
+  `events.py` events list (680-902), `species.py` (859-970, 1002-1093, 1108-1320), `stats.py`
+  (291-424), `ebird.py` (265-478), and `detection_service.py` (631-908).
+
+  The cost only lands on a cache miss: a species not yet in `taxonomy_translations` for the
+  requested language costs one iNaturalist request with a ten-second timeout. A steady-state install
+  is unaffected; a fresh install, or the first load after switching language, is not. When it
+  happens the pool now logs `Slow DB connection hold` naming the handler, `db_pool.hold_ms_max`
+  rises, and health reports `degraded`, so it is visible rather than silent.
+
+  The durable fix is for a render path never to block on a third-party API: resolve names from
+  cache only and enrich in the background. That is a behaviour change (a new species' localized name
+  would appear on the next load) and is a maintainer decision, not a mechanical one.
+
+## Open on the Tracker
+
+- **#178** Dedicated media retention rotation and favourite protection. Accepted; the durability
+  contract is recorded in `ROADMAP.md` and the stronger behaviour is planned, not shipped.
 
 ## Recently Closed (Context)
 
+- **#207** eBird localization - distances now follow the chosen unit system; closed August 17, 2026.
+- **#189** Mobile UI overlap on manual tagging - fixed and confirmed by the reporter; closed
+  August 15, 2026.
 - **#21** OpenVINO load fails for ConvNeXt - closed after the patched artifact / redownload remediation path shipped.
 - **#19** Incorrect filter application / stale Explorer state - follow-up fixes merged and issue closed on **February 27, 2026**.
-- **#16** No audio detection mapped - original stable-name mapping fix landed and the issue was closed, but newer BirdNET-Go payload drift is now tracked above under Pending Verification.
+- **#16** No audio detection mapped - the stable-name mapping fix landed and the issue was closed.
+  The later BirdNET-Go payload drift is also resolved: upstream `tphakala/birdnet-go#2799` shipped a
+  stable `sourceName` field on May 1, 2026, and `dev` reads it with the older fields as fallback.
 
 ## P1: Untested Integrations (Need Community Testing)
 

@@ -8,6 +8,7 @@ import pytest_asyncio
 from app.main import app
 from app.database import get_db, init_db, close_db
 from app.config import settings
+from app.routers.audio import AUDIO_SUPPRESSED_BY_MAPPING_HEADER
 
 
 @pytest_asyncio.fixture
@@ -686,8 +687,13 @@ async def test_event_audio_context_finds_late_audio_without_stored_audio_hint(cl
             "source_name": None,
             "birdnet_id": 26588,
             "offset_seconds": -30,
+            "scientific_name": "Alcedo atthis",
+            "matches_visual": False,
         }
     ]
+    # The fixture also seeds an "Other Mic" row, which this camera's mapping
+    # excludes — the header reports that without breaking the established body.
+    assert response.headers[AUDIO_SUPPRESSED_BY_MAPPING_HEADER] == "1"
 
 
 @pytest.mark.asyncio

@@ -25,6 +25,20 @@ def _normalize_name(value: str) -> str:
     return re.sub(r"\s+", " ", normalized).strip()
 
 
+#: Languages whose bare code eBird does not publish, or publishes far less
+#: completely than a regional variant. See
+#: docs/plans/2026-08-19-species-reference-source-decision.md for the figures.
+_PREFERRED_REGIONAL_LOCALE = {
+    "pt": "pt_BR",
+    "zh": "zh_SIM",
+}
+
+
+def _normalize_locale(value: str) -> str:
+    """One comparable form for codes written `pt_BR`, `pt-BR` or `PT-br`."""
+    return str(value or "").strip().replace("_", "-").lower()
+
+
 class EbirdService:
     def __init__(self) -> None:
         # Cache results per locale: {locale: {"fetched_at": datetime, "items": [], "index": {}}}
@@ -100,23 +114,41 @@ class EbirdService:
         return set(codes)
 
     async def resolve_locale(self, locale: Optional[str] = None) -> str:
-        requested = (locale or settings.ebird.locale or "en").strip().replace("_", "-")
-        if not requested:
-            requested = "en"
+        """Map a requested language onto the closest code eBird actually publishes.
+
+        eBird publishes codes with underscores (`pt_BR`), while requests arrive
+        with either separator, so everything is compared on one normalized form.
+        Some languages need a regional variant: `pt` is not published at all, and
+        `zh` carries far fewer translated names than `zh_SIM`. Figures are in
+        docs/plans/2026-08-19-species-reference-source-decision.md.
+        """
+        requested = _normalize_locale(locale or settings.ebird.locale or "en") or "en"
 
         supported = await self._get_supported_locales()
-        lower_map = {c.lower(): c for c in supported}
+        lower_map = {_normalize_locale(code): code for code in supported}
 
-        exact = lower_map.get(requested.lower())
+        lang = requested.split("-")[0]
+        preferred = lower_map.get(_normalize_locale(_PREFERRED_REGIONAL_LOCALE.get(lang, "")))
+
+        # A bare language with a preferred variant takes it. An explicit regional
+        # request is matched exactly below, so choosing `zh_HK` still works.
+        if requested == lang and preferred:
+            return preferred
+
+        exact = lower_map.get(requested)
         if exact:
             return exact
 
-        lang = requested.split("-")[0].lower()
+        # An unrecognised regional variant belongs with its language's preferred
+        # form rather than whichever region happens to sort first.
+        if preferred:
+            return preferred
+
         bare_lang = lower_map.get(lang)
         if bare_lang:
             return bare_lang
 
-        regional_matches = sorted(c for c in supported if c.lower().startswith(f"{lang}-"))
+        regional_matches = sorted(code for key, code in lower_map.items() if key.startswith(f"{lang}-"))
         if regional_matches:
             return regional_matches[0]
 

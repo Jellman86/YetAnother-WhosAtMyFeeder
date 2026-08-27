@@ -10,6 +10,37 @@ describe('jobDiagnosticsStore', () => {
         vi.setSystemTime(new Date('2026-03-06T12:00:00.000Z'));
     });
 
+    it('names the code holding a database connection, not just the wait it caused', () => {
+        // An owner reading a bundle can act on "app.routers.ai:analyze_event held
+        // a connection for 12s". They cannot act on "requests waited 17s".
+        jobDiagnosticsStore.ingestHealth({
+            status: 'degraded',
+            db_pool: {
+                acquire_wait_max_ms: 120,
+                hold_ms_max: 12000,
+                slow_hold_last_label: 'app.routers.ai:analyze_event'
+            }
+        });
+
+        const holdGroup = jobDiagnosticsStore.groups.find(
+            (group) => group.component === 'db_pool' && group.reasonCode === 'connection_held_too_long'
+        );
+        expect(holdGroup).toBeTruthy();
+        expect(holdGroup?.message).toContain('app.routers.ai:analyze_event');
+        expect(holdGroup?.message).toContain('12000ms');
+    });
+
+    it('does not report a healthy pool as holding connections too long', () => {
+        jobDiagnosticsStore.ingestHealth({
+            status: 'ok',
+            db_pool: { acquire_wait_max_ms: 4, hold_ms_max: 45, slow_hold_last_label: null }
+        });
+
+        expect(
+            jobDiagnosticsStore.groups.some((group) => group.reasonCode === 'connection_held_too_long')
+        ).toBe(false);
+    });
+
     it('deduplicates repeated errors into one grouped record', () => {
         jobDiagnosticsStore.recordError({
             source: 'sse',
@@ -663,17 +694,32 @@ describe('jobDiagnosticsStore', () => {
         expect(jobDiagnosticsStore.bundles.length).toBe(0);
     });
 
-    it('renders one saved-bundle library and themed capture fields', () => {
+    it('keeps the export behind a disclosure so the health view stays about health', () => {
         expect(errorsPageSource).toContain('System Status');
         expect(errorsPageSource).toContain('Recent Backend Diagnostics');
-        expect(errorsPageSource).toContain('Export Current JSON');
+        expect(errorsPageSource).toMatch(/<details[^>]*data-diagnostics-export/);
+    });
+
+    it('can still capture, download and clear a bundle', () => {
         expect(errorsPageSource).toContain('Capture Bundle');
+        expect(errorsPageSource).toContain('Download without saving');
+        expect(errorsPageSource).toContain('captureBundle');
+        expect(errorsPageSource).toContain('downloadCurrentJson');
+        expect(errorsPageSource).toContain('downloadBundle(bundle)');
+        expect(errorsPageSource).toContain('removeBundle(bundle.id)');
+        expect(errorsPageSource).toContain('clearBundles()');
+        expect(errorsPageSource).toContain('No captured bundles available yet.');
+    });
+
+    it('keeps the notes that make a bundle worth attaching to a report', () => {
+        expect(errorsPageSource).toContain('bind:value={reportNotes}');
+        expect(errorsPageSource).toContain('bundleNotesPreview(bundle)');
+    });
+
+    it('lists saved bundles as rows rather than nested cards', () => {
+        // layout-patterns 6: rows in a list are separated by hairlines.
+        expect(errorsPageSource).toMatch(/<ul[^>]*divide-y[^>]*>/);
         expect(errorsPageSource).not.toContain('Latest Bundle');
         expect(errorsPageSource).not.toContain('Download Latest');
-        expect(errorsPageSource).toContain('Newest');
-        expect(errorsPageSource).toContain('No captured bundles available yet.');
-        expect(errorsPageSource).toContain('Saved Bundles');
-        expect(errorsPageSource).toContain('rounded-3xl border border-slate-200/80 bg-white/85 px-4 py-3');
-        expect(errorsPageSource).toContain('rounded-2xl border border-slate-200/80 bg-white/85 px-3');
     });
 });

@@ -18,8 +18,10 @@
         createInaturalistDraft,
         submitInaturalistObservation,
         fetchSpeciesInfo,
+        fetchCommonNameOverride,
+        setCommonNameOverride,
+        clearCommonNameOverride,
         fetchEbirdNearby,
-        fetchEbirdNotable,
         fetchClassifierStatus,
         fetchDetectionConversation,
         sendDetectionConversationMessage,
@@ -28,7 +30,6 @@
         type InaturalistDraft,
         type SpeciesInfo,
         type EbirdNearbyResult,
-        type EbirdNotableResult,
         type ConversationTurn,
         type SnapshotStatusResponse,
         type SnapshotCandidate
@@ -49,11 +50,16 @@
     import { trapFocus } from '../utils/focus-trap';
     import { FRIGATE_LOGO_URL } from '../assets';
     import { getErrorMessage } from '../utils/error-handling';
-    import { getClassificationInputKind, getDetectionClassificationSource } from '../detection-classification-source';
+    import {
+        getClassificationInputKind,
+        getDetectionClassificationSource,
+        shouldShowVideoStatusNotice
+    } from '../detection-classification-source';
     import { formatDateTime } from '../utils/datetime';
     import { formatTemperature } from '../utils/temperature';
     import { getManualTagSearchOptions } from '../search/manual-tag-search';
     import {
+        formatDistance,
         formatPrecipitation,
         formatWindSpeed,
         getTemperatureUnitForSystem,
@@ -63,6 +69,9 @@
     import { getVideoFailureInsight, hasFrigateMediaIssue } from '../utils/frigate-errors';
     import { classifyInferenceProvider } from '../utils/inference-provider';
     import { isVideoPromotionGated } from '../video-promotion-gate';
+    import { applyManualTagResult } from '../utils/manual-tag';
+    import { findMatchingFullFrameCandidate } from '../utils/detection-evidence';
+    import { intersectVisibleViewport } from '../utils/visible-viewport';
 
     const FRIGATE_MISSING_DOCS_URL = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
 
@@ -81,7 +90,7 @@
         readOnly?: boolean;
         fullVisitAvailable?: boolean;
         fullVisitFetched?: boolean;
-        fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'failed';
+        fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'partial' | 'failed';
     }
 
     let {
@@ -152,6 +161,8 @@
 
     // State
     let modalElement = $state<HTMLElement | null>(null);
+    let manualTagViewportStyle = $state<string | undefined>(undefined);
+    let viewportAnimationFrame: number | undefined;
     let previousBodyPosition = '';
     let previousBodyTop = '';
     let previousBodyWidth = '';
@@ -164,6 +175,7 @@
     let audioContextLoading = $state(false);
     let audioContextLoaded = $state(false);
     let audioContext = $state<AudioContextDetection[]>([]);
+    let audioContextSuppressed = $state(0);
     let audioContextError = $state<string | null>(null);
     let weatherDetailsOpen = $state(false);
     let inatPanelOpen = $state(false);
@@ -179,13 +191,16 @@
     let speciesInfo = $state<SpeciesInfo | null>(null);
     let speciesInfoLoading = $state(false);
     let speciesInfoError = $state<string | null>(null);
+    let failedSpeciesReferenceUrl = $state<string | null>(null);
     let ebirdNearby = $state<EbirdNearbyResult | null>(null);
     let ebirdNearbyLoading = $state(false);
     let ebirdNearbyError = $state<string | null>(null);
-    let ebirdNotable = $state<EbirdNotableResult | null>(null);
-    let ebirdNotableLoading = $state(false);
-    let ebirdNotableError = $state<string | null>(null);
     let lastEnrichmentKey = $state<string | null>(null);
+    let commonNameEditorOpen = $state(false);
+    let commonNameOverride = $state<string | null>(null);
+    let commonNameOverrideInput = $state('');
+    let commonNameOverrideSaving = $state(false);
+    let commonNameOverrideLoadedFor = $state<string | null>(null);
 
     $effect(() => {
         if (modalElement) {
@@ -224,16 +239,41 @@
         scrollLocked = false;
     }
 
+    function syncManualTagViewport(): void {
+        if (typeof window === 'undefined' || !modalElement || !window.visualViewport) {
+            manualTagViewportStyle = undefined;
+            return;
+        }
+
+        const modalBounds = modalElement.getBoundingClientRect();
+        const visibleBounds = intersectVisibleViewport(
+            { top: modalBounds.top, height: modalBounds.height },
+            {
+                offsetTop: window.visualViewport.offsetTop,
+                height: window.visualViewport.height
+            }
+        );
+        const isClipped = visibleBounds.top > 0.5 || visibleBounds.height < modalBounds.height - 0.5;
+
+        manualTagViewportStyle = isClipped && visibleBounds.height > 0
+            ? `top:${Math.round(visibleBounds.top)}px;height:${Math.round(visibleBounds.height)}px;`
+            : undefined;
+    }
+
+    function scheduleManualTagViewportSync(): void {
+        if (typeof window === 'undefined' || viewportAnimationFrame !== undefined) return;
+        viewportAnimationFrame = window.requestAnimationFrame(() => {
+            viewportAnimationFrame = undefined;
+            syncManualTagViewport();
+        });
+    }
+
     function withCacheBust(url: string, token: number): string {
         const separator = url.includes('?') ? '&' : '?';
         return `${url}${separator}v=${token}`;
     }
 
-    async function refreshSnapshotControls(eventId: string, options: { closeOverlay?: boolean } = {}) {
-        if (options.closeOverlay !== false) {
-            snapshotRepairOpen = false;
-        }
-        snapshotStatusLoading = true;
+    async function refreshSnapshotControls(eventId: string) {
         snapshotCandidatesLoading = true;
         try {
             const [status, candidateList] = await Promise.all([
@@ -245,17 +285,14 @@
             snapshotCandidates = candidateList.candidates ?? [];
             currentSnapshotCandidateId = candidateList.current_candidate_id ?? null;
             currentSnapshotSource = candidateList.current_source ?? status.source ?? null;
-            modelCropMissReason = candidateList.model_crop_miss_reason ?? null;
         } catch {
             if (detection.frigate_event !== eventId) return;
             snapshotStatus = null;
             snapshotCandidates = [];
             currentSnapshotCandidateId = null;
             currentSnapshotSource = null;
-            modelCropMissReason = null;
         } finally {
             if (detection.frigate_event === eventId) {
-                snapshotStatusLoading = false;
                 snapshotCandidatesLoading = false;
             }
         }
@@ -283,20 +320,44 @@
         };
     });
 
+    onMount(() => {
+        if (typeof window === 'undefined') return;
+        const visualViewport = window.visualViewport;
+        const modalResizeObserver = typeof ResizeObserver === 'undefined'
+            ? undefined
+            : new ResizeObserver(scheduleManualTagViewportSync);
+
+        syncManualTagViewport();
+        if (modalElement) {
+            modalResizeObserver?.observe(modalElement);
+        }
+        window.addEventListener('resize', scheduleManualTagViewportSync);
+        visualViewport?.addEventListener('resize', scheduleManualTagViewportSync);
+        visualViewport?.addEventListener('scroll', scheduleManualTagViewportSync);
+
+        return () => {
+            modalResizeObserver?.disconnect();
+            window.removeEventListener('resize', scheduleManualTagViewportSync);
+            visualViewport?.removeEventListener('resize', scheduleManualTagViewportSync);
+            visualViewport?.removeEventListener('scroll', scheduleManualTagViewportSync);
+            if (viewportAnimationFrame !== undefined) {
+                window.cancelAnimationFrame(viewportAnimationFrame);
+                viewportAnimationFrame = undefined;
+            }
+        };
+    });
+
     $effect(() => {
         const eventId = detection?.frigate_event;
         if (!eventId || !hasOwnerDetectionActions) {
             snapshotStatus = null;
-            snapshotStatusLoading = false;
             snapshotCandidates = [];
             snapshotCandidatesLoading = false;
-            snapshotRepairOpen = false;
             currentSnapshotCandidateId = null;
             currentSnapshotSource = null;
             return;
         }
 
-        snapshotStatusLoading = true;
         snapshotCandidatesLoading = true;
 
         void (async () => {
@@ -321,11 +382,12 @@
     let pendingManualTagId = $state<string | null>(null);
     let favoritePending = $state(false);
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
-    let snapshotStatusLoading = $state(false);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
+    // Candidate media is owner-gated, so the strip simply does not exist for a guest.
+    const snapshotOptionStrip = $derived(
+        authStore.hasOwnerAccess ? snapshotCandidates.filter((item) => item.thumbnail_url) : []
+    );
     let snapshotCandidatesLoading = $state(false);
-    let modelCropMissReason = $state<string | null>(null);
-    let snapshotRepairOpen = $state(false);
     let snapshotApplyPending = $state(false);
     let snapshotGeneratePending = $state(false);
     let currentSnapshotCandidateId = $state<string | null>(null);
@@ -347,12 +409,12 @@
         detectionsStore.progressMap.get(detection.frigate_event) || null
     );
     let canPlayVideo = $derived(showVideoButton && !!onPlayVideo && (detection.has_clip || fullVisitFetched) && !reclassifyProgress);
-    let showFetchFullVisitAction = $derived(!!onFetchFullVisit && fullVisitAvailable && !fullVisitFetched && fullVisitFetchState === 'failed' && !reclassifyProgress);
+    let showFetchFullVisitAction = $derived(!!onFetchFullVisit && fullVisitAvailable && !fullVisitFetched && (fullVisitFetchState === 'partial' || fullVisitFetchState === 'failed') && !reclassifyProgress);
     let fullVisitFetchLabel = $derived.by(() => {
         if (fullVisitFetchState === 'fetching') {
             return $_('video_player.fetching_full_visit', { default: 'Fetching...' });
         }
-        if (fullVisitFetchState === 'failed') {
+        if (fullVisitFetchState === 'partial' || fullVisitFetchState === 'failed') {
             return $_('video_player.fetch_full_visit_retry', { default: 'Retry full clip' });
         }
         return $_('video_player.fetch_full_visit', { default: 'Fetch full clip' });
@@ -390,9 +452,27 @@
     // Naming logic
     const showCommon = $derived(settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true);
     const preferSci = $derived(settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false);
-    const naming = $derived(getBirdNames(detection, showCommon, preferSci));
+    const namingDetection = $derived({
+        ...detection,
+        common_name: commonNameOverride ?? detection.common_name
+    });
+    const naming = $derived(getBirdNames(namingDetection, showCommon, preferSci));
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
+    const lateAudioMatch = $derived.by(() => {
+        const matches = audioContext.filter((audio) => audio.matches_visual);
+        if (!matches.length) return null;
+        return [...matches].sort(
+            (a, b) => b.confidence - a.confidence || Math.abs(a.offset_seconds) - Math.abs(b.offset_seconds)
+        )[0];
+    });
+    const effectiveAudioConfirmed = $derived(Boolean(detection.audio_confirmed || lateAudioMatch));
+    const effectiveAudioSpecies = $derived(
+        detection.audio_confirmed ? detection.audio_species : (lateAudioMatch?.species ?? detection.audio_species)
+    );
+    const effectiveAudioScore = $derived(
+        detection.audio_confirmed ? detection.audio_score : (lateAudioMatch?.confidence ?? detection.audio_score)
+    );
     const audioContextSpecies = $derived.by(() => {
         const seen = new Set<string>();
         const values: string[] = [];
@@ -405,7 +485,7 @@
             seen.add(key);
             values.push(normalized);
         };
-        add(detection.audio_species);
+        add(effectiveAudioSpecies);
         for (const species of detection.audio_context_species ?? []) {
             add(species);
         }
@@ -414,8 +494,16 @@
         }
         return values;
     });
-    const hasAudioContext = $derived(!isManualObservation && (detection.audio_confirmed || audioContextSpecies.length > 0));
+    const hasAudioContext = $derived(!isManualObservation && (effectiveAudioConfirmed || audioContextSpecies.length > 0));
     const audioNearbySummary = $derived(audioContextSpecies.join(', '));
+    const audioFactValue = $derived.by(() => {
+        if (effectiveAudioConfirmed) {
+            return effectiveAudioSpecies ?? $_('detection.fact_heard_yes', { default: 'matching call' });
+        }
+        if (audioContextLoading) return $_('common.loading');
+        if (audioContextError || !audioContextLoaded) return $_('common.unavailable');
+        return $_('detection.fact_heard_no', { default: 'no matching call' });
+    });
 
     // Pick the best audioContext entry to render its BirdNET-Go spectrogram
     // alongside the audio match card. When the visual detection was audio-
@@ -423,7 +511,8 @@
     // Otherwise fall back to whichever context entry is closest in time.
     const matchedAudioEntry = $derived.by(() => {
         if (!audioContext.length) return null;
-        const target = (detection.audio_species || '').trim().toLowerCase();
+        if (lateAudioMatch?.birdnet_id != null) return lateAudioMatch;
+        const target = (effectiveAudioSpecies || '').trim().toLowerCase();
         if (target) {
             const match = audioContext.find(
                 (a) => (a.species || '').trim().toLowerCase() === target && a.birdnet_id != null
@@ -504,6 +593,7 @@
         if (detection.observation_source === 'manual_upload') {
             untrack(() => {
                 audioContext = [];
+                audioContextSuppressed = 0;
                 audioContextLoaded = true;
                 audioContextLoading = false;
                 audioContextError = null;
@@ -514,6 +604,7 @@
         const controller = new AbortController();
         untrack(() => {
             audioContext = [];
+            audioContextSuppressed = 0;
             audioContextLoaded = false;
             audioContextLoading = true;
             audioContextError = null;
@@ -523,7 +614,8 @@
             try {
                 const context = await fetchEventAudioContext(eventId, controller.signal);
                 if (controller.signal.aborted || detection.frigate_event !== eventId) return;
-                audioContext = context;
+                audioContext = context.detections;
+                audioContextSuppressed = context.suppressed_by_mapping ?? 0;
                 audioContextLoaded = true;
             } catch (error) {
                 if (controller.signal.aborted || (error instanceof Error && error.name === 'AbortError')) return;
@@ -551,37 +643,139 @@
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
     const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && !!inatConnectedUser);
     const hasOwnerDetectionActions = $derived(authStore.hasOwnerAccess && !readOnly);
+    // Rows that come from an integration only appear when that integration is on:
+    // "no matching call" from a disabled BirdNET would be a measurement we never took.
+    const birdnetEnabled = $derived(
+        settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false
+    );
     const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
     const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
-    const hasSnapshotRepairCandidates = $derived(snapshotCandidates.length > 0);
-    const hasSnapshotRepairWork = $derived(
-        hasSnapshotRepairCandidates
-        || Boolean(snapshotStatus?.can_generate_hq_bird_crop)
-        || Boolean(
-            currentSnapshotSource === 'high_quality_snapshot'
-            || currentSnapshotSource === 'high_quality_bird_crop'
-            || currentSnapshotSource?.startsWith('hq_candidate_')
-        )
-    );
-    const showSnapshotRepairAction = $derived(
-        hasOwnerDetectionActions
-        && detection.observation_source !== 'manual_upload'
-        && !showMediaSlotVideoAnalysis
-        && !reclassifyProgress
-        && hasSnapshotRepairWork
-    );
     let canShowFavoriteAction = $derived(
         authStore.canModify
         && !readOnly
-        && !snapshotRepairOpen
         && !showMediaSlotVideoAnalysis
         && !reclassifyProgress
     );
-    const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available !== false);
-    const fullFrameSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'full_frame') ?? null);
-    const frigateHintSnapshotCandidate = $derived(snapshotCandidates.find((candidate) => candidate.source_mode === 'frigate_hint_crop') ?? null);
-    const modelSnapshotCandidates = $derived(snapshotCandidates.filter((candidate) => candidate.source_mode === 'model_crop'));
-    const allSnapshotFrameCandidates = $derived(snapshotCandidates);
+    const originalFrigateSnapshotAvailable = $derived(snapshotStatus?.original_frigate_snapshot_available === true);
+    const fullFrameSnapshotCandidate = $derived(
+        findMatchingFullFrameCandidate(snapshotCandidates, currentSnapshotCandidateId)
+    );
+
+    /**
+     * A terminal borrows the viewer's own window furniture: traffic lights on macOS, the
+     * bevelled Windows 95 set on Windows, and a single round close button in the GNOME manner
+     * on Linux. Purely cosmetic, so an unknown platform gets the macOS set rather than nothing.
+     */
+    const windowChrome = $derived.by((): 'mac' | 'windows' | 'linux' => {
+        if (typeof navigator === 'undefined') return 'mac';
+        const agent = navigator as Navigator & { userAgentData?: { platform?: string } };
+        const platform = (agent.userAgentData?.platform ?? navigator.platform ?? navigator.userAgent ?? '')
+            .toLowerCase();
+        if (platform.includes('win')) return 'windows';
+        // Android reports Linux in its user agent, and is not a desktop window manager.
+        if (platform.includes('linux') && !platform.includes('android')) return 'linux';
+        return 'mac';
+    });
+
+    /**
+     * The window's insides follow its furniture: a plain dark shell on macOS, the black and grey
+     * of a DOS box on Windows, and the aubergine GNOME Terminal ships with on Linux.
+     */
+    const terminalTheme = $derived.by(() => {
+        if (windowChrome === 'windows') {
+            return {
+                shell: 'bg-black',
+                prompt: 'text-[#c0c0c0]',
+                host: null,
+                sigil: 'C:\\>',
+                output: 'text-[#c0c0c0]'
+            };
+        }
+        if (windowChrome === 'linux') {
+            // Ubuntu: the aubergine terminal and its bash prompt, green user@host then blue path.
+            return {
+                shell: 'bg-[#300a24]',
+                prompt: 'text-[#d3d7cf]',
+                host: 'yawamf@feeder',
+                sigil: ':~$',
+                output: 'text-[#eeeeec]'
+            };
+        }
+        return {
+            shell: 'bg-slate-950',
+            prompt: 'text-slate-500',
+            host: null,
+            sigil: '$',
+            output: 'text-emerald-300'
+        };
+    });
+
+    /**
+     * Shows the strip's trailing hint only while it actually overflows. The hint is a separate,
+     * pointer-transparent layer so desktop browsers never hit-test through a CSS mask.
+     * Thumbnails load lazily, so image loads are watched as well as resizes.
+     */
+    function watchOverflow(node: HTMLElement) {
+        const shell = node.closest<HTMLElement>('[data-snapshot-strip-shell]');
+        const update = () => {
+            const hasMoreToRight = node.scrollLeft + node.clientWidth < node.scrollWidth - 1;
+            shell?.style.setProperty('--strip-fade-opacity', hasMoreToRight ? '1' : '0');
+        };
+        update();
+        const resize = new ResizeObserver(update);
+        resize.observe(node);
+        // The container keeps its size when the candidate list changes, so a resize alone would
+        // leave the fade describing a strip that is no longer there.
+        const mutation = new MutationObserver(update);
+        mutation.observe(node, { childList: true });
+        node.addEventListener('load', update, true);
+        node.addEventListener('scroll', update, { passive: true });
+        return {
+            destroy() {
+                resize.disconnect();
+                mutation.disconnect();
+                shell?.style.removeProperty('--strip-fade-opacity');
+                node.removeEventListener('load', update, true);
+                node.removeEventListener('scroll', update);
+            }
+        };
+    }
+
+    // The frame rail previews a choice in place. Persisting it remains a separate, explicit action.
+    let mediaView = $state<'stored' | 'full' | 'candidate' | 'original'>('stored');
+    const canShowFullFrame = $derived(
+        authStore.hasOwnerAccess && !!(fullFrameSnapshotCandidate?.image_url ?? fullFrameSnapshotCandidate?.thumbnail_url)
+    );
+    const previewedSnapshotCandidate = $derived(
+        pendingSnapshotMode === 'candidate' && pendingSnapshotCandidateId
+            ? snapshotCandidates.find((candidate) => candidate.candidate_id === pendingSnapshotCandidateId) ?? null
+            : null
+    );
+    const mediaImageUrl = $derived.by(() => {
+        if (mediaView === 'original' && originalFrigateSnapshotAvailable) {
+            return originalFrigateSnapshotUrl;
+        }
+        if (mediaView === 'candidate' && previewedSnapshotCandidate?.image_url) {
+            return previewedSnapshotCandidate.image_url;
+        }
+        if (mediaView === 'candidate' && previewedSnapshotCandidate?.thumbnail_url) {
+            return previewedSnapshotCandidate.thumbnail_url;
+        }
+        if (mediaView === 'full' && fullFrameSnapshotCandidate?.image_url) {
+            return fullFrameSnapshotCandidate.image_url;
+        }
+        if (mediaView === 'full' && fullFrameSnapshotCandidate?.thumbnail_url) {
+            return fullFrameSnapshotCandidate.thumbnail_url;
+        }
+        return snapshotImageUrl;
+    });
+    $effect(() => {
+        // A new detection starts on its own stored frame.
+        void detection.frigate_event;
+        mediaView = 'stored';
+        pendingSnapshotMode = null;
+        pendingSnapshotCandidateId = null;
+    });
     const selectedSnapshotPickerCandidate = $derived.by(() => {
         if (pendingSnapshotMode === 'revert_original') {
             return null;
@@ -592,44 +786,40 @@
         if (currentSnapshotCandidateId) {
             return snapshotCandidates.find((candidate) => candidate.candidate_id === currentSnapshotCandidateId) ?? null;
         }
-        return fullFrameSnapshotCandidate ?? frigateHintSnapshotCandidate ?? modelSnapshotCandidates[0] ?? null;
-    });
-    const selectedSnapshotPickerLabel = $derived.by(() => {
-        if (
-            originalFrigateSnapshotAvailable
-            && (pendingSnapshotMode === 'revert_original' || (!selectedSnapshotPickerCandidate && currentSnapshotSource === 'frigate_snapshot'))
-        ) {
-            return $_('detection.snapshot_source_original', { default: 'Original Frigate crop' });
-        }
-        if (selectedSnapshotPickerCandidate) {
-            return snapshotSourceLabel(selectedSnapshotPickerCandidate.source_mode);
-        }
-        return snapshotSourceLabel(currentSnapshotSource ?? snapshotStatus?.source ?? null);
-    });
-    const selectedSnapshotPreviewUrl = $derived.by(() => {
-        if (
-            originalFrigateSnapshotAvailable
-            && (pendingSnapshotMode === 'revert_original' || (!selectedSnapshotPickerCandidate && currentSnapshotSource === 'frigate_snapshot'))
-        ) {
-            return originalFrigateSnapshotUrl;
-        }
-        if (selectedSnapshotPickerCandidate?.thumbnail_url) {
-            return selectedSnapshotPickerCandidate.thumbnail_url;
-        }
-        return snapshotImageUrl;
+        return null;
     });
     const canSaveSnapshotSelection = $derived(
         !snapshotApplyPending
         && !snapshotGeneratePending
         && (
-            (pendingSnapshotMode === 'revert_original' && originalFrigateSnapshotAvailable)
-            || Boolean(selectedSnapshotPickerCandidate)
+            (
+                pendingSnapshotMode === 'revert_original'
+                && originalFrigateSnapshotAvailable
+                && currentSnapshotSource !== 'frigate_snapshot'
+            )
+            || (
+                pendingSnapshotMode === 'candidate'
+                && Boolean(pendingSnapshotCandidateId)
+                && pendingSnapshotCandidateId !== currentSnapshotCandidateId
+            )
         )
     );
     const canGenerateSnapshotCandidates = $derived(
         !snapshotApplyPending
         && !snapshotGeneratePending
         && Boolean(snapshotStatus?.can_generate_hq_bird_crop)
+    );
+    const showInlineFramePicker = $derived(
+        hasOwnerDetectionActions
+        && detection.observation_source !== 'manual_upload'
+        && !showMediaSlotVideoAnalysis
+        && !reclassifyProgress
+        && (
+            snapshotCandidatesLoading
+            || snapshotOptionStrip.length > 0
+            || originalFrigateSnapshotAvailable
+            || canGenerateSnapshotCandidates
+        )
     );
 
     const UNKNOWN_SPECIES_LABELS = new Set(['unknown', 'unknown bird', 'background']);
@@ -652,11 +842,6 @@
             ? enrichmentSingleProviderSetting
             : (settingsStore.settings?.enrichment_seasonality_source ?? authStore.enrichmentSeasonalitySource ?? 'disabled')
     );
-    const enrichmentRarityProvider = $derived(
-        enrichmentModeSetting === 'single'
-            ? enrichmentSingleProviderSetting
-            : (settingsStore.settings?.enrichment_rarity_source ?? authStore.enrichmentRaritySource ?? 'disabled')
-    );
     const enrichmentLinksProviders = $derived(
         enrichmentModeSetting === 'single'
             ? [enrichmentSingleProviderSetting]
@@ -666,12 +851,13 @@
         enrichmentLinksProviders.map((provider) => String(provider || '').toLowerCase())
     );
     const ebirdEnabled = $derived(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled ?? false);
-    const ebirdRadius = $derived(settingsStore.settings?.ebird_default_radius_km ?? 25);
+    const ebirdRadius = $derived(
+        settingsStore.settings?.ebird_default_radius_km ?? authStore.ebirdDefaultRadiusKm ?? 25
+    );
     const ebirdDaysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
     const showEbirdNearby = $derived(
         enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
     );
-    const showEbirdNotable = $derived(enrichmentRarityProvider === 'ebird');
     const missingEventMetadataGone = $derived(
         !isManualObservation && (detection.frigate_status === 'missing'
         || detection.has_frigate_event === false
@@ -698,15 +884,7 @@
     // snapshot" amber notice, "Video Analysis Failed" red card) that used to
     // co-exist for the same underlying state.
     const videoStatusNoticeVisible = $derived.by(() => {
-        const status = (detection.video_classification_status || '').trim().toLowerCase();
-        const error = (detection.video_classification_error || '').trim();
-        // Failed video classification of any kind.
-        if (status === 'failed' && error) return true;
-        // Snapshot fallback already produced a result, but the underlying
-        // Frigate event is gone — surface that so the modal isn't silent
-        // about why the player and the diagnostics disagree.
-        if (currentClassificationSource === 'snapshot' && missingEventNoticeVisible) return true;
-        return false;
+        return shouldShowVideoStatusNotice(detection, missingEventNoticeVisible);
     });
     const videoStatusNoticeTone = $derived.by(() => {
         const status = (detection.video_classification_status || '').trim().toLowerCase();
@@ -718,7 +896,7 @@
             return {
                 kind: 'rose' as const,
                 container: 'bg-rose-50/80 dark:bg-rose-500/10 border-rose-200/80 dark:border-rose-500/30 text-rose-900 dark:text-rose-200',
-                detailsContainer: 'border-rose-200/80 dark:border-rose-400/25 bg-white/75 dark:bg-slate-900/40',
+                detailsContainer: 'border-rose-200/70 dark:border-rose-400/25',
                 detailsSummary: 'text-rose-700 dark:text-rose-300',
             };
         }
@@ -727,14 +905,14 @@
             return {
                 kind: 'slate' as const,
                 container: 'bg-slate-50/80 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-700/60 text-slate-700 dark:text-slate-300',
-                detailsContainer: 'border-slate-200/80 dark:border-slate-700/60 bg-white/75 dark:bg-slate-900/40',
+                detailsContainer: 'border-slate-200/70 dark:border-slate-700/60',
                 detailsSummary: 'text-slate-700 dark:text-slate-300',
             };
         }
         return {
             kind: 'amber' as const,
             container: 'bg-amber-50/80 dark:bg-amber-500/10 border-amber-200/80 dark:border-amber-500/30 text-amber-900 dark:text-amber-200',
-            detailsContainer: 'border-amber-200/80 dark:border-amber-500/30 bg-white/75 dark:bg-slate-900/40',
+            detailsContainer: 'border-amber-200/70 dark:border-amber-500/30',
             detailsSummary: 'text-amber-700 dark:text-amber-300',
         };
     });
@@ -837,6 +1015,73 @@
         }
     }
 
+    async function loadCommonNameOverride(scientificName: string) {
+        commonNameOverrideLoadedFor = scientificName;
+        commonNameEditorOpen = false;
+        try {
+            const result = await fetchCommonNameOverride(scientificName);
+            if (commonNameOverrideLoadedFor !== scientificName) return;
+            commonNameOverride = result.manual_common_name ?? null;
+            commonNameOverrideInput = result.manual_common_name ?? result.effective_common_name ?? '';
+        } catch {
+            if (commonNameOverrideLoadedFor !== scientificName) return;
+            commonNameOverride = null;
+            commonNameOverrideInput = detection.common_name ?? '';
+        }
+    }
+
+    async function saveCommonNameOverride() {
+        const scientificName = detection.scientific_name?.trim();
+        const commonName = commonNameOverrideInput.trim();
+        if (!scientificName || !commonName || commonNameOverrideSaving) return;
+        commonNameOverrideSaving = true;
+        try {
+            const result = await setCommonNameOverride(scientificName, commonName);
+            commonNameOverride = result.manual_common_name ?? null;
+            commonNameOverrideInput = result.effective_common_name ?? commonName;
+            detection.common_name = result.effective_common_name ?? undefined;
+            detectionsStore.updateDetection({ ...detection });
+            commonNameEditorOpen = false;
+            toastStore.success($_('detection.common_name_override_saved', { default: 'Common name updated' }));
+        } catch (error) {
+            toastStore.error(getErrorMessage(error) || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            commonNameOverrideSaving = false;
+        }
+    }
+
+    async function resetCommonNameOverride() {
+        const scientificName = detection.scientific_name?.trim();
+        if (!scientificName || commonNameOverrideSaving) return;
+        commonNameOverrideSaving = true;
+        try {
+            const result = await clearCommonNameOverride(scientificName);
+            commonNameOverride = null;
+            commonNameOverrideInput = result.effective_common_name ?? '';
+            detection.common_name = result.effective_common_name ?? undefined;
+            detectionsStore.updateDetection({ ...detection });
+            commonNameEditorOpen = false;
+            toastStore.success($_('detection.common_name_override_cleared', { default: 'Provider common name restored' }));
+        } catch (error) {
+            toastStore.error(getErrorMessage(error) || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            commonNameOverrideSaving = false;
+        }
+    }
+
+    $effect(() => {
+        const scientificName = detection.scientific_name?.trim();
+        if (!hasOwnerDetectionActions || !scientificName) {
+            commonNameOverrideLoadedFor = null;
+            commonNameOverride = null;
+            commonNameEditorOpen = false;
+            return;
+        }
+        if (commonNameOverrideLoadedFor !== scientificName) {
+            void loadCommonNameOverride(scientificName);
+        }
+    });
+
     async function loadEbirdNearby(speciesName: string, scientificName?: string) {
         ebirdNearbyLoading = true;
         ebirdNearbyError = null;
@@ -852,24 +1097,6 @@
             ebirdNearbyError = getErrorMessage(e) || 'Failed to load eBird sightings';
         } finally {
             ebirdNearbyLoading = false;
-        }
-    }
-
-    async function loadEbirdNotable() {
-        ebirdNotableLoading = true;
-        ebirdNotableError = null;
-        try {
-            const res = await fetchEbirdNotable();
-            if (res.status === 'error') {
-                ebirdNotableError = res.message || 'Failed to load eBird notable sightings';
-                ebirdNotable = null;
-            } else {
-                ebirdNotable = res;
-            }
-        } catch (e) {
-            ebirdNotableError = getErrorMessage(e) || 'Failed to load eBird notable sightings';
-        } finally {
-            ebirdNotableLoading = false;
         }
     }
 
@@ -908,8 +1135,9 @@
             enrichmentSummaryProvider,
             enrichmentSightingsProvider,
             enrichmentSeasonalityProvider,
-            enrichmentRarityProvider,
-            ebirdEnabled
+            ebirdEnabled,
+            ebirdRadius,
+            ebirdDaysBack
         ].join('|');
         if (enrichmentKey === lastEnrichmentKey) return;
         lastEnrichmentKey = enrichmentKey;
@@ -918,20 +1146,14 @@
         speciesInfoError = null;
         ebirdNearby = null;
         ebirdNearbyError = null;
-        ebirdNotable = null;
-        ebirdNotableError = null;
 
         if (enrichmentSummaryProvider !== 'disabled') {
             void loadSpeciesInfo(detection.display_name);
         }
 
         const needsEbirdNearby = ebirdEnabled && showEbirdNearby;
-        const needsEbirdNotable = ebirdEnabled && showEbirdNotable;
         if (needsEbirdNearby) {
-            void loadEbirdNearby(detection.display_name, detection.scientific_name);
-        }
-        if (needsEbirdNotable) {
-            void loadEbirdNotable();
+            void loadEbirdNearby(detection.display_name, detection.scientific_name ?? undefined);
         }
     });
 
@@ -1064,6 +1286,12 @@
         )
     );
     const temperatureUnit = $derived(getTemperatureUnitForSystem(weatherUnitSystem));
+    const ebirdRadiusLabel = $derived(
+        formatDistance(ebirdRadius, weatherUnitSystem, {
+            metric: $_('common.unit_km', { default: 'km' }),
+            imperial: $_('common.unit_mi', { default: 'mi' })
+        })
+    );
 
     function formatAudioOffset(offsetSeconds: number): string {
         const abs = Math.abs(offsetSeconds);
@@ -1123,33 +1351,25 @@
         pendingManualTagId = requestedSpecies;
         try {
             const result = await updateDetectionSpecies(detection.frigate_event, requestedSpecies);
-            const appliedSpecies = result.new_species || result.species || requestedSpecies;
-            const nextDetection = {
-                ...detection,
-                display_name: appliedSpecies,
-                category_name: selection.scientific_name ?? selection.display_name ?? requestedSpecies,
-                manual_tagged: true,
-                scientific_name: selection.scientific_name ?? detection.scientific_name,
-                common_name: selection.common_name ?? detection.common_name,
-                ai_analysis: null,
-                ai_analysis_timestamp: null,
-            };
-            detection.display_name = appliedSpecies;
-            detection.category_name = nextDetection.category_name;
-            detection.manual_tagged = true;
-            detection.scientific_name = nextDetection.scientific_name;
-            detection.common_name = nextDetection.common_name;
-            detection.ai_analysis = null;
-            detection.ai_analysis_timestamp = null;
+            const nextDetection = applyManualTagResult(detection, result);
+            Object.assign(detection, nextDetection);
             detectionsStore.updateDetection(nextDetection);
             showTagDropdown = false;
             tagSearchQuery = '';
-            aiAnalysis = null; // Reset AI analysis for new species
-            const names = getResultNames(selection);
-            const successLabel = names.primary || appliedSpecies;
-            toastStore.success(
-                `${$_('notifications.event_reclassify', { default: 'Reclassification complete' })}: ${successLabel}`
-            );
+            aiAnalysis = nextDetection.ai_analysis ?? null;
+            const successLabel = getBirdNames(nextDetection, showCommon, preferSci).primary;
+            if (result.status === 'unchanged') {
+                toastStore.success(
+                    $_('notifications.species_confirmed', {
+                        values: { species: successLabel },
+                        default: '{species} confirmed'
+                    })
+                );
+            } else {
+                toastStore.success(
+                    `${$_('notifications.event_reclassify', { default: 'Reclassification complete' })}: ${successLabel}`
+                );
+            }
         } catch (e) {
             toastStore.error($_('notifications.reclassify_failed', { values: { message: getErrorMessage(e) } }));
         } finally {
@@ -1235,89 +1455,41 @@
         }
     }
 
-    function snapshotSourceBadgeClass(source: string | null | undefined): string {
-        switch (String(source || '').trim()) {
-            case 'model_crop':
-            case 'hq_candidate_model_crop':
-            case 'high_quality_bird_crop':
-                return 'bg-brand-500/20 text-brand-300';
-            case 'full_frame':
-            case 'hq_candidate_full_frame':
-                return 'bg-blue-500/20 text-blue-300';
-            case 'frigate_hint_crop':
-            case 'hq_candidate_frigate_hint_crop':
-                return 'bg-amber-500/20 text-amber-300';
-            default:
-                return 'bg-white/10 text-white/50';
-        }
-    }
-
-    function snapshotSourceShortLabel(source: string | null | undefined): string {
-        switch (String(source || '').trim()) {
-            case 'model_crop':
-            case 'hq_candidate_model_crop':
-            case 'high_quality_bird_crop':
-                return $_('detection.snapshot_source_short_model_crop', { default: 'AI Crop' });
-            case 'full_frame':
-            case 'hq_candidate_full_frame':
-                return $_('detection.snapshot_source_short_full_frame', { default: 'Full' });
-            case 'frigate_hint_crop':
-            case 'hq_candidate_frigate_hint_crop':
-                return $_('detection.snapshot_source_short_frigate_hint', { default: 'Smart' });
-            default:
-                return source || '';
-        }
-    }
-
-    function formatSnapshotFrameOffset(offset?: number | null) {
-        if (typeof offset !== 'number' || Number.isNaN(offset)) return null;
-        return `${offset.toFixed(2)}s`;
-    }
-
     function stageSnapshotCandidate(candidateId: string | null) {
         pendingSnapshotMode = candidateId ? 'candidate' : null;
         pendingSnapshotCandidateId = candidateId;
     }
 
+    function previewSnapshotCandidate(candidate: SnapshotCandidate) {
+        if (!hasOwnerDetectionActions) return;
+        if (candidate.candidate_id === currentSnapshotCandidateId) {
+            pendingSnapshotMode = null;
+            pendingSnapshotCandidateId = null;
+        } else {
+            stageSnapshotCandidate(candidate.candidate_id);
+        }
+        mediaView = candidate.candidate_id === fullFrameSnapshotCandidate?.candidate_id
+            ? 'full'
+            : 'candidate';
+    }
+
     function stageOriginalFrigateSnapshot() {
         if (!originalFrigateSnapshotAvailable) return;
-        pendingSnapshotMode = 'revert_original';
+        pendingSnapshotMode = currentSnapshotSource === 'frigate_snapshot' ? null : 'revert_original';
         pendingSnapshotCandidateId = null;
+        mediaView = 'original';
     }
 
-    function resetSnapshotPickerSelection() {
-        if (currentSnapshotSource === 'frigate_snapshot' && originalFrigateSnapshotAvailable) {
-            stageOriginalFrigateSnapshot();
-            return;
-        }
-        if (currentSnapshotCandidateId) {
-            stageSnapshotCandidate(currentSnapshotCandidateId);
-            return;
-        }
-        if (fullFrameSnapshotCandidate?.candidate_id) {
-            stageSnapshotCandidate(fullFrameSnapshotCandidate.candidate_id);
-            return;
-        }
-        if (frigateHintSnapshotCandidate?.candidate_id) {
-            stageSnapshotCandidate(frigateHintSnapshotCandidate.candidate_id);
-            return;
-        }
-        if (modelSnapshotCandidates[0]?.candidate_id) {
-            stageSnapshotCandidate(modelSnapshotCandidates[0].candidate_id);
-            return;
-        }
+    function cancelSnapshotPreview() {
         pendingSnapshotMode = null;
         pendingSnapshotCandidateId = null;
+        mediaView = 'stored';
     }
 
-    function handleSnapshotRepairToggle(event: Event) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!showSnapshotRepairAction) return;
-        snapshotRepairOpen = !snapshotRepairOpen;
-        if (snapshotRepairOpen) {
-            resetSnapshotPickerSelection();
-        }
+    function showFullFrameMedia() {
+        pendingSnapshotMode = null;
+        pendingSnapshotCandidateId = null;
+        mediaView = 'full';
     }
 
     async function handleApplySnapshot(
@@ -1333,9 +1505,9 @@
             });
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
-            snapshotRepairOpen = false;
             currentSnapshotSource = result.source ?? null;
             currentSnapshotCandidateId = result.applied_candidate_id ?? null;
+            cancelSnapshotPreview();
             toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
             await refreshSnapshotControls(detection.frigate_event);
         } catch (e) {
@@ -1354,9 +1526,9 @@
             if (!detection || detection.frigate_event !== eventId) return;
             snapshotStatus = result;
             snapshotRefreshToken = Date.now();
-            await refreshSnapshotControls(eventId, { closeOverlay: false });
+            await refreshSnapshotControls(eventId);
             if (!detection || detection.frigate_event !== eventId) return;
-            resetSnapshotPickerSelection();
+            cancelSnapshotPreview();
             if (snapshotCandidates.length > 0) {
                 toastStore.success($_('detection.snapshot_generate_success', { default: 'Snapshots regenerated' }));
             } else {
@@ -1452,6 +1624,41 @@
 </script>
 
 <style>
+    /* Svelte scopes @keyframes, so a name referenced from a class resolves to nothing without
+       the -global- prefix. */
+    @keyframes -global-terminal-blink {
+        0%, 49% { opacity: 1; }
+        50%, 100% { opacity: 0; }
+    }
+
+    .terminal-caret {
+        margin-left: 0.15em;
+        animation: terminal-blink 1.1s steps(1) infinite;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .terminal-caret { animation: none; opacity: 1; }
+    }
+
+    /*
+     * The options strip sits over a dark gradient on the image, where a native scrollbar is both
+     * ugly and low contrast. The bar is hidden and a pointer-transparent sibling darkens the right
+     * edge instead, so there is still a signal that more frames exist without blocking selection.
+     * Scrolling by wheel, trackpad and keyboard is unaffected.
+     */
+    .snapshot-strip {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .snapshot-strip::-webkit-scrollbar {
+        display: none;
+    }
+
+    .snapshot-strip-fade {
+        opacity: var(--strip-fade-opacity, 0);
+    }
+
     .ai-surface {
         position: relative;
         overflow: hidden;
@@ -1986,8 +2193,19 @@
             <ReclassificationOverlay progress={reclassifyProgress} />
         {/if}
 
+        <button
+            data-detection-modal-close
+            onclick={onClose}
+            class="absolute top-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+            aria-label={$_('common.close')}
+        >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+
         <div class="flex-1 overflow-hidden flex flex-col lg:grid lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
-	            <div class="relative aspect-[4/3] shrink-0 overflow-hidden bg-gradient-to-br from-slate-900 via-slate-950 to-brand-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
+	            <div class="relative aspect-[4/3] min-h-72 shrink-0 overflow-hidden lg:aspect-auto lg:h-full lg:min-h-[26rem] bg-gradient-to-br from-slate-900 via-slate-950 to-brand-950 sm:aspect-video lg:aspect-auto lg:h-full lg:border-r lg:border-slate-200/70 dark:lg:border-slate-700/60">
                     {#if showMediaSlotVideoAnalysis}
                         <div class="absolute inset-0 bg-gradient-to-br from-indigo-50 via-white to-slate-100 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800"></div>
                         <div class="relative z-10 h-full flex flex-col justify-between p-4 sm:p-5">
@@ -2042,167 +2260,334 @@
                     {:else}
                         <img data-detection-media-ambient src={snapshotImageUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
                         <div class="absolute inset-0 bg-slate-950/55" aria-hidden="true"></div>
-                        <img src={snapshotImageUrl} alt={detection.display_name} class="relative h-full w-full object-contain" />
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
-                        {#if canShowFavoriteAction}
-                            <button
-                                type="button"
-                                onclick={handleFavoriteToggle}
-                                disabled={favoritePending}
-                                class="absolute top-4 left-4 z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'bg-amber-500/90 border-amber-300 text-white hover:bg-amber-500' : 'bg-black/45 border-white/35 text-white hover:bg-black/60'}"
-                                title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
-                                aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                        <img
+                            src={mediaImageUrl}
+                            alt={detection.display_name}
+                            class="relative h-full w-full {mediaView === 'full' || mediaView === 'candidate' || mediaView === 'original'
+                                ? 'object-contain'
+                                : canShowFullFrame ? 'object-cover' : 'object-contain'}"
+                        />
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
+                        {#if canShowFullFrame}
+                            <div
+                                class="absolute left-3 top-3 z-30 max-w-[calc(100%-6rem)]"
                             >
-                                {#if favoritePending}
-                                    <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                {:else}
-                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
-                                    </svg>
-                                {/if}
-                            </button>
-                        {/if}
-                        {#if showSnapshotRepairAction && !snapshotRepairOpen}
-                            <button
-                                type="button"
-                                onclick={handleSnapshotRepairToggle}
-                                class="absolute top-4 right-[4.5rem] z-30 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/35 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300/70"
-                                title={$_('detection.snapshot_change', { default: 'Change snapshot' })}
-                                aria-label={$_('detection.snapshot_change', { default: 'Change snapshot' })}
-                            >
-                                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                    <path d="M5 8a2 2 0 0 1 2-2h2l1.2-1.6A1 1 0 0 1 11 4h2a1 1 0 0 1 .8.4L15 6h2a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V8Z" stroke-linecap="round" stroke-linejoin="round"></path>
-                                    <circle cx="12" cy="11.5" r="3.25"></circle>
-                                    <path d="M8 20l2-2"></path>
-                                    <path d="M16 20l-2-2"></path>
-                                </svg>
-                            </button>
-                        {/if}
-    	                <div class="absolute bottom-0 left-0 right-0 p-5">
-                            <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
-    	                    {#if subName && subName !== primaryName}
-    	                        <p class="text-white/70 text-sm italic drop-shadow -mt-0.5 mb-0.5 truncate">{subName}</p>
-    	                    {/if}
-                        <p class="text-white/50 text-[10px] font-semibold mt-2">
-                            {formatDateTime(detection.detection_time)}
-                        </p>
-                        <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
-                        {#if isManualObservation}
-                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-3.5 text-xs font-bold text-white shadow-xl backdrop-blur-sm">
-                                <svg class="h-4 w-4 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
-                                {$_('detection.uploaded', { default: 'Uploaded' })}
+                                <div class="flex max-w-full gap-1 rounded-lg bg-slate-950/55 p-1 backdrop-blur-sm" data-detection-media-toggle>
+                                        <button
+                                            type="button"
+                                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'stored'
+                                                ? 'bg-white/15 text-white'
+                                                : 'text-white/60 hover:text-white'}"
+                                            aria-pressed={mediaView === 'stored'}
+                                            onclick={(event) => { event.stopPropagation(); cancelSnapshotPreview(); }}
+                                        >
+                                            {$_('detection.media_stored', { default: 'Best crop' })}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'full'
+                                                ? 'bg-white/15 text-white'
+                                                : 'text-white/60 hover:text-white'}"
+                                            aria-pressed={mediaView === 'full'}
+                                            onclick={(event) => {
+                                                event.stopPropagation();
+                                                showFullFrameMedia();
+                                            }}
+                                        >
+                                            {$_('detection.media_full_frame', { default: 'Full frame' })}
+                                        </button>
+                                </div>
                             </div>
                         {/if}
-                        {#if canPlayVideo && !snapshotRepairOpen}
-                            <div class="flex items-center gap-2">
-                                {#if fullVisitFetched}
-                                    <div
-                                        class="inline-flex h-11 w-11 items-center justify-center rounded-full bg-brand-500/95 text-white shadow-xl shadow-brand-900/30 border border-brand-300/30 backdrop-blur-sm"
-                                        title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
-                                        aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
-                                    >
-                                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                            <path d="M7 3H5a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                            <path d="M13 3h2a2 2 0 012 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                            <path d="M17 13v2a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                            <path d="M7 17H5a2 2 0 01-2-2v-2" stroke-linecap="round" stroke-linejoin="round"></path>
-                                        </svg>
+                        <div
+                            class="absolute inset-x-0 bottom-0 z-20 flex flex-col bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12"
+                            data-detection-media-footer
+                        >
+                            <div class="flex flex-col gap-3 px-5 {showInlineFramePicker ? 'pb-2' : 'pb-5'}">
+                                <div data-detection-media-title>
+                                    <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
+                                    {#if subName && subName !== primaryName}
+                                        <p class="-mt-0.5 mb-0.5 truncate text-sm italic text-white/70 drop-shadow">{subName}</p>
+                                    {/if}
+                                    <p class="mt-2 text-[10px] font-semibold text-white/50">
+                                        {formatDateTime(detection.detection_time)}
+                                    </p>
+                                </div>
+
+                                {#if canShowFavoriteAction || canPlayVideo || showFetchFullVisitAction || isManualObservation || frigateIssueBadgeVisible}
+                                    <div class="flex flex-wrap items-center gap-2" data-detection-media-actions>
+                                        {#if canShowFavoriteAction}
+                                            <button
+                                                type="button"
+                                                onclick={handleFavoriteToggle}
+                                                disabled={favoritePending}
+                                                class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border shadow-lg backdrop-blur-sm transition-colors disabled:opacity-60 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/70 {detection.is_favorite ? 'border-amber-300 bg-amber-500/90 text-white hover:bg-amber-500' : 'border-white/35 bg-black/45 text-white hover:bg-black/60'}"
+                                                title={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                                                aria-label={detection.is_favorite ? $_('detection.favorite_remove', { default: 'Remove favorite' }) : $_('detection.favorite_add', { default: 'Add favorite' })}
+                                            >
+                                                {#if favoritePending}
+                                                    <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                                                {:else}
+                                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill={detection.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.8">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.05 2.927c.3-.921 1.603-.921 1.902 0l2.02 6.217a1 1 0 00.95.69h6.54c.969 0 1.371 1.24.588 1.81l-5.29 3.844a1 1 0 00-.364 1.118l2.02 6.217c.3.921-.755 1.688-1.539 1.118l-5.29-3.844a1 1 0 00-1.175 0l-5.29 3.844c-.783.57-1.838-.197-1.539-1.118l2.02-6.217a1 1 0 00-.364-1.118L.98 11.644c-.783-.57-.38-1.81.588-1.81h6.54a1 1 0 00.95-.69l2.02-6.217z" />
+                                                    </svg>
+                                                {/if}
+                                            </button>
+                                        {/if}
+                                        {#if canPlayVideo}
+                                            <button
+                                                type="button"
+                                                onclick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    onPlayVideo?.(detection.frigate_event, 'user');
+                                                }}
+                                                onpointerdown={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                ontouchstart={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                title={fullVisitFetched ? $_('video_player.full_visit_ready', { default: 'Full visit clip ready' }) : $_('detection.play_video', { values: { species: primaryName } })}
+                                                aria-label={fullVisitFetched ? $_('detection.play_full_visit', { values: { species: primaryName }, default: 'Play full visit clip of {species}' }) : $_('detection.play_video', { values: { species: primaryName } })}
+                                                class="pointer-events-auto inline-flex h-11 min-w-11 items-center justify-center rounded-full border text-white shadow-xl backdrop-blur-sm transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-brand-400/70 {fullVisitFetched ? 'gap-2 border-brand-300/30 bg-brand-500/95 px-3 hover:bg-brand-500' : 'w-11 border-white/25 bg-black/55 hover:bg-brand-500/90'}"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                                    <path d="M8 5v14l11-7z"/>
+                                                </svg>
+                                                {#if fullVisitFetched}
+                                                    <span class="text-[11px] font-semibold">{$_('video_player.full_visit_action', { default: 'Full visit' })}</span>
+                                                {/if}
+                                            </button>
+                                        {/if}
+                                        {#if isManualObservation}
+                                            <div class="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-3.5 text-xs font-bold text-white shadow-xl backdrop-blur-sm">
+                                                <svg class="h-4 w-4 text-brand-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16V4m0 0L8 8m4-4 4 4M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" /></svg>
+                                                {$_('detection.uploaded', { default: 'Uploaded' })}
+                                            </div>
+                                        {/if}
+                                        {#if showFetchFullVisitAction}
+                                            <button
+                                                type="button"
+                                                onclick={handleFetchFullVisitClick}
+                                                onpointerdown={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                ontouchstart={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                                disabled={fullVisitFetchState === 'fetching'}
+                                                aria-label={fullVisitFetchLabel}
+                                                class="pointer-events-auto inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-brand-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
+                                            >
+                                                {#if fullVisitFetchState === 'fetching'}
+                                                    <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
+                                                {:else}
+                                                    <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                                                        <path d="M10 3v8"></path>
+                                                        <path d="M7 8l3 3 3-3"></path>
+                                                        <path d="M4 14h12"></path>
+                                                    </svg>
+                                                {/if}
+                                                <span>{fullVisitFetchLabel}</span>
+                                            </button>
+                                        {/if}
+                                        {#if frigateIssueBadgeVisible}
+                                            <div
+                                                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
+                                                title={videoFailureInsight.summary}
+                                                aria-label={videoFailureInsight.summary}
+                                                role="img"
+                                            >
+                                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-4 w-4 rounded-[3px] bg-white/95 p-0.5 object-contain" />
+                                            </div>
+                                        {/if}
                                     </div>
                                 {/if}
+                            </div>
+
+                            {#if showInlineFramePicker}
+                    <!-- Preview and save happen here; the former full-screen snapshot picker has
+                         deliberately been removed. Every thumbnail is a real retained frame. -->
+                    <div
+                        class="flex flex-col gap-1 px-3 pb-3"
+                        data-detection-inline-frame-picker
+                        aria-busy={snapshotCandidatesLoading || snapshotApplyPending || snapshotGeneratePending}
+                    >
+                        <div class="flex min-h-4 items-center justify-between gap-2 px-1 text-[10px] font-semibold text-white/65" aria-live="polite">
+                            <span>
+                                {#if snapshotCandidatesLoading}
+                                    {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
+                                {:else}
+                                    {$_('detection.snapshot_options', {
+                                        values: { count: snapshotOptionStrip.length + (originalFrigateSnapshotAvailable ? 1 : 0) },
+                                        default: '{count} snapshot options'
+                                    })}
+                                {/if}
+                            </span>
+                            {#if pendingSnapshotMode}
+                                <span>{$_('detection.snapshot_preview_unsaved', { default: 'Preview, not saved' })}</span>
+                            {/if}
+                        </div>
+                        <div class="flex min-w-0 items-center gap-1.5">
+                            <div class="snapshot-strip-shell relative min-w-0 flex-1" data-snapshot-strip-shell>
+                                <div class="snapshot-strip -my-2 flex min-w-0 gap-1.5 overflow-x-auto px-1 py-3" use:watchOverflow>
+                                    {#if originalFrigateSnapshotAvailable}
+                                        {@const originalIsSelected = pendingSnapshotMode === 'revert_original' || (!pendingSnapshotMode && currentSnapshotSource === 'frigate_snapshot')}
+                                        <button
+                                            type="button"
+                                            class="relative min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {originalIsSelected ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50' : 'opacity-70 hover:z-10 hover:-translate-y-0.5 hover:scale-105 hover:opacity-100 hover:shadow-md active:translate-y-0 active:scale-95'}"
+                                            title={$_('detection.snapshot_source_original', { default: 'Original Frigate crop' })}
+                                            aria-label={$_('detection.snapshot_preview_original_aria', { default: 'Preview original Frigate snapshot' })}
+                                            aria-pressed={originalIsSelected}
+                                            onclick={(event) => { event.stopPropagation(); stageOriginalFrigateSnapshot(); }}
+                                        >
+                                            <img src={originalFrigateSnapshotUrl} alt="" loading="lazy" class="h-9 w-12 rounded-md object-cover" />
+                                        </button>
+                                    {/if}
+                                    {#each snapshotOptionStrip as candidate (candidate.candidate_id)}
+                                        {@const candidateIsSelected = pendingSnapshotCandidateId === candidate.candidate_id || (!pendingSnapshotMode && currentSnapshotCandidateId === candidate.candidate_id)}
+                                        <button
+                                            type="button"
+                                            class="relative min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {candidateIsSelected ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50' : 'opacity-70 hover:z-10 hover:-translate-y-0.5 hover:scale-105 hover:opacity-100 hover:shadow-md active:translate-y-0 active:scale-95'}"
+                                            title={candidate.classifier_label ?? snapshotSourceLabel(candidate.source_mode)}
+                                            aria-label={$_('detection.snapshot_option_aria', {
+                                                values: { source: snapshotSourceLabel(candidate.source_mode) },
+                                                default: 'Preview {source} snapshot option'
+                                            })}
+                                            aria-pressed={candidateIsSelected}
+                                            onclick={(event) => { event.stopPropagation(); previewSnapshotCandidate(candidate); }}
+                                        >
+                                            <img
+                                                src={candidate.thumbnail_url ?? undefined}
+                                                alt=""
+                                                loading="lazy"
+                                                class="h-9 w-12 rounded-md object-cover"
+                                            />
+                                        </button>
+                                    {/each}
+                                </div>
+                                <div
+                                    class="snapshot-strip-fade pointer-events-none absolute inset-y-2 right-0 w-14 bg-gradient-to-r from-transparent to-slate-950/80 transition-opacity duration-150 motion-reduce:transition-none"
+                                    data-snapshot-strip-fade
+                                    aria-hidden="true"
+                                ></div>
+                            </div>
+                            {#if pendingSnapshotMode}
                                 <button
                                     type="button"
-                                    onclick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        onPlayVideo?.(detection.frigate_event, 'user');
-                                    }}
-                                    onpointerdown={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    ontouchstart={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    aria-label={$_('detection.play_video', { values: { species: primaryName } })}
-                                    class="pointer-events-auto inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55 text-white shadow-xl backdrop-blur-sm transition-colors duration-150 hover:bg-brand-500/90 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
+                                    class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white/80 transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
+                                    title={$_('common.cancel', { default: 'Cancel' })}
+                                    aria-label={$_('detection.snapshot_cancel_preview', { default: 'Cancel frame preview' })}
+                                    onclick={(event) => { event.stopPropagation(); cancelSnapshotPreview(); }}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                        <path d="M8 5v14l11-7z"/>
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                        <path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" />
                                     </svg>
                                 </button>
-                            </div>
-                        {/if}
-                        {#if showFetchFullVisitAction && !snapshotRepairOpen}
-                            <div class="bottom-4 left-4 z-30 flex items-end gap-2 mt-3">
                                 <button
                                     type="button"
-                                    onclick={handleFetchFullVisitClick}
-                                    onpointerdown={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    ontouchstart={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                    }}
-                                    disabled={fullVisitFetchState === 'fetching'}
-                                    aria-label={fullVisitFetchLabel}
-                                    class="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 py-2 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm transition-all duration-150 hover:bg-brand-500/90 disabled:cursor-wait disabled:opacity-75 focus:outline-none focus:ring-2 focus:ring-brand-400/70"
+                                    class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-500 text-slate-950 shadow-lg transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                                    disabled={!canSaveSnapshotSelection}
+                                    title={$_('detection.snapshot_save', { default: 'Save this frame' })}
+                                    aria-label={$_('detection.snapshot_save', { default: 'Save this frame' })}
+                                    onclick={(event) => { event.stopPropagation(); void handleSaveSnapshotSelection(); }}
                                 >
-                                    {#if fullVisitFetchState === 'fetching'}
-                                        <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                                    {#if snapshotApplyPending}
+                                        <span class="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
                                     {:else}
-                                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                                            <path d="M10 3v8"></path>
-                                            <path d="M7 8l3 3 3-3"></path>
-                                            <path d="M4 14h12"></path>
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                                            <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
                                         </svg>
                                     {/if}
-                                    <span>{fullVisitFetchLabel}</span>
                                 </button>
-                            </div>
-                        {/if}
+                            {:else if canGenerateSnapshotCandidates}
+                                <button
+                                    type="button"
+                                    class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-300/35 bg-brand-500/15 text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
+                                    disabled={snapshotGeneratePending}
+                                    title={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
+                                    aria-label={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
+                                    onclick={(event) => { event.stopPropagation(); void handleGenerateSnapshotCandidates(); }}
+                                >
+                                    {#if snapshotGeneratePending}
+                                        <span class="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+                                    {:else}
+                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                            <path d="M20 6v5h-5M4 18v-5h5M6.1 9a7 7 0 0 1 11.5-2.6L20 11M4 13l2.4 4.6A7 7 0 0 0 17.9 15" stroke-linecap="round" stroke-linejoin="round" />
+                                        </svg>
+                                    {/if}
+                                </button>
+                            {/if}
                         </div>
                     </div>
-                    {/if}
-
-                    {#if frigateIssueBadgeVisible && !snapshotRepairOpen}
-                        <div class="absolute top-4 right-4 z-30">
-                            <div
-                                class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-rose-200/85 bg-rose-100/92 text-rose-700 shadow-lg shadow-rose-500/10 backdrop-blur-sm dark:border-rose-300/20 dark:bg-rose-400/12 dark:text-rose-200"
-                                title={videoFailureInsight.summary}
-                                aria-label={videoFailureInsight.summary}
-                            >
-                                <img src={FRIGATE_LOGO_URL} alt="" aria-hidden="true" class="h-4 w-4 rounded-[3px] bg-white/95 p-0.5 object-contain" />
-                            </div>
+                            {/if}
                         </div>
                     {/if}
-
-        {#if !snapshotRepairOpen}
-            <button
-                onclick={onClose}
-                class="absolute top-4 right-4 z-40 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-lg backdrop-blur-sm transition-colors hover:bg-black/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
-                aria-label={$_('common.close')}
-            >
-                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-            </button>
-        {/if}
-
-            </div>
+                </div>
 
             <div class="flex flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-6 {showTagDropdown ? 'blur-sm pointer-events-none select-none' : ''}">
             <!-- Detection ID -->
-            <details data-detection-technical-identity class="group order-last border-t border-slate-200 pt-3 dark:border-slate-700">
-                <summary class="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-slate-500 marker:hidden dark:text-slate-400">
-                    <span>{$_('detection.id')}</span>
-                    <svg class="h-4 w-4 transition-transform group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <!-- The disclosure is the window chrome: clicking the title bar opens the terminal.
+                 Dark in both themes on purpose, because that is what a terminal is. -->
+            <details
+                data-detection-technical-identity
+                class="group order-last rounded-lg border border-slate-300 dark:border-slate-700/70 {terminalTheme.shell}"
+            >
+                <summary
+                    class="flex min-h-11 cursor-pointer list-none items-center gap-1.5 rounded-[7px] px-3 py-1.5 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-400 group-open:rounded-b-none group-open:border-b group-open:border-slate-800 {windowChrome ===
+                    'windows'
+                        ? 'bg-[#000080]'
+                        : 'bg-slate-900/80'}"
+                >
+                    {#if windowChrome === 'mac'}
+                        <span class="h-2 w-2 rounded-full bg-rose-500/70" aria-hidden="true"></span>
+                        <span class="h-2 w-2 rounded-full bg-amber-500/70" aria-hidden="true"></span>
+                        <span class="h-2 w-2 rounded-full bg-emerald-500/70" aria-hidden="true"></span>
+                        <span class="ml-1.5 font-mono text-xs text-slate-400">{$_('detection.id')}</span>
+                    {:else if windowChrome === 'windows'}
+                        <!-- Deliberate Windows 95 pastiche, so the raised bevel and the period
+                             greys are literal values rather than palette tokens. -->
+                        <span class="font-mono text-xs font-bold text-white">{$_('detection.id')}</span>
+                        <span class="ml-auto flex items-center gap-0.5" aria-hidden="true">
+                            {#each ['minimise', 'maximise', 'close'] as control (control)}
+                                <span
+                                    class="grid h-3.5 w-4 place-items-center border border-l-white border-t-white border-r-[#404040] border-b-[#404040] bg-[#c0c0c0] text-black"
+                                >
+                                    {#if control === 'minimise'}
+                                        <svg class="h-2 w-2" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.4"><path d="M2 8h6" /></svg>
+                                    {:else if control === 'maximise'}
+                                        <svg class="h-2 w-2" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="1.6" y="1.6" width="6.8" height="6.8" /><path d="M1.6 3.2h6.8" /></svg>
+                                    {:else}
+                                        <svg class="h-2 w-2" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.4"><path d="m2 2 6 6M8 2l-6 6" /></svg>
+                                    {/if}
+                                </span>
+                            {/each}
+                        </span>
+                    {:else}
+                        <span class="font-mono text-xs text-slate-400">{$_('detection.id')}</span>
+                        <span class="ml-auto grid h-4 w-4 place-items-center rounded-full bg-slate-700/70 text-slate-300" aria-hidden="true">
+                            <svg class="h-2 w-2" viewBox="0 0 10 10" stroke="currentColor" stroke-width="1.4"><path d="m2 2 6 6M8 2l-6 6" /></svg>
+                        </span>
+                    {/if}
+                    <svg class="h-3.5 w-3.5 shrink-0 motion-safe:transition-transform group-open:rotate-180 {windowChrome === 'mac' ? 'ml-auto text-slate-500' : windowChrome === 'windows' ? 'ml-2.5 text-white/70' : 'ml-2.5 text-slate-500'}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" />
                     </svg>
                 </summary>
-                <p class="break-all font-mono text-xs text-slate-700 dark:text-slate-300">{detection.frigate_event}</p>
+                <div class="px-3 py-2.5 font-mono text-xs leading-relaxed">
+                    <p class={terminalTheme.prompt}>
+                        {#if terminalTheme.host}<span class="font-bold text-[#8ae234]" aria-hidden="true">{terminalTheme.host}</span>{/if}<span
+                            aria-hidden="true">{terminalTheme.sigil}</span>
+                        yawamf event show
+                    </p>
+                    <p class="mt-1 break-all {terminalTheme.output}">
+                        {detection.frigate_event}<span class="terminal-caret" aria-hidden="true">&#9608;</span>
+                    </p>
+                </div>
                 <!-- The "Frigate event missing" indicator that used to live here as a
                      standalone pill has been folded into the consolidated snapshot/
                      video-status notice below.  The same information is now shown
@@ -2234,23 +2619,74 @@
                     </div>
                 </div>
             {/if}
-            <!-- Confidence Bar -->
-            {#if currentClassificationSource !== 'manual'}
-                <div>
-                    <div class="flex items-center justify-between mb-2">
-                        <span class="text-xs font-bold text-slate-500">{$_('detection.confidence')}</span>
-                        <span class="text-sm font-bold text-slate-900 dark:text-white">
-                            {((detection.score || 0) * 100).toFixed(1)}%
-                        </span>
-                    </div>
-                    <div class="h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                        <div
-                            class="h-full rounded-full transition-all duration-700 {(detection.score || 0) >= 0.8 ? 'bg-accent-500' : 'bg-brand-500'}"
-                            style="width: {(detection.score || 0) * 100}%"
-                        ></div>
+            <!-- Identification: what it is, and how sure, in one place -->
+            <div data-detection-identity>
+                <div class="flex items-start gap-3">
+                    {#if speciesInfo?.thumbnail_url}
+                        <!-- A reference photograph of the species, so the camera frame has something
+                             to be compared against without leaving the view. -->
+                        {#if failedSpeciesReferenceUrl === speciesInfo.thumbnail_url}
+                            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500" aria-hidden="true" data-detection-species-reference-placeholder>
+                                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 18 9 13l3 3 2-2 6 6M15 8h.01M5 4h14a1 1 0 0 1 1 1v14H4V5a1 1 0 0 1 1-1Z" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                            </span>
+                        {:else}
+                            <img
+                                src={speciesInfo.thumbnail_url}
+                                alt={$_('detection.species_reference_alt', {
+                                    values: { species: primaryName },
+                                    default: 'Reference photograph of {species}'
+                                })}
+                                loading="lazy"
+                                onerror={() => { failedSpeciesReferenceUrl = speciesInfo?.thumbnail_url ?? null; }}
+                                class="h-12 w-12 shrink-0 rounded-full border border-slate-200 object-cover dark:border-slate-700"
+                                data-detection-species-reference
+                            />
+                        {/if}
+                    {/if}
+                    <div class="min-w-0">
+                        <p class="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+                        {#if currentClassificationSource === 'manual'}
+                            <svg class="h-3.5 w-3.5 text-accent-600 dark:text-accent-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m5 13 4 4L19 7" />
+                            </svg>
+                            {$_('detection.identified_by_you', { default: 'Identified by you' })}
+                        {:else}
+                            {$_('detection.identified_as', { default: 'Identified as' })}
+                        {/if}
+                        </p>
+                        <h3 class="font-display text-2xl font-bold text-slate-900 dark:text-white">{primaryName}</h3>
+                        {#if subName && subName !== primaryName}
+                            <p class="text-xs italic text-slate-500 dark:text-slate-400">{subName}</p>
+                        {/if}
                     </div>
                 </div>
-            {/if}
+
+                {#if currentClassificationSource !== 'manual'}
+                    <div class="mt-2 flex items-center gap-2.5">
+                        <span class="text-sm font-bold tabular-nums text-slate-900 dark:text-white">
+                            {Math.round((detection.score || 0) * 100)}%
+                        </span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">
+                            {$_('detection.fact_species_match', { default: 'Species match' })} &middot;
+                            {(detection.score || 0) >= 0.85
+                                ? $_('detection.confidence_high', { default: 'confident' })
+                                : (detection.score || 0) >= 0.6
+                                  ? $_('detection.confidence_mid', { default: 'likely' })
+                                  : $_('detection.confidence_low', { default: 'uncertain' })}
+                        </span>
+                        <span class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                            <span
+                                class="block h-full rounded-full {(detection.score || 0) >= 0.85
+                                    ? 'bg-emerald-500'
+                                    : (detection.score || 0) >= 0.6
+                                      ? 'bg-brand-500'
+                                      : 'bg-accent-500'}"
+                                style="width: {(detection.score || 0) * 100}%"
+                            ></span>
+                        </span>
+                    </div>
+                {/if}
+            </div>
 
             <!-- Snapshot fallback notice: video analysis failed, result came from a single frame -->
             <!-- Consolidated video-status notice. Single survivor for the three
@@ -2267,139 +2703,7 @@
                     didn't recover (rare, but actionable)
                  Folds Frigate-event-missing context, the technical details
                  expander, and the snapshot-fallback explanation together. -->
-            {#if videoStatusNoticeVisible}
-                <div
-                    class="p-3 rounded-xl border flex items-start gap-2 {videoStatusNoticeTone.container}"
-                    role="status"
-                >
-                    <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        {#if videoStatusNoticeTone.kind === 'rose'}
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="8" x2="12" y2="12"/>
-                            <line x1="12" y1="16" x2="12.01" y2="16"/>
-                        {:else if videoStatusNoticeTone.kind === 'amber'}
-                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                            <line x1="12" y1="9" x2="12" y2="13"/>
-                            <line x1="12" y1="17" x2="12.01" y2="17"/>
-                        {:else}
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="12" y1="16" x2="12" y2="12"/>
-                            <line x1="12" y1="8" x2="12.01" y2="8"/>
-                        {/if}
-                    </svg>
-                    <div class="flex flex-col gap-1 min-w-0 flex-1">
-                        <span class="text-[10px] font-semibold">
-                            {videoStatusNoticeTitle}
-                        </span>
-                        <span class="text-[11px] font-semibold leading-snug">
-                            {videoStatusNoticeDescription}
-                        </span>
-                        {#if upstreamMissing && detection.frigate_last_checked_at}
-                            <span class="text-[10px] text-slate-500 dark:text-slate-400">
-                                {$_('detection.upstream_missing.last_checked', { default: 'Last checked' })}:
-                                {formatDateTime(detection.frigate_last_checked_at)}
-                                ·
-                                <a
-                                    href={FRIGATE_MISSING_DOCS_URL}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    class="font-semibold hover:underline {videoStatusNoticeTone.kind === 'rose' ? 'text-rose-700 dark:text-rose-300' : 'text-brand-600 dark:text-brand-400'}"
-                                >
-                                    {$_('detection.upstream_missing.learn_more', { default: 'Learn more' })}
-                                </a>
-                            </span>
-                        {/if}
-                        {#if videoStatusShowTechnicalDetails}
-                            <details class="mt-1 rounded-lg border px-3 py-2 {videoStatusNoticeTone.detailsContainer}" bind:open={videoErrorDetailsOpen}>
-                                <summary class="cursor-pointer select-none text-[11px] font-bold {videoStatusNoticeTone.detailsSummary}">
-                                    {videoErrorDetailsOpen
-                                        ? $_('detection.video_analysis.error_details.hide', { default: 'Hide technical details' })
-                                        : $_('detection.video_analysis.error_details.show', { default: 'Show technical details' })}
-                                </summary>
-                                <div class="mt-2 space-y-2 text-[11px] text-slate-700 dark:text-slate-300">
-                                    {#if videoFailureInsight.errorCode}
-                                        <p class="font-mono text-[10px] text-slate-600 dark:text-slate-400">
-                                            {$_('detection.video_analysis.error_details.error_code', { default: 'Error code: {code}', values: { code: videoFailureInsight.errorCode } })}
-                                        </p>
-                                    {/if}
-                                    {#if videoClassificationDiagnostics}
-                                        <section aria-labelledby="video-evidence-heading">
-                                            <p id="video-evidence-heading" class="font-bold text-slate-800 dark:text-slate-200">
-                                                {$_('detection.video_analysis.evidence.title', { default: 'Evidence from this run' })}
-                                            </p>
-                                            <p class="mt-0.5 text-slate-600 dark:text-slate-400">
-                                                {$_('detection.video_analysis.evidence.summary', {
-                                                    default: '{processed} of {sampled} sampled frames were decoded. A frame needed at least {threshold}% confidence to vote.',
-                                                    values: {
-                                                        processed: videoClassificationDiagnostics.processed_frames,
-                                                        sampled: videoClassificationDiagnostics.sampled_frames,
-                                                        threshold: Math.round(videoClassificationDiagnostics.minimum_frame_score * 100)
-                                                    }
-                                                })}
-                                            </p>
-                                            <dl class="mt-2 divide-y divide-slate-200/80 dark:divide-slate-700/70 border-y border-slate-200/80 dark:border-slate-700/70">
-                                                {#each videoClassificationSources as [source, evidence]}
-                                                    <div class="py-2 first:pt-0 last:pb-0">
-                                                        <div class="flex items-baseline justify-between gap-3">
-                                                            <dt class="font-bold text-slate-800 dark:text-slate-200">
-                                                                {videoEvidenceSourceLabel(source)}
-                                                            </dt>
-                                                            <dd class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
-                                                                {evidence.confident_frames}/{evidence.independent_frames ?? evidence.evaluated_frames}
-                                                                {$_('detection.video_analysis.evidence.confident_short', { default: 'confident' })}
-                                                            </dd>
-                                                        </div>
-                                                        <p class="mt-0.5 text-slate-600 dark:text-slate-400">
-                                                            {$_('detection.video_analysis.evidence.required', {
-                                                                default: 'Needed {required} matching confident moments from this source.',
-                                                                values: { required: evidence.required_supporting_frames }
-                                                            })}
-                                                        </p>
-                                                        {#if evidence.top_candidates.length > 0}
-                                                            <ul class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-600 dark:text-slate-400" aria-label={$_('detection.video_analysis.evidence.top_candidates', { default: 'Top recurring candidates' })}>
-                                                                {#each evidence.top_candidates as candidate}
-                                                                    <li>
-                                                                        <span class="font-semibold text-slate-700 dark:text-slate-300">{candidate.label}</span>
-                                                                        · {candidate.supporting_frames}× · {Math.round(candidate.median_score * 100)}%
-                                                                    </li>
-                                                                {/each}
-                                                            </ul>
-                                                        {/if}
-                                                    </div>
-                                                {/each}
-                                            </dl>
-                                        </section>
-                                    {/if}
-                                    {#if videoFailureInsight.causes.length > 0}
-                                        <div>
-                                            <p class="font-bold text-slate-800 dark:text-slate-200">
-                                                {$_('detection.video_analysis.error_details.why', { default: 'Why this can happen' })}
-                                            </p>
-                                            <ul class="mt-1 list-disc pl-5 space-y-1">
-                                                {#each videoFailureInsight.causes as cause}
-                                                    <li>{cause}</li>
-                                                {/each}
-                                            </ul>
-                                        </div>
-                                    {/if}
-                                    {#if videoFailureInsight.checks.length > 0}
-                                        <div>
-                                            <p class="font-bold text-slate-800 dark:text-slate-200">
-                                                {$_('detection.video_analysis.error_details.checks', { default: 'What to check' })}
-                                            </p>
-                                            <ul class="mt-1 list-disc pl-5 space-y-1">
-                                                {#each videoFailureInsight.checks as check}
-                                                    <li>{check}</li>
-                                                {/each}
-                                            </ul>
-                                        </div>
-                                    {/if}
-                                </div>
-                            </details>
-                        {/if}
-                    </div>
-                </div>
-            {/if}
+
 
             <!-- Auto-promotion gated notice: video analysis ran successfully but the
                  score didn't clear the auto-promotion floor, so the primary display
@@ -2520,35 +2824,193 @@
             <!-- The standalone "Video Analysis Failed" red card has been folded
                  into the consolidated video-status notice above. -->
 
-            <!-- Metadata -->
-            <div class="grid grid-cols-2 divide-x divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700">
-                <div class="flex items-center gap-3 px-2 py-3">
-                    <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                    <span class="text-sm font-bold text-slate-700 dark:text-slate-300 truncate">{detection.camera_name}</span>
+            <!-- The facts, as rows rather than four separate boxes -->
+            <dl class="divide-y divide-slate-200/70 border-y border-slate-200/70 text-xs dark:divide-slate-700/50 dark:border-slate-700/50" data-detection-facts>
+                <div class="flex items-baseline justify-between gap-3 py-2">
+                    <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                        <svg class="h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 8h11v8H4z" /><path stroke-linecap="round" stroke-linejoin="round" d="m15 12 5-3v6l-5-3z" /></svg>
+                        {$_('detection.fact_seen', { default: 'Seen' })}
+                    </dt>
+                    <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                        {formatDateTime(detection.detection_time)} &middot; {detection.camera_name}
+                    </dd>
                 </div>
-                {#if detection.temperature !== undefined && detection.temperature !== null}
-                    <div class="flex items-center gap-3 px-3 py-3">
-                        <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                        </svg>
-                        <span class="text-sm font-bold text-slate-700 dark:text-slate-300">
-                            {formatTemperature(detection.temperature, temperatureUnit)}
-                        </span>
+                {#if detection.weather_condition || detection.temperature !== undefined && detection.temperature !== null}
+                    <div class="flex items-baseline justify-between gap-3 py-2">
+                        <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                            <svg class="h-3.5 w-3.5 shrink-0 text-sky-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" /></svg>
+                            {$_('detection.fact_conditions', { default: 'Conditions' })}
+                        </dt>
+                        <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                            {detection.weather_condition ?? ''}{detection.temperature !== undefined && detection.temperature !== null
+                                ? ` ${formatTemperature(detection.temperature, temperatureUnit)}`
+                                : ''}
+                        </dd>
                     </div>
                 {/if}
                 {#if detection.frigate_score != null}
-                    <div class="flex items-center gap-3 border-l-0 border-t border-slate-200 px-2 py-3 dark:border-slate-700">
-                        <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                        </svg>
-                        <span class="text-sm font-bold text-slate-700 dark:text-slate-300">
-                            {$_('detection.frigate_score', { values: { score: Math.round(detection.frigate_score * 100) } })}
-                        </span>
+                    <div class="flex items-baseline justify-between gap-3 py-2">
+                        <dt
+                            class="flex items-center gap-2 text-slate-500 dark:text-slate-400"
+                            title={$_('detection.fact_frigate_hint', {
+                                default:
+                                    'How sure the camera was that it had seen a bird at all, before the species was worked out. Separate from the species match above, so the two percentages will differ.'
+                            })}
+                        >
+                            <svg class="h-3.5 w-3.5 shrink-0 text-indigo-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2" /></svg>
+                            {$_('detection.fact_frigate', { default: 'Spotted as a bird' })}
+                        </dt>
+                        <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
+                            {Math.round((detection.frigate_score || 0) * 100)}%
+                        </dd>
                     </div>
                 {/if}
-            </div>
+                {#if birdnetEnabled && !isManualObservation}
+                <div class="flex items-baseline justify-between gap-3 py-2">
+                    <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                        <svg class="h-3.5 w-3.5 shrink-0 text-emerald-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 3h6v11a3 3 0 01-6 0zM5 11a7 7 0 0014 0M12 18v3" /></svg>
+                        {$_('detection.fact_heard', { default: 'Heard nearby' })}
+                    </dt>
+                    <dd class="text-right font-medium {effectiveAudioConfirmed ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-slate-400'}">
+                        {audioFactValue}
+                    </dd>
+                </div>
+                {/if}
+            </dl>
+
+            {#if videoStatusNoticeVisible}
+                <div
+                    class="p-3 rounded-xl border flex items-start gap-2 {videoStatusNoticeTone.container}"
+                    role="status"
+                >
+                    <svg class="w-4 h-4 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        {#if videoStatusNoticeTone.kind === 'rose'}
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="8" x2="12" y2="12"/>
+                            <line x1="12" y1="16" x2="12.01" y2="16"/>
+                        {:else if videoStatusNoticeTone.kind === 'amber'}
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                            <line x1="12" y1="9" x2="12" y2="13"/>
+                            <line x1="12" y1="17" x2="12.01" y2="17"/>
+                        {:else}
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="12" y1="16" x2="12" y2="12"/>
+                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                        {/if}
+                    </svg>
+                    <div class="flex flex-col gap-1 min-w-0 flex-1">
+                        <span class="text-[10px] font-semibold">
+                            {videoStatusNoticeTitle}
+                        </span>
+                        <span class="text-[11px] font-semibold leading-snug">
+                            {videoStatusNoticeDescription}
+                        </span>
+                        {#if upstreamMissing && detection.frigate_last_checked_at}
+                            <span class="text-[10px] text-slate-500 dark:text-slate-400">
+                                {$_('detection.upstream_missing.last_checked', { default: 'Last checked' })}:
+                                {formatDateTime(detection.frigate_last_checked_at)}
+                                ·
+                                <a
+                                    href={FRIGATE_MISSING_DOCS_URL}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="font-semibold hover:underline {videoStatusNoticeTone.kind === 'rose' ? 'text-rose-700 dark:text-rose-300' : 'text-brand-600 dark:text-brand-400'}"
+                                >
+                                    {$_('detection.upstream_missing.learn_more', { default: 'Learn more' })}
+                                </a>
+                            </span>
+                        {/if}
+                        {#if videoStatusShowTechnicalDetails}
+                            <details class="mt-2 border-t pt-2 {videoStatusNoticeTone.detailsContainer}" bind:open={videoErrorDetailsOpen}>
+                                <summary class="flex min-h-11 cursor-pointer select-none items-center text-[11px] font-bold focus-ring {videoStatusNoticeTone.detailsSummary}">
+                                    {videoErrorDetailsOpen
+                                        ? $_('detection.video_analysis.error_details.hide', { default: 'Hide technical details' })
+                                        : $_('detection.video_analysis.error_details.show', { default: 'Show technical details' })}
+                                </summary>
+                                <div class="mt-2 space-y-2 text-[11px] text-slate-700 dark:text-slate-300">
+                                    {#if videoFailureInsight.errorCode}
+                                        <p class="font-mono text-[10px] text-slate-600 dark:text-slate-400">
+                                            {$_('detection.video_analysis.error_details.error_code', { default: 'Error code: {code}', values: { code: videoFailureInsight.errorCode } })}
+                                        </p>
+                                    {/if}
+                                    {#if videoClassificationDiagnostics}
+                                        <section aria-labelledby="video-evidence-heading">
+                                            <p id="video-evidence-heading" class="font-bold text-slate-800 dark:text-slate-200">
+                                                {$_('detection.video_analysis.evidence.title', { default: 'Evidence from this run' })}
+                                            </p>
+                                            <p class="mt-0.5 text-slate-600 dark:text-slate-400">
+                                                {$_('detection.video_analysis.evidence.summary', {
+                                                    default: '{processed} of {sampled} sampled frames were decoded. A frame needed at least {threshold}% confidence to vote.',
+                                                    values: {
+                                                        processed: videoClassificationDiagnostics.processed_frames,
+                                                        sampled: videoClassificationDiagnostics.sampled_frames,
+                                                        threshold: Math.round(videoClassificationDiagnostics.minimum_frame_score * 100)
+                                                    }
+                                                })}
+                                            </p>
+                                            <dl class="mt-2 divide-y divide-slate-200/80 dark:divide-slate-700/70 border-y-0 border-slate-200/80 dark:border-slate-700/70">
+                                                {#each videoClassificationSources as [source, evidence]}
+                                                    <div class="py-2 first:pt-0 last:pb-0">
+                                                        <div class="flex items-baseline justify-between gap-3">
+                                                            <dt class="font-bold text-slate-800 dark:text-slate-200">
+                                                                {videoEvidenceSourceLabel(source)}
+                                                            </dt>
+                                                            <dd class="shrink-0 tabular-nums text-slate-500 dark:text-slate-400">
+                                                                {evidence.confident_frames}/{evidence.independent_frames ?? evidence.evaluated_frames}
+                                                                {$_('detection.video_analysis.evidence.confident_short', { default: 'confident' })}
+                                                            </dd>
+                                                        </div>
+                                                        <p class="mt-0.5 text-slate-600 dark:text-slate-400">
+                                                            {$_('detection.video_analysis.evidence.required', {
+                                                                default: 'Needed {required} matching confident moments from this source.',
+                                                                values: { required: evidence.required_supporting_frames }
+                                                            })}
+                                                        </p>
+                                                        {#if evidence.top_candidates.length > 0}
+                                                            <ul class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-600 dark:text-slate-400" aria-label={$_('detection.video_analysis.evidence.top_candidates', { default: 'Top recurring candidates' })}>
+                                                                {#each evidence.top_candidates as candidate}
+                                                                    <li>
+                                                                        <span class="font-semibold text-slate-700 dark:text-slate-300">{candidate.label}</span>
+                                                                        · {candidate.supporting_frames}× · {Math.round(candidate.median_score * 100)}%
+                                                                    </li>
+                                                                {/each}
+                                                            </ul>
+                                                        {/if}
+                                                    </div>
+                                                {/each}
+                                            </dl>
+                                        </section>
+                                    {/if}
+                                    {#if videoFailureInsight.causes.length > 0}
+                                        <div>
+                                            <p class="font-bold text-slate-800 dark:text-slate-200">
+                                                {$_('detection.video_analysis.error_details.why', { default: 'Why this can happen' })}
+                                            </p>
+                                            <ul class="mt-1 list-disc pl-5 space-y-1">
+                                                {#each videoFailureInsight.causes as cause}
+                                                    <li>{cause}</li>
+                                                {/each}
+                                            </ul>
+                                        </div>
+                                    {/if}
+                                    {#if videoFailureInsight.checks.length > 0}
+                                        <div>
+                                            <p class="font-bold text-slate-800 dark:text-slate-200">
+                                                {$_('detection.video_analysis.error_details.checks', { default: 'What to check' })}
+                                            </p>
+                                            <ul class="mt-1 list-disc pl-5 space-y-1">
+                                                {#each videoFailureInsight.checks as check}
+                                                    <li>{check}</li>
+                                                {/each}
+                                            </ul>
+                                        </div>
+                                    {/if}
+                                </div>
+                            </details>
+                        {/if}
+                    </div>
+                </div>
+            {/if}
 
             {#if hasAudioContext}
                 <section data-detection-audio-section class="space-y-3 border-t border-slate-200 pt-5 dark:border-slate-700">
@@ -2560,18 +3022,18 @@
                         </div>
                         <div class="min-w-0">
                             <p class="text-[10px] font-semibold text-brand-600/70 dark:text-brand-400/70">
-                                {detection.audio_confirmed
+                                {effectiveAudioConfirmed
                                     ? $_('detection.audio_match')
                                     : $_('detection.audio_context')}
                             </p>
                             <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
-                                {detection.audio_confirmed
-                                    ? (detection.audio_species || $_('detection.birdnet_confirmed'))
+                                {effectiveAudioConfirmed
+                                    ? (effectiveAudioSpecies || $_('detection.birdnet_confirmed'))
                                     : (audioNearbySummary
                                         ? $_('detection.audio_nearby', { values: { species: audioNearbySummary }, default: 'Nearby audio: {species}' })
                                         : $_('detection.audio_no_match_desc', { default: 'No nearby BirdNET species in the matching window' }))}
-                                {#if detection.audio_score && detection.audio_confirmed}
-                                    <span class="ml-1 opacity-60">({(detection.audio_score * 100).toFixed(0)}%)</span>
+                                {#if effectiveAudioScore && effectiveAudioConfirmed}
+                                    <span class="ml-1 opacity-60">({(effectiveAudioScore * 100).toFixed(0)}%)</span>
                                 {/if}
                             </p>
                         </div>
@@ -2669,7 +3131,7 @@
                                 </figcaption>
                             {/if}
                         </figure>
-                    {:else if detection.audio_confirmed && audioContextLoaded && audioContext.length > 0}
+                    {:else if effectiveAudioConfirmed && audioContextLoaded && audioContext.length > 0}
                         <p class="px-3 py-2 rounded-xl bg-slate-100/60 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60 text-[10px] font-semibold text-slate-500">
                             {$_('detection.audio_spectrogram_unavailable', { default: 'Spectrogram unavailable for this match' })}
                         </p>
@@ -2694,6 +3156,14 @@
                                 <p class="text-[10px] font-semibold text-slate-400">{$_('detection.audio_context_loading')}</p>
                             {:else if audioContextError}
                                 <p class="text-[10px] font-semibold text-rose-500">{audioContextError}</p>
+                            {:else if audioContext.length === 0 && audioContextSuppressed > 0}
+                                <p class="text-[10px] font-semibold text-slate-400">
+                                    {$_('detection.audio_context_suppressed', {
+                                        values: { count: audioContextSuppressed },
+                                        default:
+                                            'Nearby audio was heard, but on a microphone this camera is not mapped to. Change the sensor mapping in Settings to include it.'
+                                    })}
+                                </p>
                             {:else if audioContext.length === 0}
                                 <p class="text-[10px] font-semibold text-slate-400">{$_('detection.audio_context_empty')}</p>
                             {:else}
@@ -2732,16 +3202,13 @@
                                 <p class="text-[10px] font-semibold text-sky-600/70 dark:text-sky-300/70 mb-0.5">
                                     {$_('detection.weather_title')}
                                 </p>
-                                <p class="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">
-                                    {detection.weather_condition || $_('detection.weather_unknown')}
+                                <p class="text-xs text-slate-500 dark:text-slate-400">
+                                    {$_('detection.weather_breakdown', {
+                                        default: 'Cloud, wind and rain at the time'
+                                    })}
                                 </p>
                             </div>
                         </div>
-                        {#if detection.temperature !== undefined && detection.temperature !== null}
-                            <div class="text-sm font-bold text-slate-800 dark:text-slate-100">
-                                {formatTemperature(detection.temperature, temperatureUnit)}
-                            </div>
-                        {/if}
                     </div>
                     <button
                         type="button"
@@ -2823,7 +3290,15 @@
                 </section>
             {/if}
 
-            {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby || showEbirdNotable)}
+            {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby)}
+                <section data-detection-reference class="space-y-3">
+                    <h4 class="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
+                        {$_('detection.reference_disclosure', {
+                            values: { species: primaryName },
+                            default: 'About {species}, and nearby sightings'
+                        })}
+                    </h4>
+
                 <div class="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                     {#if enrichmentSummaryProvider !== 'disabled'}
                         <div class="group relative overflow-hidden rounded-2xl border border-slate-200/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/30 p-5 hover:bg-white/80 dark:hover:bg-slate-900/50 transition-all duration-300">
@@ -2923,7 +3398,7 @@
                                         <div class="flex items-center gap-1.5 mt-0.5">
                                             <span class="text-[9px] font-bold text-sky-600/60 dark:text-sky-500/60">eBird</span>
                                             <span class="w-0.5 h-0.5 rounded-full bg-sky-300"></span>
-                                            <span class="text-[9px] font-medium text-slate-400">{ebirdRadius}km · {ebirdDaysBack}d</span>
+                                            <span class="text-[9px] font-medium text-slate-400">{ebirdRadiusLabel} · {ebirdDaysBack}d</span>
                                         </div>
                                     </div>
                                 </div>
@@ -3002,61 +3477,8 @@
                         </div>
                     {/if}
 
-                    {#if showEbirdNotable}
-                        <div class="group relative overflow-hidden rounded-2xl border border-amber-200/60 dark:border-amber-800/40 bg-amber-50/30 dark:bg-amber-900/10 p-5 hover:bg-amber-50/50 dark:hover:bg-amber-900/20 transition-all duration-300">
-                            <div class="flex items-center justify-between gap-3 mb-4">
-                                <div class="flex items-center gap-2">
-                                    <div class="p-1.5 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                                        </svg>
-                                    </div>
-                                    <div class="flex flex-col">
-                                        <p class="text-[10px] font-semibold text-amber-700 dark:text-amber-400">{$_('detection.ebird_notable_title')}</p>
-                                        <div class="flex items-center gap-1.5 mt-0.5">
-                                            <span class="text-[9px] font-bold text-amber-600/60 dark:text-amber-500/60">{$_('detection.ebird_notable_badge')}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {#if !ebirdEnabled}
-                                <div class="text-center py-4 rounded-xl bg-white/50 dark:bg-slate-900/30 border border-dashed border-amber-200 dark:border-amber-800/30">
-                                    <p class="text-xs font-medium text-slate-500">{$_('detection.ebird_enable_notable')}</p>
-                                </div>
-                            {:else if ebirdNotableLoading}
-                                <div class="space-y-3">
-                                    {#each [1, 2] as _}
-                                        <div class="h-12 w-full bg-amber-100 dark:bg-amber-900/30 rounded-xl animate-pulse"></div>
-                                    {/each}
-                                </div>
-                            {:else if ebirdNotableError}
-                                <p class="text-xs text-rose-600">{ebirdNotableError}</p>
-                            {:else if (ebirdNotable?.results?.length || 0) === 0}
-                                <div class="text-center py-4">
-                                    <p class="text-sm text-slate-400 font-medium">{$_('detection.ebird_none_notable')}</p>
-                                </div>
-                            {:else if ebirdNotable}
-                                <div class="space-y-2">
-                                    {#each ebirdNotable.results.slice(0, 5) as obs}
-                                        <div class="flex items-center gap-3 p-2.5 rounded-xl bg-white/60 dark:bg-slate-900/40 border border-amber-100 dark:border-amber-900/30 hover:border-amber-300 dark:hover:border-amber-700/50 transition-colors">
-                                            {#if obs.thumbnail_url}
-                                                <img src={obs.thumbnail_url} alt={obs.common_name || 'Bird'} class="w-10 h-10 rounded-lg object-cover bg-slate-200 dark:bg-slate-700 shrink-0" loading="lazy" />
-                                            {/if}
-                                            <div class="min-w-0 flex-1">
-                                                <p class="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{obs.common_name || obs.scientific_name || $_('common.unknown_species')}</p>
-                                                <p class="text-[10px] font-medium text-slate-400 truncate">{obs.location_name || $_('common.unknown_location')}</p>
-                                            </div>
-                                            <div class="text-right shrink-0">
-                                                <p class="text-[10px] font-bold text-amber-600 dark:text-amber-400">{formatEbirdDate(obs.observed_at)}</p>
-                                            </div>
-                                        </div>
-                                    {/each}
-                                </div>
-                            {/if}
-                        </div>
-                    {/if}
                 </div>
+                </section>
             {/if}
 
             {#if canShowInat}
@@ -3267,6 +3689,61 @@
             {/if}
 
             <!-- Actions -->
+            {#if hasOwnerDetectionActions && detection.scientific_name}
+                <div class="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/50 p-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+                                {$_('detection.common_name_override', { default: 'Common name' })}
+                            </p>
+                            <p class="truncate text-sm font-bold text-slate-800 dark:text-slate-100">
+                                {commonNameOverride ?? detection.common_name ?? $_('common.unknown_species')}
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onclick={() => {
+                                commonNameOverrideInput = commonNameOverride ?? detection.common_name ?? '';
+                                commonNameEditorOpen = !commonNameEditorOpen;
+                            }}
+                            class="shrink-0 rounded-lg bg-white dark:bg-slate-700 px-3 py-2 text-xs font-semibold text-brand-600 dark:text-brand-300 shadow-sm"
+                        >
+                            {$_('detection.common_name_override_edit', { default: 'Edit name' })}
+                        </button>
+                    </div>
+                    {#if commonNameEditorOpen}
+                        <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                            <input
+                                type="text"
+                                maxlength="120"
+                                bind:value={commonNameOverrideInput}
+                                disabled={commonNameOverrideSaving}
+                                aria-label={$_('detection.common_name_override', { default: 'Common name' })}
+                                class="min-w-0 flex-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
+                            />
+                            <button
+                                type="button"
+                                onclick={saveCommonNameOverride}
+                                disabled={!commonNameOverrideInput.trim() || commonNameOverrideSaving}
+                                class="rounded-lg bg-brand-500 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+                            >
+                                {commonNameOverrideSaving ? $_('common.saving') : $_('common.save')}
+                            </button>
+                            {#if commonNameOverride}
+                                <button
+                                    type="button"
+                                    onclick={resetCommonNameOverride}
+                                    disabled={commonNameOverrideSaving}
+                                    class="rounded-lg bg-slate-200 dark:bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-700 dark:text-slate-200 disabled:opacity-50"
+                                >
+                                    {$_('detection.common_name_override_reset', { default: 'Use provider name' })}
+                                </button>
+                            {/if}
+                        </div>
+                    {/if}
+                </div>
+            {/if}
+
             {#if hasOwnerDetectionActions}
                 <div class="flex gap-2">
                     {#if !isManualObservation}
@@ -3278,13 +3755,36 @@
                         </button>
                     {/if}
 
+                    {#if !detection.manual_tagged && !isUnknownSpecies}
+                        <button
+                            onclick={() => handleManualTag({
+                                id: detection.display_name,
+                                display_name: detection.display_name,
+                                scientific_name: detection.scientific_name ?? null,
+                                common_name: detection.common_name ?? null
+                            } as SearchResult)}
+                            disabled={updatingTag}
+                            class="flex-1 rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50"
+                            data-detection-confirm
+                        >
+                            {updatingTag
+                                ? $_('common.saving')
+                                : $_('actions.confirm_species', {
+                                    values: { species: primaryName },
+                                    default: 'Confirm {species}'
+                                })}
+                        </button>
+                    {/if}
+
                     <div class="relative flex-1">
                         <button
                             onclick={() => showTagDropdown = !showTagDropdown}
                             disabled={updatingTag}
                             class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50"
                         >
-                            {updatingTag ? $_('common.saving') : $_('actions.manual_tag')}
+                            {updatingTag
+                                ? $_('common.saving')
+                                : $_('actions.pick_species', { default: 'Pick a different species' })}
                         </button>
                     </div>
                 </div>
@@ -3324,7 +3824,7 @@
                 {/if}
                 <button
                     onclick={handleSpeciesInfo}
-                    class="flex-1 bg-brand-500 hover:bg-brand-600 text-white font-semibold text-xs rounded-xl transition-all shadow-lg shadow-brand-500/20"
+                    class="btn btn-primary flex-1 px-3 py-2.5 text-xs shadow-lg shadow-brand-500/20"
                 >
                     {$_('actions.species_info')}
                 </button>
@@ -3332,343 +3832,61 @@
             </div>
         </div>
 
-        {#if snapshotRepairOpen}
-            <div class="absolute inset-0 z-35 flex flex-col bg-slate-950/95 text-white backdrop-blur-md">
-
-                <!-- ── Header ── -->
-                <div class="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-                    <div class="flex min-w-0 items-center gap-2.5">
-                        <svg class="h-4 w-4 shrink-0 text-brand-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                            <rect x="3" y="6" width="18" height="14" rx="2" stroke-linecap="round" stroke-linejoin="round"/>
-                            <circle cx="12" cy="13" r="3.5"/>
-                            <path d="M9 6l1.5-2h3L15 6" stroke-linecap="round" stroke-linejoin="round"/>
-                        </svg>
-                        <div class="min-w-0">
-                            <p class="text-[10px] font-semibold text-white/60">
-                                {$_('detection.snapshot_change', { default: 'Choose Snapshot' })}
-                            </p>
-                            <p class="truncate text-sm font-semibold text-white">{selectedSnapshotPickerLabel}</p>
-                        </div>
-                    </div>
-                    <div class="flex shrink-0 items-center gap-2">
-                        <button
-                            type="button"
-                            onclick={() => { snapshotRepairOpen = false; resetSnapshotPickerSelection(); }}
-                            class="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-[11px] font-semibold text-white/80 transition-colors hover:border-white/30 hover:text-white"
-                        >
-                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round"/>
-                            </svg>
-                            {$_('common.cancel', { default: 'Cancel' })}
-                        </button>
-                        <button
-                            type="button"
-                            onclick={handleSaveSnapshotSelection}
-                            disabled={!canSaveSnapshotSelection}
-                            class="inline-flex items-center gap-1.5 rounded-full bg-brand-500 px-3 py-1.5 text-[11px] font-semibold text-slate-950 transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {#if snapshotApplyPending}
-                                <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                            {:else}
-                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                                    <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                            {/if}
-                            {$_('detection.snapshot_save', { default: 'Save' })}
-                        </button>
-                    </div>
-                </div>
-
-                <div class="flex-1 overflow-y-auto p-4">
-                    <div class="space-y-5">
-
-                        <!-- ── Preview ── -->
-                        <div class="overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-                            <img src={selectedSnapshotPreviewUrl} alt={selectedSnapshotPickerLabel} class="aspect-video w-full object-cover" />
-                        </div>
-
-                        <!-- ── Crop type ── -->
-                        <div class="space-y-2">
-                            <div>
-                                <p class="text-[10px] font-semibold text-white/60">
-                                    {$_('detection.snapshot_picker_sources', { default: 'Crop Type' })}
-                                </p>
-                                <p class="mt-0.5 text-[11px] text-white/40">
-                                    {$_('detection.snapshot_picker_sources_hint', { default: 'Full frame, Frigate region, or the original capture' })}
-                                </p>
-                            </div>
-                            <div class="grid grid-cols-3 gap-2">
-
-                                <!-- Full frame -->
-                                <button
-                                    type="button"
-                                    onclick={() => stageSnapshotCandidate(fullFrameSnapshotCandidate?.candidate_id ?? null)}
-                                    disabled={!fullFrameSnapshotCandidate}
-                                    class="rounded-2xl border p-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 {pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === fullFrameSnapshotCandidate?.candidate_id ? 'border-blue-400/70 bg-blue-400/10' : 'border-white/10 bg-white/5 hover:border-white/25'}"
-                                >
-                                    {#if fullFrameSnapshotCandidate?.thumbnail_url}
-                                        <img src={fullFrameSnapshotCandidate.thumbnail_url} alt={$_('detection.snapshot_source_full_frame', { default: 'Full Frame' })} class="aspect-video w-full rounded-xl object-cover" />
-                                    {:else}
-                                        <div class="flex aspect-video w-full items-center justify-center rounded-xl bg-white/5">
-                                            <svg class="h-5 w-5 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                                                <path d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3M16 21h3a2 2 0 002-2v-3" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                        </div>
-                                    {/if}
-                                    <div class="mt-2 flex items-center gap-1.5">
-                                        <svg class="h-3 w-3 shrink-0 text-blue-300/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                            <path d="M8 3H5a2 2 0 00-2 2v3M21 8V5a2 2 0 00-2-2h-3M3 16v3a2 2 0 002 2h3M16 21h3a2 2 0 002-2v-3" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                        <span class="text-[11px] font-semibold">{$_('detection.snapshot_source_full_frame', { default: 'Full Frame' })}</span>
-                                    </div>
-                                    <span class="block text-[10px] text-white/40">{$_('detection.snapshot_source_full_frame_hint', { default: 'Entire scene' })}</span>
-                                </button>
-
-                                <!-- Smart crop (Frigate hint) -->
-                                <button
-                                    type="button"
-                                    onclick={() => stageSnapshotCandidate(frigateHintSnapshotCandidate?.candidate_id ?? null)}
-                                    disabled={!frigateHintSnapshotCandidate}
-                                    class="rounded-2xl border p-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 {pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === frigateHintSnapshotCandidate?.candidate_id ? 'border-amber-400/70 bg-amber-400/10' : 'border-white/10 bg-white/5 hover:border-white/25'}"
-                                >
-                                    {#if frigateHintSnapshotCandidate?.thumbnail_url}
-                                        <img src={frigateHintSnapshotCandidate.thumbnail_url} alt={$_('detection.snapshot_source_frigate_hint_crop', { default: 'Smart Crop' })} class="aspect-video w-full rounded-xl object-cover" />
-                                    {:else}
-                                        <div class="flex aspect-video w-full items-center justify-center rounded-xl bg-white/5">
-                                            <svg class="h-5 w-5 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                                                <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7.5"/>
-                                                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/>
-                                            </svg>
-                                        </div>
-                                    {/if}
-                                    <div class="mt-2 flex items-center gap-1.5">
-                                        <svg class="h-3 w-3 shrink-0 text-amber-300/70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                            <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7.5"/>
-                                            <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/>
-                                        </svg>
-                                        <span class="text-[11px] font-semibold">{$_('detection.snapshot_source_frigate_hint_crop', { default: 'Smart Crop' })}</span>
-                                    </div>
-                                    <span class="block text-[10px] text-white/40">{$_('detection.snapshot_source_frigate_hint_hint', { default: 'Frigate region' })}</span>
-                                </button>
-
-                                <!-- Original Frigate snapshot -->
-                                <button
-                                    type="button"
-                                    onclick={stageOriginalFrigateSnapshot}
-                                    disabled={!originalFrigateSnapshotAvailable}
-                                    class="rounded-2xl border p-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 {pendingSnapshotMode === 'revert_original' ? 'border-white/40 bg-white/10' : 'border-white/10 bg-white/5 hover:border-white/25'}"
-                                >
-                                    {#if originalFrigateSnapshotAvailable}
-                                        <img src={originalFrigateSnapshotUrl} alt={$_('detection.snapshot_source_original', { default: 'Original' })} class="aspect-video w-full rounded-xl object-cover" />
-                                    {:else}
-                                        <div class="flex aspect-video w-full items-center justify-center rounded-xl bg-white/5">
-                                            <svg class="h-5 w-5 text-white/20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                                                <path d="M12 9v4M12 17h.01M10.3 4.3L2.8 17.1A2 2 0 004.5 20h15a2 2 0 001.7-2.9L13.7 4.3a2 2 0 00-3.4 0z" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                        </div>
-                                    {/if}
-                                    <div class="mt-2 flex items-center gap-1.5">
-                                        <svg class="h-3 w-3 shrink-0 text-white/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                            <path d="M9 14L4 9l5-5M4 9h11a6 6 0 010 12h-3" stroke-linecap="round" stroke-linejoin="round"/>
-                                        </svg>
-                                        <span class="text-[11px] font-semibold">{$_('detection.snapshot_source_original', { default: 'Original' })}</span>
-                                    </div>
-                                    <span class="block text-[10px] text-white/40">
-                                        {originalFrigateSnapshotAvailable
-                                            ? $_('detection.snapshot_source_original_hint', { default: 'Frigate snapshot' })
-                                            : $_('detection.snapshot_source_original_unavailable_hint', { default: 'Original unavailable' })}
-                                    </span>
-                                </button>
-
-                            </div>
-                        </div>
-
-                        <!-- ── Scored frames ── -->
-                        <div class="space-y-2">
-                            <div class="flex items-start justify-between gap-2">
-                                <div>
-                                    <p class="text-[10px] font-semibold text-white/60">
-                                        {$_('detection.snapshot_candidate_frames', { default: 'Scored Frames' })}
-                                    </p>
-                                    <p class="mt-0.5 text-[11px] text-white/40">
-                                        {$_('detection.snapshot_candidate_frames_hint', { default: 'AI-ranked frames from the video clip — tap to select' })}
-                                    </p>
-                                </div>
-                                {#if canGenerateSnapshotCandidates && allSnapshotFrameCandidates.length > 0}
-                                    <button
-                                        type="button"
-                                        onclick={handleGenerateSnapshotCandidates}
-                                        disabled={snapshotGeneratePending}
-                                        title={$_('detection.snapshot_generate_hint', { default: 'Run the AI crop model on the highest-scoring frames from video analysis' })}
-                                        class="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-brand-300/35 bg-brand-500/15 px-3 py-1.5 text-[11px] font-semibold text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        {#if snapshotGeneratePending}
-                                            <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                        {:else}
-                                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                                <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.636 5.636l2.121 2.121M16.243 16.243l2.121 2.121M5.636 18.364l2.121-2.121M16.243 7.757l2.121-2.121" stroke-linecap="round"/>
-                                            </svg>
-                                        {/if}
-                                        {$_('detection.snapshot_generate', { default: 'Regenerate HQ' })}
-                                    </button>
-                                {/if}
-                            </div>
-
-                            {#if snapshotCandidatesLoading}
-                                <div class="flex items-center gap-2.5 rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/60">
-                                    <span class="inline-block h-4 w-4 shrink-0 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                    {$_('detection.snapshot_candidates_loading', { default: 'Loading…' })}
-                                </div>
-                            {:else if allSnapshotFrameCandidates.length === 0}
-                                <div class="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 px-3 py-4 text-sm text-white/50 sm:flex-row sm:items-center sm:justify-between">
-                                    <div class="flex items-center gap-2.5">
-                                        <svg class="h-4 w-4 shrink-0 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                            <circle cx="12" cy="12" r="9"/>
-                                            <path d="M12 8v4M12 16h.01" stroke-linecap="round"/>
-                                        </svg>
-                                        <span>{$_('detection.snapshot_candidates_empty', { default: 'No scored frames yet - regenerate snapshots to analyse this clip.' })}</span>
-                                    </div>
-                                    {#if canGenerateSnapshotCandidates}
-                                        <button
-                                            type="button"
-                                            onclick={handleGenerateSnapshotCandidates}
-                                            disabled={snapshotGeneratePending}
-                                            title={$_('detection.snapshot_generate_hint', { default: 'Run the AI crop model on the highest-scoring frames from video analysis' })}
-                                            class="shrink-0 inline-flex items-center justify-center gap-1.5 rounded-full border border-brand-300/35 bg-brand-500/15 px-3 py-1.5 text-[11px] font-semibold text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-50"
-                                        >
-                                            {#if snapshotGeneratePending}
-                                                <span class="inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                            {:else}
-                                                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                                    <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.636 5.636l2.121 2.121M16.243 16.243l2.121 2.121M5.636 18.364l2.121-2.121M16.243 7.757l2.121-2.121" stroke-linecap="round"/>
-                                                </svg>
-                                            {/if}
-                                            {$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
-                                        </button>
-                                    {/if}
-                                </div>
-                            {:else}
-                                {#if modelSnapshotCandidates.length === 0}
-                                    <div class="flex items-start gap-2.5 rounded-2xl border px-3 py-3 text-sm
-                                        {modelCropMissReason === 'crop_model_disabled' || modelCropMissReason === 'crop_model_unavailable'
-                                            ? 'border-amber-400/20 bg-amber-400/5 text-amber-200/80'
-                                            : 'border-white/10 bg-white/5 text-white/50'}">
-                                        {#if modelCropMissReason === 'crop_model_disabled' || modelCropMissReason === 'crop_model_unavailable'}
-                                            <svg class="mt-0.5 h-4 w-4 shrink-0 text-amber-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" stroke-linecap="round" stroke-linejoin="round"/>
-                                                <line x1="12" y1="9" x2="12" y2="13" stroke-linecap="round"/>
-                                                <line x1="12" y1="17" x2="12.01" y2="17" stroke-linecap="round"/>
-                                            </svg>
-                                        {:else}
-                                            <svg class="mt-0.5 h-4 w-4 shrink-0 text-white/30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                                <circle cx="12" cy="12" r="9"/>
-                                                <path d="M12 8v4M12 16h.01" stroke-linecap="round"/>
-                                            </svg>
-                                        {/if}
-                                        <span>
-                                            {#if modelCropMissReason === 'crop_model_disabled'}
-                                                {$_('detection.snapshot_model_crop_disabled', { default: 'AI cropping is disabled — enable "HQ Bird Crop Snapshots" in Settings to get tighter crops.' })}
-                                            {:else if modelCropMissReason === 'crop_model_unavailable'}
-                                                {$_('detection.snapshot_model_crop_unavailable', { default: 'AI crop model not loaded — visit Model Manager to download it.' })}
-                                            {:else}
-                                                {$_('detection.snapshot_model_candidates_empty', { default: 'No AI-cropped frames found. Full-frame and smart-crop candidates are available above.' })}
-                                            {/if}
-                                        </span>
-                                    </div>
-                                {/if}
-
-                                <div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-                                    {#each allSnapshotFrameCandidates as candidate, i}
-                                        {@const isSelected = pendingSnapshotMode !== 'revert_original' && selectedSnapshotPickerCandidate?.candidate_id === candidate.candidate_id}
-                                        {@const isSaved = currentSnapshotCandidateId === candidate.candidate_id}
-                                        {@const isFirstModelCrop = candidate.source_mode === 'model_crop' && i === allSnapshotFrameCandidates.findIndex(c => c.source_mode === 'model_crop')}
-                                        <button
-                                            type="button"
-                                            onclick={() => stageSnapshotCandidate(candidate.candidate_id)}
-                                            class="relative rounded-2xl border p-2 text-left transition-colors {isSelected ? 'border-brand-400 bg-brand-400/15 ring-1 ring-brand-400/30' : 'border-white/10 bg-white/5 hover:border-white/25'}"
-                                        >
-                                            {#if isSaved}
-                                                <span class="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-brand-500 text-slate-950 shadow" title={$_('detection.snapshot_currently_saved', { default: 'Currently saved' })}>
-                                                    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                                </span>
-                                            {/if}
-                                            {#if isFirstModelCrop}
-                                                <span class="absolute left-3 top-3 z-10 rounded-full bg-brand-500/90 px-1.5 py-0.5 text-[9px] font-semibold text-slate-950 shadow">
-                                                    {$_('detection.snapshot_best', { default: 'Best' })}
-                                                </span>
-                                            {/if}
-                                            {#if candidate.thumbnail_url}
-                                                <img src={candidate.thumbnail_url} alt={candidate.classifier_label || snapshotSourceLabel(candidate.source_mode)} class="aspect-video w-full rounded-xl object-cover" />
-                                            {/if}
-                                            <div class="mt-1.5 flex items-center justify-between gap-1">
-                                                <span class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold {snapshotSourceBadgeClass(candidate.source_mode)}">
-                                                    {snapshotSourceShortLabel(candidate.source_mode)}
-                                                </span>
-                                                {#if typeof candidate.classifier_score === 'number'}
-                                                    <span class="text-[10px] font-semibold tabular-nums text-brand-300/80">{(candidate.classifier_score * 100).toFixed(0)}%</span>
-                                                {/if}
-                                            </div>
-                                            <span class="mt-0.5 block truncate text-[11px] font-semibold leading-tight">{candidate.classifier_label || snapshotSourceLabel(candidate.source_mode)}</span>
-                                            <span class="block text-[10px] text-white/40">
-                                                {candidate.clip_variant === 'frigate_snapshot'
-                                                    ? $_('detection.snapshot_candidate_final_frame', { default: 'Frigate final snapshot' })
-                                                    : formatSnapshotFrameOffset(candidate.frame_offset_seconds) || `Frame ${candidate.frame_index}`}
-                                            </span>
-                                        </button>
-                                    {/each}
-                                </div>
-                            {/if}
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-        {/if}
-
         {#if hasOwnerDetectionActions && showTagDropdown}
             <div
-                class="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 overscroll-contain touch-none"
+                data-manual-tag-dialog
+                class="absolute left-0 right-0 top-0 z-50 flex h-full items-center justify-center overscroll-contain bg-black/40 p-4 backdrop-blur-sm"
+                style={manualTagViewportStyle}
                 onclick={(e) => {
                     if (e.target === e.currentTarget && !updatingTag) {
                         showTagDropdown = false;
                     }
                 }}
                 onkeydown={(e) => {
-                    if ((e.key === 'Escape' || e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget && !updatingTag) {
+                    if (e.key === 'Escape' && !updatingTag) {
                         e.preventDefault();
+                        e.stopPropagation();
                         showTagDropdown = false;
                     }
                 }}
-                role="button"
-                tabindex="0"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="manual-tag-dialog-title"
+                tabindex="-1"
             >
                 <div
-                    class="w-full max-w-md mx-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 touch-pan-y"
+                    class="mx-2 flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl animate-in fade-in zoom-in-95 touch-pan-y dark:border-slate-700 dark:bg-slate-800"
                     aria-busy={updatingTag}
                 >
-                    <div class="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
-                        <h4 class="text-sm font-bold text-slate-800 dark:text-slate-100">
+                    <div class="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-2 dark:border-slate-700">
+                        <h4 id="manual-tag-dialog-title" class="text-sm font-bold text-slate-800 dark:text-slate-100">
                             {$_('actions.manual_tag')}
                         </h4>
                         <button
                             type="button"
                             onclick={() => showTagDropdown = false}
                             disabled={updatingTag}
-                            class="text-xs font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                            class="btn btn-ghost min-h-11 px-3 text-xs"
                         >
                             {$_('common.cancel')}
                         </button>
                     </div>
-                    <div class="p-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                    <div class="shrink-0 border-b border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/50">
+                        <label for="manual-tag-species-search" class="sr-only">
+                            {$_('detection.tagging.search_placeholder')}
+                        </label>
                         <input
+                            id="manual-tag-species-search"
                             type="text"
                             bind:value={tagSearchQuery}
                             disabled={updatingTag}
+                            autocomplete="off"
+                            enterkeyhint="search"
                             placeholder={$_('detection.tagging.search_placeholder')}
-                            class="w-full px-4 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none"
+                            class="input-base min-h-11 text-base sm:text-sm"
                         />
                     </div>
-                    <div class="max-h-72 overflow-y-auto overscroll-contain p-1">
+                    <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1">
                         {#each searchResults as result}
                             {@const names = getResultNames(result)}
                             {@const isPending = updatingTag && pendingManualTagId === result.id}
@@ -3676,7 +3894,7 @@
                                 type="button"
                                 onclick={() => handleManualTag(result)}
                                 disabled={updatingTag}
-                                class="w-full px-4 py-2.5 text-left text-sm font-medium rounded-lg transition-all touch-manipulation hover:bg-brand-50 dark:hover:bg-brand-900/20 hover:text-brand-600 dark:hover:text-brand-400 disabled:opacity-60 disabled:cursor-wait {result.id === detection.display_name ? 'bg-brand-500/10 text-brand-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
+                                class="min-h-11 w-full rounded-lg px-4 py-2.5 text-left text-sm font-medium transition-all touch-manipulation hover:bg-brand-50 hover:text-brand-600 disabled:cursor-wait disabled:opacity-60 dark:hover:bg-brand-900/20 dark:hover:text-brand-400 {result.id === detection.display_name ? 'bg-brand-500/10 text-brand-600 font-bold' : 'text-slate-600 dark:text-slate-300'}"
                             >
                                 <span class="block text-sm leading-tight">
                                     {names.primary}

@@ -57,6 +57,20 @@ export function getDetectionClassificationSource(detection: Detection): Detectio
     return 'snapshot';
 }
 
+export function shouldShowVideoStatusNotice(
+    detection: Detection,
+    missingEventNoticeVisible: boolean
+): boolean {
+    const classificationSource = getDetectionClassificationSource(detection);
+    if (classificationSource === 'manual') return false;
+
+    const status = String(detection.video_classification_status ?? '').trim().toLowerCase();
+    const error = String(detection.video_classification_error ?? '').trim();
+    if (status === 'failed' && error) return true;
+
+    return classificationSource === 'snapshot' && missingEventNoticeVisible;
+}
+
 export function getClassificationInputKind(value: unknown): ClassificationInputKind {
     const source = typeof value === 'string' ? value.trim().toLowerCase() : '';
     if (VIDEO_CROP_SOURCES.has(source)) return 'video_crop';

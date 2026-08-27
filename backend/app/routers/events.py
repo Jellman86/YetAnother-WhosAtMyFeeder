@@ -14,6 +14,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.config import settings
 from app.services.classifier_service import get_classifier
 from app.services.frigate_client import frigate_client
+from app.services.frigate_event_absence import frigate_event_absence
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.media_cache import media_cache
 from app.services.broadcaster import broadcaster
@@ -66,9 +67,11 @@ class ManualTagResponse(BaseModel):
     new_species: str
     species: str | None = None
     old_species: str | None = None
+    category_name: str | None = None
     scientific_name: str | None = None
     common_name: str | None = None
     taxa_id: int | None = None
+    manual_tagged: bool
 
 
 def _build_event_classification_input_context(
@@ -96,7 +99,8 @@ def _build_event_classification_input_context(
 log = structlog.get_logger()
 
 
-CLIP_CHECK_CONCURRENCY = 10
+CLIP_CHECK_CONCURRENCY = 24
+CLIP_CHECK_TIMEOUT_SECONDS = 2.0
 LOCALIZED_NAME_CONCURRENCY = 5
 EVENT_FILTERS_CACHE_TTL_SECONDS = 60
 UNKNOWN_BIRD_FILTER_ALIAS = "alias:unknown_bird"
@@ -219,19 +223,38 @@ def _get_active_model_id_for_feedback() -> str:
 
 
 def _video_classification_model_name(model_id: str | None) -> str | None:
+    """A display name for the model that produced a classification.
+
+    Falls back to the id itself when the registry does not know it. Returning
+    nothing hid the model entirely on the detection card, which reads as "no
+    model was involved" rather than "this model is no longer published" (§5).
+    """
     normalized = str(model_id or "").strip()
     if not normalized:
         return None
     try:
         from app.services.model_manager import REMOTE_REGISTRY
 
-        model_meta = next((m for m in REMOTE_REGISTRY if m["id"] == normalized), None)
+        registry = list(REMOTE_REGISTRY)
     except Exception:
-        model_meta = None
-    if not model_meta:
-        return None
-    name = str(model_meta.get("name") or "").strip()
-    return name or None
+        return normalized
+
+    model_meta = next((m for m in registry if m.get("id") == normalized), None)
+    if model_meta:
+        return str(model_meta.get("name") or "").strip() or normalized
+
+    # A regional model is addressed as `parent/region`; the variant is nested
+    # under its parent and carries no id of its own, so an exact match misses.
+    if "/" in normalized:
+        parent_id, _, region = normalized.partition("/")
+        parent = next((m for m in registry if m.get("id") == parent_id), None)
+        variant = dict((parent or {}).get("region_variants", {}).get(region) or {})
+        if variant or parent:
+            base = str(variant.get("name") or (parent or {}).get("name") or parent_id).strip()
+            label = region.strip().upper()
+            return f"{base} ({label})" if base and label else base or normalized
+
+    return normalized
 
 
 async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
@@ -264,15 +287,27 @@ async def batch_check_clips(event_ids: list[str]) -> dict[str, dict[str, bool]]:
                     "has_clip": bool(media and media.suffix.lower() in {".mp4", ".mov", ".webm"}),
                     "has_snapshot": bool(snapshot),
                 }
+            # Frigate is always asked, so a restored event or a transient 404
+            # during a Frigate restart is never reported from stale memory. The
+            # absence record only throttles logging.
             try:
-                event_data = await frigate_client.get_event(event_id)
+                event_data, error = await frigate_client.get_event_with_error(
+                    event_id,
+                    timeout=CLIP_CHECK_TIMEOUT_SECONDS,
+                )
                 cached_flags = cached_media_flags(event_id)
                 if not event_data:
+                    if error == "event_not_found" and frigate_event_absence.record_absent(event_id):
+                        log.info(
+                            "Frigate no longer has this event; serving cached media only",
+                            event_id=event_id,
+                        )
                     return event_id, {
                         "has_frigate_event": False,
                         "has_clip": cached_flags["has_clip"],
                         "has_snapshot": cached_flags["has_snapshot"],
                     }
+                frigate_event_absence.record_present(event_id)
                 return event_id, {
                     "has_frigate_event": True,
                     "has_clip": bool(event_data.get("has_clip", False)) or cached_flags["has_clip"],
@@ -358,6 +393,18 @@ class EventFilterSpecies(BaseModel):
     scientific_name: Optional[str] = None
     common_name: Optional[str] = None
     taxa_id: Optional[int] = None
+    #: Visible detections for this species, so a filter can state its result count
+    #: before it is applied.
+    count: int = 0
+
+
+class EventFilterTotals(BaseModel):
+    """Counts for the facets that are a flag rather than a value."""
+
+    total: int = 0
+    favorites: int = 0
+    audio_matched: int = 0
+    video_analysed: int = 0
 
 
 class EventFilters(BaseModel):
@@ -365,9 +412,21 @@ class EventFilters(BaseModel):
 
     species: List[EventFilterSpecies]
     cameras: List[str]
+    #: Detections per camera. Empty when camera names are hidden from guests.
+    camera_counts: dict[str, int] = {}
+    totals: EventFilterTotals = EventFilterTotals()
 
 
-_event_filters_cache: dict[tuple[str, bool], tuple[float, EventFilters]] = {}
+_event_filters_cache: dict[tuple[str, bool, str], tuple[float, EventFilters]] = {}
+
+
+def _event_filter_start_date(auth: AuthContext) -> datetime | None:
+    """Match facet visibility to the same history boundary as guest event lists."""
+    if auth.is_owner or not settings.public_access.enabled:
+        return None
+    public_days = effective_public_events_days()
+    cutoff_date = date.today() - timedelta(days=public_days) if public_days > 0 else date.today()
+    return datetime.combine(cutoff_date, datetime.min.time())
 
 
 class EventsCountResponse(BaseModel):
@@ -390,91 +449,120 @@ async def get_event_filters(
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     )
+    start_date = _event_filter_start_date(auth)
     lang = get_user_language(request)
-    cache_key = (lang, hide_camera_names)
+    cache_scope = start_date.date().isoformat() if start_date else "owner"
+    cache_key = (lang, hide_camera_names, cache_scope)
     now = time.monotonic()
     if not force_refresh:
         cached = _event_filters_cache.get(cache_key)
         if cached and (now - cached[0]) < EVENT_FILTERS_CACHE_TTL_SECONDS:
             return cached[1]
+    # Names are resolved without a connection. Each species that is not yet
+    # cached costs an iNaturalist request with a ten-second timeout, five at a
+    # time, against a pool of five — so the connection is released around the
+    # whole loop and each cache read takes its own.
     async with get_db() as db:
         repo = DetectionRepository(db)
-        species_rows = await repo.get_unique_species_with_taxonomy()
-        cameras = [] if hide_camera_names else await repo.get_unique_cameras()
-        unknown_label_keys = {
-            key
-            for key in (
-                _normalize_species_name(UNKNOWN_BIRD_DISPLAY_LABEL),
-                *(_normalize_species_name(v) for v in (settings.classification.unknown_bird_labels or [])),
+        species_rows = await repo.get_unique_species_with_taxonomy(start_date=start_date)
+        cameras = [] if hide_camera_names else await repo.get_unique_cameras(start_date=start_date)
+
+    unknown_label_keys = {
+        key
+        for key in (
+            _normalize_species_name(UNKNOWN_BIRD_DISPLAY_LABEL),
+            *(_normalize_species_name(v) for v in (settings.classification.unknown_bird_labels or [])),
+        )
+        if key
+    }
+
+    semaphore = asyncio.Semaphore(LOCALIZED_NAME_CONCURRENCY)
+    species_options: list[EventFilterSpecies] = []
+
+    async def resolve_species(
+        row: tuple[str, Optional[str], Optional[str], Optional[int], int],
+    ) -> EventFilterSpecies:
+        display_name, scientific_name, common_name, taxa_id, detection_count = row
+        if (
+            _normalize_species_name(display_name) in unknown_label_keys
+            or should_hide_species_label(display_name)
+            or should_hide_species_label(scientific_name)
+            or should_hide_species_label(common_name)
+        ):
+            return EventFilterSpecies(
+                value=UNKNOWN_BIRD_FILTER_ALIAS,
+                display_name=UNKNOWN_BIRD_DISPLAY_LABEL,
+                scientific_name=None,
+                common_name=None,
+                taxa_id=None,
+                count=detection_count,
             )
-            if key
-        }
+        async with semaphore:
+            taxonomy = await taxonomy_service.get_names(display_name)
+            sci_name = scientific_name or taxonomy.get("scientific_name") or display_name
+            com_name = common_name or taxonomy.get("common_name")
+            t_id = taxa_id or taxonomy.get("taxa_id")
+            if t_id:
+                if lang != "en":
+                    localized = await taxonomy_service.get_localized_common_name(t_id, lang)
+                    if localized:
+                        com_name = localized
+                else:
+                    canonical = await taxonomy_service.get_canonical_english_name(t_id)
+                    if canonical:
+                        com_name = canonical
+            # The filter value has to be something the events query can match. A
+            # taxa id resolved live from taxonomy is fine for naming and
+            # localisation, but only the stored id is guaranteed to exist on a
+            # row, so an unstored id would offer a species that returns nothing.
+            value = f"taxa:{taxa_id}" if taxa_id else display_name
+            return EventFilterSpecies(
+                value=value,
+                display_name=sci_name or display_name,
+                scientific_name=sci_name,
+                common_name=com_name,
+                taxa_id=t_id,
+                count=detection_count,
+            )
 
-        semaphore = asyncio.Semaphore(LOCALIZED_NAME_CONCURRENCY)
-        species_options: list[EventFilterSpecies] = []
+    if species_rows:
+        resolved = await asyncio.gather(*(resolve_species(row) for row in species_rows))
+    else:
+        resolved = []
 
-        async def resolve_species(row: tuple[str, Optional[str], Optional[str], Optional[int]]) -> EventFilterSpecies:
-            display_name, scientific_name, common_name, taxa_id = row
-            if (
-                _normalize_species_name(display_name) in unknown_label_keys
-                or should_hide_species_label(display_name)
-                or should_hide_species_label(scientific_name)
-                or should_hide_species_label(common_name)
-            ):
-                return EventFilterSpecies(
-                    value=UNKNOWN_BIRD_FILTER_ALIAS,
-                    display_name=UNKNOWN_BIRD_DISPLAY_LABEL,
-                    scientific_name=None,
-                    common_name=None,
-                    taxa_id=None,
-                )
-            async with semaphore:
-                taxonomy = await taxonomy_service.get_names(display_name)
-                sci_name = scientific_name or taxonomy.get("scientific_name") or display_name
-                com_name = common_name or taxonomy.get("common_name")
-                t_id = taxa_id or taxonomy.get("taxa_id")
-                if t_id:
-                    if lang != "en":
-                        localized = await taxonomy_service.get_localized_common_name(t_id, lang, db=db)
-                        if localized:
-                            com_name = localized
-                    else:
-                        canonical = await taxonomy_service.get_canonical_english_name(t_id, db=db)
-                        if canonical:
-                            com_name = canonical
-                value = f"taxa:{t_id}" if t_id else display_name
-                return EventFilterSpecies(
-                    value=value,
-                    display_name=sci_name or display_name,
-                    scientific_name=sci_name,
-                    common_name=com_name,
-                    taxa_id=t_id,
-                )
-
-        if species_rows:
-            resolved = await asyncio.gather(*(resolve_species(row) for row in species_rows))
+    # Deduplicate: taxa_id is most canonical, then scientific_name, then raw value.
+    # The SQL query already collapses most variants, but taxonomy resolution in
+    # resolve_species() may surface a taxa_id or scientific_name for rows that
+    # the SQL could not group (e.g. parenthetical display names with no stored
+    # scientific_name), so a second pass here catches any residual duplicates.
+    seen: dict[str, EventFilterSpecies] = {}
+    for item in resolved:
+        if item.taxa_id:
+            key = f"taxa:{item.taxa_id}"
+        elif item.scientific_name:
+            key = f"sci:{item.scientific_name.strip().lower()}"
         else:
-            resolved = []
+            key = item.value.lower()
+        kept = seen.get(key)
+        if kept is not None:
+            # Merged after taxonomy resolution: the counts belong to the same species,
+            # so they add rather than the second one being discarded.
+            kept.count += item.count
+            continue
+        seen[key] = item
+        species_options.append(item)
 
-        # Deduplicate: taxa_id is most canonical, then scientific_name, then raw value.
-        # The SQL query already collapses most variants, but taxonomy resolution in
-        # resolve_species() may surface a taxa_id or scientific_name for rows that
-        # the SQL could not group (e.g. parenthetical display names with no stored
-        # scientific_name), so a second pass here catches any residual duplicates.
-        seen: set[str] = set()
-        for item in resolved:
-            if item.taxa_id:
-                key = f"taxa:{item.taxa_id}"
-            elif item.scientific_name:
-                key = f"sci:{item.scientific_name.strip().lower()}"
-            else:
-                key = item.value.lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            species_options.append(item)
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        camera_counts = {} if hide_camera_names else await repo.get_camera_counts(start_date=start_date)
+        totals = await repo.get_facet_totals(start_date=start_date)
 
-        result = EventFilters(species=species_options, cameras=cameras)
+        result = EventFilters(
+            species=species_options,
+            cameras=cameras,
+            camera_counts=camera_counts,
+            totals=EventFilterTotals(**totals),
+        )
         _event_filters_cache[cache_key] = (now, result)
         return result
 
@@ -665,7 +753,9 @@ async def get_events(
             if settings.frigate.camera_audio_mapping:
                 mapping_value = settings.frigate.camera_audio_mapping.get(event.camera_name)
 
-            nearby_audio = await repo.get_audio_context(
+            # The suppressed count is for the detail view, which explains an empty
+            # result; the event list only needs the species it can show.
+            nearby_audio, _ = await repo.get_audio_context(
                 target_time=event.detection_time,
                 window_seconds=settings.frigate.audio_correlation_window_seconds,
                 mapping_value=mapping_value,
@@ -1107,13 +1197,36 @@ async def _apply_manual_tag_update(
         frigate_event=detection.frigate_event,
     )
 
-    if _normalize_species_name(old_species) == _normalize_species_name(new_species):
+    async def confirm_existing_species() -> dict:
+        await repo.confirm_manual_species_tag(frigate_event=event_id)
+        await db.commit()
+
+        refreshed_detection = await repo.get_by_frigate_event(event_id)
+        payload_source = refreshed_detection or detection
+        await broadcaster.broadcast(
+            {
+                "type": "detection_updated",
+                "data": _detection_updated_payload(
+                    payload_source,
+                    overrides={"manual_tagged": True},
+                ),
+            }
+        )
         return {
             "status": "unchanged",
             "event_id": event_id,
             "species": old_species or new_species,
+            "old_species": old_species,
             "new_species": old_species or new_species,
+            "category_name": detection.category_name,
+            "scientific_name": detection.scientific_name,
+            "common_name": detection.common_name,
+            "taxa_id": detection.taxa_id,
+            "manual_tagged": True,
         }
+
+    if _normalize_species_name(old_species) == _normalize_species_name(new_species):
+        return await confirm_existing_species()
 
     unknown_labels = {
         *(label.lower() for label in settings.classification.unknown_bird_labels),
@@ -1136,12 +1249,7 @@ async def _apply_manual_tag_update(
             scientific_name=resolved_aliases.get("scientific_name"),
             taxa_id=resolved_aliases.get("taxa_id"),
         )
-        return {
-            "status": "unchanged",
-            "event_id": event_id,
-            "species": old_species or new_species,
-            "new_species": old_species or new_species,
-        }
+        return await confirm_existing_species()
 
     taxonomy_lookup_name = (
         resolved_aliases.get("scientific_name") or resolved_aliases.get("common_name") or normalized_label
@@ -1276,9 +1384,11 @@ async def _apply_manual_tag_update(
         "event_id": event_id,
         "old_species": old_species,
         "new_species": stored_display_name,
+        "category_name": stored_category_name,
         "scientific_name": sci_name,
         "common_name": com_name,
         "taxa_id": t_id,
+        "manual_tagged": True,
     }
 
 
@@ -1300,213 +1410,216 @@ async def reclassify_event(
     """
     lang = get_user_language(request)
 
+    # Read the detection, then release the connection. What follows fetches the
+    # event and snapshot from Frigate and runs model inference, none of which
+    # needs a connection — and `apply_video_result` below acquires its own. A
+    # request holding one here while waiting for a second is how concurrent
+    # reclassifications deadlocked a five-connection pool.
     async with get_db() as db:
-        repo = DetectionRepository(db)
-        detection = await repo.get_by_frigate_event(event_id)
+        detection = await DetectionRepository(db).get_by_frigate_event(event_id)
 
         if not detection:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
 
-        old_species = detection.display_name
+    old_species = detection.display_name
 
-        # Temporal reclassification is always owned by the canonical bounded
-        # video queue. Returning immediately avoids reverse-proxy timeouts and
-        # client-disconnect orphan work; the Jobs API and SSE stream carry
-        # durable progress/completion. The queue deduplicates this event across
-        # live, maintenance, backfill, and manual callers.
-        if strategy == "video":
-            queue_state = await auto_video_classifier.queue_classification(
-                event_id,
-                detection.camera_name,
-                skip_delay=True,
-                fallback_to_snapshot=True,
-                source="manual",
+    # Temporal reclassification is always owned by the canonical bounded
+    # video queue. Returning immediately avoids reverse-proxy timeouts and
+    # client-disconnect orphan work; the Jobs API and SSE stream carry
+    # durable progress/completion. The queue deduplicates this event across
+    # live, maintenance, backfill, and manual callers.
+    if strategy == "video":
+        queue_state = await auto_video_classifier.queue_classification(
+            event_id,
+            detection.camera_name,
+            skip_delay=True,
+            fallback_to_snapshot=True,
+            source="manual",
+        )
+        if queue_state == "blocked":
+            raise HTTPException(
+                status_code=503,
+                detail=i18n_service.translate("errors.events.video_analysis_paused", lang=lang),
             )
-            if queue_state == "blocked":
+        if queue_state == "full":
+            raise HTTPException(
+                status_code=503,
+                detail=i18n_service.translate("errors.events.video_analysis_capacity", lang=lang),
+            )
+        return ReclassifyResponse(
+            status="queued",
+            queue_state="duplicate" if queue_state == "duplicate" else "queued",
+            event_id=event_id,
+            old_species=old_species,
+            new_species=detection.display_name,
+            new_score=detection.score,
+            updated=False,
+            actual_strategy="video",
+        )
+
+    classifier = get_classifier()
+    started_reclassification = False
+    completion_broadcasted = False
+
+    async def broadcast_reclassification_started(mode: Literal["snapshot", "video"]) -> None:
+        nonlocal started_reclassification
+        started_reclassification = True
+        await broadcaster.broadcast(
+            {"type": "reclassification_started", "data": {"event_id": event_id, "strategy": mode}}
+        )
+
+    async def broadcast_reclassification_completed(
+        results_payload: list,
+        outcome: Literal["success", "no_result"],
+        reason: str | None = None,
+    ) -> None:
+        nonlocal completion_broadcasted
+        if completion_broadcasted:
+            return
+        completion_broadcasted = True
+        data = {"event_id": event_id, "results": results_payload, "outcome": outcome}
+        if reason:
+            data["reason"] = reason
+        await broadcaster.broadcast({"type": "reclassification_completed", "data": data})
+
+    async def broadcast_reclassification_failed(error: str) -> None:
+        nonlocal completion_broadcasted
+        if completion_broadcasted:
+            return
+        completion_broadcasted = True
+        await broadcaster.broadcast({"type": "reclassification_failed", "data": {"event_id": event_id, "error": error}})
+
+    try:
+        # Snapshot work remains synchronous because it is bounded to one
+        # image. Video work returned above and is exclusively queue-owned.
+        event_data, _event_error = await frigate_client.get_event_with_error(event_id, timeout=8.0)
+        effective_strategy: Literal["snapshot", "video"] = "snapshot"
+        results = []
+
+        if effective_strategy == "snapshot":
+            await broadcast_reclassification_started("snapshot")
+
+            snapshot_data, snapshot_provenance = await load_snapshot_classification_input(
+                event_id,
+                event_data=event_data,
+                media_cache_service=media_cache,
+                frigate_client_service=frigate_client,
+            )
+            if not snapshot_data:
                 raise HTTPException(
-                    status_code=503,
-                    detail=i18n_service.translate("errors.events.video_analysis_paused", lang=lang),
+                    status_code=502, detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
                 )
-            if queue_state == "full":
-                raise HTTPException(
-                    status_code=503,
-                    detail=i18n_service.translate("errors.events.video_analysis_capacity", lang=lang),
-                )
+
+            image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
+            results = await classifier.classify_async(
+                image,
+                camera_name=detection.camera_name,
+                input_context=build_snapshot_classification_input_context(
+                    event_id=event_id,
+                    event_data=event_data,
+                    provenance=snapshot_provenance,
+                ),
+            )
+            for result in results:
+                if isinstance(result, dict):
+                    result.setdefault("input_source", snapshot_provenance.input_source)
+
+        if not results:
+            log.info(
+                "Reclassification completed without a confident result; preserving existing identification",
+                event_id=event_id,
+                strategy=effective_strategy,
+            )
+            await broadcast_reclassification_completed([], "no_result", "no_confident_result")
             return ReclassifyResponse(
-                status="queued",
-                queue_state="duplicate" if queue_state == "duplicate" else "queued",
+                status="no_result",
+                reason="no_confident_result",
                 event_id=event_id,
                 old_species=old_species,
                 new_species=detection.display_name,
                 new_score=detection.score,
                 updated=False,
-                actual_strategy="video",
-            )
-
-        classifier = get_classifier()
-        started_reclassification = False
-        completion_broadcasted = False
-
-        async def broadcast_reclassification_started(mode: Literal["snapshot", "video"]) -> None:
-            nonlocal started_reclassification
-            started_reclassification = True
-            await broadcaster.broadcast(
-                {"type": "reclassification_started", "data": {"event_id": event_id, "strategy": mode}}
-            )
-
-        async def broadcast_reclassification_completed(
-            results_payload: list,
-            outcome: Literal["success", "no_result"],
-            reason: str | None = None,
-        ) -> None:
-            nonlocal completion_broadcasted
-            if completion_broadcasted:
-                return
-            completion_broadcasted = True
-            data = {"event_id": event_id, "results": results_payload, "outcome": outcome}
-            if reason:
-                data["reason"] = reason
-            await broadcaster.broadcast({"type": "reclassification_completed", "data": data})
-
-        async def broadcast_reclassification_failed(error: str) -> None:
-            nonlocal completion_broadcasted
-            if completion_broadcasted:
-                return
-            completion_broadcasted = True
-            await broadcaster.broadcast(
-                {"type": "reclassification_failed", "data": {"event_id": event_id, "error": error}}
-            )
-
-        try:
-            # Snapshot work remains synchronous because it is bounded to one
-            # image. Video work returned above and is exclusively queue-owned.
-            event_data, _event_error = await frigate_client.get_event_with_error(event_id, timeout=8.0)
-            effective_strategy: Literal["snapshot", "video"] = "snapshot"
-            results = []
-
-            if effective_strategy == "snapshot":
-                await broadcast_reclassification_started("snapshot")
-
-                snapshot_data, snapshot_provenance = await load_snapshot_classification_input(
-                    event_id,
-                    event_data=event_data,
-                    media_cache_service=media_cache,
-                    frigate_client_service=frigate_client,
-                )
-                if not snapshot_data:
-                    raise HTTPException(
-                        status_code=502, detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
-                    )
-
-                image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
-                results = await classifier.classify_async(
-                    image,
-                    camera_name=detection.camera_name,
-                    input_context=build_snapshot_classification_input_context(
-                        event_id=event_id,
-                        event_data=event_data,
-                        provenance=snapshot_provenance,
-                    ),
-                )
-                for result in results:
-                    if isinstance(result, dict):
-                        result.setdefault("input_source", snapshot_provenance.input_source)
-
-            if not results:
-                log.info(
-                    "Reclassification completed without a confident result; preserving existing identification",
-                    event_id=event_id,
-                    strategy=effective_strategy,
-                )
-                await broadcast_reclassification_completed([], "no_result", "no_confident_result")
-                return ReclassifyResponse(
-                    status="no_result",
-                    reason="no_confident_result",
-                    event_id=event_id,
-                    old_species=old_species,
-                    new_species=detection.display_name,
-                    new_score=detection.score,
-                    updated=False,
-                    actual_strategy=effective_strategy,
-                )
-
-            # Apply the result via DetectionService to ensure consistent logic (Unknown Bird relabeling, audio, etc)
-            from app.services.detection_service import DetectionService
-
-            svc = DetectionService(classifier)
-            selection = svc.select_manual_reclassification(results, event_id)
-            _reason = None
-            if isinstance(selection, tuple) and len(selection) == 2:
-                top, _reason = selection
-            else:
-                top = results[0]
-            if not top:
-                log.info(
-                    "Reclassification candidates were filtered; preserving existing identification",
-                    event_id=event_id,
-                    strategy=effective_strategy,
-                    reason=_reason,
-                )
-                terminal_reason = _reason or "no_confident_result"
-                await broadcast_reclassification_completed(
-                    [],
-                    "no_result",
-                    terminal_reason,
-                )
-                return ReclassifyResponse(
-                    status="no_result",
-                    reason=terminal_reason,
-                    event_id=event_id,
-                    old_species=old_species,
-                    new_species=detection.display_name,
-                    new_score=detection.score,
-                    updated=False,
-                    actual_strategy=effective_strategy,
-                )
-            await svc.apply_video_result(
-                frigate_event=event_id,
-                video_label=top["label"],
-                video_score=top["score"],
-                video_index=top["index"],
-                manual_tagged=True,
-                video_provider=top.get("inference_provider"),
-                video_backend=top.get("inference_backend"),
-                video_model_id=top.get("model_id"),
-                video_input_source=top.get("input_source"),
-            )
-
-            # Re-fetch updated detection for the response
-            updated_detection = await repo.get_by_frigate_event(event_id)
-            if not updated_detection:
-                updated_detection = detection  # Fallback
-
-            await broadcast_reclassification_completed(results, "success")
-            return ReclassifyResponse(
-                status="success",
-                event_id=event_id,
-                old_species=old_species,
-                new_species=updated_detection.display_name,
-                new_score=updated_detection.score,
-                updated=True,
                 actual_strategy=effective_strategy,
             )
-        except HTTPException as exc:
-            if started_reclassification and not completion_broadcasted:
-                await broadcast_reclassification_failed(str(exc.detail))
-            raise
-        except Exception as exc:
-            if started_reclassification and not completion_broadcasted:
-                await broadcast_reclassification_failed("reclassification_failed")
-            log.error(
-                "Unexpected reclassification failure",
+
+        # Apply the result via DetectionService to ensure consistent logic (Unknown Bird relabeling, audio, etc)
+        from app.services.detection_service import DetectionService
+
+        svc = DetectionService(classifier)
+        selection = svc.select_manual_reclassification(results, event_id)
+        _reason = None
+        if isinstance(selection, tuple) and len(selection) == 2:
+            top, _reason = selection
+        else:
+            top = results[0]
+        if not top:
+            log.info(
+                "Reclassification candidates were filtered; preserving existing identification",
                 event_id=event_id,
-                strategy=strategy,
-                error=str(exc),
-                exc_info=True,
+                strategy=effective_strategy,
+                reason=_reason,
             )
-            raise HTTPException(
-                status_code=500, detail=i18n_service.translate("errors.events.reclassification_failed", lang)
-            ) from exc
+            terminal_reason = _reason or "no_confident_result"
+            await broadcast_reclassification_completed(
+                [],
+                "no_result",
+                terminal_reason,
+            )
+            return ReclassifyResponse(
+                status="no_result",
+                reason=terminal_reason,
+                event_id=event_id,
+                old_species=old_species,
+                new_species=detection.display_name,
+                new_score=detection.score,
+                updated=False,
+                actual_strategy=effective_strategy,
+            )
+        await svc.apply_video_result(
+            frigate_event=event_id,
+            video_label=top["label"],
+            video_score=top["score"],
+            video_index=top["index"],
+            manual_tagged=True,
+            video_provider=top.get("inference_provider"),
+            video_backend=top.get("inference_backend"),
+            video_model_id=top.get("model_id"),
+            video_input_source=top.get("input_source"),
+        )
+
+        # Re-fetch updated detection for the response
+        async with get_db() as db:
+            updated_detection = await DetectionRepository(db).get_by_frigate_event(event_id)
+        if not updated_detection:
+            updated_detection = detection  # Fallback
+
+        await broadcast_reclassification_completed(results, "success")
+        return ReclassifyResponse(
+            status="success",
+            event_id=event_id,
+            old_species=old_species,
+            new_species=updated_detection.display_name,
+            new_score=updated_detection.score,
+            updated=True,
+            actual_strategy=effective_strategy,
+        )
+    except HTTPException as exc:
+        if started_reclassification and not completion_broadcasted:
+            await broadcast_reclassification_failed(str(exc.detail))
+        raise
+    except Exception as exc:
+        if started_reclassification and not completion_broadcasted:
+            await broadcast_reclassification_failed("reclassification_failed")
+        log.error(
+            "Unexpected reclassification failure",
+            event_id=event_id,
+            strategy=strategy,
+            error=str(exc),
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail=i18n_service.translate("errors.events.reclassification_failed", lang)
+        ) from exc
 
 
 @router.patch("/events/bulk/manual-tag", response_model=BulkManualTagResponse)
@@ -1683,48 +1796,43 @@ async def classify_wildlife(event_id: str, request: Request, auth: AuthContext =
     Does NOT update the database - user can manually tag if desired.
     """
     lang = get_user_language(request)
+    # The connection is needed only to confirm the detection exists. The
+    # snapshot fetch and the wildlife model run afterwards, without one.
     async with get_db() as db:
-        repo = DetectionRepository(db)
-        detection = await repo.get_by_frigate_event(event_id)
+        detection = await DetectionRepository(db).get_by_frigate_event(event_id)
 
         if not detection:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
-        # Fetch snapshot from Frigate using centralized client
-        snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
-        if not snapshot_data:
+    # Fetch snapshot from Frigate using centralized client
+    snapshot_data = await frigate_client.get_snapshot(event_id, crop=True, quality=95)
+    if not snapshot_data:
+        raise HTTPException(status_code=502, detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang))
+
+    # Classify with wildlife model
+    image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
+    classifier = get_classifier()
+    results = await classifier.classify_wildlife_async(
+        image,
+        input_context={"is_cropped": True},
+    )
+
+    if not results:
+        # Wildlife model not available or no results
+        wildlife_status = classifier.get_wildlife_status()
+        if not wildlife_status.get("enabled"):
             raise HTTPException(
-                status_code=502, detail=i18n_service.translate("errors.events.snapshot_fetch_failed", lang)
+                status_code=503, detail=i18n_service.translate("errors.events.wildlife_model_unavailable", lang)
             )
+        raise HTTPException(status_code=500, detail=i18n_service.translate("errors.events.classification_failed", lang))
 
-        # Classify with wildlife model
-        image = await asyncio.to_thread(decode_image_bytes, snapshot_data)
-        classifier = get_classifier()
-        results = await classifier.classify_wildlife_async(
-            image,
-            input_context={"is_cropped": True},
-        )
+    classifications = [WildlifeClassification(label=r["label"], score=r["score"], index=r["index"]) for r in results]
 
-        if not results:
-            # Wildlife model not available or no results
-            wildlife_status = classifier.get_wildlife_status()
-            if not wildlife_status.get("enabled"):
-                raise HTTPException(
-                    status_code=503, detail=i18n_service.translate("errors.events.wildlife_model_unavailable", lang)
-                )
-            raise HTTPException(
-                status_code=500, detail=i18n_service.translate("errors.events.classification_failed", lang)
-            )
+    log.info(
+        "Wildlife classification complete",
+        event_id=event_id,
+        top_result=results[0]["label"] if results else None,
+        top_score=results[0]["score"] if results else None,
+    )
 
-        classifications = [
-            WildlifeClassification(label=r["label"], score=r["score"], index=r["index"]) for r in results
-        ]
-
-        log.info(
-            "Wildlife classification complete",
-            event_id=event_id,
-            top_result=results[0]["label"] if results else None,
-            top_score=results[0]["score"] if results else None,
-        )
-
-        return WildlifeClassifyResponse(status="success", event_id=event_id, classifications=classifications)
+    return WildlifeClassifyResponse(status="success", event_id=event_id, classifications=classifications)

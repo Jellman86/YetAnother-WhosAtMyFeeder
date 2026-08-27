@@ -37,5 +37,16 @@ fi
 docker inspect "$CID" --format '{{range (index .NetworkSettings.Ports "8080/tcp")}}{{println .HostPort}}{{end}}' | grep -qx '19852'
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/ >/dev/null
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/health >/dev/null
+docker exec "$CID" curl -fsS http://127.0.0.1:8080/ready >/dev/null
 docker exec "$CID" curl -fsS http://127.0.0.1:8080/api/version >/dev/null
+docker exec "$CID" python -c 'from pathlib import Path; Path("/tmp/manual-upload-smoke.jpg").write_bytes(b"x" * (2 * 1024 * 1024))'
+upload_status="$(
+  docker exec "$CID" curl -sS -o /dev/null -w '%{http_code}' \
+    -F 'media=@/tmp/manual-upload-smoke.jpg;type=image/jpeg' \
+    http://127.0.0.1:8080/api/manual-observations
+)"
+if [ "$upload_status" != "422" ]; then
+  echo "manual observation upload did not reach backend media validation: expected 422, got $upload_status" >&2
+  exit 1
+fi
 docker exec "$CID" sh -lc 'test "$YAWAMF_IMAGE_FLAVOR" = "full"'

@@ -70,6 +70,7 @@ class AuthStatusResponse(BaseModel):
     llm_enabled: bool = False
     llm_ready: bool = False
     ebird_enabled: bool = False
+    ebird_default_radius_km: int = 25
     inaturalist_enabled: bool = False
     enrichment_mode: str = "per_enrichment"
     enrichment_single_provider: str = "wikipedia"
@@ -84,6 +85,7 @@ class AuthStatusResponse(BaseModel):
     location_weather_unit_system: str = "metric"
     location_temperature_unit: str = "celsius"
     date_format: str = "locale"
+    time_format: str = "locale"
     username: Optional[str] = None
     needs_initial_setup: bool = False
     https_warning: bool = False  # True if auth enabled over HTTP
@@ -279,6 +281,7 @@ async def get_auth_status(request: Request):
         llm_enabled=settings.llm.enabled,
         llm_ready=settings.llm.enabled and bool(settings.llm.api_key),
         ebird_enabled=ebird_active,
+        ebird_default_radius_km=settings.ebird.default_radius_km,
         inaturalist_enabled=settings.inaturalist.enabled,
         enrichment_mode=effective_enrichment["mode"],
         enrichment_single_provider=effective_enrichment["single_provider"],
@@ -293,6 +296,7 @@ async def get_auth_status(request: Request):
         location_weather_unit_system=settings.location.weather_unit_system,
         location_temperature_unit=settings.location.temperature_unit,
         date_format=settings.date_format,
+        time_format=settings.time_format,
         username=username if auth_level == AuthLevel.OWNER else None,
         needs_initial_setup=needs_setup,
         https_warning=https_warning,

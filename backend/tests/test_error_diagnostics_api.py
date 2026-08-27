@@ -182,11 +182,11 @@ async def test_workspace_payload_includes_focused_video_classifier_diagnostics(c
 
     import app.main as main_module
 
-    original_health_check = main_module.health_check
+    original_build_health_payload = main_module.build_health_payload
     original_get_status = classifier_router.classifier_service.get_status
     try:
 
-        async def fake_health_check():
+        def fake_build_health_payload() -> dict[str, object]:
             return {
                 "status": "degraded",
                 "service": "ya-wamf-backend",
@@ -204,7 +204,7 @@ async def test_workspace_payload_includes_focused_video_classifier_diagnostics(c
                 },
             }
 
-        main_module.health_check = fake_health_check
+        main_module.build_health_payload = fake_build_health_payload
         classifier_router.classifier_service.get_status = lambda: {"active_provider": "intel_gpu"}
 
         response = await client.get("/api/diagnostics/workspace")
@@ -223,7 +223,7 @@ async def test_workspace_payload_includes_focused_video_classifier_diagnostics(c
         ]
         assert payload["backend_diagnostics"]["events"][0]["reason_code"] == "video_circuit_opened"
     finally:
-        main_module.health_check = original_health_check
+        main_module.build_health_payload = original_build_health_payload
         classifier_router.classifier_service.get_status = original_get_status
 
 
@@ -254,7 +254,7 @@ async def test_owner_can_fetch_diagnostics_bundle(client: httpx.AsyncClient):
         assert response.status_code == 200, response.text
         payload = response.json()
 
-        assert payload["schema_version"] == "2026-04-09.owner-diagnostics-bundle.v1"
+        assert payload["schema_version"] == "2026-08-15.owner-diagnostics-bundle.v2"
         assert payload["summary"]["diagnostic_events"] == 1
         assert payload["summary"]["health_status"] == payload["health"]["status"]
         assert payload["server"]["service"] == payload["health"]["service"]
@@ -262,6 +262,14 @@ async def test_owner_can_fetch_diagnostics_bundle(client: httpx.AsyncClient):
         assert payload["classifier"]["active_provider"] == "intel_cpu"
         assert payload["backend_diagnostics"]["events"][0]["correlation_key"] == "event_pipeline:stage_timeout"
         assert isinstance(payload["focused_diagnostics"], dict)
+        # Answers "why does Safari refuse my clip" without a round trip for
+        # ffprobe output. With no Frigate reachable in the test environment it
+        # must still report honestly rather than omit the section.
+        assert payload["media_sample"]["available"] is False
+        assert payload["media_sample"]["codec_tag"] is None
+        assert payload["media_sample"]["safari_compatible"] is None
+        assert payload["media_sample"]["note"]
+        assert payload["summary"]["video_sample_format"] == "unknown"
     finally:
         classifier_router.classifier_service.get_status = original_get_status
 

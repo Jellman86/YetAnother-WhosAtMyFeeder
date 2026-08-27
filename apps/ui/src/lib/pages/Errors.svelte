@@ -8,8 +8,22 @@
         type JobDiagnosticBundle
     } from '../stores/job_diagnostics.svelte';
     import { formatDateTime } from '../utils/datetime';
+    import {
+        eventPipelineVerdict,
+        expectedDropCount,
+        expectedDropReasons,
+        faultDiagnostics,
+        faultDropCount,
+        hasExpectedDrops,
+        recentFilteredDetections
+    } from '../utils/pipeline-health';
     import { getFrigateMediaAdvisory, getVideoClassifierCardState } from '../errors/health';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
+    import { detectionsStore } from '../stores/detections.svelte';
+    import { settingsStore } from '../stores/settings.svelte';
+    import { groupDetectionsIntoVisits, withinDeskWindow } from '../utils/visit-grouping';
+    import { buildHealthTimeline, hiddenEventCount, instanceWindowMs } from '../utils/health-timeline';
+    import FieldLog from '../components/FieldLog.svelte';
 
     const FRIGATE_MISSING_DOCS_URL =
         'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/docs/troubleshooting/frigate-event-not-found.md';
@@ -37,10 +51,52 @@
         acquire_timeouts?: unknown;
     }
 
+    interface ModelHealth {
+        loaded?: boolean;
+        error?: string | null;
+        /** Whether the label file still matches the checksum it was published with. */
+        labels?: { verdict?: string; label_count?: number };
+    }
+
+    interface CatalogSource {
+        id?: string | null;
+        version?: string | null;
+        licence?: string | null;
+        citation?: string | null;
+        url?: string | null;
+    }
+
+    interface CatalogArtifactHealth {
+        registry_id?: string;
+        output_width?: number;
+        mapped_outputs?: number;
+        unresolved_outputs?: number;
+        complete?: boolean;
+    }
+
+    interface NamingHealth {
+        species_reference?: { available?: boolean; taxon_count?: number; source?: string | null };
+        localized_names?: { available?: boolean; locales?: Record<string, number> };
+        species_catalog?: {
+            available?: boolean;
+            species_count?: number;
+            artifacts?: CatalogArtifactHealth[];
+            active_release?: {
+                generated_at?: string | null;
+                sources?: CatalogSource[];
+            } | null;
+        };
+    }
+
     interface DiagnosticsHealth extends Record<string, unknown> {
         event_pipeline?: MetricGroup;
         mqtt?: MetricGroup;
-        ml?: { live_image?: MetricGroup; background_image?: MetricGroup };
+        ml?: {
+            live_image?: MetricGroup;
+            background_image?: MetricGroup;
+            models?: Record<string, ModelHealth>;
+        };
+        naming?: NamingHealth;
         notification_dispatcher?: MetricGroup;
         db_pool?: MetricGroup;
     }
@@ -58,7 +114,7 @@
     let videoClassifierCard = $derived(getVideoClassifierCardState(health));
     let frigateMediaAdvisory = $derived(getFrigateMediaAdvisory(health));
     let frigateMediaDropPercent = $derived(Math.round(frigateMediaAdvisory.rate * 100));
-    let backendEvents = $derived(workspacePayload?.backend_diagnostics?.events ?? []);
+    let backendEvents = $derived(faultDiagnostics(workspacePayload?.backend_diagnostics?.events ?? []));
     let startupWarnings = $derived(workspacePayload?.startup_warnings ?? []);
     let captureLabel = $state('');
     let reportNotes = $state('');
@@ -74,7 +130,26 @@
         return Number.isFinite(parsed) ? parsed : null;
     });
 
+    // The health counters are measured from startup, so the visits shown beside them
+    // use the same window rather than a rolling day (layout-patterns 1.1).
+    const instanceWindow = $derived(instanceWindowMs(health?.startup_started_at as string | undefined));
+    const reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
+    const windowedDetections = $derived(
+        instanceWindow === null ? [] : withinDeskWindow(detectionsStore.detections, Date.now(), instanceWindow)
+    );
+    const keptVisits = $derived(groupDetectionsIntoVisits(windowedDetections, { reviewThreshold }));
+    const timelineRows = $derived(
+        buildHealthTimeline({
+            visits: keptVisits,
+            filtered: recentFilteredDetections(health?.event_pipeline, 12)
+        })
+    );
+    const timelineHidden = $derived(
+        hiddenEventCount(asNumber(health?.event_pipeline?.started_events), timelineRows.length)
+    );
+
     onMount(() => {
+        void detectionsStore.loadInitial();
         void refreshWorkspace();
     });
 
@@ -195,6 +270,27 @@
         return trimmed.length > 0 ? trimmed : fallback;
     }
 
+    /**
+     * The hero carries the verdict, so the whole card takes the colour rather than
+     * a pill on a neutral ground. Green is healthy, amber is work waiting, rose is
+     * a failure, slate is a state we have not measured (layout-patterns 1.3, 1.5).
+     */
+    function heroToneClass(value: string): string {
+        const normalized = value.trim().toLowerCase();
+        if (['ok', 'healthy', 'normal'].includes(normalized)) {
+            return 'border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-emerald-50/40 dark:border-emerald-800/50 dark:from-emerald-950/40 dark:via-slate-900/80 dark:to-emerald-950/20';
+        }
+        if (['degraded', 'warning', 'recovering', 'high'].includes(normalized)) {
+            // Literal amber, not the accent token: accent is emerald in the classic
+            // theme, which would paint a degraded instance green.
+            return 'border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-amber-50/40 dark:border-amber-800/50 dark:from-amber-950/40 dark:via-slate-900/80 dark:to-amber-950/20';
+        }
+        if (['critical', 'error', 'failing', 'failed'].includes(normalized)) {
+            return 'border-rose-200/80 bg-gradient-to-br from-rose-50 via-white to-rose-50/40 dark:border-rose-800/50 dark:from-rose-950/40 dark:via-slate-900/80 dark:to-rose-950/20';
+        }
+        return 'border-slate-200/80 bg-gradient-to-br from-slate-50 via-white to-slate-50/40 dark:border-slate-700/60 dark:from-slate-900/90 dark:via-slate-900/80 dark:to-slate-800/70';
+    }
+
     function toneClass(value: string): string {
         const normalized = value.trim().toLowerCase();
         if (['ok', 'healthy', 'normal', 'idle', 'clear', 'resolved'].includes(normalized)) {
@@ -240,23 +336,44 @@
     }
 
     function eventPipelineStatus(): string {
-        const pipeline = health?.event_pipeline ?? {};
-        const criticalFailureActive = pipeline.critical_failure_active === true;
-        const dropped = asNumber(pipeline.dropped_events);
-        if (criticalFailureActive) return 'critical';
-        if (dropped > 0) return 'degraded';
-        return asText(pipeline.status, overallStatusLabel());
+        return eventPipelineVerdict(health?.event_pipeline, overallStatusLabel());
     }
 
     function eventPipelineSummary(): string {
         const pipeline = health?.event_pipeline ?? {};
         const criticalFailureActive = pipeline.critical_failure_active === true;
         const criticalFailures = asNumber(pipeline.critical_failures);
-        const dropped = asNumber(pipeline.dropped_events);
+        const faults = faultDropCount(pipeline);
         if (criticalFailureActive) return $_('jobs.errors_pipeline_critical', { values: { count: criticalFailures.toLocaleString() }, default: `${criticalFailures.toLocaleString()} critical failures recorded.` });
         if (criticalFailures > 0) return $_('jobs.errors_pipeline_historical', { values: { count: criticalFailures.toLocaleString() }, default: `${criticalFailures.toLocaleString()} historical failures recorded; pipeline has since recovered.` });
-        if (dropped > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: dropped.toLocaleString() }, default: `${dropped.toLocaleString()} events have been dropped.` });
+        if (faults > 0) return $_('jobs.errors_pipeline_dropped', { values: { count: faults.toLocaleString() }, default: `${faults.toLocaleString()} events were dropped by a fault.` });
         return $_('jobs.errors_pipeline_ok', { default: 'The ingest pipeline is processing detections normally.' });
+    }
+
+    // Filtering is reported on its own, away from the health verdict: it is useful
+    // to see how much the confidence threshold is rejecting, but it is not a fault.
+    function filteredStatus(): string {
+        return hasExpectedDrops(health?.event_pipeline) ? 'info' : 'clear';
+    }
+
+    function filteredSummary(): string {
+        const count = expectedDropCount(health?.event_pipeline);
+        if (count === 0) {
+            return $_('jobs.errors_filtered_none', { default: 'Nothing has been filtered out yet.' });
+        }
+        return $_('jobs.errors_filtered_summary', {
+            values: { count: count.toLocaleString() },
+            default: `${count.toLocaleString()} detections did not meet your detection settings. This is the filter working, not a fault.`
+        });
+    }
+
+    function filteredReasonLabel(reason: string): string {
+        return $_(`jobs.errors_drop_reason.${reason}`, { default: reason });
+    }
+
+    function filteredScoreLabel(score: number | null): string {
+        if (score === null) return '';
+        return `${Math.round(score * 100)}%`;
     }
 
     function mqttStatus(): string {
@@ -345,6 +462,120 @@
         return $_('jobs.errors_startup_summary', { values: { count: startupWarnings.length.toLocaleString(), phase }, default: `${startupWarnings.length.toLocaleString()} startup warnings recorded. Latest phase: ${phase}.` });
     }
 
+    function namingStatus(): string {
+        const models = health?.ml?.models ?? {};
+        const verdicts = Object.values(models).map(model => model?.labels?.verdict);
+        // A label file that no longer matches what was published names every
+        // detection from it wrongly, so it outranks anything else here.
+        if (verdicts.includes('changed')) return 'critical';
+        if (verdicts.includes('missing')) return 'degraded';
+        return health?.naming?.species_reference?.available ? 'ok' : 'unknown';
+    }
+
+    function namingSummary(): string {
+        const models = health?.ml?.models ?? {};
+        const changed = Object.entries(models)
+            .filter(([, model]) => model?.labels?.verdict === 'changed')
+            .map(([name]) => name);
+        if (changed.length > 0) {
+            return $_('jobs.errors_naming_labels_changed', {
+                values: { models: changed.join(', ') },
+                default: 'The label file for {models} does not match the checksum it was published with. Species names taken from it are not trustworthy.'
+            });
+        }
+        const taxa = asNumber(health?.naming?.species_reference?.taxon_count);
+        if (!health?.naming?.species_reference?.available) {
+            return $_('jobs.errors_naming_no_reference', {
+                default: 'No bundled species reference, so names come from the network only.'
+            });
+        }
+        return $_('jobs.errors_naming_ok', {
+            values: { count: taxa.toLocaleString() },
+            default: '{count} species can be named without the network.'
+        });
+    }
+
+    function namingLocales(): string {
+        const locales = health?.naming?.localized_names?.locales ?? {};
+        const names = Object.keys(locales);
+        if (names.length === 0) {
+            return $_('jobs.errors_naming_no_locales', { default: 'English only' });
+        }
+        return names.sort().join(', ');
+    }
+
+    function catalogSpecies(): string {
+        const catalog = health?.naming?.species_catalog;
+        if (!catalog?.available) {
+            return $_('common.unknown', { default: 'unknown' });
+        }
+        return asNumber(catalog.species_count).toLocaleString();
+    }
+
+    // The catalogue redistributes work under CC BY terms. Attribution the
+    // owner is never shown is not attribution, so the citation is rendered as
+    // the source gave it rather than summarised.
+    //
+    // Rendered without an each-key on purpose: the list is short, static for a
+    // given release, and never reordered, while a duplicate key throws. A
+    // manifest that listed one source twice would take down the page whose
+    // whole job is to work when something is wrong.
+    function catalogSources(): Array<{ heading: string; citation: string }> {
+        const sources = health?.naming?.species_catalog?.active_release?.sources ?? [];
+        return sources
+            .filter((source) => Boolean(source?.id))
+            .map((source) => {
+                const version = String(source.version ?? '').trim();
+                const licence = String(source.licence ?? '').trim();
+                const heading = [String(source.id).trim(), version].filter(Boolean).join(' ');
+                return {
+                    heading: licence ? `${heading} (${licence})` : heading,
+                    citation: String(source.citation ?? '').trim()
+                };
+            });
+    }
+
+    function catalogSummary(): string | null {
+        const catalog = health?.naming?.species_catalog;
+        if (!catalog?.available) {
+            return $_('jobs.errors_naming_catalog_missing', {
+                default: 'No species catalogue yet. Names come from the bundled reference and model label files.'
+            });
+        }
+        if (asNumber(catalog.species_count) === 0) {
+            return $_('jobs.errors_naming_catalog_empty', {
+                default: 'The species catalogue is empty. Names come from the bundled reference and model label files.'
+            });
+        }
+        const artifacts = catalog.artifacts ?? [];
+        const unresolved = artifacts.reduce((total, artifact) => total + asNumber(artifact?.unresolved_outputs), 0);
+        if (unresolved > 0) {
+            return $_('jobs.errors_naming_catalog_gaps', {
+                values: { unresolved: unresolved.toLocaleString() },
+                default: '{unresolved} model output classes have no catalogue identity yet and keep their original label text.'
+            });
+        }
+        if (artifacts.length > 0) {
+            return $_('jobs.errors_naming_catalog_ok', {
+                default: 'Every mapped model output resolves to a catalogue identity.'
+            });
+        }
+        return null;
+    }
+
+    function startedAgoText(): string {
+        if (instanceWindow === null) return $_('common.unknown', { default: 'unknown' });
+        const minutes = Math.floor(instanceWindow / 60000);
+        if (minutes < 60) return $_('about.instance.uptime_minutes', { values: { count: minutes }, default: '{count} min' });
+        const hours = Math.floor(minutes / 60);
+        return $_('about.instance.uptime_hours', { values: { count: hours }, default: '{count} h' });
+    }
+
+    function goToDetection(eventId: string): void {
+        if (!eventId) return;
+        window.location.hash = `#/events?event=${encodeURIComponent(eventId)}`;
+    }
+
     function refreshedAgoText(): string | null {
         if (!lastRefreshedAt) return null;
         const diff = Math.floor((Date.now() - lastRefreshedAt) / 1000);
@@ -386,18 +617,12 @@
 
         <!-- ── System Status hero ──────────────────────────────────── -->
         <div class="px-6 py-6">
-            <div class="rounded-3xl border border-slate-200/80 dark:border-slate-700/60 bg-gradient-to-br from-sky-50/80 via-white to-accent-50/60 dark:from-slate-900/90 dark:via-slate-900/80 dark:to-slate-800/70 p-6">
+            <div class="rounded-3xl border p-6 {heroToneClass(overallStatusLabel())}">
                 <div class="flex flex-wrap items-start justify-between gap-4">
                     <div class="min-w-0 flex-1">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class={`inline-flex rounded-full border px-3 py-1 text-xs font-black uppercase tracking-[0.2em] ${toneClass(overallStatusLabel())}`}>
                                 {overallStatusLabel()}
-                            </span>
-                            <span class="inline-flex rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
-                                {currentIssues.length.toLocaleString()} current
-                            </span>
-                            <span class="inline-flex rounded-full border border-slate-200 bg-white/70 px-3 py-1 text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/40 dark:text-slate-300">
-                                {backendEvents.length.toLocaleString()} backend events
                             </span>
                         </div>
                         <h4 class="mt-4 text-2xl font-black tracking-tight text-slate-900 dark:text-white">{$_('jobs.errors_system_status', { default: 'System Status' })}</h4>
@@ -405,18 +630,6 @@
                             {overallSummary()}
                         </p>
                         <p class="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-300">{latestHealthLine()}</p>
-                    </div>
-                    <div class="grid min-w-[220px] grid-cols-2 gap-3 text-right">
-                        <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-                            <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_health_snapshots', { default: 'Health Snapshots' })}</p>
-                            <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{healthSnapshots.length.toLocaleString()}</p>
-                            <p class="mt-1 text-xs text-slate-400">{$_('jobs.errors_this_session', { default: 'this session' })}</p>
-                        </div>
-                        <div class="rounded-2xl border border-white/70 bg-white/70 p-3 dark:border-slate-800 dark:bg-slate-950/40">
-                            <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-400">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</p>
-                            <p class="mt-2 text-2xl font-black text-slate-900 dark:text-white">{bundles.length.toLocaleString()}</p>
-                            <p class="mt-1 text-xs text-slate-400">{$_('jobs.errors_stored_locally', { default: 'stored locally' })}</p>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -441,8 +654,61 @@
                 </div>
             {/if}
 
-            <!-- ── Subsystem cards ─────────────────────────────────── -->
-            <div class="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <!-- ── What happened: one thread of kept visits and filtered frames ── -->
+            <section class="mt-8 border-t border-slate-200/70 pt-6 dark:border-slate-700/50" data-health-timeline>
+                <header class="flex flex-wrap items-end justify-between gap-3 pb-1">
+                    <div class="min-w-0">
+                        <h3 class="font-display text-xl font-bold text-slate-950 dark:text-white">
+                            {$_('jobs.errors_activity_title', { default: 'What happened' })}
+                        </h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400">
+                            {$_('jobs.errors_activity_subtitle', {
+                                default: 'Visits recorded and frames filtered out, in the order they happened'
+                            })}
+                        </p>
+                    </div>
+                    <span class="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold tabular-nums text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                        {$_('jobs.errors_activity_window', {
+                            values: { started: startedAgoText() },
+                            default: 'Since this instance started, {started}'
+                        })}
+                    </span>
+                </header>
+
+                {#if instanceWindow === null}
+                    <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+                        {$_('jobs.errors_activity_no_window', {
+                            default: 'This instance has not reported when it started, so activity cannot be placed in a window yet.'
+                        })}
+                    </p>
+                {:else}
+                    <div class="mt-3">
+                        <FieldLog
+                            rows={timelineRows}
+                            showHeader={false}
+                            emptyMessage={$_('jobs.errors_activity_empty', {
+                                values: { started: startedAgoText() },
+                                default: 'Nothing has been recorded or filtered since this instance started {started} ago.'
+                            })}
+                            hiddenCount={timelineHidden}
+                            hiddenLabel={$_('jobs.errors_activity_earlier', {
+                                values: { count: timelineHidden.toLocaleString() },
+                                default: '{count} earlier events in this window'
+                            })}
+                            loading={detectionsStore.isLoading && timelineRows.length === 0}
+                            onselect={(detection) => goToDetection(detection.frigate_event)}
+                        />
+                    </div>
+                {/if}
+            </section>
+
+            <!-- ── Subsystem detail ────────────────────────────────── -->
+            <details class="mt-8 border-t border-slate-200/70 pt-4 dark:border-slate-700/50" data-subsystem-detail>
+                <summary class="group flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500 focus-ring dark:text-slate-400">
+                    <span>{$_('jobs.errors_subsystems_title', { default: 'Subsystem detail' })}</span>
+                    <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                </summary>
+                <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 
                 <!-- Event Pipeline -->
                 <article class="rounded-3xl border p-5 shadow-sm {toneClass(eventPipelineStatus())}">
@@ -464,6 +730,51 @@
                                 <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_dropped', { default: 'Dropped' })}</span><span>{asNumber(health?.event_pipeline?.dropped_events).toLocaleString()}</span></div>
                                 <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_critical', { default: 'Critical' })}</span><span>{asNumber(health?.event_pipeline?.critical_failures).toLocaleString()}</span></div>
                             </div>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Filtered detections (expected, configuration-driven drops) -->
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(filteredStatus())}">
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L15 12.414V19a1 1 0 01-.553.894l-4 2A1 1 0 019 21v-8.586L3.293 6.707A1 1 0 013 6V4z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_filtered_title', { default: 'Filtered Detections' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{expectedDropCount(health?.event_pipeline).toLocaleString()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{filteredSummary()}</p>
+                            {#if expectedDropReasons(health?.event_pipeline).length > 0}
+                                <dl class="mt-4 grid grid-cols-1 gap-2 text-xs font-semibold">
+                                    {#each expectedDropReasons(health?.event_pipeline) as entry (entry.reason)}
+                                        <div class="flex items-baseline justify-between gap-3">
+                                            <dt class="min-w-0 truncate uppercase tracking-wider opacity-80">{filteredReasonLabel(entry.reason)}</dt>
+                                            <dd class="shrink-0">{entry.count.toLocaleString()}</dd>
+                                        </div>
+                                    {/each}
+                                </dl>
+                                {#if recentFilteredDetections(health?.event_pipeline).length > 0}
+                                    <div class="mt-4 border-t border-current/15 pt-3">
+                                        <p class="text-xs font-black uppercase tracking-wider opacity-70">{$_('jobs.errors_filtered_recent', { default: 'Most recent' })}</p>
+                                        <ul class="mt-2 space-y-1.5 text-xs font-semibold">
+                                            {#each recentFilteredDetections(health?.event_pipeline) as entry (entry.eventId)}
+                                                <li
+                                                    class="flex items-baseline justify-between gap-3"
+                                                    title={`${filteredReasonLabel(entry.reason)}${entry.timestamp ? ` · ${formatDateTime(Date.parse(entry.timestamp))}` : ''} · ${entry.eventId}`}
+                                                >
+                                                    <span class="min-w-0 truncate italic">{entry.label ?? $_('common.unknown_species', { default: 'Unknown species' })}</span>
+                                                    <span class="shrink-0 tabular-nums opacity-80">{filteredScoreLabel(entry.score)}</span>
+                                                </li>
+                                            {/each}
+                                        </ul>
+                                    </div>
+                                {/if}
+                                <p class="mt-3 text-xs font-semibold opacity-70">{$_('jobs.errors_filtered_hint', { default: 'Adjust the confidence threshold in Settings → Detection to keep more of these.' })}</p>
+                            {/if}
                         </div>
                     </div>
                 </article>
@@ -587,6 +898,48 @@
                     </div>
                 </article>
 
+                <!-- Naming sources -->
+                <article class="rounded-3xl border p-5 shadow-sm {toneClass(namingStatus())}">
+                    <div class="flex items-start gap-3">
+                        <div class="mt-0.5 shrink-0 opacity-70">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+                            </svg>
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="flex items-center justify-between gap-2">
+                                <h4 class="text-sm font-black uppercase tracking-[0.18em]">{$_('jobs.errors_card_naming', { default: 'Naming Sources' })}</h4>
+                                <span class="shrink-0 rounded-full border border-current/30 px-2 py-0.5 text-xs font-black uppercase tracking-wider">{namingStatus()}</span>
+                            </div>
+                            <p class="mt-2 text-sm font-semibold">{namingSummary()}</p>
+                            <div class="mt-4 grid grid-cols-2 gap-3 text-xs font-semibold">
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_offline_species', { default: 'Offline Species' })}</span><span>{asNumber(health?.naming?.species_reference?.taxon_count).toLocaleString()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_languages', { default: 'Languages' })}</span><span>{namingLocales()}</span></div>
+                                <div><span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_metric_catalog', { default: 'Catalogue species' })}</span><span>{catalogSpecies()}</span></div>
+                            </div>
+                            {#if catalogSummary()}
+                                <p class="mt-3 text-xs font-semibold opacity-80">{catalogSummary()}</p>
+                            {/if}
+                            {#if catalogSources().length > 0}
+                                <div class="mt-4 border-t border-current/20 pt-3">
+                                    <span class="block text-xs uppercase tracking-wider opacity-80">{$_('jobs.errors_catalog_sources', { default: 'Catalogue sources' })}</span>
+                                    <ul class="mt-2 space-y-2 text-xs">
+                                        {#each catalogSources() as source}
+                                            <li>
+                                                <span class="font-semibold">{source.heading}</span>
+                                                {#if source.citation}
+                                                    <span class="mt-0.5 block opacity-70">{source.citation}</span>
+                                                {/if}
+                                            </li>
+                                        {/each}
+                                    </ul>
+                                    <p class="mt-3 text-xs opacity-70">{$_('jobs.errors_catalog_rollback', { default: 'The catalogue is a separate file from your detection history. Rolling one back changes names, never your recorded sightings, and a backup of the data directory covers both.' })}</p>
+                                </div>
+                            {/if}
+                        </div>
+                    </div>
+                </article>
+
                 <!-- Startup Warnings -->
                 <article class="rounded-3xl border p-5 shadow-sm {toneClass(startupStatus())}">
                     <div class="flex items-start gap-3">
@@ -617,7 +970,8 @@
                     </div>
                 </article>
 
-            </div>
+                </div>
+            </details>
         </div>
     </section>
 
@@ -710,105 +1064,85 @@
         </section>
     </div>
 
-    <!-- ── Diagnostics Bundles ─────────────────────────────────────── -->
-    <section class="card-base p-6">
-        <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
-            <div>
-                <h3 class="text-xs font-black uppercase tracking-widest text-slate-500">{$_('jobs.error_bundles_title', { default: 'Diagnostics Bundles' })}</h3>
-                <p class="text-xs text-slate-500">
-                    {$_('jobs.error_bundles_subtitle', { default: 'Capture and keep multiple diagnostics bundles, then download any bundle later.' })}
-                </p>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobDiagnosticsStore.clearBundles()}>
-                    {$_('jobs.error_bundles_clear', { default: 'Clear Bundles' })}
-                </button>
-            </div>
+    <!-- ── Diagnostics export ──────────────────────────────────────
+         Engineer-facing plumbing: useful when reporting a problem, noise on a
+         page whose job is to say whether the feeder is working. It sits behind
+         the same disclosure the subsystem detail uses. -->
+    <details class="card-base p-6" data-diagnostics-export>
+        <summary class="group flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-black uppercase tracking-widest text-slate-500 focus-ring dark:text-slate-400">
+            <span class="flex items-center gap-2">
+                <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                {$_('jobs.errors_export_title', { default: 'Diagnostics export' })}
+            </span>
+            <span class="font-semibold normal-case tracking-normal text-slate-400">
+                {$_('jobs.errors_export_count', {
+                    values: { count: bundles.length.toLocaleString() },
+                    default: '{count} saved'
+                })}
+            </span>
+        </summary>
+
+        <p class="mt-4 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
+            {$_('jobs.errors_export_desc', {
+                default: 'A bundle captures workspace health, backend diagnostics, classifier status, startup warnings and incidents as one JSON file. Attach one when you report a problem.'
+            })}
+        </p>
+
+        <textarea
+            class="input-base mt-4 min-h-16 w-full text-sm"
+            rows="2"
+            bind:value={reportNotes}
+            placeholder={$_('jobs.errors_export_notes_placeholder', { default: 'What went wrong? Included in the bundle.' })}
+            aria-label={$_('jobs.errors_export_notes_placeholder', { default: 'What went wrong? Included in the bundle.' })}
+        ></textarea>
+
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+            <input
+                class="input-base h-11 min-w-0 flex-1 text-sm sm:max-w-sm"
+                type="text"
+                bind:value={captureLabel}
+                placeholder={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
+                aria-label={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
+            />
+            <button type="button" class="btn btn-primary min-h-11 px-4 text-xs" onclick={captureBundle}>
+                {$_('jobs.error_bundles_capture', { default: 'Capture Bundle' })}
+            </button>
+            <button type="button" class="btn btn-secondary min-h-11 px-4 text-xs" onclick={downloadCurrentJson}>
+                {$_('jobs.errors_export_download_now', { default: 'Download without saving' })}
+            </button>
         </div>
 
-        <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1.25fr_1fr]">
-            <div class="space-y-4">
-                <!-- Download current snapshot -->
-                <div class="rounded-3xl border border-slate-200/80 bg-slate-50/80 p-5 dark:border-slate-700/60 dark:bg-slate-900/40">
-                    <h4 class="text-sm font-semibold text-slate-900 dark:text-white">{$_('jobs.errors_download_snapshot_title', { default: 'Download Current Snapshot' })}</h4>
-                    <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                        {$_('jobs.errors_download_snapshot_desc', { default: 'Includes workspace health, backend diagnostics, classifier status, startup warnings, incidents, and client context.' })}
-                    </p>
-                    <textarea
-                        class="mt-4 min-h-24 w-full rounded-3xl border border-slate-200/80 bg-white/85 px-4 py-3 text-xs font-semibold text-slate-800 shadow-inner outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-slate-700/70 dark:bg-slate-950/50 dark:text-slate-100 dark:placeholder:text-slate-500"
-                        bind:value={reportNotes}
-                        placeholder={$_('jobs.errors_notes_placeholder', { default: 'Optional notes to include when you capture a saved bundle' })}
-                    ></textarea>
-                    <div class="mt-3 flex flex-wrap items-center gap-2">
-                        <button type="button" class="btn btn-primary px-4 py-2 text-xs" onclick={downloadCurrentJson}>
-                            {$_('jobs.errors_export', { default: 'Export Current JSON' })}
-                        </button>
-                        <div class="flex flex-1 items-center gap-2">
-                            <input
-                                class="h-10 flex-1 rounded-2xl border border-slate-200/80 bg-white/85 px-3 text-xs font-semibold text-slate-800 shadow-inner outline-none transition focus:border-brand-400 focus:ring-4 focus:ring-brand-500/15 dark:border-slate-700/70 dark:bg-slate-950/50 dark:text-slate-100 dark:placeholder:text-slate-500"
-                                bind:value={captureLabel}
-                                placeholder={$_('jobs.error_bundles_label_placeholder', { default: 'Optional bundle label' })}
-                            />
-                            <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={captureBundle}>
-                                {$_('jobs.error_bundles_capture', { default: 'Capture Bundle' })}
+        {#if bundles.length === 0}
+            <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">
+                {$_('jobs.errors_no_bundles', { default: 'No captured bundles available yet.' })}
+            </p>
+        {:else}
+            <ul class="mt-5 divide-y divide-slate-200/70 border-t border-slate-200/70 dark:divide-slate-700/50 dark:border-slate-700/50">
+                {#each bundles as bundle (bundle.id)}
+                    <li class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-3">
+                        <div class="min-w-0 flex-1">
+                            <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{bundle.label}</p>
+                            <p class="mt-0.5 text-xs tabular-nums text-slate-500 dark:text-slate-400">
+                                {formatDateTime(bundle.createdAt)} · {bundleSummaryText(bundle)}
+                            </p>
+                            {#if bundleNotesPreview(bundle)}
+                                <p class="mt-1 truncate text-xs text-slate-600 dark:text-slate-300">{bundleNotesPreview(bundle)}</p>
+                            {/if}
+                        </div>
+                        <div class="flex shrink-0 items-center gap-1">
+                            <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" onclick={() => downloadBundle(bundle)}>
+                                {$_('jobs.error_bundles_download', { default: 'Download' })}
+                            </button>
+                            <button type="button" class="btn btn-ghost min-h-11 px-3 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(bundle.id)}>
+                                {$_('jobs.error_bundles_delete', { default: 'Delete' })}
                             </button>
                         </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Saved bundles list -->
-            <div>
-                <div class="flex items-center justify-between gap-3">
-                    <div>
-                        <h4 class="text-xs font-black uppercase tracking-wider text-slate-500">{$_('jobs.errors_saved_bundles_label', { default: 'Saved Bundles' })}</h4>
-                        <p class="text-xs text-slate-500">{$_('jobs.errors_bundles_local_desc', { default: 'Distinct snapshots stay local until you download or delete them.' })}</p>
-                    </div>
-                    <span class="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-black uppercase tracking-[0.2em] text-slate-500 dark:border-slate-700 dark:bg-slate-950/30">
-                        {bundles.length.toLocaleString()} saved
-                    </span>
-                </div>
-
-                {#if bundles.length === 0}
-                    <p class="mt-3 text-xs text-slate-500">{$_('jobs.errors_no_bundles', { default: 'No captured bundles available yet.' })}</p>
-                {:else}
-                    <div class="mt-4 space-y-3">
-                        {#each bundles as bundle, index (bundle.id)}
-                            <article class={`rounded-3xl border p-4 shadow-sm ${index === 0 ? 'border-accent-200/80 bg-white dark:border-accent-800/60 dark:bg-slate-900/60' : 'border-slate-200/80 bg-white/85 dark:border-slate-700/60 dark:bg-slate-950/40'}`}>
-                                <div class="flex items-start justify-between gap-3">
-                                    <div class="min-w-0 flex-1">
-                                        <div class="flex flex-wrap items-center gap-2">
-                                            {#if index === 0}
-                                                <span class="inline-flex items-center rounded-full bg-accent-100 px-2.5 py-1 text-xs font-black uppercase tracking-[0.2em] text-accent-700 dark:bg-accent-900/40 dark:text-accent-300">
-                                                    {$_('jobs.errors_newest_badge', { default: 'Newest' })}
-                                                </span>
-                                            {/if}
-                                            <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">{bundle.label}</p>
-                                        </div>
-                                        <p class="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
-                                            {formatDateTime(bundle.createdAt)}
-                                        </p>
-                                        <p class="mt-2 text-xs text-slate-500 dark:text-slate-300">{bundleSummaryText(bundle)}</p>
-                                        {#if bundleNotesPreview(bundle)}
-                                            <p class="mt-3 line-clamp-3 text-xs text-slate-600 dark:text-slate-200">
-                                                {bundleNotesPreview(bundle)}
-                                            </p>
-                                        {/if}
-                                    </div>
-                                    <div class="flex shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap">
-                                        <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => downloadBundle(bundle)}>
-                                            {$_('jobs.error_bundles_download', { default: 'Download' })}
-                                        </button>
-                                        <button type="button" class="btn btn-secondary px-3 py-2 text-xs" onclick={() => jobDiagnosticsStore.removeBundle(bundle.id)}>
-                                            {$_('jobs.error_bundles_delete', { default: 'Delete' })}
-                                        </button>
-                                    </div>
-                                </div>
-                            </article>
-                        {/each}
-                    </div>
-                {/if}
-            </div>
-        </div>
-    </section>
+                    </li>
+                {/each}
+            </ul>
+            <button type="button" class="btn btn-ghost mt-3 min-h-11 px-3 text-xs" onclick={() => jobDiagnosticsStore.clearBundles()}>
+                {$_('jobs.error_bundles_clear', { default: 'Clear Bundles' })}
+            </button>
+        {/if}
+    </details>
 </div>

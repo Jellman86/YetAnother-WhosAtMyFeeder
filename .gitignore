@@ -197,6 +197,12 @@ agents/
 data/
 *.db
 backend/data/*.db
+# The species reference is a shipped, checksum-verified asset, not a runtime
+# database. It must survive the *.db rule above.
+!backend/app/assets/species_reference.db
+# The seed catalogue is generated at image build from the reference; neither
+# the file nor its digest sidecar belongs in the repository.
+backend/app/assets/species_catalog_seed.db.sha256
 backend/data/models/
 # apps/telemetry-worker/ # Un-ignored to allow tracking source
 apps/telemetry-worker/.wrangler/
@@ -216,3 +222,7 @@ playwright-results/
 # these patterns keep the tree clean in the meantime.
 * [2-9]
 * [2-9].*
+
+# macOS finder metadata, which turns up in every directory
+.DS_Store
+**/.DS_Store

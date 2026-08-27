@@ -1,0 +1,70 @@
+"""The canonical content identity of a catalogue release.
+
+A release's `content_sha256` is a digest over its species, concepts, and
+names in one canonical order, independent of how the rows were inserted. The
+builder records it when a release is cut, and the importer recomputes it
+before admitting a bundle, so a file altered after it was built cannot enter
+a live catalogue as if it were the release it claims to be.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import sqlite3
+
+
+def connection_content_digest(connection: sqlite3.Connection) -> str:
+    """Digest the catalogue content reachable from one connection.
+
+    Canonical order, not insertion order: species by id and concept identity,
+    names by species, language, and name. Bundles hold exactly one release, so
+    the whole file is the release's content.
+    """
+    digest = hashlib.sha256()
+    for species_id, scientific_name in connection.execute(
+        "SELECT species_id, scientific_name FROM species_concepts ORDER BY species_id, provider, provider_taxon_id"
+    ):
+        digest.update(f"species|{species_id}|{scientific_name}\n".encode())
+    for species_id, language_tag, name in connection.execute(
+        "SELECT species_id, language_tag, name FROM species_names ORDER BY species_id, language_tag, name"
+    ):
+        digest.update(f"name|{species_id}|{language_tag}|{name}\n".encode())
+    for alias, alias_kind, species_id, resolution in connection.execute(
+        "SELECT alias, alias_kind, species_id, resolution FROM species_aliases"
+        " ORDER BY alias, alias_kind, species_id, resolution"
+    ):
+        digest.update(
+            f"alias|{alias}|{alias_kind}|{species_id if species_id is not None else ''}|{resolution}\n".encode()
+        )
+    for model_sha256, mapping_set_sha256, output_width in connection.execute(
+        "SELECT model_sha256, mapping_set_sha256, output_width FROM model_artifacts ORDER BY model_sha256"
+    ):
+        digest.update(f"artifact|{model_sha256}|{mapping_set_sha256 or ''}|{output_width}\n".encode())
+    for model_sha256, output_index, class_kind, species_id in connection.execute(
+        "SELECT a.model_sha256, t.output_index, t.class_kind, t.species_id FROM model_output_taxa t"
+        " JOIN model_artifacts a ON a.id = t.model_artifact_id"
+        " ORDER BY a.model_sha256, t.output_index"
+    ):
+        digest.update(
+            f"output|{model_sha256}|{output_index}|{class_kind}|{species_id if species_id is not None else ''}\n".encode()
+        )
+    return digest.hexdigest()
+
+
+def release_content_digest(
+    connection: sqlite3.Connection,
+    *,
+    schema_version: int,
+    source_manifest: str,
+    generated_at: str,
+) -> str:
+    """The digest a release records, covering content *and* its own metadata.
+
+    The release row's provenance record, timestamp, and schema version are part
+    of what the digest attests: without them a built bundle's source manifest
+    could be edited after the fact and still verify.
+    """
+    digest = hashlib.sha256()
+    digest.update(f"release|{schema_version}|{generated_at}|{source_manifest}\n".encode())
+    digest.update(connection_content_digest(connection).encode())
+    return digest.hexdigest()

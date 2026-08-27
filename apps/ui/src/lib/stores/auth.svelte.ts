@@ -32,6 +32,7 @@ class AuthStore {
     llmEnabled = $state(false);
     llmReady = $state(false);
     ebirdEnabled = $state(false);
+    ebirdDefaultRadiusKm = $state(25);
     inaturalistEnabled = $state(false);
     enrichmentMode = $state("per_enrichment");
     enrichmentSingleProvider = $state("wikipedia");
@@ -46,6 +47,7 @@ class AuthStore {
     locationWeatherUnitSystem = $state<WeatherUnitSystem>("metric");
     locationTemperatureUnit = $state("celsius");
     dateFormat = $state("locale");
+    timeFormat = $state("locale");
     private readonly staleTracker = new StaleTracker(300_000); // 5 minutes
     private readonly unregister: () => void;
     private _isRefreshing = false;
@@ -87,6 +89,7 @@ class AuthStore {
             this.llmEnabled = status.llm_enabled ?? false;
             this.llmReady = status.llm_ready ?? false;
             this.ebirdEnabled = status.ebird_enabled ?? false;
+            this.ebirdDefaultRadiusKm = status.ebird_default_radius_km ?? 25;
             this.inaturalistEnabled = status.inaturalist_enabled ?? false;
             this.enrichmentMode = status.enrichment_mode ?? "per_enrichment";
             this.enrichmentSingleProvider = status.enrichment_single_provider ?? "wikipedia";
@@ -104,6 +107,7 @@ class AuthStore {
             );
             this.locationTemperatureUnit = getTemperatureUnitForSystem(this.locationWeatherUnitSystem);
             this.dateFormat = status.date_format ?? "locale";
+            this.timeFormat = status.time_format ?? "locale";
             this.statusHealthy = true;
             this.staleTracker.touch();
         } catch (err) {

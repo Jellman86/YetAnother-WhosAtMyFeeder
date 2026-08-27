@@ -136,3 +136,20 @@ async def cleanup_async_singletons():
 # def pytest_collection_modifyitems(config, items):
 #     """Skip pre-existing broken tests to allow CI/CD to pass."""
 #     pass
+
+
+async def rollup_counts_by_display_name(repo, days: int = 7) -> dict[str, int]:
+    """Detections per display name in the daily rollup, read straight from it.
+
+    Tests that check `ensure_recent_rollups` want to know the rollup was
+    populated, so they read the table. Routing that through a repository method
+    kept a second, name-keyed way of reading rollups alive purely for tests,
+    long after production had moved to the leaderboard's unified key.
+    """
+    query = (
+        "SELECT display_name, SUM(detection_count) FROM species_daily_rollup"
+        f" WHERE rollup_date >= date('now', '-{int(days)} day') GROUP BY display_name"
+    )
+    async with repo.db.execute(query) as cursor:
+        rows = await cursor.fetchall()
+    return {str(row[0]): int(row[1] or 0) for row in rows}

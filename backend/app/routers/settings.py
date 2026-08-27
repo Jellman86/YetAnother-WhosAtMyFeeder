@@ -30,6 +30,7 @@ from app.services.frigate_client import frigate_client
 from app.services.timezone_repair_service import timezone_repair_service
 from app.services.media_cache import media_cache
 from app.services.maintenance_coordinator import maintenance_coordinator
+from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND
 from app.services.ai_service import AIService
 from app.services.frigate_missing_policy import apply_missing_policy, clear_missing_state_if_present
 from app.services.smtp_service import smtp_service
@@ -37,7 +38,9 @@ from app.services.bird_model_region_resolver import normalize_bird_model_region
 from app.config_models import (
     BlockedSpeciesEntry,
     DEFAULT_LLM_MODEL,
+    ExplorerView,
     FrigateMissingBehavior,
+    MediaIntegrityScanMedia,
     normalize_blocked_species_entries,
     normalize_crop_override_map,
     normalize_crop_model_override,
@@ -737,9 +740,21 @@ class SettingsUpdate(BaseModel):
         "mark_missing",
         description="How YA-WAMF should react when Frigate no longer has the event or retained media",
     )
-    auto_purge_missing_clips: bool = Field(False, description="Purge detections without clips during scheduled cleanup")
+    auto_purge_missing_clips: bool = Field(
+        False, description="Deprecated: use media_integrity_scan_enabled with media='clip'"
+    )
     auto_purge_missing_snapshots: bool = Field(
-        False, description="Purge detections without snapshots during scheduled cleanup"
+        False, description="Deprecated: use media_integrity_scan_enabled with media='snapshot'"
+    )
+    media_integrity_scan_enabled: bool = Field(
+        False, description="Periodically re-check detections against Frigate and apply the missing-media behaviour"
+    )
+    media_integrity_scan_media: MediaIntegrityScanMedia = Field(
+        "any", description="Which media must be absent upstream for a detection to count as missing"
+    )
+    media_integrity_scan_interval_hours: int = Field(6, ge=1, le=168, description="Hours between media integrity scans")
+    media_integrity_scan_batch_size: int = Field(
+        1000, ge=1, le=20000, description="Maximum detections re-checked against Frigate in one scan"
     )
     auto_analyze_unknowns: bool = Field(False, description="Analyze unknown detections during scheduled cleanup")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
@@ -985,6 +1000,8 @@ class SettingsUpdate(BaseModel):
 
     species_info_source: Optional[str] = "auto"
     date_format: Optional[str] = None
+    time_format: Optional[str] = None
+    appearance_explorer_view: Optional[ExplorerView] = None
     appearance_font_theme: Optional[str] = None
     appearance_color_theme: Optional[str] = None
 
@@ -1064,6 +1081,17 @@ class SettingsUpdate(BaseModel):
         allowed = {"locale", "mdy", "dmy", "ymd"}
         if normalized not in allowed:
             raise ValueError("date_format must be one of: locale, mdy, dmy, ymd")
+        return normalized
+
+    @field_validator("time_format")
+    @classmethod
+    def validate_time_format(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        normalized = v.strip().lower()
+        allowed = {"locale", "12h", "24h"}
+        if normalized not in allowed:
+            raise ValueError("time_format must be one of: locale, 12h, 24h")
         return normalized
 
 
@@ -1245,6 +1273,10 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "frigate_missing_behavior": settings.maintenance.frigate_missing_behavior,
         "auto_purge_missing_clips": settings.maintenance.auto_purge_missing_clips,
         "auto_purge_missing_snapshots": settings.maintenance.auto_purge_missing_snapshots,
+        "media_integrity_scan_enabled": settings.maintenance.media_integrity_scan_enabled,
+        "media_integrity_scan_media": settings.maintenance.media_integrity_scan_media,
+        "media_integrity_scan_interval_hours": settings.maintenance.media_integrity_scan_interval_hours,
+        "media_integrity_scan_batch_size": settings.maintenance.media_integrity_scan_batch_size,
         "auto_analyze_unknowns": settings.maintenance.auto_analyze_unknowns,
         "blocked_labels": settings.classification.blocked_labels,
         "blocked_species": settings.classification.blocked_species,
@@ -1387,6 +1419,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "accessibility_zen_mode": settings.accessibility.zen_mode,
         "accessibility_live_announcements": settings.accessibility.live_announcements,
         # Appearance
+        "appearance_explorer_view": settings.appearance.explorer_view,
         "appearance_font_theme": settings.appearance.font_theme,
         "appearance_color_theme": settings.appearance.color_theme,
         # Authentication
@@ -1410,6 +1443,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "public_access_external_base_url": settings.public_access.external_base_url,
         "species_info_source": settings.species_info_source,
         "date_format": settings.date_format,
+        "time_format": settings.time_format,
     }
 
 
@@ -1419,6 +1453,8 @@ async def update_settings(
 ) -> SettingsUpdateResponse:
     """Update application settings. Owner only."""
     inference_provider_changed = False
+    telemetry_was_enabled = settings.telemetry.enabled or settings.telemetry.health_enabled
+    telemetry_installation_id = settings.telemetry.installation_id
 
     def should_update_secret(value: Optional[str]) -> bool:
         return value not in (None, "", "***REDACTED***")
@@ -1547,10 +1583,33 @@ async def update_settings(
         settings.maintenance.auto_delete_missing_clips = update.auto_delete_missing_clips
     if "frigate_missing_behavior" in fields_set:
         settings.maintenance.frigate_missing_behavior = update.frigate_missing_behavior
+    # An older client still writes only the legacy pair. Mirror it onto the scan
+    # so its intent lands, and keep writing the legacy fields so a downgrade
+    # reads back what it wrote.
     if "auto_purge_missing_clips" in fields_set:
         settings.maintenance.auto_purge_missing_clips = update.auto_purge_missing_clips
     if "auto_purge_missing_snapshots" in fields_set:
         settings.maintenance.auto_purge_missing_snapshots = update.auto_purge_missing_snapshots
+    legacy_written = {"auto_purge_missing_clips", "auto_purge_missing_snapshots"} & fields_set
+    if legacy_written and "media_integrity_scan_enabled" not in fields_set:
+        clips = settings.maintenance.auto_purge_missing_clips
+        snapshots = settings.maintenance.auto_purge_missing_snapshots
+        settings.maintenance.media_integrity_scan_enabled = bool(clips or snapshots)
+        if clips or snapshots:
+            settings.maintenance.media_integrity_scan_media = (
+                "any" if clips and snapshots else ("clip" if clips else "snapshot")
+            )
+    if "media_integrity_scan_enabled" in fields_set:
+        settings.maintenance.media_integrity_scan_enabled = update.media_integrity_scan_enabled
+        # Keep the legacy pair truthful for a client that only reads those.
+        settings.maintenance.auto_purge_missing_clips = update.media_integrity_scan_enabled
+        settings.maintenance.auto_purge_missing_snapshots = update.media_integrity_scan_enabled
+    if "media_integrity_scan_media" in fields_set:
+        settings.maintenance.media_integrity_scan_media = update.media_integrity_scan_media
+    if "media_integrity_scan_interval_hours" in fields_set:
+        settings.maintenance.media_integrity_scan_interval_hours = update.media_integrity_scan_interval_hours
+    if "media_integrity_scan_batch_size" in fields_set:
+        settings.maintenance.media_integrity_scan_batch_size = update.media_integrity_scan_batch_size
     if "auto_analyze_unknowns" in fields_set:
         settings.maintenance.auto_analyze_unknowns = update.auto_analyze_unknowns
     if "blocked_labels" in fields_set:
@@ -1666,6 +1725,10 @@ async def update_settings(
         settings.ebird.max_results = update.ebird_max_results
     if "ebird_locale" in fields_set and update.ebird_locale is not None:
         settings.ebird.locale = update.ebird_locale
+    # A new install has no eBird key at startup, so the localized names fetched
+    # then are nothing. Refresh when the key or the language changes rather than
+    # leaving the owner on English until the next restart.
+    ebird_naming_changed = any(field in fields_set for field in ("ebird_api_key", "ebird_locale", "ebird_enabled"))
 
     # iNaturalist settings
     if "inaturalist_enabled" in fields_set and update.inaturalist_enabled is not None:
@@ -1791,6 +1854,8 @@ async def update_settings(
 
     if "date_format" in fields_set and update.date_format is not None:
         settings.date_format = update.date_format
+    if "time_format" in fields_set and update.time_format is not None:
+        settings.time_format = update.time_format
 
     # Notifications - Discord
     if "notifications_discord_enabled" in fields_set and update.notifications_discord_enabled is not None:
@@ -1931,6 +1996,8 @@ async def update_settings(
     if "accessibility_live_announcements" in fields_set and update.accessibility_live_announcements is not None:
         settings.accessibility.live_announcements = update.accessibility_live_announcements
 
+    if "appearance_explorer_view" in fields_set and update.appearance_explorer_view is not None:
+        settings.appearance.explorer_view = update.appearance_explorer_view
     if "appearance_font_theme" in fields_set and update.appearance_font_theme is not None:
         settings.appearance.font_theme = update.appearance_font_theme
     if "appearance_color_theme" in fields_set and update.appearance_color_theme is not None:
@@ -1943,8 +2010,21 @@ async def update_settings(
         background_tasks.add_task(telemetry_service.force_heartbeat)
     if settings.telemetry.health_enabled:
         background_tasks.add_task(telemetry_service.force_health_report)
+    if (
+        telemetry_was_enabled
+        and not settings.telemetry.enabled
+        and not settings.telemetry.health_enabled
+        and telemetry_installation_id
+    ):
+        background_tasks.add_task(telemetry_service.forget_installation, telemetry_installation_id)
 
     await settings.save()
+
+    if ebird_naming_changed:
+        from app.services.localized_names import start_background_refresh
+
+        background_tasks.add_task(start_background_refresh)
+
     if inference_provider_changed or execution_mode_changed:
         from app.services.classifier_service import get_classifier, shutdown_classifier
 
@@ -2054,6 +2134,20 @@ async def clear_favorites(auth: AuthContext = Depends(require_owner)):
         "status": "completed",
         "deleted_count": deleted_count,
         "message": "All favorites removed" if deleted_count > 0 else "No favorites to remove",
+    }
+
+
+def _busy_purge_response() -> dict:
+    """The shape a purge endpoint returns when a scan is already running."""
+    return {
+        "status": "busy",
+        "deleted_count": 0,
+        "marked_missing_count": 0,
+        "kept_count": 0,
+        "cleared_missing_count": 0,
+        "checked": 0,
+        "missing": 0,
+        "message": "A media integrity scan is already running.",
     }
 
 
@@ -2252,10 +2346,26 @@ def _get_camera_retention_days(frigate_config: object, camera_name: str) -> floa
     return get_camera_retention_days(frigate_config, camera_name)
 
 
+async def _run_guarded_media_scan(runner) -> dict:
+    """Run a manual scan under the scheduled scan's maintenance slot.
+
+    They walk the same detections and ask the same Frigate. Running both at once
+    doubles the request rate against it and puts two writers on one row, so
+    whichever asks second is told the scan is already running.
+    """
+    holder_id = "manual_media_integrity_scan"
+    if not await maintenance_coordinator.try_acquire(holder_id, kind=MEDIA_INTEGRITY_SCAN_KIND):
+        return _busy_purge_response()
+    try:
+        return await runner()
+    finally:
+        await maintenance_coordinator.release(holder_id)
+
+
 @router.post("/maintenance/purge-missing-clips", response_model=PurgeMissingMediaResponse)
 async def purge_missing_clips(auth: AuthContext = Depends(require_owner)):
     """Remove detections without clips (or missing events). Owner only."""
-    result = await _purge_missing_media("clip")
+    result = await _run_guarded_media_scan(lambda: _purge_missing_media("clip"))
     log.info("Purge missing clips completed", **result)
     return result
 
@@ -2263,7 +2373,7 @@ async def purge_missing_clips(auth: AuthContext = Depends(require_owner)):
 @router.post("/maintenance/purge-missing-media", response_model=PurgeMissingMediaResponse)
 async def purge_missing_media(auth: AuthContext = Depends(require_owner)):
     """Apply the configured missing-media policy when any Frigate event/media is missing. Owner only."""
-    result = await _purge_missing_all_media()
+    result = await _run_guarded_media_scan(_purge_missing_all_media)
     log.info("Purge missing media completed", **result)
     return result
 
@@ -2271,7 +2381,7 @@ async def purge_missing_media(auth: AuthContext = Depends(require_owner)):
 @router.post("/maintenance/purge-missing-snapshots", response_model=PurgeMissingMediaResponse)
 async def purge_missing_snapshots(auth: AuthContext = Depends(require_owner)):
     """Remove detections without snapshots (or missing events). Owner only."""
-    result = await _purge_missing_media("snapshot")
+    result = await _run_guarded_media_scan(lambda: _purge_missing_media("snapshot"))
     log.info("Purge missing snapshots completed", **result)
     return result
 
@@ -2338,60 +2448,65 @@ async def _run_analyze_unknowns() -> dict:
     total_candidates = 0
     processed_candidates = 0
     try:
+        # Read the candidates, then let the connection go. The pre-check calls
+        # Frigate once per detection, in rounds, and the whole loop can run for
+        # minutes on a large backlog. The writes re-acquire, one round at a time.
         async with get_db() as db:
-            repo = DetectionRepository(db)
-            unknowns = await repo.get_unknown_detections(limit=BATCH_ANALYSIS_MAX_SCAN_PER_RUN)
+            unknowns = await DetectionRepository(db).get_unknown_detections(limit=BATCH_ANALYSIS_MAX_SCAN_PER_RUN)
             total_candidates = len(unknowns)
             scan_truncated = total_candidates >= BATCH_ANALYSIS_MAX_SCAN_PER_RUN
-            log.info(
-                "Batch analysis triggered",
-                total_unknowns=total_candidates,
-                queue_limit=BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
-                scan_limit=BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
-                scan_truncated=scan_truncated,
-            )
 
-            # Pre-check availability before queueing to avoid failure storms when
-            # detections are older than Frigate media retention or clips are missing.
-            frigate_cfg = await frigate_client.get_config()
-            retention_by_camera: dict[str, int | None] = {}
-            for d in unknowns:
-                if d.camera_name not in retention_by_camera:
-                    retention_by_camera[d.camera_name] = _get_camera_retention_days(frigate_cfg, d.camera_name)
+        log.info(
+            "Batch analysis triggered",
+            total_unknowns=total_candidates,
+            queue_limit=BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+            scan_limit=BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+            scan_truncated=scan_truncated,
+        )
 
-            now = datetime.now()
-            semaphore = asyncio.Semaphore(BATCH_ANALYSIS_CHECK_CONCURRENCY)
+        # Pre-check availability before queueing to avoid failure storms when
+        # detections are older than Frigate media retention or clips are missing.
+        frigate_cfg = await frigate_client.get_config()
+        retention_by_camera: dict[str, int | None] = {}
+        for d in unknowns:
+            if d.camera_name not in retention_by_camera:
+                retention_by_camera[d.camera_name] = _get_camera_retention_days(frigate_cfg, d.camera_name)
 
-            async def precheck_detection(detection):
-                retention_days = retention_by_camera.get(detection.camera_name)
-                if retention_days is not None:
-                    cutoff = now - timedelta(days=retention_days)
-                    if detection.detection_time < cutoff:
-                        return ("outside_retention", detection)
+        now = datetime.now()
+        semaphore = asyncio.Semaphore(BATCH_ANALYSIS_CHECK_CONCURRENCY)
 
-                async with semaphore:
-                    event_data, event_error = await frigate_client.get_event_with_error(
-                        detection.frigate_event, timeout=8.0
-                    )
+        async def precheck_detection(detection):
+            retention_days = retention_by_camera.get(detection.camera_name)
+            if retention_days is not None:
+                cutoff = now - timedelta(days=retention_days)
+                if detection.detection_time < cutoff:
+                    return ("outside_retention", detection)
 
-                if not event_data:
-                    if event_error == "event_not_found":
-                        return ("missing_event", detection)
-                    # Transient precheck issues should not suppress classification;
-                    # keep these in the queue path and let worker retries handle it.
-                    return ("precheck_error", detection)
+            async with semaphore:
+                event_data, event_error = await frigate_client.get_event_with_error(
+                    detection.frigate_event, timeout=8.0
+                )
 
-                if not bool(event_data.get("has_clip", False)):
-                    return ("no_clip", detection)
+            if not event_data:
+                if event_error == "event_not_found":
+                    return ("missing_event", detection)
+                # Transient precheck issues should not suppress classification;
+                # keep these in the queue path and let worker retries handle it.
+                return ("precheck_error", detection)
 
-                return ("eligible", detection)
+            if not bool(event_data.get("has_clip", False)):
+                return ("no_clip", detection)
 
-            for offset in range(0, len(unknowns), BATCH_ANALYSIS_CHECK_CONCURRENCY):
-                if accepted >= BATCH_ANALYSIS_MAX_QUEUE_PER_RUN:
-                    break
-                batch = unknowns[offset : offset + BATCH_ANALYSIS_CHECK_CONCURRENCY]
-                prechecked = await asyncio.gather(*(precheck_detection(d) for d in batch))
+            return ("eligible", detection)
 
+        for offset in range(0, len(unknowns), BATCH_ANALYSIS_CHECK_CONCURRENCY):
+            if accepted >= BATCH_ANALYSIS_MAX_QUEUE_PER_RUN:
+                break
+            batch = unknowns[offset : offset + BATCH_ANALYSIS_CHECK_CONCURRENCY]
+            prechecked = await asyncio.gather(*(precheck_detection(d) for d in batch))
+
+            async with get_db() as db:
+                repo = DetectionRepository(db)
                 for state, d in prechecked:
                     processed_candidates += 1
                     if state == "outside_retention":
@@ -2424,8 +2539,8 @@ async def _run_analyze_unknowns() -> dict:
                     elif result == "full":
                         dropped_full += 1
                         break
-                if dropped_full > 0:
-                    break
+            if dropped_full > 0:
+                break
     finally:
         await maintenance_coordinator.release(holder_id)
 

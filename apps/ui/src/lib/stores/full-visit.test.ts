@@ -19,7 +19,9 @@ describe('FullVisitStore', () => {
         const api = await import('../api');
         vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({
             available: true,
-            fetched: true
+            fetched: true,
+            state: 'complete',
+            durationSeconds: 30
         });
 
         const { FullVisitStore } = await import('./full-visit.svelte');
@@ -37,6 +39,7 @@ describe('FullVisitStore', () => {
             event_id: 'evt-2',
             status: 'ready',
             clip_variant: 'recording',
+            recording_state: 'complete',
             cached: false
         });
 
@@ -51,11 +54,12 @@ describe('FullVisitStore', () => {
 
     it('auto-fetches the clip when available=true, fetched=false and autoFetch option is set', async () => {
         const api = await import('../api');
-        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false });
+        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false, state: null, durationSeconds: null });
         vi.mocked(api.fetchRecordingClip).mockResolvedValue({
             event_id: 'evt-af',
             status: 'ready',
             clip_variant: 'recording',
+            recording_state: 'complete',
             cached: true
         });
 
@@ -70,7 +74,7 @@ describe('FullVisitStore', () => {
 
     it('does not auto-fetch when autoFetch option is not set', async () => {
         const api = await import('../api');
-        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false });
+        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false, state: null, durationSeconds: null });
 
         const { FullVisitStore } = await import('./full-visit.svelte');
         const store = new FullVisitStore();
@@ -83,11 +87,12 @@ describe('FullVisitStore', () => {
 
     it('auto-fetches immediately when availability is already confirmed and autoFetch is set', async () => {
         const api = await import('../api');
-        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false });
+        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false, state: null, durationSeconds: null });
         vi.mocked(api.fetchRecordingClip).mockResolvedValue({
             event_id: 'evt-cached',
             status: 'ready',
             clip_variant: 'recording',
+            recording_state: 'complete',
             cached: true
         });
 
@@ -109,11 +114,15 @@ describe('FullVisitStore', () => {
         vi.mocked(api.checkRecordingClipAvailable)
             .mockResolvedValueOnce({
                 available: true,
-                fetched: false
+                fetched: false,
+                state: null,
+                durationSeconds: null
             })
             .mockResolvedValueOnce({
                 available: true,
-                fetched: true
+                fetched: true,
+                state: 'complete',
+                durationSeconds: 30
             });
 
         const { FullVisitStore } = await import('./full-visit.svelte');
@@ -132,7 +141,7 @@ describe('FullVisitStore', () => {
     it('performs at most one automatic re-probe for an available uncached clip', async () => {
         vi.useFakeTimers();
         const api = await import('../api');
-        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false });
+        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false, state: null, durationSeconds: null });
 
         const { FullVisitStore } = await import('./full-visit.svelte');
         const store = new FullVisitStore({ reprobeDelayMs: 8000 });
@@ -150,7 +159,7 @@ describe('FullVisitStore', () => {
     it('bounds cached event state and clears timers for evicted events', async () => {
         vi.useFakeTimers();
         const api = await import('../api');
-        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false });
+        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false, state: null, durationSeconds: null });
 
         const { FullVisitStore } = await import('./full-visit.svelte');
         const store = new FullVisitStore({ maxEntries: 3 });
@@ -169,7 +178,7 @@ describe('FullVisitStore', () => {
 
     it('contains an automatic fetch failure without leaking an unhandled rejection', async () => {
         const api = await import('../api');
-        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false });
+        vi.mocked(api.checkRecordingClipAvailable).mockResolvedValue({ available: true, fetched: false, state: null, durationSeconds: null });
         vi.mocked(api.fetchRecordingClip).mockRejectedValue(new Error('upstream unavailable'));
 
         const { FullVisitStore } = await import('./full-visit.svelte');
@@ -178,5 +187,24 @@ describe('FullVisitStore', () => {
         await store.ensureAvailability('evt-fail', { autoFetch: true });
 
         await vi.waitFor(() => expect(store.getFetchState('evt-fail')).toBe('failed'));
+    });
+
+    it('keeps a playable partial explicit instead of promoting it as a full visit', async () => {
+        const api = await import('../api');
+        vi.mocked(api.fetchRecordingClip).mockResolvedValue({
+            event_id: 'evt-partial',
+            status: 'partial',
+            clip_variant: 'recording',
+            recording_state: 'partial',
+            cached: true
+        });
+
+        const { FullVisitStore } = await import('./full-visit.svelte');
+        const store = new FullVisitStore();
+
+        await expect(store.fetchFullVisit('evt-partial')).resolves.toBe(false);
+        expect(store.getFetchState('evt-partial')).toBe('partial');
+        expect(store.isAvailable('evt-partial')).toBe(true);
+        expect(store.isFetched('evt-partial')).toBe(false);
     });
 });

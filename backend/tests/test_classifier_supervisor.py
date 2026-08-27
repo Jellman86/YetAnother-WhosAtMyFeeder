@@ -70,6 +70,18 @@ class _FakeWorker:
         }
 
 
+class _ActivityAwareFakeWorker(_FakeWorker):
+    def __init__(self, worker_name: str, worker_generation: int) -> None:
+        super().__init__(worker_name, worker_generation)
+        self.last_activity_monotonic = self.last_heartbeat_monotonic
+
+    def get_status(self) -> dict:
+        return {
+            **super().get_status(),
+            "last_activity_monotonic": self.last_activity_monotonic,
+        }
+
+
 class _SlowReadyWorker(_FakeWorker):
     def __init__(self, worker_name: str, worker_generation: int, *, ready_delay_seconds: float) -> None:
         super().__init__(worker_name, worker_generation)
@@ -309,6 +321,57 @@ async def test_classifier_supervisor_replaces_worker_after_heartbeat_timeout():
     assert created[0].killed is True
     assert supervisor.get_metrics()["live"]["restarts"] == 1
 
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_classifier_supervisor_keeps_busy_worker_when_progress_is_recent():
+    created: list[_ActivityAwareFakeWorker] = []
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _ActivityAwareFakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=0.05,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+        watchdog_interval_seconds=0.01,
+    )
+    await supervisor.start()
+
+    task = asyncio.create_task(
+        supervisor.classify(
+            priority="live",
+            work_id="live-progress",
+            lease_token=2,
+            image_b64="payload",
+            camera_name="front",
+            model_id="default",
+        )
+    )
+    await asyncio.sleep(0.01)
+    created[0].last_heartbeat_monotonic = time.monotonic() - 1.0
+    created[0].last_activity_monotonic = time.monotonic()
+    await asyncio.sleep(0.03)
+
+    assert task.done() is False
+    assert created[0].killed is False
+
+    await created[0].events.put(
+        {
+            "type": "result",
+            "worker_generation": 1,
+            "request_id": created[0].current_request_id,
+            "work_id": "live-progress",
+            "lease_token": 2,
+            "results": [],
+        }
+    )
+    assert await task == []
     await supervisor.shutdown()
 
 

@@ -46,8 +46,23 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `YA_WAMF_API_KEY` | _(unset)_ | Require `X-API-Key` on all API requests when set. |
 | `CONFIG_FILE` | `/config/config.json` | Path to the persisted config file. |
 | `LOG_LEVEL` | `INFO` | Log verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`). |
+| `DB_PRE_MIGRATION_BACKUP_RETENTION` | `10` | Number of newest automatic pre-migration database backups to keep; values below `1` still retain one restore point. Manual backups are unaffected. |
+| `DB_POOL_SIZE` | `5` | Database connections shared by every request. Each carries its own 64 MB page cache, so raising this costs memory. |
+| `DB_POOL_ACQUIRE_TIMEOUT_SECONDS` | `60` | How long a request waits for a free connection before being refused with `503`. Defaults to twice `DB_BUSY_TIMEOUT_MS` so a write blocked on the database lock is never refused. Detection ingest always waits regardless of this setting. `0` waits indefinitely. |
+| `DB_POOL_SLOW_HOLD_WARN_MS` | `1000` | Log a warning naming any code that keeps a connection longer than this. A hold this long means work that does not need a connection is running under one. |
+| `DB_POOL_SLOW_ACQUIRE_WARN_MS` | `250` | Log a warning when a request waits longer than this for a connection. |
+| `DB_BUSY_TIMEOUT_MS` | `30000` | How long SQLite waits for the database lock before giving up on a statement. |
+| `MAINTENANCE__MEDIA_INTEGRITY_SCAN_ENABLED` | `false` | Periodically re-check detections against Frigate and apply `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR`. Off until you turn it on. |
+| `MAINTENANCE__MEDIA_INTEGRITY_SCAN_MEDIA` | `any` | What must be absent upstream to count as missing: `any`, `clip`, `snapshot`. |
+| `MAINTENANCE__MEDIA_INTEGRITY_SCAN_INTERVAL_HOURS` | `6` | Hours between scans. |
+| `MAINTENANCE__MEDIA_INTEGRITY_SCAN_BATCH_SIZE` | `1000` | Detections re-checked per scan. Raise it to drain a large history faster, at the cost of more requests to Frigate per run. |
+| | | A detection already marked missing is not re-checked by the schedule; use the manual scan in Settings to revisit one. |
+| `CONTAINER_LOG_MAX_SIZE` | `10m` | Compose-only size at which the monolithic container's JSON log rotates. |
+| `CONTAINER_LOG_MAX_FILES` | `3` | Compose-only number of rotated monolithic container log files to retain. |
+| `APPEARANCE__EXPLORER_VIEW` | `cards` | How the Explorer lists detections: `cards` shows a snapshot each, `list` shows one compact row each with the times aligned for scanning. |
 | `SPECIES_INFO__SOURCE` | `auto` | Species info source: `auto`, `inat`, `wikipedia`. |
 | `DISPLAY__DATE_FORMAT` | `locale` | Date format: `locale`, `mdy`, `dmy`, `ymd`. |
+| `DISPLAY__TIME_FORMAT` | `locale` | Clock format: `locale`, `12h`, `24h`. `locale` follows the browser. |
 
 ## Frigate & MQTT (Connection)
 
@@ -134,7 +149,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `BIRDWEATHER__STATION_TOKEN` | _(unset)_ | BirdWeather station token. |
 | `EBIRD__ENABLED` | `false` | Enable eBird hotspot lookups. |
 | `EBIRD__API_KEY` | _(unset)_ | eBird API key. |
-| `EBIRD__DEFAULT_RADIUS_KM` | `25` | Default hotspot search radius. |
+| `EBIRD__DEFAULT_RADIUS_KM` | `25` | Default hotspot search radius, always in kilometres (1-50) regardless of the display unit system. |
 | `EBIRD__DEFAULT_DAYS_BACK` | `14` | Default hotspot look-back window. |
 | `EBIRD__MAX_RESULTS` | `25` | Max hotspot results. |
 | `EBIRD__LOCALE` | `en` | eBird common-name locale. |

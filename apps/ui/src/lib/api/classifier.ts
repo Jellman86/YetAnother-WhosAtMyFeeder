@@ -112,13 +112,7 @@ export async function downloadDefaultModel(): Promise<DownloadModelResult> {
 
 export type ReclassifyResult = paths['/api/events/{event_id}/reclassify']['post']['response'];
 
-export interface UpdateDetectionResult {
-    status: string;
-    event_id: string;
-    old_species?: string;
-    new_species?: string;
-    species?: string;
-}
+export type UpdateDetectionResult = paths['/api/events/{event_id}']['patch']['response'];
 
 export type BulkUpdateDetectionResult = paths['/api/events/bulk/manual-tag']['patch']['response'];
 
@@ -375,6 +369,18 @@ export async function activateModel(modelId: string): Promise<ModelActionResult>
         method: 'POST',
     });
     return handleResponse<ModelActionResult>(response);
+}
+
+export type ModelDeleteResult = components['schemas']['ModelDeleteResponse'];
+
+export async function deleteModel(modelId: string): Promise<ModelDeleteResult> {
+    // Region variants are addressed as `family/region`, so each segment is
+    // encoded separately and the separating slash is preserved.
+    const path = modelId.split('/').map(encodeURIComponent).join('/');
+    const response = await apiFetch(`${API_BASE}/models/${path}`, {
+        method: 'DELETE',
+    });
+    return handleResponse<ModelDeleteResult>(response);
 }
 
 export type ModelValidateResult = components['schemas']['ModelValidateResponse'];

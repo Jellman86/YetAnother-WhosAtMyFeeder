@@ -1,17 +1,30 @@
 # Core application and runtime dependencies shared by every image flavor.
-fastapi==0.139.2
-uvicorn[standard]==0.51.0
+fastapi==0.141.1
+uvicorn[standard]==0.52.3
 pydantic==2.13.4
-pydantic-settings==2.14.2
+pydantic-settings==2.15.0
 structlog==26.1.0
 aiosqlite==0.22.1
 aiofiles>=25.1.0
 httpx==0.28.1
 python-multipart==0.0.32
 
-# Image processing
+# Image processing.
+#
+# NumPy 2 is supported. The former `numpy<2.0.0` cap was raised after checking
+# what a major bump can break: the compiled ABI every extension links against,
+# and NEP 50 value-based casting. Both were verified against 1.26.4 and 2.5.2:
+# the classifier's probability normalisation, softmax, all preprocessing
+# branches and the quantisation path produce byte-identical output, and OpenCV
+# imports and returns identical pixels. `test_numeric_stack_contract.py` holds
+# that contract so the next bump cannot regress it unnoticed.
+#
+# opencv-python-headless is capped below 4.11 without a recorded reason; it was
+# added in the same commit as the original NumPy 1 cap. 4.10 is confirmed
+# NumPy 2 compatible, so the cap is not load-bearing for that. Leave it until
+# someone establishes whether it guards something else.
 Pillow>=12.3.0
-numpy<2.0.0
+numpy<3.0.0
 opencv-python-headless<4.11
 
 # TensorFlow Lite compatibility. ARM64 uses Google's current standalone LiteRT
@@ -22,17 +35,17 @@ ai-edge-litert==2.1.6; python_version >= '3.12' and sys_platform == "linux" and 
 tensorflow; python_version >= '3.12' and sys_platform != "linux"
 
 aiomqtt==2.5.1
-alembic==1.18.5
+alembic==1.19.1
 prometheus-client
 slowapi==0.1.10
 
 # Authentication
 pyjwt==2.13.0
-cryptography==49.0.0
+cryptography==50.0.0
 bcrypt==5.0.0
 
 # SMTP and OAuth notifications
 aiosmtplib==5.1.2
-google-auth==2.56.0
+google-auth==2.56.3
 google-auth-oauthlib==1.4.0
 jinja2==3.1.6

@@ -4,7 +4,8 @@ import asyncio
 import math
 from app.config import settings
 from app.repositories.detection_repository import DetectionRepository, Detection
-from app.services.classifier_service import ClassifierService
+from app.services.classifier_service import ClassifierService, get_classifier
+from app.services.species_catalog_resolver import ShadowResolution, species_catalog_resolver
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.birdweather_service import birdweather_service
@@ -23,6 +24,67 @@ from app.utils.tasks import create_background_task
 from app.database import get_db
 
 log = structlog.get_logger()
+
+
+async def _catalog_shadow_resolution(
+    classification: dict, scientific_name: str | None, frigate_event: str
+) -> ShadowResolution:
+    """Resolve the winning output through the catalogue beside the label path.
+
+    Best-effort by design: any failure here degrades to a detection without
+    canonical identity, never to a dropped detection.
+    """
+    output_index = classification.get("index")
+    if not isinstance(output_index, int) or output_index < 0:
+        return ShadowResolution(verdict="unavailable")
+    try:
+        model_sha256 = get_classifier().active_model_sha256()
+        if not model_sha256:
+            return ShadowResolution(verdict="unavailable")
+        return await asyncio.to_thread(
+            species_catalog_resolver.shadow_resolve,
+            model_sha256,
+            output_index,
+            scientific_name,
+            frigate_event,
+        )
+    except Exception as error:
+        log.debug("Catalogue shadow resolution unavailable", event_id=frigate_event, error=str(error))
+        return ShadowResolution(verdict="unavailable")
+
+
+async def _catalog_identity_for_refinement(
+    refinement_model_id: str | None, output_index: int | None, scientific_name: str | None, frigate_event: str
+) -> ShadowResolution:
+    """Shadow-resolve a queued refinement result, guarding against model swaps.
+
+    A video result can be applied after the owner switches models; attributing
+    it to the currently loaded artifact would record false provenance, so the
+    result resolves only while the refining model is still the active one.
+    """
+    if not isinstance(output_index, int) or output_index < 0:
+        return ShadowResolution(verdict="unavailable")
+    try:
+        classifier = get_classifier()
+        status = classifier.get_status()
+        current_model_id = str(status.get("effective_model_id") or status.get("active_model_id") or "").strip()
+        if refinement_model_id and current_model_id and refinement_model_id != current_model_id:
+            return ShadowResolution(verdict="unavailable")
+        model_sha256 = classifier.active_model_sha256()
+        if not model_sha256:
+            return ShadowResolution(verdict="unavailable")
+        return await asyncio.to_thread(
+            species_catalog_resolver.shadow_resolve,
+            model_sha256,
+            output_index,
+            scientific_name,
+            frigate_event,
+        )
+    except Exception as error:
+        log.debug("Catalogue refinement resolution unavailable", event_id=frigate_event, error=str(error))
+        return ShadowResolution(verdict="unavailable")
+
+
 TAXONOMY_LOOKUP_TIMEOUT_SECONDS = max(0.5, float(os.getenv("TAXONOMY_LOOKUP_TIMEOUT_SECONDS", "3")))
 
 
@@ -420,6 +482,8 @@ class DetectionService:
             elif not settings.classification.display_common_names and scientific_name:
                 display_name = scientific_name
 
+        shadow = await _catalog_shadow_resolution(classification, scientific_name, frigate_event)
+
         async with get_db() as db:
             repo = DetectionRepository(db)
 
@@ -433,6 +497,9 @@ class DetectionService:
             detection = Detection(
                 detection_time=timestamp,
                 detection_index=classification["index"],
+                species_id=shadow.species_id,
+                model_artifact_id=shadow.model_artifact_id,
+                model_output_index=shadow.model_output_index,
                 score=score,
                 display_name=display_name,
                 category_name=category_name,
@@ -751,6 +818,10 @@ class DetectionService:
                 else:
                     audio_confirmed, audio_species, audio_score = False, None, None
 
+                shadow = await _catalog_identity_for_refinement(
+                    video_model_id, video_index, scientific_name, frigate_event
+                )
+
                 primary_updated = await repo.update_primary_classification(
                     frigate_event=frigate_event,
                     display_name=display_name,
@@ -764,6 +835,9 @@ class DetectionService:
                     audio_species=audio_species,
                     audio_score=audio_score,
                     manual_override=manual_tagged,
+                    species_id=shadow.species_id,
+                    model_artifact_id=shadow.model_artifact_id,
+                    model_output_index=shadow.model_output_index,
                 )
                 if not primary_updated:
                     log.info(

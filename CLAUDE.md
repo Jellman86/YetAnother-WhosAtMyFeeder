@@ -73,9 +73,16 @@ pass before any commit. "It builds" is not "it works".
   committed runtime code, and there must not be one.
 - **Every schema change ships a migration in the same commit.** Never edit an
   already-released migration; add a new one.
-- **Single head, reversible, idempotent.** There is exactly one Alembic head. Each
-  migration has a working `downgrade`; `upgrade → downgrade → upgrade` is a no-op
-  against an up-to-date database. CI enforces all three (see §9).
+- **Single head, reversible, idempotent.** There is exactly one Alembic head per
+  migration stream. Each migration has a working `downgrade`;
+  `upgrade → downgrade → upgrade` is a no-op against an up-to-date database. CI
+  enforces all three (see §9).
+- **Two independent migration streams.** `backend/migrations/` versions
+  `/data/speciesid.db` (detection history) via `alembic.ini`;
+  `backend/migrations_catalog/` versions `/data/species_catalog.db` (the species
+  catalogue) via `alembic_catalog.ini`. Neither stream may reference the other's
+  revisions, and no runtime code may hold cross-database foreign keys — the shared
+  value is an opaque `species_id`.
 - **Constraints belong in the schema**: `UNIQUE` (e.g. `frigate_event`), indexes,
   required columns, enum handling. Do not rely on application code to enforce what
   the database can enforce.
@@ -168,6 +175,15 @@ sources — is [`docs/standards/code-quality.md`](docs/standards/code-quality.md
 
 The full researched standard — the 10 heuristics, WCAG 2.2 AA checklist, and Refactoring UI
 craft rules, with authoritative sources — is [`docs/standards/ui-ux.md`](docs/standards/ui-ux.md).
+
+- **Layouts follow the established page shapes.** The Dashboard, the observation flow, and About
+  share one design language: a single time window per surface, visits rather than raw frames, work
+  that needs a person stated in words with amber reserved for it, small captures that open on hover
+  *and* keyboard focus, and never claiming a state that has not been measured. Before changing or
+  adding a screen, read
+  [`docs/standards/layout-patterns.md`](docs/standards/layout-patterns.md) — it records the three
+  page shapes, which component belongs where, the hover pop-out accessibility contract, and the
+  writing rules (including no em dashes).
 
 ## 6. Definition of done
 

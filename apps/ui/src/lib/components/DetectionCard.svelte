@@ -28,7 +28,7 @@
         selected?: boolean;
         fullVisitAvailable?: boolean;
         fullVisitFetched?: boolean;
-        fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'failed';
+        fullVisitFetchState?: 'idle' | 'fetching' | 'ready' | 'partial' | 'failed';
     }
 
     let {
@@ -194,7 +194,7 @@
                flex flex-col h-full
                text-left w-full animate-entrance
                {detection.is_hidden ? 'opacity-60 grayscale-[0.5]' : ''}
-               {isVerified ? 'ring-2 ring-accent-500/20 dark:ring-accent-500/10' : ''}
+               {isVerified ? 'ring-2 ring-success-500/20 dark:ring-success-500/10' : ''}
                {analysisActive ? 'border-2 border-indigo-400/90 dark:border-indigo-300/90 ring-2 ring-indigo-500/30 dark:ring-indigo-300/25 bg-indigo-50/10 dark:bg-indigo-500/10 shadow-[0_0_0_1px_rgba(99,102,241,0.12)]' : ''}
                {selectionMode && selected && !analysisActive ? 'border-2 border-cyan-300 dark:border-cyan-300/90 ring-2 ring-cyan-500/35 dark:ring-cyan-300/20 bg-cyan-50/20 dark:bg-cyan-500/5' : ''}"
         style="animation-delay: {index * 40}ms"
@@ -302,21 +302,20 @@
                 {/if}
             </div>
 
-            <!-- Top-right: confidence only -->
-            <div class="absolute top-3 right-3">
-                <div class="flex items-center gap-1.5 rounded-full border bg-white/90 px-2.5 py-1.5 shadow-sm backdrop-blur-md dark:bg-slate-900/90 {getConfidenceBg(detection.score)}">
-                    <span class="w-2 h-2 rounded-full {detection.score >= 0.9 ? 'bg-accent-500' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
-                    <span class="text-xs font-bold {getConfidenceColor(detection.score)} leading-none">{(detection.score * 100).toFixed(0)}%</span>
-                </div>
-            </div>
-
-            <!-- Bottom-left: time + play inline -->
-            <div class="absolute bottom-3 left-3 z-20 flex items-center gap-2">
-                <div class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-[10px] font-bold text-white backdrop-blur-md">
+            <!-- Bottom-left: when, how sure, and play, on one line.
+                 The score used to sit alone in the opposite corner at a larger
+                 type size, which read as a control and left the two facts about
+                 a detection diagonally apart (#267). -->
+            <div class="absolute bottom-3 left-3 z-20 flex flex-wrap items-center gap-2">
+                <div class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
                     <svg class="w-3 h-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     {formatTime(detection.detection_time)}
+                </div>
+                <div class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
+                    <span class="h-2 w-2 rounded-full {detection.score >= 0.9 ? 'bg-accent-500' : detection.score >= 0.7 ? 'bg-amber-500' : 'bg-red-500'}"></span>
+                    {(detection.score * 100).toFixed(0)}%
                 </div>
                 {#if canPlayVideo}
                     <button

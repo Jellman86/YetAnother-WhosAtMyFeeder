@@ -115,7 +115,24 @@ location ~ ^/api/frigate/.+/clip\.mp4$ {
     proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
 }
 
-# 3. API Routes
+# 3. Manual Observation Upload (bounded multipart streaming)
+location = /api/manual-observations {
+    proxy_pass http://$app_upstream:8080;
+
+    # The backend retains the exact 25 MiB image and 250 MiB video limits.
+    # This bounded envelope leaves room for multipart fields and headers.
+    client_max_body_size 256m;
+    proxy_request_buffering off;
+
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+}
+
+# 4. API Routes
 location /api/ {
     proxy_pass http://$app_upstream:8080;
     proxy_set_header Host $host;
@@ -125,7 +142,7 @@ location /api/ {
     proxy_http_version 1.1;
 }
 
-# 4. Root / Main App
+# 5. Root / Main App
 location / {
     proxy_pass http://$app_upstream:8080;
     
@@ -178,6 +195,18 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    location = /api/manual-observations {
+        proxy_pass http://yawamf-monalithic:8080;
+        client_max_body_size 256m;
+        proxy_request_buffering off;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
     location /api/ {
         proxy_pass http://yawamf-monalithic:8080;
         proxy_set_header Host $host;
@@ -191,6 +220,12 @@ server {
     }
 }
 ```
+
+The exact manual-observation location must appear before a generic `/api/` route. The 256 MiB
+request envelope is intentionally bounded: it covers multipart overhead while the application
+continues to reject image files above 25 MiB and video files above 250 MiB. Disabling request
+buffering avoids storing a second full copy at the proxy before the backend streams and validates
+the upload.
 
 ---
 

@@ -1,8 +1,13 @@
+import asyncio
+import os
+
+import aiosqlite
 import httpx
 import structlog
-import asyncio
-import aiosqlite
-from typing import Optional, Dict
+
+from app.services.localized_names import localized_names
+from app.services.species_reference import species_reference
+from typing import Any, Optional, Dict
 from datetime import datetime
 from app.database import get_db
 from app.config import settings
@@ -10,6 +15,47 @@ from app.services.ebird_service import ebird_service
 from app.utils.enrichment import get_effective_enrichment_settings
 
 log = structlog.get_logger()
+
+
+# A cached "not found" records that one lookup found nothing, which is a weaker
+# claim than the species not existing. Re-test it periodically so a wrong negative
+# cannot withhold a name indefinitely.
+TAXONOMY_NOT_FOUND_RETRY_SECONDS = max(
+    3600.0,
+    float(os.getenv("TAXONOMY_NOT_FOUND_RETRY_SECONDS", str(7 * 24 * 3600))),
+)
+
+
+def _negative_entry_expired(last_updated: Any, *, now: Optional[datetime] = None) -> bool:
+    """Whether a cached not-found result is old enough to re-test.
+
+    An unreadable or missing timestamp counts as expired: the cost of one extra
+    lookup is smaller than withholding a species name forever.
+    """
+    if not last_updated:
+        return True
+
+    reference = now or datetime.now()
+    if isinstance(last_updated, datetime):
+        recorded = last_updated
+    else:
+        text = str(last_updated).strip()
+        recorded = None
+        for fmt in ("%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"):
+            try:
+                recorded = datetime.strptime(text, fmt)
+                break
+            except ValueError:
+                continue
+        if recorded is None:
+            try:
+                recorded = datetime.fromisoformat(text)
+            except ValueError:
+                return True
+
+    if recorded.tzinfo is not None:
+        recorded = recorded.replace(tzinfo=None)
+    return (reference - recorded).total_seconds() > TAXONOMY_NOT_FOUND_RETRY_SECONDS
 
 
 def _parenthetical_aliases(value: str) -> tuple[Optional[str], Optional[str]]:
@@ -25,6 +71,49 @@ def _parenthetical_aliases(value: str) -> tuple[Optional[str], Optional[str]]:
     return left, right
 
 
+class TaxonomyLookupUnavailable(Exception):
+    """The taxonomy provider could not be reached or did not return an answer.
+
+    Distinct from the provider answering that it holds no matching taxon.
+    """
+
+
+#: `/v1/taxa?q=` is a search, not a lookup: it ranks by relevance and matches
+#: synonyms, so the species asked for is not reliably first. Asking for one
+#: result leaves nothing to check it against. Ten is enough for the exact match
+#: to be on the page in every recorded case while staying one request.
+_LOOKUP_PAGE_SIZE = 10
+
+
+def _fold_for_match(value: object) -> str:
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.casefold().split())
+
+
+def _matching_taxon(results: list, query: str) -> Optional[Dict]:
+    """The first candidate that is actually the name that was asked for.
+
+    A candidate counts when the term it matched on, its scientific name, or its
+    English common name is exactly the query. `matched_term` is what makes a
+    genuine rename work: a model trained on `Regulus calendula` asks for that
+    name, and the taxon now called `Corthylio calendula` reports matching on
+    precisely it. The same field is what rejects the fuzzy hit, because for the
+    query `Regulus regulus` that taxon reports matching on `Regulus calendula`,
+    which is a different bird.
+    """
+    wanted = _fold_for_match(query)
+    if not wanted:
+        return None
+    for taxon in results:
+        if not isinstance(taxon, dict):
+            continue
+        for field in ("matched_term", "name", "preferred_common_name"):
+            if _fold_for_match(taxon.get(field)) == wanted:
+                return taxon
+    return None
+
+
 class TaxonomyService:
     """Service to handle bidirectional scientific <-> common name lookups using iNaturalist."""
 
@@ -33,7 +122,6 @@ class TaxonomyService:
     def __init__(self):
         self._client: Optional[httpx.AsyncClient] = None
         self._client_lock = asyncio.Lock()
-        self._sync_status = {"is_running": False, "total": 0, "processed": 0, "current_item": None, "error": None}
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get HTTP client with thread-safe lazy initialization."""
@@ -43,9 +131,6 @@ class TaxonomyService:
                 if self._client is None:
                     self._client = httpx.AsyncClient(timeout=10.0)
         return self._client
-
-    def get_sync_status(self) -> dict:
-        return self._sync_status
 
     async def get_names(
         self, query_name: str, db: Optional[aiosqlite.Connection] = None, force_refresh: bool = False
@@ -78,16 +163,53 @@ class TaxonomyService:
                 lookup_names.append(right)
 
         result = None
+        lookup_unavailable = False
         for name in lookup_names:
-            result = await self._lookup_inaturalist(name)
+            try:
+                result = await self._lookup_inaturalist(name)
+            except TaxonomyLookupUnavailable:
+                lookup_unavailable = True
+                break
             if result:
                 break
 
         if not result:
-            # 4. Save Failure to Cache (to prevent retrying forever)
-            await self._save_to_cache(
-                {"scientific_name": query_name, "common_name": None, "taxa_id": None, "is_not_found": True}, db=db
-            )
+            # The bundled reference answers when the network could not. It is
+            # deliberately here rather than ahead of iNaturalist: a hit carries no
+            # taxon id, so resolving from it first would cost enrichment the id it
+            # needs for every covered species. Placed here it costs nothing and
+            # gives offline installs, and installs riding out an outage, a name.
+            # Local SQLite reads, so off the event loop (CLAUDE.md 4).
+            reference_hit = await asyncio.to_thread(species_reference.lookup, query_name, settings.ebird.locale)
+            if reference_hit:
+                # The reference ships English only. A locale the owner has already
+                # pulled from eBird names the bird in their language even now,
+                # with nothing reachable.
+                localized = localized_names.lookup(reference_hit.get("scientific_name"), settings.ebird.locale)
+                if localized:
+                    reference_hit["common_name"] = localized
+                log.info(
+                    "Taxonomy resolved from bundled reference",
+                    query=query_name,
+                    scientific_name=reference_hit.get("scientific_name"),
+                    localized=bool(localized),
+                    lookup_unavailable=lookup_unavailable,
+                )
+                # Not cached: the row would carry no taxon id, and a later lookup
+                # with the network back should still be able to supply one.
+                return {
+                    "scientific_name": reference_hit.get("scientific_name"),
+                    "common_name": reference_hit.get("common_name"),
+                    "taxa_id": None,
+                }
+
+            # 4. Save Failure to Cache (to prevent retrying forever), but only when
+            # iNaturalist actually answered. Recording a provider outage as
+            # "no such species" would withhold the name until something repairs it.
+            if not lookup_unavailable:
+                await self._save_to_cache(
+                    {"scientific_name": query_name, "common_name": None, "taxa_id": None, "is_not_found": True}, db=db
+                )
             return {"scientific_name": query_name, "common_name": None, "taxa_id": None}
 
         # 3. Enrichment Override (eBird)
@@ -118,7 +240,7 @@ class TaxonomyService:
                 log.warning("Failed to lookup eBird common name", error=str(e))
 
         # 4. Save Success to Cache
-        await self._save_to_cache(result, db=db)
+        await self._save_to_cache(result, db=db, replace_negative_name=query_name)
         return result
 
     async def _get_from_cache(self, name: str, db: Optional[aiosqlite.Connection] = None) -> Optional[Dict]:
@@ -135,11 +257,21 @@ class TaxonomyService:
 
     async def _query_cache(self, db: aiosqlite.Connection, name: str) -> Optional[Dict]:
         async with db.execute(
-            "SELECT scientific_name, common_name, taxa_id, is_not_found, thumbnail_url FROM taxonomy_cache WHERE LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?)",
-            (name, name),
+            """SELECT scientific_name, COALESCE(manual_common_name, common_name), taxa_id,
+                      is_not_found, thumbnail_url, last_updated
+               FROM taxonomy_cache
+               WHERE LOWER(scientific_name) = LOWER(?)
+                  OR LOWER(common_name) = LOWER(?)
+                  OR LOWER(manual_common_name) = LOWER(?)
+               ORDER BY is_not_found ASC, last_updated DESC
+               LIMIT 1""",
+            (name, name, name),
         ) as cursor:
             row = await cursor.fetchone()
             if row:
+                if bool(row[3]) and _negative_entry_expired(row[5]):
+                    # Report a miss so the caller looks the species up again.
+                    return None
                 return {
                     "scientific_name": row[0],
                     "common_name": row[1],
@@ -149,20 +281,44 @@ class TaxonomyService:
                 }
         return None
 
-    async def _save_to_cache(self, data: Dict, db: Optional[aiosqlite.Connection] = None):
+    async def _save_to_cache(
+        self,
+        data: Dict,
+        db: Optional[aiosqlite.Connection] = None,
+        replace_negative_name: Optional[str] = None,
+    ):
         """Save a lookup result to the local cache."""
         if db:
+            if replace_negative_name:
+                await self._delete_negative_cache_match(db, replace_negative_name)
             await self._insert_cache(db, data)
         else:
             async with get_db() as db:
+                if replace_negative_name:
+                    await self._delete_negative_cache_match(db, replace_negative_name)
                 await self._insert_cache(db, data)
                 await db.commit()
 
+    async def _delete_negative_cache_match(self, db: aiosqlite.Connection, name: str) -> None:
+        """Remove an obsolete negative row before storing a successful alias lookup."""
+        await db.execute(
+            """DELETE FROM taxonomy_cache
+               WHERE is_not_found = 1
+                 AND (LOWER(scientific_name) = LOWER(?) OR LOWER(common_name) = LOWER(?))""",
+            (name, name),
+        )
+
     async def _insert_cache(self, db: aiosqlite.Connection, data: Dict):
         await db.execute(
-            """INSERT OR REPLACE INTO taxonomy_cache 
+            """INSERT INTO taxonomy_cache
                (scientific_name, common_name, taxa_id, is_not_found, thumbnail_url, last_updated) 
-               VALUES (?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(scientific_name) DO UPDATE SET
+                   common_name = excluded.common_name,
+                   taxa_id = excluded.taxa_id,
+                   is_not_found = excluded.is_not_found,
+                   thumbnail_url = excluded.thumbnail_url,
+                   last_updated = excluded.last_updated""",
             (
                 data["scientific_name"],
                 data["common_name"],
@@ -174,29 +330,71 @@ class TaxonomyService:
         )
 
     async def _lookup_inaturalist(self, name: str) -> Optional[Dict]:
-        """Query the iNaturalist API."""
+        """Query the iNaturalist API.
+
+        Returns the taxon, or None when iNaturalist answered and holds no match.
+        Raises :class:`TaxonomyLookupUnavailable` when the request itself failed,
+        because "we could not ask" says nothing about whether the taxon exists.
+        """
         try:
-            params = {"q": name, "per_page": 1, "locale": "en"}
+            params = {"q": name, "per_page": _LOOKUP_PAGE_SIZE, "locale": "en"}
 
             client = await self._get_client()
             resp = await client.get(self.API_URL, params=params)
             resp.raise_for_status()
             data = resp.json()
 
-            if data.get("total_results", 0) > 0:
-                taxon = data["results"][0]
-                photo = taxon.get("default_photo")
-                thumb = photo.get("square_url") if photo else None
-                return {
-                    "scientific_name": taxon.get("name"),
-                    "common_name": taxon.get("preferred_common_name"),
-                    "taxa_id": taxon.get("id"),
-                    "thumbnail_url": thumb,
-                }
+            if not isinstance(data, dict):
+                raise ValueError("iNaturalist response is not an object")
+
+            total_results = data.get("total_results")
+            if not isinstance(total_results, int) or isinstance(total_results, bool):
+                raise ValueError("iNaturalist response has an invalid total_results value")
+            if total_results == 0:
+                return None
+
+            results = data.get("results")
+            if not isinstance(results, list) or not results or not isinstance(results[0], dict):
+                raise ValueError("iNaturalist response has no usable result")
+
+            taxon = _matching_taxon(results, name)
+            if taxon is None:
+                # The provider answered and holds nothing it agrees is this
+                # name. Saying so leaves the model's own label standing, which
+                # is the honest outcome; taking the top hit instead recorded a
+                # Goldcrest as a Ruby-crowned Kinglet.
+                log.info(
+                    "iNaturalist returned no result matching the name asked for",
+                    query=name,
+                    candidates=len(results),
+                )
+                return None
+
+            scientific_name = taxon.get("name")
+            taxa_id = taxon.get("id")
+            if not isinstance(scientific_name, str) or not scientific_name.strip():
+                raise ValueError("iNaturalist result has no scientific name")
+            if not isinstance(taxa_id, int) or isinstance(taxa_id, bool):
+                raise ValueError("iNaturalist result has no numeric taxon id")
+
+            common_name = taxon.get("preferred_common_name")
+            if not isinstance(common_name, str):
+                common_name = None
+            photo = taxon.get("default_photo")
+            photo = photo if isinstance(photo, dict) else {}
+            thumbnail_url = photo.get("square_url")
+            if not isinstance(thumbnail_url, str):
+                thumbnail_url = None
+
+            return {
+                "scientific_name": scientific_name,
+                "common_name": common_name,
+                "taxa_id": taxa_id,
+                "thumbnail_url": thumbnail_url,
+            }
         except Exception as e:
             log.warning("iNaturalist lookup failed", query=name, error=str(e))
-
-        return None
+            raise TaxonomyLookupUnavailable(str(e)) from e
 
     async def get_canonical_english_name(
         self, taxa_id: int, db: Optional[aiosqlite.Connection] = None
@@ -220,11 +418,98 @@ class TaxonomyService:
 
     async def _query_canonical_english(self, db: aiosqlite.Connection, taxa_id: int) -> Optional[str]:
         async with db.execute(
-            "SELECT common_name FROM taxonomy_cache WHERE taxa_id = ? AND is_not_found = 0 LIMIT 1",
+            """SELECT COALESCE(manual_common_name, common_name)
+               FROM taxonomy_cache WHERE taxa_id = ? AND is_not_found = 0 LIMIT 1""",
             (taxa_id,),
         ) as cursor:
             row = await cursor.fetchone()
         return row[0] if row and row[0] else None
+
+    async def get_common_name_override(
+        self, scientific_name: str, db: aiosqlite.Connection
+    ) -> Optional[Dict[str, Optional[str]]]:
+        """Return provider, manual, and effective names for a cached taxon."""
+        async with db.execute(
+            """SELECT scientific_name, common_name, manual_common_name
+               FROM taxonomy_cache
+               WHERE LOWER(scientific_name) = LOWER(?) AND is_not_found = 0
+               LIMIT 1""",
+            (scientific_name,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if not row:
+            return None
+        return {
+            "scientific_name": row[0],
+            "provider_common_name": row[1],
+            "manual_common_name": row[2],
+            "effective_common_name": row[2] or row[1],
+        }
+
+    async def set_common_name_override(
+        self,
+        scientific_name: str,
+        common_name: str,
+        db: aiosqlite.Connection,
+    ) -> Optional[Dict[str, Optional[str]]]:
+        """Set a manual name without replacing provider-owned taxonomy data."""
+        cursor = await db.execute(
+            """UPDATE taxonomy_cache SET manual_common_name = ?
+               WHERE LOWER(scientific_name) = LOWER(?) AND is_not_found = 0""",
+            (common_name, scientific_name),
+        )
+        try:
+            if cursor.rowcount == 0:
+                return None
+        finally:
+            await cursor.close()
+        await self._mirror_override_to_catalogue(scientific_name, common_name)
+        return await self.get_common_name_override(scientific_name, db)
+
+    async def clear_common_name_override(
+        self, scientific_name: str, db: aiosqlite.Connection
+    ) -> Optional[Dict[str, Optional[str]]]:
+        """Clear a manual name and expose the provider value again."""
+        cursor = await db.execute(
+            """UPDATE taxonomy_cache SET manual_common_name = NULL
+               WHERE LOWER(scientific_name) = LOWER(?) AND is_not_found = 0""",
+            (scientific_name,),
+        )
+        try:
+            if cursor.rowcount == 0:
+                return None
+        finally:
+            await cursor.close()
+        await self._mirror_override_to_catalogue(scientific_name, None)
+        return await self.get_common_name_override(scientific_name, db)
+
+    async def _mirror_override_to_catalogue(self, scientific_name: str, common_name: Optional[str]) -> None:
+        """Record the rename in the catalogue, against the species it names.
+
+        The catalogue is the store of record: it keys on the species rather
+        than on a spelling of it, and it survives a taxon being renamed
+        upstream. The detection-database copy above is kept because the
+        pre-3.0 name-recovery readers still consult it.
+
+        Never fatal. A rename the owner made is already saved by the time this
+        runs, and a catalogue that cannot take it is a naming gap rather than a
+        lost decision.
+        """
+        import asyncio
+
+        from app.services.species_catalog_overrides import clear_catalogue_override, write_catalogue_override
+        from app.services.species_catalog_resolver import species_catalog_resolver
+
+        try:
+            species_id, _ = await asyncio.to_thread(species_catalog_resolver.resolve_scientific_name, scientific_name)
+            if species_id is None:
+                return
+            if common_name:
+                await asyncio.to_thread(write_catalogue_override, species_id, common_name)
+            else:
+                await asyncio.to_thread(clear_catalogue_override, species_id)
+        except Exception as error:  # pragma: no cover - defensive
+            log.debug("Owner rename not mirrored to the catalogue", name=scientific_name, error=str(error))
 
     async def get_localized_common_name(
         self, taxa_id: int, lang: str, db: Optional[aiosqlite.Connection] = None
@@ -314,189 +599,6 @@ class TaxonomyService:
             log.warning("Localized iNaturalist lookup failed", taxa_id=taxa_id, lang=lang, error=str(e))
 
         return None
-
-    async def run_background_sync(self):
-        """Scan entire database for unsynced species and normalize them."""
-        if self._sync_status["is_running"]:
-            return
-
-        try:
-            self._sync_status = {
-                "is_running": True,
-                "total": 0,
-                "processed": 0,
-                "current_item": "Scanning database...",
-                "error": None,
-            }
-
-            # 1. Find all detections that still need canonical taxonomy enrichment.
-            async with get_db() as db:
-                async with db.execute("""
-                    SELECT rowid, display_name, category_name, scientific_name, common_name, taxa_id
-                    FROM detections
-                    WHERE scientific_name IS NULL 
-                       OR common_name IS NULL
-                       OR taxa_id IS NULL
-                """) as cursor:
-                    rows = await cursor.fetchall()
-
-                # Unknown-bird buckets are intentionally unresolved and should
-                # not be treated as taxonomy-repair work items.
-                unknown_labels = {
-                    "unknown bird",
-                    *(
-                        str(label).strip().lower()
-                        for label in (settings.classification.unknown_bird_labels or [])
-                        if str(label).strip()
-                    ),
-                }
-
-                repair_rows = []
-                for row in rows:
-                    rowid, display_name, category_name, scientific_name, common_name, taxa_id = row
-                    lookup_candidates = []
-                    for candidate in (scientific_name, category_name, display_name):
-                        if not isinstance(candidate, str):
-                            continue
-                        normalized = candidate.strip()
-                        if not normalized or normalized.lower() in unknown_labels:
-                            continue
-                        if normalized not in lookup_candidates:
-                            lookup_candidates.append(normalized)
-                        left, right = _parenthetical_aliases(normalized)
-                        if left or right:
-                            if left and left not in lookup_candidates:
-                                lookup_candidates.append(left)
-                            if right and right not in lookup_candidates:
-                                lookup_candidates.append(right)
-
-                    if taxa_id is None and not lookup_candidates:
-                        continue
-
-                    repair_rows.append(
-                        {
-                            "rowid": rowid,
-                            "display_name": display_name,
-                            "category_name": category_name,
-                            "scientific_name": scientific_name,
-                            "common_name": common_name,
-                            "taxa_id": taxa_id,
-                            "lookup_candidates": lookup_candidates,
-                        }
-                    )
-
-                skipped_unknown_labels = len(rows) - len(repair_rows)
-                self._sync_status["total"] = len(repair_rows)
-                log.info(
-                    "Starting taxonomy background sync",
-                    unique_species=len(repair_rows),
-                    skipped_unknown_labels=skipped_unknown_labels,
-                )
-
-                if not repair_rows:
-                    self._sync_status["current_item"] = "Database Healthy: No missing taxonomy found"
-                    self._sync_status["is_running"] = False
-                    return
-
-                for row in repair_rows:
-                    current_label = (
-                        row["scientific_name"]
-                        or row["category_name"]
-                        or row["display_name"]
-                        or f"taxa:{row['taxa_id']}"
-                    )
-                    self._sync_status["current_item"] = current_label
-
-                    taxonomy = None
-                    if row["taxa_id"] is not None:
-                        async with db.execute(
-                            "SELECT scientific_name, common_name, taxa_id, is_not_found, thumbnail_url FROM taxonomy_cache WHERE taxa_id = ? LIMIT 1",
-                            (row["taxa_id"],),
-                        ) as cursor:
-                            cached = await cursor.fetchone()
-                        if cached and not bool(cached[3]):
-                            taxonomy = {
-                                "scientific_name": cached[0],
-                                "common_name": cached[1],
-                                "taxa_id": cached[2],
-                                "thumbnail_url": cached[4],
-                            }
-
-                    def is_english_safe(val):
-                        candidate = str(val or "").strip()
-                        if not candidate:
-                            return False
-                        return candidate.isascii()
-
-                    def improves(candidate_taxonomy):
-                        if not candidate_taxonomy:
-                            return False
-
-                        # Refresh if current common name is not English-safe but we found one that is
-                        if row["common_name"] and not is_english_safe(row["common_name"]):
-                            if is_english_safe(candidate_taxonomy.get("common_name")):
-                                return True
-
-                        return (
-                            (not row["scientific_name"] and bool(candidate_taxonomy.get("scientific_name")))
-                            or (not row["common_name"] and bool(candidate_taxonomy.get("common_name")))
-                            or (row["taxa_id"] is None and candidate_taxonomy.get("taxa_id") is not None)
-                        )
-
-                    # Also refresh if the detection's stored common name is not English-safe
-                    must_refresh = row["common_name"] and not is_english_safe(row["common_name"])
-
-                    # When taxa_id is missing, the cached taxonomy for this label
-                    # may contain a stale is_not_found entry.  Force-refresh to
-                    # give iNaturalist another chance to resolve the species.
-                    needs_force = must_refresh or row["taxa_id"] is None
-
-                    if not needs_force and taxonomy and improves(taxonomy):
-                        # Use cached taxonomy if it improves the row and we don't need a force-refresh
-                        pass
-                    else:
-                        taxonomy = None
-                        for lookup_name in row["lookup_candidates"]:
-                            candidate_taxonomy = await self.get_names(
-                                lookup_name,
-                                db=db,
-                                force_refresh=needs_force,
-                            )
-                            if improves(candidate_taxonomy):
-                                taxonomy = candidate_taxonomy
-                                break
-
-                    if taxonomy and improves(taxonomy):
-                        await db.execute(
-                            """
-                            UPDATE detections
-                            SET scientific_name = COALESCE(?, scientific_name),
-                                common_name = COALESCE(?, common_name),
-                                taxa_id = COALESCE(?, taxa_id)
-                            WHERE rowid = ?
-                            """,
-                            (
-                                taxonomy.get("scientific_name"),
-                                taxonomy.get("common_name"),
-                                taxonomy.get("taxa_id"),
-                                row["rowid"],
-                            ),
-                        )
-                        await db.commit()
-
-                    self._sync_status["processed"] += 1
-
-                    # Rate limiting: 1 second delay to be kind to iNaturalist
-                    await asyncio.sleep(1.0)
-
-            log.info("Taxonomy background sync completed")
-            self._sync_status["current_item"] = "Completed"
-            self._sync_status["is_running"] = False
-
-        except Exception as e:
-            log.error("Taxonomy sync failed", error=str(e))
-            self._sync_status["error"] = str(e)
-            self._sync_status["is_running"] = False
 
     async def close(self):
         if self._client:

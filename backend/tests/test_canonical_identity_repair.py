@@ -5,6 +5,7 @@ import aiosqlite
 import pytest
 
 from app.repositories.detection_repository import DetectionRepository, Detection
+from conftest import rollup_counts_by_display_name
 
 
 async def _create_detections_table(db: aiosqlite.Connection) -> None:
@@ -36,6 +37,9 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             scientific_name TEXT,
             common_name TEXT,
             taxa_id INTEGER,
+            species_id INTEGER,
+            model_artifact_id INTEGER,
+            model_output_index INTEGER,
             frigate_status TEXT DEFAULT 'present',
             frigate_missing_since TIMESTAMP,
             frigate_last_checked_at TIMESTAMP,
@@ -50,6 +54,7 @@ async def _create_taxonomy_tables(db: aiosqlite.Connection) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             scientific_name TEXT NOT NULL UNIQUE,
             common_name TEXT,
+            manual_common_name TEXT,
             taxa_id INTEGER UNIQUE
         )
     """)
@@ -71,6 +76,7 @@ async def _create_rollup_table(db: aiosqlite.Connection) -> None:
             min_confidence FLOAT,
             first_seen TIMESTAMP,
             last_seen TIMESTAMP,
+            species_id INTEGER,
             PRIMARY KEY (rollup_date, canonical_key)
         )
     """)
@@ -144,9 +150,9 @@ async def test_canonical_identity_repair_service_repairs_missing_taxonomy_and_re
         assert first_run["updated"] >= 1
         assert second_run["updated"] == 0
 
-        metrics = await repo.get_rollup_metrics()
-        assert list(metrics.keys()) == ["Blue Tit"]
-        assert metrics["Blue Tit"]["count_7d"] >= 2
+        counts = await rollup_counts_by_display_name(repo)
+        assert list(counts.keys()) == ["Blue Tit"]
+        assert counts["Blue Tit"] >= 2
 
 
 @pytest.mark.asyncio

@@ -168,6 +168,25 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     }
     if "MAINTENANCE__FRIGATE_MISSING_BEHAVIOR" in os.environ:
         maintenance_data["frigate_missing_behavior"] = os.environ["MAINTENANCE__FRIGATE_MISSING_BEHAVIOR"]
+    # The legacy purge flags are read too, and mapped by the model validator, so
+    # a deployment already setting them keeps its exact behaviour.
+    for legacy_key in ("AUTO_PURGE_MISSING_CLIPS", "AUTO_PURGE_MISSING_SNAPSHOTS"):
+        env_name = f"MAINTENANCE__{legacy_key}"
+        if env_name in os.environ:
+            maintenance_data[legacy_key.lower()] = os.environ[env_name].lower() == "true"
+    if "MAINTENANCE__MEDIA_INTEGRITY_SCAN_ENABLED" in os.environ:
+        maintenance_data["media_integrity_scan_enabled"] = (
+            os.environ["MAINTENANCE__MEDIA_INTEGRITY_SCAN_ENABLED"].lower() == "true"
+        )
+    if "MAINTENANCE__MEDIA_INTEGRITY_SCAN_MEDIA" in os.environ:
+        maintenance_data["media_integrity_scan_media"] = os.environ["MAINTENANCE__MEDIA_INTEGRITY_SCAN_MEDIA"]
+    for numeric_key in ("MEDIA_INTEGRITY_SCAN_INTERVAL_HOURS", "MEDIA_INTEGRITY_SCAN_BATCH_SIZE"):
+        env_name = f"MAINTENANCE__{numeric_key}"
+        if env_name in os.environ:
+            try:
+                maintenance_data[numeric_key.lower()] = int(os.environ[env_name])
+            except ValueError:
+                log.warning("Ignoring non-numeric maintenance override", variable=env_name)
 
     # Classification settings (loaded from file and selected env vars)
     legacy_use_cuda_env = os.environ.get("CLASSIFICATION__USE_CUDA")
@@ -447,12 +466,14 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
 
     # Appearance settings
     appearance_data = {
+        "explorer_view": os.environ.get("APPEARANCE__EXPLORER_VIEW", "cards"),
         "font_theme": os.environ.get("APPEARANCE__FONT_THEME", "classic"),
         "color_theme": os.environ.get("APPEARANCE__COLOR_THEME", "bluetit"),
     }
 
     species_info_source = os.environ.get("SPECIES_INFO__SOURCE", "auto")
     date_format = os.environ.get("DISPLAY__DATE_FORMAT", "locale")
+    time_format = os.environ.get("DISPLAY__TIME_FORMAT", "locale")
 
     # Load from config file if it exists, env vars take precedence
     if config_path.exists():
@@ -675,6 +696,8 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
 
             if "date_format" in file_data and "DISPLAY__DATE_FORMAT" not in os.environ:
                 date_format = file_data["date_format"]
+            if "time_format" in file_data and "DISPLAY__TIME_FORMAT" not in os.environ:
+                time_format = file_data["time_format"]
 
             log.info("Loaded config from file", path=str(config_path))
         except Exception as e:
@@ -738,7 +761,11 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     log.info("iNaturalist config", enabled=inaturalist_data["enabled"])
     log.info("Enrichment config", mode=enrichment_data["mode"])
     log.info("LLM config", enabled=llm_data["enabled"], provider=llm_data["provider"])
-    log.info("Telemetry config", enabled=telemetry_data["enabled"], installation_id=telemetry_data["installation_id"])
+    log.info(
+        "Telemetry config",
+        enabled=telemetry_data["enabled"],
+        has_installation_id=bool(telemetry_data["installation_id"]),
+    )
     log.info(
         "Notification config",
         discord=notifications_data["discord"]["enabled"],
@@ -780,5 +807,6 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         public_access=PublicAccessSettings(**public_access_data),
         species_info_source=species_info_source,
         date_format=date_format,
+        time_format=time_format,
         api_key=api_key,
     )

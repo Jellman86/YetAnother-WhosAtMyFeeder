@@ -2,6 +2,7 @@ import pytest
 import aiosqlite
 from datetime import datetime, timedelta
 from app.repositories.detection_repository import DetectionRepository, Detection
+from conftest import rollup_counts_by_display_name
 
 
 async def _create_detections_table(db: aiosqlite.Connection) -> None:
@@ -33,6 +34,9 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             scientific_name TEXT,
             common_name TEXT,
             taxa_id INTEGER,
+            species_id INTEGER,
+            model_artifact_id INTEGER,
+            model_output_index INTEGER,
             video_classification_score FLOAT,
             video_classification_label TEXT,
             video_classification_index INTEGER,
@@ -71,6 +75,7 @@ async def _create_taxonomy_tables(db: aiosqlite.Connection) -> None:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             scientific_name TEXT NOT NULL UNIQUE,
             common_name TEXT,
+            manual_common_name TEXT,
             taxa_id INTEGER UNIQUE
         )
     """)
@@ -260,10 +265,10 @@ async def test_species_rollup_metrics():
             )
         )
         await repo.ensure_recent_rollups(30)
-        metrics = await repo.get_rollup_metrics()
+        counts = await rollup_counts_by_display_name(repo)
 
-        assert metrics["Robin"]["count_7d"] >= 1
-        assert metrics["Sparrow"]["count_7d"] >= 1
+        assert counts["Robin"] >= 1
+        assert counts["Sparrow"] >= 1
 
 
 @pytest.mark.asyncio
@@ -552,10 +557,10 @@ async def test_rollup_metrics_collapse_common_and_scientific_aliases():
         )
 
         await repo.ensure_recent_rollups(30)
-        metrics = await repo.get_rollup_metrics()
+        counts = await rollup_counts_by_display_name(repo)
 
-        assert list(metrics.keys()) == ["Blue Tit"]
-        assert metrics["Blue Tit"]["count_7d"] >= 2
+        assert list(counts.keys()) == ["Blue Tit"]
+        assert counts["Blue Tit"] >= 2
 
 
 @pytest.mark.asyncio
@@ -645,11 +650,13 @@ async def test_unified_species_window_metrics_combines_alias_variants():
             )
 
         metrics = await repo.get_unified_species_window_metrics()
-        assert metrics["1234"]["count_7d"] >= 2
+        # Keys are namespaced by source so a taxa_id cannot collide with a
+        # catalogue species_id of the same number.
+        assert metrics["taxon:1234"]["count_7d"] >= 2
 
 
 @pytest.mark.asyncio
-async def test_unified_species_window_metrics_uses_display_name_when_taxa_and_scientific_missing():
+async def test_unified_species_window_metrics_resolves_through_the_taxonomy_cache():
     async with aiosqlite.connect(":memory:") as db:
         await _create_detections_table(db)
         await _create_taxonomy_tables(db)
@@ -677,8 +684,13 @@ async def test_unified_species_window_metrics_uses_display_name_when_taxa_and_sc
         )
 
         metrics = await repo.get_unified_species_window_metrics()
-        assert "house sparrow" in metrics
-        assert "passer domesticus" not in metrics
+        # The detection carries no taxa_id or scientific name of its own, but the
+        # taxonomy cache resolves its label, so it keys on the cached taxon. That
+        # is the same key the leaderboard groups by, which is what lets the
+        # leaderboard find these trends; keying on the label here instead would
+        # match only when the label and the scientific name happen to be equal.
+        assert "taxon:1111" in metrics
+        assert "label:house sparrow" not in metrics
 
 
 @pytest.mark.asyncio
@@ -1219,7 +1231,8 @@ async def _create_audio_detections_table(db: aiosqlite.Connection) -> None:
             source_event_id TEXT UNIQUE,
             raw_data TEXT,
             scientific_name TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            species_id INTEGER
         )
     """)
 
@@ -1282,3 +1295,56 @@ async def test_delete_audio_detections_older_than_returns_zero_when_nothing_expi
         async with db.execute("SELECT COUNT(*) FROM audio_detections") as cursor:
             (remaining,) = await cursor.fetchone()
         assert remaining == 1
+
+
+@pytest.mark.asyncio
+async def test_catalog_identity_and_provenance_round_trip():
+    """Phase 3: a detection stores its canonical species_id and artifact
+    provenance, and reads them back; absent values stay None."""
+
+    async with aiosqlite.connect(":memory:") as db:
+        await _create_detections_table(db)
+        await db.commit()
+        repo = DetectionRepository(db)
+        await _round_trip_catalog_identity(repo)
+
+
+async def _round_trip_catalog_identity(repo):
+    from app.utils.api_datetime import utc_naive_now
+
+    await repo.create(
+        Detection(
+            detection_time=utc_naive_now(),
+            detection_index=42,
+            score=0.91,
+            display_name="Eurasian Blue Tit",
+            category_name="Cyanistes caeruleus",
+            frigate_event="evt-catalog-1",
+            camera_name="feeder",
+            scientific_name="Cyanistes caeruleus",
+            species_id=4815,
+            model_artifact_id=7,
+            model_output_index=42,
+        )
+    )
+    await repo.create(
+        Detection(
+            detection_time=utc_naive_now(),
+            detection_index=1,
+            score=0.5,
+            display_name="Unknown Bird",
+            category_name="Unknown Bird",
+            frigate_event="evt-catalog-2",
+            camera_name="feeder",
+        )
+    )
+
+    with_identity = await repo.get_by_frigate_event("evt-catalog-1")
+    assert with_identity.species_id == 4815
+    assert with_identity.model_artifact_id == 7
+    assert with_identity.model_output_index == 42
+
+    without_identity = await repo.get_by_frigate_event("evt-catalog-2")
+    assert without_identity.species_id is None
+    assert without_identity.model_artifact_id is None
+    assert without_identity.model_output_index is None

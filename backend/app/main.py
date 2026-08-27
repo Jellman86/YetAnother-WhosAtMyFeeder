@@ -26,6 +26,11 @@ from app.database import (
     get_db_path_diagnostics,
     is_db_pool_initialized,
     get_db_pool_status,
+    DatabasePoolTimeout,
+)
+from app.services.media_integrity_scan import (
+    get_media_integrity_scan_status,
+    run_media_integrity_scan,
 )
 from app.services.mqtt_service import mqtt_service
 from app.services.classifier_service import get_classifier, shutdown_classifier
@@ -39,6 +44,8 @@ from app.services.high_quality_snapshot_service import high_quality_snapshot_ser
 from app.services.notification_dispatcher import notification_dispatcher
 from app.services.frigate_client import frigate_client
 from app.repositories.detection_repository import DetectionRepository
+from app.repositories.health_repository import HealthRepository
+from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES
 from app.routers import (
     events,
     proxy,
@@ -67,6 +74,8 @@ from app.config import settings, _expand_trusted_hosts
 from app.middleware.language import LanguageMiddleware
 from app.utils.tasks import create_background_task
 from app.utils.runtime_flavor import get_image_flavor
+from app.services.label_enrichment import start_background_map_refresh
+from app.services.localized_names import start_background_refresh
 from app.services.startup_status import startup_status
 from app.ratelimit import limiter
 from app.auth import AuthContext
@@ -152,6 +161,14 @@ class VersionResponse(BaseModel):
     base_version: str
 
 
+class ReadinessResponse(BaseModel):
+    ready: bool
+    db_pool_initialized: bool
+    startup_warnings: list[dict[str, object]]
+    startup_instance_id: str
+    startup_started_at: str | None
+
+
 # Metrics
 EVENTS_PROCESSED = Counter("events_processed_total", "Total number of events processed")
 DETECTIONS_TOTAL = Counter("detections_total", "Total number of bird detections")
@@ -172,7 +189,10 @@ event_processor: EventProcessor | None = None
 
 # Cleanup task control
 cleanup_task = None
+media_integrity_task = None
 cleanup_running = True
+heartbeat_task = None
+heartbeat_running = True
 CLEANUP_INTERVAL_HOURS = 24  # Run cleanup every 24 hours
 
 
@@ -227,45 +247,6 @@ async def run_cleanup():
         if deleted_share_links > 0:
             log.info("Video share-link cleanup completed", deleted_count=deleted_share_links)
 
-        # Scheduled media-integrity scan. The UI writes the single daily toggle to
-        # both legacy booleans; preserve one-sided legacy configs as scoped scans.
-        if settings.maintenance.auto_purge_missing_clips and settings.maintenance.auto_purge_missing_snapshots:
-            try:
-                from app.routers.settings import _purge_missing_all_media
-
-                result = await _purge_missing_all_media()
-                if any(
-                    result.get(key, 0) > 0
-                    for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")
-                ):
-                    log.info("Scheduled media integrity scan completed", **result)
-            except Exception as e:
-                log.error("Scheduled media integrity scan failed", error=str(e))
-        elif settings.maintenance.auto_purge_missing_clips:
-            try:
-                from app.routers.settings import _purge_missing_media
-
-                result = await _purge_missing_media("clip")
-                if any(
-                    result.get(key, 0) > 0
-                    for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")
-                ):
-                    log.info("Scheduled purge missing clips completed", **result)
-            except Exception as e:
-                log.error("Scheduled purge missing clips failed", error=str(e))
-        elif settings.maintenance.auto_purge_missing_snapshots:
-            try:
-                from app.routers.settings import _purge_missing_media
-
-                result = await _purge_missing_media("snapshot")
-                if any(
-                    result.get(key, 0) > 0
-                    for key in ("deleted_count", "marked_missing_count", "kept_count", "cleared_missing_count")
-                ):
-                    log.info("Scheduled purge missing snapshots completed", **result)
-            except Exception as e:
-                log.error("Scheduled purge missing snapshots failed", error=str(e))
-
         # Scheduled analyze unknowns
         if settings.maintenance.auto_analyze_unknowns:
             try:
@@ -310,6 +291,37 @@ async def cleanup_scheduler():
         except BaseException as e:
             # Catch-all for anything else (unlikely but safe)
             log.critical("Cleanup task critical failure", error=str(e))
+            await asyncio.sleep(3600)
+
+
+async def media_integrity_scheduler():
+    """Background task that runs the media integrity scan on its own interval.
+
+    Deliberately sleeps before its first run rather than scanning at startup:
+    the scan asks Frigate about a batch of events, and startup is when Frigate,
+    the model and the migrations are already competing for the box. An owner who
+    wants it now has the button in Settings.
+    """
+    while cleanup_running:
+        try:
+            # Re-read the interval every hour rather than once per cycle:
+            # otherwise an owner shortening it from a week to an hour waits the
+            # old week to find out whether the change worked.
+            elapsed_hours = 0
+            while cleanup_running:
+                await asyncio.sleep(3600)
+                elapsed_hours += 1
+                if elapsed_hours >= max(1, int(settings.maintenance.media_integrity_scan_interval_hours)):
+                    break
+
+            if cleanup_running and settings.maintenance.media_integrity_scan_enabled:
+                result = await run_media_integrity_scan()
+                if result.status not in ("disabled", "nothing_to_check"):
+                    log.info("Scheduled media integrity scan finished", **result.as_dict())
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            log.error("Media integrity scan task error", error=str(e))
             await asyncio.sleep(3600)
 
 
@@ -375,19 +387,58 @@ async def _start_mqtt_service_task() -> None:
     create_background_task(mqtt_service.start(event_processor), name="mqtt_service_start")
 
 
+async def heartbeat_scheduler(instance_id: str):
+    """Record that the application is alive, on a fixed interval.
+
+    Gaps between heartbeats are the only honest uptime signal available without an
+    external monitor, so this loop is deliberately dull and failure-tolerant.
+    """
+    global heartbeat_running
+
+    while heartbeat_running:
+        try:
+            async with get_db() as db:
+                repo = HealthRepository(db)
+                await repo.record_heartbeat(instance_id)
+                if (
+                    datetime.now(timezone.utc).hour == 4
+                    and datetime.now(timezone.utc).minute < HEARTBEAT_INTERVAL_MINUTES
+                ):
+                    await repo.prune()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            # A missed heartbeat reads as a short gap, which is honest enough.
+            log.warning("heartbeat_write_failed", error=str(e))
+
+        try:
+            await asyncio.sleep(HEARTBEAT_INTERVAL_MINUTES * 60)
+        except asyncio.CancelledError:
+            break
+
+
+async def _start_heartbeat_scheduler_task(instance_id: str) -> None:
+    global heartbeat_task
+    heartbeat_task = create_background_task(heartbeat_scheduler(instance_id), name="heartbeat_scheduler")
+
+
 async def _start_cleanup_scheduler_task() -> None:
-    global cleanup_task
+    global cleanup_task, media_integrity_task
     cleanup_task = create_background_task(cleanup_scheduler(), name="cleanup_scheduler")
+    media_integrity_task = create_background_task(media_integrity_scheduler(), name="media_integrity_scheduler")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global cleanup_task, cleanup_running
+    global cleanup_task, media_integrity_task, cleanup_running, heartbeat_task, heartbeat_running
     test_mode = _is_testing()
 
     # Startup
     cleanup_running = True
     cleanup_task = None
+    media_integrity_task = None
+    heartbeat_running = not test_mode
+    heartbeat_task = None
     app.state.startup_warnings = []
     startup_started_at = datetime.now(timezone.utc)
     app.state.startup_started_at = startup_started_at.isoformat()
@@ -405,6 +456,19 @@ async def lifespan(app: FastAPI):
             startup_phase="database",
             startup_progress=68,
         )
+        from app.services.species_catalog_store import start_species_catalog
+
+        await _run_lifecycle_phase(
+            app,
+            "species_catalog_init",
+            start_species_catalog,
+            fatal=False,
+            startup_phase="database",
+            startup_progress=70,
+        )
+        from app.services.species_catalog_backfill import start_background_catalog_backfill
+
+        create_background_task(start_background_catalog_backfill(), name="species_catalog_backfill")
         await _run_lifecycle_phase(
             app,
             "notification_dispatcher_start",
@@ -424,6 +488,9 @@ async def lifespan(app: FastAPI):
             startup_progress=72,
         )
         create_background_task(model_manager.ensure_installed_model_configs(), name="model_config_refresh")
+        from app.services.species_catalog_compatibility import start_background_local_mapping_import
+
+        create_background_task(start_background_local_mapping_import(), name="local_model_mapping_import")
         await _run_lifecycle_phase(
             app,
             "telemetry_start",
@@ -439,6 +506,22 @@ async def lifespan(app: FastAPI):
             fatal=False,
             startup_phase="starting_services",
             startup_progress=86,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "model_taxon_map_refresh",
+            start_background_map_refresh,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=87,
+        )
+        await _run_lifecycle_phase(
+            app,
+            "localized_names_refresh",
+            start_background_refresh,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=88,
         )
         await _run_lifecycle_phase(
             app,
@@ -467,6 +550,12 @@ async def lifespan(app: FastAPI):
         )
         await _run_lifecycle_phase(
             app,
+            "heartbeat_scheduler_task_start",
+            lambda: _start_heartbeat_scheduler_task(app.state.startup_instance_id),
+            fatal=False,
+        )
+        await _run_lifecycle_phase(
+            app,
             "cleanup_scheduler_task_start",
             _start_cleanup_scheduler_task,
             fatal=False,
@@ -485,11 +574,25 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    heartbeat_running = False
+    if heartbeat_task and not test_mode:
+        heartbeat_task.cancel()
+        try:
+            await heartbeat_task
+        except asyncio.CancelledError:
+            pass
+
     cleanup_running = False
     if cleanup_task and not test_mode:
         cleanup_task.cancel()
         try:
             await cleanup_task
+        except asyncio.CancelledError:
+            pass
+    if media_integrity_task and not test_mode:
+        media_integrity_task.cancel()
+        try:
+            await media_integrity_task
         except asyncio.CancelledError:
             pass
     if not test_mode:
@@ -541,6 +644,48 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
     )
 
 
+@app.exception_handler(DatabasePoolTimeout)
+async def db_pool_timeout_handler(request: Request, exc: DatabasePoolTimeout):
+    """Answer a saturated connection pool honestly.
+
+    This is capacity, not corruption: nothing is wrong with the request and
+    retrying it later will work, so it must not be dressed up as a 500. The
+    holder named in the exception goes to the log, where an owner can act on
+    it, and not to the client, which cannot.
+    """
+    log.error(
+        "Database connection pool exhausted",
+        path=request.url.path,
+        method=request.method,
+        error=str(exc),
+    )
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "The server is busy waiting for the database. Please try again in a moment."},
+        headers={"Retry-After": "5"},
+    )
+
+
+# A queue this long means requests are already being made to wait.
+DB_POOL_DEGRADED_WAIT_MS = 5000.0
+# A connection held this long is doing something that does not need one. It is
+# the earlier signal: waits only start once the pool has already run dry.
+DB_POOL_DEGRADED_HOLD_MS = 5000.0
+
+
+def db_pool_is_degraded(db_pool_health: dict) -> bool:
+    """Whether the connection pool is in a state an owner should be told about.
+
+    Both inputs are windowed, so a burst that has passed stops counting. The
+    lifetime peaks stay in diagnostics for context but must never drive status,
+    or one bad minute would report the install as unhealthy forever.
+    """
+    return (
+        float(db_pool_health.get("acquire_wait_max_ms") or 0.0) >= DB_POOL_DEGRADED_WAIT_MS
+        or float(db_pool_health.get("hold_ms_max") or 0.0) >= DB_POOL_DEGRADED_HOLD_MS
+    )
+
+
 # Global exception handler for unexpected 500s
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
@@ -557,6 +702,7 @@ app.add_middleware(
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-YAWAMF-Audio-Suppressed-By-Mapping"],
 )
 
 # Auth router - no auth required (provides login endpoint)
@@ -786,8 +932,57 @@ async def count_requests(request, call_next):
     return response
 
 
-@app.get("/health")
-async def health_check():
+def _naming_health() -> dict[str, object]:
+    """Where bird names come from when the network cannot answer.
+
+    Reported because a reference or a locale that is not there is invisible
+    otherwise: naming simply falls back and nobody learns why the names are in
+    English or missing.
+    """
+    from app.services.localized_names import localized_names
+    from app.services.species_reference import species_reference
+    from app.services import species_catalog_status as catalog_status_module
+
+    try:
+        reference = species_reference.status()
+    except Exception:  # pragma: no cover - health must never fail
+        reference = {"available": False}
+    try:
+        localized = localized_names.status()
+    except Exception:  # pragma: no cover
+        localized = {"available": False}
+    try:
+        catalog = catalog_status_module.species_catalog_status.status()
+    except Exception:  # pragma: no cover
+        catalog = {"available": False, "species_count": 0, "active_release": None, "artifacts": []}
+    try:
+        from app.services.species_catalog_resolver import species_catalog_resolver
+
+        catalog["shadow"] = species_catalog_resolver.stats()
+    except Exception:  # pragma: no cover
+        pass
+    try:
+        from app.services.species_catalog_backfill import last_backfill_summary
+
+        catalog["backfill"] = last_backfill_summary()
+    except Exception:  # pragma: no cover
+        pass
+    try:
+        from app.services.species_catalog_compatibility import last_local_mapping_report
+
+        catalog["local_mapping"] = last_local_mapping_report()
+    except Exception:  # pragma: no cover
+        pass
+    try:
+        from app.services.species_catalog_overrides import override_summary
+
+        catalog["owner_renames"] = override_summary()
+    except Exception:  # pragma: no cover
+        pass
+    return {"species_reference": reference, "localized_names": localized, "species_catalog": catalog}
+
+
+def build_health_payload() -> dict[str, object]:
     startup_warnings = getattr(app.state, "startup_warnings", [])
     startup_instance_id = getattr(app.state, "startup_instance_id", "unknown")
     startup_started_at = getattr(app.state, "startup_started_at", None)
@@ -823,7 +1018,9 @@ async def health_check():
         "service": "ya-wamf-backend",
         "version": APP_VERSION,
         "ml": classifier_health,
+        "naming": _naming_health(),
         "db_pool": db_pool_health,
+        "media_integrity_scan": get_media_integrity_scan_status(),
         "mqtt": mqtt_health,
         "video_classifier": video_health,
         "high_quality_snapshots": high_quality_snapshot_health,
@@ -846,15 +1043,21 @@ async def health_check():
         or bool(mqtt_health.get("stall_recovery_warning_active"))
         or int(notification_dispatch_health.get("dropped_jobs") or 0) > 0
         or event_pipeline_health.get("status") != "ok"
-        or float(db_pool_health.get("acquire_wait_max_ms") or 0.0) >= 5000.0
+        or db_pool_is_degraded(db_pool_health)
     ):
         health["status"] = "degraded"
 
     return health
 
 
-@app.get("/ready")
-async def readiness_check():
+@app.get("/health")
+async def health_check(response: Response) -> dict[str, object]:
+    response.headers["Cache-Control"] = "no-store, max-age=0"
+    return build_health_payload()
+
+
+@app.get("/ready", response_model=ReadinessResponse)
+async def readiness_check(response: Response) -> ReadinessResponse | JSONResponse:
     """Kubernetes/Compose readiness probe endpoint.
 
     Ready requires:
@@ -865,16 +1068,21 @@ async def readiness_check():
     db_ready = is_db_pool_initialized() or _is_testing()
     ready = db_ready and not startup_warnings
 
-    payload = {
-        "ready": ready,
-        "db_pool_initialized": db_ready,
-        "startup_warnings": startup_warnings,
-        "startup_instance_id": getattr(app.state, "startup_instance_id", "unknown"),
-        "startup_started_at": getattr(app.state, "startup_started_at", None),
-    }
+    payload = ReadinessResponse(
+        ready=ready,
+        db_pool_initialized=db_ready,
+        startup_warnings=startup_warnings,
+        startup_instance_id=getattr(app.state, "startup_instance_id", "unknown"),
+        startup_started_at=getattr(app.state, "startup_started_at", None),
+    )
     if ready:
+        response.headers["Cache-Control"] = "no-store, max-age=0"
         return payload
-    return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content=payload)
+    return JSONResponse(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        content=payload.model_dump(),
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 @app.get("/api/sse")

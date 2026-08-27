@@ -16,7 +16,8 @@ Enable eBird if you want richer taxonomy and sightings context. It provides broa
 2. Enable eBird.
 3. Enter your eBird API Key.
    *   *Note:* You can request an API key from eBird [here](https://ebird.org/api/keygen).
-4. Set your search radius (km) and history limit (days).
+4. Set your search radius and history limit (days).
+   *   The radius field uses the unit system chosen in **Settings > Location > Display Units**: kilometres for Metric, miles for Imperial and British. eBird accepts 1-50 km (1-31 miles), and YA-WAMF stores the value in kilometres whichever unit you type.
 
 ## Enrichment Behavior
 When eBird is enabled, YA-WAMF will prefer eBird taxonomy and recent sightings for enrichment wherever available. If eBird data is unavailable for a species or you disable eBird, YA-WAMF falls back to iNaturalist and Wikipedia sources where appropriate.

@@ -193,5 +193,23 @@ describe('buildJobsPipelineModel', () => {
         });
     });
 
+    it('keeps work and enrichment lanes in a fixed order as live counts change', () => {
+        const first = buildJobsPipelineModel([
+            runningJob('taxonomy:1', 'taxonomy_sync'),
+            runningJob('video:1', 'auto_video')
+        ], [], {
+            reclassify: { queued: 10, running: 0, queueDepthKnown: true, updatedAt: 1 }
+        });
+        const second = buildJobsPipelineModel([
+            runningJob('taxonomy:1', 'taxonomy_sync'),
+            runningJob('video:1', 'auto_video')
+        ], [], {
+            reclassify: { queued: 1, running: 20, queueDepthKnown: true, updatedAt: 2 }
+        });
+
+        expect(first.kinds.map((row) => row.kind)).toEqual(['reclassify', 'auto_video', 'taxonomy_sync']);
+        expect(second.kinds.map((row) => row.kind)).toEqual(first.kinds.map((row) => row.kind));
+    });
+
 
 });

@@ -92,6 +92,38 @@ RUN set -eux; \
             libze-intel-gpu1 \
             libze1 \
             ocl-icd-libopencl1; \
+        # Intel publishes the last Gen8/Gen9/Gen11 compute runtime as `legacy1`.
+        # Install it beside the modern ICD instead of replacing the current stack.
+        # The current libigdgmm12 satisfies the legacy package's >=22.5 dependency;
+        # deliberately do not downgrade it to the older release-bundled build.
+        LEGACY_IGC_VER=1.0.17537.24; \
+        LEGACY_COMPUTE_VER=24.35.30872.36; \
+        LEGACY_LEVEL_ZERO_VER=1.5.30872.36; \
+        LEGACY_IGC_REL="https://github.com/intel/intel-graphics-compiler/releases/download/igc-${LEGACY_IGC_VER}"; \
+        LEGACY_COMPUTE_REL="https://github.com/intel/compute-runtime/releases/download/${LEGACY_COMPUTE_VER}"; \
+        ( cd /tmp \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${LEGACY_IGC_REL}/intel-igc-core_${LEGACY_IGC_VER}_amd64.deb" \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${LEGACY_IGC_REL}/intel-igc-opencl_${LEGACY_IGC_VER}_amd64.deb" \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${LEGACY_COMPUTE_REL}/intel-level-zero-gpu-legacy1_${LEGACY_LEVEL_ZERO_VER}_amd64.deb" \
+          && curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 \
+                 -O "${LEGACY_COMPUTE_REL}/intel-opencl-icd-legacy1_${LEGACY_COMPUTE_VER}_amd64.deb" \
+          && echo "c1e1ecdfe2064c047c552651cfdcdafc504f2033afafba65654338b880048b67  intel-igc-core_${LEGACY_IGC_VER}_amd64.deb" | sha256sum -c - \
+          && echo "dd016400f87fa2b6a9fa9fbcca7eb4a2629174a29de679709f9bec5cede88b0e  intel-igc-opencl_${LEGACY_IGC_VER}_amd64.deb" | sha256sum -c - \
+          && echo "40dfbd15ab62de036a00824b304a2aa1fa2d81ad60ef83da09cfe3c5a80c429f  intel-level-zero-gpu-legacy1_${LEGACY_LEVEL_ZERO_VER}_amd64.deb" | sha256sum -c - \
+          && echo "bbe71e4f414259e06a10cde72c29a2bd78d41b2bb2f6f8463b1806797fe66e85  intel-opencl-icd-legacy1_${LEGACY_COMPUTE_VER}_amd64.deb" | sha256sum -c - \
+          && apt-get install -y --no-install-recommends \
+                 "./intel-igc-core_${LEGACY_IGC_VER}_amd64.deb" \
+                 "./intel-igc-opencl_${LEGACY_IGC_VER}_amd64.deb" \
+                 "./intel-level-zero-gpu-legacy1_${LEGACY_LEVEL_ZERO_VER}_amd64.deb" \
+                 "./intel-opencl-icd-legacy1_${LEGACY_COMPUTE_VER}_amd64.deb" \
+          && rm -f \
+                 "/tmp/intel-igc-core_${LEGACY_IGC_VER}_amd64.deb" \
+                 "/tmp/intel-igc-opencl_${LEGACY_IGC_VER}_amd64.deb" \
+                 "/tmp/intel-level-zero-gpu-legacy1_${LEGACY_LEVEL_ZERO_VER}_amd64.deb" \
+                 "/tmp/intel-opencl-icd-legacy1_${LEGACY_COMPUTE_VER}_amd64.deb" ); \
         # Intel NPU ("AI Boost") driver for the OpenVINO `intel_npu` provider on
         # Core Ultra. These are NOT in the intel-graphics apt repo, so install the
         # release .debs (firmware + Level-Zero driver + compiler). This pinned version
@@ -133,11 +165,13 @@ RUN useradd -m -u 1000 appuser && \
 
 COPY --from=ui-builder /ui/dist /usr/share/nginx/html
 COPY backend/alembic.ini /app/alembic.ini
+COPY backend/alembic_catalog.ini /app/alembic_catalog.ini
 COPY backend/download_model.py /app/download_model.py
 COPY backend/app /app/app
 COPY backend/scripts /app/scripts
 COPY backend/locales /app/locales
 COPY backend/migrations /app/migrations
+COPY backend/migrations_catalog /app/migrations_catalog
 COPY docker/monolith/nginx-main.conf /etc/nginx/nginx.conf
 COPY docker/monolith/nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker/monolith/entrypoint.sh /usr/local/bin/yawamf-entrypoint.sh
@@ -158,6 +192,16 @@ RUN set -eux; \
         "${coral_base}/inat_bird_labels.txt"; \
     echo "350fcd8cf1df1560060d464595dfed8b174b05792788052896004848d9ad04f9  /app/app/assets/model.tflite" | sha256sum -c -; \
     echo "a16108dfe3f8daff015b87a97ab6a17e717b9b1bccd719f6d8f747746d7b9277  /app/app/assets/labels.txt" | sha256sum -c -
+
+# Build the seed species catalogue from the committed, digest-verified IOC
+# reference, plus the Catalogue of Life assets beside it: non-bird concepts and
+# bird synonyms. The build is deterministic and passes the provenance gate in
+# species_sources.json. First start copies the seed into /data only when no
+# catalogue has ever been initialised; an install that already has one is
+# offered the seed as a release instead, so a newer catalogue still arrives.
+RUN python /app/scripts/build_species_catalog_seed.py \
+        --reference /app/app/assets/species_reference.db \
+        --output /app/app/assets/species_catalog_seed.db
 
 ENV DB_PATH=/data/speciesid.db
 ENV HOME=/tmp

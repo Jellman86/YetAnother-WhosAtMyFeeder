@@ -54,6 +54,10 @@ delivered → release-defining initiatives → non-blocking backlog → breaking
 
 - [ ] The UI simplification pass has made Settings and the primary owner/guest journeys coherent,
   responsive, keyboard-operable, and honest about loading, empty, error, and destructive states.
+- [ ] The dedicated, versioned SQLite species catalogue is authoritative for model-output identity
+  and translated species names; every supported model checksum has a complete output-index mapping,
+  label text files are no longer runtime truth, and upgraded detections preserve their history and
+  owner overrides.
 - [ ] Native editorial review is complete for locales presented as fully supported, or any residual
   language-quality limitations are labelled honestly in the release notes.
 - [x] Stable installation and recovery docs match the shipped Compose defaults and first-run auth
@@ -109,6 +113,73 @@ All four recommendations from the
 
 The headline work that makes `3.0` a major version: a guided first run, a cleaner product
 surface, a codebase reviewed to the gold standard, and complete translations.
+
+#### Versioned species catalogue and model-output identity 🗂️
+**Priority:** P1 | **Effort:** XL | **Status:** 🔄 Phases 0, 1, 3 and 4 delivered; Phase 2 advisory-only by design; Phase 5 mostly delivered
+
+Design: [`docs/plans/2026-08-12-versioned-species-catalogue-design.md`](docs/plans/2026-08-12-versioned-species-catalogue-design.md).
+What is already built, what it is worth and what has to be reworked:
+[`docs/plans/2026-08-19-species-catalogue-reconciliation.md`](docs/plans/2026-08-19-species-catalogue-reconciliation.md).
+Source measurements: [`docs/plans/2026-08-19-species-reference-source-decision.md`](docs/plans/2026-08-19-species-reference-source-decision.md).
+
+Make a dedicated `/data/species_catalog.db` authoritative for species identity instead of relying on
+raw model-label text and whichever name a provider returned at detection time. It stays separate
+from the detections database so the catalogue can be enriched, versioned, validated and rolled back
+without rewriting detection history. It holds the complete taxon set emitted by supported models,
+accepted scientific names, source identifiers, synonyms, RFC 5646 translated common names,
+provenance, and owner overrides. Every exact model artifact checksum and output index maps to a
+canonical YA-WAMF species identity or an explicit non-species class.
+
+This does not pretend classifiers can work without an ordered output mapping. It replaces standalone
+label files as runtime truth with a checksum-bound mapping imported into SQLite.
+
+##### Delivered so far
+
+A seed catalogue built from the IOC World Bird List (11,276 species, 87,656 localized names,
+CC BY 3.0, reproducible build, digest-verified at runtime), the source measurements behind choosing
+it, label-file verification against the registry checksum with the verdict surfaced on the Health
+page, and a first output-index mapping.
+
+##### The defect that shaped the design, and its fix
+
+The first delivered layer keyed identity on the **scientific name**. Those change when taxa are
+split, lumped or synonymised, so `Parus caeruleus` and `Cyanistes caeruleus` became two different
+birds to anything keying on the text, and history divided silently. The opaque `species_id` is the
+fix and it has landed: aggregation, filtering, audio, and the daily rollup all group on it, and the
+catalogue records resolved synonyms so a renamed taxon stays one bird
+([#272](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/272), closed). The live proof
+was a jackdaw split into `Coloeus monedula` (102 rows) and `Corvus monedula` (28) on a real install;
+after the synonym import it is one species with 130.
+
+New consumers should key on `species_id`, never on label or name text.
+
+##### Phases
+
+| Phase | State |
+| --- | --- |
+| 0. Freeze the contract and provenance gate | ✅ delivered ([freeze note](docs/plans/2026-08-19-species-catalogue-phase0-freeze.md)): pinned sources (IOC 14.2, CoL COL26.7 by DOI and export digest, eBird 2025) in a machine-checked manifest with a licence/redistribution gate; per-artifact label grammar declared in the registry; 100%-coverage artifact [inventory](docs/reviews/2026-08-19-species-catalogue-phase0-inventory.md) held current by a regression test; and the [non-bird mapping report](docs/reviews/2026-08-20-col-nonbird-mapping-report.md) (exact/synonym/lump/unresolved, nothing guessed). Bird-side split/lump analysis rides with the Phase 2/3 eBird crosswalk |
+| 1. Catalogue schema and deterministic builder | ✅ delivered: the dedicated Alembic stream, full catalogue schema, deterministic seed build from IOC plus the 7,865 Catalogue of Life non-bird taxa, marker-guarded seed-then-copy into `/data`, and the transactional release importer with rollback (single-head, reversible, CI-smoked, constraints in-schema; interrupted imports leave the previous release active; identities are never deleted; a lost catalogue is reported, never silently replaced) |
+| 2. Checksum-bound model mappings | 🔄 the compiled mappings and the diagnostics are delivered: every supported classifier artifact is registered in the catalogue by its model checksum, with 21,781 of 23,332 output indices resolved to canonical identities, declared `background`/`unknown` class kinds, and 1,548 unresolved indices left as visible gaps ([coverage report](docs/reviews/2026-08-20-model-output-mapping-coverage.md)); the Health page reports the active release, coverage, and gaps in plain words, and the activation check (checksum resolved against SQLite, tensor width verified, unregistered/incomplete/width-mismatch verdicts) exists and is tested. Remaining: flipping that check from advisory to enforced at model selection, which lands with Phase 5's retirement of label-file authority so gap-bearing supported models are not broken in the meantime |
+| 3. Shadow resolution and historical backfill | ✅ delivered: live shadow resolution — detections gain nullable `species_id` / `model_artifact_id` / `model_output_index` columns by reversible migration, every live classification resolves its checksum-bound output through the catalogue beside the label path, identity persists only on agreement (recorded synonyms count), and disagreements are counted in Health shadow statistics rather than written to history. The conservative historical backfill is delivered (rows whose scientific name resolves to exactly one identity gain `species_id` at startup, idempotently, with ambiguous and unknown names counted and left untouched), and the identity-writing pipelines are wired: backfill imports resolve through the shared save path, video refinements shadow-resolve with a guard against attributing a queued result to a since-swapped model, and manual observations attach canonical identity by the same unique-name rule with no artifact provenance, since a manual identity is human-asserted. Audio correlation writes no primary identity today; its canonical joins arrive with Phase 4 |
+| 4. Make catalogue identity authoritative | ✅ delivered: species aggregation groups on the catalogue's opaque `species_id` with the taxon and name keys kept underneath, each source namespaced so an id from one database cannot collide with an id from the other, and filtering follows the same key so a merged species opens to every row the leaderboard counted. The leaderboard now returns the key it grouped on, so trend lookups join on it rather than rebuilding the rule. Verified against real detections: the same 42 groups before and after, none split and none merged. Delivered since: one shared name-precedence function, so a group is named from its identity (owner rename, then the catalogue's curated name for the reader's language, then English, then the scientific name) rather than from whichever of its rows sorted last; measured on real data as 3 of 42 species moving to the IOC spelling, and it supplies the Italian and Chinese the previous sources lacked. Audio detections now carry the same identity, resolved at ingest by the same conservative rule and backfilled for existing rows (55,998 of 56,026 on a real install; the 28 that do not resolve are `Corvus monedula`, which IOC calls `Coloeus monedula`, and stay split until the catalogue records synonyms, see [#272](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/272)). `species_daily_rollup` is delivered: it persists its key and holds aggregate history whose detections no longer exist, so it gained `species_id` and a re-keying migration that refuses to collapse a key whose rows disagree on identity, guarded by a `COUNT(DISTINCT ...) = 1` check rather than a `MIN()` guess. Remaining: taxonomy provider sync as an explicit catalogue job |
+| 5. Remove label-file authority before `3.0` | 🔄 mostly delivered: every model output now carries a catalogue row, including the ones nothing could name, so the label text no longer lives only in `labels.txt` ([#276](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/276)), and existing installs actually receive those rows rather than being skipped as already imported ([#278](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/278)). A registry model's labels are now read from the catalogue instead of its label file, used only for a complete contiguous set matching the declared output width, since a short mapping would truncate a model's classes and a gap would shift every later label onto the wrong class; verified on a live install as reproducing all ten installed label files byte for byte, 34,746 labels. The compatibility importer for owner-supplied models is delivered: it derives a mapping from that model's own labels, records every output it cannot name, refuses an identity unless every reading of a label agrees, skips registry models so a derived mapping can never stand in for a reviewed one, and its labels are never served back as catalogue-verified. Measured against the reviewed mappings on four real label files: 11,509 outputs where both named a species, zero disagreements. Owner diagnostics now name every pinned source in the active release with its version, licence and citation, and state in plain words that the catalogue is a separate file from detection history, that rolling one back changes names and never recorded sightings, and that a backup of the data directory covers both; documented under Taxonomy & Naming. The dead name-keyed rollup reader that predated identity-based aggregation is gone. Owner renames, the one piece of naming an owner authored, now live in the catalogue keyed on the species rather than on a spelling of its scientific name, and existing ones are carried over on startup; the copy in the detection database is still written and read as the bounded pre-3.0 compatibility reader. Remaining: the name-recovery SQL that reads `taxonomy_cache` cannot simply retire, and the reason is measured rather than assumed. On a live install 710 of 763 visible detections carry a catalogue identity; of the 53 that do not, 49 are `Unknown Bird` with no scientific name to resolve and the remaining 4 are identifications coarser than a species (`Rattus`, `Gallus`, `Troglodytidae`). The catalogue holds species, so those can never resolve to one. That is a modelling difference, not a migration gap, and it needs a decision before `3.0`: either the catalogue gains higher-rank concepts (its `species.rank` column already allows for it, and the seed writes only `species`), or the compatibility reader stays for coarser-than-species outputs and stops being called temporary. `taxonomy_translations` is a provider cache of 169 rows in 4 languages against the catalogue's 87,656 curated names in 9, and folding provider names into a provenance-tracked table would cost the curation story more than it gains. After that decision: flip the Phase 2 activation check from advisory to enforced and stop shipping `labels.txt` |
+
+##### Cheap, independent of the phases
+
+- ✅ The Health page's Naming Sources card now explains its limits in words: whether a species
+  catalogue exists, how many species it holds, and how many model output classes still have no
+  catalogue identity and keep their label text.
+- ✅ Measured: 84 of 707 European model labels (11.9%) resolve to no scientific name in the bundled
+  IOC reference, dominated by stripped possessive apostrophes (`Audouins gull`) that a Phase 2
+  apostrophe-insensitive alias rule should recover — see the
+  [Phase 0 inventory](docs/reviews/2026-08-19-species-catalogue-phase0-inventory.md). No further
+  source is warranted before that rule exists.
+
+**3.0 gate:** all supported models and regional variants have complete mappings; normal inference
+and reads work offline; locale changes affect display only; catalogue refresh is transactional and
+reversible; backup/restore includes both databases; and real upgraded databases prove that
+detections, unresolved legacy rows, provider identifiers, and manual names survive without
+reinterpretation or loss.
 
 #### First-run setup wizard 🧭
 **Priority:** P1 | **Effort:** L | **Status:** ✅ Shipped on `dev` — multi-part, hardware-validating, re-runnable from the Settings navigation ([design](docs/plans/2026-07-12-first-run-setup-wizard-design.md))
@@ -316,6 +387,23 @@ Automated highlight reels and time-based browsing. Shipped: video preview pipeli
 day-bucket timeline strip with keyboard nav. Remaining:
 - Fuller grouped-browsing timeline UI + advanced keyboard UX.
 - Highlight scoring (confidence, rarity, activity) and clip stitching/preview thumbnails.
+
+#### Durable media archive and retention floors 📚
+**Priority:** P2 | **Effort:** M | **Status:** ☐ Proposed
+([#178](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/178))
+
+Favourites already protect their detection row and existing cached snapshot/clip from scheduled and
+manual retention cleanup. Complete the stronger durability contract requested in #178: when a visit
+is favourited, durably acquire its best snapshot and available clip into a dedicated archive before
+Frigate rotates them; expose acquisition state and failures; and make unfavourite/archive deletion
+an explicit owner choice. Add bounded rolling snapshot retention with both an age window and a
+configurable per-species minimum, without automatically downloading every video.
+
+**Acceptance:** archive writes are atomic and restart-safe; a favourite is not reported protected
+until requested assets are durable (or an honest unavailable state is recorded); normal cache clear
+cannot remove archived media; storage usage and destructive actions are visible; per-species floors
+are canonical-taxon based; backup/restore is documented; and tests cover Frigate expiry, concurrent
+favourite/unfavourite, partial downloads, cleanup order, and disk-pressure failure.
 
 #### Analytics: insights panel + camera comparison 📊
 **Priority:** P2 | **Effort:** M | **Status:** ☐ Not started
