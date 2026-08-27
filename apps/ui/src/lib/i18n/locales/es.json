@@ -1943,6 +1943,7 @@
     "bulk_reclassify_success": "Se pusieron en cola {count} detecciones para análisis de video.",
     "bulk_reclassify_partial": "En cola: {queued}; no se pudieron poner en cola: {failed}.",
     "classification_legend": "Fuentes de clasificación: Manual, Vídeo, Instantánea",
+    "timeline_scope": "Días en esta página",
     "timeline_keyboard_hint": "Teclado de línea de tiempo: [ día anterior, ] día siguiente, 0 restablecer",
     "row_open": "Abrir {species}",
     "row_select": "Seleccionar {species}",

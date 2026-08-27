@@ -1943,6 +1943,7 @@
     "bulk_reclassify_success": "已将 {count} 条检测加入视频分析队列。",
     "bulk_reclassify_partial": "已加入队列 {queued} 条；{failed} 条加入失败。",
     "classification_legend": "分类来源：手动、视频、快照",
+    "timeline_scope": "本页的日期",
     "timeline_keyboard_hint": "时间线快捷键：[ 前一天，] 后一天，0 重置",
     "row_open": "打开 {species}",
     "row_select": "选择 {species}",

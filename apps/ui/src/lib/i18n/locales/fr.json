@@ -1943,6 +1943,7 @@
     "bulk_reclassify_success": "{count} détections mises en file pour l’analyse vidéo.",
     "bulk_reclassify_partial": "{queued} mises en file ; échec pour {failed}.",
     "classification_legend": "Sources de classification : Manuel, Vidéo, Instantané",
+    "timeline_scope": "Jours sur cette page",
     "timeline_keyboard_hint": "Clavier de la chronologie : [ jour précédent, ] jour suivant, 0 réinitialiser",
     "row_open": "Ouvrir {species}",
     "row_select": "Sélectionner {species}",

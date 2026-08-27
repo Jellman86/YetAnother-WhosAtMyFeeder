@@ -1952,6 +1952,7 @@
     "bulk_reclassify_success": "{count} detecções enfileiradas para análise de vídeo.",
     "bulk_reclassify_partial": "{queued} enfileiradas; falha ao enfileirar {failed}.",
     "classification_legend": "Fontes de classificação: Manual, Vídeo, Instantâneo",
+    "timeline_scope": "Dias nesta página",
     "timeline_keyboard_hint": "Teclado da linha do tempo: [ dia anterior, ] próximo dia, 0 redefinir",
     "row_open": "Abrir {species}",
     "row_select": "Selecionar {species}",

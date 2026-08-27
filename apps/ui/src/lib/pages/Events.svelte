@@ -269,9 +269,11 @@
             availableCameras = (filters as EventFilters).cameras;
             eventFilters = filters as EventFilters;
             if (includeAuxiliary) {
+                // The hidden count is only ever shown behind owner access, and the
+                // endpoint refuses a guest, so asking as a guest just logs a 403.
                 const [labels, hidden] = await Promise.all([
                     fetchClassifierLabels().catch(() => ({ labels: [] })),
-                    fetchHiddenCount().catch(() => ({ hidden_count: 0 }))
+                    authStore.hasOwnerAccess ? fetchHiddenCount().catch(() => ({ hidden_count: 0 })) : { hidden_count: 0 }
                 ]);
                 classifierLabels = labels.labels;
                 hiddenCount = hidden.hidden_count;
@@ -1153,6 +1155,18 @@
 
         {#if !loading && timelineBuckets.length > 0}
             <section data-events-timeline class="pb-4 pt-1">
+                <!--
+                    These chips group the loaded page, and clicking one narrows to that
+                    day within the page. The heading beside them counts the whole filter,
+                    so without this the two numbers look like the same measurement
+                    disagreeing with itself.
+                -->
+                <p
+                    data-events-timeline-scope
+                    class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                >
+                    {$_('events.timeline_scope', { default: 'Days on this page' })}
+                </p>
                 <div class="flex flex-wrap items-center gap-2">
                     <button
                         type="button"

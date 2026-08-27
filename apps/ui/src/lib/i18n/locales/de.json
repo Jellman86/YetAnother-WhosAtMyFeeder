@@ -1943,6 +1943,7 @@
     "bulk_reclassify_success": "{count} Erkennungen zur Videoanalyse eingereiht.",
     "bulk_reclassify_partial": "{queued} eingereiht; {failed} konnten nicht eingereiht werden.",
     "classification_legend": "Klassifizierungsquellen: Manuell, Video, Schnappschuss",
+    "timeline_scope": "Tage auf dieser Seite",
     "timeline_keyboard_hint": "Timeline-Tastatur: [ vorheriger Tag, ] nächster Tag, 0 zurücksetzen",
     "row_open": "{species} öffnen",
     "row_select": "{species} auswählen",

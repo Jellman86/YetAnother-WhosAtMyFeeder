@@ -1952,6 +1952,7 @@
     "bulk_reclassify_success": "{count} обнаружений поставлены в очередь на видеоанализ.",
     "bulk_reclassify_partial": "Поставлено в очередь: {queued}; не удалось поставить: {failed}.",
     "classification_legend": "Источник классификации: вручную, видео, снимок",
+    "timeline_scope": "Дни на этой странице",
     "timeline_keyboard_hint": "Клавиши таймлайна: [ предыдущий день, ] следующий день, 0 сброс",
     "row_open": "Открыть {species}",
     "row_select": "Выбрать {species}",

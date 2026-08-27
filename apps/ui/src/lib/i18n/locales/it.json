@@ -1952,6 +1952,7 @@
     "bulk_reclassify_success": "Accodati {count} rilevamenti per l’analisi video.",
     "bulk_reclassify_partial": "Accodati {queued}; impossibile accodarne {failed}.",
     "classification_legend": "Fonti di classificazione: Manuale, Video, Istantanea",
+    "timeline_scope": "Giorni in questa pagina",
     "timeline_keyboard_hint": "Tastiera timeline: [ giorno precedente, ] giorno successivo, 0 reimposta",
     "row_open": "Apri {species}",
     "row_select": "Seleziona {species}",

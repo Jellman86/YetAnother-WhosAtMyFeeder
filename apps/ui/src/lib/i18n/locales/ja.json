@@ -1943,6 +1943,7 @@
     "bulk_reclassify_success": "{count} 件の検出を動画解析キューに追加しました。",
     "bulk_reclassify_partial": "{queued} 件を追加し、{failed} 件は追加できませんでした。",
     "classification_legend": "分類ソース: 手動 / 動画 / スナップショット",
+    "timeline_scope": "このページの日付",
     "timeline_keyboard_hint": "タイムライン操作: [ 前日、] 翌日、0 リセット",
     "row_open": "{species} を開く",
     "row_select": "{species} を選択",
