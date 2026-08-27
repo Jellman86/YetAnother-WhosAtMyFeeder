@@ -239,6 +239,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Two controls now show a keyboard user that they have reached them.** Reported as a live feed
+  button that did nothing (#266). It was not a button: it was a status pill, styled enough like one
+  to invite a click, and the rebuilt dashboard had already replaced it. What the reporter said next
+  was the useful part, that it is not always clear what is clickable and what is not, and auditing
+  that against the current interface found the sharper version of the same problem. The date-range
+  options in the setup wizard hide their radio for styling and put the appearance on a neighbouring
+  element, so the radio's own focus outline was invisible and the styled element never received
+  focus to draw one: tabbing onto them showed nothing at all. A source link in the species detail
+  panel wore the badge style, which carries no focus treatment, so it fell back to the browser
+  default and matched nothing else in the interface. Both now carry the same focus ring as every
+  other control, which is the WCAG 2.2 AA floor the interface is held to.
+
+
 - **A detection Frigate withdraws as a false positive is finally taken out of view.** The handler
   called a repository method that has never existed, so every false positive raised an
   `AttributeError` into its own `except Exception`, was logged as an ordinary cleanup failure, and
