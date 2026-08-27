@@ -239,6 +239,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Collapsible sections now tell you whether they are open.** Reported as inconsistent collapse
+  behaviour: "it is not clear when it is collapsed and where not, also it is not clear what is in the
+  section" (#259). Three of them gave no open or closed signal at all — the subsystem detail and the
+  diagnostics export on the Errors page carried a `+` that never became a `-`, and the OpenVINO
+  compile error on Detection settings had nothing. Six sat under the touch-target floor and three
+  gave a keyboard user no focus indicator, the same gap that #266 turned up elsewhere. All of them
+  now carry a chevron that turns when the section opens, clear the touch floor, and show focus. The
+  OpenVINO one also stops being the only untranslated label on that page.
+
+  They are deliberately not converged onto one component. A terminal panel and an inline "show
+  technical details" link are different things and should look it; what they owe the reader is the
+  same three signals, and that is now written down in the layout standard and held by a test over
+  every native disclosure in the app.
+
+
 - **The two percentages on a detection now say what each one measures.** A detection panel shows how
   sure the camera was that it saw a bird at all, and how sure the classifier is about which species.
   They measure different things and will rarely agree, but only one of them was labelled, and it was

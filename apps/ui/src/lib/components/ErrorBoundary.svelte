@@ -96,7 +96,7 @@
 
                 <!-- Error Details (collapsed) -->
                 <details class="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 mb-6">
-                    <summary class="cursor-pointer font-medium text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
+                    <summary class="flex min-h-11 cursor-pointer items-center font-medium text-slate-700 focus-ring hover:text-slate-900 dark:text-slate-300 dark:hover:text-white">
                         {$_('error.show_details', { default: 'Show error details' })}
                     </summary>
                     <div class="mt-4 space-y-2">

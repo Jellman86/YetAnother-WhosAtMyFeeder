@@ -195,6 +195,12 @@ build something better."*
   definition and wants nothing from anyone, so it renders in slate with its reason in words. Amber
   on those rows would contradict 1.3 and put seven of them under a heading saying nothing failed.
 - **Touch targets**: `min-h-11` on anything interactive, including chips and inline actions.
+- **Disclosures**: a collapsible section is not required to look like every other one — a terminal
+  panel and an inline "show technical details" link are different things — but all of them owe the
+  reader the same three signals: it says whether it is open (a chevron that rotates on `group-open`,
+  or wording that changes between Show and Hide), it clears the touch-target floor, and it shows
+  keyboard focus. `apps/ui/src/lib/components/disclosure-affordance.test.ts` holds every native
+  `<summary>` to that.
 - **Media**: fixed aspect, `loading="lazy"`, and an `onerror` placeholder of identical size.
 
 ---
