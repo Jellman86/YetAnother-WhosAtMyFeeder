@@ -2922,7 +2922,7 @@
                         {/if}
                         {#if videoStatusShowTechnicalDetails}
                             <details class="mt-2 border-t pt-2 {videoStatusNoticeTone.detailsContainer}" bind:open={videoErrorDetailsOpen}>
-                                <summary class="cursor-pointer select-none text-[11px] font-bold {videoStatusNoticeTone.detailsSummary}">
+                                <summary class="flex min-h-11 cursor-pointer select-none items-center text-[11px] font-bold focus-ring {videoStatusNoticeTone.detailsSummary}">
                                     {videoErrorDetailsOpen
                                         ? $_('detection.video_analysis.error_details.hide', { default: 'Hide technical details' })
                                         : $_('detection.video_analysis.error_details.show', { default: 'Show technical details' })}

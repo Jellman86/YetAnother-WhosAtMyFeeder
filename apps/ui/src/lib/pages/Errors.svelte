@@ -704,9 +704,9 @@
 
             <!-- ── Subsystem detail ────────────────────────────────── -->
             <details class="mt-8 border-t border-slate-200/70 pt-4 dark:border-slate-700/50" data-subsystem-detail>
-                <summary class="flex cursor-pointer items-center justify-between gap-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500 focus-ring dark:text-slate-400">
+                <summary class="group flex min-h-11 cursor-pointer items-center justify-between gap-3 py-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500 focus-ring dark:text-slate-400">
                     <span>{$_('jobs.errors_subsystems_title', { default: 'Subsystem detail' })}</span>
-                    <span class="text-slate-400" aria-hidden="true">+</span>
+                    <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
                 </summary>
                 <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
 
@@ -1069,8 +1069,11 @@
          page whose job is to say whether the feeder is working. It sits behind
          the same disclosure the subsystem detail uses. -->
     <details class="card-base p-6" data-diagnostics-export>
-        <summary class="flex cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-black uppercase tracking-widest text-slate-500 focus-ring dark:text-slate-400">
-            <span>{$_('jobs.errors_export_title', { default: 'Diagnostics export' })}</span>
+        <summary class="group flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-3 text-xs font-black uppercase tracking-widest text-slate-500 focus-ring dark:text-slate-400">
+            <span class="flex items-center gap-2">
+                <svg class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                {$_('jobs.errors_export_title', { default: 'Diagnostics export' })}
+            </span>
             <span class="font-semibold normal-case tracking-normal text-slate-400">
                 {$_('jobs.errors_export_count', {
                     values: { count: bundles.length.toLocaleString() },

@@ -860,8 +860,11 @@
                                 Next steps: switch to <code>eva02_large_inat21</code> for OpenVINO, or keep this model and set provider to <code>{recommendedFallbackProvider}</code>.
                             </p>
                             {#if classifierStatus.openvino_model_compile_error}
-                                <details class="pt-1">
-                                    <summary class="min-h-11 cursor-pointer py-3 text-xs font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">Technical details</summary>
+                                <details class="group pt-1">
+                                    <summary class="flex min-h-11 cursor-pointer items-center gap-2 py-3 text-xs font-black uppercase tracking-wide text-amber-700 focus-ring dark:text-amber-300">
+                                        <svg class="h-4 w-4 shrink-0 transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+                                        {$_('settings.detection.model_manager_technical_details', { default: 'Technical details' })}
+                                    </summary>
                                     <p class="mt-1 break-all text-xs font-medium text-amber-900 dark:text-amber-100">{classifierStatus.openvino_model_compile_error}</p>
                                 </details>
                             {/if}
