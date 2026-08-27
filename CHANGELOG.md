@@ -287,6 +287,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   rather than being passed down through the event processor, the detection service and the
   repositories by hand, so no layer can forget to carry it.
 
+- **The pool now recognises the shape that caused the deadlock, before it bites again.** A task that
+  holds a connection and asks for a second is what made concurrent reclassification stop dead. That
+  is now counted and logged with the name of the code doing it, and reported as `nested_acquires`
+  in health and in a diagnostics bundle. It also bounds the ingest exemption above: a durable task
+  that already holds a connection still takes the deadline, because hanging there would stop ingest
+  permanently and lose every later detection, where failing one acquire risks at most the event in
+  hand.
+
 - **Shutting down while a request was in flight could leave a connection open forever.** Closing
   the pool closes checked-out connections too, so a request finishing afterwards handed back one
   that was already closed. Rolling it back then failed, which is the path that treats a connection

@@ -499,3 +499,65 @@ async def test_releasing_into_a_closed_pool_does_not_resurrect_a_connection(tmp_
     assert pool._pool.qsize() == 0, "A closed pool must not gain a connection"
     assert pool._all_connections == set()
     assert pool._initialized is False
+
+
+@pytest.mark.asyncio
+async def test_a_task_holding_a_connection_never_waits_without_a_deadline(tmp_path, monkeypatch):
+    """The unbounded wait must not apply to a caller that already holds one.
+
+    Waiting forever is safe only while holding nothing. A task that holds a
+    connection and waits for a second is the deadlock this whole change exists
+    to remove, and for durable work there would be no deadline to break it —
+    ingest would stop permanently, losing every later detection rather than
+    delaying one. So depth beyond the first acquire always takes the deadline.
+    """
+    from app import database as database_module
+    from app.database import DatabasePool, DatabasePoolTimeout, durable_work
+
+    monkeypatch.setattr(database_module, "DB_POOL_ACQUIRE_TIMEOUT_SECONDS", 0.2)
+    pool = DatabasePool(str(tmp_path / "pool-depth.db"), pool_size=1)
+    await pool.initialize()
+    monkeypatch.setattr(database_module, "_db_pool", pool)
+
+    async def nested_durable_acquire():
+        with durable_work():
+            async with database_module.get_db():
+                # Already holding the only connection; asking for a second must
+                # fail rather than hang the ingest pipeline for good.
+                async with database_module.get_db():
+                    pass
+
+    # Bounded so the failure mode is a failing test rather than a hung suite.
+    with pytest.raises(DatabasePoolTimeout):
+        await asyncio.wait_for(nested_durable_acquire(), timeout=5)
+
+    assert pool.get_status()["nested_acquires"] >= 1
+    await pool.close_all()
+
+
+@pytest.mark.asyncio
+async def test_nested_acquisition_is_counted_and_named(tmp_path, monkeypatch):
+    """Nesting is the deadlock mechanism, so it must be visible before it bites."""
+    from app import database as database_module
+    from app.database import DatabasePool
+
+    pool = DatabasePool(str(tmp_path / "pool-nest-count.db"), pool_size=3)
+    await pool.initialize()
+    monkeypatch.setattr(database_module, "_db_pool", pool)
+
+    assert pool.get_status()["nested_acquires"] == 0
+
+    async def holds_then_asks_again():
+        async with database_module.get_db() as outer:
+            await outer.execute("SELECT 1")
+            async with database_module.get_db() as inner:
+                await inner.execute("SELECT 1")
+
+    await holds_then_asks_again()
+
+    status = pool.get_status()
+    assert status["nested_acquires"] == 1
+    assert "holds_then_asks_again" in (status["last_nested_acquire_label"] or "")
+    assert status["checked_out"] == 0
+
+    await pool.close_all()

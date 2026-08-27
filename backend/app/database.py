@@ -301,6 +301,13 @@ def durable_work():
         _durable_work.reset(token)
 
 
+# How many connections the current task already holds. A task that holds one and
+# asks for another is the shape that deadlocked reclassification: with enough
+# such callers, every connection is held by someone waiting for one only another
+# waiter can release.
+_acquire_depth: ContextVar[int] = ContextVar("db_acquire_depth", default=0)
+
+
 def is_durable_work() -> bool:
     """Whether the current task is marked as work that must not be dropped."""
     return _durable_work.get()
@@ -350,6 +357,8 @@ class DatabasePool:
         # id(conn) -> (checked_out_at_monotonic, label). Keyed on identity
         # because aiosqlite connections are not hashable by value.
         self._checked_out: dict[int, tuple[float, str]] = {}
+        self._nested_acquires = 0
+        self._last_nested_acquire_label: Optional[str] = None
 
     async def _create_connection(self) -> aiosqlite.Connection:
         """Create a new database connection with optimal settings."""
@@ -397,7 +406,21 @@ class DatabasePool:
 
         # Get connection from pool (waits if none available)
         started = time.monotonic()
-        timeout = 0.0 if _durable_work.get() else DB_POOL_ACQUIRE_TIMEOUT_SECONDS
+        depth = _acquire_depth.get()
+        if depth:
+            self._nested_acquires += 1
+            self._last_nested_acquire_label = label
+            log.warning(
+                "Nested DB connection acquire",
+                held_by=label,
+                depth=depth + 1,
+                pool_size=self.pool_size,
+            )
+        # An unbounded wait is only safe while holding nothing. A durable task
+        # that already holds a connection must still take the deadline: hanging
+        # here stops ingest for good and loses every later detection, where
+        # failing this one acquire loses at most the event in hand.
+        timeout = 0.0 if (_durable_work.get() and not depth) else DB_POOL_ACQUIRE_TIMEOUT_SECONDS
         try:
             if timeout and timeout > 0:
                 conn = await asyncio.wait_for(self._pool.get(), timeout=timeout)
@@ -614,6 +637,8 @@ class DatabasePool:
             "longest_active_hold_label": longest_label,
             "acquire_timeouts": self._acquire_timeouts,
             "acquire_timeout_seconds": DB_POOL_ACQUIRE_TIMEOUT_SECONDS,
+            "nested_acquires": self._nested_acquires,
+            "last_nested_acquire_label": self._last_nested_acquire_label,
         }
 
 
@@ -631,6 +656,8 @@ def _empty_hold_status() -> dict:
         "longest_active_hold_label": None,
         "acquire_timeouts": 0,
         "acquire_timeout_seconds": DB_POOL_ACQUIRE_TIMEOUT_SECONDS,
+        "nested_acquires": 0,
+        "last_nested_acquire_label": None,
     }
 
 
@@ -833,7 +860,11 @@ async def get_db():
         return
 
     conn = await _db_pool.acquire(label=_caller_label())
+    # Counted for the lifetime of the hold, so a second acquire from the same
+    # task is recognised as nesting rather than as an ordinary acquire.
+    depth_token = _acquire_depth.set(_acquire_depth.get() + 1)
     try:
         yield conn
     finally:
+        _acquire_depth.reset(depth_token)
         await _db_pool.release(conn)

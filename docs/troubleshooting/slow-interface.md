@@ -32,6 +32,7 @@ The fields that matter:
 | `checked_out` | Connections in use right now, out of `pool_size`. |
 | `acquire_timeouts` | Requests refused because no connection came free. A non-zero count means the pool ran dry. |
 | `longest_active_hold_label` | What is holding a connection at this moment. Useful while a stall is happening. |
+| `nested_acquires` | Times a request already holding a connection asked for a second. This is the shape that can deadlock a small pool; `last_nested_acquire_label` names the code. |
 
 Both `acquire_wait_max_ms` and `hold_ms_max` cover the last five minutes, so they fall back to
 normal once the problem passes. The `*_lifetime_max` fields keep the all-time peak for context and
