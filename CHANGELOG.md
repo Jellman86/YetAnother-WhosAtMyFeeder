@@ -260,6 +260,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Times no longer claim a precision the data does not have.** A detection read `07:38` in one
+  place and `07:38:00` in another, because the formatter that pairs a date with a time asked for
+  neither hour nor minute and took the locale default, which carries seconds. Twenty-four places
+  showed a time that way, including the detection panel and the eBird sightings on the dashboard,
+  where a second-precise timestamp on somebody else's bird report is precision nobody recorded. All
+  of them now read to the minute, like every other time in the interface.
+
+- **A single notable sighting no longer looks like a failed load.** The eBird panel lays its results
+  out in two columns, so one sighting sat with half a row empty beside it. One now takes the full
+  width; two or more still pair up.
+
+
 - **The Explorer's list is no longer boxed in at one end and open at the other.** On a phone the
   filter bar drew a hard rule above and below itself while the pagination underneath the list drew
   none, so the same structural job — separating a bar of controls from the detections between them —

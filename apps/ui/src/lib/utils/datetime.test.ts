@@ -30,7 +30,21 @@ describe('time format follows the owner setting, not the browser locale', () => 
 
     it('pairs a pinned date format with the pinned clock in one string', () => {
         settingsState.settings = { date_format: 'dmy', time_format: '24h' };
-        expect(formatDateTime(AFTERNOON)).toBe('22/08/2026 13:45:00');
+        expect(formatDateTime(AFTERNOON)).toBe('22/08/2026 13:45');
+    });
+
+    it('states a time to the minute, the same as every other time in the app', () => {
+        // `formatTime` asks for hour and minute; `formatDateTime` asked for
+        // neither and got the locale default, which carries seconds. So a
+        // detection read 07:38 in one place and 07:38:00 in another, and an
+        // eBird sighting claimed a precision the observation never had.
+        settingsState.settings = { date_format: 'dmy', time_format: '24h' };
+        expect(formatDateTime(AFTERNOON)).not.toMatch(/:\d{2}:\d{2}/);
+    });
+
+    it('drops the seconds under the browser locale too', () => {
+        // The locale branch had the same problem by a different route.
+        expect(formatDateTime(AFTERNOON)).not.toMatch(/:\d{2}:\d{2}/);
     });
 
     it('falls back to the auth payload before the settings store has loaded', () => {
