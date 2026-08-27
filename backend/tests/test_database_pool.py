@@ -561,3 +561,49 @@ async def test_nested_acquisition_is_counted_and_named(tmp_path, monkeypatch):
     assert status["checked_out"] == 0
 
     await pool.close_all()
+
+
+def test_reported_wait_average_never_exceeds_the_reported_wait_maximum():
+    """The average and the maximum must describe the same span of time.
+
+    A lifetime average printed beside a windowed maximum reads as broken
+    arithmetic on any long-running install: once the early slow waits age out
+    of the window, the average sits above the maximum and an owner reasonably
+    concludes the pool numbers cannot be trusted.
+    """
+    pool = DatabasePool("unused.db", pool_size=2)
+
+    pool._record_wait_sample(900.0)
+    pool._acquire_count = 1
+    pool._acquire_wait_total_ms = 900.0
+
+    # The slow wait ages out of the live window; a fast one replaces it.
+    pool._wait_samples.clear()
+    pool._record_wait_sample(4.0)
+    pool._acquire_count = 2
+    pool._acquire_wait_total_ms = 904.0
+
+    status = pool.get_status()
+
+    assert status["acquire_wait_max_ms"] == 4.0
+    assert status["acquire_wait_avg_ms"] <= status["acquire_wait_max_ms"]
+    assert status["acquire_wait_lifetime_max_ms"] == 900.0
+
+
+def test_reported_hold_average_never_exceeds_the_reported_hold_maximum():
+    """Same contract for hold times, which drive the slow-holder diagnosis."""
+    pool = DatabasePool("unused.db", pool_size=2)
+
+    pool._hold_samples.append((0.0, 4000.0))
+    pool._hold_count = 1
+    pool._hold_total_ms = 4000.0
+    pool._hold_lifetime_max_ms = 4000.0
+
+    pool._hold_samples.clear()
+    pool._record_hold_sample(object(), hold_ms=12.0)
+
+    status = pool.get_status()
+
+    assert status["hold_ms_max"] == 12.0
+    assert status["hold_ms_avg"] <= status["hold_ms_max"]
+    assert status["hold_ms_lifetime_max"] == 4000.0
