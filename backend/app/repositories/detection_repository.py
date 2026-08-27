@@ -1223,6 +1223,21 @@ class DetectionRepository:
         await self.db.commit()
         return now
 
+    async def hide_detection(self, frigate_event: str, *, skip_manually_tagged: bool = False) -> bool:
+        """Hide a detection, idempotently. Returns whether a row was hidden.
+
+        Distinct from `toggle_hidden`, which flips whatever is there: an
+        automatic caller needs to say what it wants, not invert an unknown
+        state, or a second event would put the detection back on show.
+        """
+        query = "UPDATE detections SET is_hidden = 1 WHERE frigate_event = ? AND (is_hidden = 0 OR is_hidden IS NULL)"
+        if skip_manually_tagged:
+            query += " AND (manual_tagged = 0 OR manual_tagged IS NULL)"
+        await self.db.execute(query, (frigate_event,))
+        changed = await self._last_statement_changes()
+        await self.db.commit()
+        return changed > 0
+
     async def toggle_hidden(self, frigate_event: str) -> Optional[bool]:
         """Toggle the hidden status of a detection. Returns new hidden status or None if not found."""
         detection = await self.get_by_frigate_event(frigate_event)

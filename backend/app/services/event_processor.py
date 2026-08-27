@@ -840,18 +840,26 @@ class EventProcessor:
         )
 
     async def _handle_false_positive(self, frigate_event_id: str):
-        """Delete detection if Frigate marks it as false positive."""
+        """Take a detection out of view when Frigate withdraws its event.
+
+        Hidden rather than deleted. This fires automatically from an MQTT
+        message with nothing in front of it, and §1 prefers a soft delete for
+        exactly that reason: Frigate withdrawing its claim is good grounds to
+        stop showing a detection and poor grounds to destroy an owner's record
+        of it. Hidden detections are already excluded from the events list and
+        from the daily rollups, so the visible result matches a delete while
+        staying recoverable. A detection the owner tagged themselves is left
+        alone; that tag is their own judgement and outranks Frigate's.
+        """
         try:
             # Clean up cached media immediately
             await media_cache.delete_cached_media(frigate_event_id)
 
             async with get_db() as db:
                 repo = DetectionRepository(db)
-                # Check if it exists
-                exists = await repo.get_by_frigate_event(frigate_event_id)
-                if exists:
-                    log.info("Deleting false positive detection", event_id=frigate_event_id)
-                    await repo.delete(frigate_event_id)
+                hidden = await repo.hide_detection(frigate_event_id, skip_manually_tagged=True)
+                if hidden:
+                    log.info("Hid false positive detection", event_id=frigate_event_id)
 
                     # Notify frontend of deletion (if SSE connected)
                     from app.services.broadcaster import broadcaster
