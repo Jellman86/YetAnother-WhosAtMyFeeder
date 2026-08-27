@@ -2167,6 +2167,53 @@ class DetectionRepository:
                 await self.db.commit()
         return total_deleted
 
+    # The scan re-checks what might have changed and skips what cannot have.
+    # `manual_%` events are an owner's own records with no Frigate event behind
+    # them: asking would 404 and mark their own observation missing. A row
+    # already `missing` is skipped because Frigate does not un-retire an event,
+    # so re-asking is a request that can only ever get the same answer — and on
+    # a year of history against days of retention that is nearly every row.
+    _STALE_FRIGATE_CANDIDATE_WHERE = """
+        FROM detections
+        WHERE frigate_event IS NOT NULL
+          AND frigate_event NOT LIKE 'manual\\_%' ESCAPE '\\'
+          AND COALESCE(frigate_status, 'present') != 'missing'
+          AND (frigate_last_checked_at IS NULL OR frigate_last_checked_at < ?)
+    """
+
+    async def get_stale_frigate_check_candidates(
+        self,
+        *,
+        limit: int,
+        checked_before: datetime,
+    ) -> list[dict]:
+        """Detections whose upstream state has not been confirmed recently.
+
+        Ordered so a NULL `frigate_last_checked_at` — never looked at — comes
+        before a row merely checked long ago, then oldest first, so a bounded
+        run always advances the least certain rows.
+        """
+        async with self.db.execute(
+            f"""
+            SELECT frigate_event, camera_name
+            {self._STALE_FRIGATE_CANDIDATE_WHERE}
+            ORDER BY frigate_last_checked_at IS NOT NULL, frigate_last_checked_at ASC
+            LIMIT ?
+            """,
+            (checked_before.isoformat(sep=" "), int(limit)),
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [{"frigate_event": row[0], "camera_name": row[1]} for row in rows]
+
+    async def count_stale_frigate_check_candidates(self, *, checked_before: datetime) -> int:
+        """How many detections a scan still has to get to."""
+        async with self.db.execute(
+            f"SELECT COUNT(*) {self._STALE_FRIGATE_CANDIDATE_WHERE}",
+            (checked_before.isoformat(sep=" "),),
+        ) as cursor:
+            row = await cursor.fetchone()
+        return int(row[0]) if row and row[0] is not None else 0
+
     async def mark_frigate_missing(
         self,
         frigate_event: str,
@@ -2189,6 +2236,21 @@ class DetectionRepository:
         changed = await self._last_statement_changes()
         await self.db.commit()
         return changed > 0
+
+    async def record_frigate_check(self, frigate_event: str, *, checked_at: datetime | None = None) -> None:
+        """Record that upstream was asked about this detection and confirmed it.
+
+        Separate from `mark_frigate_present`, which only touches rows that are
+        not already cleanly present: that restores state, this records that a
+        check happened. Without it a healthy row is never stamped, so it stays
+        permanently stale and every scan re-asks about the same detections while
+        the real backlog never moves.
+        """
+        await self.db.execute(
+            "UPDATE detections SET frigate_last_checked_at = ? WHERE frigate_event = ?",
+            ((checked_at or utc_naive_now()).isoformat(sep=" "), frigate_event),
+        )
+        await self.db.commit()
 
     async def mark_frigate_present(
         self,

@@ -168,6 +168,25 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     }
     if "MAINTENANCE__FRIGATE_MISSING_BEHAVIOR" in os.environ:
         maintenance_data["frigate_missing_behavior"] = os.environ["MAINTENANCE__FRIGATE_MISSING_BEHAVIOR"]
+    # The legacy purge flags are read too, and mapped by the model validator, so
+    # a deployment already setting them keeps its exact behaviour.
+    for legacy_key in ("AUTO_PURGE_MISSING_CLIPS", "AUTO_PURGE_MISSING_SNAPSHOTS"):
+        env_name = f"MAINTENANCE__{legacy_key}"
+        if env_name in os.environ:
+            maintenance_data[legacy_key.lower()] = os.environ[env_name].lower() == "true"
+    if "MAINTENANCE__MEDIA_INTEGRITY_SCAN_ENABLED" in os.environ:
+        maintenance_data["media_integrity_scan_enabled"] = (
+            os.environ["MAINTENANCE__MEDIA_INTEGRITY_SCAN_ENABLED"].lower() == "true"
+        )
+    if "MAINTENANCE__MEDIA_INTEGRITY_SCAN_MEDIA" in os.environ:
+        maintenance_data["media_integrity_scan_media"] = os.environ["MAINTENANCE__MEDIA_INTEGRITY_SCAN_MEDIA"]
+    for numeric_key in ("MEDIA_INTEGRITY_SCAN_INTERVAL_HOURS", "MEDIA_INTEGRITY_SCAN_BATCH_SIZE"):
+        env_name = f"MAINTENANCE__{numeric_key}"
+        if env_name in os.environ:
+            try:
+                maintenance_data[numeric_key.lower()] = int(os.environ[env_name])
+            except ValueError:
+                log.warning("Ignoring non-numeric maintenance override", variable=env_name)
 
     # Classification settings (loaded from file and selected env vars)
     legacy_use_cuda_env = os.environ.get("CLASSIFICATION__USE_CUDA")

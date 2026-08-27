@@ -338,13 +338,13 @@
 
                 <SettingsRow
                     labelId="setting-auto-media-integrity"
-                    label={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}
-                    description={$_('settings.data.media_integrity_note', { default: 'These scans apply the selected upstream-missing policy instead of always deleting detections.' })}
+                    label={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan periodically' })}
+                    description={$_('settings.data.media_integrity_note', { default: 'Re-checks a batch of detections against Frigate every few hours and applies the upstream-missing behaviour above. It never deletes anything while Frigate is unreachable, and a long history takes several runs to work through.' })}
                 >
                     <SettingsToggle
                         checked={autoMediaIntegrityScan}
                         labelledBy="setting-auto-media-integrity"
-                        srLabel={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan daily' })}
+                        srLabel={$_('settings.data.auto_purge_missing_media', { default: 'Run media integrity scan periodically' })}
                         onchange={(v) => setAutoMediaIntegrityScan(v)}
                     />
                 </SettingsRow>

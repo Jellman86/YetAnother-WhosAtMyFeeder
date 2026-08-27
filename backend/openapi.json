@@ -9491,6 +9491,31 @@
             "title": "Media Cache Snapshots",
             "type": "boolean"
           },
+          "media_integrity_scan_batch_size": {
+            "default": 1000,
+            "title": "Media Integrity Scan Batch Size",
+            "type": "integer"
+          },
+          "media_integrity_scan_enabled": {
+            "default": false,
+            "title": "Media Integrity Scan Enabled",
+            "type": "boolean"
+          },
+          "media_integrity_scan_interval_hours": {
+            "default": 6,
+            "title": "Media Integrity Scan Interval Hours",
+            "type": "integer"
+          },
+          "media_integrity_scan_media": {
+            "default": "any",
+            "enum": [
+              "any",
+              "clip",
+              "snapshot"
+            ],
+            "title": "Media Integrity Scan Media",
+            "type": "string"
+          },
           "mqtt_auth": {
             "default": false,
             "title": "Mqtt Auth",
@@ -10589,13 +10614,13 @@
           },
           "auto_purge_missing_clips": {
             "default": false,
-            "description": "Purge detections without clips during scheduled cleanup",
+            "description": "Deprecated: use media_integrity_scan_enabled with media='clip'",
             "title": "Auto Purge Missing Clips",
             "type": "boolean"
           },
           "auto_purge_missing_snapshots": {
             "default": false,
-            "description": "Purge detections without snapshots during scheduled cleanup",
+            "description": "Deprecated: use media_integrity_scan_enabled with media='snapshot'",
             "title": "Auto Purge Missing Snapshots",
             "type": "boolean"
           },
@@ -11375,6 +11400,39 @@
             "description": "Cache snapshot images locally",
             "title": "Media Cache Snapshots",
             "type": "boolean"
+          },
+          "media_integrity_scan_batch_size": {
+            "default": 1000,
+            "description": "Maximum detections re-checked against Frigate in one scan",
+            "maximum": 20000.0,
+            "minimum": 1.0,
+            "title": "Media Integrity Scan Batch Size",
+            "type": "integer"
+          },
+          "media_integrity_scan_enabled": {
+            "default": false,
+            "description": "Periodically re-check detections against Frigate and apply the missing-media behaviour",
+            "title": "Media Integrity Scan Enabled",
+            "type": "boolean"
+          },
+          "media_integrity_scan_interval_hours": {
+            "default": 6,
+            "description": "Hours between media integrity scans",
+            "maximum": 168.0,
+            "minimum": 1.0,
+            "title": "Media Integrity Scan Interval Hours",
+            "type": "integer"
+          },
+          "media_integrity_scan_media": {
+            "default": "any",
+            "description": "Which media must be absent upstream for a detection to count as missing",
+            "enum": [
+              "any",
+              "clip",
+              "snapshot"
+            ],
+            "title": "Media Integrity Scan Media",
+            "type": "string"
           },
           "mqtt_auth": {
             "default": false,

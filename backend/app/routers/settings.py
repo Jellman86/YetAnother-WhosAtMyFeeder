@@ -30,6 +30,7 @@ from app.services.frigate_client import frigate_client
 from app.services.timezone_repair_service import timezone_repair_service
 from app.services.media_cache import media_cache
 from app.services.maintenance_coordinator import maintenance_coordinator
+from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND
 from app.services.ai_service import AIService
 from app.services.frigate_missing_policy import apply_missing_policy, clear_missing_state_if_present
 from app.services.smtp_service import smtp_service
@@ -38,6 +39,7 @@ from app.config_models import (
     BlockedSpeciesEntry,
     DEFAULT_LLM_MODEL,
     FrigateMissingBehavior,
+    MediaIntegrityScanMedia,
     normalize_blocked_species_entries,
     normalize_crop_override_map,
     normalize_crop_model_override,
@@ -737,9 +739,21 @@ class SettingsUpdate(BaseModel):
         "mark_missing",
         description="How YA-WAMF should react when Frigate no longer has the event or retained media",
     )
-    auto_purge_missing_clips: bool = Field(False, description="Purge detections without clips during scheduled cleanup")
+    auto_purge_missing_clips: bool = Field(
+        False, description="Deprecated: use media_integrity_scan_enabled with media='clip'"
+    )
     auto_purge_missing_snapshots: bool = Field(
-        False, description="Purge detections without snapshots during scheduled cleanup"
+        False, description="Deprecated: use media_integrity_scan_enabled with media='snapshot'"
+    )
+    media_integrity_scan_enabled: bool = Field(
+        False, description="Periodically re-check detections against Frigate and apply the missing-media behaviour"
+    )
+    media_integrity_scan_media: MediaIntegrityScanMedia = Field(
+        "any", description="Which media must be absent upstream for a detection to count as missing"
+    )
+    media_integrity_scan_interval_hours: int = Field(6, ge=1, le=168, description="Hours between media integrity scans")
+    media_integrity_scan_batch_size: int = Field(
+        1000, ge=1, le=20000, description="Maximum detections re-checked against Frigate in one scan"
     )
     auto_analyze_unknowns: bool = Field(False, description="Analyze unknown detections during scheduled cleanup")
     blocked_labels: List[str] = Field(default_factory=list, description="Labels to filter out from detections")
@@ -1257,6 +1271,10 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "frigate_missing_behavior": settings.maintenance.frigate_missing_behavior,
         "auto_purge_missing_clips": settings.maintenance.auto_purge_missing_clips,
         "auto_purge_missing_snapshots": settings.maintenance.auto_purge_missing_snapshots,
+        "media_integrity_scan_enabled": settings.maintenance.media_integrity_scan_enabled,
+        "media_integrity_scan_media": settings.maintenance.media_integrity_scan_media,
+        "media_integrity_scan_interval_hours": settings.maintenance.media_integrity_scan_interval_hours,
+        "media_integrity_scan_batch_size": settings.maintenance.media_integrity_scan_batch_size,
         "auto_analyze_unknowns": settings.maintenance.auto_analyze_unknowns,
         "blocked_labels": settings.classification.blocked_labels,
         "blocked_species": settings.classification.blocked_species,
@@ -1562,10 +1580,33 @@ async def update_settings(
         settings.maintenance.auto_delete_missing_clips = update.auto_delete_missing_clips
     if "frigate_missing_behavior" in fields_set:
         settings.maintenance.frigate_missing_behavior = update.frigate_missing_behavior
+    # An older client still writes only the legacy pair. Mirror it onto the scan
+    # so its intent lands, and keep writing the legacy fields so a downgrade
+    # reads back what it wrote.
     if "auto_purge_missing_clips" in fields_set:
         settings.maintenance.auto_purge_missing_clips = update.auto_purge_missing_clips
     if "auto_purge_missing_snapshots" in fields_set:
         settings.maintenance.auto_purge_missing_snapshots = update.auto_purge_missing_snapshots
+    legacy_written = {"auto_purge_missing_clips", "auto_purge_missing_snapshots"} & fields_set
+    if legacy_written and "media_integrity_scan_enabled" not in fields_set:
+        clips = settings.maintenance.auto_purge_missing_clips
+        snapshots = settings.maintenance.auto_purge_missing_snapshots
+        settings.maintenance.media_integrity_scan_enabled = bool(clips or snapshots)
+        if clips or snapshots:
+            settings.maintenance.media_integrity_scan_media = (
+                "any" if clips and snapshots else ("clip" if clips else "snapshot")
+            )
+    if "media_integrity_scan_enabled" in fields_set:
+        settings.maintenance.media_integrity_scan_enabled = update.media_integrity_scan_enabled
+        # Keep the legacy pair truthful for a client that only reads those.
+        settings.maintenance.auto_purge_missing_clips = update.media_integrity_scan_enabled
+        settings.maintenance.auto_purge_missing_snapshots = update.media_integrity_scan_enabled
+    if "media_integrity_scan_media" in fields_set:
+        settings.maintenance.media_integrity_scan_media = update.media_integrity_scan_media
+    if "media_integrity_scan_interval_hours" in fields_set:
+        settings.maintenance.media_integrity_scan_interval_hours = update.media_integrity_scan_interval_hours
+    if "media_integrity_scan_batch_size" in fields_set:
+        settings.maintenance.media_integrity_scan_batch_size = update.media_integrity_scan_batch_size
     if "auto_analyze_unknowns" in fields_set:
         settings.maintenance.auto_analyze_unknowns = update.auto_analyze_unknowns
     if "blocked_labels" in fields_set:
@@ -2091,6 +2132,20 @@ async def clear_favorites(auth: AuthContext = Depends(require_owner)):
     }
 
 
+def _busy_purge_response() -> dict:
+    """The shape a purge endpoint returns when a scan is already running."""
+    return {
+        "status": "busy",
+        "deleted_count": 0,
+        "marked_missing_count": 0,
+        "kept_count": 0,
+        "cleared_missing_count": 0,
+        "checked": 0,
+        "missing": 0,
+        "message": "A media integrity scan is already running.",
+    }
+
+
 async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
     if kind == "clip" and not settings.frigate.clips_enabled:
         return {
@@ -2286,10 +2341,26 @@ def _get_camera_retention_days(frigate_config: object, camera_name: str) -> floa
     return get_camera_retention_days(frigate_config, camera_name)
 
 
+async def _run_guarded_media_scan(runner) -> dict:
+    """Run a manual scan under the scheduled scan's maintenance slot.
+
+    They walk the same detections and ask the same Frigate. Running both at once
+    doubles the request rate against it and puts two writers on one row, so
+    whichever asks second is told the scan is already running.
+    """
+    holder_id = "manual_media_integrity_scan"
+    if not await maintenance_coordinator.try_acquire(holder_id, kind=MEDIA_INTEGRITY_SCAN_KIND):
+        return _busy_purge_response()
+    try:
+        return await runner()
+    finally:
+        await maintenance_coordinator.release(holder_id)
+
+
 @router.post("/maintenance/purge-missing-clips", response_model=PurgeMissingMediaResponse)
 async def purge_missing_clips(auth: AuthContext = Depends(require_owner)):
     """Remove detections without clips (or missing events). Owner only."""
-    result = await _purge_missing_media("clip")
+    result = await _run_guarded_media_scan(lambda: _purge_missing_media("clip"))
     log.info("Purge missing clips completed", **result)
     return result
 
@@ -2297,7 +2368,7 @@ async def purge_missing_clips(auth: AuthContext = Depends(require_owner)):
 @router.post("/maintenance/purge-missing-media", response_model=PurgeMissingMediaResponse)
 async def purge_missing_media(auth: AuthContext = Depends(require_owner)):
     """Apply the configured missing-media policy when any Frigate event/media is missing. Owner only."""
-    result = await _purge_missing_all_media()
+    result = await _run_guarded_media_scan(_purge_missing_all_media)
     log.info("Purge missing media completed", **result)
     return result
 
@@ -2305,7 +2376,7 @@ async def purge_missing_media(auth: AuthContext = Depends(require_owner)):
 @router.post("/maintenance/purge-missing-snapshots", response_model=PurgeMissingMediaResponse)
 async def purge_missing_snapshots(auth: AuthContext = Depends(require_owner)):
     """Remove detections without snapshots (or missing events). Owner only."""
-    result = await _purge_missing_media("snapshot")
+    result = await _run_guarded_media_scan(lambda: _purge_missing_media("snapshot"))
     log.info("Purge missing snapshots completed", **result)
     return result
 
