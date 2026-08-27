@@ -256,6 +256,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The Explorer's list is no longer boxed in at one end and open at the other.** On a phone the
+  filter bar drew a hard rule above and below itself while the pagination underneath the list drew
+  none, so the same structural job — separating a bar of controls from the detections between them —
+  had two different answers, and the top of the page looked fenced off. Both now separate by space.
+
+
 - **Collapsible sections now tell you whether they are open.** Reported as inconsistent collapse
   behaviour: "it is not clear when it is collapsed and where not, also it is not clear what is in the
   section" (#259). Three of them gave no open or closed signal at all — the subsystem detail and the

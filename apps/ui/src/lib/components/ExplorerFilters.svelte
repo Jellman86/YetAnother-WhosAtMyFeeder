@@ -123,7 +123,7 @@
 </script>
 
 <section
-    class="border-y border-slate-200 py-3 lg:flex lg:h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:border-0 lg:py-0"
+    class="pb-4 pt-1 lg:flex lg:h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:pb-0 lg:pt-0"
     data-events-filter-bar
 >
     <div class="flex shrink-0 flex-wrap items-center gap-2">
