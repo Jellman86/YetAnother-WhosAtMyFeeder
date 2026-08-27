@@ -1451,6 +1451,12 @@
       "get_claude_key": "Get Anthropic Claude Key →",
       "get_openrouter_key": "Get OpenRouter Key →",
       "openrouter_model_hint": "Enter any OpenRouter model ID (e.g. google/gemini-3.1-flash-lite). Browse models at openrouter.ai/models."
+    },
+    "explorer_view": {
+      "label": "Explorer layout",
+      "desc": "Cards show a snapshot for each visit. A list fits more on screen and lines the times up so you can scan for one.",
+      "cards": "Cards",
+      "list": "List"
     }
   },
   "auth": {
@@ -1946,7 +1952,10 @@
     "bulk_reclassify_success": "Queued {count} detections for video analysis.",
     "bulk_reclassify_partial": "Queued {queued}; failed to queue {failed}.",
     "classification_legend": "Classification sources: Manual, Video, Snapshot",
-    "timeline_keyboard_hint": "Timeline keyboard: [ previous day, ] next day, 0 reset"
+    "timeline_keyboard_hint": "Timeline keyboard: [ previous day, ] next day, 0 reset",
+    "row_open": "Open {species}",
+    "row_select": "Select {species}",
+    "row_below_threshold": "Below the naming threshold"
   },
   "audio": {
     "chart": {

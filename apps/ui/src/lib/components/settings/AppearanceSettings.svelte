@@ -21,7 +21,8 @@
         setDateFormat,
         setTimeFormat,
         displayCommonNames = $bindable(true),
-        scientificNamePrimary = $bindable(false)
+        scientificNamePrimary = $bindable(false),
+        explorerView = $bindable<'cards' | 'list'>('cards')
     }: {
         currentTheme: Theme;
         currentLocale: string;
@@ -37,6 +38,7 @@
         setTimeFormat: (format: string) => void;
         displayCommonNames: boolean;
         scientificNamePrimary: boolean;
+        explorerView: 'cards' | 'list';
     } = $props();
 
     type NamingMode = 'standard' | 'hobbyist' | 'scientific';
@@ -99,6 +101,24 @@
                 { value: 'ru', label: 'Русский' },
                 { value: 'pt', label: 'Português' },
                 { value: 'it', label: 'Italiano' }
+            ]}
+        />
+    </SettingsRow>
+
+    <SettingsRow
+        labelId="setting-explorer-view"
+        label={$_('settings.explorer_view.label')}
+        description={$_('settings.explorer_view.desc')}
+        layout="stacked"
+    >
+        <SettingsSelect
+            id="explorer-view-select"
+            value={explorerView}
+            ariaLabel={$_('settings.explorer_view.label')}
+            onchange={(v) => (explorerView = v as 'cards' | 'list')}
+            options={[
+                { value: 'cards', label: $_('settings.explorer_view.cards') },
+                { value: 'list', label: $_('settings.explorer_view.list') }
             ]}
         />
     </SettingsRow>

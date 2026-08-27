@@ -466,6 +466,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
 
     # Appearance settings
     appearance_data = {
+        "explorer_view": os.environ.get("APPEARANCE__EXPLORER_VIEW", "cards"),
         "font_theme": os.environ.get("APPEARANCE__FONT_THEME", "classic"),
         "color_theme": os.environ.get("APPEARANCE__COLOR_THEME", "bluetit"),
     }

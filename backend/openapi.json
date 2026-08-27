@@ -8686,6 +8686,21 @@
             ],
             "title": "Appearance Color Theme"
           },
+          "appearance_explorer_view": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cards",
+                  "list"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appearance Explorer View"
+          },
           "appearance_font_theme": {
             "anyOf": [
               {
@@ -10507,6 +10522,21 @@
               }
             ],
             "title": "Appearance Color Theme"
+          },
+          "appearance_explorer_view": {
+            "anyOf": [
+              {
+                "enum": [
+                  "cards",
+                  "list"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appearance Explorer View"
           },
           "appearance_font_theme": {
             "anyOf": [

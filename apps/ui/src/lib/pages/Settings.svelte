@@ -232,6 +232,7 @@
     let writeFrigateSublabel = $state(true);
     let displayCommonNames = $state(true);
     let scientificNamePrimary = $state(false);
+    let explorerView = $state<'cards' | 'list'>('cards');
     let personalizedRerankEnabled = $state(false);
     let autoVideoClassification = $state(false);
     let videoClassificationDelay = $state(30);
@@ -1765,6 +1766,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'writeFrigateSublabel', val: writeFrigateSublabel, store: s.write_frigate_sublabel ?? true },
             { key: 'displayCommonNames', val: displayCommonNames, store: s.display_common_names ?? true },
             { key: 'scientificNamePrimary', val: scientificNamePrimary, store: s.scientific_name_primary ?? false },
+            { key: 'explorerView', val: explorerView, store: s.appearance_explorer_view ?? 'cards' },
             { key: 'personalizedRerankEnabled', val: personalizedRerankEnabled, store: s.personalized_rerank_enabled ?? false },
             { key: 'fontTheme', val: currentFontTheme, store: normalizeFontTheme(s.appearance_font_theme) },
             { key: 'colorTheme', val: currentColorTheme, store: normalizeColorTheme(s.appearance_color_theme) },
@@ -2734,6 +2736,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             writeFrigateSublabel = settings.write_frigate_sublabel ?? true;
             displayCommonNames = settings.display_common_names ?? true;
             scientificNamePrimary = settings.scientific_name_primary ?? false;
+            explorerView = settings.appearance_explorer_view ?? 'cards';
             personalizedRerankEnabled = settings.personalized_rerank_enabled ?? false;
             autoVideoClassification = settings.auto_video_classification ?? false;
             videoClassificationDelay = settings.video_classification_delay ?? 30;
@@ -3070,6 +3073,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 write_frigate_sublabel: writeFrigateSublabel,
                 display_common_names: displayCommonNames,
                 scientific_name_primary: scientificNamePrimary,
+                appearance_explorer_view: explorerView,
                 personalized_rerank_enabled: personalizedRerankEnabled,
                 auto_video_classification: autoVideoClassification,
                 video_classification_delay: videoClassificationDelay,
@@ -3608,6 +3612,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     currentTimeFormat={timeFormat}
                     bind:displayCommonNames
                     bind:scientificNamePrimary
+                    bind:explorerView
                     {setTheme}
                     {currentFontTheme}
                     {setFontTheme}

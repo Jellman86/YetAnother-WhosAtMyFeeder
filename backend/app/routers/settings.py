@@ -38,6 +38,7 @@ from app.services.bird_model_region_resolver import normalize_bird_model_region
 from app.config_models import (
     BlockedSpeciesEntry,
     DEFAULT_LLM_MODEL,
+    ExplorerView,
     FrigateMissingBehavior,
     MediaIntegrityScanMedia,
     normalize_blocked_species_entries,
@@ -1000,6 +1001,7 @@ class SettingsUpdate(BaseModel):
     species_info_source: Optional[str] = "auto"
     date_format: Optional[str] = None
     time_format: Optional[str] = None
+    appearance_explorer_view: Optional[ExplorerView] = None
     appearance_font_theme: Optional[str] = None
     appearance_color_theme: Optional[str] = None
 
@@ -1417,6 +1419,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "accessibility_zen_mode": settings.accessibility.zen_mode,
         "accessibility_live_announcements": settings.accessibility.live_announcements,
         # Appearance
+        "appearance_explorer_view": settings.appearance.explorer_view,
         "appearance_font_theme": settings.appearance.font_theme,
         "appearance_color_theme": settings.appearance.color_theme,
         # Authentication
@@ -1993,6 +1996,8 @@ async def update_settings(
     if "accessibility_live_announcements" in fields_set and update.accessibility_live_announcements is not None:
         settings.accessibility.live_announcements = update.accessibility_live_announcements
 
+    if "appearance_explorer_view" in fields_set and update.appearance_explorer_view is not None:
+        settings.appearance.explorer_view = update.appearance_explorer_view
     if "appearance_font_theme" in fields_set and update.appearance_font_theme is not None:
         settings.appearance.font_theme = update.appearance_font_theme
     if "appearance_color_theme" in fields_set and update.appearance_color_theme is not None:

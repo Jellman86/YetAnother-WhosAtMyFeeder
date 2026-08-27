@@ -30,6 +30,7 @@
     import { _ } from 'svelte-i18n';
     import Pagination from '../components/Pagination.svelte';
     import DetectionCard from '../components/DetectionCard.svelte';
+    import DetectionRow from '../components/DetectionRow.svelte';
     import SpeciesDetailModal from '../components/SpeciesDetailModal.svelte';
     import VideoPlayer from '../components/VideoPlayer.svelte';
     import DetectionModal from '../components/DetectionModal.svelte';
@@ -74,6 +75,7 @@
     let tagSearchQuery = $state('');
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
+    const explorerView = $derived(settingsStore.settings?.appearance_explorer_view ?? 'cards');
     let selectionMode = $state(false);
     let selectedEventIds = $state<string[]>([]);
     let showBulkTagModal = $state(false);
@@ -1220,6 +1222,24 @@
                 </svg>
                 <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h3>
                 <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
+            </div>
+        {:else if explorerView === 'list'}
+            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
+                {#each visibleEvents as event (eventKey(event))}
+                    <DetectionRow
+                        detection={event}
+                        onclick={() => handleEventCardClick(event)}
+                        onPlay={() => {
+                            videoEventId = event.frigate_event;
+                            videoShareToken = null;
+                            videoPlayIntent = 'user';
+                            showVideo = true;
+                            selectedEvent = null;
+                        }}
+                        selectionMode={selectionMode}
+                        selected={selectedEventIds.includes(event.frigate_event)}
+                    />
+                {/each}
             </div>
         {:else}
             <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
