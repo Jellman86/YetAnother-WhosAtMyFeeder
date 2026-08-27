@@ -17,7 +17,9 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).toContain("title={$_('video_player.full_visit_ready'");
         expect(detectionCardSource).toContain('inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-500/90');
         expect(detectionCardSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
-        expect(detectionCardSource).toContain('absolute bottom-3 left-3 z-20 flex items-center gap-2');
+        // The overlay row sits bottom-left and above the media, which is what
+        // this test needs; its exact utility list is the card's business.
+        expect(detectionCardSource).toMatch(/absolute bottom-3 left-3 z-20 flex[^"]*items-center/);
         expect(detectionCardSource).toContain('{#if !analysisActive}');
         expect(detectionCardSource).toContain('{#if canPlayVideo}');
         expect(detectionCardSource).toContain('inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/55');

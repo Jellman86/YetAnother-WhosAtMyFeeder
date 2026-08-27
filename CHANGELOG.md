@@ -239,6 +239,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A detection card now keeps its time and its confidence together.** The score sat alone in the
+  opposite corner from the time, one type size larger, so the two facts a card states about a
+  sighting were diagonally apart at two different weights and the score read like a control rather
+  than a reading (#267). They now sit side by side at the bottom of the image, the same shape and
+  the same size, leaving the top corners to the status flags. The time chip also moves off an
+  arbitrary `10px` onto the constrained type scale, which is what made the difference so visible.
+  The row wraps rather than overflowing when a card is narrow enough to carry a play control too.
+
+
 - **Two controls now show a keyboard user that they have reached them.** Reported as a live feed
   button that did nothing (#266). It was not a button: it was a status pill, styled enough like one
   to invite a click, and the rebuilt dashboard had already replaced it. What the reporter said next
