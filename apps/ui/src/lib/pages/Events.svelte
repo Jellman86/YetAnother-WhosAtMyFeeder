@@ -1162,12 +1162,13 @@
                     disagreeing with itself.
                 -->
                 <p
+                    id="events-timeline-scope"
                     data-events-timeline-scope
                     class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
                 >
                     {$_('events.timeline_scope', { default: 'Days on this page' })}
                 </p>
-                <div class="flex flex-wrap items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2" role="group" aria-labelledby="events-timeline-scope">
                     <button
                         type="button"
                         class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
@@ -1175,6 +1176,7 @@
                                 ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                                 : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                         onclick={() => selectedTimelineBucket = 'all'}
+                        aria-pressed={selectedTimelineBucket === 'all'}
                     >
                         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                             <circle cx="10" cy="10" r="6"></circle>
@@ -1201,6 +1203,7 @@
                                     ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                                     : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                             onclick={() => selectedTimelineBucket = bucket.key}
+                            aria-pressed={selectedTimelineBucket === bucket.key}
                         >
                             <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <rect x="3" y="4" width="14" height="13" rx="2"></rect>

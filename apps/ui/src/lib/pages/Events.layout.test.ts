@@ -105,4 +105,15 @@ describe('Explorer page layout', () => {
         expect(eventsSource).toContain('authStore.hasOwnerAccess ? fetchHiddenCount()');
         expect(eventsSource).not.toMatch(/\n\s+fetchHiddenCount\(\)\.catch/);
     });
+
+    it('exposes the day-chip scope and selection to a screen reader, not only to the eye', () => {
+        // The scope label is useless to a screen reader unless it names the group,
+        // and selection was carried by background colour alone, which section 5
+        // forbids and WCAG 1.4.1 fails.
+        expect(eventsSource).toContain('id="events-timeline-scope"');
+        expect(eventsSource).toContain('aria-labelledby="events-timeline-scope"');
+        expect(eventsSource).toMatch(/role="group"/);
+        expect(eventsSource).toContain("aria-pressed={selectedTimelineBucket === 'all'}");
+        expect(eventsSource).toContain('aria-pressed={selectedTimelineBucket === bucket.key}');
+    });
 });

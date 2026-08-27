@@ -8,12 +8,24 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A broken test database now says what broke it.** When the test suite could not build its schema,
+  the setup printed the failure and carried on with a flag saying the database was ready. Every test
+  then ran against an empty database and reported `no such table`, so one cause surfaced as hundreds
+  of unrelated errors. Setup now stops with the Alembic output and names the usual culprit: a
+  file-sync duplicate such as `<revision> 2.py` in `migrations/versions`, which Git ignores but
+  Alembic still reads off disk.
+
 - **A public visitor no longer triggers a refused request on every Explorer load.** The Explorer
   asked for the hidden-detection count without checking for owner access first. The count is only
   ever shown to an owner and the endpoint refuses everyone else, so a guest got a 403 in the browser
   console each time the page loaded. The request now waits for owner access, like the settings
   refresh and the camera status readers already do
   ([#302](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/302)).
+
+- **The Explorer's day chips now say which one is selected to a screen reader.** The selected chip
+  was drawn with a different background and border and nothing else, so a screen reader gave no way
+  to tell which day was active. Each chip now carries `aria-pressed`, and the chip row is a group
+  named by the scope label above it, so the scope reaches a screen reader as well as the eye.
 
 - **The Explorer's day chips say which detections they are counting.** The chips read
   `All 24 / Aug 27 16 / Aug 26 8` beside a heading that read `810 visits`, so two numbers measuring
