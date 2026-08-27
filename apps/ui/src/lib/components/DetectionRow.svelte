@@ -56,10 +56,19 @@
 
     const primaryName = $derived(naming.primary);
     const subName = $derived(naming.secondary);
+    const isFavorite = $derived(!!detection.is_favorite);
     const isManualObservation = $derived(detection.observation_source === 'manual_upload');
     const hasAudioConfirmed = $derived(!isManualObservation && !!detection.audio_confirmed);
     const upstreamMissing = $derived(!isManualObservation && detection.frigate_status === 'missing');
     const canPlayVideo = $derived(!!onPlay && !!detection.has_clip);
+
+    const rowSubject = $derived(`${primaryName}, ${formatTime(detection.detection_time)}`);
+    const openLabel = $derived(
+        $_('events.row_open', { values: { species: rowSubject }, default: `Open ${rowSubject}` })
+    );
+    const selectLabel = $derived(
+        $_('events.row_select', { values: { species: rowSubject }, default: `Select ${rowSubject}` })
+    );
 
     const score = $derived(Math.round((detection.score ?? 0) * 100));
 
@@ -98,9 +107,7 @@
         type="button"
         {onclick}
         class="absolute inset-0 z-0 cursor-pointer rounded-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
-        aria-label={selectionMode
-            ? $_('events.row_select', { values: { species: primaryName }, default: `Select ${primaryName}` })
-            : $_('events.row_open', { values: { species: primaryName }, default: `Open ${primaryName}` })}
+        aria-label={selectionMode ? selectLabel : openLabel}
     ></button>
 
     <div class="pointer-events-none relative z-10 py-2">
@@ -139,26 +146,33 @@
     </div>
 
     <div class="pointer-events-none relative z-10 min-w-0 py-2">
-        <div class="truncate text-sm font-bold text-slate-900 dark:text-white">{primaryName}</div>
-        <div class="flex items-center gap-2 truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+        <div class="flex min-w-0 items-center gap-1.5">
+            {#if isFavorite}
+                <svg class="h-3 w-3 shrink-0 text-amber-500" viewBox="0 0 24 24" fill="currentColor" role="img" aria-label={$_('detection.favorite', { default: 'Favorite' })}>
+                    <path d="M11.05 2.93c.3-.92 1.6-.92 1.9 0l2.02 6.22h6.54c.97 0 1.37 1.24.59 1.81l-5.29 3.84 2.02 6.22c.3.92-.76 1.69-1.54 1.12L12 18.3l-5.29 3.84c-.78.57-1.84-.2-1.54-1.12l2.02-6.22-5.29-3.84c-.78-.57-.38-1.81.59-1.81h6.54l2.02-6.22z" />
+                </svg>
+            {/if}
+            <span class="truncate text-sm font-bold text-slate-900 dark:text-white">{primaryName}</span>
+        </div>
+        <div class="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-[11px] font-semibold text-slate-500 dark:text-slate-400">
             {#if needsAttention}
-                <span class="text-accent-700 dark:text-accent-300">
+                <span class="shrink-0 text-accent-700 dark:text-accent-300">
                     {$_('events.row_below_threshold', { default: 'Below the naming threshold' })}
                 </span>
             {:else if subName && subName !== primaryName}
-                <span class="truncate italic">{subName}</span>
+                <span class="min-w-0 truncate italic">{subName}</span>
             {/if}
             {#if hasAudioConfirmed}
-                <span class="text-brand-600 dark:text-brand-400">
+                <span class="shrink-0 text-brand-600 dark:text-brand-400">
                     {$_('detection.fact_heard_yes', { default: 'matching call' })}
                 </span>
             {/if}
             {#if upstreamMissing}
-                <span class="text-accent-700 dark:text-accent-300">
+                <span class="shrink-0 text-accent-700 dark:text-accent-300">
                     {$_('detection.upstream_missing.card_label', { default: 'Missing upstream' })}
                 </span>
             {/if}
-            <span class="truncate">{detection.camera_name}</span>
+            <span class="min-w-0 truncate">{detection.camera_name}</span>
         </div>
     </div>
 

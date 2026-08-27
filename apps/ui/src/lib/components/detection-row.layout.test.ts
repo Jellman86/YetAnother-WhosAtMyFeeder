@@ -38,6 +38,27 @@ describe('the Explorer list row', () => {
         expect(detectionRowSource).toMatch(/h-11 w-11/);
     });
 
+    it('keeps the favourite flag the card shows', () => {
+        // Dropping it would mean a favourited detection is unmarked in one view
+        // and marked in the other.
+        expect(detectionRowSource).toContain('isFavorite');
+        expect(detectionRowSource).toContain("detection.favorite");
+    });
+
+    it('lets the camera name give way before a status word does', () => {
+        // On a narrow row something has to go. The status words are why a row
+        // is worth reading; the camera is the least of it.
+        expect(detectionRowSource).toMatch(/shrink-0 text-accent-700/);
+        expect(detectionRowSource).toMatch(/shrink-0 text-brand-600/);
+        expect(detectionRowSource).toContain('min-w-0 truncate">{detection.camera_name}');
+    });
+
+    it('tells one row from another by voice, not just by sight', () => {
+        // Every row announcing "Open Dunnock" is no use in a list of Dunnocks.
+        expect(detectionRowSource).toContain('rowSubject');
+        expect(detectionRowSource).toMatch(/rowSubject = \$derived\(`\$\{primaryName\}, \$\{formatTime/);
+    });
+
     it('shows a placeholder until the snapshot loads, so no alt text spills', () => {
         // A 44px tile rendering a broken image shows its alt text instead.
         expect(detectionRowSource).toContain('imageLoaded');
