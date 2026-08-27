@@ -679,7 +679,7 @@
                                                 href={chip.url}
                                                 target="_blank"
                                                 rel="noopener noreferrer"
-                                                class="badge border-slate-200/80 bg-white/90 text-slate-500 shadow-sm transition-colors hover:border-brand-500/40 hover:text-brand-600 dark:border-slate-700/60 dark:bg-slate-800/80 dark:hover:text-brand-400"
+                                                class="badge focus-ring border-slate-200/80 bg-white/90 text-slate-500 shadow-sm transition-colors hover:border-brand-500/40 hover:text-brand-600 dark:border-slate-700/60 dark:bg-slate-800/80 dark:hover:text-brand-400"
                                             >
                                                 {chip.label}
                                                 <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
