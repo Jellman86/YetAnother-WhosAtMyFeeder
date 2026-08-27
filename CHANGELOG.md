@@ -258,190 +258,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   hover or keyboard focus, degrading to a placeholder once Frigate has rotated it away. Subsystem
   cards keep all of their detail behind a disclosure below.
 
-### Fixed
-
-- **Times no longer claim a precision the data does not have.** A detection read `07:38` in one
-  place and `07:38:00` in another, because the formatter that pairs a date with a time asked for
-  neither hour nor minute and took the locale default, which carries seconds. Twenty-four places
-  showed a time that way, including the detection panel and the eBird sightings on the dashboard,
-  where a second-precise timestamp on somebody else's bird report is precision nobody recorded. All
-  of them now read to the minute, like every other time in the interface.
-
-- **A single notable sighting no longer looks like a failed load.** The eBird panel lays its results
-  out in two columns, so one sighting sat with half a row empty beside it. One now takes the full
-  width; two or more still pair up.
-
-
-- **The Explorer's list is no longer boxed in at one end and open at the other.** On a phone the
-  filter bar drew a hard rule above and below itself while the pagination underneath the list drew
-  none, so the same structural job — separating a bar of controls from the detections between them —
-  had two different answers, and the top of the page looked fenced off. Both now separate by space.
-
-
-- **Collapsible sections now tell you whether they are open.** Reported as inconsistent collapse
-  behaviour: "it is not clear when it is collapsed and where not, also it is not clear what is in the
-  section" (#259). Three of them gave no open or closed signal at all — the subsystem detail and the
-  diagnostics export on the Errors page carried a `+` that never became a `-`, and the OpenVINO
-  compile error on Detection settings had nothing. Six sat under the touch-target floor and three
-  gave a keyboard user no focus indicator, the same gap that #266 turned up elsewhere. All of them
-  now carry a chevron that turns when the section opens, clear the touch floor, and show focus. The
-  OpenVINO one also stops being the only untranslated label on that page.
-
-  They are deliberately not converged onto one component. A terminal panel and an inline "show
-  technical details" link are different things and should look it; what they owe the reader is the
-  same three signals, and that is now written down in the layout standard and held by a test over
-  every native disclosure in the app.
-
-
-- **The two percentages on a detection now say what each one measures.** A detection panel shows how
-  sure the camera was that it saw a bird at all, and how sure the classifier is about which species.
-  They measure different things and will rarely agree, but only one of them was labelled, and it was
-  labelled "Frigate bird score" — the name of a product a viewer has no reason to know, where every
-  other fact beside it says something plain like "Seen" or "Heard nearby" (#269). It now reads
-  "Spotted as a bird", with an explanation on hover of what it is and why it differs from the species
-  match. The species score, previously a bare percentage next to the word "confident" with no noun
-  saying confident of what, is now named too. Translated into all nine languages, and the retired
-  "FRIGATE: n%" string that nothing rendered any more is gone.
-
-
-- **A detection card now keeps its time and its confidence together.** The score sat alone in the
-  opposite corner from the time, one type size larger, so the two facts a card states about a
-  sighting were diagonally apart at two different weights and the score read like a control rather
-  than a reading (#267). They now sit side by side at the bottom of the image, the same shape and
-  the same size, leaving the top corners to the status flags. The time chip also moves off an
-  arbitrary `10px` onto the constrained type scale, which is what made the difference so visible.
-  The row wraps rather than overflowing when a card is narrow enough to carry a play control too.
-
-
-- **Two controls now show a keyboard user that they have reached them.** Reported as a live feed
-  button that did nothing (#266). It was not a button: it was a status pill, styled enough like one
-  to invite a click, and the rebuilt dashboard had already replaced it. What the reporter said next
-  was the useful part, that it is not always clear what is clickable and what is not, and auditing
-  that against the current interface found the sharper version of the same problem. The date-range
-  options in the setup wizard hide their radio for styling and put the appearance on a neighbouring
-  element, so the radio's own focus outline was invisible and the styled element never received
-  focus to draw one: tabbing onto them showed nothing at all. A source link in the species detail
-  panel wore the badge style, which carries no focus treatment, so it fell back to the browser
-  default and matched nothing else in the interface. Both now carry the same focus ring as every
-  other control, which is the WCAG 2.2 AA floor the interface is held to.
-
-
-- **A detection Frigate withdraws as a false positive is finally taken out of view.** The handler
-  called a repository method that has never existed, so every false positive raised an
-  `AttributeError` into its own `except Exception`, was logged as an ordinary cleanup failure, and
-  left the detection in place. The line that clears the cached images runs first and always worked,
-  so the visible result was a detection that survived with its pictures gone. This has been broken
-  since the handler was written in January.
-
-  The detection is now hidden rather than deleted. This fires automatically from an MQTT message
-  with nothing in front of it, and Frigate withdrawing its claim is good grounds to stop showing a
-  detection and poor grounds to destroy an owner's record of it irreversibly. Hidden detections are
-  already excluded from the events list and from the daily rollups, so the result looks the same
-  while staying recoverable. A detection the owner tagged themselves is left alone: that tag is
-  their own judgement and outranks Frigate's. Repeated messages for one event no longer re-announce
-  it, which a plain toggle would have done by putting the detection back on show.
-
-  The whole codebase is now checked for the same class of mistake. Every `repo.<method>()` call is
-  resolved against the repository class bound in that function, so a call naming a method that does
-  not exist fails the suite instead of waiting to be swallowed at runtime. The audit found this one
-  and nothing else.
-
-
-- **Detections no longer claim Frigate still has an event it retired days ago.** `frigate_status`,
-  `frigate_missing_since` and `frigate_last_error` are shown in the interface, and the
-  upstream-missing behaviour is a real setting with three options, but almost nothing ever ran it.
-  It was reached from the maintenance buttons, from the automatic video classifier, and from a
-  scheduled scan that was off by default and, when on, read every row in the table and asked Frigate
-  about each one on every cycle. On a year of history against Frigate's few days of retention that
-  is tens of thousands of requests per run, nearly all of them about events that were retired months
-  ago and will never come back, which is a fair reason to leave it off. So it stayed off, and the
-  database drifted: on the reference deployment every one of 799 detections said `present`,
-  including 44 whose events Frigate answered 404 for, and 89% had not been checked in over a week.
-
-  The scan is now bounded and knows what it has already asked. It takes the least recently confirmed
-  detections first, a thousand per run by default, every six hours; it records a check when Frigate
-  confirms one, so a healthy detection stops being asked about; and it never re-asks about a
-  detection already known missing, because Frigate does not un-retire an event. A large history
-  works through over several runs rather than flooding Frigate in one, and Health reports how many
-  are still waiting so the drain is visible.
-
-  It does nothing at all when Frigate is unreachable. "We could not ask" must never be recorded as
-  "upstream no longer has it" — on the `delete` behaviour that mistake destroys history during an
-  outage the owner is probably already dealing with. A single event that fails to read is left
-  alone for the same reason.
-
-  A detection already marked missing is treated as settled: the scheduled scan will not revisit it,
-  so one marked in error stays marked, and the manual scan in Settings is the way back. The manual
-  scan and the scheduled one now share a maintenance slot, because they walk the same detections and
-  ask the same Frigate — running both at once would double the request rate against it and put two
-  writers on one row. Whichever asks second is told a scan is already running.
-
-  The read path still does not do this work. A list endpoint must not mutate history as a side
-  effect of rendering a page.
-
-
-- **The interface no longer slows to a crawl, or stops loading entirely, while the server waits on
-  something that is not the database.** The server keeps five database connections and serves every
-  request from them. A request handler is meant to hold one only while statements are running, but
-  a number of them held one for the whole handler, including the parts that wait on Frigate, on the
-  weather archive, on an AI model, or on image classification. A connection carried through an AI
-  analysis is a fifth of the server's capacity spent waiting on someone else's network for as long
-  as that call takes. Enough of those at once and there is nothing left for anything else: the
-  dashboard takes fifteen seconds, Settings takes twenty, the live-updates stream drops, and a page
-  that should be instant never arrives. Reported as slow dashboards and events that would not load,
-  with diagnostics showing requests queued behind the pool for as long as 17.8 seconds.
-
-  Ten handlers now read what they need, release the connection, do the slow work, and take a
-  connection again to write: AI analysis, AI chat, chart analysis, snapshot reclassification,
-  wildlife classification, the species filter, the two dashboard timeline endpoints, both weather
-  backfills, and the unknown-detection batch scan. Measured against a copy of a real installation,
-  with twenty-four concurrent requests against the same five connections, the median request went
-  from 2.3 seconds to 0.2, and the longest a request spent waiting for a connection went from 4.7
-  seconds to 0.18.
-
-  The species filter is the one most likely to have been noticed. It resolves a name for every
-  species it offers, five at a time against five connections, and each species not yet cached costs
-  an iNaturalist request with a ten-second timeout, all of it under a connection the handler was
-  also holding. Six other read paths still resolve names under a held connection on a cache miss;
-  they are listed in `ISSUES.md`, they are bounded to the first sighting of a species in a given
-  language, and the pool now names them in the log and in a diagnostics bundle when it happens.
-
-- **Concurrent reclassifications can no longer deadlock the server outright.** Reclassifying a
-  detection held a connection and then called the routine that saves the result, which takes a
-  second connection of its own. With as many reclassifications running at once as the pool has
-  connections, every one of them held one and every one of them was waiting for one that only
-  another waiting request could release. Nothing completed, nothing timed out, and the server
-  stayed that way until it was restarted. The reclassification path no longer holds a connection
-  while it works, so the second one is always free to take.
-
-- **A saturated connection pool now says so, instead of hanging.** Waiting for a connection had no
-  upper bound, so a request could sit behind a stalled pool indefinitely while the browser gave up
-  and the log recorded nothing. Requests now wait up to twice the SQLite busy timeout — sixty
-  seconds by default, comfortably longer than any legitimate wait, including a write blocked on the
-  database lock — and are then refused with a plain 503 and a `Retry-After`, which is honest about
-  it being a busy moment rather than a fault. The log records which code was holding a connection
-  longest at that point. Set `DB_POOL_ACQUIRE_TIMEOUT_SECONDS=0` to wait indefinitely instead.
-
-  Ingesting a detection is exempt from that deadline and always waits. Frigate and BirdNET-Go each
-  deliver an event once, and both handlers turn any error into a logged drop, so refusing one of
-  them a connection would lose a sighting rather than delay it. The exemption travels with the task
-  rather than being passed down through the event processor, the detection service and the
-  repositories by hand, so no layer can forget to carry it.
-
-- **The pool now recognises the shape that caused the deadlock, before it bites again.** A task that
-  holds a connection and asks for a second is what made concurrent reclassification stop dead. That
-  is now counted and logged with the name of the code doing it, and reported as `nested_acquires`
-  in health and in a diagnostics bundle. It also bounds the ingest exemption above: a durable task
-  that already holds a connection still takes the deadline, because hanging there would stop ingest
-  permanently and lose every later detection, where failing one acquire risks at most the event in
-  hand.
-
-- **Shutting down while a request was in flight could leave a connection open forever.** Closing
-  the pool closes checked-out connections too, so a request finishing afterwards handed back one
-  that was already closed. Rolling it back then failed, which is the path that treats a connection
-  as corrupt and opens a replacement — putting a live connection into a pool that had just been
-  closed, on every shutdown that raced a request. A closed pool now discards what it is handed.
-
 ### Changed
 
 - **The media integrity scan is named for what it does.** Its settings were `auto_purge_missing_clips`
@@ -887,6 +703,189 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   quiet. About states whether the build is up to date, using the update check that already exists.
 
 ### Fixed
+
+- **Times no longer claim a precision the data does not have.** A detection read `07:38` in one
+  place and `07:38:00` in another, because the formatter that pairs a date with a time asked for
+  neither hour nor minute and took the locale default, which carries seconds. Twenty-four places
+  showed a time that way, including the detection panel and the eBird sightings on the dashboard,
+  where a second-precise timestamp on somebody else's bird report is precision nobody recorded. All
+  of them now read to the minute, like every other time in the interface.
+
+- **A single notable sighting no longer looks like a failed load.** The eBird panel lays its results
+  out in two columns, so one sighting sat with half a row empty beside it. One now takes the full
+  width; two or more still pair up.
+
+
+- **The Explorer's list is no longer boxed in at one end and open at the other.** On a phone the
+  filter bar drew a hard rule above and below itself while the pagination underneath the list drew
+  none, so the same structural job — separating a bar of controls from the detections between them —
+  had two different answers, and the top of the page looked fenced off. Both now separate by space.
+
+
+- **Collapsible sections now tell you whether they are open.** Reported as inconsistent collapse
+  behaviour: "it is not clear when it is collapsed and where not, also it is not clear what is in the
+  section" (#259). Three of them gave no open or closed signal at all — the subsystem detail and the
+  diagnostics export on the Errors page carried a `+` that never became a `-`, and the OpenVINO
+  compile error on Detection settings had nothing. Six sat under the touch-target floor and three
+  gave a keyboard user no focus indicator, the same gap that #266 turned up elsewhere. All of them
+  now carry a chevron that turns when the section opens, clear the touch floor, and show focus. The
+  OpenVINO one also stops being the only untranslated label on that page.
+
+  They are deliberately not converged onto one component. A terminal panel and an inline "show
+  technical details" link are different things and should look it; what they owe the reader is the
+  same three signals, and that is now written down in the layout standard and held by a test over
+  every native disclosure in the app.
+
+
+- **The two percentages on a detection now say what each one measures.** A detection panel shows how
+  sure the camera was that it saw a bird at all, and how sure the classifier is about which species.
+  They measure different things and will rarely agree, but only one of them was labelled, and it was
+  labelled "Frigate bird score" — the name of a product a viewer has no reason to know, where every
+  other fact beside it says something plain like "Seen" or "Heard nearby" (#269). It now reads
+  "Spotted as a bird", with an explanation on hover of what it is and why it differs from the species
+  match. The species score, previously a bare percentage next to the word "confident" with no noun
+  saying confident of what, is now named too. Translated into all nine languages, and the retired
+  "FRIGATE: n%" string that nothing rendered any more is gone.
+
+
+- **A detection card now keeps its time and its confidence together.** The score sat alone in the
+  opposite corner from the time, one type size larger, so the two facts a card states about a
+  sighting were diagonally apart at two different weights and the score read like a control rather
+  than a reading (#267). They now sit side by side at the bottom of the image, the same shape and
+  the same size, leaving the top corners to the status flags. The time chip also moves off an
+  arbitrary `10px` onto the constrained type scale, which is what made the difference so visible.
+  The row wraps rather than overflowing when a card is narrow enough to carry a play control too.
+
+
+- **Two controls now show a keyboard user that they have reached them.** Reported as a live feed
+  button that did nothing (#266). It was not a button: it was a status pill, styled enough like one
+  to invite a click, and the rebuilt dashboard had already replaced it. What the reporter said next
+  was the useful part, that it is not always clear what is clickable and what is not, and auditing
+  that against the current interface found the sharper version of the same problem. The date-range
+  options in the setup wizard hide their radio for styling and put the appearance on a neighbouring
+  element, so the radio's own focus outline was invisible and the styled element never received
+  focus to draw one: tabbing onto them showed nothing at all. A source link in the species detail
+  panel wore the badge style, which carries no focus treatment, so it fell back to the browser
+  default and matched nothing else in the interface. Both now carry the same focus ring as every
+  other control, which is the WCAG 2.2 AA floor the interface is held to.
+
+
+- **A detection Frigate withdraws as a false positive is finally taken out of view.** The handler
+  called a repository method that has never existed, so every false positive raised an
+  `AttributeError` into its own `except Exception`, was logged as an ordinary cleanup failure, and
+  left the detection in place. The line that clears the cached images runs first and always worked,
+  so the visible result was a detection that survived with its pictures gone. This has been broken
+  since the handler was written in January.
+
+  The detection is now hidden rather than deleted. This fires automatically from an MQTT message
+  with nothing in front of it, and Frigate withdrawing its claim is good grounds to stop showing a
+  detection and poor grounds to destroy an owner's record of it irreversibly. Hidden detections are
+  already excluded from the events list and from the daily rollups, so the result looks the same
+  while staying recoverable. A detection the owner tagged themselves is left alone: that tag is
+  their own judgement and outranks Frigate's. Repeated messages for one event no longer re-announce
+  it, which a plain toggle would have done by putting the detection back on show.
+
+  The whole codebase is now checked for the same class of mistake. Every `repo.<method>()` call is
+  resolved against the repository class bound in that function, so a call naming a method that does
+  not exist fails the suite instead of waiting to be swallowed at runtime. The audit found this one
+  and nothing else.
+
+
+- **Detections no longer claim Frigate still has an event it retired days ago.** `frigate_status`,
+  `frigate_missing_since` and `frigate_last_error` are shown in the interface, and the
+  upstream-missing behaviour is a real setting with three options, but almost nothing ever ran it.
+  It was reached from the maintenance buttons, from the automatic video classifier, and from a
+  scheduled scan that was off by default and, when on, read every row in the table and asked Frigate
+  about each one on every cycle. On a year of history against Frigate's few days of retention that
+  is tens of thousands of requests per run, nearly all of them about events that were retired months
+  ago and will never come back, which is a fair reason to leave it off. So it stayed off, and the
+  database drifted: on the reference deployment every one of 799 detections said `present`,
+  including 44 whose events Frigate answered 404 for, and 89% had not been checked in over a week.
+
+  The scan is now bounded and knows what it has already asked. It takes the least recently confirmed
+  detections first, a thousand per run by default, every six hours; it records a check when Frigate
+  confirms one, so a healthy detection stops being asked about; and it never re-asks about a
+  detection already known missing, because Frigate does not un-retire an event. A large history
+  works through over several runs rather than flooding Frigate in one, and Health reports how many
+  are still waiting so the drain is visible.
+
+  It does nothing at all when Frigate is unreachable. "We could not ask" must never be recorded as
+  "upstream no longer has it" — on the `delete` behaviour that mistake destroys history during an
+  outage the owner is probably already dealing with. A single event that fails to read is left
+  alone for the same reason.
+
+  A detection already marked missing is treated as settled: the scheduled scan will not revisit it,
+  so one marked in error stays marked, and the manual scan in Settings is the way back. The manual
+  scan and the scheduled one now share a maintenance slot, because they walk the same detections and
+  ask the same Frigate — running both at once would double the request rate against it and put two
+  writers on one row. Whichever asks second is told a scan is already running.
+
+  The read path still does not do this work. A list endpoint must not mutate history as a side
+  effect of rendering a page.
+
+
+- **The interface no longer slows to a crawl, or stops loading entirely, while the server waits on
+  something that is not the database.** The server keeps five database connections and serves every
+  request from them. A request handler is meant to hold one only while statements are running, but
+  a number of them held one for the whole handler, including the parts that wait on Frigate, on the
+  weather archive, on an AI model, or on image classification. A connection carried through an AI
+  analysis is a fifth of the server's capacity spent waiting on someone else's network for as long
+  as that call takes. Enough of those at once and there is nothing left for anything else: the
+  dashboard takes fifteen seconds, Settings takes twenty, the live-updates stream drops, and a page
+  that should be instant never arrives. Reported as slow dashboards and events that would not load,
+  with diagnostics showing requests queued behind the pool for as long as 17.8 seconds.
+
+  Ten handlers now read what they need, release the connection, do the slow work, and take a
+  connection again to write: AI analysis, AI chat, chart analysis, snapshot reclassification,
+  wildlife classification, the species filter, the two dashboard timeline endpoints, both weather
+  backfills, and the unknown-detection batch scan. Measured against a copy of a real installation,
+  with twenty-four concurrent requests against the same five connections, the median request went
+  from 2.3 seconds to 0.2, and the longest a request spent waiting for a connection went from 4.7
+  seconds to 0.18.
+
+  The species filter is the one most likely to have been noticed. It resolves a name for every
+  species it offers, five at a time against five connections, and each species not yet cached costs
+  an iNaturalist request with a ten-second timeout, all of it under a connection the handler was
+  also holding. Six other read paths still resolve names under a held connection on a cache miss;
+  they are listed in `ISSUES.md`, they are bounded to the first sighting of a species in a given
+  language, and the pool now names them in the log and in a diagnostics bundle when it happens.
+
+- **Concurrent reclassifications can no longer deadlock the server outright.** Reclassifying a
+  detection held a connection and then called the routine that saves the result, which takes a
+  second connection of its own. With as many reclassifications running at once as the pool has
+  connections, every one of them held one and every one of them was waiting for one that only
+  another waiting request could release. Nothing completed, nothing timed out, and the server
+  stayed that way until it was restarted. The reclassification path no longer holds a connection
+  while it works, so the second one is always free to take.
+
+- **A saturated connection pool now says so, instead of hanging.** Waiting for a connection had no
+  upper bound, so a request could sit behind a stalled pool indefinitely while the browser gave up
+  and the log recorded nothing. Requests now wait up to twice the SQLite busy timeout — sixty
+  seconds by default, comfortably longer than any legitimate wait, including a write blocked on the
+  database lock — and are then refused with a plain 503 and a `Retry-After`, which is honest about
+  it being a busy moment rather than a fault. The log records which code was holding a connection
+  longest at that point. Set `DB_POOL_ACQUIRE_TIMEOUT_SECONDS=0` to wait indefinitely instead.
+
+  Ingesting a detection is exempt from that deadline and always waits. Frigate and BirdNET-Go each
+  deliver an event once, and both handlers turn any error into a logged drop, so refusing one of
+  them a connection would lose a sighting rather than delay it. The exemption travels with the task
+  rather than being passed down through the event processor, the detection service and the
+  repositories by hand, so no layer can forget to carry it.
+
+- **The pool now recognises the shape that caused the deadlock, before it bites again.** A task that
+  holds a connection and asks for a second is what made concurrent reclassification stop dead. That
+  is now counted and logged with the name of the code doing it, and reported as `nested_acquires`
+  in health and in a diagnostics bundle. It also bounds the ingest exemption above: a durable task
+  that already holds a connection still takes the deadline, because hanging there would stop ingest
+  permanently and lose every later detection, where failing one acquire risks at most the event in
+  hand.
+
+- **Shutting down while a request was in flight could leave a connection open forever.** Closing
+  the pool closes checked-out connections too, so a request finishing afterwards handed back one
+  that was already closed. Rolling it back then failed, which is the path that treats a connection
+  as corrupt and opens a replacement — putting a live connection into a pool that had just been
+  closed, on every shutdown that raced a request. A closed pool now discards what it is handed.
+
 
 - **Model outputs naming a superseded genus had no catalogue identity, because the mappings were
   compiled against a seed with no synonyms in it.** The seed builder takes the Catalogue of Life
