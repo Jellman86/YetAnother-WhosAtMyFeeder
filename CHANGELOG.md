@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.18.0] - 2026-08-27
+
 ### Added
 
 - **The Explorer can show detections as a list instead of cards.** Requested because the cards are
