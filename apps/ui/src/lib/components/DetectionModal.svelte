@@ -2667,6 +2667,7 @@
                             {Math.round((detection.score || 0) * 100)}%
                         </span>
                         <span class="text-xs text-slate-500 dark:text-slate-400">
+                            {$_('detection.fact_species_match', { default: 'Species match' })} &middot;
                             {(detection.score || 0) >= 0.85
                                 ? $_('detection.confidence_high', { default: 'confident' })
                                 : (detection.score || 0) >= 0.6
@@ -2849,9 +2850,15 @@
                 {/if}
                 {#if detection.frigate_score != null}
                     <div class="flex items-baseline justify-between gap-3 py-2">
-                        <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
+                        <dt
+                            class="flex items-center gap-2 text-slate-500 dark:text-slate-400"
+                            title={$_('detection.fact_frigate_hint', {
+                                default:
+                                    'How sure the camera was that it had seen a bird at all, before the species was worked out. Separate from the species match above, so the two percentages will differ.'
+                            })}
+                        >
                             <svg class="h-3.5 w-3.5 shrink-0 text-indigo-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2" /></svg>
-                            {$_('detection.fact_frigate', { default: 'Frigate bird score' })}
+                            {$_('detection.fact_frigate', { default: 'Spotted as a bird' })}
                         </dt>
                         <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
                             {Math.round((detection.frigate_score || 0) * 100)}%
