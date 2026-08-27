@@ -59,6 +59,10 @@ faster, on which hardware, and whether accuracy or power use changes.
 ## Publish checklist
 
 - [ ] The release title and tag match the application version.
+- [ ] `VERSION` was bumped **before** the OpenAPI artifacts were regenerated. `openapi.json` embeds
+  the application version, so a bump after the freshness check leaves it stale and CI rejects the
+  release branch. Run `python scripts/export_openapi.py` and `python scripts/export_openapi_types.py`
+  from `backend/` after the bump, then re-run both with `--check`.
 - [ ] The exact tag's CI and migration checks are green.
 - [ ] Full, CPU, Intel, and CUDA images all started successfully from the same commit.
 - [ ] The full → CPU → full persistence gate passed before release and `latest*` tags were promoted.
