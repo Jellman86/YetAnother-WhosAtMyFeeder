@@ -152,7 +152,10 @@
             </p>
         </div>
     {:else if result}
-        <ul class="grid gap-2 sm:grid-cols-2">
+        <!-- One sighting in a two-column grid leaves half a row empty, which
+             reads as something that failed to load rather than as the answer.
+             Two or more still pair up. -->
+        <ul class="grid gap-2 {result.results.length > 1 ? 'sm:grid-cols-2' : ''}">
             {#each result.results.slice(0, 4) as observation}
                 <li class="flex min-w-0 items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/45 p-3 dark:border-amber-900/40 dark:bg-amber-950/10">
                     {#if observation.thumbnail_url}

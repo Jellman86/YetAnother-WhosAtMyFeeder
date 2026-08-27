@@ -73,12 +73,16 @@ export function formatDateTime(value: DateInput): string {
     if (!date) return typeof value === 'string' ? value : '';
 
     const format = getDateFormat();
-    const hourCycle = hourCycleOptions();
+    // Minute precision, the same as `formatTime`. Both `toLocaleString` and a
+    // bare `toLocaleTimeString` carry seconds by default, so a detection read
+    // 07:38 in one place and 07:38:00 in another, and an eBird sighting claimed
+    // a precision the observation never had.
+    const time = formatTime(date);
     if (format === 'locale') {
-        return date.toLocaleString([], hourCycle);
+        return `${date.toLocaleDateString()} ${time}`;
     }
 
-    return `${formatDateParts(date, format)} ${date.toLocaleTimeString([], hourCycle)}`;
+    return `${formatDateParts(date, format)} ${time}`;
 }
 
 export function formatTime(value: DateInput, options?: Intl.DateTimeFormatOptions): string {
