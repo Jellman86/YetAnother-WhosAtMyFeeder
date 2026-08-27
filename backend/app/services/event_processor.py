@@ -40,7 +40,7 @@ from app.utils.frigate import parse_sub_label
 
 # Backward-compat for tests that patch event_processor.notification_service
 from app.services.notification_service import notification_service  # noqa: F401
-from app.database import get_db
+from app.database import durable_work, get_db
 from app.repositories.detection_repository import DetectionRepository
 
 log = structlog.get_logger()
@@ -474,7 +474,11 @@ class EventProcessor:
         """Process audio detections from BirdNET-Go."""
         try:
             data = json.loads(payload)
-            await audio_service.add_detection(data)
+            # Delivered once, and dropped on any exception below, exactly as a
+            # Frigate event is. Wait for a connection rather than lose a heard
+            # bird.
+            with durable_work():
+                await audio_service.add_detection(data)
         except Exception as e:
             log.error("Failed to process audio message", error=str(e))
 
@@ -488,7 +492,12 @@ class EventProcessor:
                 after = data.get("after")
                 if isinstance(after, dict):
                     event_id = str(after.get("id") or "unknown")
-            await self._process_event_payload(data)
+            # Frigate delivers an event once, and the handler below turns any
+            # exception into a logged drop. So this pipeline waits for a database
+            # connection however long it takes rather than being refused one:
+            # waiting delays a detection, refusing loses it.
+            with durable_work():
+                await self._process_event_payload(data)
         except json.JSONDecodeError as e:
             log.error("Invalid JSON payload", error=str(e))
         except Exception as e:

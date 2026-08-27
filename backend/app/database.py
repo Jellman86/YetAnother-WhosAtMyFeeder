@@ -8,7 +8,8 @@ import structlog
 from collections import deque
 from datetime import datetime, timezone
 from pathlib import Path
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, contextmanager
+from contextvars import ContextVar
 from typing import Optional
 
 log = structlog.get_logger()
@@ -22,6 +23,20 @@ DB_POOL_SLOW_ACQUIRE_WARN_MS = float(os.environ.get("DB_POOL_SLOW_ACQUIRE_WARN_M
 DB_POOL_WAIT_WINDOW_SECONDS = float(os.environ.get("DB_POOL_WAIT_WINDOW_SECONDS", "300"))
 # Hard cap on in-memory samples to bound memory under sustained load.
 DB_POOL_WAIT_SAMPLE_CAP = int(os.environ.get("DB_POOL_WAIT_SAMPLE_CAP", "4096"))
+# A pooled connection exists to run statements, not to be carried through
+# network calls or inference. Anything holding one for longer than this is
+# almost certainly doing work that does not need it, and on a five-connection
+# pool a handful of such holds starve every other request.
+DB_POOL_SLOW_HOLD_WARN_MS = float(os.environ.get("DB_POOL_SLOW_HOLD_WARN_MS", "1000"))
+# Upper bound on waiting for a connection. It exists to turn an unbounded hang
+# into a diagnosable failure, not to shed load, so it is deliberately generous:
+# a writer blocked on the database lock holds its connection for up to
+# `busy_timeout`, and a deadline at or below that would refuse requests that
+# were about to be served. `0` disables the deadline entirely, for an owner on
+# slow hardware who would rather be served late than refused.
+DB_POOL_ACQUIRE_TIMEOUT_SECONDS = float(
+    os.environ.get("DB_POOL_ACQUIRE_TIMEOUT_SECONDS", str((DEFAULT_DB_BUSY_TIMEOUT_MS / 1000.0) * 2))
+)
 DEFAULT_PRE_MIGRATION_BACKUP_RETENTION = max(
     1,
     int(os.environ.get("DB_PRE_MIGRATION_BACKUP_RETENTION", "10")),
@@ -259,6 +274,46 @@ async def _verify_schema(backend_dir: str, db_path: str) -> None:
                 raise RuntimeError(f"Database schema missing columns: {missing}")
 
 
+# Set while a task is doing work that cannot be retried if it is refused. The
+# acquire deadline is skipped for such a task: it exists to stop an HTTP request
+# hanging behind a browser that has already given up, and an ingest task has no
+# one waiting. Making it wait delays a write; refusing it destroys one.
+_durable_work: ContextVar[bool] = ContextVar("db_durable_work", default=False)
+
+
+@contextmanager
+def durable_work():
+    """Mark this task's database work as something that must not be dropped.
+
+    Ingesting a Frigate event is the case that matters: the event is delivered
+    once, and `process_mqtt_message` logs and returns on any exception, so a
+    refused connection is a detection lost for good.
+
+    This rides on the task context rather than a parameter threaded through the
+    event processor, the detection service and the repositories, because a
+    guarantee that has to be passed by hand through four layers is one missed
+    argument away from silent data loss. Child tasks inherit it.
+    """
+    token = _durable_work.set(True)
+    try:
+        yield
+    finally:
+        _durable_work.reset(token)
+
+
+def is_durable_work() -> bool:
+    """Whether the current task is marked as work that must not be dropped."""
+    return _durable_work.get()
+
+
+class DatabasePoolTimeout(Exception):
+    """No connection became available before the acquire deadline.
+
+    Carries what was holding the pool longest, because the useful question when
+    this fires is never "who waited" but "what would not let go".
+    """
+
+
 class DatabasePool:
     """Simple connection pool for aiosqlite.
 
@@ -282,6 +337,19 @@ class DatabasePool:
         # of the live windowed max so one slow acquire doesn't degrade health
         # forever. Bounded by DB_POOL_WAIT_SAMPLE_CAP for memory safety.
         self._wait_samples: deque[tuple[float, float]] = deque(maxlen=DB_POOL_WAIT_SAMPLE_CAP)
+        self._acquire_timeouts = 0
+        # How long callers keep a connection once they have it. Acquire wait is
+        # the symptom of an exhausted pool; hold time is the cause, and without
+        # it diagnostics can report a 17-second stall while naming nothing.
+        self._hold_samples: deque[tuple[float, float]] = deque(maxlen=DB_POOL_WAIT_SAMPLE_CAP)
+        self._hold_count = 0
+        self._hold_total_ms = 0.0
+        self._hold_lifetime_max_ms = 0.0
+        self._slow_hold_count = 0
+        self._slow_hold_last_label: Optional[str] = None
+        # id(conn) -> (checked_out_at_monotonic, label). Keyed on identity
+        # because aiosqlite connections are not hashable by value.
+        self._checked_out: dict[int, tuple[float, str]] = {}
 
     async def _create_connection(self) -> aiosqlite.Connection:
         """Create a new database connection with optimal settings."""
@@ -318,15 +386,42 @@ class DatabasePool:
             self._initialized = True
             log.info("Database connection pool initialized")
 
-    async def acquire(self) -> aiosqlite.Connection:
-        """Acquire a connection from the pool."""
+    async def acquire(self, label: Optional[str] = None) -> aiosqlite.Connection:
+        """Acquire a connection from the pool.
+
+        `label` identifies the caller so a stall can name what is holding the
+        pool rather than only how long the queue waited.
+        """
         if not self._initialized:
             await self.initialize()
 
         # Get connection from pool (waits if none available)
         started = time.monotonic()
-        conn = await self._pool.get()
+        timeout = 0.0 if _durable_work.get() else DB_POOL_ACQUIRE_TIMEOUT_SECONDS
+        try:
+            if timeout and timeout > 0:
+                conn = await asyncio.wait_for(self._pool.get(), timeout=timeout)
+            else:
+                conn = await self._pool.get()
+        except asyncio.TimeoutError:
+            self._acquire_timeouts += 1
+            holder_label, holder_ms = self._longest_active_hold()
+            log.error(
+                "DB pool acquire timed out",
+                waited_seconds=round(time.monotonic() - started, 1),
+                pool_size=self.pool_size,
+                checked_out=len(self._checked_out),
+                requested_by=label,
+                longest_hold_label=holder_label,
+                longest_hold_ms=round(holder_ms, 1),
+            )
+            raise DatabasePoolTimeout(
+                f"No database connection became available within {timeout:g}s "
+                f"(pool_size={self.pool_size}). Longest holder: "
+                f"{holder_label or 'unknown'} for {holder_ms / 1000.0:.1f}s."
+            ) from None
         waited_ms = (time.monotonic() - started) * 1000.0
+        self._checked_out[id(conn)] = (time.monotonic(), label or "unlabelled")
         self._acquire_count += 1
         self._acquire_wait_total_ms += waited_ms
         self._record_wait_sample(waited_ms)
@@ -341,8 +436,28 @@ class DatabasePool:
             )
         return conn
 
-    async def release(self, conn: aiosqlite.Connection):
-        """Release a connection back to the pool."""
+    async def release(self, conn: aiosqlite.Connection, hold_ms: Optional[float] = None):
+        """Release a connection back to the pool.
+
+        `hold_ms` overrides the measured hold and exists for tests; normal
+        callers let the pool measure it. Recorded before the connection is
+        handed back so a corrupt-connection replacement cannot lose the sample.
+        """
+        self._record_hold_sample(conn, hold_ms=hold_ms)
+
+        # A request in flight when the pool closed is releasing a connection
+        # `close_all` has already closed. Handing it back would fail its
+        # rollback, and the corrupt-connection path below would answer that by
+        # opening a replacement — leaving a closed pool holding a live
+        # connection nothing will ever close.
+        if not self._initialized:
+            try:
+                await conn.close()
+            except Exception:
+                pass
+            self._all_connections.discard(conn)
+            return
+
         try:
             # Rollback any uncommitted transactions
             await conn.rollback()
@@ -382,6 +497,7 @@ class DatabasePool:
                 finally:
                     self._all_connections.discard(conn)
 
+            self._checked_out.clear()
             self._initialized = False
             log.info("Database connection pool closed")
 
@@ -400,6 +516,61 @@ class DatabasePool:
         samples = self._wait_samples
         while samples and samples[0][0] < cutoff:
             samples.popleft()
+
+    def _record_hold_sample(self, conn: aiosqlite.Connection, hold_ms: Optional[float] = None) -> None:
+        """Record how long a connection was held and warn when it was too long.
+
+        A warning here is the earliest honest signal that a caller is carrying a
+        connection through work that does not need one.
+        """
+        checked_out = self._checked_out.pop(id(conn), None)
+        if hold_ms is None:
+            if checked_out is None:
+                return
+            hold_ms = (time.monotonic() - checked_out[0]) * 1000.0
+        # Never borrow the previous slow caller's name for a hold we cannot
+        # attribute; a misattributed label sends a diagnosis at the wrong code.
+        label = checked_out[1] if checked_out else "unlabelled"
+
+        now = time.monotonic()
+        self._hold_samples.append((now, hold_ms))
+        self._hold_count += 1
+        self._hold_total_ms += hold_ms
+        if hold_ms > self._hold_lifetime_max_ms:
+            self._hold_lifetime_max_ms = hold_ms
+        cutoff = now - DB_POOL_WAIT_WINDOW_SECONDS
+        while self._hold_samples and self._hold_samples[0][0] < cutoff:
+            self._hold_samples.popleft()
+
+        if hold_ms >= DB_POOL_SLOW_HOLD_WARN_MS:
+            self._slow_hold_count += 1
+            self._slow_hold_last_label = label
+            log.warning(
+                "Slow DB connection hold",
+                held_ms=round(hold_ms, 1),
+                held_by=label,
+                pool_size=self.pool_size,
+                checked_out=len(self._checked_out),
+                slow_hold_warn_ms=DB_POOL_SLOW_HOLD_WARN_MS,
+            )
+
+    def _longest_active_hold(self) -> tuple[Optional[str], float]:
+        """The label and age of the connection that has been held longest."""
+        if not self._checked_out:
+            return None, 0.0
+        now = time.monotonic()
+        started, label = min(self._checked_out.values(), key=lambda entry: entry[0])
+        return label, (now - started) * 1000.0
+
+    def _windowed_hold_max_ms(self) -> float:
+        """Return the longest hold within the live window, expiring old entries."""
+        cutoff = time.monotonic() - DB_POOL_WAIT_WINDOW_SECONDS
+        samples = self._hold_samples
+        while samples and samples[0][0] < cutoff:
+            samples.popleft()
+        if not samples:
+            return 0.0
+        return max(h for _, h in samples)
 
     def _windowed_wait_max_ms(self) -> float:
         """Return the largest wait within the live window, expiring old entries."""
@@ -424,7 +595,43 @@ class DatabasePool:
             "acquire_wait_lifetime_max_ms": round(self._acquire_wait_lifetime_max_ms, 2),
             "acquire_wait_window_seconds": DB_POOL_WAIT_WINDOW_SECONDS,
             "slow_acquire_warn_ms": DB_POOL_SLOW_ACQUIRE_WARN_MS,
+            **self._hold_status(),
         }
+
+    def _hold_status(self) -> dict:
+        """Hold-time diagnostics: what the pool's connections are being used for."""
+        avg_hold_ms = (self._hold_total_ms / self._hold_count) if self._hold_count > 0 else 0.0
+        longest_label, longest_ms = self._longest_active_hold()
+        return {
+            "checked_out": len(self._checked_out),
+            "hold_ms_avg": round(avg_hold_ms, 2),
+            "hold_ms_max": round(self._windowed_hold_max_ms(), 2),
+            "hold_ms_lifetime_max": round(self._hold_lifetime_max_ms, 2),
+            "slow_hold_count": self._slow_hold_count,
+            "slow_hold_warn_ms": DB_POOL_SLOW_HOLD_WARN_MS,
+            "slow_hold_last_label": self._slow_hold_last_label,
+            "longest_active_hold_ms": round(longest_ms, 2),
+            "longest_active_hold_label": longest_label,
+            "acquire_timeouts": self._acquire_timeouts,
+            "acquire_timeout_seconds": DB_POOL_ACQUIRE_TIMEOUT_SECONDS,
+        }
+
+
+def _empty_hold_status() -> dict:
+    """The hold-status shape for a pool that does not exist yet."""
+    return {
+        "checked_out": 0,
+        "hold_ms_avg": 0.0,
+        "hold_ms_max": 0.0,
+        "hold_ms_lifetime_max": 0.0,
+        "slow_hold_count": 0,
+        "slow_hold_warn_ms": DB_POOL_SLOW_HOLD_WARN_MS,
+        "slow_hold_last_label": None,
+        "longest_active_hold_ms": 0.0,
+        "longest_active_hold_label": None,
+        "acquire_timeouts": 0,
+        "acquire_timeout_seconds": DB_POOL_ACQUIRE_TIMEOUT_SECONDS,
+    }
 
 
 # Global connection pool
@@ -450,6 +657,7 @@ def get_db_pool_status() -> dict:
             "acquire_wait_lifetime_max_ms": 0.0,
             "acquire_wait_window_seconds": DB_POOL_WAIT_WINDOW_SECONDS,
             "slow_acquire_warn_ms": DB_POOL_SLOW_ACQUIRE_WARN_MS,
+            **_empty_hold_status(),
         }
     return _db_pool.get_status()
 
@@ -580,9 +788,33 @@ async def close_db():
         _db_pool = None
 
 
+def _caller_label() -> str:
+    """Identify the code holding a connection, for diagnostics.
+
+    Walks out of this module and `contextlib`'s wrapper frames so the label
+    names the caller rather than the plumbing between them. Best-effort: a
+    label is never worth raising over.
+    """
+    try:
+        frame = sys._getframe(1)
+        while frame is not None:
+            module = frame.f_globals.get("__name__", "")
+            if module not in ("contextlib", __name__):
+                return f"{module}:{frame.f_code.co_name}"
+            frame = frame.f_back
+    except Exception:
+        pass
+    return "unlabelled"
+
+
 @asynccontextmanager
 async def get_db():
     """Get a database connection from the pool.
+
+    Hold one only for as long as statements are running against it. Carrying a
+    pooled connection through an HTTP call, an LLM request or model inference
+    starves every other caller on a pool this small, and the pool will log a
+    "Slow DB connection hold" warning naming the offender when it happens.
 
     Usage:
         async with get_db() as db:
@@ -600,7 +832,7 @@ async def get_db():
             yield db
         return
 
-    conn = await _db_pool.acquire()
+    conn = await _db_pool.acquire(label=_caller_label())
     try:
         yield conn
     finally:

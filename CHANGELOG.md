@@ -237,6 +237,62 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   hover or keyboard focus, degrading to a placeholder once Frigate has rotated it away. Subsystem
   cards keep all of their detail behind a disclosure below.
 
+### Fixed
+
+- **The interface no longer slows to a crawl, or stops loading entirely, while the server waits on
+  something that is not the database.** The server keeps five database connections and serves every
+  request from them. A request handler is meant to hold one only while statements are running, but
+  a number of them held one for the whole handler, including the parts that wait on Frigate, on the
+  weather archive, on an AI model, or on image classification. A connection carried through an AI
+  analysis is a fifth of the server's capacity spent waiting on someone else's network for as long
+  as that call takes. Enough of those at once and there is nothing left for anything else: the
+  dashboard takes fifteen seconds, Settings takes twenty, the live-updates stream drops, and a page
+  that should be instant never arrives. Reported as slow dashboards and events that would not load,
+  with diagnostics showing requests queued behind the pool for as long as 17.8 seconds.
+
+  Ten handlers now read what they need, release the connection, do the slow work, and take a
+  connection again to write: AI analysis, AI chat, chart analysis, snapshot reclassification,
+  wildlife classification, the species filter, the two dashboard timeline endpoints, both weather
+  backfills, and the unknown-detection batch scan. Measured against a copy of a real installation,
+  with twenty-four concurrent requests against the same five connections, the median request went
+  from 2.3 seconds to 0.2, and the longest a request spent waiting for a connection went from 4.7
+  seconds to 0.18.
+
+  The species filter is the one most likely to have been noticed. It resolves a name for every
+  species it offers, five at a time against five connections, and each species not yet cached costs
+  an iNaturalist request with a ten-second timeout, all of it under a connection the handler was
+  also holding. Six other read paths still resolve names under a held connection on a cache miss;
+  they are listed in `ISSUES.md`, they are bounded to the first sighting of a species in a given
+  language, and the pool now names them in the log and in a diagnostics bundle when it happens.
+
+- **Concurrent reclassifications can no longer deadlock the server outright.** Reclassifying a
+  detection held a connection and then called the routine that saves the result, which takes a
+  second connection of its own. With as many reclassifications running at once as the pool has
+  connections, every one of them held one and every one of them was waiting for one that only
+  another waiting request could release. Nothing completed, nothing timed out, and the server
+  stayed that way until it was restarted. The reclassification path no longer holds a connection
+  while it works, so the second one is always free to take.
+
+- **A saturated connection pool now says so, instead of hanging.** Waiting for a connection had no
+  upper bound, so a request could sit behind a stalled pool indefinitely while the browser gave up
+  and the log recorded nothing. Requests now wait up to twice the SQLite busy timeout — sixty
+  seconds by default, comfortably longer than any legitimate wait, including a write blocked on the
+  database lock — and are then refused with a plain 503 and a `Retry-After`, which is honest about
+  it being a busy moment rather than a fault. The log records which code was holding a connection
+  longest at that point. Set `DB_POOL_ACQUIRE_TIMEOUT_SECONDS=0` to wait indefinitely instead.
+
+  Ingesting a detection is exempt from that deadline and always waits. Frigate and BirdNET-Go each
+  deliver an event once, and both handlers turn any error into a logged drop, so refusing one of
+  them a connection would lose a sighting rather than delay it. The exemption travels with the task
+  rather than being passed down through the event processor, the detection service and the
+  repositories by hand, so no layer can forget to carry it.
+
+- **Shutting down while a request was in flight could leave a connection open forever.** Closing
+  the pool closes checked-out connections too, so a request finishing afterwards handed back one
+  that was already closed. Rolling it back then failed, which is the path that treats a connection
+  as corrupt and opens a replacement — putting a live connection into a pool that had just been
+  closed, on every shutdown that raced a request. A closed pool now discards what it is handed.
+
 ### Changed
 
 - **A species you have renamed is now recorded in the species catalogue, against the species rather

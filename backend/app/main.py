@@ -26,6 +26,7 @@ from app.database import (
     get_db_path_diagnostics,
     is_db_pool_initialized,
     get_db_pool_status,
+    DatabasePoolTimeout,
 )
 from app.services.mqtt_service import mqtt_service
 from app.services.classifier_service import get_classifier, shutdown_classifier
@@ -638,6 +639,48 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
     )
 
 
+@app.exception_handler(DatabasePoolTimeout)
+async def db_pool_timeout_handler(request: Request, exc: DatabasePoolTimeout):
+    """Answer a saturated connection pool honestly.
+
+    This is capacity, not corruption: nothing is wrong with the request and
+    retrying it later will work, so it must not be dressed up as a 500. The
+    holder named in the exception goes to the log, where an owner can act on
+    it, and not to the client, which cannot.
+    """
+    log.error(
+        "Database connection pool exhausted",
+        path=request.url.path,
+        method=request.method,
+        error=str(exc),
+    )
+    return JSONResponse(
+        status_code=503,
+        content={"detail": "The server is busy waiting for the database. Please try again in a moment."},
+        headers={"Retry-After": "5"},
+    )
+
+
+# A queue this long means requests are already being made to wait.
+DB_POOL_DEGRADED_WAIT_MS = 5000.0
+# A connection held this long is doing something that does not need one. It is
+# the earlier signal: waits only start once the pool has already run dry.
+DB_POOL_DEGRADED_HOLD_MS = 5000.0
+
+
+def db_pool_is_degraded(db_pool_health: dict) -> bool:
+    """Whether the connection pool is in a state an owner should be told about.
+
+    Both inputs are windowed, so a burst that has passed stops counting. The
+    lifetime peaks stay in diagnostics for context but must never drive status,
+    or one bad minute would report the install as unhealthy forever.
+    """
+    return (
+        float(db_pool_health.get("acquire_wait_max_ms") or 0.0) >= DB_POOL_DEGRADED_WAIT_MS
+        or float(db_pool_health.get("hold_ms_max") or 0.0) >= DB_POOL_DEGRADED_HOLD_MS
+    )
+
+
 # Global exception handler for unexpected 500s
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
@@ -994,7 +1037,7 @@ def build_health_payload() -> dict[str, object]:
         or bool(mqtt_health.get("stall_recovery_warning_active"))
         or int(notification_dispatch_health.get("dropped_jobs") or 0) > 0
         or event_pipeline_health.get("status") != "ok"
-        or float(db_pool_health.get("acquire_wait_max_ms") or 0.0) >= 5000.0
+        or db_pool_is_degraded(db_pool_health)
     ):
         health["status"] = "degraded"
 

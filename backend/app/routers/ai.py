@@ -135,9 +135,13 @@ async def analyze_event(
         force: If True, regenerate analysis even if it already exists
     """
     lang = get_user_language(request)
+
+    # Read what the prompt needs, then let the connection go. Frame extraction,
+    # the snapshot fetch and the model call together run for tens of seconds,
+    # and a pooled connection held across them is a fifth of the server's
+    # capacity spent waiting on someone else's network.
     async with get_db() as db:
-        repo = DetectionRepository(db)
-        detection = await repo.get_by_frigate_event(event_id)
+        detection = await DetectionRepository(db).get_by_frigate_event(event_id)
 
         if not detection:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
@@ -156,62 +160,60 @@ async def analyze_event(
         # If regenerating analysis, clear any existing AI chat thread so the new
         # analysis starts with a fresh conversation context.
         if force:
-            convo_repo = AIConversationRepository(db)
-            await convo_repo.delete_turns(event_id)
+            await AIConversationRepository(db).delete_turns(event_id)
 
-        frames: list[bytes] = []
-        frame_source: str | None = None
-        frame_count = max(1, min(frame_count, 10))
-        if use_clip:
-            frames, frame_source = await _load_ai_analysis_frames(
-                event_id,
-                frame_count=frame_count,
-                lang=lang,
-            )
-
-        image_data = None
-        if not frames:
-            image_data = await frigate_client.get_snapshot(event_id, crop=True, quality=90)
-            if not image_data:
-                raise HTTPException(
-                    status_code=502, detail=i18n_service.translate("errors.ai.image_fetch_failed", lang)
-                )
-
-        # Metadata for prompt
-        user_tz = get_user_timezone(request)
-        local_time = detection.detection_time.replace(tzinfo=timezone.utc).astimezone(user_tz)
-        temp_unit = settings.location.temperature_unit
-        metadata = {
-            "temperature": detection.temperature,
-            "temp_unit": temp_unit,
-            "weather_condition": detection.weather_condition,
-            "time": local_time.strftime("%H:%M"),
-        }
-        if frames:
-            metadata["frame_count"] = len(frames)
-            metadata["frame_source"] = frame_source or "event"
-        else:
-            metadata["frame_source"] = "snapshot"
-
-        # Generate new analysis
-        log.info("generating_new_analysis", event_id=event_id, force=force)
-        analysis = await ai_service.analyze_detection(
-            species=detection.display_name,
-            image_data=image_data,
-            metadata=metadata,
-            image_list=frames if frames else None,
-            language=lang,
-            mime_type="image/jpeg",
+    frames: list[bytes] = []
+    frame_source: str | None = None
+    frame_count = max(1, min(frame_count, 10))
+    if use_clip:
+        frames, frame_source = await _load_ai_analysis_frames(
+            event_id,
+            frame_count=frame_count,
+            lang=lang,
         )
-        _raise_for_ai_error(analysis)
 
-        # Save analysis to database
-        analysis_timestamp = await repo.update_ai_analysis(event_id, analysis)
+    image_data = None
+    if not frames:
+        image_data = await frigate_client.get_snapshot(event_id, crop=True, quality=90)
+        if not image_data:
+            raise HTTPException(status_code=502, detail=i18n_service.translate("errors.ai.image_fetch_failed", lang))
 
-        return AIAnalysisResponse(
-            analysis=analysis,
-            analysis_timestamp=_serialize_timestamp(analysis_timestamp),
-        )
+    # Metadata for prompt
+    user_tz = get_user_timezone(request)
+    local_time = detection.detection_time.replace(tzinfo=timezone.utc).astimezone(user_tz)
+    temp_unit = settings.location.temperature_unit
+    metadata = {
+        "temperature": detection.temperature,
+        "temp_unit": temp_unit,
+        "weather_condition": detection.weather_condition,
+        "time": local_time.strftime("%H:%M"),
+    }
+    if frames:
+        metadata["frame_count"] = len(frames)
+        metadata["frame_source"] = frame_source or "event"
+    else:
+        metadata["frame_source"] = "snapshot"
+
+    # Generate new analysis
+    log.info("generating_new_analysis", event_id=event_id, force=force)
+    analysis = await ai_service.analyze_detection(
+        species=detection.display_name,
+        image_data=image_data,
+        metadata=metadata,
+        image_list=frames if frames else None,
+        language=lang,
+        mime_type="image/jpeg",
+    )
+    _raise_for_ai_error(analysis)
+
+    # Save analysis to database
+    async with get_db() as db:
+        analysis_timestamp = await DetectionRepository(db).update_ai_analysis(event_id, analysis)
+
+    return AIAnalysisResponse(
+        analysis=analysis,
+        analysis_timestamp=_serialize_timestamp(analysis_timestamp),
+    )
 
 
 @router.get("/leaderboard/analysis", response_model=LeaderboardAnalysisResponse)
@@ -243,34 +245,34 @@ async def analyze_leaderboard(
     lang = get_user_language(request)
 
     async with get_db() as db:
-        repo = LeaderboardAnalysisRepository(db)
-        existing = await repo.get_by_config_key(config_key)
-        if existing and not body.force:
-            return LeaderboardAnalysisResponse(
-                analysis=existing.analysis, analysis_timestamp=_serialize_timestamp(existing.analysis_timestamp)
-            )
+        existing = await LeaderboardAnalysisRepository(db).get_by_config_key(config_key)
+    if existing and not body.force:
+        return LeaderboardAnalysisResponse(
+            analysis=existing.analysis, analysis_timestamp=_serialize_timestamp(existing.analysis_timestamp)
+        )
 
-        try:
-            raw = body.image_base64
-            mime_type = "image/png"
-            if raw.startswith("data:image"):
-                header, raw = raw.split(",", 1)
-                header_parts = header.split(";")[0].split(":")
-                if len(header_parts) == 2:
-                    mime_type = header_parts[1]
-            image_bytes = base64.b64decode(raw)
-        except Exception:
-            raise HTTPException(status_code=400, detail="Invalid image payload.")
+    try:
+        raw = body.image_base64
+        mime_type = "image/png"
+        if raw.startswith("data:image"):
+            header, raw = raw.split(",", 1)
+            header_parts = header.split(";")[0].split(":")
+            if len(header_parts) == 2:
+                mime_type = header_parts[1]
+        image_bytes = base64.b64decode(raw)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid image payload.")
 
-        analysis = await ai_service.analyze_chart(image_bytes, body.config, language=lang, mime_type=mime_type)
-        _raise_for_ai_error(analysis)
-        if not analysis:
-            raise HTTPException(status_code=502, detail="AI analysis failed.")
+    analysis = await ai_service.analyze_chart(image_bytes, body.config, language=lang, mime_type=mime_type)
+    _raise_for_ai_error(analysis)
+    if not analysis:
+        raise HTTPException(status_code=502, detail="AI analysis failed.")
 
-        now = datetime.now(timezone.utc)
-        await repo.upsert_analysis(config_key, body.config, analysis, now)
+    now = datetime.now(timezone.utc)
+    async with get_db() as db:
+        await LeaderboardAnalysisRepository(db).upsert_analysis(config_key, body.config, analysis, now)
 
-        return LeaderboardAnalysisResponse(analysis=analysis, analysis_timestamp=_serialize_timestamp(now))
+    return LeaderboardAnalysisResponse(analysis=analysis, analysis_timestamp=_serialize_timestamp(now))
 
 
 @router.get("/events/{event_id}/conversation", response_model=list[ConversationTurnResponse])
@@ -300,15 +302,16 @@ async def post_event_conversation(
         raise HTTPException(status_code=403, detail="Owner access required to chat with AI.")
 
     lang = get_user_language(request)
+
+    # Record the question and build the prompt under one connection, then
+    # release it for the duration of the model call.
     async with get_db() as db:
-        detection_repo = DetectionRepository(db)
-        detection = await detection_repo.get_by_frigate_event(event_id)
+        detection = await DetectionRepository(db).get_by_frigate_event(event_id)
         if not detection:
             raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang))
 
         convo_repo = AIConversationRepository(db)
         history = await convo_repo.list_turns(event_id)
-
         await convo_repo.add_turn(event_id, "user", body.message)
 
         prompt = ai_service.build_conversation_prompt(
@@ -318,15 +321,17 @@ async def post_event_conversation(
             question=body.message,
             language=lang,
         )
-        reply = await ai_service.chat_detection(prompt)
-        _raise_for_ai_error(reply)
+
+    reply = await ai_service.chat_detection(prompt)
+    _raise_for_ai_error(reply)
+
+    async with get_db() as db:
+        convo_repo = AIConversationRepository(db)
         if reply:
             await convo_repo.add_turn(event_id, "assistant", reply)
-
         turns = await convo_repo.list_turns(event_id)
-        return [
-            ConversationTurnResponse(
-                role=turn.role, content=turn.content, created_at=_serialize_timestamp(turn.created_at)
-            )
-            for turn in turns
-        ]
+
+    return [
+        ConversationTurnResponse(role=turn.role, content=turn.content, created_at=_serialize_timestamp(turn.created_at))
+        for turn in turns
+    ]

@@ -2372,60 +2372,65 @@ async def _run_analyze_unknowns() -> dict:
     total_candidates = 0
     processed_candidates = 0
     try:
+        # Read the candidates, then let the connection go. The pre-check calls
+        # Frigate once per detection, in rounds, and the whole loop can run for
+        # minutes on a large backlog. The writes re-acquire, one round at a time.
         async with get_db() as db:
-            repo = DetectionRepository(db)
-            unknowns = await repo.get_unknown_detections(limit=BATCH_ANALYSIS_MAX_SCAN_PER_RUN)
+            unknowns = await DetectionRepository(db).get_unknown_detections(limit=BATCH_ANALYSIS_MAX_SCAN_PER_RUN)
             total_candidates = len(unknowns)
             scan_truncated = total_candidates >= BATCH_ANALYSIS_MAX_SCAN_PER_RUN
-            log.info(
-                "Batch analysis triggered",
-                total_unknowns=total_candidates,
-                queue_limit=BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
-                scan_limit=BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
-                scan_truncated=scan_truncated,
-            )
 
-            # Pre-check availability before queueing to avoid failure storms when
-            # detections are older than Frigate media retention or clips are missing.
-            frigate_cfg = await frigate_client.get_config()
-            retention_by_camera: dict[str, int | None] = {}
-            for d in unknowns:
-                if d.camera_name not in retention_by_camera:
-                    retention_by_camera[d.camera_name] = _get_camera_retention_days(frigate_cfg, d.camera_name)
+        log.info(
+            "Batch analysis triggered",
+            total_unknowns=total_candidates,
+            queue_limit=BATCH_ANALYSIS_MAX_QUEUE_PER_RUN,
+            scan_limit=BATCH_ANALYSIS_MAX_SCAN_PER_RUN,
+            scan_truncated=scan_truncated,
+        )
 
-            now = datetime.now()
-            semaphore = asyncio.Semaphore(BATCH_ANALYSIS_CHECK_CONCURRENCY)
+        # Pre-check availability before queueing to avoid failure storms when
+        # detections are older than Frigate media retention or clips are missing.
+        frigate_cfg = await frigate_client.get_config()
+        retention_by_camera: dict[str, int | None] = {}
+        for d in unknowns:
+            if d.camera_name not in retention_by_camera:
+                retention_by_camera[d.camera_name] = _get_camera_retention_days(frigate_cfg, d.camera_name)
 
-            async def precheck_detection(detection):
-                retention_days = retention_by_camera.get(detection.camera_name)
-                if retention_days is not None:
-                    cutoff = now - timedelta(days=retention_days)
-                    if detection.detection_time < cutoff:
-                        return ("outside_retention", detection)
+        now = datetime.now()
+        semaphore = asyncio.Semaphore(BATCH_ANALYSIS_CHECK_CONCURRENCY)
 
-                async with semaphore:
-                    event_data, event_error = await frigate_client.get_event_with_error(
-                        detection.frigate_event, timeout=8.0
-                    )
+        async def precheck_detection(detection):
+            retention_days = retention_by_camera.get(detection.camera_name)
+            if retention_days is not None:
+                cutoff = now - timedelta(days=retention_days)
+                if detection.detection_time < cutoff:
+                    return ("outside_retention", detection)
 
-                if not event_data:
-                    if event_error == "event_not_found":
-                        return ("missing_event", detection)
-                    # Transient precheck issues should not suppress classification;
-                    # keep these in the queue path and let worker retries handle it.
-                    return ("precheck_error", detection)
+            async with semaphore:
+                event_data, event_error = await frigate_client.get_event_with_error(
+                    detection.frigate_event, timeout=8.0
+                )
 
-                if not bool(event_data.get("has_clip", False)):
-                    return ("no_clip", detection)
+            if not event_data:
+                if event_error == "event_not_found":
+                    return ("missing_event", detection)
+                # Transient precheck issues should not suppress classification;
+                # keep these in the queue path and let worker retries handle it.
+                return ("precheck_error", detection)
 
-                return ("eligible", detection)
+            if not bool(event_data.get("has_clip", False)):
+                return ("no_clip", detection)
 
-            for offset in range(0, len(unknowns), BATCH_ANALYSIS_CHECK_CONCURRENCY):
-                if accepted >= BATCH_ANALYSIS_MAX_QUEUE_PER_RUN:
-                    break
-                batch = unknowns[offset : offset + BATCH_ANALYSIS_CHECK_CONCURRENCY]
-                prechecked = await asyncio.gather(*(precheck_detection(d) for d in batch))
+            return ("eligible", detection)
 
+        for offset in range(0, len(unknowns), BATCH_ANALYSIS_CHECK_CONCURRENCY):
+            if accepted >= BATCH_ANALYSIS_MAX_QUEUE_PER_RUN:
+                break
+            batch = unknowns[offset : offset + BATCH_ANALYSIS_CHECK_CONCURRENCY]
+            prechecked = await asyncio.gather(*(precheck_detection(d) for d in batch))
+
+            async with get_db() as db:
+                repo = DetectionRepository(db)
                 for state, d in prechecked:
                     processed_candidates += 1
                     if state == "outside_retention":
@@ -2458,8 +2463,8 @@ async def _run_analyze_unknowns() -> dict:
                     elif result == "full":
                         dropped_full += 1
                         break
-                if dropped_full > 0:
-                    break
+            if dropped_full > 0:
+                break
     finally:
         await maintenance_coordinator.release(holder_id)
 

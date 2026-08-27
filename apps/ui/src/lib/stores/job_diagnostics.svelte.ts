@@ -605,6 +605,23 @@ class JobDiagnosticsStore {
             });
         }
 
+        // The wait above is what an owner feels; this is what caused it. Report
+        // the holder by name so a bundle points at code rather than a symptom.
+        const holdMaxMs = Math.max(0, Math.floor(asFiniteNumber(dbPool?.hold_ms_max)));
+        if (holdMaxMs >= 5000) {
+            const holder = normalizeString(dbPool?.slow_hold_last_label, '') || 'unknown code';
+            this.recordError({
+                source: 'health',
+                component: 'db_pool',
+                reasonCode: 'connection_held_too_long',
+                message: `${holder} held a DB connection for ${holdMaxMs}ms`,
+                severity: 'warning',
+                timestamp: ts,
+                healthSnapshotId: snapshotId,
+                context: { hold_ms_max: holdMaxMs, held_by: holder }
+            });
+        }
+
         const ml = asRecord(root.ml);
         const liveImage = asRecord(ml.live_image);
         const liveImagePressure = normalizeString(liveImage?.pressure_level, '').toLowerCase();
