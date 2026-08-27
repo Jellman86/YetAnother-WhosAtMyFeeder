@@ -239,6 +239,27 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A detection Frigate withdraws as a false positive is finally taken out of view.** The handler
+  called a repository method that has never existed, so every false positive raised an
+  `AttributeError` into its own `except Exception`, was logged as an ordinary cleanup failure, and
+  left the detection in place. The line that clears the cached images runs first and always worked,
+  so the visible result was a detection that survived with its pictures gone. This has been broken
+  since the handler was written in January.
+
+  The detection is now hidden rather than deleted. This fires automatically from an MQTT message
+  with nothing in front of it, and Frigate withdrawing its claim is good grounds to stop showing a
+  detection and poor grounds to destroy an owner's record of it irreversibly. Hidden detections are
+  already excluded from the events list and from the daily rollups, so the result looks the same
+  while staying recoverable. A detection the owner tagged themselves is left alone: that tag is
+  their own judgement and outranks Frigate's. Repeated messages for one event no longer re-announce
+  it, which a plain toggle would have done by putting the detection back on show.
+
+  The whole codebase is now checked for the same class of mistake. Every `repo.<method>()` call is
+  resolved against the repository class bound in that function, so a call naming a method that does
+  not exist fails the suite instead of waiting to be swallowed at runtime. The audit found this one
+  and nothing else.
+
+
 - **Detections no longer claim Frigate still has an event it retired days ago.** `frigate_status`,
   `frigate_missing_since` and `frigate_last_error` are shown in the interface, and the
   upstream-missing behaviour is a real setting with three options, but almost nothing ever ran it.
