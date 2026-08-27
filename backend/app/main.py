@@ -304,11 +304,15 @@ async def media_integrity_scheduler():
     """
     while cleanup_running:
         try:
-            interval_hours = max(1, int(settings.maintenance.media_integrity_scan_interval_hours))
-            for _ in range(interval_hours):
-                if not cleanup_running:
-                    break
+            # Re-read the interval every hour rather than once per cycle:
+            # otherwise an owner shortening it from a week to an hour waits the
+            # old week to find out whether the change worked.
+            elapsed_hours = 0
+            while cleanup_running:
                 await asyncio.sleep(3600)
+                elapsed_hours += 1
+                if elapsed_hours >= max(1, int(settings.maintenance.media_integrity_scan_interval_hours)):
+                    break
 
             if cleanup_running and settings.maintenance.media_integrity_scan_enabled:
                 result = await run_media_integrity_scan()

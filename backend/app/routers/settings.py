@@ -30,6 +30,7 @@ from app.services.frigate_client import frigate_client
 from app.services.timezone_repair_service import timezone_repair_service
 from app.services.media_cache import media_cache
 from app.services.maintenance_coordinator import maintenance_coordinator
+from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND
 from app.services.ai_service import AIService
 from app.services.frigate_missing_policy import apply_missing_policy, clear_missing_state_if_present
 from app.services.smtp_service import smtp_service
@@ -2131,6 +2132,20 @@ async def clear_favorites(auth: AuthContext = Depends(require_owner)):
     }
 
 
+def _busy_purge_response() -> dict:
+    """The shape a purge endpoint returns when a scan is already running."""
+    return {
+        "status": "busy",
+        "deleted_count": 0,
+        "marked_missing_count": 0,
+        "kept_count": 0,
+        "cleared_missing_count": 0,
+        "checked": 0,
+        "missing": 0,
+        "message": "A media integrity scan is already running.",
+    }
+
+
 async def _purge_missing_media(kind: Literal["clip", "snapshot"]) -> dict:
     if kind == "clip" and not settings.frigate.clips_enabled:
         return {
@@ -2326,10 +2341,26 @@ def _get_camera_retention_days(frigate_config: object, camera_name: str) -> floa
     return get_camera_retention_days(frigate_config, camera_name)
 
 
+async def _run_guarded_media_scan(runner) -> dict:
+    """Run a manual scan under the scheduled scan's maintenance slot.
+
+    They walk the same detections and ask the same Frigate. Running both at once
+    doubles the request rate against it and puts two writers on one row, so
+    whichever asks second is told the scan is already running.
+    """
+    holder_id = "manual_media_integrity_scan"
+    if not await maintenance_coordinator.try_acquire(holder_id, kind=MEDIA_INTEGRITY_SCAN_KIND):
+        return _busy_purge_response()
+    try:
+        return await runner()
+    finally:
+        await maintenance_coordinator.release(holder_id)
+
+
 @router.post("/maintenance/purge-missing-clips", response_model=PurgeMissingMediaResponse)
 async def purge_missing_clips(auth: AuthContext = Depends(require_owner)):
     """Remove detections without clips (or missing events). Owner only."""
-    result = await _purge_missing_media("clip")
+    result = await _run_guarded_media_scan(lambda: _purge_missing_media("clip"))
     log.info("Purge missing clips completed", **result)
     return result
 
@@ -2337,7 +2368,7 @@ async def purge_missing_clips(auth: AuthContext = Depends(require_owner)):
 @router.post("/maintenance/purge-missing-media", response_model=PurgeMissingMediaResponse)
 async def purge_missing_media(auth: AuthContext = Depends(require_owner)):
     """Apply the configured missing-media policy when any Frigate event/media is missing. Owner only."""
-    result = await _purge_missing_all_media()
+    result = await _run_guarded_media_scan(_purge_missing_all_media)
     log.info("Purge missing media completed", **result)
     return result
 
@@ -2345,7 +2376,7 @@ async def purge_missing_media(auth: AuthContext = Depends(require_owner)):
 @router.post("/maintenance/purge-missing-snapshots", response_model=PurgeMissingMediaResponse)
 async def purge_missing_snapshots(auth: AuthContext = Depends(require_owner)):
     """Remove detections without snapshots (or missing events). Owner only."""
-    result = await _purge_missing_media("snapshot")
+    result = await _run_guarded_media_scan(lambda: _purge_missing_media("snapshot"))
     log.info("Purge missing snapshots completed", **result)
     return result
 

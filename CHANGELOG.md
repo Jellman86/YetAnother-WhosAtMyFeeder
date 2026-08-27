@@ -262,6 +262,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   outage the owner is probably already dealing with. A single event that fails to read is left
   alone for the same reason.
 
+  A detection already marked missing is treated as settled: the scheduled scan will not revisit it,
+  so one marked in error stays marked, and the manual scan in Settings is the way back. The manual
+  scan and the scheduled one now share a maintenance slot, because they walk the same detections and
+  ask the same Frigate — running both at once would double the request rate against it and put two
+  writers on one row. Whichever asks second is told a scan is already running.
+
   The read path still does not do this work. A list endpoint must not mutate history as a side
   effect of rendering a page.
 

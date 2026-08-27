@@ -56,6 +56,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `MAINTENANCE__MEDIA_INTEGRITY_SCAN_MEDIA` | `any` | What must be absent upstream to count as missing: `any`, `clip`, `snapshot`. |
 | `MAINTENANCE__MEDIA_INTEGRITY_SCAN_INTERVAL_HOURS` | `6` | Hours between scans. |
 | `MAINTENANCE__MEDIA_INTEGRITY_SCAN_BATCH_SIZE` | `1000` | Detections re-checked per scan. Raise it to drain a large history faster, at the cost of more requests to Frigate per run. |
+| | | A detection already marked missing is not re-checked by the schedule; use the manual scan in Settings to revisit one. |
 | `CONTAINER_LOG_MAX_SIZE` | `10m` | Compose-only size at which the monolithic container's JSON log rotates. |
 | `CONTAINER_LOG_MAX_FILES` | `3` | Compose-only number of rotated monolithic container log files to retain. |
 | `SPECIES_INFO__SOURCE` | `auto` | Species info source: `auto`, `inat`, `wikipedia`. |

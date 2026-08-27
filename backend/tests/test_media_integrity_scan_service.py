@@ -293,3 +293,80 @@ async def test_writes_are_chunked_so_one_scan_cannot_monopolise_a_connection():
     assert result.marked_missing_count == 10
     # 1 read + 3 write chunks (4, 4, 2) + 1 pending count
     assert acquisitions == 5, f"expected chunked writes, got {acquisitions} acquisitions"
+
+
+@pytest.mark.asyncio
+async def test_a_detection_already_marked_missing_is_never_revisited_by_the_schedule():
+    """Documents a deliberate limit, and guards a dead branch.
+
+    The scan excludes rows already `missing`, because Frigate does not un-retire
+    an event and on a long history that is nearly every row. The consequence is
+    that a row marked missing in error stays missing: the scheduled scan cannot
+    clear it, and the manual full scan in Settings is the recovery path.
+    """
+    await _insert("evt-terminal", status="missing")
+
+    with (
+        patch.object(scan_module.frigate_client, "get_version", new=AsyncMock(return_value="0.14")),
+        patch.object(
+            scan_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True, "has_snapshot": True}, None)),
+        ) as asked,
+    ):
+        result = await run_media_integrity_scan()
+
+    assert result.status == "nothing_to_check"
+    asked.assert_not_awaited()
+    assert (await _status_of("evt-terminal"))[0] == "missing"
+
+
+@pytest.mark.asyncio
+async def test_a_scheduled_scan_stands_down_while_a_manual_one_is_running():
+    """They walk the same rows and ask the same Frigate.
+
+    The manual scan takes no maintenance slot today, so adding a schedule that
+    actually runs makes it possible for both to be in flight at once: sixteen
+    concurrent requests to Frigate instead of eight, and two writers on the same
+    detections. They now share one slot, and the scheduled one yields.
+    """
+    from app.services.maintenance_coordinator import maintenance_coordinator
+    from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND
+
+    await _insert("evt-contended")
+    assert await maintenance_coordinator.try_acquire("manual-scan", kind=MEDIA_INTEGRITY_SCAN_KIND)
+    try:
+        with patch.object(scan_module.frigate_client, "get_version", new=AsyncMock()) as never_asked:
+            result = await run_media_integrity_scan()
+        assert result.status == "busy"
+        never_asked.assert_not_awaited()
+    finally:
+        await maintenance_coordinator.release("manual-scan")
+
+    assert (await _status_of("evt-contended"))[0] == "present"
+
+
+@pytest.mark.asyncio
+async def test_a_manual_scan_takes_the_same_slot_so_it_cannot_race_the_schedule():
+    """The other half of the contract: the manual scan must claim the slot too,
+    or the scheduled one has nothing to stand down for."""
+    import httpx
+
+    from app.main import app
+    from app.services.maintenance_coordinator import maintenance_coordinator
+    from app.services.media_integrity_scan import MEDIA_INTEGRITY_SCAN_KIND
+
+    original_auth = settings.auth.enabled
+    settings.auth.enabled = False
+    assert await maintenance_coordinator.try_acquire("scheduled-scan", kind=MEDIA_INTEGRITY_SCAN_KIND)
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+            with patch.object(scan_module.frigate_client, "get_version", new=AsyncMock()) as never_asked:
+                response = await client.post("/api/maintenance/purge-missing-media")
+            assert response.status_code == 200, response.text
+            assert response.json()["status"] == "busy"
+            never_asked.assert_not_awaited()
+    finally:
+        await maintenance_coordinator.release("scheduled-scan")
+        settings.auth.enabled = original_auth

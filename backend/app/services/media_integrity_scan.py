@@ -13,7 +13,9 @@ This scan is the missing piece, and it is bounded on purpose:
 - it takes the least recently confirmed rows first, capped per run, so a large
   history drains over several runs instead of flooding Frigate in one;
 - it never asks about a row already known missing, because Frigate does not
-  un-retire an event and that answer cannot change;
+  un-retire an event and that answer cannot change. The consequence is that
+  `missing` is terminal for this scan: a detection marked missing in error stays
+  marked, and the manual full scan in Settings is the way back;
 - it does nothing at all when Frigate is unreachable, because "we could not ask"
   must never be recorded as "upstream no longer has it" — on `delete` that
   mistake destroys history during an outage.
@@ -34,7 +36,7 @@ from app.config import settings
 from app.database import get_db
 from app.repositories.detection_repository import DetectionRepository
 from app.services.frigate_client import frigate_client
-from app.services.frigate_missing_policy import apply_missing_policy, clear_missing_state_if_present
+from app.services.frigate_missing_policy import apply_missing_policy
 from app.services.maintenance_coordinator import maintenance_coordinator
 from app.utils.api_datetime import utc_naive_now
 
@@ -90,7 +92,6 @@ class MediaIntegrityScanResult:
     deleted_count: int = 0
     marked_missing_count: int = 0
     kept_count: int = 0
-    cleared_missing_count: int = 0
     errors: int = 0
     pending: int = 0
     message: str = ""
@@ -104,7 +105,6 @@ class MediaIntegrityScanResult:
             "deleted_count": self.deleted_count,
             "marked_missing_count": self.marked_missing_count,
             "kept_count": self.kept_count,
-            "cleared_missing_count": self.cleared_missing_count,
             "errors": self.errors,
             "pending": self.pending,
             "message": self.message,
@@ -245,17 +245,10 @@ async def _run_scan_locked(maintenance) -> MediaIntegrityScanResult:
                     result.marked_missing_count += counts["marked_missing_count"]
                     result.kept_count += counts["kept_count"]
                     continue
-                # Present. Stamp the check so a confirmed row is not re-asked
-                # next run, and clear any stale missing state it was carrying.
+                # Present. Record the check so a confirmed detection stops being
+                # re-asked about. Nothing to clear: a row already `missing` is
+                # never selected, so anything reaching here was already present.
                 await repo.record_frigate_check(event_id, checked_at=checked_at)
-                if await clear_missing_state_if_present(
-                    repo=repo,
-                    frigate_event=event_id,
-                    source="media_integrity_scan",
-                    media_kind=media,
-                    checked_at=checked_at,
-                ):
-                    result.cleared_missing_count += 1
 
     result.pending = await _count_pending(checked_before)
     log.info("Media integrity scan completed", **result.as_dict())
