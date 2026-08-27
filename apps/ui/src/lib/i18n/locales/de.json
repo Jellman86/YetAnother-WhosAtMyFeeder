@@ -1445,7 +1445,7 @@
     },
     "explorer_view": {
       "label": "Explorer-Ansicht",
-      "desc": "Karten zeigen zu jedem Besuch ein Bild. Eine Liste zeigt mehr auf einmal und richtet die Zeiten untereinander aus, sodass sich eine bestimmte schnell finden lässt.",
+      "desc": "Das Layout, mit dem neue Geräte starten. Karten zeigen zu jedem Besuch ein Bild; eine Liste zeigt mehr auf einmal und richtet die Zeiten untereinander aus. Jedes Gerät kann im Explorer umschalten, und diese Wahl bleibt dort erhalten.",
       "cards": "Karten",
       "list": "Liste"
     }

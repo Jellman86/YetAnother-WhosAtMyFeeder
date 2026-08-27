@@ -9,6 +9,8 @@
         species: EventFilterSpecies[];
         cameras: string[];
         filters: EventFilters | null;
+        view?: 'cards' | 'list';
+        onviewchange?: (view: 'cards' | 'list') => void;
         datePreset: DatePreset;
         speciesFilter: string;
         cameraFilter: string;
@@ -40,6 +42,8 @@
         species,
         cameras,
         filters,
+        view = 'cards',
+        onviewchange,
         datePreset,
         speciesFilter,
         cameraFilter,
@@ -146,8 +150,30 @@
             </button>
         {/each}
 
+        <div class="ml-auto inline-flex items-center rounded-full border border-slate-200 p-0.5 dark:border-slate-700" role="group" aria-label={$_('settings.explorer_view.label')}>
+            {#each [{ value: 'cards', label: $_('settings.explorer_view.cards') }, { value: 'list', label: $_('settings.explorer_view.list') }] as option (option.value)}
+                <button
+                    type="button"
+                    aria-pressed={view === option.value}
+                    onclick={() => onviewchange?.(option.value as 'cards' | 'list')}
+                    data-explorer-view-toggle={option.value}
+                    class="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
+                           {view === option.value
+                        ? 'bg-brand-500 text-white'
+                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
+                >
+                    {#if option.value === 'cards'}
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                    {:else}
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    {/if}
+                    {option.label}
+                </button>
+            {/each}
+        </div>
+
         <button
-            class="btn btn-secondary ml-auto min-h-11 px-3 py-2 text-xs lg:hidden"
+            class="btn btn-secondary min-h-11 px-3 py-2 text-xs lg:hidden"
             aria-expanded={panelOpen}
             onclick={() => (panelOpen = !panelOpen)}
             data-explorer-filter-toggle

@@ -22,6 +22,7 @@
     } from '../api';
     import ExplorerFilters from '../components/ExplorerFilters.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
+    import { explorerViewStore } from '../stores/explorer_view.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
@@ -75,7 +76,7 @@
     let tagSearchQuery = $state('');
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
-    const explorerView = $derived(settingsStore.settings?.appearance_explorer_view ?? 'cards');
+    const explorerView = $derived(explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view));
     let selectionMode = $state(false);
     let selectedEventIds = $state<string[]>([]);
     let showBulkTagModal = $state(false);
@@ -1094,6 +1095,8 @@
     <div class="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start" data-explorer-layout>
         <div class="lg:sticky lg:top-4">
         <ExplorerFilters
+            view={explorerView}
+            onviewchange={(next) => explorerViewStore.set(next)}
             species={displaySpecies}
             cameras={availableCameras}
             filters={eventFilters}

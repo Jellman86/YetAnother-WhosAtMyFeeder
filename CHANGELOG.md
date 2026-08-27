@@ -21,8 +21,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   owner already set, the same rule the review queue and the field log apply, so the list flags
   exactly the rows the rest of the interface does.
 
-  Off by default. Settings → Appearance has the choice, beside the date and time formats, and Cards
-  stays selected until someone picks otherwise.
+  Off by default, and switchable from two places. Settings → Appearance sets what a new device
+  starts with, beside the date and time formats. The Explorer itself carries a Cards/List toggle
+  next to the visit count, and that choice sticks to the device that made it — which is the point,
+  because the list exists so a phone can be scanned by time while a desktop has the width for
+  cards, and one shared answer would be wrong on whichever device lost. A viewer without owner
+  access can use the toggle too, since it changes nothing on the server.
 
 
 - **Diagnostics now name the sources the species catalogue is built from, and their licences.** The

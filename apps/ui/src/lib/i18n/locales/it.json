@@ -1454,7 +1454,7 @@
     },
     "explorer_view": {
       "label": "Visualizzazione dell’explorer",
-      "desc": "Le schede mostrano un’immagine per ogni visita. L’elenco ne mostra di più e allinea gli orari, così ne trovi uno in fretta.",
+      "desc": "La visualizzazione con cui partono i nuovi dispositivi. Le schede mostrano un’immagine per ogni visita; l’elenco ne mostra di più e allinea gli orari. Ogni dispositivo può cambiarla dall’explorer e quella scelta resta su di esso.",
       "cards": "Schede",
       "list": "Elenco"
     }

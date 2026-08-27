@@ -1454,7 +1454,7 @@
     },
     "explorer_view": {
       "label": "Esquema do explorador",
-      "desc": "Os cartões mostram uma imagem de cada visita. A lista mostra mais no ecrã e alinha as horas para encontrar uma rapidamente.",
+      "desc": "O esquema com que os dispositivos novos começam. Os cartões mostram uma imagem de cada visita; a lista mostra mais no ecrã e alinha as horas. Cada dispositivo pode mudá-lo no explorador, e essa escolha fica guardada aí.",
       "cards": "Cartões",
       "list": "Lista"
     }

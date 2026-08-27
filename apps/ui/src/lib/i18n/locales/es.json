@@ -1445,7 +1445,7 @@
     },
     "explorer_view": {
       "label": "Diseño del explorador",
-      "desc": "Las tarjetas muestran una imagen de cada visita. La lista muestra más en pantalla y alinea las horas para que puedas buscar una rápidamente.",
+      "desc": "El diseño con el que empiezan los dispositivos nuevos. Las tarjetas muestran una imagen de cada visita; la lista muestra más en pantalla y alinea las horas. Cada dispositivo puede cambiarlo desde el explorador, y esa elección se mantiene allí.",
       "cards": "Tarjetas",
       "list": "Lista"
     }

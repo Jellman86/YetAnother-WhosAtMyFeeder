@@ -1445,7 +1445,7 @@
     },
     "explorer_view": {
       "label": "Affichage de l’explorateur",
-      "desc": "Les cartes montrent une image de chaque visite. La liste en affiche davantage et aligne les heures pour en retrouver une rapidement.",
+      "desc": "L’affichage par lequel commencent les nouveaux appareils. Les cartes montrent une image de chaque visite ; la liste en affiche davantage et aligne les heures. Chaque appareil peut en changer depuis l’explorateur, et ce choix y reste.",
       "cards": "Cartes",
       "list": "Liste"
     }

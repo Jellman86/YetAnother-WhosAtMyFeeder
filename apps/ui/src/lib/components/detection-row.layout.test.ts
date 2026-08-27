@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import detectionRowSource from './DetectionRow.svelte?raw';
 import eventsPageSource from '../pages/Events.svelte?raw';
 import appearanceSource from './settings/AppearanceSettings.svelte?raw';
+import filtersSource from './ExplorerFilters.svelte?raw';
+import storeSource from '../stores/explorer_view.svelte.ts?raw';
 
 /**
  * #270: "The explorer section tends to get crowded fast, the cards there are
@@ -69,13 +71,26 @@ describe('the Explorer list row', () => {
 
 describe('choosing the Explorer layout', () => {
     it('defaults to cards so nobody upgrades into a different Explorer', () => {
-        expect(eventsPageSource).toContain("settingsStore.settings?.appearance_explorer_view ?? 'cards'");
+        // The device's own choice wins where there is one; otherwise the install
+        // default; and cards when the install has said nothing either.
+        expect(eventsPageSource).toContain(
+            'explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view)'
+        );
+        expect(storeSource).toContain("this.override ?? (installDefault === 'list' ? 'list' : 'cards')");
     });
 
     it('renders rows only when list is chosen', () => {
         expect(eventsPageSource).toContain("{:else if explorerView === 'list'}");
         expect(eventsPageSource).toContain('<DetectionRow');
         expect(eventsPageSource).toContain('<DetectionCard');
+    });
+
+    it('can also be switched from the Explorer itself', () => {
+        // Settings is where you set the default; the toggle is where you are
+        // when you decide the cards are too big to scroll.
+        expect(filtersSource).toContain('data-explorer-view-toggle');
+        expect(filtersSource).toContain('aria-pressed={view === option.value}');
+        expect(eventsPageSource).toContain('explorerViewStore.set(next)');
     });
 
     it('is offered in appearance settings beside the other display choices', () => {

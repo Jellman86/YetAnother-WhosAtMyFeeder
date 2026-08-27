@@ -1454,7 +1454,7 @@
     },
     "explorer_view": {
       "label": "Explorer layout",
-      "desc": "Cards show a snapshot for each visit. A list fits more on screen and lines the times up so you can scan for one.",
+      "desc": "The layout new devices start with. Cards show a snapshot for each visit; a list fits more on screen and lines the times up so you can scan for one. Each device can switch it from the Explorer, and that choice sticks on that device.",
       "cards": "Cards",
       "list": "List"
     }
