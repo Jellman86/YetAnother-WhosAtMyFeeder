@@ -8,6 +8,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **The Explorer can show detections as a list instead of cards.** Requested because the cards are
+  large and the page fills up fast, with a specific reason: "what I am interested in is comparing the
+  visiting times, so I can scroll the list fast to get to the time I want" (#270). So the row leads
+  with the time, at a fixed width, and that is the only column whose digits are meant to line up down
+  the page — that alignment is what makes scanning for a time work. Then a small snapshot, the
+  species, and the confidence. It reads in the same order as the dashboard's field log rather than
+  inventing a second list shape for the same data.
+
+  A detection that needs a person still says so with all three signals: an amber wash, a rule down
+  the edge, and the reason in words. What counts as needing one is the classification threshold the
+  owner already set, the same rule the review queue and the field log apply, so the list flags
+  exactly the rows the rest of the interface does.
+
+  Off by default. Settings → Appearance has the choice, beside the date and time formats, and Cards
+  stays selected until someone picks otherwise.
+
+
 - **Diagnostics now name the sources the species catalogue is built from, and their licences.** The
   catalogue redistributes work from the IOC World Bird List under CC BY 3.0 and the Catalogue of
   Life under CC BY 4.0, both of which require attribution, and nothing in the running application

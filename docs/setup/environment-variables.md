@@ -59,6 +59,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | | | A detection already marked missing is not re-checked by the schedule; use the manual scan in Settings to revisit one. |
 | `CONTAINER_LOG_MAX_SIZE` | `10m` | Compose-only size at which the monolithic container's JSON log rotates. |
 | `CONTAINER_LOG_MAX_FILES` | `3` | Compose-only number of rotated monolithic container log files to retain. |
+| `APPEARANCE__EXPLORER_VIEW` | `cards` | How the Explorer lists detections: `cards` shows a snapshot each, `list` shows one compact row each with the times aligned for scanning. |
 | `SPECIES_INFO__SOURCE` | `auto` | Species info source: `auto`, `inat`, `wikipedia`. |
 | `DISPLAY__DATE_FORMAT` | `locale` | Date format: `locale`, `mdy`, `dmy`, `ymd`. |
 | `DISPLAY__TIME_FORMAT` | `locale` | Clock format: `locale`, `12h`, `24h`. `locale` follows the browser. |

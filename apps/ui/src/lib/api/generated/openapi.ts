@@ -1247,6 +1247,7 @@ export interface components {
     accessibility_zen_mode?: boolean | null;
     ai_pricing_json?: string | null;
     appearance_color_theme?: string | null;
+    appearance_explorer_view?: "cards" | "list" | null;
     appearance_font_theme?: string | null;
     audio_buffer_hours?: number;
     audio_correlation_window_seconds?: number;
@@ -1429,6 +1430,7 @@ export interface components {
     accessibility_zen_mode?: boolean | null;
     ai_pricing_json?: string | null;
     appearance_color_theme?: string | null;
+    appearance_explorer_view?: "cards" | "list" | null;
     appearance_font_theme?: string | null;
     audio_buffer_hours?: number;
     audio_correlation_window_seconds?: number;

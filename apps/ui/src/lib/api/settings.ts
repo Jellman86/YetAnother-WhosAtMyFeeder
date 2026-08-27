@@ -167,6 +167,7 @@ export interface Settings {
     accessibility_reduced_motion: boolean;
     accessibility_zen_mode: boolean;
     accessibility_live_announcements: boolean;
+    appearance_explorer_view?: 'cards' | 'list';
     appearance_font_theme?: string;
     appearance_color_theme?: string;
     auth_enabled: boolean;

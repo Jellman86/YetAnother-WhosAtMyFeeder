@@ -12,6 +12,7 @@ log = structlog.get_logger()
 
 FrigateMissingBehavior = Literal["mark_missing", "keep", "delete"]
 MediaIntegrityScanMedia = Literal["any", "clip", "snapshot"]
+ExplorerView = Literal["cards", "list"]
 
 
 def normalize_crop_model_override(value: Any) -> str:
@@ -820,6 +821,13 @@ class AccessibilitySettings(BaseModel):
 
 
 class AppearanceSettings(BaseModel):
+    explorer_view: ExplorerView = Field(
+        default="cards",
+        description=(
+            "How the Explorer lists detections: 'cards' shows a snapshot per detection, "
+            "'list' shows one compact row each, ordered so times line up for scanning"
+        ),
+    )
     # Mirrors the frontend font themes. Email clients may fall back to system fonts.
     font_theme: str = Field(default="classic", description="UI font theme: default, clean, studio, classic, compact")
     color_theme: str = Field(default="bluetit", description="UI color theme: default, bluetit")
