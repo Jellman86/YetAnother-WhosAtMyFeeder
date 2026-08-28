@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Removed
+
+- **Zen mode is gone from Settings > Accessibility.** The toggle saved, reported success, and
+  changed nothing: it added a `zen-mode` class to the document root and no stylesheet in the app has
+  ever carried a rule for that class, so the interface was identical either way. The effect that
+  added the class also lived on the Settings page, so even the class was dropped again on navigating
+  away. A control that claims an effect it does not have is worse than no control, and worst of all
+  in the accessibility section, where someone may be relying on it. An existing `config.json` that
+  still names `zen_mode` keeps loading, and the key is dropped the next time settings are saved;
+  `ACCESSIBILITY__ZEN_MODE` no longer does anything and can be removed from a compose file.
+
 ### Fixed
 
 - **A broken test database now says what broke it.** When the test suite could not build its schema,
@@ -26,6 +37,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   was drawn with a different background and border and nothing else, so a screen reader gave no way
   to tell which day was active. Each chip now carries `aria-pressed`, and the chip row is a group
   named by the scope label above it, so the scope reaches a screen reader as well as the eye.
+
+- **A public visitor now gets the high contrast and dyslexia-font settings the owner chose.** Both
+  are applied from `/api/settings`, which refuses anyone without owner access, so on an install with
+  authentication on and public access enabled a visitor could never receive either one, and the
+  owner had no way to give it to them. The visitor most likely to need high contrast was the one
+  visitor who could not have it. Both now travel on the public status payload, where
+  `accessibility_live_announcements` already sat: that block was split, one field public and two
+  not, which is what made this easy to miss.
 
 - **A public visitor now gets the Explorer layout the owner chose.** Settings > Appearance calls the
   control "the layout new devices start with", and a visitor's device is the newest device there is,

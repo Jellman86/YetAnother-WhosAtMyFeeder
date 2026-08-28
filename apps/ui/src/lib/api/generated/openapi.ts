@@ -187,6 +187,8 @@ export interface components {
     total: number;
 };
     AuthStatusResponse: {
+    accessibility_dyslexia_font?: boolean;
+    accessibility_high_contrast?: boolean;
     accessibility_live_announcements?: boolean;
     appearance_explorer_view?: string;
     auth_required: boolean;
@@ -1245,7 +1247,6 @@ export interface components {
     accessibility_high_contrast?: boolean | null;
     accessibility_live_announcements?: boolean | null;
     accessibility_reduced_motion?: boolean | null;
-    accessibility_zen_mode?: boolean | null;
     ai_pricing_json?: string | null;
     appearance_color_theme?: string | null;
     appearance_explorer_view?: "cards" | "list" | null;
@@ -1428,7 +1429,6 @@ export interface components {
     accessibility_high_contrast?: boolean | null;
     accessibility_live_announcements?: boolean | null;
     accessibility_reduced_motion?: boolean | null;
-    accessibility_zen_mode?: boolean | null;
     ai_pricing_json?: string | null;
     appearance_color_theme?: string | null;
     appearance_explorer_view?: "cards" | "list" | null;

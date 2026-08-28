@@ -44,6 +44,10 @@ class AuthStore {
     displayCommonNames = $state(true);
     scientificNamePrimary = $state(false);
     liveAnnouncements = $state(true);
+    // A guest is refused /api/settings, so these arrive with auth status or not
+    // at all. Both default off: either one changes the whole interface.
+    highContrast = $state(false);
+    dyslexiaFont = $state(false);
     locationWeatherUnitSystem = $state<WeatherUnitSystem>("metric");
     locationTemperatureUnit = $state("celsius");
     dateFormat = $state("locale");
@@ -104,6 +108,8 @@ class AuthStore {
             this.displayCommonNames = status.display_common_names ?? true;
             this.scientificNamePrimary = status.scientific_name_primary ?? false;
             this.liveAnnouncements = status.accessibility_live_announcements ?? true;
+            this.highContrast = status.accessibility_high_contrast ?? false;
+            this.dyslexiaFont = status.accessibility_dyslexia_font ?? false;
             this.locationWeatherUnitSystem = resolveWeatherUnitSystem(
                 status.location_weather_unit_system,
                 status.location_temperature_unit

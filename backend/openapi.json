@@ -1251,6 +1251,16 @@
       "AuthStatusResponse": {
         "description": "Current authentication status.",
         "properties": {
+          "accessibility_dyslexia_font": {
+            "default": false,
+            "title": "Accessibility Dyslexia Font",
+            "type": "boolean"
+          },
+          "accessibility_high_contrast": {
+            "default": false,
+            "title": "Accessibility High Contrast",
+            "type": "boolean"
+          },
           "accessibility_live_announcements": {
             "default": true,
             "title": "Accessibility Live Announcements",
@@ -8657,18 +8667,6 @@
             "default": false,
             "title": "Accessibility Reduced Motion"
           },
-          "accessibility_zen_mode": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": false,
-            "title": "Accessibility Zen Mode"
-          },
           "ai_pricing_json": {
             "anyOf": [
               {
@@ -10492,18 +10490,6 @@
             ],
             "default": false,
             "title": "Accessibility Reduced Motion"
-          },
-          "accessibility_zen_mode": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": false,
-            "title": "Accessibility Zen Mode"
           },
           "ai_pricing_json": {
             "anyOf": [

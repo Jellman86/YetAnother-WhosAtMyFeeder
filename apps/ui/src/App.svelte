@@ -117,16 +117,20 @@
       return path;
   }
 
-  // Accessibility Logic
-  $effect(() => {
-      const s = settingsStore.settings;
-      if (s) {
-          if (s.accessibility_high_contrast) document.documentElement.classList.add('high-contrast');
-          else document.documentElement.classList.remove('high-contrast');
+  // Accessibility Logic. An owner reads these from settings; a guest is refused
+  // that endpoint, so the public status payload carries the same two choices.
+  const highContrast = $derived(
+      settingsStore.settings?.accessibility_high_contrast ?? authStore.highContrast
+  );
+  const dyslexiaFont = $derived(
+      settingsStore.settings?.accessibility_dyslexia_font ?? authStore.dyslexiaFont
+  );
 
-          if (s.accessibility_dyslexia_font) document.documentElement.classList.add('font-dyslexic');
-          else document.documentElement.classList.remove('font-dyslexic');
-      }
+  $effect(() => {
+      document.documentElement.classList.toggle('high-contrast', highContrast);
+  });
+  $effect(() => {
+      document.documentElement.classList.toggle('font-dyslexic', dyslexiaFont);
   });
 
   function navigate(path: string, opts: { replace?: boolean } = {}) {
