@@ -27,6 +27,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   to tell which day was active. Each chip now carries `aria-pressed`, and the chip row is a group
   named by the scope label above it, so the scope reaches a screen reader as well as the eye.
 
+- **A public visitor now gets the Explorer layout the owner chose.** Settings > Appearance calls the
+  control "the layout new devices start with", and a visitor's device is the newest device there is,
+  but the layout travelled only on `/api/settings`, which refuses everyone without owner access. So
+  the store had nothing to read, fell back to cards, and the setting was silently inert on exactly
+  the installs that have visitors. It now travels on the public status payload, the same route the
+  date and time formats already take. A visitor can still switch layout for their own device, and
+  that choice still goes no further than their browser.
+
 - **The Explorer's day chips say which detections they are counting.** The chips read
   `All 24 / Aug 27 16 / Aug 26 8` beside a heading that read `810 visits`, so two numbers measuring
   different things sat on the same row and the pair read as a fault. The chips group the page that

@@ -76,7 +76,7 @@
     let tagSearchQuery = $state('');
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
-    const explorerView = $derived(explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view));
+    const explorerView = $derived(explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view ?? authStore.explorerView));
     let selectionMode = $state(false);
     let selectedEventIds = $state<string[]>([]);
     let showBulkTagModal = $state(false);

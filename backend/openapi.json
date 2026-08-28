@@ -1256,6 +1256,11 @@
             "title": "Accessibility Live Announcements",
             "type": "boolean"
           },
+          "appearance_explorer_view": {
+            "default": "cards",
+            "title": "Appearance Explorer View",
+            "type": "string"
+          },
           "auth_required": {
             "title": "Auth Required",
             "type": "boolean"

@@ -188,6 +188,7 @@ export interface components {
 };
     AuthStatusResponse: {
     accessibility_live_announcements?: boolean;
+    appearance_explorer_view?: string;
     auth_required: boolean;
     birdnet_enabled?: boolean;
     date_format?: string;

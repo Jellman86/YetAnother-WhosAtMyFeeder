@@ -4,6 +4,7 @@ import eventsPageSource from '../pages/Events.svelte?raw';
 import appearanceSource from './settings/AppearanceSettings.svelte?raw';
 import filtersSource from './ExplorerFilters.svelte?raw';
 import storeSource from '../stores/explorer_view.svelte.ts?raw';
+import authStoreSource from '../stores/auth.svelte.ts?raw';
 
 /**
  * #270: "The explorer section tends to get crowded fast, the cards there are
@@ -74,9 +75,18 @@ describe('choosing the Explorer layout', () => {
         // The device's own choice wins where there is one; otherwise the install
         // default; and cards when the install has said nothing either.
         expect(eventsPageSource).toContain(
-            'explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view)'
+            'explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view ?? authStore.explorerView)'
         );
         expect(storeSource).toContain("this.override ?? (installDefault === 'list' ? 'list' : 'cards')");
+    });
+
+    it('reaches a guest, who is refused the settings it would otherwise come from', () => {
+        // `/api/settings` is owner-only, so for a guest `settingsStore.settings`
+        // stays null and the install default would never arrive: the setting
+        // would be inert on exactly the installs that have visitors. It travels
+        // on the public status payload instead, as the date and time formats do.
+        expect(authStoreSource).toContain("this.explorerView = status.appearance_explorer_view");
+        expect(authStoreSource).toMatch(/explorerView = \$state<'cards' \| 'list'>\('cards'\)/);
     });
 
     it('renders rows only when list is chosen', () => {
