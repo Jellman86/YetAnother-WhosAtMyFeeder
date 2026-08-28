@@ -65,3 +65,26 @@ async def test_a_client_still_sending_zen_mode_is_not_refused():
         assert "accessibility_zen_mode" not in response.json()
     finally:
         settings.auth.enabled, settings.accessibility.high_contrast = original
+
+
+def test_a_backup_taken_before_the_removal_still_imports():
+    """Restore is a user-data path: an older backup must not be refused.
+
+    `/api/settings/import` validates the whole payload through `Settings`, so a
+    backup file written by a version that still had zen mode has to validate
+    with the field simply ignored.
+    """
+    from app.config import Settings as AppSettings
+
+    # A real backup is the whole config, so start from one and put the retired
+    # key back exactly where an older version would have written it.
+    backup = settings.model_dump()
+    backup["accessibility"] = {**backup["accessibility"], "zen_mode": True}
+    backup["accessibility"]["reduced_motion"] = True
+    backup["accessibility"]["high_contrast"] = True
+
+    imported = AppSettings.model_validate(backup)
+
+    assert imported.accessibility.reduced_motion is True
+    assert imported.accessibility.high_contrast is True
+    assert not hasattr(imported.accessibility, "zen_mode")
