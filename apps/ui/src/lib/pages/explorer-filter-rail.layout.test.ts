@@ -26,6 +26,12 @@ describe('collapsing the Explorer filter rail', () => {
         expect(filtersSource).toContain("events.filters.hide_rail");
     });
 
+    it('does not fold the rail away while leaving the facets on screen', () => {
+        // The collapsed desktop shares the phone's Filters button, so collapsing
+        // with that panel open would contradict the control's own label.
+        expect(filtersSource).toContain('panelOpen = false;\n                oncollapsechange?.(!collapsed);');
+    });
+
     it('remembers the choice on the device that made it', () => {
         expect(storeSource).toContain("'yawamf:explorer-filters-collapsed'");
         expect(storeSource).toContain('try {');

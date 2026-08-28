@@ -193,7 +193,14 @@
             class="btn btn-ghost hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
             aria-expanded={!collapsed}
             aria-controls="explorer-facets"
-            onclick={() => oncollapsechange?.(!collapsed)}
+            onclick={() => {
+                // Collapsing has to close the panel too. The collapsed desktop
+                // shares the phone's Filters button, so leaving that open would
+                // fold the rail away and leave the facets on screen, under a
+                // control now reading "Show filters".
+                panelOpen = false;
+                oncollapsechange?.(!collapsed);
+            }}
             data-explorer-rail-toggle
         >
             <svg
