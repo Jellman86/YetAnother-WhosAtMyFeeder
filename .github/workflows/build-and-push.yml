@@ -186,7 +186,10 @@ jobs:
         run: |
           cd backend
           LOG_FILE=/tmp/backend-tests.log
-          TEST_TIMEOUT_SECONDS=240
+          # A hang detector, not a runtime budget: the suite passed 2,556
+          # tests and was killed mid-file at 240s after a day of added
+          # coverage. Generous enough that only a real hang trips it.
+          TEST_TIMEOUT_SECONDS=480
           HEARTBEAT_INTERVAL_SECONDS=30
           SUMMARY_GRACE_SECONDS=12
           MONITOR_INTERVAL_SECONDS=2
