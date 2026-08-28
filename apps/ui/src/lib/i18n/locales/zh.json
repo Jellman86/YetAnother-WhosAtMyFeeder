@@ -892,8 +892,6 @@
       "dyslexia_font_desc": "使用 OpenDyslexic 字体以提高可读性",
       "reduced_motion": "减少动态效果",
       "reduced_motion_desc": "禁用动画和过渡效果",
-      "zen_mode": "禅模式",
-      "zen_mode_desc": "简化界面以减少认知负荷",
       "live_announcements": "实时播报",
       "live_announcements_desc": "使用屏幕阅读器播报新的检测。"
     },

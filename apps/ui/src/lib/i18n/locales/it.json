@@ -901,8 +901,6 @@
       "dyslexia_font_desc": "Usa font OpenDyslexic per migliore leggibilità",
       "reduced_motion": "Riduzione Movimento",
       "reduced_motion_desc": "Disabilita animazioni e transizioni",
-      "zen_mode": "Modalità Zen",
-      "zen_mode_desc": "Semplifica interfaccia per ridurre carico cognitivo",
       "live_announcements": "Annunci dal vivo",
       "live_announcements_desc": "Annuncia nuovi rilevamenti con avvisi screen reader."
     },

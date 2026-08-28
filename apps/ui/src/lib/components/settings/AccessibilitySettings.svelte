@@ -8,14 +8,12 @@
         highContrast = $bindable(false),
         dyslexiaFont = $bindable(false),
         liveAnnouncements = $bindable(true),
-        reducedMotion = $bindable(false),
-        zenMode = $bindable(false)
+        reducedMotion = $bindable(false)
     }: {
         highContrast: boolean;
         dyslexiaFont: boolean;
         liveAnnouncements: boolean;
         reducedMotion: boolean;
-        zenMode: boolean;
     } = $props();
 
     // OpenDyslexic font only supports Latin characters
@@ -31,9 +29,6 @@
     });
     $effect(() => {
         document.documentElement.classList.toggle('reduced-motion', reducedMotion);
-    });
-    $effect(() => {
-        document.documentElement.classList.toggle('zen-mode', zenMode);
     });
 </script>
 
@@ -80,19 +75,6 @@
             labelledBy="setting-reduced-motion"
             srLabel={$_('settings.accessibility.reduced_motion')}
             onchange={(v) => (reducedMotion = v)}
-        />
-    </SettingsRow>
-
-    <SettingsRow
-        labelId="setting-zen-mode"
-        label={$_('settings.accessibility.zen_mode')}
-        description={$_('settings.accessibility.zen_mode_desc')}
-    >
-        <SettingsToggle
-            checked={zenMode}
-            labelledBy="setting-zen-mode"
-            srLabel={$_('settings.accessibility.zen_mode')}
-            onchange={(v) => (zenMode = v)}
         />
     </SettingsRow>
 

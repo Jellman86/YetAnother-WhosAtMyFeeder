@@ -892,8 +892,6 @@
       "dyslexia_font_desc": "OpenDyslexic-Schriftart für bessere Lesbarkeit verwenden",
       "reduced_motion": "Bewegung reduzieren",
       "reduced_motion_desc": "Animationen und Übergänge deaktivieren",
-      "zen_mode": "Zen-Modus",
-      "zen_mode_desc": "Oberfläche vereinfachen, um kognitive Belastung zu reduzieren",
       "live_announcements": "Live-Ansagen",
       "live_announcements_desc": "Neue Erkennungen per Screenreader ansagen."
     },

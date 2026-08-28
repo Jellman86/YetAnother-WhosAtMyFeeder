@@ -165,7 +165,6 @@ export interface Settings {
     accessibility_high_contrast: boolean;
     accessibility_dyslexia_font: boolean;
     accessibility_reduced_motion: boolean;
-    accessibility_zen_mode: boolean;
     accessibility_live_announcements: boolean;
     appearance_explorer_view?: 'cards' | 'list';
     appearance_font_theme?: string;

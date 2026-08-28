@@ -943,7 +943,6 @@ class SettingsUpdate(BaseModel):
     accessibility_high_contrast: Optional[bool] = False
     accessibility_dyslexia_font: Optional[bool] = False
     accessibility_reduced_motion: Optional[bool] = False
-    accessibility_zen_mode: Optional[bool] = False
     accessibility_live_announcements: Optional[bool] = True
 
     # Authentication
@@ -1416,7 +1415,6 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "accessibility_high_contrast": settings.accessibility.high_contrast,
         "accessibility_dyslexia_font": settings.accessibility.dyslexia_font,
         "accessibility_reduced_motion": settings.accessibility.reduced_motion,
-        "accessibility_zen_mode": settings.accessibility.zen_mode,
         "accessibility_live_announcements": settings.accessibility.live_announcements,
         # Appearance
         "appearance_explorer_view": settings.appearance.explorer_view,
@@ -1991,8 +1989,6 @@ async def update_settings(
         settings.accessibility.dyslexia_font = update.accessibility_dyslexia_font
     if "accessibility_reduced_motion" in fields_set and update.accessibility_reduced_motion is not None:
         settings.accessibility.reduced_motion = update.accessibility_reduced_motion
-    if "accessibility_zen_mode" in fields_set and update.accessibility_zen_mode is not None:
-        settings.accessibility.zen_mode = update.accessibility_zen_mode
     if "accessibility_live_announcements" in fields_set and update.accessibility_live_announcements is not None:
         settings.accessibility.live_announcements = update.accessibility_live_announcements
 

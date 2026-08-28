@@ -892,8 +892,6 @@
       "dyslexia_font_desc": "Utiliser la police OpenDyslexic pour une meilleure lisibilité",
       "reduced_motion": "Réduire les mouvements",
       "reduced_motion_desc": "Désactiver les animations et transitions",
-      "zen_mode": "Mode Zen",
-      "zen_mode_desc": "Simplifier l'interface pour réduire la charge cognitive",
       "live_announcements": "Annonces en direct",
       "live_announcements_desc": "Annoncer les nouvelles détections via le lecteur d’écran."
     },

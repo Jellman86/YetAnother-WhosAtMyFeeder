@@ -270,7 +270,6 @@ Discord / Pushover / Telegram / Email:
 | `ACCESSIBILITY__HIGH_CONTRAST` | `false` | High-contrast theme. |
 | `ACCESSIBILITY__DYSLEXIA_FONT` | `false` | Dyslexia-friendly font. |
 | `ACCESSIBILITY__REDUCED_MOTION` | `false` | Reduce animation. |
-| `ACCESSIBILITY__ZEN_MODE` | `false` | Minimal "zen" layout. |
 | `ACCESSIBILITY__LIVE_ANNOUNCEMENTS` | `true` | Screen-reader live announcements. |
 | `APPEARANCE__FONT_THEME` | `classic` | Font theme. |
 | `APPEARANCE__COLOR_THEME` | `bluetit` | Colour theme (`default` or `bluetit`). |

@@ -1360,7 +1360,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let dyslexiaFont = $state(false);
     let liveAnnouncements = $state(true);
     let reducedMotion = $state(false);
-    let zenMode = $state(false);
 
     // eBird
     let ebirdEnabled = $state(false);
@@ -1421,11 +1420,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     $effect(() => {
         if (reducedMotion) document.documentElement.classList.add('reduced-motion');
         else document.documentElement.classList.remove('reduced-motion');
-    });
-
-    $effect(() => {
-        if (zenMode) document.documentElement.classList.add('zen-mode');
-        else document.documentElement.classList.remove('zen-mode');
     });
 
     $effect(() => {
@@ -1902,8 +1896,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
             { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false },
             { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true },
-            { key: 'reducedMotion', val: reducedMotion, store: s.accessibility_reduced_motion ?? false },
-            { key: 'zenMode', val: zenMode, store: s.accessibility_zen_mode ?? false }
+            { key: 'reducedMotion', val: reducedMotion, store: s.accessibility_reduced_motion ?? false }
         ];
 
         if (authPassword.length > 0 || authPasswordConfirm.length > 0) {
@@ -2998,7 +2991,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
             liveAnnouncements = settings.accessibility_live_announcements ?? true;
             reducedMotion = settings.accessibility_reduced_motion ?? false;
-            zenMode = settings.accessibility_zen_mode ?? false;
 
             // Appearance (persisted)
             themeStore.setFontTheme(normalizeFontTheme(settings.appearance_font_theme));
@@ -3209,7 +3201,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 accessibility_dyslexia_font: dyslexiaFont,
                 accessibility_live_announcements: liveAnnouncements,
                 accessibility_reduced_motion: reducedMotion,
-                accessibility_zen_mode: zenMode,
 
                 // Appearance
                 appearance_font_theme: currentFontTheme,
@@ -3631,7 +3622,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:dyslexiaFont
                     bind:liveAnnouncements
                     bind:reducedMotion
-                    bind:zenMode
                 />
             {/if}
 
