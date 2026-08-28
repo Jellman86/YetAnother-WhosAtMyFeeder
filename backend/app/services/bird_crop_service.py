@@ -94,6 +94,7 @@ class _OpenVINODetectorSession:
             # silent f16 overflow on Intel GPUs, matching the classifier policy.
             config["INFERENCE_PRECISION_HINT"] = "f32"
         self._compiled = self._core.compile_model(model, self.device, config)
+        self._request = None
         self._input_port = self._compiled.inputs[0]
         self._output_ports = list(self._compiled.outputs)
 
@@ -130,14 +131,18 @@ class _OpenVINODetectorSession:
         if self._input.name not in feeds:
             raise ValueError(f"Missing detector input {self._input.name}")
         with self._lock:
-            request = self._compiled.create_infer_request()
-            values = request.infer({self._input.name: feeds[self._input.name]})
-        outputs: list[np.ndarray] = []
-        for port in self._output_ports:
-            try:
-                outputs.append(np.asarray(values[port]))
-            except Exception:
-                outputs.append(np.asarray(values[_openvino_port_name(port, "")]))
+            # One request serves every detection; a request per call churns
+            # runtime allocations on every frame (#314). The reused request
+            # rewrites its buffers on the next run, so callers get copies.
+            if self._request is None:
+                self._request = self._compiled.create_infer_request()
+            values = self._request.infer({self._input.name: feeds[self._input.name]})
+            outputs: list[np.ndarray] = []
+            for port in self._output_ports:
+                try:
+                    outputs.append(np.array(values[port]))
+                except Exception:
+                    outputs.append(np.array(values[_openvino_port_name(port, "")]))
         return outputs
 
 

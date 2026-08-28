@@ -20,6 +20,13 @@ class AudioDetection:
     sensor_id: Optional[str]
     raw_data: dict
     scientific_name: Optional[str] = None
+    source_event_id: Optional[str] = None
+
+
+# Backstop only: a day of ordinary feeder audio is far below this. It bounds a
+# payload storm inside the retention window so the buffer cannot grow without
+# limit between expiries (#314).
+MAX_BUFFER_ENTRIES = 100_000
 
 
 def _extract_birdnet_id(raw_data: dict | None) -> int | None:
@@ -55,8 +62,11 @@ def _build_source_event_id(sensor_id: str | None, raw_data: dict | None) -> str 
 
 class AudioService:
     def __init__(self):
-        # Store recent audio detections in memory for correlation
+        # Store recent audio detections in memory for correlation. The set
+        # mirrors the buffered source identities so a broker redelivery is
+        # refused in constant time rather than by rescanning a day of entries.
         self._buffer: Deque[AudioDetection] = deque()
+        self._buffered_source_ids: set[str] = set()
         # Get buffer duration from settings (convert hours to minutes)
         buffer_minutes = settings.frigate.audio_buffer_hours * 60
         self._buffer_duration = timedelta(minutes=buffer_minutes)
@@ -244,6 +254,7 @@ class AudioService:
                     except Exception:
                         pass
 
+            source_event_id = _build_source_event_id(sensor_id, data)
             detection = AudioDetection(
                 timestamp=timestamp,
                 species=species,
@@ -251,8 +262,8 @@ class AudioService:
                 sensor_id=sensor_id,
                 raw_data=data,
                 scientific_name=scientific_name,
+                source_event_id=source_event_id,
             )
-            source_event_id = _build_source_event_id(sensor_id, data)
 
             try:
                 async with get_db() as db:
@@ -275,14 +286,14 @@ class AudioService:
                 log.warning("Failed to persist audio detection", error=str(e))
                 if not diagnostic:
                     async with self._lock:
-                        self._append_to_buffer_once(detection, source_event_id=source_event_id)
+                        self._append_to_buffer_once(detection)
                 return False
 
             if diagnostic:
                 return True
 
             async with self._lock:
-                buffered = self._append_to_buffer_once(detection, source_event_id=source_event_id)
+                buffered = self._append_to_buffer_once(detection)
                 log.info(
                     "Audio detection persisted and added to correlation buffer",
                     species=species,
@@ -301,34 +312,43 @@ class AudioService:
             log.error("Failed to process audio detection", error=str(e))
             return False
 
-    def _append_to_buffer_once(self, detection: AudioDetection, *, source_event_id: str | None) -> bool:
+    def _append_to_buffer_once(self, detection: AudioDetection) -> bool:
         """Add one correlation observation without duplicating a broker redelivery."""
         self._cleanup_buffer()
-        if source_event_id and any(
-            _build_source_event_id(existing.sensor_id, existing.raw_data) == source_event_id
-            for existing in self._buffer
-        ):
+        if detection.source_event_id and detection.source_event_id in self._buffered_source_ids:
             return False
+        while len(self._buffer) >= MAX_BUFFER_ENTRIES:
+            self._discard_oldest()
+            log.warning("Audio buffer at capacity, dropped oldest entry", capacity=MAX_BUFFER_ENTRIES)
         self._buffer.append(detection)
+        if detection.source_event_id:
+            self._buffered_source_ids.add(detection.source_event_id)
         return True
 
+    def _discard_oldest(self) -> None:
+        oldest = self._buffer.popleft()
+        if oldest.source_event_id:
+            self._buffered_source_ids.discard(oldest.source_event_id)
+
     def _cleanup_buffer(self):
-        """Remove old detections from buffer."""
+        """Drop entries older than the retention window.
+
+        Entries are stamped with their ingest time, so the deque is ordered and
+        expiry pops from the left instead of rebuilding the whole buffer on
+        every append and lookup, which at a day of audio traffic was pure
+        allocation churn (#314).
+        """
         now = datetime.now(timezone.utc)
+        cutoff_seconds = self._buffer_duration.total_seconds()
         removed_count = 0
-        retained: Deque[AudioDetection] = deque()
-        for detection in self._buffer:
-            ts = detection.timestamp
-            # Ensure timezone-aware comparison
+        while self._buffer:
+            ts = self._buffer[0].timestamp
             if ts.tzinfo is None:
                 ts = ts.replace(tzinfo=timezone.utc)
-            age = (now - ts).total_seconds()
-            if age > self._buffer_duration.total_seconds():
-                removed_count += 1
-                log.debug("Removed old audio detection", species=detection.species, age=age)
-            else:
-                retained.append(detection)
-        self._buffer = retained
+            if (now - ts).total_seconds() <= cutoff_seconds:
+                break
+            self._discard_oldest()
+            removed_count += 1
 
         if removed_count > 0:
             log.info("Cleaned up audio buffer", removed=removed_count, remaining=len(self._buffer))

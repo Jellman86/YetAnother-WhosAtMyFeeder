@@ -70,7 +70,13 @@ async def test_stale_completion_after_reclaim_is_ignored():
 
     async def first_live():
         first_started.set()
-        await release_first.wait()
+        try:
+            await release_first.wait()
+        except asyncio.CancelledError:
+            # An abandoned runner is cancelled (#314); this one completes in
+            # the same window the cancellation is delivered, and its late
+            # result must still be ignored rather than double-counted.
+            pass
         return "late"
 
     task = asyncio.create_task(
@@ -300,5 +306,48 @@ async def test_submit_tolerates_timeout_race_after_item_was_already_admitted(mon
     )
 
     assert result == "background"
+
+    await coordinator.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_an_abandoned_runner_is_cancelled_not_left_holding_its_work():
+    """Reclaiming a lease must cancel the runner, not just forget it.
+
+    An abandoned runner keeps awaiting its work — for image classification an
+    executor job holding the full-resolution frame — while the freed slot
+    admits a replacement. Under sustained overload that pins one frame per
+    abandonment, indefinitely (#314).
+    """
+    coordinator = ClassificationAdmissionCoordinator(
+        live_capacity=1,
+        background_capacity=1,
+        live_lease_timeout_seconds=0.01,
+        background_lease_timeout_seconds=1.0,
+    )
+    started = asyncio.Event()
+    cancelled = asyncio.Event()
+
+    async def stuck_runner():
+        started.set()
+        try:
+            await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            cancelled.set()
+            raise
+
+    submit_task = asyncio.create_task(
+        coordinator.submit(
+            priority="live",
+            kind="snapshot_classification",
+            runner=stuck_runner,
+        )
+    )
+    await asyncio.wait_for(started.wait(), timeout=1.0)
+
+    with pytest.raises(ClassificationLeaseExpiredError):
+        await submit_task
+
+    await asyncio.wait_for(cancelled.wait(), timeout=1.0)
 
     await coordinator.shutdown()

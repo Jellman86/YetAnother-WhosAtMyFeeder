@@ -368,6 +368,12 @@ class ClassificationAdmissionCoordinator:
                 )
             if item.on_lease_expired is not None:
                 callbacks.append((item.on_lease_expired, item.work_id, item.lease_token))
+            # The abandoned runner still holds its inputs — for image work, a
+            # full-resolution frame queued in the executor — and the freed slot
+            # admits a replacement, so an uncancelled runner pins memory exactly
+            # when the box is already behind (#314).
+            if item.task is not None:
+                item.task.cancel()
         return callbacks
 
     def _is_live_pressure_active(self) -> bool:

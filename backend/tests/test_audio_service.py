@@ -118,19 +118,39 @@ async def test_add_detection_keeps_one_buffer_observation_across_storage_retry(a
 
 
 @pytest.mark.asyncio
-async def test_cleanup_buffer_removes_expired_out_of_order_observations(audio_service):
+async def test_cleanup_buffer_pops_expired_entries_from_the_head(audio_service):
     now = datetime.now(timezone.utc)
     audio_service._buffer_duration = timedelta(minutes=1)
     audio_service._buffer.extend(
         [
+            AudioDetection(now - timedelta(minutes=5), "Old Bird", 0.8, "mic", {}),
             AudioDetection(now, "Recent Bird", 0.8, "mic", {}),
-            AudioDetection(now - timedelta(minutes=5), "Late old Bird", 0.8, "mic", {}),
         ]
     )
 
     audio_service._cleanup_buffer()
 
     assert [item.species for item in audio_service._buffer] == ["Recent Bird"]
+
+
+@pytest.mark.asyncio
+async def test_a_clock_step_straggler_is_dropped_once_it_reaches_the_head(audio_service):
+    """Entries are stamped at ingest, so the buffer is ordered; only a clock
+    step can put an expired stamp behind a fresh one. Such a straggler is
+    retained until the entries ahead of it expire — bounded by the window,
+    never held forever (#314)."""
+    now = datetime.now(timezone.utc)
+    audio_service._buffer_duration = timedelta(minutes=1)
+    fresh_head = AudioDetection(now, "Recent Bird", 0.8, "mic", {})
+    straggler = AudioDetection(now - timedelta(minutes=5), "Late old Bird", 0.8, "mic", {})
+    audio_service._buffer.extend([fresh_head, straggler])
+
+    audio_service._cleanup_buffer()
+    assert len(audio_service._buffer) == 2  # bounded retention, behind a fresh head
+
+    fresh_head.timestamp = now - timedelta(minutes=2)  # the head expires
+    audio_service._cleanup_buffer()
+    assert len(audio_service._buffer) == 0
 
 
 @pytest.mark.asyncio

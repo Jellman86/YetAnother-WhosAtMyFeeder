@@ -42,6 +42,35 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Classification work that outlives its lease is now cancelled, not abandoned to run on.** When a
+  classification took longer than its lease the coordinator freed the capacity slot and admitted a
+  replacement, but the overrunning work itself was left awaiting its result, holding its inputs —
+  for image work, a full-resolution frame queued for the executor. On a box that is already behind,
+  every abandonment pinned another frame, so falling behind made the process grow exactly when it
+  could least afford to ([#314](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/314)).
+  A reclaimed lease now cancels the runner; work that completes in the same instant its
+  cancellation is delivered is still ignored as a late completion, exactly as before.
+
+- **The audio correlation buffer is now bounded and cheap to maintain.** The buffer keeps up to a
+  day of raw BirdNET payloads for audio and visual correlation, and it rebuilt the entire deque on
+  every append and lookup, plus rescanned every entry — rebuilding each one's identity string — to
+  refuse a broker redelivery. At a day of ordinary audio traffic that was billions of throwaway
+  allocations, feeding the steady memory growth in
+  [#314](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/314). Entries are stamped at
+  ingest so the buffer is ordered: expiry now pops from the head, redeliveries are refused by a
+  mirrored identity set in constant time, and a hard backstop caps the buffer during a payload
+  storm. One deliberate trade: after a backwards clock step, an expired entry behind a fresher one
+  is retained until the entries ahead of it expire — bounded by the window — where before it was
+  removed immediately.
+
+- **One OpenVINO inference request now serves every classification.** Each classification and each
+  detector pass created a fresh inference request, and with it fresh runtime buffers — allocations
+  the runtime and allocator do not hand back, so busy hours turned into resident memory that never
+  returned ([#314](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/314)). The request
+  is now created once per compiled model and reused, and because a reused request rewrites its
+  output buffer on the next inference, results are copied to the caller instead of aliasing the
+  buffer — which also removes a path where a held result could be silently overwritten.
+
 - **Saving settings that change the inference provider no longer stalls the backend either.**
   Taking hardware detection off the status path left one road back onto the event loop: a settings
   save that changes the provider or execution mode reloads the classifier as a background task, and

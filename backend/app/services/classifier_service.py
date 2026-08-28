@@ -2329,6 +2329,7 @@ class OpenVINOModelInstance:
         )
         self.core = None
         self.compiled_model = None
+        self._infer_request = None
         self.input_name: Optional[str] = None
         self.labels: list[str] = []
         self.grouped_labels: list[str] = []
@@ -2479,6 +2480,7 @@ class OpenVINOModelInstance:
                     pass  # Non-fatal; proceed with original dynamic shape
 
             self.compiled_model = self.core.compile_model(model, self.device_name, config=config)
+            self._infer_request = None
             self.input_name = self.compiled_model.inputs[0].get_any_name()
             if self._startup_self_test_enabled and (_is_gpu or _is_npu):
                 # Reused for the NPU as well — validates the compiled model isn't
@@ -2504,6 +2506,7 @@ class OpenVINOModelInstance:
                 diagnostics=exc.diagnostics,
             )
             self.compiled_model = None
+            self._infer_request = None
             self.core = None
             self.loaded = False
             return False
@@ -2577,13 +2580,18 @@ class OpenVINOModelInstance:
         except Exception:
             pass
         with self._lock:
-            infer_request = self.compiled_model.create_infer_request()
-            outputs = infer_request.infer({self.input_name: input_tensor})
-        try:
-            raw = outputs[self.compiled_model.outputs[0]]
-        except Exception:
-            raw = next(iter(outputs.values()))
-        return np.asarray(raw)
+            # One request serves every inference: a request per call churns
+            # runtime allocations on every classification (#314).
+            if self._infer_request is None:
+                self._infer_request = self.compiled_model.create_infer_request()
+            outputs = self._infer_request.infer({self.input_name: input_tensor})
+            try:
+                raw = outputs[self.compiled_model.outputs[0]]
+            except Exception:
+                raw = next(iter(outputs.values()))
+            # The reused request rewrites this buffer on its next inference, so
+            # the caller must own a copy.
+            return np.array(raw)
 
     def _infer_logits(self, image: Image.Image) -> np.ndarray:
         raw = self._infer_output_tensor(image)
