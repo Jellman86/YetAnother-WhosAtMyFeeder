@@ -1020,6 +1020,7 @@ def _naming_health() -> dict[str, object]:
 
 def build_health_payload() -> dict[str, object]:
     from app.services.host_facts import collect_host_facts
+    from app.services.process_memory import collect_process_memory
 
     startup_warnings = getattr(app.state, "startup_warnings", [])
     startup_instance_id = getattr(app.state, "startup_instance_id", "unknown")
@@ -1069,6 +1070,10 @@ def build_health_payload() -> dict[str, object]:
         # without it, and two bundles were exchanged on #300 before anyone could
         # say whether the host was a small box or a large one.
         "host": collect_host_facts(),
+        # Where this process's memory sits. Resident memory grew eightfold in a
+        # day with no change of model (#314), and a curve without attribution
+        # can only be guessed at.
+        "process_memory": collect_process_memory(),
         "startup_instance_id": startup_instance_id,
         "startup_started_at": startup_started_at,
     }
