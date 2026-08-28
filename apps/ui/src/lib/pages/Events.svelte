@@ -1270,7 +1270,10 @@
                 {/each}
             </div>
         {:else}
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-4">
+            <!-- A minimum card width keeps the overlay row's one-line guarantee
+                 structural: fixed column counts measured 141-227px cards beside
+                 the open sidebar and filter rail, clipping the play button. -->
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
                 {#each visibleEvents as event, index (eventKey(event))}
                     <DetectionCard 
                         detection={event} 

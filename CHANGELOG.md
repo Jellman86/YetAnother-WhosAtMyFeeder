@@ -59,6 +59,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A card is now actually always wide enough for its bottom row.** The last release stopped the
+  time-and-score row wrapping up over the bird and promised a card wide enough for one line, but
+  fixed column counts could not keep that promise: with the sidebar and the filter rail open, the
+  three-column range at 768-1279px measured cards of 141-227px against a row that needs about
+  219px in 12-hour locales, and the card's own overflow clipping cut the play button off entirely
+  on an ordinary laptop. The grid now lays out as many columns as fit a minimum card width of
+  16rem, so the guarantee is structural rather than a hope per breakpoint - at some widths that
+  means fewer, larger cards.
+
 - **Classification work that outlives its lease is now cancelled, not abandoned to run on.** When a
   classification took longer than its lease the coordinator freed the capacity slot and admitted a
   replacement, but the overrunning work itself was left awaiting its result, holding its inputs —
