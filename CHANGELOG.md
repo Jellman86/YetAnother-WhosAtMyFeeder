@@ -51,6 +51,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   A reclaimed lease now cancels the runner; work that completes in the same instant its
   cancellation is delivered is still ignored as a late completion, exactly as before.
 
+- **One OpenVINO inference request now serves every classification.** Each classification and each
+  detector pass created a fresh inference request, and with it fresh runtime buffers — allocations
+  the runtime and allocator do not hand back, so busy hours turned into resident memory that never
+  returned ([#314](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/314)). The request
+  is now created once per compiled model and reused, and because a reused request rewrites its
+  output buffer on the next inference, results are copied to the caller instead of aliasing the
+  buffer — which also removes a path where a held result could be silently overwritten.
+
 - **Saving settings that change the inference provider no longer stalls the backend either.**
   Taking hardware detection off the status path left one road back onto the event loop: a settings
   save that changes the provider or execution mode reloads the classifier as a background task, and
