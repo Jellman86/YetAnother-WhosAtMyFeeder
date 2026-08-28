@@ -41,7 +41,7 @@
         videoClassificationMaxConcurrent = $bindable(1),
         videoClassificationFrames = $bindable(15),
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
-        imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('in_process'),
+        imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('subprocess'),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu'>('auto'),
         classifierStatus = null,
         videoCircuitOpen = false,
@@ -741,7 +741,7 @@
                 <SettingsRow
                     labelId="setting-execution-mode"
                     label={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
-                    description={$_('settings.detection.execution_mode_desc', { default: 'In-Process uses much less RAM by sharing model weights, especially with larger models. Subprocess provides stronger isolation and stability, but uses significantly more memory.' })}
+                    description={$_('settings.detection.execution_mode_desc', { default: 'Subprocess, the default, identifies birds in worker processes the app can restart, so a stalled or crashed identification never takes the interface down. The workers match your concurrency setting, and each keeps its own copy of the model in memory. In-Process keeps a single copy inside the app itself: less memory, but heavy identification competes with the pages you are looking at.' })}
                     layout="stacked"
                 >
                     <SettingsSelect
@@ -754,6 +754,30 @@
                         ]}
                         onchange={(v) => (imageExecutionMode = v)}
                     />
+                    {#if imageExecutionMode === 'subprocess' && classifierStatus?.resolved_live_workers}
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                            {$_('settings.detection.execution_mode_worker_plan', {
+                                default:
+                                    'Resolved for this install: {live} live and {background} background worker processes, each with its own copy of the model.',
+                                values: {
+                                    live: classifierStatus.resolved_live_workers,
+                                    background: classifierStatus.resolved_background_workers ?? 1
+                                }
+                            })}
+                            {#if classifierStatus.active_model_estimated_ram_mb}
+                                {$_('settings.detection.execution_mode_worker_ram', {
+                                    default: 'The active model is estimated at {each} MB per copy, about {total} MB across the workers.',
+                                    values: {
+                                        each: classifierStatus.active_model_estimated_ram_mb,
+                                        total:
+                                            classifierStatus.active_model_estimated_ram_mb *
+                                            ((classifierStatus.resolved_live_workers ?? 1) +
+                                                (classifierStatus.resolved_background_workers ?? 1))
+                                    }
+                                })}
+                            {/if}
+                        </p>
+                    {/if}
                 </SettingsRow>
 
             {#if classifierStatus}

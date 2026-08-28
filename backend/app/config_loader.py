@@ -97,6 +97,12 @@ CLASSIFICATION_ENV_OVERRIDES: dict[str, tuple[str, ...]] = {
 }
 
 
+def _optional_int(raw: str | None) -> int | None:
+    if raw is None or not raw.strip():
+        return None
+    return int(raw)
+
+
 def _classification_overridden_by_env(key: str) -> bool:
     env_keys = CLASSIFICATION_ENV_OVERRIDES.get(key, ())
     return any(env_key in os.environ for env_key in env_keys)
@@ -245,9 +251,10 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             == "true"
         ),
         "inference_provider": default_inference_provider,
-        "image_execution_mode": os.environ.get("CLASSIFICATION__IMAGE_EXECUTION_MODE", "in_process"),
-        "live_worker_count": int(os.environ.get("CLASSIFICATION__LIVE_WORKER_COUNT", "2")),
-        "background_worker_count": int(os.environ.get("CLASSIFICATION__BACKGROUND_WORKER_COUNT", "1")),
+        "image_execution_mode": os.environ.get("CLASSIFICATION__IMAGE_EXECUTION_MODE", "subprocess"),
+        # Unset means "derive from the configured concurrency" (#312).
+        "live_worker_count": _optional_int(os.environ.get("CLASSIFICATION__LIVE_WORKER_COUNT")),
+        "background_worker_count": _optional_int(os.environ.get("CLASSIFICATION__BACKGROUND_WORKER_COUNT")),
         "worker_heartbeat_timeout_seconds": float(
             os.environ.get("CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS", "5.0")
         ),
@@ -255,7 +262,10 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "background_worker_hard_deadline_seconds": float(
             os.environ.get("CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS", "120.0")
         ),
-        "worker_ready_timeout_seconds": float(os.environ.get("CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS", "20.0")),
+        # Startup runs hardware probes and, on an accelerator, a model compile
+        # that can take tens of seconds; a 20s budget flapped worker startup on
+        # exactly that hardware once subprocess became the default (#312).
+        "worker_ready_timeout_seconds": float(os.environ.get("CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS", "60.0")),
         "worker_restart_window_seconds": float(os.environ.get("CLASSIFICATION__WORKER_RESTART_WINDOW_SECONDS", "60.0")),
         "worker_restart_threshold": int(os.environ.get("CLASSIFICATION__WORKER_RESTART_THRESHOLD", "3")),
         "worker_breaker_cooldown_seconds": float(

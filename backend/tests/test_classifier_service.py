@@ -566,9 +566,11 @@ def test_safe_softmax_non_strict_mode_coerces_all_non_finite_logits(monkeypatch)
 def test_classifier_supervisor_config_defaults():
     config = ClassificationSettings()
 
-    assert config.image_execution_mode == "in_process"
-    assert config.live_worker_count == 2
-    assert config.background_worker_count == 1
+    # Inference does not share a process with the web service by default, and
+    # unset worker counts follow the configured concurrency (#312).
+    assert config.image_execution_mode == "subprocess"
+    assert config.live_worker_count is None
+    assert config.background_worker_count is None
     assert config.worker_heartbeat_timeout_seconds == pytest.approx(5.0)
     assert config.worker_hard_deadline_seconds == pytest.approx(60.0)
     assert config.background_worker_hard_deadline_seconds == pytest.approx(120.0)

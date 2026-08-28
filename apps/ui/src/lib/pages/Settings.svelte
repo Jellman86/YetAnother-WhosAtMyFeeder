@@ -240,7 +240,7 @@
     let videoClassificationMaxConcurrent = $state(1);
     let videoClassificationFrames = $state(15);
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
-    let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('in_process');
+    let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('subprocess');
     let inferenceProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto');
     let videoCircuitOpen = $state(false);
     let videoCircuitUntil = $state<string | null>(null);
@@ -1754,7 +1754,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
             { key: 'videoClassificationMaxConcurrent', val: videoClassificationMaxConcurrent, store: s.video_classification_max_concurrent ?? 1 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
-            { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'in_process' },
+            { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'subprocess' },
             { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
             { key: 'inferenceProvider', val: inferenceProvider, store: normalizeInferenceProvider(s.inference_provider) },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
@@ -2722,7 +2722,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 1;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
-            imageExecutionMode = settings.image_execution_mode ?? 'in_process';
+            imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
             strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
             inferenceProvider = normalizeInferenceProvider(settings.inference_provider);
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;

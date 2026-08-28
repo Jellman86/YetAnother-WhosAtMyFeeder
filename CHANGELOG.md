@@ -40,6 +40,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   still names `zen_mode` keeps loading, and the key is dropped the next time settings are saved;
   `ACCESSIBILITY__ZEN_MODE` no longer does anything and can be removed from a compose file.
 
+### Changed
+
+- **A fresh install now runs inference out of the web service's process.** With the old
+  `in_process` default, a busy feeder took the interface away from itself: identification ran on
+  threads inside the process serving every page, and the setting that fixes it lives on the
+  Settings page being starved ([#312](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/312),
+  found through [#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)). New
+  installs default to `subprocess`: supervised worker processes the app can kill and restart when
+  they stall, spawned only when work actually arrives. Worker counts now follow the configured
+  concurrency (`CLASSIFIER_IMAGE_MAX_CONCURRENT`) so every admitted job has a process to run in,
+  except on a single accelerator (`cuda`, `intel_gpu`, `intel_npu`), where one worker is derived —
+  the device serialises inference, so extra workers cost a model copy each and add no speed. An
+  explicitly set mode or worker count is kept exactly as written, and every existing install keeps
+  the mode saved in its `config.json`. The honest trade: each worker holds its own copy of the
+  model, so the default costs more memory than one shared copy — it buys an interface that stays
+  responsive under load and inference that can be restarted rather than waited out.
+
 ### Fixed
 
 - **Classification work that outlives its lease is now cancelled, not abandoned to run on.** When a

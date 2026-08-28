@@ -165,6 +165,40 @@ log = structlog.get_logger()
 
 SUPPORTED_INFERENCE_PROVIDERS = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu", "intel_npu"}
 CLASSIFIER_IMAGE_MAX_CONCURRENT = max(1, int(os.getenv("CLASSIFIER_IMAGE_MAX_CONCURRENT", "2")))
+
+# A single accelerator serialises inference, so extra workers on it are a model
+# copy apiece with no parallelism. `auto` is treated as CPU: the provider is
+# only resolved after hardware detection, and a CPU-sized pool is the honest
+# default for the installs that have not pinned one (#312).
+SINGLE_DEVICE_INFERENCE_PROVIDERS = frozenset({"cuda", "intel_gpu", "intel_npu"})
+
+
+def resolve_image_worker_counts(
+    *,
+    configured_live: int | None,
+    configured_background: int | None,
+    image_max_concurrent: int,
+    inference_provider: str,
+) -> tuple[int, int]:
+    """Worker counts for subprocess mode: explicit values kept, unset derived.
+
+    The derived live count follows the configured concurrency so every
+    admitted job has a worker process to run in — a pool smaller than
+    admission burns leases in a queue the caller cannot see (#314). Each
+    worker holds its own copy of the model, so the count is also the memory
+    price, stated in Settings.
+    """
+    provider = (inference_provider or "auto").strip().lower()
+    if configured_live:
+        live = max(1, int(configured_live))
+    elif provider in SINGLE_DEVICE_INFERENCE_PROVIDERS:
+        live = 1
+    else:
+        live = max(1, int(image_max_concurrent))
+    background = max(1, int(configured_background)) if configured_background else 1
+    return live, background
+
+
 CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS = max(
     0.05,
     float(os.getenv("CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS", "0.5")),
@@ -2703,7 +2737,7 @@ class ClassifierService:
         self._models_lock = threading.Lock()
         self._worker_process_mode = bool(worker_process_mode)
         configured_mode = (
-            str(getattr(settings.classification, "image_execution_mode", "in_process") or "in_process").strip().lower()
+            str(getattr(settings.classification, "image_execution_mode", "subprocess") or "subprocess").strip().lower()
         )
         self._image_execution_mode = "in_process" if self._worker_process_mode else configured_mode
         self._classifier_supervisor = supervisor
@@ -2720,13 +2754,20 @@ class ClassifierService:
             ),
         )
         image_workers = CLASSIFIER_IMAGE_MAX_CONCURRENT
+        # One resolution serves admission and the pool: every admitted job has
+        # a worker, so a lease can only expire on work that is actually running.
+        resolved_live_workers, resolved_background_workers = resolve_image_worker_counts(
+            configured_live=getattr(settings.classification, "live_worker_count", None),
+            configured_background=getattr(settings.classification, "background_worker_count", None),
+            image_max_concurrent=image_workers,
+            inference_provider=str(getattr(settings.classification, "inference_provider", "auto") or "auto"),
+        )
         live_admission_capacity = image_workers
         background_admission_capacity = 1
         if self._image_execution_mode == "subprocess":
-            live_admission_capacity = int(
-                getattr(settings.classification, "live_worker_count", image_workers) or image_workers
-            )
-            background_admission_capacity = int(getattr(settings.classification, "background_worker_count", 1) or 1)
+            live_admission_capacity = resolved_live_workers
+            background_admission_capacity = resolved_background_workers
+        self._resolved_image_worker_counts = (resolved_live_workers, resolved_background_workers)
         self._image_executor = ThreadPoolExecutor(max_workers=image_workers, thread_name_prefix="ml_image_worker")
         self._live_image_executor = ThreadPoolExecutor(
             max_workers=image_workers, thread_name_prefix="ml_live_image_worker"
@@ -2763,10 +2804,8 @@ class ClassifierService:
                 ),
             )
             isolated_supervisor = ClassifierSupervisor(
-                live_worker_count=int(
-                    getattr(settings.classification, "live_worker_count", image_workers) or image_workers
-                ),
-                background_worker_count=int(getattr(settings.classification, "background_worker_count", 1) or 1),
+                live_worker_count=resolved_live_workers,
+                background_worker_count=resolved_background_workers,
                 video_worker_count=video_workers,
                 heartbeat_timeout_seconds=float(
                     getattr(settings.classification, "worker_heartbeat_timeout_seconds", 5.0) or 5.0
@@ -4572,6 +4611,7 @@ class ClassifierService:
         )
         image_flavor = get_image_flavor()
         packaged_providers = packaged_inference_providers(image_flavor)
+        active_model_estimated_ram_mb: Optional[int] = None
         try:
             active_model_spec = self._resolve_active_bird_model_spec()
             supported_providers = list(active_model_spec.get("supported_inference_providers") or [])
@@ -4579,6 +4619,8 @@ class ClassifierService:
             provider_order = list(active_model_spec.get("host_provider_preference_order") or [])
             candidate_providers = list(active_model_spec.get("candidate_inference_providers") or supported_providers)
             effective_model_id = str(active_model_spec.get("model_id") or active_model_id or "").strip() or None
+            raw_ram = active_model_spec.get("estimated_ram_mb")
+            active_model_estimated_ram_mb = int(raw_ram) if raw_ram else None
         except Exception:
             supported_providers = []
             validated_providers = []
@@ -4595,6 +4637,12 @@ class ClassifierService:
 
         status = {
             "image_execution_mode": self._image_execution_mode,
+            # The worker count is derived from concurrency and provider now, so
+            # Settings must be able to show what it resolved to and what each
+            # worker costs — the price is stated, not implied (#312).
+            "resolved_live_workers": self._resolved_image_worker_counts[0],
+            "resolved_background_workers": self._resolved_image_worker_counts[1],
+            "active_model_estimated_ram_mb": active_model_estimated_ram_mb,
             "accel_caps_age_seconds": accel_caps_age,
             "accel_caps_stale": self.accel_caps_are_stale(),
             "image_flavor": image_flavor,

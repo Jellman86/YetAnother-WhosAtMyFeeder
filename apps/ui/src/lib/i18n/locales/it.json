@@ -1269,6 +1269,8 @@
       "openvino_status": "OpenVINO",
       "execution_mode": "Modalità di esecuzione",
       "execution_mode_desc": "In-Process usa molta meno RAM condividendo i pesi del modello, soprattutto con modelli più grandi. Subprocess offre isolamento e stabilità maggiori, ma usa molta più memoria.",
+      "execution_mode_worker_plan": "Risolto per questa installazione: {live} processi worker live e {background} in background, ognuno con la propria copia del modello.",
+      "execution_mode_worker_ram": "Il modello attivo è stimato in {each} MB per copia, circa {total} MB tra tutti i worker.",
       "mode_subprocess": "Subprocess (Isolato)",
       "mode_in_process": "In-Process (RAM condivisa)",
       "model_lineup_eyebrow": "Gamma di modelli a livelli",

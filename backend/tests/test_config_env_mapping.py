@@ -34,7 +34,8 @@ def test_classification_stale_minutes_env_override(monkeypatch):
     assert loaded.classification.video_classification_stale_minutes == 61
 
 
-def test_classification_image_execution_mode_defaults_to_in_process(monkeypatch, tmp_path):
+def test_classification_image_execution_mode_defaults_to_subprocess(monkeypatch, tmp_path):
+    """Inference does not share a process with the web service by default (#312)."""
     config_path = tmp_path / "config.json"
     config_path.write_text("{}", encoding="utf-8")
     monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
@@ -42,7 +43,7 @@ def test_classification_image_execution_mode_defaults_to_in_process(monkeypatch,
 
     loaded = Settings.load()
 
-    assert loaded.classification.image_execution_mode == "in_process"
+    assert loaded.classification.image_execution_mode == "subprocess"
 
 
 def test_notification_cooldown_env_override(monkeypatch):
@@ -254,7 +255,10 @@ CLASSIFICATION_ENV_PRECEDENCE_CASES = [
         "worker_ready_timeout_seconds",
         "CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS",
         "22.5",
-        20.0,
+        # Startup runs hardware probes and, on an accelerator, a model compile
+        # that can take tens of seconds; with subprocess the default mode, a
+        # 20s budget flapped worker startup on exactly that hardware (#312).
+        60.0,
         22.5,
     ),
     (
