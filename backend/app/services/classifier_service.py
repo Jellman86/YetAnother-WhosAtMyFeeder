@@ -1712,6 +1712,21 @@ async def shutdown_classifier() -> None:
             _classifier_instance = None
 
 
+async def reload_classifier_out_of_band(*, full_restart: bool) -> None:
+    """Rebuild or reload the classifier away from the event loop.
+
+    Constructing ClassifierService detects hardware — child processes with five
+    second timeouts apiece — and may load the model, synchronously. A settings
+    save runs its reload as a background task on the event loop, so the
+    construction must happen in a worker thread or every concurrent request
+    stalls behind it (#313).
+    """
+    if full_restart:
+        await shutdown_classifier()
+    service = await asyncio.to_thread(get_classifier)
+    await service.reload_bird_model()
+
+
 def resolve_live_classifier(stored: Any) -> "ClassifierService":
     """Return the current live ClassifierService, repairing a stale cached ref.
 
@@ -4164,19 +4179,26 @@ class ClassifierService:
 
     async def reload_bird_model(self):
         """Reload the bird model (e.g., after switching models)."""
-        with self._models_lock:
-            if "bird" in self._models:
-                # Cleanup old model resources before replacing
-                old_model = self._models.pop("bird")
-                if hasattr(old_model, "cleanup"):
-                    old_model.cleanup()
-                del old_model
 
-            # 1. Initialize locally ONLY if we are a worker or NOT in subprocess mode.
-            # This prevents the main process from loading large models into RAM when it
-            # should be using supervisor workers instead.
-            if self._worker_process_mode or self._image_execution_mode != "subprocess":
-                self._init_bird_model()
+        def replace_bird_model_locked() -> None:
+            with self._models_lock:
+                if "bird" in self._models:
+                    # Cleanup old model resources before replacing
+                    old_model = self._models.pop("bird")
+                    if hasattr(old_model, "cleanup"):
+                        old_model.cleanup()
+                    del old_model
+
+                # 1. Initialize locally ONLY if we are a worker or NOT in subprocess mode.
+                # This prevents the main process from loading large models into RAM when it
+                # should be using supervisor workers instead.
+                if self._worker_process_mode or self._image_execution_mode != "subprocess":
+                    self._init_bird_model()
+
+        # Model init loads weights and re-detects hardware, which spawns child
+        # processes. A reload is triggered from request handlers' background
+        # tasks, which run on the event loop, so the work leaves it (#313).
+        await asyncio.to_thread(replace_bird_model_locked)
 
         # 2. If we have a supervisor (main process in subprocess mode),
         # tell it to restart all workers to pick up the new model.

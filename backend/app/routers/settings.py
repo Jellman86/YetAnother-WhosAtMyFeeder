@@ -2022,13 +2022,12 @@ async def update_settings(
         background_tasks.add_task(start_background_refresh)
 
     if inference_provider_changed or execution_mode_changed:
-        from app.services.classifier_service import get_classifier, shutdown_classifier
+        from app.services.classifier_service import reload_classifier_out_of_band
 
         async def full_reload():
             if execution_mode_changed:
                 log.info("Execution mode changed, performing full classifier service restart")
-                await shutdown_classifier()
-            await get_classifier().reload_bird_model()
+            await reload_classifier_out_of_band(full_restart=execution_mode_changed)
 
         background_tasks.add_task(full_reload)
 
@@ -2714,13 +2713,13 @@ async def reset_video_circuit(
 @router.delete("/maintenance/feedback/clear", response_model=ClearFeedbackResponse)
 async def clear_classification_feedback(background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Clear all personalized re-ranking classification feedback. Owner only."""
-    from app.services.classifier_service import get_classifier
+    from app.services.classifier_service import reload_classifier_out_of_band
 
     async with get_db() as db:
         repo = DetectionRepository(db)
         deleted_count = await repo.clear_all_classification_feedback()
 
-    background_tasks.add_task(get_classifier().reload_bird_model)
+    background_tasks.add_task(reload_classifier_out_of_band, full_restart=False)
 
     return {
         "status": "success",

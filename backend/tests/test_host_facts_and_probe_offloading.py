@@ -11,13 +11,12 @@ report cannot be sized. Two bundles and a HAR could not answer "is this machine
 big enough".
 """
 
-from unittest.mock import patch
+import asyncio
+import threading
+from unittest.mock import AsyncMock, MagicMock, patch
 
+from app.services import classifier_service
 from app.services.classifier_service import ClassifierService
-
-
-class _Probeless:
-    """A classifier whose capability cache is stale and must not refresh inline."""
 
 
 def test_status_does_not_detect_capabilities_inline():
@@ -68,3 +67,56 @@ def test_host_facts_never_raise_on_an_unusual_platform():
 
     assert facts["cpu_quota"] is None
     assert facts["cpu_count"] is not None
+
+
+def test_reload_does_not_run_model_init_on_the_event_loop():
+    """A model reload loads the model in a worker thread, not on the loop.
+
+    Saving settings with a changed provider triggers a reload from a request
+    handler's background task, which runs on the event loop. Model init also
+    re-detects hardware, which spawns subprocesses — the #313 stall, moved from
+    the status read to the settings write, unless it leaves the loop.
+    """
+    service = ClassifierService.__new__(ClassifierService)
+    service._models_lock = threading.Lock()
+    service._models = {}
+    service._worker_process_mode = False
+    service._image_execution_mode = "in_process"
+    service._classifier_supervisor = None
+    service._video_supervisor = None
+
+    init_threads: list[int] = []
+    service._init_bird_model = lambda: init_threads.append(threading.get_ident())  # type: ignore[method-assign]
+
+    async def reload_and_report_loop_thread() -> int:
+        await service.reload_bird_model()
+        return threading.get_ident()
+
+    loop_thread = asyncio.run(reload_and_report_loop_thread())
+
+    assert init_threads, "the reload never initialised the model"
+    assert init_threads[0] != loop_thread
+
+
+def test_settings_triggered_reload_builds_the_classifier_off_the_loop():
+    """Rebuilding the classifier singleton must not happen on the event loop.
+
+    Constructing ClassifierService detects hardware and loads the model
+    synchronously, so the settings-save path has to do the construction in a
+    worker thread.
+    """
+    built_threads: list[int] = []
+
+    def record_build() -> MagicMock:
+        built_threads.append(threading.get_ident())
+        return MagicMock(reload_bird_model=AsyncMock())
+
+    async def reload_and_report_loop_thread() -> int:
+        with patch.object(classifier_service, "get_classifier", side_effect=record_build):
+            await classifier_service.reload_classifier_out_of_band(full_restart=False)
+        return threading.get_ident()
+
+    loop_thread = asyncio.run(reload_and_report_loop_thread())
+
+    assert built_threads, "the reload never touched the classifier singleton"
+    assert built_threads[0] != loop_thread

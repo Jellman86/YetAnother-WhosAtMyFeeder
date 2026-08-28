@@ -42,6 +42,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Saving settings that change the inference provider no longer stalls the backend either.**
+  Taking hardware detection off the status path left one road back onto the event loop: a settings
+  save that changes the provider or execution mode reloads the classifier as a background task, and
+  that task rebuilt the service and loaded the model inline — the same subprocess probes, the same
+  stalled requests, just triggered by a write instead of a read. Clearing classification feedback
+  reloaded the model the same way. Both reloads now build the classifier and load the model in a
+  worker thread, so a settings save costs the saver a moment and everyone else nothing
+  ([#313](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/313)).
+
 - **A status request no longer stops the backend answering anything else.** Asking for classifier
   status re-detected the machine's hardware capabilities, and detection starts up to three
   short-lived child processes that each import an inference runtime, with a five second timeout
