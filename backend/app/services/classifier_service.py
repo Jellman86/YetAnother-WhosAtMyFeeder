@@ -2953,6 +2953,13 @@ class ClassifierService:
         self._inference_fallback_reason = f"{prev_reason}; {reason}" if prev_reason else reason
 
     def _refresh_accel_caps(self, *, force: bool = False) -> dict[str, Any]:
+        """Detect capabilities. Expensive: spawns child processes.
+
+        `_detect_acceleration_capabilities()` starts short-lived Python processes
+        that import an inference runtime and enumerate devices, each with a five
+        second timeout. Never call this from a request handler; use
+        `_accel_caps_for_read()` there instead (#313).
+        """
         now = time.monotonic()
         if (
             not force
@@ -2963,6 +2970,36 @@ class ClassifierService:
         self._accel_caps = _detect_acceleration_capabilities()
         self._accel_caps_last_refreshed_monotonic = now
         return self._accel_caps
+
+    def _accel_caps_for_read(self) -> dict[str, Any]:
+        """The last known capabilities, without going to find out.
+
+        A status request used to refresh these inline, which spawned subprocesses
+        on the event loop and stalled every concurrent request behind them. A
+        reporter's capture showed `/api/version`, which returns a fixed string,
+        waiting 22.5 seconds for its first byte (#313).
+        """
+        return self._accel_caps
+
+    def _accel_caps_age_seconds(self) -> Optional[float]:
+        """How old the reading is, or None if one has never been taken."""
+        if self._accel_caps_last_refreshed_monotonic is None:
+            return None
+        return max(0.0, time.monotonic() - self._accel_caps_last_refreshed_monotonic)
+
+    def accel_caps_are_stale(self) -> bool:
+        age = self._accel_caps_age_seconds()
+        return age is None or age > self._accel_caps_ttl_seconds
+
+    async def refresh_accel_caps_off_request_path(self) -> None:
+        """Re-detect capabilities in a worker thread, never on the event loop.
+
+        Detection spawns child processes, so it is moved off the loop entirely
+        rather than merely made less frequent (#313).
+        """
+        if not self.accel_caps_are_stale():
+            return
+        await asyncio.to_thread(self._refresh_accel_caps, force=True)
 
     def _build_bird_model_for_backend(
         self,
@@ -4442,7 +4479,10 @@ class ClassifierService:
         bird = self._models.get("bird")
         admission_metrics = self._classification_admission.get_metrics()
         live_image_health = self._describe_live_image_health(admission_metrics)
-        self._refresh_accel_caps()
+        # Reads the last known capabilities rather than detecting them. Detection
+        # spawns subprocesses, and this runs on the event loop (#313).
+        self._accel_caps_for_read()
+        accel_caps_age = self._accel_caps_age_seconds()
         supervisor_metrics = self._get_supervisor_metrics()
         effective_runtime_recovery = (
             self._latest_worker_runtime_recovery(supervisor_metrics)
@@ -4499,6 +4539,8 @@ class ClassifierService:
 
         status = {
             "image_execution_mode": self._image_execution_mode,
+            "accel_caps_age_seconds": accel_caps_age,
+            "accel_caps_stale": accel_caps_age is None or accel_caps_age > self._accel_caps_ttl_seconds,
             "image_flavor": image_flavor,
             "packaged_inference_providers": list(packaged_providers),
             "image_flavor_warning": image_flavor_warning(image_flavor, selected_provider),

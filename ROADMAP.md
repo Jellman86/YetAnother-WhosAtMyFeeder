@@ -551,6 +551,55 @@ it scans `detections` once per request before the slow part starts. Neither is a
 index. Both want measuring on a database with a realistic long tail rather than on species counts
 that happen to be healthy.
 
+#### Keep the web service and ingest off the inference path 🧵
+**Priority:** P1 | **Effort:** M
+
+Tracked in [#312](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/312) and
+[#313](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/313), both found while
+diagnosing [#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300).
+
+MQTT ingest starts as a background task inside the API process, and with the default
+`image_execution_mode: in_process` inference joins them on a `ThreadPoolExecutor`. Three tiers with
+very different obligations therefore share one process, and nothing bounds how much CPU inference
+takes: ONNX hardcodes `intra_op_num_threads = 4` regardless of the host, OpenVINO is configured
+`PERFORMANCE_HINT: LATENCY` with no thread cap, and the container is shipped with no CPU limit.
+
+It is already costing detections rather than just page loads. A reporter's bundle records
+`save_and_notify` timing out after six seconds with `fault_drops: 1` and `critical_failures: 1`,
+which is a lost detection and therefore a section 1 concern.
+
+✅ The first slice is delivered: hardware capability detection no longer happens on a request. It
+spawned up to three child processes, each importing an inference runtime with a five second timeout,
+inline in an `async def`. A reporter's capture showed `/api/version`, which returns a fixed string,
+waiting 22,551ms for its first byte with 0ms queued in the browser, alongside four other requests
+finishing at the same instant. Detection now runs on a schedule off the request path and a status
+read reports the age of its answer.
+
+The outcome still wanted is a process boundary between tier 1 (ingest and the API) and tiers 2 and 3
+(live, then background and video inference), plus CPU headroom so tier 1 is always schedulable. A
+process boundary also makes a stalled inference killable, which an in-process thread is not: the
+issue-33 plan records that the coordinator "cannot stop the underlying Python/native worker thread".
+
+What blocks a default change is a measurement, not a decision. Memory per worker is one model copy
+plus a 512MB crop detector, and the naive comparison is misleading: the same instance measured
+633MiB immediately after restart and 4.815GiB after about a day, an eightfold growth with no change
+of model. Any comparison between the modes has to be taken at a matched age over hours.
+
+Complete when a fresh install runs inference out of process, resident memory is measured before and
+after and stated honestly in the release notes, a test pins the resolved defaults, and Settings >
+Detection explains the mode by its effect.
+
+#### Find where the eightfold memory growth comes from 📈
+**Priority:** P2 | **Effort:** S
+
+The same instance, same model (`rope_vit_b14_inat21`, 361MB on disk), same configuration, measured
+**633MiB immediately after a restart and 4.815GiB after roughly a day**. That may be OpenVINO arena
+behaviour rather than a leak, but nothing currently distinguishes the two, and it decides whether
+the worker-count question above is a real constraint or an artefact.
+
+Complete when the growth curve is measured over days and attributed, and either explained as bounded
+allocator behaviour in the docs or fixed.
+
 #### Broader end-to-end coverage 🧪
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Targeted coverage exists
 

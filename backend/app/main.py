@@ -140,6 +140,10 @@ def get_app_branch() -> str:
 
 BASE_VERSION = get_base_version()
 GIT_HASH = get_git_hash()
+
+# How often hardware capabilities are re-detected, away from any request path.
+# Detection spawns child processes, so this is deliberately not on demand (#313).
+ACCEL_CAPS_REFRESH_SECONDS = 60.0
 APP_BRANCH = get_app_branch()
 
 # Treat semver-like tags (e.g. v2.7.9.1) as releases, not branches.
@@ -192,6 +196,7 @@ cleanup_task = None
 media_integrity_task = None
 cleanup_running = True
 heartbeat_task = None
+accel_caps_task = None
 heartbeat_running = True
 CLEANUP_INTERVAL_HOURS = 24  # Run cleanup every 24 hours
 
@@ -418,7 +423,23 @@ async def heartbeat_scheduler(instance_id: str):
 
 
 async def _start_heartbeat_scheduler_task(instance_id: str) -> None:
-    global heartbeat_task
+    global heartbeat_task, accel_caps_task
+
+    async def accel_caps_scheduler() -> None:
+        """Keep hardware capabilities current away from any request.
+
+        Detection spawns child processes that import an inference runtime. It
+        used to happen inline on a status request, stalling every concurrent
+        request behind it (#313).
+        """
+        while True:
+            try:
+                await get_classifier().refresh_accel_caps_off_request_path()
+            except Exception as error:  # noqa: BLE001 - a probe failure must not end the loop
+                log.warning("Acceleration capability refresh failed", error=str(error))
+            await asyncio.sleep(ACCEL_CAPS_REFRESH_SECONDS)
+
+    accel_caps_task = create_background_task(accel_caps_scheduler(), name="accel_caps_scheduler")
     heartbeat_task = create_background_task(heartbeat_scheduler(instance_id), name="heartbeat_scheduler")
 
 
@@ -430,7 +451,7 @@ async def _start_cleanup_scheduler_task() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global cleanup_task, media_integrity_task, cleanup_running, heartbeat_task, heartbeat_running
+    global cleanup_task, media_integrity_task, cleanup_running, heartbeat_task, heartbeat_running, accel_caps_task
     test_mode = _is_testing()
 
     # Startup
@@ -439,6 +460,7 @@ async def lifespan(app: FastAPI):
     media_integrity_task = None
     heartbeat_running = not test_mode
     heartbeat_task = None
+    accel_caps_task = None
     app.state.startup_warnings = []
     startup_started_at = datetime.now(timezone.utc)
     app.state.startup_started_at = startup_started_at.isoformat()
@@ -574,6 +596,13 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
+    if accel_caps_task and not test_mode:
+        accel_caps_task.cancel()
+        try:
+            await accel_caps_task
+        except asyncio.CancelledError:
+            pass
+
     heartbeat_running = False
     if heartbeat_task and not test_mode:
         heartbeat_task.cancel()
@@ -983,6 +1012,8 @@ def _naming_health() -> dict[str, object]:
 
 
 def build_health_payload() -> dict[str, object]:
+    from app.services.host_facts import collect_host_facts
+
     startup_warnings = getattr(app.state, "startup_warnings", [])
     startup_instance_id = getattr(app.state, "startup_instance_id", "unknown")
     startup_started_at = getattr(app.state, "startup_started_at", None)
@@ -1027,6 +1058,10 @@ def build_health_payload() -> dict[str, object]:
         "notification_dispatcher": notification_dispatch_health,
         "event_pipeline": event_pipeline_health,
         "startup_warnings": startup_warnings,
+        # The machine this is running on. A performance report cannot be sized
+        # without it, and two bundles were exchanged on #300 before anyone could
+        # say whether the host was a small box or a large one.
+        "host": collect_host_facts(),
         "startup_instance_id": startup_instance_id,
         "startup_started_at": startup_started_at,
     }
