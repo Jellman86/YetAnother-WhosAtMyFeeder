@@ -2768,6 +2768,7 @@ class ClassifierService:
             live_admission_capacity = resolved_live_workers
             background_admission_capacity = resolved_background_workers
         self._resolved_image_worker_counts = (resolved_live_workers, resolved_background_workers)
+        self._status_labels_count_cache: tuple[str, float, int] | None = None
         self._image_executor = ThreadPoolExecutor(max_workers=image_workers, thread_name_prefix="ml_image_worker")
         self._live_image_executor = ThreadPoolExecutor(
             max_workers=image_workers, thread_name_prefix="ml_live_image_worker"
@@ -4570,6 +4571,30 @@ class ClassifierService:
         bird = self._models.get("bird")
         return getattr(bird, "error", None)
 
+    def _labels_count_for_status(self, labels_path: Optional[str]) -> Optional[int]:
+        """Non-empty lines in the active model's label file, cached by mtime.
+
+        In subprocess mode the API process holds no model, so the count comes
+        from the file the workers will load. None means it could not be read,
+        never zero-by-absence.
+        """
+        if not labels_path:
+            return None
+        try:
+            mtime = os.path.getmtime(labels_path)
+        except OSError:
+            return None
+        cached = self._status_labels_count_cache
+        if cached is not None and cached[0] == labels_path and cached[1] == mtime:
+            return cached[2]
+        try:
+            with open(labels_path, encoding="utf-8", errors="replace") as handle:
+                count = sum(1 for line in handle if line.strip())
+        except OSError:
+            return None
+        self._status_labels_count_cache = (labels_path, mtime, count)
+        return count
+
     def get_status(self) -> dict:
         bird = self._models.get("bird")
         admission_metrics = self._classification_admission.get_metrics()
@@ -4612,6 +4637,7 @@ class ClassifierService:
         image_flavor = get_image_flavor()
         packaged_providers = packaged_inference_providers(image_flavor)
         active_model_estimated_ram_mb: Optional[int] = None
+        active_model_labels_path: Optional[str] = None
         try:
             active_model_spec = self._resolve_active_bird_model_spec()
             supported_providers = list(active_model_spec.get("supported_inference_providers") or [])
@@ -4621,6 +4647,7 @@ class ClassifierService:
             effective_model_id = str(active_model_spec.get("model_id") or active_model_id or "").strip() or None
             raw_ram = active_model_spec.get("estimated_ram_mb")
             active_model_estimated_ram_mb = int(raw_ram) if raw_ram else None
+            active_model_labels_path = str(active_model_spec.get("labels_path") or "") or None
         except Exception:
             supported_providers = []
             validated_providers = []
@@ -4643,6 +4670,11 @@ class ClassifierService:
             "resolved_live_workers": self._resolved_image_worker_counts[0],
             "resolved_background_workers": self._resolved_image_worker_counts[1],
             "active_model_estimated_ram_mb": active_model_estimated_ram_mb,
+            # The label count is a fact about the install, not about which
+            # process holds the weights: in subprocess mode no model is
+            # resident here, and a resident model's own count overwrites this
+            # when its status is merged below.
+            "labels_count": self._labels_count_for_status(active_model_labels_path),
             "accel_caps_age_seconds": accel_caps_age,
             "accel_caps_stale": self.accel_caps_are_stale(),
             "image_flavor": image_flavor,
