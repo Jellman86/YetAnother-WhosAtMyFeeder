@@ -2767,6 +2767,7 @@ class ClassifierService:
         if self._image_execution_mode == "subprocess":
             live_admission_capacity = resolved_live_workers
             background_admission_capacity = resolved_background_workers
+        self._resolved_image_worker_counts = (resolved_live_workers, resolved_background_workers)
         self._image_executor = ThreadPoolExecutor(max_workers=image_workers, thread_name_prefix="ml_image_worker")
         self._live_image_executor = ThreadPoolExecutor(
             max_workers=image_workers, thread_name_prefix="ml_live_image_worker"
@@ -4610,6 +4611,7 @@ class ClassifierService:
         )
         image_flavor = get_image_flavor()
         packaged_providers = packaged_inference_providers(image_flavor)
+        active_model_estimated_ram_mb: Optional[int] = None
         try:
             active_model_spec = self._resolve_active_bird_model_spec()
             supported_providers = list(active_model_spec.get("supported_inference_providers") or [])
@@ -4617,6 +4619,8 @@ class ClassifierService:
             provider_order = list(active_model_spec.get("host_provider_preference_order") or [])
             candidate_providers = list(active_model_spec.get("candidate_inference_providers") or supported_providers)
             effective_model_id = str(active_model_spec.get("model_id") or active_model_id or "").strip() or None
+            raw_ram = active_model_spec.get("estimated_ram_mb")
+            active_model_estimated_ram_mb = int(raw_ram) if raw_ram else None
         except Exception:
             supported_providers = []
             validated_providers = []
@@ -4633,6 +4637,12 @@ class ClassifierService:
 
         status = {
             "image_execution_mode": self._image_execution_mode,
+            # The worker count is derived from concurrency and provider now, so
+            # Settings must be able to show what it resolved to and what each
+            # worker costs — the price is stated, not implied (#312).
+            "resolved_live_workers": self._resolved_image_worker_counts[0],
+            "resolved_background_workers": self._resolved_image_worker_counts[1],
+            "active_model_estimated_ram_mb": active_model_estimated_ram_mb,
             "accel_caps_age_seconds": accel_caps_age,
             "accel_caps_stale": self.accel_caps_are_stale(),
             "image_flavor": image_flavor,

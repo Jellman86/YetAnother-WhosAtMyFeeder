@@ -754,6 +754,30 @@
                         ]}
                         onchange={(v) => (imageExecutionMode = v)}
                     />
+                    {#if imageExecutionMode === 'subprocess' && classifierStatus?.resolved_live_workers}
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                            {$_('settings.detection.execution_mode_worker_plan', {
+                                default:
+                                    'Resolved for this install: {live} live and {background} background worker processes, each with its own copy of the model.',
+                                values: {
+                                    live: classifierStatus.resolved_live_workers,
+                                    background: classifierStatus.resolved_background_workers ?? 1
+                                }
+                            })}
+                            {#if classifierStatus.active_model_estimated_ram_mb}
+                                {$_('settings.detection.execution_mode_worker_ram', {
+                                    default: 'The active model is estimated at {each} MB per copy, about {total} MB across the workers.',
+                                    values: {
+                                        each: classifierStatus.active_model_estimated_ram_mb,
+                                        total:
+                                            classifierStatus.active_model_estimated_ram_mb *
+                                            ((classifierStatus.resolved_live_workers ?? 1) +
+                                                (classifierStatus.resolved_background_workers ?? 1))
+                                    }
+                                })}
+                            {/if}
+                        </p>
+                    {/if}
                 </SettingsRow>
 
             {#if classifierStatus}

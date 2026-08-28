@@ -66,6 +66,39 @@ def test_an_explicit_worker_count_is_kept():
     ) == (3, 2)
 
 
+def test_status_reports_the_resolved_worker_plan(monkeypatch):
+    """The worker count is derived now, so the owner must be able to see what
+    it resolved to — Settings states the price in workers, not a mechanism."""
+    from unittest.mock import patch
+
+    from app.config import settings
+    from app.services.classifier_service import ClassifierService
+
+    monkeypatch.setattr(settings.classification, "image_execution_mode", "subprocess")
+    monkeypatch.setattr(settings.classification, "live_worker_count", None)
+    monkeypatch.setattr(settings.classification, "background_worker_count", None)
+    monkeypatch.setattr(settings.classification, "inference_provider", "intel_npu")
+
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.classifier_service._detect_acceleration_capabilities",
+            return_value={},
+        ),
+    ):
+        service = ClassifierService()
+
+    try:
+        status = service.get_status()
+        assert status["resolved_live_workers"] == 1
+        assert status["resolved_background_workers"] == 1
+    finally:
+        service._image_executor.shutdown(wait=False)
+        service._live_image_executor.shutdown(wait=False)
+        service._background_image_executor.shutdown(wait=False)
+        service._video_executor.shutdown(wait=False)
+
+
 def test_admission_capacity_matches_the_worker_pool(monkeypatch):
     """Every admitted job has a worker; a pool smaller than admission burns
     leases in a queue the caller cannot see."""
