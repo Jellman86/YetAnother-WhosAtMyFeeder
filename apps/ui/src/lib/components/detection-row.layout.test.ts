@@ -102,10 +102,11 @@ describe('choosing the Explorer layout', () => {
 
     it('can also be switched from the Explorer itself', () => {
         // Settings is where you set the default; the toggle is where you are
-        // when you decide the cards are too big to scroll.
-        expect(filtersSource).toContain('data-explorer-view-toggle');
-        expect(filtersSource).toContain('aria-pressed={view === option.value}');
-        expect(eventsPageSource).toContain('explorerViewStore.set(next)');
+        // when you decide the cards are too big to scroll. It lives in the
+        // header toolbar beside Multi-select, in the same control style.
+        expect(eventsPageSource).toContain('data-explorer-view-toggle');
+        expect(eventsPageSource).toContain('aria-pressed={explorerView === option.value}');
+        expect(eventsPageSource).toContain('explorerViewStore.set(');
     });
 
     it('is offered in appearance settings beside the other display choices', () => {

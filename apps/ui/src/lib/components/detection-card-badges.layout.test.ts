@@ -44,11 +44,15 @@ describe('detection card overlay badges', () => {
         expect(detectionCardSource).not.toMatch(/absolute bottom-3 left-3[^"]*flex-wrap/);
     });
 
-    it('keeps a card wide enough for that one line', () => {
-        // Four columns beside the 14rem filter rail gave a 168px card at 1024px,
-        // which is narrower than the row it has to carry.
-        expect(eventsPageSource).toContain('md:grid-cols-3 2xl:grid-cols-4');
-        expect(eventsPageSource).not.toContain('lg:grid-cols-4 gap-4');
+    it('keeps a card wide enough for that one line, at every width', () => {
+        // Fixed column counts could not keep the promise: with the sidebar and
+        // the filter rail open, the three-column range at 768-1279px measured
+        // 141-227px cards against a row needing ~219px in 12-hour locales, and
+        // the card's overflow-hidden clipped the play button entirely. A
+        // minimum card width makes the guarantee structural instead of a
+        // breakpoint-by-breakpoint hope.
+        expect(eventsPageSource).toContain('grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]');
+        expect(eventsPageSource).not.toMatch(/md:grid-cols-3|2xl:grid-cols-4/);
     });
 
     it('marks a ready full-visit clip on the play button, not beside it', () => {
