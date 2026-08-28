@@ -201,10 +201,16 @@ CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS = max(
     1.0,
     float(os.getenv("CLASSIFIER_ADMISSION_RECOVERY_WINDOW_SECONDS", "300")),
 )
+# Hardware capabilities cannot change without a container restart, so the
+# reading is expensive to take and cheap to keep (#313).
 CLASSIFIER_ACCEL_PROBE_TTL_SECONDS = max(
     1.0,
-    float(os.getenv("CLASSIFIER_ACCEL_PROBE_TTL_SECONDS", "60")),
+    float(os.getenv("CLASSIFIER_ACCEL_PROBE_TTL_SECONDS", "900")),
 )
+# The scheduler refreshes an expired reading at its next wake, so a reading
+# this far past its TTL means the scheduler has actually missed — one wake
+# interval plus a worst-case probe is within schedule, not stale.
+ACCEL_CAPS_STALE_GRACE_SECONDS = 120.0
 CLASSIFIER_GPU_INVALID_RETRY_LIMIT = max(
     0,
     int(os.getenv("CLASSIFIER_GPU_INVALID_RETRY_LIMIT", "1")),
@@ -2975,15 +2981,16 @@ class ClassifierService:
         second timeout. Never call this from a request handler; use
         `_accel_caps_for_read()` there instead (#313).
         """
-        now = time.monotonic()
         if (
             not force
             and self._accel_caps_last_refreshed_monotonic is not None
-            and now - self._accel_caps_last_refreshed_monotonic < self._accel_caps_ttl_seconds
+            and time.monotonic() - self._accel_caps_last_refreshed_monotonic < self._accel_caps_ttl_seconds
         ):
             return self._accel_caps
         self._accel_caps = _detect_acceleration_capabilities()
-        self._accel_caps_last_refreshed_monotonic = now
+        # Stamped at completion: a reading stamped at probe start is born as
+        # old as the probe was slow, and trips the staleness rule early.
+        self._accel_caps_last_refreshed_monotonic = time.monotonic()
         return self._accel_caps
 
     def _accel_caps_for_read(self) -> dict[str, Any]:
@@ -3003,18 +3010,23 @@ class ClassifierService:
         return max(0.0, time.monotonic() - self._accel_caps_last_refreshed_monotonic)
 
     def accel_caps_are_stale(self) -> bool:
+        """Whether the scheduler has missed its refresh window.
+
+        A reading past its TTL but within one wake interval is on schedule —
+        the scheduler will refresh it at its next wake — so only an age beyond
+        TTL plus grace is stale. Anything less would flap on a healthy install.
+        """
         age = self._accel_caps_age_seconds()
-        return age is None or age > self._accel_caps_ttl_seconds
+        return age is None or age > self._accel_caps_ttl_seconds + ACCEL_CAPS_STALE_GRACE_SECONDS
 
     async def refresh_accel_caps_off_request_path(self) -> None:
-        """Re-detect capabilities in a worker thread, never on the event loop.
+        """Re-detect expired capabilities in a worker thread, never on the loop.
 
         Detection spawns child processes, so it is moved off the loop entirely
-        rather than merely made less frequent (#313).
+        rather than merely made less frequent (#313). Whether the reading has
+        expired is the callee's TTL check — there is one definition of fresh.
         """
-        if not self.accel_caps_are_stale():
-            return
-        await asyncio.to_thread(self._refresh_accel_caps, force=True)
+        await asyncio.to_thread(self._refresh_accel_caps)
 
     def _build_bird_model_for_backend(
         self,
@@ -4503,7 +4515,7 @@ class ClassifierService:
         live_image_health = self._describe_live_image_health(admission_metrics)
         # Reads the last known capabilities rather than detecting them. Detection
         # spawns subprocesses, and this runs on the event loop (#313).
-        self._accel_caps_for_read()
+        caps = self._accel_caps_for_read()
         accel_caps_age = self._accel_caps_age_seconds()
         supervisor_metrics = self._get_supervisor_metrics()
         effective_runtime_recovery = (
@@ -4551,7 +4563,7 @@ class ClassifierService:
             provider_order = []
             candidate_providers = []
         provider_capabilities = _provider_capability_contract(
-            caps=self._accel_caps,
+            caps=caps,
             packaged_providers=packaged_providers,
             supported_providers=supported_providers,
             active_backend=str(effective_backend or ""),
@@ -4562,7 +4574,7 @@ class ClassifierService:
         status = {
             "image_execution_mode": self._image_execution_mode,
             "accel_caps_age_seconds": accel_caps_age,
-            "accel_caps_stale": accel_caps_age is None or accel_caps_age > self._accel_caps_ttl_seconds,
+            "accel_caps_stale": self.accel_caps_are_stale(),
             "image_flavor": image_flavor,
             "packaged_inference_providers": list(packaged_providers),
             "image_flavor_warning": image_flavor_warning(image_flavor, selected_provider),
@@ -4571,34 +4583,34 @@ class ClassifierService:
             "onnx_available": ONNX_AVAILABLE,
             "active_model_id": active_model_id,
             "effective_model_id": effective_model_id,
-            "openvino_available": bool(self._accel_caps.get("openvino_available")),
-            "openvino_version": self._accel_caps.get("openvino_version"),
-            "openvino_import_path": self._accel_caps.get("openvino_import_path"),
-            "openvino_import_error": self._accel_caps.get("openvino_import_error"),
-            "openvino_probe_error": self._accel_caps.get("openvino_probe_error"),
-            "openvino_gpu_probe_error": self._accel_caps.get("openvino_gpu_probe_error"),
+            "openvino_available": bool(caps.get("openvino_available")),
+            "openvino_version": caps.get("openvino_version"),
+            "openvino_import_path": caps.get("openvino_import_path"),
+            "openvino_import_error": caps.get("openvino_import_error"),
+            "openvino_probe_error": caps.get("openvino_probe_error"),
+            "openvino_gpu_probe_error": caps.get("openvino_gpu_probe_error"),
             "openvino_model_compile_ok": self._openvino_model_compile_ok,
             "openvino_model_compile_device": self._openvino_model_compile_device,
             "openvino_model_compile_error": self._openvino_model_compile_error,
             "openvino_model_compile_unsupported_ops": list(self._openvino_model_compile_unsupported_ops or []),
-            "openvino_devices": self._accel_caps.get("openvino_devices") or [],
-            "cuda_provider_installed": bool(self._accel_caps.get("cuda_provider_installed")),
-            "cuda_hardware_available": bool(self._accel_caps.get("cuda_hardware_available")),
-            "cuda_available": bool(self._accel_caps.get("cuda_available")),
-            "cuda_probe_error": self._accel_caps.get("cuda_probe_error"),
-            "intel_gpu_available": bool(self._accel_caps.get("intel_gpu_available")),
-            "intel_cpu_available": bool(self._accel_caps.get("intel_cpu_available")),
-            "intel_npu_available": bool(self._accel_caps.get("intel_npu_available")),
+            "openvino_devices": caps.get("openvino_devices") or [],
+            "cuda_provider_installed": bool(caps.get("cuda_provider_installed")),
+            "cuda_hardware_available": bool(caps.get("cuda_hardware_available")),
+            "cuda_available": bool(caps.get("cuda_available")),
+            "cuda_probe_error": caps.get("cuda_probe_error"),
+            "intel_gpu_available": bool(caps.get("intel_gpu_available")),
+            "intel_cpu_available": bool(caps.get("intel_cpu_available")),
+            "intel_npu_available": bool(caps.get("intel_npu_available")),
             "host_device_eligibility": _host_device_eligibility_summary(),
             "active_model_candidate_providers": candidate_providers,
             "active_model_validated_providers": validated_providers,
             "validated_provider_preference_order": provider_order,
-            "dev_dri_present": bool(self._accel_caps.get("dev_dri_present")),
-            "dev_dri_entries": self._accel_caps.get("dev_dri_entries") or [],
-            "dev_accel_present": bool(self._accel_caps.get("dev_accel_present")),
-            "process_uid": self._accel_caps.get("process_uid"),
-            "process_gid": self._accel_caps.get("process_gid"),
-            "process_groups": self._accel_caps.get("process_groups") or [],
+            "dev_dri_present": bool(caps.get("dev_dri_present")),
+            "dev_dri_entries": caps.get("dev_dri_entries") or [],
+            "dev_accel_present": bool(caps.get("dev_accel_present")),
+            "process_uid": caps.get("process_uid"),
+            "process_gid": caps.get("process_gid"),
+            "process_groups": caps.get("process_groups") or [],
             "selected_provider": selected_provider,
             "active_provider": effective_provider,
             "inference_backend": effective_backend,

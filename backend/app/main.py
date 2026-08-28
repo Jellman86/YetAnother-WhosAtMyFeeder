@@ -33,7 +33,11 @@ from app.services.media_integrity_scan import (
     run_media_integrity_scan,
 )
 from app.services.mqtt_service import mqtt_service
-from app.services.classifier_service import get_classifier, shutdown_classifier
+from app.services.classifier_service import (
+    CLASSIFIER_ACCEL_PROBE_TTL_SECONDS,
+    get_classifier,
+    shutdown_classifier,
+)
 from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
 from app.services.full_visit_clip_service import full_visit_clip_service
@@ -141,9 +145,11 @@ def get_app_branch() -> str:
 BASE_VERSION = get_base_version()
 GIT_HASH = get_git_hash()
 
-# How often hardware capabilities are re-detected, away from any request path.
-# Detection spawns child processes, so this is deliberately not on demand (#313).
-ACCEL_CAPS_REFRESH_SECONDS = 60.0
+# How often the scheduler wakes to check whether hardware capabilities have
+# expired, away from any request path. A wake is a monotonic comparison; a
+# probe — child processes with five second timeouts — runs only once the
+# reading is older than CLASSIFIER_ACCEL_PROBE_TTL_SECONDS (#313).
+ACCEL_CAPS_REFRESH_SECONDS = min(60.0, CLASSIFIER_ACCEL_PROBE_TTL_SECONDS)
 APP_BRANCH = get_app_branch()
 
 # Treat semver-like tags (e.g. v2.7.9.1) as releases, not branches.

@@ -666,11 +666,15 @@ async def test_status_reads_never_detect_acceleration_capabilities():
         # Detected once, at construction. Reading status never detects.
         assert mock_detect.call_count == 1
 
-        # Even with the reading well past its TTL, a status read must not go and
-        # find out: detection spawns child processes and this runs on the event
-        # loop, which stalled every concurrent request behind it (#313).
+        # Even with the reading past its TTL and the scheduler's grace, a status
+        # read must not go and find out: detection spawns child processes and
+        # this runs on the event loop, which stalled every concurrent request
+        # behind it (#313).
         service._accel_caps_last_refreshed_monotonic = (
-            (service._accel_caps_last_refreshed_monotonic or 0.0) - service._accel_caps_ttl_seconds - 1.0
+            (service._accel_caps_last_refreshed_monotonic or 0.0)
+            - service._accel_caps_ttl_seconds
+            - classifier_service_module.ACCEL_CAPS_STALE_GRACE_SECONDS
+            - 1.0
         )
         status = service.get_status()
 

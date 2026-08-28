@@ -69,6 +69,72 @@ def test_host_facts_never_raise_on_an_unusual_platform():
     assert facts["cpu_count"] is not None
 
 
+def test_scheduler_wakes_more_often_than_the_reading_expires():
+    """A wake interval equal to the TTL re-probes on every tick, forever.
+
+    Detection spawns child processes that import an inference runtime, for
+    facts that cannot change without a container restart. The scheduler must
+    wake to check well within the reading's lifetime, so most wakes are a
+    monotonic comparison and a probe runs only when the reading has expired.
+    """
+    from app.main import ACCEL_CAPS_REFRESH_SECONDS
+    from app.services.classifier_service import CLASSIFIER_ACCEL_PROBE_TTL_SECONDS
+
+    assert ACCEL_CAPS_REFRESH_SECONDS < CLASSIFIER_ACCEL_PROBE_TTL_SECONDS
+
+
+def test_a_reading_is_stamped_when_detection_finishes_not_when_it_starts():
+    """A reading stamped at probe start is born as old as the probe was slow.
+
+    The probes carry five second timeouts apiece, so start-stamping makes a
+    fresh reading look seconds old and trips the staleness rule early.
+    """
+    service = ClassifierService.__new__(ClassifierService)
+    service._accel_caps = {}
+    service._accel_caps_last_refreshed_monotonic = None
+    service._accel_caps_ttl_seconds = 60.0
+
+    clock = {"now": 1000.0}
+
+    def probe_taking_ten_seconds() -> dict:
+        clock["now"] += 10.0
+        return {}
+
+    with (
+        patch(
+            "app.services.classifier_service._detect_acceleration_capabilities",
+            side_effect=probe_taking_ten_seconds,
+        ),
+        patch.object(classifier_service.time, "monotonic", side_effect=lambda: clock["now"]),
+    ):
+        service._refresh_accel_caps(force=True)
+        age = service._accel_caps_age_seconds()
+
+    assert age is not None and age < 5.0
+
+
+def test_a_reading_refreshed_on_schedule_is_never_reported_stale():
+    """The scheduler refreshes an expired reading at its next wake.
+
+    A reading one wake interval past its TTL is on schedule; reporting it
+    stale makes a healthy install flap and sends a reader chasing a
+    hardware-detection fault that does not exist. Stale must mean the
+    scheduler has actually missed.
+    """
+    service = ClassifierService.__new__(ClassifierService)
+    service._accel_caps = {}
+    service._accel_caps_ttl_seconds = 900.0
+
+    with patch.object(classifier_service.time, "monotonic", return_value=1950.0):
+        service._accel_caps_last_refreshed_monotonic = 1000.0  # expired, awaiting the next wake
+        on_schedule = service.accel_caps_are_stale()
+        service._accel_caps_last_refreshed_monotonic = 800.0  # several wakes have come and gone
+        missed = service.accel_caps_are_stale()
+
+    assert not on_schedule
+    assert missed
+
+
 def test_reload_does_not_run_model_init_on_the_event_loop():
     """A model reload loads the model in a worker thread, not on the loop.
 

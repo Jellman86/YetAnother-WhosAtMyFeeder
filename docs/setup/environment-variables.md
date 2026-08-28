@@ -95,6 +95,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED` | `false` | Opt in to a synthetic accelerated-versus-CPU comparison during startup. Routine model activation validation and runtime health checks do not require it. |
 | `CLASSIFIER_IMAGE_MAX_CONCURRENT` | `2` | Maximum concurrent image-classification jobs. Use `1` on a Raspberry Pi to protect UI and event-loop responsiveness. |
 | `CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS` | `0.5` | Maximum time background image work waits for classifier capacity before it fails conservatively. The Pi example uses `1.0`. |
+| `CLASSIFIER_ACCEL_PROBE_TTL_SECONDS` | `900` | How long a hardware-capability reading stays fresh before the background scheduler re-detects it. Detection spawns short-lived child processes, so raise this on a CPU-constrained host; the capabilities cannot change without a container restart. |
 | `CLASSIFICATION__WRITE_FRIGATE_SUBLABEL` | `true` | Write the identified species back to Frigate as a sub-label. |
 | `CLASSIFICATION__PERSONALIZED_RERANK_ENABLED` | `false` | Learn per-camera/model ranking from manual tags. |
 | `CLASSIFICATION__STRICT_NON_FINITE_OUTPUT` | `true` | Reject all-non-finite classifier output (also `CLASSIFIER_STRICT_NON_FINITE_OUTPUT`). |

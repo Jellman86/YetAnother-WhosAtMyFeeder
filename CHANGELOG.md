@@ -59,8 +59,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   database, disk or network, waiting 22.5 seconds for its first byte, alongside four other requests
   that all finished at the same moment. Detection now runs on a schedule away from any request, a
   status read returns the last known answer, and the reply says how old that answer is rather than
-  implying it is current
-  ([#313](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/313)).
+  implying it is current. The schedule re-detects every fifteen minutes rather than every minute —
+  the capabilities cannot change without a container restart, and `CLASSIFIER_ACCEL_PROBE_TTL_SECONDS`
+  tunes it — and a reading the scheduler will refresh at its next wake is reported on schedule, not
+  stale ([#313](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/313)).
 
 - **Diagnostics now say what machine they came from.** A bundle recorded the app version and the
   configuration but neither the processor count nor the memory, so a report of slowness could not be
