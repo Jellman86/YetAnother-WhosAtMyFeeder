@@ -51,6 +51,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   A reclaimed lease now cancels the runner; work that completes in the same instant its
   cancellation is delivered is still ignored as a late completion, exactly as before.
 
+- **The audio correlation buffer is now bounded and cheap to maintain.** The buffer keeps up to a
+  day of raw BirdNET payloads for audio and visual correlation, and it rebuilt the entire deque on
+  every append and lookup, plus rescanned every entry — rebuilding each one's identity string — to
+  refuse a broker redelivery. At a day of ordinary audio traffic that was billions of throwaway
+  allocations, feeding the steady memory growth in
+  [#314](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/314). Entries are stamped at
+  ingest so the buffer is ordered: expiry now pops from the head, redeliveries are refused by a
+  mirrored identity set in constant time, and a hard backstop caps the buffer during a payload
+  storm. One deliberate trade: after a backwards clock step, an expired entry behind a fresher one
+  is retained until the entries ahead of it expire — bounded by the window — where before it was
+  removed immediately.
+
 - **One OpenVINO inference request now serves every classification.** Each classification and each
   detector pass created a fresh inference request, and with it fresh runtime buffers — allocations
   the runtime and allocator do not hand back, so busy hours turned into resident memory that never
