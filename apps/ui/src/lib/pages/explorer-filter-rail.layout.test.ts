@@ -12,38 +12,46 @@ describe('collapsing the Explorer filter rail', () => {
         expect(eventsPageSource).toContain("'lg:grid-cols-[14rem_minmax(0,1fr)]'");
     });
 
-    it('offers the control on desktop only, since a phone already has one', () => {
-        expect(filtersSource).toContain('data-explorer-rail-toggle');
-        expect(filtersSource).toContain('hidden min-h-11 px-3 py-2 text-xs lg:inline-flex');
+    it('sits in the header toolbar beside the view switch and Multi-select', () => {
+        // Inside the rail, the toolbar controls wrapped vertically down a 14rem
+        // column while Multi-select sat alone in the header: three ways of
+        // acting on the same list in two places and two styles. One row now.
+        const railToggleAt = eventsPageSource.indexOf('data-explorer-rail-toggle');
+        const viewToggleAt = eventsPageSource.indexOf('data-explorer-view-toggle');
+        const multiSelectAt = eventsPageSource.indexOf('common.multi_select');
+        expect(railToggleAt).toBeGreaterThan(-1);
+        expect(viewToggleAt).toBeGreaterThan(railToggleAt);
+        expect(multiSelectAt).toBeGreaterThan(viewToggleAt);
+        expect(filtersSource).not.toContain('data-explorer-rail-toggle');
+        expect(filtersSource).not.toContain('data-explorer-view-toggle');
+    });
+
+    it('offers the rail control on desktop only, since a phone already has one', () => {
+        expect(eventsPageSource).toContain('btn btn-secondary hidden min-h-11 px-3 py-2 text-xs lg:inline-flex');
         // The existing Filters button is what a phone uses, and what a collapsed
         // desktop uses too, so it stops hiding itself at lg when collapsed.
         expect(filtersSource).toContain("{collapsed ? '' : 'lg:hidden'}");
     });
 
-    it('says which state it is in, not just which way the chevron points', () => {
-        expect(filtersSource).toContain('aria-expanded={!collapsed}');
-        expect(filtersSource).toContain('aria-controls="explorer-facets"');
-        expect(filtersSource).toContain("events.filters.show_rail");
-        expect(filtersSource).toContain("events.filters.hide_rail");
+    it('says which state it is in, and which region it actually controls', () => {
+        expect(eventsPageSource).toContain('aria-expanded={!explorerFiltersStore.collapsed}');
+        expect(eventsPageSource).toContain('aria-controls="explorer-filter-rail"');
+        expect(eventsPageSource).toContain('id="explorer-filter-rail"');
+        expect(eventsPageSource).toContain('events.filters.show_rail');
+        expect(eventsPageSource).toContain('events.filters.hide_rail');
+        // The facets panel belongs to the Filters button alone, so the two
+        // controls no longer publish contradictory expanded states for one
+        // region when the rail is collapsed and the panel is open.
+        expect(filtersSource).not.toContain('aria-controls="explorer-facets"\n            aria-expanded={!collapsed}');
+        expect(filtersSource).toMatch(/aria-controls="explorer-facets"[\s\S]{0,200}data-explorer-filter-toggle/);
     });
 
     it('does not fold the rail away while leaving the facets on screen', () => {
-        // The collapsed desktop shares the phone's Filters button, so collapsing
-        // with that panel open would contradict the control's own label.
-        expect(filtersSource).toContain('panelOpen = false;\n                oncollapsechange?.(!collapsed);');
-    });
-
-    it('keeps the control in one place instead of walking across the screen', () => {
-        // The view toggle is pushed right by `ml-auto`. In the rail that right
-        // edge is 14rem away; collapsed it is the far side of the window, so a
-        // control placed after the toggle travelled the width of the screen as
-        // you used it. It sits beside the result count, which does not move.
-        const countAt = filtersSource.indexOf('events.filters.result_count');
-        const railToggleAt = filtersSource.indexOf('data-explorer-rail-toggle');
-        const autoMarginAt = filtersSource.indexOf('class="ml-auto');
-        expect(countAt).toBeGreaterThan(-1);
-        expect(railToggleAt).toBeGreaterThan(countAt);
-        expect(railToggleAt).toBeLessThan(autoMarginAt);
+        // Collapsing arrives from the header now, so the rail closes its own
+        // panel when the collapse lands - while keeping collapsed-with-panel-
+        // open valid, since that is exactly what the Filters button opens.
+        expect(filtersSource).toContain('previousCollapsed');
+        expect(filtersSource).toContain('panelOpen = false');
     });
 
     it('remembers the choice on the device that made it', () => {

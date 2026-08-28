@@ -57,6 +57,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   model, so the default costs more memory than one shared copy — it buys an interface that stays
   responsive under load and inference that can be restarted rather than waited out.
 
+- **The Explorer's view controls live on one row, in one style.** Hide filters, the Cards/List
+  switch, and Multi-select acted on the same list from two places in two styles: Multi-select sat
+  in the page header while the other two lived inside the filter rail, where the 14rem column
+  wrapped them into a vertical stack. All three now sit together in the header toolbar wearing the
+  shared control style, and the rail keeps just the visit count above its facets. The rail toggle
+  also now names the rail as the region it controls, and the Filters button names the facets panel
+  it opens, so the two no longer publish contradictory expanded states to a screen reader when the
+  rail is collapsed and the panel is open.
+
 ### Fixed
 
 - **A card is now actually always wide enough for its bottom row.** The last release stopped the
