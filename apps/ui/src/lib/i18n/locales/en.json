@@ -1273,7 +1273,7 @@
       "provider_fallback_reason": "Fallback:",
       "model_config_warning": "Model config warning:",
       "execution_mode": "Execution Mode",
-      "execution_mode_desc": "In-Process uses much less RAM by sharing model weights, especially with larger models. Subprocess provides stronger isolation and stability, but uses significantly more memory.",
+      "execution_mode_desc": "Subprocess, the default, identifies birds in worker processes the app can restart, so a stalled or crashed identification never takes the interface down. The workers match your concurrency setting, and each keeps its own copy of the model in memory. In-Process keeps a single copy inside the app itself: less memory, but heavy identification competes with the pages you are looking at.",
       "mode_subprocess": "Subprocess (Isolated)",
       "mode_in_process": "In-Process (Shared RAM)",
       "model_lineup_eyebrow": "Tiered model lineup",

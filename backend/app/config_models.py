@@ -336,12 +336,16 @@ class ClassificationSettings(BaseModel):
         default="auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu"
     )
     image_execution_mode: str = Field(
-        default="in_process",
-        description="Image inference execution mode: in_process|subprocess",
+        default="subprocess",
+        description="Image inference execution mode: subprocess|in_process",
     )
-    live_worker_count: int = Field(default=2, ge=1, le=8, description="Live classifier worker process count")
-    background_worker_count: int = Field(
-        default=1, ge=1, le=4, description="Background classifier worker process count"
+    # None derives the count from the configured concurrency (and a single
+    # accelerator derives one worker); a set value is kept as written (#312).
+    live_worker_count: Optional[int] = Field(
+        default=None, ge=1, le=8, description="Live classifier worker process count; unset follows concurrency"
+    )
+    background_worker_count: Optional[int] = Field(
+        default=None, ge=1, le=4, description="Background classifier worker process count; unset means one"
     )
     worker_heartbeat_timeout_seconds: float = Field(
         default=5.0, ge=0.5, le=60.0, description="Classifier worker heartbeat timeout in seconds"
@@ -409,11 +413,11 @@ class ClassificationSettings(BaseModel):
     @field_validator("image_execution_mode")
     @classmethod
     def validate_image_execution_mode(cls, v: str) -> str:
-        normalized = (v or "in_process").strip().lower()
+        normalized = (v or "subprocess").strip().lower()
         allowed = {"in_process", "subprocess"}
         if normalized not in allowed:
-            log.warning("Invalid image_execution_mode in config; falling back to in_process", value=v)
-            return "in_process"
+            log.warning("Invalid image_execution_mode in config; falling back to subprocess", value=v)
+            return "subprocess"
         return normalized
 
     @field_validator("bird_model_region_override")

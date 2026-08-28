@@ -41,7 +41,7 @@
         videoClassificationMaxConcurrent = $bindable(1),
         videoClassificationFrames = $bindable(15),
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
-        imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('in_process'),
+        imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('subprocess'),
         inferenceProvider = $bindable<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu' | 'intel_npu'>('auto'),
         classifierStatus = null,
         videoCircuitOpen = false,
@@ -741,7 +741,7 @@
                 <SettingsRow
                     labelId="setting-execution-mode"
                     label={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
-                    description={$_('settings.detection.execution_mode_desc', { default: 'In-Process uses much less RAM by sharing model weights, especially with larger models. Subprocess provides stronger isolation and stability, but uses significantly more memory.' })}
+                    description={$_('settings.detection.execution_mode_desc', { default: 'Subprocess, the default, identifies birds in worker processes the app can restart, so a stalled or crashed identification never takes the interface down. The workers match your concurrency setting, and each keeps its own copy of the model in memory. In-Process keeps a single copy inside the app itself: less memory, but heavy identification competes with the pages you are looking at.' })}
                     layout="stacked"
                 >
                     <SettingsSelect

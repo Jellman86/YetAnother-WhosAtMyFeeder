@@ -9209,7 +9209,7 @@
                 "type": "null"
               }
             ],
-            "default": "in_process",
+            "default": "subprocess",
             "title": "Image Execution Mode"
           },
           "inaturalist_client_id": {
@@ -11103,8 +11103,8 @@
                 "type": "null"
               }
             ],
-            "default": "in_process",
-            "description": "Image inference execution mode: in_process|subprocess",
+            "default": "subprocess",
+            "description": "Image inference execution mode: subprocess|in_process",
             "title": "Image Execution Mode"
           },
           "inaturalist_client_id": {

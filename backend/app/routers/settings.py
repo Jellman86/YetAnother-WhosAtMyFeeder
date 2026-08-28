@@ -779,8 +779,8 @@ class SettingsUpdate(BaseModel):
         15, ge=5, le=100, description="Number of frames to sample for video classification"
     )
     image_execution_mode: Optional[str] = Field(
-        "in_process",
-        description="Image inference execution mode: in_process|subprocess",
+        "subprocess",
+        description="Image inference execution mode: subprocess|in_process",
     )
     strict_non_finite_output: Optional[bool] = Field(
         True,
