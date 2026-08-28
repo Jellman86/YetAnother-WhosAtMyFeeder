@@ -1266,6 +1266,11 @@
             "title": "Accessibility Live Announcements",
             "type": "boolean"
           },
+          "accessibility_reduced_motion": {
+            "default": false,
+            "title": "Accessibility Reduced Motion",
+            "type": "boolean"
+          },
           "appearance_explorer_view": {
             "default": "cards",
             "title": "Appearance Explorer View",

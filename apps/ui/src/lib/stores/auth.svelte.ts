@@ -48,6 +48,7 @@ class AuthStore {
     // at all. Both default off: either one changes the whole interface.
     highContrast = $state(false);
     dyslexiaFont = $state(false);
+    reducedMotion = $state(false);
     locationWeatherUnitSystem = $state<WeatherUnitSystem>("metric");
     locationTemperatureUnit = $state("celsius");
     dateFormat = $state("locale");
@@ -110,6 +111,7 @@ class AuthStore {
             this.liveAnnouncements = status.accessibility_live_announcements ?? true;
             this.highContrast = status.accessibility_high_contrast ?? false;
             this.dyslexiaFont = status.accessibility_dyslexia_font ?? false;
+            this.reducedMotion = status.accessibility_reduced_motion ?? false;
             this.locationWeatherUnitSystem = resolveWeatherUnitSystem(
                 status.location_weather_unit_system,
                 status.location_temperature_unit

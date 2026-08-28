@@ -118,12 +118,18 @@
   }
 
   // Accessibility Logic. An owner reads these from settings; a guest is refused
-  // that endpoint, so the public status payload carries the same two choices.
+  // that endpoint, so the public status payload carries the same three choices.
+  // Applied here rather than on the Settings page, so they hold on every route
+  // and survive a reload. AccessibilitySettings toggles the same classes from
+  // its unsaved state, which is the live preview while you are editing.
   const highContrast = $derived(
       settingsStore.settings?.accessibility_high_contrast ?? authStore.highContrast
   );
   const dyslexiaFont = $derived(
       settingsStore.settings?.accessibility_dyslexia_font ?? authStore.dyslexiaFont
+  );
+  const reducedMotion = $derived(
+      settingsStore.settings?.accessibility_reduced_motion ?? authStore.reducedMotion
   );
 
   $effect(() => {
@@ -131,6 +137,9 @@
   });
   $effect(() => {
       document.documentElement.classList.toggle('font-dyslexic', dyslexiaFont);
+  });
+  $effect(() => {
+      document.documentElement.classList.toggle('reduced-motion', reducedMotion);
   });
 
   function navigate(path: string, opts: { replace?: boolean } = {}) {

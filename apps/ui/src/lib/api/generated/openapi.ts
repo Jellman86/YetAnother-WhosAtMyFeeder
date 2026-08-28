@@ -190,6 +190,7 @@ export interface components {
     accessibility_dyslexia_font?: boolean;
     accessibility_high_contrast?: boolean;
     accessibility_live_announcements?: boolean;
+    accessibility_reduced_motion?: boolean;
     appearance_explorer_view?: string;
     auth_required: boolean;
     birdnet_enabled?: boolean;

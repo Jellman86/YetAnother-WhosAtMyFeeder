@@ -1,6 +1,6 @@
 """The owner's accessibility choices reach a public visitor.
 
-High contrast and the dyslexia-friendly font are applied from
+High contrast, the dyslexia-friendly font and reduced motion are applied from
 `settingsStore.settings`, and `/api/settings` is owner-only. On an install with
 authentication on and public access enabled, a visitor's settings store is
 therefore always empty, so a visitor who needs high contrast cannot have it and
@@ -38,6 +38,7 @@ def restore_settings():
     original = (
         settings.accessibility.high_contrast,
         settings.accessibility.dyslexia_font,
+        settings.accessibility.reduced_motion,
         settings.auth.enabled,
         settings.auth.initial_setup_complete,
         settings.public_access.enabled,
@@ -46,6 +47,7 @@ def restore_settings():
     (
         settings.accessibility.high_contrast,
         settings.accessibility.dyslexia_font,
+        settings.accessibility.reduced_motion,
         settings.auth.enabled,
         settings.auth.initial_setup_complete,
         settings.public_access.enabled,
@@ -69,12 +71,23 @@ async def test_a_guest_is_told_the_install_wants_the_dyslexia_font(restore_setti
 
 
 @pytest.mark.asyncio
-async def test_an_install_that_chose_neither_says_so(restore_settings):
-    """Neither may default on: both change the whole interface."""
+async def test_a_guest_is_told_the_install_wants_reduced_motion(restore_settings):
+    """The audio history reads this to decide whether to animate."""
+    _guest_install()
+    settings.accessibility.reduced_motion = True
+
+    assert (await _status())["accessibility_reduced_motion"] is True
+
+
+@pytest.mark.asyncio
+async def test_an_install_that_chose_none_of_them_says_so(restore_settings):
+    """None may default on: each changes how the interface behaves."""
     _guest_install()
     settings.accessibility.high_contrast = False
     settings.accessibility.dyslexia_font = False
+    settings.accessibility.reduced_motion = False
 
     status = await _status()
     assert status["accessibility_high_contrast"] is False
     assert status["accessibility_dyslexia_font"] is False
+    assert status["accessibility_reduced_motion"] is False

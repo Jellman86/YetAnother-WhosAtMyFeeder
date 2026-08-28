@@ -85,6 +85,7 @@ class AuthStatusResponse(BaseModel):
     # apply to every device has to travel on the public status payload.
     accessibility_high_contrast: bool = False
     accessibility_dyslexia_font: bool = False
+    accessibility_reduced_motion: bool = False
     accessibility_live_announcements: bool = True
     appearance_explorer_view: str = "cards"
     location_weather_unit_system: str = "metric"
@@ -299,6 +300,7 @@ async def get_auth_status(request: Request):
         scientific_name_primary=settings.classification.scientific_name_primary,
         accessibility_high_contrast=settings.accessibility.high_contrast,
         accessibility_dyslexia_font=settings.accessibility.dyslexia_font,
+        accessibility_reduced_motion=settings.accessibility.reduced_motion,
         accessibility_live_announcements=settings.accessibility.live_announcements,
         appearance_explorer_view=settings.appearance.explorer_view,
         location_weather_unit_system=settings.location.weather_unit_system,

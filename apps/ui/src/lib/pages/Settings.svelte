@@ -1380,11 +1380,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let enrichmentRaritySource = $state('disabled');
     let enrichmentLinksSources = $state<string[]>(['wikipedia', 'inaturalist']);
 
-    $effect(() => {
-        if (highContrast) document.documentElement.classList.add('high-contrast');
-        else document.documentElement.classList.remove('high-contrast');
-    });
-
     function addTrustedProxyHost() {
         const host = newTrustedProxyHost.trim();
         if (!host) return;
@@ -1410,16 +1405,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     const effectiveTrustedProxyHosts = $derived.by(() => {
         return trustedProxyHostsSuggested ? ['*'] : trustedProxyHosts;
-    });
-
-    $effect(() => {
-        if (dyslexiaFont) document.documentElement.classList.add('font-dyslexic');
-        else document.documentElement.classList.remove('font-dyslexic');
-    });
-
-    $effect(() => {
-        if (reducedMotion) document.documentElement.classList.add('reduced-motion');
-        else document.documentElement.classList.remove('reduced-motion');
     });
 
     $effect(() => {

@@ -38,8 +38,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   to tell which day was active. Each chip now carries `aria-pressed`, and the chip row is a group
   named by the scope label above it, so the scope reaches a screen reader as well as the eye.
 
+- **Reduce motion now works anywhere but the Settings page.** The setting adds a `reduced-motion`
+  class that the audio history reads before it animates, but only the Settings page ever added that
+  class. So it held while you were looking at the setting, held as you navigated away within the
+  same session, and was gone after a reload: a reader who opened the audio history directly got the
+  animation regardless of what they had chosen, and a public visitor could never get it at all. It
+  is now applied at the app root, from the same public payload as the other two, and the Settings
+  page no longer keeps its own duplicate copies of all three.
+
 - **A public visitor now gets the high contrast and dyslexia-font settings the owner chose.** Both
-  are applied from `/api/settings`, which refuses anyone without owner access, so on an install with
+  were applied from `/api/settings`, which refuses anyone without owner access, so on an install with
   authentication on and public access enabled a visitor could never receive either one, and the
   owner had no way to give it to them. The visitor most likely to need high contrast was the one
   visitor who could not have it. Both now travel on the public status payload, where
