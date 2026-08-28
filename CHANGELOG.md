@@ -64,6 +64,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   tunes it — and a reading the scheduler will refresh at its next wake is reported on schedule, not
   stale ([#313](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/313)).
 
+- **Health now says where the process's memory sits.** Resident memory was reported growing from
+  633MiB to 4.8GiB over about a day with no change of model, and nothing in the process could say
+  what held it ([#314](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/314)). Health
+  and the diagnostics bundle now report the process's resident memory split by kind — anonymous
+  heap, file-backed, and shared — alongside the Python allocator's live block count and the size of
+  the audio correlation buffer, so a sampled growth curve can be attributed to a holder instead of
+  guessed at. Anything unreadable is reported as unknown.
+
 - **Diagnostics now say what machine they came from.** A bundle recorded the app version and the
   configuration but neither the processor count nor the memory, so a report of slowness could not be
   sized: two bundles and a browser capture were exchanged on

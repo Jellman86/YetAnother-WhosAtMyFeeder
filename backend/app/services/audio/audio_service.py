@@ -67,6 +67,14 @@ class AudioService:
             correlation_window_seconds=settings.frigate.audio_correlation_window_seconds,
         )
 
+    def buffer_size(self) -> int:
+        """How many detections the correlation buffer currently holds.
+
+        The buffer keeps up to a day of raw payloads in memory, so its size is
+        a memory-attribution reading (#314).
+        """
+        return len(self._buffer)
+
     @staticmethod
     def _extract_birdnet_mapping_key(data: dict) -> Optional[str]:
         """Return the canonical BirdNET source key used for camera mapping.
