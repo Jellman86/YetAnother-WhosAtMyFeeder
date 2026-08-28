@@ -13,9 +13,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   restating itself. Hiding it gives that width back to the detections. The control is on the filter
   bar, desktop only, because a phone already collapses the filters behind a Filters button, and a
   collapsed desktop simply uses that same button. The choice sticks to the device that made it, and
-  a viewer without owner access can use it too, since it changes nothing on the server.
+  a viewer without owner access can use it too, since it changes nothing on the server. The
+  control sits beside the visit count rather than after the view toggle, which is pushed to the
+  right edge: in the rail that edge is 14rem away and collapsed it is the far side of the window, so
+  a control placed there travelled the width of the screen as you used it.
 
-- **A list row now previews its snapshot on hover, like the dashboard's field log.** The row showed
+- **A list row now previews its snapshot on hover, like the dashboard's field log.** The pop-out is
+  attached to the page rather than to the row, because the Explorer's list rounds its corners by
+  hiding its overflow, which cut the panel off at the frame, and a later row's controls could paint
+  over what was left. It is placed against the thumbnail in viewport coordinates, flips above when a
+  row sits near the bottom of the window, and closes on scroll rather than pointing at the wrong row.
+  The row showed
   a 44px thumbnail too small to recognise a bird in, and opening the detection was the only way to
   see more. It now uses the same pop-out the field log uses, which means it opens on keyboard focus
   as well as hover, stays open while the pointer travels into it, closes on Escape, and costs no

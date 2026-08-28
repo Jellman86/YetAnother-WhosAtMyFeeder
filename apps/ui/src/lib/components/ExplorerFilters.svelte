@@ -145,6 +145,42 @@
             })}
         </p>
 
+        <!--
+            Desktop only, since a phone already has the Filters button below.
+            It sits next to the count rather than after the view toggle, because
+            the toggle group is pushed right by `ml-auto`: in the rail that right
+            edge is 14rem away, and collapsed it is the far side of the screen,
+            so the control travelled the width of the window as you used it.
+        -->
+        <button
+            class="btn btn-ghost hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
+            aria-expanded={!collapsed}
+            aria-controls="explorer-facets"
+            onclick={() => {
+                // Collapsing has to close the panel too. The collapsed desktop
+                // shares the phone's Filters button, so leaving that open would
+                // fold the rail away and leave the facets on screen, under a
+                // control now reading "Show filters".
+                panelOpen = false;
+                oncollapsechange?.(!collapsed);
+            }}
+            data-explorer-rail-toggle
+        >
+            <svg
+                class="h-3.5 w-3.5 transition-transform duration-200 {collapsed ? '' : 'rotate-180'}"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+            >
+                <path d="M12 5 7 10l5 5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            {collapsed
+                ? $_('events.filters.show_rail', { default: 'Show filters' })
+                : $_('events.filters.hide_rail', { default: 'Hide filters' })}
+        </button>
+
         {#each tokens as token (token.key)}
             <button
                 class="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800 transition-colors hover:bg-brand-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:bg-brand-950/40 dark:text-brand-200 dark:hover:bg-brand-950/70"
@@ -186,36 +222,6 @@
             data-explorer-filter-toggle
         >
             {$_('events.filters.title', { default: 'Filters' })}
-        </button>
-
-        <!-- Desktop only: the phone already has the Filters button above. -->
-        <button
-            class="btn btn-ghost hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
-            aria-expanded={!collapsed}
-            aria-controls="explorer-facets"
-            onclick={() => {
-                // Collapsing has to close the panel too. The collapsed desktop
-                // shares the phone's Filters button, so leaving that open would
-                // fold the rail away and leave the facets on screen, under a
-                // control now reading "Show filters".
-                panelOpen = false;
-                oncollapsechange?.(!collapsed);
-            }}
-            data-explorer-rail-toggle
-        >
-            <svg
-                class="h-3.5 w-3.5 transition-transform duration-200 {collapsed ? '' : 'rotate-180'}"
-                viewBox="0 0 20 20"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-            >
-                <path d="M12 5 7 10l5 5" stroke-linecap="round" stroke-linejoin="round"></path>
-            </svg>
-            {collapsed
-                ? $_('events.filters.show_rail', { default: 'Show filters' })
-                : $_('events.filters.hide_rail', { default: 'Hide filters' })}
         </button>
 
         {#if tokens.length > 0}

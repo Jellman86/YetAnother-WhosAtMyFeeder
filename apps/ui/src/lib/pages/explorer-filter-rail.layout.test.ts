@@ -3,6 +3,7 @@ import eventsPageSource from './Events.svelte?raw';
 import filtersSource from '../components/ExplorerFilters.svelte?raw';
 import rowSource from '../components/DetectionRow.svelte?raw';
 import storeSource from '../stores/explorer_filters.svelte.ts?raw';
+import previewSource from '../components/DetectionPreview.svelte?raw';
 
 describe('collapsing the Explorer filter rail', () => {
     it('gives the rail width back to the detections when it is collapsed', () => {
@@ -32,6 +33,19 @@ describe('collapsing the Explorer filter rail', () => {
         expect(filtersSource).toContain('panelOpen = false;\n                oncollapsechange?.(!collapsed);');
     });
 
+    it('keeps the control in one place instead of walking across the screen', () => {
+        // The view toggle is pushed right by `ml-auto`. In the rail that right
+        // edge is 14rem away; collapsed it is the far side of the window, so a
+        // control placed after the toggle travelled the width of the screen as
+        // you used it. It sits beside the result count, which does not move.
+        const countAt = filtersSource.indexOf('events.filters.result_count');
+        const railToggleAt = filtersSource.indexOf('data-explorer-rail-toggle');
+        const autoMarginAt = filtersSource.indexOf('class="ml-auto');
+        expect(countAt).toBeGreaterThan(-1);
+        expect(railToggleAt).toBeGreaterThan(countAt);
+        expect(railToggleAt).toBeLessThan(autoMarginAt);
+    });
+
     it('remembers the choice on the device that made it', () => {
         expect(storeSource).toContain("'yawamf:explorer-filters-collapsed'");
         expect(storeSource).toContain('try {');
@@ -53,5 +67,27 @@ describe('the Explorer list row preview', () => {
 
     it('opens the same detection the row opens', () => {
         expect(rowSource).toContain('onopen={() => onclick?.()}');
+    });
+
+    it('escapes the list frame instead of being clipped by it', () => {
+        // The Explorer's list rounds its corners with `overflow-hidden`, which
+        // clipped a panel positioned inside a row, and a later row's controls
+        // could paint over what survived. Neither is fixable from inside the
+        // row, so the panel is portalled to the body and placed in viewport
+        // coordinates.
+        expect(previewSource).toContain('use:portal');
+        expect(previewSource).toContain('getBoundingClientRect()');
+        expect(previewSource).toMatch(/class="fixed z-\[70\]/);
+        expect(eventsPageSource).toContain('overflow-hidden rounded-2xl');
+    });
+
+    it('closes rather than pointing at the wrong row once the page moves', () => {
+        expect(previewSource).toContain("window.addEventListener('scroll', close, true)");
+        expect(previewSource).toContain("window.addEventListener('resize', close)");
+    });
+
+    it('flips above the thumbnail when there is no room below', () => {
+        expect(previewSource).toContain('above: boolean');
+        expect(previewSource).toContain('-translate-y-full');
     });
 });

@@ -7,6 +7,7 @@
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { _ } from 'svelte-i18n';
+    import { portal } from '../utils/portal';
 
     interface Props {
         /** The clearest frame, used when a visit has only one. */
@@ -48,11 +49,42 @@
     // first mouseleave would make the panel impossible to reach (WCAG 2.2 SC 1.4.13).
     const CLOSE_GRACE_MS = 120;
 
+    /**
+     * The panel is portalled to the body and placed in viewport coordinates.
+     *
+     * Positioned inside the row, it was clipped by any ancestor that hides its
+     * overflow, which the Explorer's list frame does to round its corners, and
+     * it could be painted under a later row's controls. Neither is fixable from
+     * inside the row, so the panel leaves it.
+     */
+    const PANEL_WIDTH = 240;
+    const GAP = 8;
+    const VIEWPORT_MARGIN = 8;
+    let triggers: HTMLElement[] = [];
+    let anchor = $state<{ x: number; y: number; above: boolean } | null>(null);
+
+    function place(index: number): void {
+        const trigger = triggers[index];
+        if (!trigger) return;
+        const rect = trigger.getBoundingClientRect();
+        // A row near the bottom of the window has no space beneath it, so the
+        // panel flips above its thumbnail rather than running off the screen.
+        const estimatedHeight = 220;
+        const above = rect.bottom + GAP + estimatedHeight > window.innerHeight;
+        const half = PANEL_WIDTH / 2;
+        const centre = Math.min(
+            Math.max(rect.left + rect.width / 2, half + VIEWPORT_MARGIN),
+            window.innerWidth - half - VIEWPORT_MARGIN
+        );
+        anchor = { x: centre, y: above ? rect.top - GAP : rect.bottom + GAP, above };
+    }
+
     function show(index: number): void {
         if (closeTimer) {
             clearTimeout(closeTimer);
             closeTimer = null;
         }
+        place(index);
         openIndex = index;
     }
 
@@ -86,6 +118,19 @@
     $effect(() => {
         return () => {
             if (closeTimer) clearTimeout(closeTimer);
+        };
+    });
+
+    // Placed in viewport coordinates, so scrolling or resizing would leave the
+    // panel behind. Closing is honest; a panel pointing at the wrong row is not.
+    $effect(() => {
+        if (openIndex === null) return;
+        const close = () => hide(true);
+        window.addEventListener('scroll', close, true);
+        window.addEventListener('resize', close);
+        return () => {
+            window.removeEventListener('scroll', close, true);
+            window.removeEventListener('resize', close);
         };
     });
 
@@ -133,6 +178,7 @@
         >
             <button
                 type="button"
+                bind:this={triggers[index]}
                 class="grid min-h-11 min-w-11 place-items-center rounded-lg focus-ring"
                 aria-expanded={openIndex === index}
                 onclick={() => onopen?.(frame)}
@@ -166,11 +212,17 @@
                 {/if}
             </button>
 
-            {#if openIndex === index}
+            {#if openIndex === index && anchor}
                 <div
-                    class="absolute left-1/2 top-full z-30 mt-2 w-60 -translate-x-1/2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 dark:bg-slate-900"
+                    use:portal
+                    style="left: {anchor.x}px; top: {anchor.y}px;"
+                    class="fixed z-[70] w-60 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 dark:bg-slate-900 {anchor.above
+                        ? '-translate-x-1/2 -translate-y-full'
+                        : '-translate-x-1/2'}"
                     role="tooltip"
                     data-detection-preview-panel
+                    onmouseenter={() => show(index)}
+                    onmouseleave={() => hide()}
                 >
                     {#if failed.has(frame.frigate_event)}
                         <div class="flex h-32 w-full items-center justify-center bg-slate-100 text-slate-300 dark:bg-slate-800 dark:text-slate-600">
