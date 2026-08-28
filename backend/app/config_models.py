@@ -816,7 +816,6 @@ class AccessibilitySettings(BaseModel):
     high_contrast: bool = Field(default=False, description="Enable high contrast mode")
     dyslexia_font: bool = Field(default=False, description="Enable dyslexia-friendly font")
     reduced_motion: bool = Field(default=False, description="Reduce motion/animations")
-    zen_mode: bool = Field(default=False, description="Enable simplified zen mode")
     live_announcements: bool = Field(default=True, description="Enable screen reader live announcements")
 
 

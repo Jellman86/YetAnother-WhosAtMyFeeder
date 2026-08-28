@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import detectionRowSource from './DetectionRow.svelte?raw';
+import previewSource from './DetectionPreview.svelte?raw';
 import eventsPageSource from '../pages/Events.svelte?raw';
 import appearanceSource from './settings/AppearanceSettings.svelte?raw';
 import filtersSource from './ExplorerFilters.svelte?raw';
 import storeSource from '../stores/explorer_view.svelte.ts?raw';
+import authStoreSource from '../stores/auth.svelte.ts?raw';
 
 /**
  * #270: "The explorer section tends to get crowded fast, the cards there are
@@ -61,11 +63,15 @@ describe('the Explorer list row', () => {
         expect(detectionRowSource).toMatch(/rowSubject = \$derived\(`\$\{primaryName\}, \$\{formatTime/);
     });
 
-    it('shows a placeholder until the snapshot loads, so no alt text spills', () => {
-        // A 44px tile rendering a broken image shows its alt text instead.
-        expect(detectionRowSource).toContain('imageLoaded');
-        expect(detectionRowSource).toMatch(/onload=\{\(\) => \(imageLoaded = true\)\}/);
-        expect(detectionRowSource).toContain('overflow-hidden');
+    it('cannot spill alt text from a broken snapshot', () => {
+        // The row no longer loads its own image. DetectionPreview owns it, and
+        // holds the guarantee more firmly than the row did: the thumbnail is
+        // decorative (`alt=""`), so there is no text to spill even before
+        // `onerror` fires, and a failure swaps in an explicit placeholder.
+        expect(detectionRowSource).toContain('<DetectionPreview');
+        expect(previewSource).toContain('alt=""');
+        expect(previewSource).toContain('onerror={() => markFailed(frame.frigate_event)}');
+        expect(previewSource).toContain('failed.has(frame.frigate_event)');
     });
 });
 
@@ -74,9 +80,18 @@ describe('choosing the Explorer layout', () => {
         // The device's own choice wins where there is one; otherwise the install
         // default; and cards when the install has said nothing either.
         expect(eventsPageSource).toContain(
-            'explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view)'
+            'explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view ?? authStore.explorerView)'
         );
         expect(storeSource).toContain("this.override ?? (installDefault === 'list' ? 'list' : 'cards')");
+    });
+
+    it('reaches a guest, who is refused the settings it would otherwise come from', () => {
+        // `/api/settings` is owner-only, so for a guest `settingsStore.settings`
+        // stays null and the install default would never arrive: the setting
+        // would be inert on exactly the installs that have visitors. It travels
+        // on the public status payload instead, as the date and time formats do.
+        expect(authStoreSource).toContain("this.explorerView = status.appearance_explorer_view");
+        expect(authStoreSource).toMatch(/explorerView = \$state<'cards' \| 'list'>\('cards'\)/);
     });
 
     it('renders rows only when list is chosen', () => {

@@ -11,6 +11,9 @@
         filters: EventFilters | null;
         view?: 'cards' | 'list';
         onviewchange?: (view: 'cards' | 'list') => void;
+        /** Desktop only: the rail folds away and gives its width to the results. */
+        collapsed?: boolean;
+        oncollapsechange?: (collapsed: boolean) => void;
         datePreset: DatePreset;
         speciesFilter: string;
         cameraFilter: string;
@@ -44,6 +47,8 @@
         filters,
         view = 'cards',
         onviewchange,
+        collapsed = false,
+        oncollapsechange,
         datePreset,
         speciesFilter,
         cameraFilter,
@@ -127,7 +132,9 @@
 </script>
 
 <section
-    class="pb-4 pt-1 lg:flex lg:h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:pb-0 lg:pt-0"
+    class="pb-4 pt-1 {collapsed
+        ? ''
+        : 'lg:flex lg:h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:pb-0 lg:pt-0'}"
     data-events-filter-bar
 >
     <div class="flex shrink-0 flex-wrap items-center gap-2">
@@ -173,12 +180,42 @@
         </div>
 
         <button
-            class="btn btn-secondary min-h-11 px-3 py-2 text-xs lg:hidden"
+            class="btn btn-secondary min-h-11 px-3 py-2 text-xs {collapsed ? '' : 'lg:hidden'}"
             aria-expanded={panelOpen}
             onclick={() => (panelOpen = !panelOpen)}
             data-explorer-filter-toggle
         >
             {$_('events.filters.title', { default: 'Filters' })}
+        </button>
+
+        <!-- Desktop only: the phone already has the Filters button above. -->
+        <button
+            class="btn btn-ghost hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
+            aria-expanded={!collapsed}
+            aria-controls="explorer-facets"
+            onclick={() => {
+                // Collapsing has to close the panel too. The collapsed desktop
+                // shares the phone's Filters button, so leaving that open would
+                // fold the rail away and leave the facets on screen, under a
+                // control now reading "Show filters".
+                panelOpen = false;
+                oncollapsechange?.(!collapsed);
+            }}
+            data-explorer-rail-toggle
+        >
+            <svg
+                class="h-3.5 w-3.5 transition-transform duration-200 {collapsed ? '' : 'rotate-180'}"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                aria-hidden="true"
+            >
+                <path d="M12 5 7 10l5 5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+            {collapsed
+                ? $_('events.filters.show_rail', { default: 'Show filters' })
+                : $_('events.filters.hide_rail', { default: 'Hide filters' })}
         </button>
 
         {#if tokens.length > 0}
@@ -189,9 +226,12 @@
     </div>
 
     <div
-        class="mt-3 gap-5 border-t border-slate-200 pt-3 lg:!flex dark:border-slate-700 {panelOpen
+        id="explorer-facets"
+        class="mt-3 gap-5 border-t border-slate-200 pt-3 dark:border-slate-700 {panelOpen
             ? 'grid grid-cols-1 sm:grid-cols-3'
-            : 'hidden'} lg:mt-0 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-5 lg:overflow-hidden lg:border-t-0 lg:pt-0"
+            : 'hidden'} {collapsed
+            ? ''
+            : 'lg:!flex lg:mt-0 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-5 lg:overflow-hidden lg:border-t-0 lg:pt-0'}"
         data-explorer-facets
     >
             <div>

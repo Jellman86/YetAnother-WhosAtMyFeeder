@@ -901,8 +901,6 @@
       "dyslexia_font_desc": "Use OpenDyslexic font for better readability",
       "reduced_motion": "Reduced Motion",
       "reduced_motion_desc": "Disable animations and transitions",
-      "zen_mode": "Zen Mode",
-      "zen_mode_desc": "Simplify interface to reduce cognitive load",
       "live_announcements": "Live announcements",
       "live_announcements_desc": "Announce new detections with screen reader alerts."
     },
@@ -1934,7 +1932,9 @@
       "when": "When",
       "only": "Only",
       "search_species": "Search species",
-      "no_species_match": "No species matches that."
+      "no_species_match": "No species matches that.",
+      "show_rail": "Show filters",
+      "hide_rail": "Hide filters"
     },
     "sort": {
       "newest": "Newest",
@@ -1952,6 +1952,7 @@
     "bulk_reclassify_success": "Queued {count} detections for video analysis.",
     "bulk_reclassify_partial": "Queued {queued}; failed to queue {failed}.",
     "classification_legend": "Classification sources: Manual, Video, Snapshot",
+    "timeline_scope": "Days on this page",
     "timeline_keyboard_hint": "Timeline keyboard: [ previous day, ] next day, 0 reset",
     "row_open": "Open {species}",
     "row_select": "Select {species}",

@@ -305,8 +305,16 @@
             <!-- Bottom-left: when, how sure, and play, on one line.
                  The score used to sit alone in the opposite corner at a larger
                  type size, which read as a control and left the two facts about
-                 a detection diagonally apart (#267). -->
-            <div class="absolute bottom-3 left-3 z-20 flex flex-wrap items-center gap-2">
+                 a detection diagonally apart (#267).
+
+                 Never wraps. Wrapping was added as an overflow guard for a
+                 narrow card, but the row is anchored to the bottom, so a second
+                 line grows upward and lifts the readings off the edge into the
+                 middle of the photograph. The narrowest card is not a phone,
+                 where the card is full width, but the densest desktop grid, so
+                 the guard fired on an ordinary laptop and covered the bird. The
+                 grid now keeps a card wide enough for one line instead. -->
+            <div class="absolute bottom-3 left-3 z-20 flex flex-nowrap items-center gap-2">
                 <div class="flex min-h-11 items-center gap-1.5 rounded-full border border-white/10 bg-black/60 px-3 py-2 text-xs font-bold text-white backdrop-blur-md">
                     <svg class="w-3 h-3 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -318,6 +326,7 @@
                     {(detection.score * 100).toFixed(0)}%
                 </div>
                 {#if canPlayVideo}
+                    <span class="relative inline-flex">
                     <button
                         onclick={handlePlayClick}
                         onkeydown={(e) => {
@@ -335,19 +344,21 @@
                         </svg>
                     </button>
                     {#if fullVisitFetched}
-                        <div
-                            class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-500/90 text-white shadow-md"
+                        <span
+                            class="pointer-events-none absolute -right-0.5 -top-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full border border-slate-950/40 bg-brand-500 text-white shadow-md"
                             title={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
                             aria-label={$_('video_player.full_visit_ready', { default: 'Full visit clip ready' })}
+                            role="img"
                         >
-                            <svg class="h-2.5 w-2.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <svg class="h-2 w-2" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
                                 <path d="M7 3H5a2 2 0 00-2 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
                                 <path d="M13 3h2a2 2 0 012 2v2" stroke-linecap="round" stroke-linejoin="round"></path>
                                 <path d="M17 13v2a2 2 0 01-2 2h-2" stroke-linecap="round" stroke-linejoin="round"></path>
                                 <path d="M7 17H5a2 2 0 01-2-2v-2" stroke-linecap="round" stroke-linejoin="round"></path>
                             </svg>
-                        </div>
+                        </span>
                     {/if}
+                    </span>
                 {/if}
             </div>
         {/if}

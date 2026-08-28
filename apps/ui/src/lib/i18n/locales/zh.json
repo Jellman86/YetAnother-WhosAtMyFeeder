@@ -892,8 +892,6 @@
       "dyslexia_font_desc": "使用 OpenDyslexic 字体以提高可读性",
       "reduced_motion": "减少动态效果",
       "reduced_motion_desc": "禁用动画和过渡效果",
-      "zen_mode": "禅模式",
-      "zen_mode_desc": "简化界面以减少认知负荷",
       "live_announcements": "实时播报",
       "live_announcements_desc": "使用屏幕阅读器播报新的检测。"
     },
@@ -1925,7 +1923,9 @@
       "when": "时间",
       "only": "仅显示",
       "search_species": "搜索物种",
-      "no_species_match": "没有匹配的物种。"
+      "no_species_match": "没有匹配的物种。",
+      "show_rail": "显示筛选",
+      "hide_rail": "隐藏筛选"
     },
     "sort": {
       "newest": "最新",
@@ -1943,6 +1943,7 @@
     "bulk_reclassify_success": "已将 {count} 条检测加入视频分析队列。",
     "bulk_reclassify_partial": "已加入队列 {queued} 条；{failed} 条加入失败。",
     "classification_legend": "分类来源：手动、视频、快照",
+    "timeline_scope": "本页的日期",
     "timeline_keyboard_hint": "时间线快捷键：[ 前一天，] 后一天，0 重置",
     "row_open": "打开 {species}",
     "row_select": "选择 {species}",

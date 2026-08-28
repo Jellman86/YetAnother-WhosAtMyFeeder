@@ -575,13 +575,11 @@ def test_reported_wait_average_never_exceeds_the_reported_wait_maximum():
 
     pool._record_wait_sample(900.0)
     pool._acquire_count = 1
-    pool._acquire_wait_total_ms = 900.0
 
     # The slow wait ages out of the live window; a fast one replaces it.
     pool._wait_samples.clear()
     pool._record_wait_sample(4.0)
     pool._acquire_count = 2
-    pool._acquire_wait_total_ms = 904.0
 
     status = pool.get_status()
 
@@ -595,8 +593,6 @@ def test_reported_hold_average_never_exceeds_the_reported_hold_maximum():
     pool = DatabasePool("unused.db", pool_size=2)
 
     pool._hold_samples.append((0.0, 4000.0))
-    pool._hold_count = 1
-    pool._hold_total_ms = 4000.0
     pool._hold_lifetime_max_ms = 4000.0
 
     pool._hold_samples.clear()

@@ -892,8 +892,6 @@
       "dyslexia_font_desc": "Usar fuente OpenDyslexic para mejor legibilidad",
       "reduced_motion": "Movimiento reducido",
       "reduced_motion_desc": "Desactivar animaciones y transiciones",
-      "zen_mode": "Modo Zen",
-      "zen_mode_desc": "Simplificar interfaz para reducir carga cognitiva",
       "live_announcements": "Anuncios en vivo",
       "live_announcements_desc": "Anunciar nuevas detecciones con alertas para lectores de pantalla."
     },
@@ -1925,7 +1923,9 @@
       "when": "Cuándo",
       "only": "Solo",
       "search_species": "Buscar especie",
-      "no_species_match": "Ninguna especie coincide."
+      "no_species_match": "Ninguna especie coincide.",
+      "show_rail": "Mostrar filtros",
+      "hide_rail": "Ocultar filtros"
     },
     "sort": {
       "newest": "Más reciente",
@@ -1943,6 +1943,7 @@
     "bulk_reclassify_success": "Se pusieron en cola {count} detecciones para análisis de video.",
     "bulk_reclassify_partial": "En cola: {queued}; no se pudieron poner en cola: {failed}.",
     "classification_legend": "Fuentes de clasificación: Manual, Vídeo, Instantánea",
+    "timeline_scope": "Días en esta página",
     "timeline_keyboard_hint": "Teclado de línea de tiempo: [ día anterior, ] día siguiente, 0 restablecer",
     "row_open": "Abrir {species}",
     "row_select": "Seleccionar {species}",

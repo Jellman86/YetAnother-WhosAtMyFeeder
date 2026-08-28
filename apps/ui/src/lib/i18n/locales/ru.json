@@ -901,8 +901,6 @@
       "dyslexia_font_desc": "Использовать шрифт OpenDyslexic для лучшей читаемости",
       "reduced_motion": "Уменьшение движения",
       "reduced_motion_desc": "Отключить анимацию и переходы",
-      "zen_mode": "Режим Дзен",
-      "zen_mode_desc": "Упростить интерфейс для снижения когнитивной нагрузки",
       "live_announcements": "Живые объявления",
       "live_announcements_desc": "Объявлять о новых обнаружениях с помощью оповещений для скринридера."
     },
@@ -1934,7 +1932,9 @@
       "when": "Когда",
       "only": "Только",
       "search_species": "Поиск вида",
-      "no_species_match": "Ничего не найдено."
+      "no_species_match": "Ничего не найдено.",
+      "show_rail": "Показать фильтры",
+      "hide_rail": "Скрыть фильтры"
     },
     "sort": {
       "newest": "Сначала новые",
@@ -1952,6 +1952,7 @@
     "bulk_reclassify_success": "{count} обнаружений поставлены в очередь на видеоанализ.",
     "bulk_reclassify_partial": "Поставлено в очередь: {queued}; не удалось поставить: {failed}.",
     "classification_legend": "Источник классификации: вручную, видео, снимок",
+    "timeline_scope": "Дни на этой странице",
     "timeline_keyboard_hint": "Клавиши таймлайна: [ предыдущий день, ] следующий день, 0 сброс",
     "row_open": "Открыть {species}",
     "row_select": "Выбрать {species}",

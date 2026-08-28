@@ -15,7 +15,10 @@ describe('detection card full-visit fetch wiring', () => {
         expect(detectionCardSource).toContain('fullVisitFetchState');
         expect(detectionCardSource).toContain('onFetchFullVisit');
         expect(detectionCardSource).toContain("title={$_('video_player.full_visit_ready'");
-        expect(detectionCardSource).toContain('inline-flex h-5 w-5 items-center justify-center rounded-full bg-brand-500/90');
+        // The marker rides on the play button now. Beside it, a 20px circle next
+        // to a 44px one read as a second, broken control.
+        expect(detectionCardSource).toContain('absolute -right-0.5 -top-0.5');
+        expect(detectionCardSource).toContain('h-4 w-4 items-center justify-center rounded-full');
         expect(detectionCardSource).not.toContain("video_player.full_visit_badge', { default: 'Full visit' })}</span>");
         // The overlay row sits bottom-left and above the media, which is what
         // this test needs; its exact utility list is the card's business.

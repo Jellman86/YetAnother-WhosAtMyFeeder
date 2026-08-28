@@ -6,6 +6,95 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **The Explorer's filter rail can be folded away.** It holds 14rem of screen permanently, and once
+  a filter is set the chips above the results already say what is applied, so the rail is mostly
+  restating itself. Hiding it gives that width back to the detections. The control is on the filter
+  bar, desktop only, because a phone already collapses the filters behind a Filters button, and a
+  collapsed desktop simply uses that same button. The choice sticks to the device that made it, and
+  a viewer without owner access can use it too, since it changes nothing on the server.
+
+- **A list row now previews its snapshot on hover, like the dashboard's field log.** The row showed
+  a 44px thumbnail too small to recognise a bird in, and opening the detection was the only way to
+  see more. It now uses the same pop-out the field log uses, which means it opens on keyboard focus
+  as well as hover, stays open while the pointer travels into it, closes on Escape, and costs no
+  second request. It also no longer loads its own copy of the image.
+
+### Removed
+
+- **Zen mode is gone from Settings > Accessibility.** The toggle saved, reported success, and
+  changed nothing: it added a `zen-mode` class to the document root and no stylesheet in the app has
+  ever carried a rule for that class, so the interface was identical either way. The effect that
+  added the class also lived on the Settings page, so even the class was dropped again on navigating
+  away. A control that claims an effect it does not have is worse than no control, and worst of all
+  in the accessibility section, where someone may be relying on it. An existing `config.json` that
+  still names `zen_mode` keeps loading, and the key is dropped the next time settings are saved;
+  `ACCESSIBILITY__ZEN_MODE` no longer does anything and can be removed from a compose file.
+
+### Fixed
+
+- **A broken test database now says what broke it.** When the test suite could not build its schema,
+  the setup printed the failure and carried on with a flag saying the database was ready. Every test
+  then ran against an empty database and reported `no such table`, so one cause surfaced as hundreds
+  of unrelated errors. Setup now stops with the Alembic output and names the usual culprit: a
+  file-sync duplicate such as `<revision> 2.py` in `migrations/versions`, which Git ignores but
+  Alembic still reads off disk.
+
+- **A public visitor no longer triggers a refused request on every Explorer load.** The Explorer
+  asked for the hidden-detection count without checking for owner access first. The count is only
+  ever shown to an owner and the endpoint refuses everyone else, so a guest got a 403 in the browser
+  console each time the page loaded. The request now waits for owner access, like the settings
+  refresh and the camera status readers already do
+  ([#302](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/302)).
+
+- **The Explorer's day chips now say which one is selected to a screen reader.** The selected chip
+  was drawn with a different background and border and nothing else, so a screen reader gave no way
+  to tell which day was active. Each chip now carries `aria-pressed`, and the chip row is a group
+  named by the scope label above it, so the scope reaches a screen reader as well as the eye.
+
+- **The time and score no longer float in the middle of the photograph.** They sit in a row
+  anchored to the bottom of the snapshot, and that row was allowed to wrap so it would not run off
+  the edge of a narrow card. The narrowest card is not a phone, where a card is full width, but the
+  densest desktop grid: measured in the real layout, four columns beside the filter rail gave a
+  168px card at 1024px and a 232px card at 1280px. So the row wrapped on an ordinary laptop, and
+  because it is anchored to the bottom, each extra line pushed the readings up over the bird. At
+  1024px it covered 76% of the picture. The row no longer wraps, the fourth column now waits for a
+  wider screen so a card is always wide enough for one line, and the "full visit ready" marker moved
+  onto the play button instead of sitting beside it as a 20px circle next to a 44px one, which read
+  as a second, broken control.
+
+- **Reduce motion now works anywhere but the Settings page.** The setting adds a `reduced-motion`
+  class that the audio history reads before it animates, but only the Settings page ever added that
+  class. So it held while you were looking at the setting, held as you navigated away within the
+  same session, and was gone after a reload: a reader who opened the audio history directly got the
+  animation regardless of what they had chosen, and a public visitor could never get it at all. It
+  is now applied at the app root, from the same public payload as the other two, and the Settings
+  page no longer keeps its own duplicate copies of all three.
+
+- **A public visitor now gets the high contrast and dyslexia-font settings the owner chose.** Both
+  were applied from `/api/settings`, which refuses anyone without owner access, so on an install with
+  authentication on and public access enabled a visitor could never receive either one, and the
+  owner had no way to give it to them. The visitor most likely to need high contrast was the one
+  visitor who could not have it. Both now travel on the public status payload, where
+  `accessibility_live_announcements` already sat: that block was split, one field public and two
+  not, which is what made this easy to miss.
+
+- **A public visitor now gets the Explorer layout the owner chose.** Settings > Appearance calls the
+  control "the layout new devices start with", and a visitor's device is the newest device there is,
+  but the layout travelled only on `/api/settings`, which refuses everyone without owner access. So
+  the store had nothing to read, fell back to cards, and the setting was silently inert on exactly
+  the installs that have visitors. It now travels on the public status payload, the same route the
+  date and time formats already take. A visitor can still switch layout for their own device, and
+  that choice still goes no further than their browser.
+
+- **The Explorer's day chips say which detections they are counting.** The chips read
+  `All 24 / Aug 27 16 / Aug 26 8` beside a heading that read `810 visits`, so two numbers measuring
+  different things sat on the same row and the pair read as a fault. The chips group the page that
+  has loaded, and clicking one narrows to that day within that page, which is what the counts have
+  always described. The row now says so
+  ([#303](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/303)).
+
 ## [2.18.0] - 2026-08-27
 
 ### Added

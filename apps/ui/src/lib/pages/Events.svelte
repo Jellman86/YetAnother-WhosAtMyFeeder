@@ -23,6 +23,7 @@
     import ExplorerFilters from '../components/ExplorerFilters.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { explorerViewStore } from '../stores/explorer_view.svelte';
+    import { explorerFiltersStore } from '../stores/explorer_filters.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
@@ -76,7 +77,7 @@
     let tagSearchQuery = $state('');
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
-    const explorerView = $derived(explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view));
+    const explorerView = $derived(explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view ?? authStore.explorerView));
     let selectionMode = $state(false);
     let selectedEventIds = $state<string[]>([]);
     let showBulkTagModal = $state(false);
@@ -269,9 +270,11 @@
             availableCameras = (filters as EventFilters).cameras;
             eventFilters = filters as EventFilters;
             if (includeAuxiliary) {
+                // The hidden count is only ever shown behind owner access, and the
+                // endpoint refuses a guest, so asking as a guest just logs a 403.
                 const [labels, hidden] = await Promise.all([
                     fetchClassifierLabels().catch(() => ({ labels: [] })),
-                    fetchHiddenCount().catch(() => ({ hidden_count: 0 }))
+                    authStore.hasOwnerAccess ? fetchHiddenCount().catch(() => ({ hidden_count: 0 })) : { hidden_count: 0 }
                 ]);
                 classifierLabels = labels.labels;
                 hiddenCount = hidden.hidden_count;
@@ -1092,11 +1095,18 @@
         </div>
     {/if}
 
-    <div class="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start" data-explorer-layout>
-        <div class="lg:sticky lg:top-4">
+    <div
+        class="grid gap-6 lg:items-start {explorerFiltersStore.collapsed
+            ? ''
+            : 'lg:grid-cols-[14rem_minmax(0,1fr)]'}"
+        data-explorer-layout
+    >
+        <div class={explorerFiltersStore.collapsed ? '' : 'lg:sticky lg:top-4'}>
         <ExplorerFilters
             view={explorerView}
             onviewchange={(next) => explorerViewStore.set(next)}
+            collapsed={explorerFiltersStore.collapsed}
+            oncollapsechange={(next) => explorerFiltersStore.set(next)}
             species={displaySpecies}
             cameras={availableCameras}
             filters={eventFilters}
@@ -1153,7 +1163,20 @@
 
         {#if !loading && timelineBuckets.length > 0}
             <section data-events-timeline class="pb-4 pt-1">
-                <div class="flex flex-wrap items-center gap-2">
+                <!--
+                    These chips group the loaded page, and clicking one narrows to that
+                    day within the page. The heading beside them counts the whole filter,
+                    so without this the two numbers look like the same measurement
+                    disagreeing with itself.
+                -->
+                <p
+                    id="events-timeline-scope"
+                    data-events-timeline-scope
+                    class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                >
+                    {$_('events.timeline_scope', { default: 'Days on this page' })}
+                </p>
+                <div class="flex flex-wrap items-center gap-2" role="group" aria-labelledby="events-timeline-scope">
                     <button
                         type="button"
                         class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
@@ -1161,6 +1184,7 @@
                                 ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                                 : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                         onclick={() => selectedTimelineBucket = 'all'}
+                        aria-pressed={selectedTimelineBucket === 'all'}
                     >
                         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                             <circle cx="10" cy="10" r="6"></circle>
@@ -1187,6 +1211,7 @@
                                     ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                                     : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                             onclick={() => selectedTimelineBucket = bucket.key}
+                            aria-pressed={selectedTimelineBucket === bucket.key}
                         >
                             <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <rect x="3" y="4" width="14" height="13" rx="2"></rect>
@@ -1245,7 +1270,7 @@
                 {/each}
             </div>
         {:else}
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {#each visibleEvents as event, index (eventKey(event))}
                     <DetectionCard 
                         detection={event} 

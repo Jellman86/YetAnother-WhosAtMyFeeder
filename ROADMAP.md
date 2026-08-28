@@ -235,6 +235,36 @@ hidden, maintenance/analytics/destructive tools no longer compete with routine p
 noise and structural emoji are reduced, and the Settings type floor is 12px. The remaining work is
 the primary owner/guest journey review, including their loading, empty, error, and destructive states.
 
+#### A public projection of the settings a viewer needs 👥
+**Priority:** P1 | **Effort:** S
+
+`/api/settings` is owner-only and returns everything, so the SPA has no way to read a single
+display preference as a guest. Every setting that shapes what a visitor sees has therefore been
+copied onto `/api/auth/status` one field at a time as somebody notices it is missing. That payload
+now carries around twenty display preferences and is not really an auth endpoint any more, and the
+pattern only finds a defect after a visitor has already been given the wrong interface.
+
+Four were fixed this way in the 2.18.0 follow-up work: the Explorer layout, high contrast, the
+dyslexia font, and reduce motion. A sweep of every `settingsStore.settings` read outside the
+Settings page found three more still open, all on guest-visible surfaces:
+
+- `classification_threshold`. `needsReview()` returns `false` when the threshold is null, so a
+  guest never sees a row flagged as needing a person on confidence, on the Explorer list, the
+  Dashboard field log, or a detection card. The layout standard states that flag as one of the
+  three signals a visit carries, so the guest view is currently making a claim it cannot support.
+- `ebird_default_days_back`. The nearby radius already travels publicly, so the window beside it
+  reads "last 14 days" to a guest whatever the owner configured. Same defect the radius fix closed,
+  one field along.
+- `recording_clip_enabled` and `clips_enabled`. Both read false for a guest, so the play affordance
+  is withheld independently of `public_access_allow_clip_downloads`, which is the setting that is
+  supposed to decide it.
+
+The outcome wanted is one small public projection of the settings a viewer legitimately needs,
+served to guest and owner alike, so a new display preference is public or owner-only by decision
+rather than by whether anyone remembered. Complete when the three above are served from it, the
+auth status payload stops accreting display preferences, and a test asserts that a guest and an
+owner resolve the same value for every setting in the projection.
+
 ✅ **Primary observation and history pass:** Dashboard, Leaderboard, Species details, BirdNET-Go
 History, Explorer filters, detection tiles, and detection details now share the calmer first-run
 visual language. Repeated cards have become divided information surfaces, media and rankings lead
@@ -505,6 +535,21 @@ reconciliation. Remaining: DB query optimization (indexes, optional result cachi
 pagination), a durable multi-process job broker only if deployment scale requires work beyond the
 current single-container contract, targeted virtual scrolling, and a benchmark suite for
 regression testing.
+
+The species filter is the live instance and the reports disagree with the fix that has shipped.
+Dropping the taxonomy join took the measured worst case from 247ms to 63ms, but
+[#258](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/258) then reported the
+opposite of what that predicts: a species with 2,700 detections loads in seconds while one with
+under a hundred does not finish, and
+[#301](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/301) is the same case at its
+limit. Rarer being slower is the signature of `ORDER BY ... LIMIT` over a low-selectivity
+predicate, where the planner walks the timestamp index backwards until it fills a page, so the
+fewer rows match the deeper it reads. `resolve_species_aliases` is a second, fixed cost on the same
+path: it selects distinct display names with ORs across four columns wrapped in `LOWER(...)`, the
+exact shape the comment in `_canonical_species_query_parts` records as unservable by an index, so
+it scans `detections` once per request before the slow part starts. Neither is addressed by an
+index. Both want measuring on a database with a realistic long tail rather than on species counts
+that happen to be healthy.
 
 #### Broader end-to-end coverage 🧪
 **Priority:** P1 | **Effort:** M | **Status:** 🔄 Targeted coverage exists

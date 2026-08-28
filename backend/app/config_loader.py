@@ -419,7 +419,6 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "high_contrast": os.environ.get("ACCESSIBILITY__HIGH_CONTRAST", "false").lower() == "true",
         "dyslexia_font": os.environ.get("ACCESSIBILITY__DYSLEXIA_FONT", "false").lower() == "true",
         "reduced_motion": os.environ.get("ACCESSIBILITY__REDUCED_MOTION", "false").lower() == "true",
-        "zen_mode": os.environ.get("ACCESSIBILITY__ZEN_MODE", "false").lower() == "true",
         "live_announcements": os.environ.get("ACCESSIBILITY__LIVE_ANNOUNCEMENTS", "true").lower() == "true",
     }
 

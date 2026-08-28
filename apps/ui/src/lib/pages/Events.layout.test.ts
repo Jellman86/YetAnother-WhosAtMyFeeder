@@ -90,4 +90,30 @@ describe('Explorer page layout', () => {
         expect(filtersSource).toContain('events.filters.start_date');
         expect(filtersSource).toContain('events.filters.end_date');
     });
+
+    it('says the day chips describe the loaded page, not the whole filter', () => {
+        // The chips group `events`, which is one page of results, while the heading
+        // beside them counts the whole filter. Two numbers of different scope on one
+        // row read as a fault, so the row states its own scope.
+        expect(eventsSource).toContain("$_('events.timeline_scope'");
+        expect(eventsSource).toContain('data-events-timeline-scope');
+    });
+
+    it('does not ask a guest for the owner-only hidden count', () => {
+        // A guest is always refused this endpoint and never sees the value, so the
+        // request only ever produced a console 403 on every Explorer load.
+        expect(eventsSource).toContain('authStore.hasOwnerAccess ? fetchHiddenCount()');
+        expect(eventsSource).not.toMatch(/\n\s+fetchHiddenCount\(\)\.catch/);
+    });
+
+    it('exposes the day-chip scope and selection to a screen reader, not only to the eye', () => {
+        // The scope label is useless to a screen reader unless it names the group,
+        // and selection was carried by background colour alone, which section 5
+        // forbids and WCAG 1.4.1 fails.
+        expect(eventsSource).toContain('id="events-timeline-scope"');
+        expect(eventsSource).toContain('aria-labelledby="events-timeline-scope"');
+        expect(eventsSource).toMatch(/role="group"/);
+        expect(eventsSource).toContain("aria-pressed={selectedTimelineBucket === 'all'}");
+        expect(eventsSource).toContain('aria-pressed={selectedTimelineBucket === bucket.key}');
+    });
 });
