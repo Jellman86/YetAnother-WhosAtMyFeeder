@@ -631,7 +631,7 @@ async def test_classifier_status_distinguishes_configured_and_effective_model_id
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_caches_acceleration_probe_results():
+async def test_status_reads_never_detect_acceleration_capabilities():
     caps = {
         "ort_available": False,
         "cuda_provider_installed": False,
@@ -663,14 +663,29 @@ async def test_classifier_service_caches_acceleration_probe_results():
         service.get_status()
         service.get_status()
 
+        # Detected once, at construction. Reading status never detects.
         assert mock_detect.call_count == 1
 
+        # Even with the reading past its TTL and the scheduler's grace, a status
+        # read must not go and find out: detection spawns child processes and
+        # this runs on the event loop, which stalled every concurrent request
+        # behind it (#313).
         service._accel_caps_last_refreshed_monotonic = (
-            (service._accel_caps_last_refreshed_monotonic or 0.0) - service._accel_caps_ttl_seconds - 1.0
+            (service._accel_caps_last_refreshed_monotonic or 0.0)
+            - service._accel_caps_ttl_seconds
+            - classifier_service_module.ACCEL_CAPS_STALE_GRACE_SECONDS
+            - 1.0
         )
-        service.get_status()
+        status = service.get_status()
+
+        assert mock_detect.call_count == 1
+        assert status["accel_caps_stale"] is True, "a stale reading is reported as stale, not refreshed"
+
+        # The scheduler refreshes it instead, off the request path.
+        await service.refresh_accel_caps_off_request_path()
 
         assert mock_detect.call_count == 2
+        assert service.get_status()["accel_caps_stale"] is False
         await service.shutdown()
 
 

@@ -42,6 +42,40 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Saving settings that change the inference provider no longer stalls the backend either.**
+  Taking hardware detection off the status path left one road back onto the event loop: a settings
+  save that changes the provider or execution mode reloads the classifier as a background task, and
+  that task rebuilt the service and loaded the model inline — the same subprocess probes, the same
+  stalled requests, just triggered by a write instead of a read. Clearing classification feedback
+  reloaded the model the same way. Both reloads now build the classifier and load the model in a
+  worker thread, so a settings save costs the saver a moment and everyone else nothing
+  ([#313](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/313)).
+
+- **A status request no longer stops the backend answering anything else.** Asking for classifier
+  status re-detected the machine's hardware capabilities, and detection starts up to three
+  short-lived child processes that each import an inference runtime, with a five second timeout
+  apiece. That ran on the thread serving every request, so while it worked, nothing else was
+  answered. A reporter's capture showed `/api/version`, which returns a fixed string and touches no
+  database, disk or network, waiting 22.5 seconds for its first byte, alongside four other requests
+  that all finished at the same moment. Detection now runs on a schedule away from any request, a
+  status read returns the last known answer, and the reply says how old that answer is rather than
+  implying it is current. The schedule re-detects every fifteen minutes rather than every minute —
+  the capabilities cannot change without a container restart, and `CLASSIFIER_ACCEL_PROBE_TTL_SECONDS`
+  tunes it — and a reading the scheduler will refresh at its next wake is reported on schedule, not
+  stale ([#313](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/313)).
+
+- **Diagnostics now say what machine they came from.** A bundle recorded the app version and the
+  configuration but neither the processor count nor the memory, so a report of slowness could not be
+  sized: two bundles and a browser capture were exchanged on
+  [#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300) before anyone could say
+  whether the host was a small box or a large one. Health and the bundle now carry the usable
+  processor count, total memory, and any container CPU or memory limit, which is the number that
+  actually governs contention. The limits are read from cgroup v2 or, on hosts that still mount
+  cgroup v1 such as Unraid and older Docker, from the v1 files — a `--cpus=2` container on a
+  sixteen core v1 host reports two effective cores, not sixteen. Anything unreadable is reported
+  as unknown rather than guessed, including the effective core count when no cgroup can be read
+  at all.
+
 - **A broken test database now says what broke it.** When the test suite could not build its schema,
   the setup printed the failure and carried on with a flag saying the database was ready. Every test
   then ran against an empty database and reported `no such table`, so one cause surfaced as hundreds
