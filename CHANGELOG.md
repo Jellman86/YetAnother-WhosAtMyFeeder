@@ -68,6 +68,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Classifier status reports the active model's label count without a resident model.** With
+  inference out of the API process by default, the process answering status holds no model, and the
+  label count silently read as zero on every default install. The count is a fact about the
+  install, not about which process holds the weights: it now comes from the active model's label
+  file, cached by modification time, and a resident model's own count still wins when one exists.
+
 - **A card is now actually always wide enough for its bottom row.** The last release stopped the
   time-and-score row wrapping up over the bird and promised a card wide enough for one line, but
   fixed column counts could not keep that promise: with the sidebar and the filter rail open, the

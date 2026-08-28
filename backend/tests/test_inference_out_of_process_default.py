@@ -131,3 +131,44 @@ def test_admission_capacity_matches_the_worker_pool(monkeypatch):
         service._live_image_executor.shutdown(wait=False)
         service._background_image_executor.shutdown(wait=False)
         service._video_executor.shutdown(wait=False)
+
+
+def test_status_reports_label_count_without_a_resident_model(monkeypatch, tmp_path):
+    """The API process holds no model in subprocess mode, but the active
+    model's label count is a fact about the install, not about which process
+    holds the weights - status must not report a default install as having no
+    labels."""
+    from unittest.mock import patch
+
+    from app.config import settings
+    from app.services.classifier_service import ClassifierService
+
+    labels = tmp_path / "labels.txt"
+    labels.write_text("Robin\nDunnock\n\nWren\n", encoding="utf-8")
+
+    monkeypatch.setattr(settings.classification, "image_execution_mode", "subprocess")
+    monkeypatch.setattr(settings.classification, "live_worker_count", None)
+    monkeypatch.setattr(settings.classification, "background_worker_count", None)
+
+    with (
+        patch.object(ClassifierService, "_init_bird_model", return_value=None),
+        patch(
+            "app.services.classifier_service._detect_acceleration_capabilities",
+            return_value={},
+        ),
+    ):
+        service = ClassifierService()
+
+    service._resolve_active_bird_model_spec = lambda: {  # type: ignore[method-assign]
+        "model_id": "test-model",
+        "labels_path": str(labels),
+    }
+
+    try:
+        status = service.get_status()
+        assert status["labels_count"] == 3
+    finally:
+        service._image_executor.shutdown(wait=False)
+        service._live_image_executor.shutdown(wait=False)
+        service._background_image_executor.shutdown(wait=False)
+        service._video_executor.shutdown(wait=False)
