@@ -120,7 +120,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS` | `5.0` | Worker heartbeat timeout. |
 | `CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS` | `35.0` | Live worker hard deadline. |
 | `CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS` | `120.0` | Background worker hard deadline. |
-| `CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS` | `20.0` | Worker start-up readiness timeout. |
+| `CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS` | `60.0` | Worker start-up readiness timeout. Start-up includes hardware probes and, on an accelerator, a model compile. |
 | `CLASSIFICATION__WORKER_RESTART_WINDOW_SECONDS` | `60.0` | Window for counting worker restarts. |
 | `CLASSIFICATION__WORKER_RESTART_THRESHOLD` | `3` | Restarts before the worker breaker trips. |
 | `CLASSIFICATION__WORKER_BREAKER_COOLDOWN_SECONDS` | `60.0` | Cooldown after the worker breaker trips. |

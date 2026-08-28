@@ -262,7 +262,10 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "background_worker_hard_deadline_seconds": float(
             os.environ.get("CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS", "120.0")
         ),
-        "worker_ready_timeout_seconds": float(os.environ.get("CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS", "20.0")),
+        # Startup runs hardware probes and, on an accelerator, a model compile
+        # that can take tens of seconds; a 20s budget flapped worker startup on
+        # exactly that hardware once subprocess became the default (#312).
+        "worker_ready_timeout_seconds": float(os.environ.get("CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS", "60.0")),
         "worker_restart_window_seconds": float(os.environ.get("CLASSIFICATION__WORKER_RESTART_WINDOW_SECONDS", "60.0")),
         "worker_restart_threshold": int(os.environ.get("CLASSIFICATION__WORKER_RESTART_THRESHOLD", "3")),
         "worker_breaker_cooldown_seconds": float(

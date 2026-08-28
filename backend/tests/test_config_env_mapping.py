@@ -255,7 +255,10 @@ CLASSIFICATION_ENV_PRECEDENCE_CASES = [
         "worker_ready_timeout_seconds",
         "CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS",
         "22.5",
-        20.0,
+        # Startup runs hardware probes and, on an accelerator, a model compile
+        # that can take tens of seconds; with subprocess the default mode, a
+        # 20s budget flapped worker startup on exactly that hardware (#312).
+        60.0,
         22.5,
     ),
     (
