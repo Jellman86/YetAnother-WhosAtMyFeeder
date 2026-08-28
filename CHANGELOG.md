@@ -42,6 +42,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Classification work that outlives its lease is now cancelled, not abandoned to run on.** When a
+  classification took longer than its lease the coordinator freed the capacity slot and admitted a
+  replacement, but the overrunning work itself was left awaiting its result, holding its inputs —
+  for image work, a full-resolution frame queued for the executor. On a box that is already behind,
+  every abandonment pinned another frame, so falling behind made the process grow exactly when it
+  could least afford to ([#314](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/314)).
+  A reclaimed lease now cancels the runner; work that completes in the same instant its
+  cancellation is delivered is still ignored as a late completion, exactly as before.
+
 - **Saving settings that change the inference provider no longer stalls the backend either.**
   Taking hardware detection off the status path left one road back onto the event loop: a settings
   save that changes the provider or execution mode reloads the classifier as a background task, and
