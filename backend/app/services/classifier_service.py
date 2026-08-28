@@ -1718,6 +1718,20 @@ async def shutdown_classifier() -> None:
             _classifier_instance = None
 
 
+async def refresh_accel_caps_if_running() -> None:
+    """Refresh capabilities on the running classifier, never building one.
+
+    The probe scheduler runs on the event loop, and constructing
+    ClassifierService detects hardware and loads the model synchronously. A
+    missing singleton means startup or a reload owns construction; the
+    scheduler's next wake will find the new instance.
+    """
+    service = _classifier_instance
+    if service is None:
+        return
+    await service.refresh_accel_caps_off_request_path()
+
+
 async def reload_classifier_out_of_band(*, full_restart: bool) -> None:
     """Rebuild or reload the classifier away from the event loop.
 

@@ -36,6 +36,7 @@ from app.services.mqtt_service import mqtt_service
 from app.services.classifier_service import (
     CLASSIFIER_ACCEL_PROBE_TTL_SECONDS,
     get_classifier,
+    refresh_accel_caps_if_running,
     shutdown_classifier,
 )
 from app.services.event_processor import EventProcessor
@@ -440,7 +441,7 @@ async def _start_heartbeat_scheduler_task(instance_id: str) -> None:
         """
         while True:
             try:
-                await get_classifier().refresh_accel_caps_off_request_path()
+                await refresh_accel_caps_if_running()
             except Exception as error:  # noqa: BLE001 - a probe failure must not end the loop
                 log.warning("Acceleration capability refresh failed", error=str(error))
             await asyncio.sleep(ACCEL_CAPS_REFRESH_SECONDS)

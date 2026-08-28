@@ -164,6 +164,30 @@ def test_reload_does_not_run_model_init_on_the_event_loop():
     assert init_threads[0] != loop_thread
 
 
+def test_the_probe_scheduler_never_builds_the_classifier():
+    """A missing singleton is skipped, not constructed on the event loop.
+
+    Constructing ClassifierService detects hardware and loads the model
+    synchronously. If a failed reload leaves the singleton absent, the probe
+    scheduler must wait for whoever owns construction, not rebuild it inline
+    and stall every request.
+    """
+    with (
+        patch.object(classifier_service, "_classifier_instance", None),
+        patch.object(ClassifierService, "__init__", side_effect=AssertionError("constructed on the event loop")),
+    ):
+        asyncio.run(classifier_service.refresh_accel_caps_if_running())
+
+
+def test_the_probe_scheduler_refreshes_a_running_classifier():
+    service = MagicMock(refresh_accel_caps_off_request_path=AsyncMock())
+
+    with patch.object(classifier_service, "_classifier_instance", service):
+        asyncio.run(classifier_service.refresh_accel_caps_if_running())
+
+    service.refresh_accel_caps_off_request_path.assert_awaited_once()
+
+
 def test_settings_triggered_reload_builds_the_classifier_off_the_loop():
     """Rebuilding the classifier singleton must not happen on the event loop.
 
