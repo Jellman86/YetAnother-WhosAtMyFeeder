@@ -69,6 +69,83 @@ def test_host_facts_never_raise_on_an_unusual_platform():
     assert facts["cpu_count"] is not None
 
 
+def test_a_cgroup_v1_cpu_limit_is_read(tmp_path):
+    """Unraid and older Docker mount cgroup v1; a --cpus limit lives there.
+
+    Reading only the v2 path reported a two core container on a sixteen core
+    v1 host as unconstrained — the exact misdiagnosis this module exists to
+    prevent.
+    """
+    from app.services import host_facts
+
+    quota = tmp_path / "cpu.cfs_quota_us"
+    period = tmp_path / "cpu.cfs_period_us"
+    quota.write_text("200000\n")
+    period.write_text("100000\n")
+
+    with (
+        patch.object(host_facts, "CGROUP_V2_CPU_MAX", str(tmp_path / "missing")),
+        patch.object(host_facts, "CGROUP_V1_CPU_QUOTA", str(quota)),
+        patch.object(host_facts, "CGROUP_V1_CPU_PERIOD", str(period)),
+    ):
+        assert host_facts._read_cgroup_cpu_quota() == 2.0
+
+    quota.write_text("-1\n")
+    with (
+        patch.object(host_facts, "CGROUP_V2_CPU_MAX", str(tmp_path / "missing")),
+        patch.object(host_facts, "CGROUP_V1_CPU_QUOTA", str(quota)),
+        patch.object(host_facts, "CGROUP_V1_CPU_PERIOD", str(period)),
+    ):
+        assert host_facts._read_cgroup_cpu_quota() is None  # explicitly unlimited
+
+
+def test_a_cgroup_v1_memory_limit_is_read(tmp_path):
+    from app.services import host_facts
+
+    limit = tmp_path / "memory.limit_in_bytes"
+    limit.write_text("2147483648\n")
+
+    with (
+        patch.object(host_facts, "CGROUP_V2_MEMORY_MAX", str(tmp_path / "missing")),
+        patch.object(host_facts, "CGROUP_V1_MEMORY_LIMIT", str(limit)),
+    ):
+        assert host_facts._read_cgroup_memory_limit() == 2147483648
+
+    # v1 reports "no limit" as a near-2^63 sentinel, not the word "max".
+    limit.write_text("9223372036854771712\n")
+    with (
+        patch.object(host_facts, "CGROUP_V2_MEMORY_MAX", str(tmp_path / "missing")),
+        patch.object(host_facts, "CGROUP_V1_MEMORY_LIMIT", str(limit)),
+    ):
+        assert host_facts._read_cgroup_memory_limit() is None
+
+
+def test_an_unreadable_cpu_quota_is_not_rounded_up_to_the_whole_machine(tmp_path):
+    """No cgroup file at all means the limit is unknown, not absent.
+
+    Claiming the full core count as effective when the quota could not be read
+    is the guess the module docstring forbids: a constrained container on an
+    exotic platform would be sized as the whole machine.
+    """
+    from app.services import host_facts
+
+    with patch.object(host_facts, "_read_cgroup_cpu_quota", side_effect=OSError("no cgroup at all")):
+        facts = host_facts.collect_host_facts()
+
+    assert facts["cpu_quota"] is None
+    assert facts["effective_cpus"] is None, "an unknown limit must stay unknown"
+
+
+def test_an_explicitly_unlimited_quota_makes_the_machine_the_limit():
+    from app.services import host_facts
+
+    with patch.object(host_facts, "_read_cgroup_cpu_quota", return_value=None):
+        facts = host_facts.collect_host_facts()
+
+    assert facts["cpu_quota"] is None
+    assert facts["effective_cpus"] == float(facts["cpu_count"])
+
+
 def test_scheduler_wakes_more_often_than_the_reading_expires():
     """A wake interval equal to the TTL re-probes on every tick, forever.
 

@@ -70,7 +70,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   [#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300) before anyone could say
   whether the host was a small box or a large one. Health and the bundle now carry the usable
   processor count, total memory, and any container CPU or memory limit, which is the number that
-  actually governs contention. Anything unreadable is reported as unknown rather than guessed.
+  actually governs contention. The limits are read from cgroup v2 or, on hosts that still mount
+  cgroup v1 such as Unraid and older Docker, from the v1 files — a `--cpus=2` container on a
+  sixteen core v1 host reports two effective cores, not sixteen. Anything unreadable is reported
+  as unknown rather than guessed, including the effective core count when no cgroup can be read
+  at all.
 
 - **A broken test database now says what broke it.** When the test suite could not build its schema,
   the setup printed the failure and carried on with a flag saying the database was ready. Every test
