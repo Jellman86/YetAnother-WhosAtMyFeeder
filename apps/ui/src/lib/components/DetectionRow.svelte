@@ -13,10 +13,10 @@
      */
     import { _ } from 'svelte-i18n';
     import type { Detection } from '../api';
-    import { getThumbnailUrl } from '../api';
     import { getBirdNames } from '../naming';
     import { formatDate as formatDateValue, formatTime } from '../utils/datetime';
     import { needsReview } from '../utils/visit-grouping';
+    import DetectionPreview from './DetectionPreview.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { authStore } from '../stores/auth.svelte';
 
@@ -44,9 +44,6 @@
             return '';
         }
     });
-
-    let imageError = $state(false);
-    let imageLoaded = $state(false);
 
     const naming = $derived.by(() => {
         const showCommon = settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true;
@@ -121,28 +118,16 @@
         {/if}
     </div>
 
-    <div class="pointer-events-none relative z-10 h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-slate-100 dark:bg-slate-800">
-        {#if !imageLoaded}
-            <span class="absolute inset-0 flex items-center justify-center text-slate-400" aria-hidden="true">
-                <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-                    <rect x="3" y="4" width="18" height="16" rx="2" />
-                    <circle cx="9" cy="10" r="1.6" />
-                    <path d="m3 17 5-4 4 3 3-2 6 5" />
-                </svg>
-            </span>
-        {/if}
-        {#if !imageError}
-            <img
-                src={getThumbnailUrl(detection.frigate_event)}
-                alt={$_('detection.image_alt', {
-                    values: { species: primaryName, camera: detection.camera_name }
-                })}
-                loading="lazy"
-                class="h-full w-full object-cover {imageLoaded ? 'opacity-100' : 'opacity-0'}"
-                onload={() => (imageLoaded = true)}
-                onerror={() => (imageError = true)}
-            />
-        {/if}
+    <!-- The same pop-out the field log uses, so a row and a log entry answer
+         "which bird is that" the same way. It reuses the image already fetched,
+         opens on focus as well as hover, and closes on Escape. -->
+    <div class="relative z-10 flex justify-center">
+        <DetectionPreview
+            {detection}
+            primaryName={primaryName}
+            secondaryName={subName}
+            onopen={() => onclick?.()}
+        />
     </div>
 
     <div class="pointer-events-none relative z-10 min-w-0 py-2">

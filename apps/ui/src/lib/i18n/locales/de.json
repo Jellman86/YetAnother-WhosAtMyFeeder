@@ -1923,7 +1923,9 @@
       "when": "Wann",
       "only": "Nur",
       "search_species": "Art suchen",
-      "no_species_match": "Keine Art passt dazu."
+      "no_species_match": "Keine Art passt dazu.",
+      "show_rail": "Filter anzeigen",
+      "hide_rail": "Filter ausblenden"
     },
     "sort": {
       "newest": "Neueste",

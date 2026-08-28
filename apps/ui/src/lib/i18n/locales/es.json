@@ -1923,7 +1923,9 @@
       "when": "Cuándo",
       "only": "Solo",
       "search_species": "Buscar especie",
-      "no_species_match": "Ninguna especie coincide."
+      "no_species_match": "Ninguna especie coincide.",
+      "show_rail": "Mostrar filtros",
+      "hide_rail": "Ocultar filtros"
     },
     "sort": {
       "newest": "Más reciente",

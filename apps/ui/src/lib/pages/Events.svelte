@@ -23,6 +23,7 @@
     import ExplorerFilters from '../components/ExplorerFilters.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { explorerViewStore } from '../stores/explorer_view.svelte';
+    import { explorerFiltersStore } from '../stores/explorer_filters.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
@@ -1094,11 +1095,18 @@
         </div>
     {/if}
 
-    <div class="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start" data-explorer-layout>
-        <div class="lg:sticky lg:top-4">
+    <div
+        class="grid gap-6 lg:items-start {explorerFiltersStore.collapsed
+            ? ''
+            : 'lg:grid-cols-[14rem_minmax(0,1fr)]'}"
+        data-explorer-layout
+    >
+        <div class={explorerFiltersStore.collapsed ? '' : 'lg:sticky lg:top-4'}>
         <ExplorerFilters
             view={explorerView}
             onviewchange={(next) => explorerViewStore.set(next)}
+            collapsed={explorerFiltersStore.collapsed}
+            oncollapsechange={(next) => explorerFiltersStore.set(next)}
             species={displaySpecies}
             cameras={availableCameras}
             filters={eventFilters}
@@ -1262,7 +1270,7 @@
                 {/each}
             </div>
         {:else}
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-4">
                 {#each visibleEvents as event, index (eventKey(event))}
                     <DetectionCard 
                         detection={event} 

@@ -1932,7 +1932,9 @@
       "when": "Quando",
       "only": "Solo",
       "search_species": "Cerca specie",
-      "no_species_match": "Nessuna specie corrisponde."
+      "no_species_match": "Nessuna specie corrisponde.",
+      "show_rail": "Mostra filtri",
+      "hide_rail": "Nascondi filtri"
     },
     "sort": {
       "newest": "Più recenti",

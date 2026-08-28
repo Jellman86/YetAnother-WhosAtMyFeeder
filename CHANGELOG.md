@@ -6,6 +6,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **The Explorer's filter rail can be folded away.** It holds 14rem of screen permanently, and once
+  a filter is set the chips above the results already say what is applied, so the rail is mostly
+  restating itself. Hiding it gives that width back to the detections. The control is on the filter
+  bar, desktop only, because a phone already collapses the filters behind a Filters button, and a
+  collapsed desktop simply uses that same button. The choice sticks to the device that made it, and
+  a viewer without owner access can use it too, since it changes nothing on the server.
+
+- **A list row now previews its snapshot on hover, like the dashboard's field log.** The row showed
+  a 44px thumbnail too small to recognise a bird in, and opening the detection was the only way to
+  see more. It now uses the same pop-out the field log uses, which means it opens on keyboard focus
+  as well as hover, stays open while the pointer travels into it, closes on Escape, and costs no
+  second request. It also no longer loads its own copy of the image.
+
 ### Removed
 
 - **Zen mode is gone from Settings > Accessibility.** The toggle saved, reported success, and
@@ -37,6 +52,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   was drawn with a different background and border and nothing else, so a screen reader gave no way
   to tell which day was active. Each chip now carries `aria-pressed`, and the chip row is a group
   named by the scope label above it, so the scope reaches a screen reader as well as the eye.
+
+- **The time and score no longer float in the middle of the photograph.** They sit in a row
+  anchored to the bottom of the snapshot, and that row was allowed to wrap so it would not run off
+  the edge of a narrow card. The narrowest card is not a phone, where a card is full width, but the
+  densest desktop grid: measured in the real layout, four columns beside the filter rail gave a
+  168px card at 1024px and a 232px card at 1280px. So the row wrapped on an ordinary laptop, and
+  because it is anchored to the bottom, each extra line pushed the readings up over the bird. At
+  1024px it covered 76% of the picture. The row no longer wraps, the fourth column now waits for a
+  wider screen so a card is always wide enough for one line, and the "full visit ready" marker moved
+  onto the play button instead of sitting beside it as a 20px circle next to a 44px one, which read
+  as a second, broken control.
 
 - **Reduce motion now works anywhere but the Settings page.** The setting adds a `reduced-motion`
   class that the audio history reads before it animates, but only the Settings page ever added that

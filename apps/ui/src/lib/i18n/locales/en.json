@@ -1932,7 +1932,9 @@
       "when": "When",
       "only": "Only",
       "search_species": "Search species",
-      "no_species_match": "No species matches that."
+      "no_species_match": "No species matches that.",
+      "show_rail": "Show filters",
+      "hide_rail": "Hide filters"
     },
     "sort": {
       "newest": "Newest",

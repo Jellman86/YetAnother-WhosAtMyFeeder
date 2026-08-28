@@ -1923,7 +1923,9 @@
       "when": "Quand",
       "only": "Seulement",
       "search_species": "Rechercher une espèce",
-      "no_species_match": "Aucune espèce ne correspond."
+      "no_species_match": "Aucune espèce ne correspond.",
+      "show_rail": "Afficher les filtres",
+      "hide_rail": "Masquer les filtres"
     },
     "sort": {
       "newest": "Plus récent",

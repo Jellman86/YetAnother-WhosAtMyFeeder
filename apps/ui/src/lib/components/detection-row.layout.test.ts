@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import detectionRowSource from './DetectionRow.svelte?raw';
+import previewSource from './DetectionPreview.svelte?raw';
 import eventsPageSource from '../pages/Events.svelte?raw';
 import appearanceSource from './settings/AppearanceSettings.svelte?raw';
 import filtersSource from './ExplorerFilters.svelte?raw';
@@ -62,11 +63,15 @@ describe('the Explorer list row', () => {
         expect(detectionRowSource).toMatch(/rowSubject = \$derived\(`\$\{primaryName\}, \$\{formatTime/);
     });
 
-    it('shows a placeholder until the snapshot loads, so no alt text spills', () => {
-        // A 44px tile rendering a broken image shows its alt text instead.
-        expect(detectionRowSource).toContain('imageLoaded');
-        expect(detectionRowSource).toMatch(/onload=\{\(\) => \(imageLoaded = true\)\}/);
-        expect(detectionRowSource).toContain('overflow-hidden');
+    it('cannot spill alt text from a broken snapshot', () => {
+        // The row no longer loads its own image. DetectionPreview owns it, and
+        // holds the guarantee more firmly than the row did: the thumbnail is
+        // decorative (`alt=""`), so there is no text to spill even before
+        // `onerror` fires, and a failure swaps in an explicit placeholder.
+        expect(detectionRowSource).toContain('<DetectionPreview');
+        expect(previewSource).toContain('alt=""');
+        expect(previewSource).toContain('onerror={() => markFailed(frame.frigate_event)}');
+        expect(previewSource).toContain('failed.has(frame.frigate_event)');
     });
 });
 

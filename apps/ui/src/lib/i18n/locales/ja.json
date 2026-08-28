@@ -1923,7 +1923,9 @@
       "when": "期間",
       "only": "絞り込み",
       "search_species": "種を検索",
-      "no_species_match": "一致する種がありません。"
+      "no_species_match": "一致する種がありません。",
+      "show_rail": "フィルターを表示",
+      "hide_rail": "フィルターを非表示"
     },
     "sort": {
       "newest": "新しい順",

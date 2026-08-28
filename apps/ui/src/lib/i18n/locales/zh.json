@@ -1923,7 +1923,9 @@
       "when": "时间",
       "only": "仅显示",
       "search_species": "搜索物种",
-      "no_species_match": "没有匹配的物种。"
+      "no_species_match": "没有匹配的物种。",
+      "show_rail": "显示筛选",
+      "hide_rail": "隐藏筛选"
     },
     "sort": {
       "newest": "最新",

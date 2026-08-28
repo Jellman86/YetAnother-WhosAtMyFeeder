@@ -1932,7 +1932,9 @@
       "when": "Когда",
       "only": "Только",
       "search_species": "Поиск вида",
-      "no_species_match": "Ничего не найдено."
+      "no_species_match": "Ничего не найдено.",
+      "show_rail": "Показать фильтры",
+      "hide_rail": "Скрыть фильтры"
     },
     "sort": {
       "newest": "Сначала новые",
