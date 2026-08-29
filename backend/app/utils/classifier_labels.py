@@ -48,7 +48,7 @@ def collapse_classifier_label(label: str | None, *, strategy: str | None = None)
     normalized = normalize_classifier_label(label)
     strategy_name = str(strategy or "").strip().lower()
     if strategy_name == "strip_trailing_parenthetical":
-        collapsed = re.sub(r"\s*\([^)]*\)\s*$", "", normalized).strip()
+        collapsed = re.sub(r"\s*\([^()]*\)$", "", normalized.rstrip()).strip()
         return collapsed or normalized
     return normalized
 

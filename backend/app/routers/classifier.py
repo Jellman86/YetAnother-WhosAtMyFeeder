@@ -303,9 +303,8 @@ async def classify_image(
                 classifier_service.classify, pil_image, input_context={"is_cropped": False}
             )
     except Exception as e:
-        import traceback
-
-        return {"status": "error", "error": str(e), "traceback": traceback.format_exc()}
+        log.exception("Test inference failed")
+        return {"status": "error", "error": str(e)}
     inference_ms = round((_time.perf_counter() - t0) * 1000, 1)
 
     return {
@@ -424,9 +423,8 @@ async def test_wildlife_classifier(
 
         return {"status": "ok", "image_size": pil_image.size, "image_mode": pil_image.mode, "results": results}
     except Exception as e:
-        import traceback
-
-        return {"error": str(e), "traceback": traceback.format_exc()}
+        log.exception("Validation inference failed")
+        return {"error": str(e)}
 
 
 @router.post("/wildlife/download", response_model=ClassifierDownloadResponse)

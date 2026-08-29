@@ -6,6 +6,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Security
+
+- **The 49 CodeQL alerts are triaged: fixed, or dismissed with a written reason
+  ([#305](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/305)).** The 34
+  path-injection alerts covered code that was already safe — every cache path flows through a
+  character allow-list — but the containment proof used filesystem calls static analysis cannot
+  credit. Each cache path is now proven contained with pure string operations before anything
+  touches the filesystem, and a regression test drives hostile identifiers at every path helper.
+  Two classifier diagnostics endpoints no longer return Python tracebacks in the response body
+  (the message stays; the trace moved to the server log), the unauthenticated OAuth callback
+  pages and the Home Assistant ingress proxy now return generic failure text instead of raw
+  exception strings, and the label-collapse regex lost the ambiguity that made matching
+  polynomial on crafted labels. The eight deliberate keeps — owner-facing diagnostic messages,
+  the informational /health payload, and the Fernet key derived from a generated high-entropy
+  secret — are dismissed on GitHub with the reasoning recorded on each alert.
+
 ### Added
 
 - **First-run setup can be skipped.** The wizard's header now offers *Skip setup* wherever the

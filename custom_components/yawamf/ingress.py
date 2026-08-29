@@ -141,7 +141,7 @@ class YAWAMFIngressView(HomeAssistantView):
             raise
         except Exception as err:  # noqa: BLE001 - HA should return a proxy failure, not crash the view
             _LOGGER.exception("YA-WAMF ingress proxy request failed")
-            raise web.HTTPBadGateway(text=f"YA-WAMF ingress proxy failed: {err}") from err
+            raise web.HTTPBadGateway(text="YA-WAMF ingress proxy failed; see Home Assistant logs.") from err
 
 
 class YAWAMFIngressAssetView(HomeAssistantView):
@@ -199,7 +199,7 @@ class YAWAMFIngressAssetView(HomeAssistantView):
             raise
         except Exception as err:  # noqa: BLE001
             _LOGGER.exception("YA-WAMF ingress asset request failed")
-            raise web.HTTPBadGateway(text=f"YA-WAMF ingress asset failed: {err}") from err
+            raise web.HTTPBadGateway(text="YA-WAMF ingress asset request failed; see Home Assistant logs.") from err
 
 
 def _build_target_url(base_url: str, path: str, query_string: str) -> str:
