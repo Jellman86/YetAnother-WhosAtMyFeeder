@@ -2035,7 +2035,10 @@
     "timeline_keyboard_hint": "Tastiera timeline: [ giorno precedente, ] giorno successivo, 0 reimposta",
     "row_open": "Apri {species}",
     "row_select": "Seleziona {species}",
-    "row_below_threshold": "Sotto la soglia di denominazione"
+    "row_below_threshold": "Sotto la soglia di denominazione",
+    "empty_filtered_title": "Nessuna visita corrisponde a questi filtri",
+    "empty_filtered_desc": "La tua cronologia è ancora qui. Allarga il periodo o rimuovi un filtro per vederla.",
+    "empty_filtered_clear": "Rimuovi tutti i filtri"
   },
   "audio": {
     "chart": {

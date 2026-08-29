@@ -2035,7 +2035,10 @@
     "timeline_keyboard_hint": "Клавиши таймлайна: [ предыдущий день, ] следующий день, 0 сброс",
     "row_open": "Открыть {species}",
     "row_select": "Выбрать {species}",
-    "row_below_threshold": "Ниже порога определения"
+    "row_below_threshold": "Ниже порога определения",
+    "empty_filtered_title": "Ни один визит не подходит под эти фильтры",
+    "empty_filtered_desc": "Ваша история на месте. Расширьте период или уберите фильтр, чтобы её увидеть.",
+    "empty_filtered_clear": "Сбросить все фильтры"
   },
   "audio": {
     "chart": {

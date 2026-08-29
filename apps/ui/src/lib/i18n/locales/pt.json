@@ -2035,7 +2035,10 @@
     "timeline_keyboard_hint": "Teclado da linha do tempo: [ dia anterior, ] próximo dia, 0 redefinir",
     "row_open": "Abrir {species}",
     "row_select": "Selecionar {species}",
-    "row_below_threshold": "Abaixo do limiar de identificação"
+    "row_below_threshold": "Abaixo do limiar de identificação",
+    "empty_filtered_title": "Nenhuma visita corresponde a estes filtros",
+    "empty_filtered_desc": "Seu histórico continua aqui. Amplie o período ou remova um filtro para vê-lo.",
+    "empty_filtered_clear": "Limpar todos os filtros"
   },
   "audio": {
     "chart": {

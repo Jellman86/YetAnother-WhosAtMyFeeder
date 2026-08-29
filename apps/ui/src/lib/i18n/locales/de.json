@@ -2026,7 +2026,10 @@
     "timeline_keyboard_hint": "Timeline-Tastatur: [ vorheriger Tag, ] nächster Tag, 0 zurücksetzen",
     "row_open": "{species} öffnen",
     "row_select": "{species} auswählen",
-    "row_below_threshold": "Unter der Benennungsschwelle"
+    "row_below_threshold": "Unter der Benennungsschwelle",
+    "empty_filtered_title": "Keine Besuche passen zu diesen Filtern",
+    "empty_filtered_desc": "Dein Verlauf ist noch da. Erweitere den Zeitraum oder entferne einen Filter, um ihn zu sehen.",
+    "empty_filtered_clear": "Alle Filter entfernen"
   },
   "audio": {
     "chart": {

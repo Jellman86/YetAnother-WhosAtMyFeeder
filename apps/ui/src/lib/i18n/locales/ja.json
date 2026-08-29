@@ -2026,7 +2026,10 @@
     "timeline_keyboard_hint": "タイムライン操作: [ 前日、] 翌日、0 リセット",
     "row_open": "{species} を開く",
     "row_select": "{species} を選択",
-    "row_below_threshold": "命名のしきい値未満"
+    "row_below_threshold": "命名のしきい値未満",
+    "empty_filtered_title": "このフィルターに一致する訪問はありません",
+    "empty_filtered_desc": "履歴は残っています。期間を広げるかフィルターを外すと表示されます。",
+    "empty_filtered_clear": "すべてのフィルターを解除"
   },
   "audio": {
     "chart": {

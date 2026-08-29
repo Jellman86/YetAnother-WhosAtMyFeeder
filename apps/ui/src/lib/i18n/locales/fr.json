@@ -2026,7 +2026,10 @@
     "timeline_keyboard_hint": "Clavier de la chronologie : [ jour précédent, ] jour suivant, 0 réinitialiser",
     "row_open": "Ouvrir {species}",
     "row_select": "Sélectionner {species}",
-    "row_below_threshold": "Sous le seuil de nommage"
+    "row_below_threshold": "Sous le seuil de nommage",
+    "empty_filtered_title": "Aucune visite ne correspond à ces filtres",
+    "empty_filtered_desc": "Votre historique est toujours là. Élargissez la période ou retirez un filtre pour le voir.",
+    "empty_filtered_clear": "Effacer tous les filtres"
   },
   "audio": {
     "chart": {

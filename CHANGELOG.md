@@ -6,6 +6,24 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **A species the filter panel offers can no longer come back as an empty page
+  ([#301](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/301)).** The filter list
+  keyed some options on a taxon id that lived only in the taxonomy cache, and the cache is
+  rewritten whenever a lookup corrects an id — so "Eurasian Blue Tit · 2" could return "0 visits"
+  moments later without any detection changing. An option now carries a taxon id only when some
+  detection row actually stores it; cache-linked groups filter by name, which reaches the rows
+  through their own columns and survives cache drift. Alongside it, a failed taxonomy lookup can
+  no longer take an identity away: the cache upsert keeps an existing taxon id and name when the
+  incoming write has none. A new invariant suite drives adversarial label shapes through the real
+  API and asserts an offered option is never an empty answer.
+
+- **An empty Explorer page under active filters now says so.** It used to show "No events yet —
+  Backfill or wait for new detections", telling an owner their history was gone when a filter
+  simply matched nothing. With filters active it now says no visits match, that the history is
+  still there, and offers one button that clears every filter.
+
 ### Security
 
 - **The 49 CodeQL alerts are triaged: fixed, or dismissed with a written reason
