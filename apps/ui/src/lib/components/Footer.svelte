@@ -62,7 +62,8 @@
     onMount(() => {
         const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
         const updateMotionPreference = () => {
-            prefersReducedMotion = motionQuery.matches;
+            prefersReducedMotion =
+                motionQuery.matches || document.documentElement.classList.contains('reduced-motion');
             if (prefersReducedMotion && transitionTimeout !== undefined) {
                 clearTimeout(transitionTimeout);
                 transitionTimeout = undefined;

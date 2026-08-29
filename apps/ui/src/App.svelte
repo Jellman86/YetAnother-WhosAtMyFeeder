@@ -21,6 +21,7 @@
   import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
+import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte';
   import { settingsStore } from './lib/stores/settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
   import { authStore } from './lib/stores/auth.svelte';
@@ -123,13 +124,19 @@
   // and survive a reload. AccessibilitySettings toggles the same classes from
   // its unsaved state, which is the live preview while you are editing.
   const highContrast = $derived(
-      settingsStore.settings?.accessibility_high_contrast ?? authStore.highContrast
+      accessibilityPreview.highContrast ??
+          settingsStore.settings?.accessibility_high_contrast ??
+          authStore.highContrast
   );
   const dyslexiaFont = $derived(
-      settingsStore.settings?.accessibility_dyslexia_font ?? authStore.dyslexiaFont
+      accessibilityPreview.dyslexiaFont ??
+          settingsStore.settings?.accessibility_dyslexia_font ??
+          authStore.dyslexiaFont
   );
   const reducedMotion = $derived(
-      settingsStore.settings?.accessibility_reduced_motion ?? authStore.reducedMotion
+      accessibilityPreview.reducedMotion ??
+          settingsStore.settings?.accessibility_reduced_motion ??
+          authStore.reducedMotion
   );
 
   $effect(() => {

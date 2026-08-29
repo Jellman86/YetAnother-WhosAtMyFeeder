@@ -3,6 +3,7 @@
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
+    import { accessibilityPreview } from '../../stores/accessibility_preview.svelte';
 
     let {
         highContrast = $bindable(false),
@@ -21,14 +22,13 @@
     const currentLocale = $derived(typeof $locale === 'string' ? $locale : 'en');
     const showDyslexicFont = $derived(latinLanguages.includes(currentLocale));
 
+    // The document root has exactly one owner: App.svelte applies
+    // preview ?? saved. Publishing only on a change (never on mount) means
+    // opening this tab cannot strip a saved-on class while settings are
+    // still loading, and clearing on unmount means an abandoned preview
+    // falls back to the saved value instead of sticking until a reload.
     $effect(() => {
-        document.documentElement.classList.toggle('high-contrast', highContrast);
-    });
-    $effect(() => {
-        document.documentElement.classList.toggle('font-dyslexic', dyslexiaFont);
-    });
-    $effect(() => {
-        document.documentElement.classList.toggle('reduced-motion', reducedMotion);
+        return () => accessibilityPreview.clear();
     });
 </script>
 
@@ -46,7 +46,10 @@
             checked={highContrast}
             labelledBy="setting-high-contrast"
             srLabel={$_('settings.accessibility.high_contrast')}
-            onchange={(v) => (highContrast = v)}
+            onchange={(v) => {
+                highContrast = v;
+                accessibilityPreview.highContrast = v;
+            }}
         />
     </SettingsRow>
 
@@ -60,7 +63,10 @@
                 checked={dyslexiaFont}
                 labelledBy="setting-dyslexia-font"
                 srLabel={$_('settings.accessibility.dyslexia_font')}
-                onchange={(v) => (dyslexiaFont = v)}
+                onchange={(v) => {
+                dyslexiaFont = v;
+                accessibilityPreview.dyslexiaFont = v;
+            }}
             />
         </SettingsRow>
     {/if}
@@ -74,7 +80,10 @@
             checked={reducedMotion}
             labelledBy="setting-reduced-motion"
             srLabel={$_('settings.accessibility.reduced_motion')}
-            onchange={(v) => (reducedMotion = v)}
+            onchange={(v) => {
+                reducedMotion = v;
+                accessibilityPreview.reducedMotion = v;
+            }}
         />
     </SettingsRow>
 
