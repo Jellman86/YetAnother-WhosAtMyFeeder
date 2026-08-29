@@ -206,7 +206,13 @@
         "integrations_configured": "Configurado: {integrations}",
         "integrations_none": "Nenhuma ativa"
       }
-    }
+    },
+    "skip": "Pular configuração",
+    "skip_failed": "Falha ao pular — o servidor não pôde ser contatado.",
+    "skip_confirm_title": "Pular a configuração e abrir o aplicativo?",
+    "skip_confirm_body_no_account": "O aplicativo funcionará sem senha até você definir uma em Configurações → Segurança. Tudo o que este assistente cobre pode ser configurado depois, e você pode executá-lo novamente a qualquer momento em Configurações → Assistente de configuração.",
+    "skip_confirm_body": "Tudo o que este assistente cobre pode ser configurado depois, e você pode executá-lo novamente a qualquer momento em Configurações → Assistente de configuração.",
+    "skip_confirm_action": "Pular e abrir o aplicativo"
   },
   "theme": {
     "switch_light": "Mudar para modo claro",

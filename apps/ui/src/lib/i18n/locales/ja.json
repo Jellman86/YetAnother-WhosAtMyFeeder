@@ -206,7 +206,13 @@
         "integrations_configured": "設定済み: {integrations}",
         "integrations_none": "有効な連携なし"
       }
-    }
+    },
+    "skip": "セットアップをスキップ",
+    "skip_failed": "スキップできませんでした。サーバーに接続できません。",
+    "skip_confirm_title": "セットアップをスキップしてアプリを開きますか?",
+    "skip_confirm_body_no_account": "設定 → セキュリティでパスワードを設定するまで、アプリはパスワードなしで動作します。このウィザードの内容は後から設定でき、設定 → セットアップウィザードからいつでも再実行できます。",
+    "skip_confirm_body": "このウィザードの内容は後から設定でき、設定 → セットアップウィザードからいつでも再実行できます。",
+    "skip_confirm_action": "スキップしてアプリを開く"
   },
   "theme": {
     "switch_light": "ライトモードに切り替え",

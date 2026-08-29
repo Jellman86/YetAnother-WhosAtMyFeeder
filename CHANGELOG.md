@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **First-run setup can be skipped.** The wizard's header now offers *Skip setup* wherever the
+  rerun mode shows its close button. Skipping asks first and is honest about its one consequence:
+  leaving before the account step means the app runs without a password until one is set under
+  Settings → Security. It completes initial setup through the same path the account step uses
+  (auth disabled), so the gate state stays consistent, and the wizard remains re-runnable from
+  Settings at any time. Escape-to-close stays rerun-only.
+
 ## [2.18.1] - 2026-08-29
 
 ### Changed

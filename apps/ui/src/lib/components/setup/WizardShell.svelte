@@ -5,6 +5,7 @@
     import { trapFocus } from '../../utils/focus-trap';
     import { portal } from '../../utils/portal';
     import { setupWizardStore } from '../../stores/setup_wizard.svelte';
+    import { authStore } from '../../stores/auth.svelte';
     import BrandMark from '../BrandMark.svelte';
     import WelcomeStep from './WelcomeStep.svelte';
     import AccountStep from './AccountStep.svelte';
@@ -25,6 +26,28 @@
     let steps = $derived(setupWizardStore.steps);
     let modalElement = $state<HTMLElement | null>(null);
     let previouslyFocused: HTMLElement | null = null;
+    let skipConfirming = $state(false);
+    let skipBusy = $state(false);
+    let skipError = $state<string | null>(null);
+
+    // Skipping is honest about its one consequence: leaving first-run before
+    // the account step runs the app without a password until one is set in
+    // Settings. Everything else the wizard covers is configurable later, and
+    // the wizard itself can be re-run from Settings at any time.
+    async function skipSetup(): Promise<void> {
+        skipBusy = true;
+        skipError = null;
+        try {
+            if (authStore.needsInitialSetup) {
+                await authStore.completeInitialSetup({ username: 'admin', password: null, enableAuth: false });
+            }
+            setupWizardStore.close();
+        } catch (err) {
+            skipError = err instanceof Error ? err.message : $_('setup.skip_failed', { default: 'Skipping failed — the server could not be reached.' });
+        } finally {
+            skipBusy = false;
+        }
+    }
 
     onMount(() => {
         const previousOverflow = document.body.style.overflow;
@@ -75,6 +98,14 @@
                         <button type="button" class="flex h-11 w-11 items-center justify-center rounded-full text-slate-400 hover:bg-slate-200/60 hover:text-slate-600 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:hover:bg-slate-700/60 dark:hover:text-slate-200" aria-label={$_('setup.exit', { default: 'Exit setup' })} onclick={() => setupWizardStore.close()}>
                             <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
+                    {:else}
+                        <button
+                            type="button"
+                            class="min-h-11 rounded-full px-3 text-xs font-bold text-slate-500 hover:bg-slate-200/60 hover:text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-200"
+                            onclick={() => (skipConfirming = true)}
+                        >
+                            {$_('setup.skip', { default: 'Skip setup' })}
+                        </button>
                     {/if}
                 </div>
             </div>
@@ -90,6 +121,32 @@
             </div>
             <span class="sr-only" role="progressbar" aria-valuenow={progressPct} aria-valuemin="0" aria-valuemax="100">{progressPct}%</span>
         </div>
+
+        {#if skipConfirming}
+            <div class="border-b border-slate-200 bg-amber-50/70 px-6 py-4 dark:border-slate-700 dark:bg-amber-950/20" role="alertdialog" aria-labelledby="skip-setup-title" aria-describedby="skip-setup-body">
+                <p id="skip-setup-title" class="text-sm font-bold text-slate-900 dark:text-white">
+                    {$_('setup.skip_confirm_title', { default: 'Skip setup and open the app?' })}
+                </p>
+                <p id="skip-setup-body" class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                    {#if authStore.needsInitialSetup}
+                        {$_('setup.skip_confirm_body_no_account', { default: 'The app will run without a password until you set one under Settings → Security. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
+                    {:else}
+                        {$_('setup.skip_confirm_body', { default: 'Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.' })}
+                    {/if}
+                </p>
+                {#if skipError}
+                    <p role="alert" class="mt-2 text-sm font-semibold text-red-600 dark:text-red-400">{skipError}</p>
+                {/if}
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-secondary min-h-11 px-4" disabled={skipBusy} onclick={() => { skipConfirming = false; skipError = null; }}>
+                        {$_('common.cancel', { default: 'Cancel' })}
+                    </button>
+                    <button type="button" class="btn btn-primary min-h-11 px-4" disabled={skipBusy} onclick={skipSetup}>
+                        {skipBusy ? $_('common.working', { default: 'Working…' }) : $_('setup.skip_confirm_action', { default: 'Skip and open the app' })}
+                    </button>
+                </div>
+            </div>
+        {/if}
 
         <!-- Body -->
         <div class="max-h-[70vh] overflow-y-auto p-6" aria-live="polite">

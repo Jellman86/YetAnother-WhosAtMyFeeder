@@ -206,7 +206,13 @@
         "integrations_configured": "Configured: {integrations}",
         "integrations_none": "None enabled"
       }
-    }
+    },
+    "skip": "Skip setup",
+    "skip_failed": "Skipping failed — the server could not be reached.",
+    "skip_confirm_title": "Skip setup and open the app?",
+    "skip_confirm_body_no_account": "The app will run without a password until you set one under Settings → Security. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
+    "skip_confirm_body": "Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
+    "skip_confirm_action": "Skip and open the app"
   },
   "theme": {
     "switch_light": "Switch to light mode",
