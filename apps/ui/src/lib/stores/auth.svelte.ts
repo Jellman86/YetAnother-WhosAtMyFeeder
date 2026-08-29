@@ -44,10 +44,18 @@ class AuthStore {
     displayCommonNames = $state(true);
     scientificNamePrimary = $state(false);
     liveAnnouncements = $state(true);
+    // A guest is refused /api/settings, so these arrive with auth status or not
+    // at all. Both default off: either one changes the whole interface.
+    highContrast = $state(false);
+    dyslexiaFont = $state(false);
+    reducedMotion = $state(false);
     locationWeatherUnitSystem = $state<WeatherUnitSystem>("metric");
     locationTemperatureUnit = $state("celsius");
     dateFormat = $state("locale");
     timeFormat = $state("locale");
+    // The Explorer's install default. A guest is refused /api/settings, so this
+    // is the only route by which the owner's choice reaches a public visitor.
+    explorerView = $state<'cards' | 'list'>('cards');
     private readonly staleTracker = new StaleTracker(300_000); // 5 minutes
     private readonly unregister: () => void;
     private _isRefreshing = false;
@@ -101,6 +109,9 @@ class AuthStore {
             this.displayCommonNames = status.display_common_names ?? true;
             this.scientificNamePrimary = status.scientific_name_primary ?? false;
             this.liveAnnouncements = status.accessibility_live_announcements ?? true;
+            this.highContrast = status.accessibility_high_contrast ?? false;
+            this.dyslexiaFont = status.accessibility_dyslexia_font ?? false;
+            this.reducedMotion = status.accessibility_reduced_motion ?? false;
             this.locationWeatherUnitSystem = resolveWeatherUnitSystem(
                 status.location_weather_unit_system,
                 status.location_temperature_unit
@@ -108,6 +119,7 @@ class AuthStore {
             this.locationTemperatureUnit = getTemperatureUnitForSystem(this.locationWeatherUnitSystem);
             this.dateFormat = status.date_format ?? "locale";
             this.timeFormat = status.time_format ?? "locale";
+            this.explorerView = status.appearance_explorer_view === 'list' ? 'list' : 'cards';
             this.statusHealthy = true;
             this.staleTracker.touch();
         } catch (err) {

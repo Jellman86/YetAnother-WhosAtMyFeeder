@@ -1251,10 +1251,30 @@
       "AuthStatusResponse": {
         "description": "Current authentication status.",
         "properties": {
+          "accessibility_dyslexia_font": {
+            "default": false,
+            "title": "Accessibility Dyslexia Font",
+            "type": "boolean"
+          },
+          "accessibility_high_contrast": {
+            "default": false,
+            "title": "Accessibility High Contrast",
+            "type": "boolean"
+          },
           "accessibility_live_announcements": {
             "default": true,
             "title": "Accessibility Live Announcements",
             "type": "boolean"
+          },
+          "accessibility_reduced_motion": {
+            "default": false,
+            "title": "Accessibility Reduced Motion",
+            "type": "boolean"
+          },
+          "appearance_explorer_view": {
+            "default": "cards",
+            "title": "Appearance Explorer View",
+            "type": "string"
           },
           "auth_required": {
             "title": "Auth Required",
@@ -8652,18 +8672,6 @@
             "default": false,
             "title": "Accessibility Reduced Motion"
           },
-          "accessibility_zen_mode": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": false,
-            "title": "Accessibility Zen Mode"
-          },
           "ai_pricing_json": {
             "anyOf": [
               {
@@ -8801,6 +8809,17 @@
             ],
             "default": false,
             "title": "Auto Video Classification"
+          },
+          "background_worker_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Background Worker Count"
           },
           "bird_crop_detector_tier": {
             "anyOf": [
@@ -9171,6 +9190,18 @@
             "default": "inaturalist",
             "title": "Enrichment Taxonomy Source"
           },
+          "frigate_external_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "title": "Frigate External Url"
+          },
           "frigate_missing_behavior": {
             "default": "mark_missing",
             "enum": [
@@ -9201,7 +9232,7 @@
                 "type": "null"
               }
             ],
-            "default": "in_process",
+            "default": "subprocess",
             "title": "Image Execution Mode"
           },
           "inaturalist_client_id": {
@@ -9293,6 +9324,17 @@
             ],
             "default": "auto",
             "title": "Inference Provider"
+          },
+          "live_worker_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Worker Count"
           },
           "llm_analysis_prompt_template": {
             "anyOf": [
@@ -10393,18 +10435,6 @@
             ],
             "title": "Video Classification Maintenance Circuit Until"
           },
-          "video_classification_max_concurrent": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": 1,
-            "title": "Video Classification Max Concurrent"
-          },
           "video_classification_max_retries": {
             "anyOf": [
               {
@@ -10487,18 +10517,6 @@
             ],
             "default": false,
             "title": "Accessibility Reduced Motion"
-          },
-          "accessibility_zen_mode": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": false,
-            "title": "Accessibility Zen Mode"
           },
           "ai_pricing_json": {
             "anyOf": [
@@ -10666,6 +10684,20 @@
             "default": false,
             "description": "Automatically classify video clips",
             "title": "Auto Video Classification"
+          },
+          "background_worker_count": {
+            "anyOf": [
+              {
+                "maximum": 4.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Background classifier worker processes; null follows the default (one)",
+            "title": "Background Worker Count"
           },
           "bird_crop_detector_tier": {
             "anyOf": [
@@ -11074,6 +11106,19 @@
             "description": "Provider for taxonomy/common names",
             "title": "Enrichment Taxonomy Source"
           },
+          "frigate_external_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "description": "External Frigate base URL (browser\u2192Frigate)",
+            "title": "Frigate External Url"
+          },
           "frigate_missing_behavior": {
             "default": "mark_missing",
             "description": "How YA-WAMF should react when Frigate no longer has the event or retained media",
@@ -11107,8 +11152,8 @@
                 "type": "null"
               }
             ],
-            "default": "in_process",
-            "description": "Image inference execution mode: in_process|subprocess",
+            "default": "subprocess",
+            "description": "Image inference execution mode: subprocess|in_process",
             "title": "Image Execution Mode"
           },
           "inaturalist_client_id": {
@@ -11196,6 +11241,20 @@
             "default": "auto",
             "description": "Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu",
             "title": "Inference Provider"
+          },
+          "live_worker_count": {
+            "anyOf": [
+              {
+                "maximum": 8.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Live classifier worker processes; null follows the default (one)",
+            "title": "Live Worker Count"
           },
           "llm_analysis_prompt_template": {
             "anyOf": [
@@ -12271,21 +12330,6 @@
             "default": 15,
             "description": "Number of frames to sample for video classification",
             "title": "Video Classification Frames"
-          },
-          "video_classification_max_concurrent": {
-            "anyOf": [
-              {
-                "maximum": 20.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": 1,
-            "description": "Maximum concurrent video classification jobs",
-            "title": "Video Classification Max Concurrent"
           },
           "video_classification_max_retries": {
             "anyOf": [
@@ -14675,7 +14719,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.18.0"
+    "version": "2.18.1"
   },
   "openapi": "3.1.0",
   "paths": {

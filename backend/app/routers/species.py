@@ -469,19 +469,22 @@ async def search_species(
 
     async with get_db() as db:
         if q:
-            matches = [label for label in labels if q_lower in label.lower()]
-            matches.extend(
+            # Each source keeps its own budget: truncating the union let a
+            # model whose label list matched the query fifty times push every
+            # detection-derived species out of the payload, and the block list
+            # can only offer what this search returns (#311).
+            stored_matches = [
                 label
                 for label in await SpeciesRepository(db).search_labels(q_lower, lang)
                 if not should_hide_species_label(label)
-            )
+            ][:limit]
+            label_budget = max(limit - len(stored_matches), limit // 2)
+            label_matches = [label for label in labels if q_lower in label.lower()][:label_budget]
 
             seen = set()
-            matches = [m for m in matches if not (m in seen or seen.add(m))]
+            matches = [m for m in label_matches + stored_matches if not (m in seen or seen.add(m))]
         else:
-            matches = labels
-
-        matches = matches[:limit]
+            matches = labels[:limit]
 
         deduped_results: dict[str, dict] = {}
         for label in matches:
@@ -502,7 +505,7 @@ async def search_species(
             existing = deduped_results.get(key)
             deduped_results[key] = _pick_preferred_species_search_result(existing, result) if existing else result
 
-        results = list(deduped_results.values())
+        results = list(deduped_results.values())[:limit]
 
     if hydrate_missing and results:
         await _hydrate_species_search_results(results, lang)

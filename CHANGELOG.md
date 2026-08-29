@@ -6,6 +6,333 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.18.1] - 2026-08-29
+
+### Changed
+
+- **One concurrency knob, not two.** Video Concurrency is gone as a separate setting: video jobs
+  classify through the background worker pool at one image per worker, so a job limit above the
+  worker count could only queue and one below it could only starve workers you paid memory for.
+  Video-job concurrency now simply follows the background worker count, the auto-video tuning
+  panel says so in words, and the retired API field is ignored rather than rejected so older
+  clients keep working.
+
+- **The model dossier sits flat in the Models card.** The picker, dossier, actions, and
+  disclosures lived inside a nested sub-card with a gradient header band and a tinted footer;
+  they are now plain sections separated by rules, with the "Show all models" fold as one quiet
+  dashed row under the cards.
+
+- **Worker concurrency is now a setting you can actually set.** The live and background worker
+  counts existed only as environment variables and absorbed config keys — the Detection tab had
+  no control for them, which made "I set it in the UI" silently untrue. The Runtime column now
+  has a Worker processes row (visible in isolated-worker mode): two small inputs, empty meaning
+  the default of one, each labelled with the honest cost that every worker holds its own model
+  copy, applied the next time the workers restart. Null round-trips through the settings API as
+  "return to default", an omitted field leaves the stored value untouched, and out-of-range
+  counts are rejected rather than silently clamped.
+
+- **The Detection tab leads with its status, and models are chosen from cards.** The state you
+  previously dug three disclosures for — active model, runtime provider, worker plan, health —
+  now sits in a permanent four-fact band at the top: healthy is four calm facts, and only trouble
+  grows words (the health cell counts real problems and the runtime report opens itself when any
+  exist). Below the band, Tuning and Runtime sit side by side with nothing load-bearing behind a
+  disclosure: both confidence sliders, the provider, execution mode, region, and the
+  compatibility check are all on the surface. Models moved out of an "Advanced" fold into their
+  own card, and the model picker is no longer a select: each model is a card with one honest
+  state chip (Active, Installed, Repair needed, Available) and its real costs — download size and
+  RAM per worker copy — with the full dossier and guided install below. The dev server now also
+  proxies `/health`, so the model library loads in local development.
+
+- **Model cards got quieter, and memory became a picture.** Each model card now carries only its
+  name, one state chip, and its costs — download size plus a RAM meter drawn against the heaviest
+  model in the lineup, so the bars compare models to each other. The selected card carries a soft
+  animated aurora (GPU-composited, stilled under reduced motion). The dossier below slimmed to a
+  description, a predicted-RAM meter, and the threshold hint; recommended-for, best-fit, and
+  notes moved into Technical details. The prediction is honest arithmetic — model RAM × process
+  mode × worker concurrency: isolated workers multiply by the resolved live + background counts,
+  in-process is one shared copy, and the caption states the formula. The aurora is a shared kit
+  effect and also plays behind the status band, redrawn as an animated mesh in the manner of
+  Apple's Sports app — soft blobs of brand color drifting on two independent periods, so the
+  motion never lines up into a pattern; the Models header lost its duplicate subtitle,
+  the GPU guide shrank to one link line, and the execution-mode explainer was cut to two
+  sentences.
+
+- **The notification policy reads as one sentence, and every word of it is the control.** The
+  Notifications tab opened on a preset grid, a confidence slider, an advanced disclosure hiding
+  three trigger toggles, and a separate audio-only panel — five surfaces all describing one
+  decision. They are now a single line: *Tell me about [new visits] that are at least [70% sure]
+  of [any species] on [Discord and Email]* — each slot opens a small editor in place. The
+  destinations slot names the enabled channels and lets several be picked at once, with an honest
+  "needs setup" beside any channel that is switched on but not yet configured. The audio-confirmed
+  filter lives inside the confidence slot and shows in the chip as "sure and heard"; the video
+  fallback timeout appears only under the one preset that uses it; the advanced trigger toggles are
+  gone because the presets are exactly those three switches. Silent mode is its own honest
+  sentence: *Stay silent and keep recording detections.*
+
+### Added
+
+- **A browser-facing Frigate URL, so the "open in Frigate" link actually opens.** The detection's
+  Frigate link is built from the configured server URL, which on most Docker installs is a
+  container address like `http://frigate:5000` that a browser cannot reach. Connection settings
+  now take an optional public Frigate URL (also `FRIGATE__FRIGATE_EXTERNAL_URL`), and the link
+  prefers it, falling back to the server URL when it is not set — the same split BirdNET-Go
+  already has.
+
+- **An owner can open a detection's originating Frigate event.** A detection came from a Frigate
+  event, and there was no way to get from one to the other: finding the clip or timeline meant
+  searching Frigate by camera and time
+  ([#309](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/309)). The link lives with
+  the technical identifiers behind the detection-ID disclosure, not as an action on the photograph.
+  It is built from the owner-only settings payload, so a guest never sees the Frigate address, and
+  a detection whose event Frigate no longer holds says so in words instead of offering a link that
+  lands on an error. One honest caveat: the link uses the configured Frigate URL, which on some
+  installs is a container address the browser cannot reach — reachable-from-the-browser
+  configurations work today, and a separate browser-facing URL setting can follow if needed.
+
+- **The Explorer's filter rail can be folded away.** It holds 14rem of screen permanently, and once
+  a filter is set the chips above the results already say what is applied, so the rail is mostly
+  restating itself. Hiding it gives that width back to the detections. The control is on the filter
+  bar, desktop only, because a phone already collapses the filters behind a Filters button, and a
+  collapsed desktop simply uses that same button. The choice sticks to the device that made it, and
+  a viewer without owner access can use it too, since it changes nothing on the server. The
+  control sits beside the visit count rather than after the view toggle, which is pushed to the
+  right edge: in the rail that edge is 14rem away and collapsed it is the far side of the window, so
+  a control placed there travelled the width of the screen as you used it.
+
+- **A list row now previews its snapshot on hover, like the dashboard's field log.** The pop-out is
+  attached to the page rather than to the row, because the Explorer's list rounds its corners by
+  hiding its overflow, which cut the panel off at the frame, and a later row's controls could paint
+  over what was left. It is placed against the thumbnail in viewport coordinates, flips above when a
+  row sits near the bottom of the window, and closes on scroll rather than pointing at the wrong row.
+  The row showed
+  a 44px thumbnail too small to recognise a bird in, and opening the detection was the only way to
+  see more. It now uses the same pop-out the field log uses, which means it opens on keyboard focus
+  as well as hover, stays open while the pointer travels into it, closes on Escape, and costs no
+  second request. It also no longer loads its own copy of the image.
+
+### Removed
+
+- **Zen mode is gone from Settings > Accessibility.** The toggle saved, reported success, and
+  changed nothing: it added a `zen-mode` class to the document root and no stylesheet in the app has
+  ever carried a rule for that class, so the interface was identical either way. The effect that
+  added the class also lived on the Settings page, so even the class was dropped again on navigating
+  away. A control that claims an effect it does not have is worse than no control, and worst of all
+  in the accessibility section, where someone may be relying on it. An existing `config.json` that
+  still names `zen_mode` keeps loading, and the key is dropped the next time settings are saved;
+  `ACCESSIBILITY__ZEN_MODE` no longer does anything and can be removed from a compose file.
+
+### Changed
+
+- **A fresh install now runs inference out of the web service's process.** With the old
+  `in_process` default, a busy feeder took the interface away from itself: identification ran on
+  threads inside the process serving every page, and the setting that fixes it lives on the
+  Settings page being starved ([#312](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/312),
+  found through [#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)). New
+  installs default to `subprocess`: supervised worker processes the app can kill and restart when
+  they stall, spawned only when work actually arrives — and one worker of each kind, never more,
+  unless the owner asks. Each worker holds its own copy of the model, so the worker count is the
+  memory price, and scaling upward is a deliberate act rather than a default. Admission capacity
+  always equals the worker count, so every admitted job has a process to run in. An explicitly set
+  mode or worker count is kept exactly as written, and every existing install keeps the mode saved
+  in its `config.json`. The honest trade: the default still costs more memory than one shared
+  in-process copy — it buys an interface that stays responsive under load and inference that can
+  be restarted rather than waited out.
+
+- **The Explorer's view controls live on one row, in one style.** Hide filters, the Cards/List
+  switch, and Multi-select acted on the same list from two places in two styles: Multi-select sat
+  in the page header while the other two lived inside the filter rail, where the 14rem column
+  wrapped them into a vertical stack. All three now sit together in the header toolbar wearing the
+  shared control style, and the rail keeps just the visit count above its facets. The rail toggle
+  also now names the rail as the region it controls, and the Filters button names the facets panel
+  it opens, so the two no longer publish contradictory expanded states to a screen reader when the
+  rail is collapsed and the panel is open.
+
+### Fixed
+
+- **A species can always be added to the block list, even when search cannot name it.** The
+  structured picker only offered what the species search could resolve to a canonical identity,
+  and some model labels carry no name it can find — the large iNat21 models label 10,000 species
+  by scientific name alone, so typing the common name shown on the detection card found nothing,
+  and clicking a result without resolved taxonomy silently did nothing at all
+  ([#311](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/311)). The picker now
+  always offers the typed text as a raw label, exactly as written — matching has always been
+  label-first, so a name copied off a detection card blocks — and an unresolvable result falls
+  back to a raw label instead of no-oping. The search itself also stops starving stored species:
+  classifier-label matches and detection-derived matches each keep their own budget, where before
+  fifty label variants could push every stored species out of the response.
+
+- **Reduce Motion now actually reduces motion.** The setting applied a `reduced-motion` class that
+  no stylesheet carried a rule for, so a control described as disabling animations changed exactly
+  one sparkline — the same defect the zen mode toggle was removed for. The class now applies the
+  same suppression as the `prefers-reduced-motion` media rules, because the in-app setting must
+  work for a reader whose operating-system preference it cannot see, and the scripts that gate
+  their own motion (the footer, the species collage) honour the class as well as the media query.
+
+- **An abandoned accessibility preview no longer sticks to the whole app.** Flipping High Contrast,
+  the dyslexia font, or Reduce Motion in Settings previewed live by toggling classes on the
+  document root with nothing to undo it: leave the page without saving and the preview stayed, on
+  every page, until a reload. The editor now publishes its unsaved state and clears it on the way
+  out, and the app root — the one owner of those classes — applies the preview while it exists and
+  the saved value the moment it does not. Opening the tab also no longer strips a saved-on setting
+  while the settings are still loading.
+
+- **The list row's hover preview now survives the scroll that opens it.** Focusing a thumbnail
+  below the fold scrolls it into view, and the preview closed itself on that very scroll — the
+  keyboard path silently did nothing for exactly the rows that needed scrolling. The panel now
+  follows its row as the page moves and closes only when the row actually leaves the screen. In
+  bulk-select mode the preview steps aside entirely: activating a control announced as "Preview"
+  was toggling the row's selection, so there the thumbnail is decoration and the row's own
+  labelled control owns every activation. The trigger also no longer claims an expanded state
+  for a panel it has no accessible link to, and a very narrow viewport clips the panel's margin
+  rather than its content.
+
+- **Classifier status reports the active model's label count without a resident model.** With
+  inference out of the API process by default, the process answering status holds no model, and the
+  label count silently read as zero on every default install. The count is a fact about the
+  install, not about which process holds the weights: it now comes from the active model's label
+  file, cached by modification time, and a resident model's own count still wins when one exists.
+
+- **A card is now actually always wide enough for its bottom row.** The last release stopped the
+  time-and-score row wrapping up over the bird and promised a card wide enough for one line, but
+  fixed column counts could not keep that promise: with the sidebar and the filter rail open, the
+  three-column range at 768-1279px measured cards of 141-227px against a row that needs about
+  219px in 12-hour locales, and the card's own overflow clipping cut the play button off entirely
+  on an ordinary laptop. The grid now lays out as many columns as fit a minimum card width of
+  16rem, so the guarantee is structural rather than a hope per breakpoint - at some widths that
+  means fewer, larger cards.
+
+- **Classification work that outlives its lease is now cancelled, not abandoned to run on.** When a
+  classification took longer than its lease the coordinator freed the capacity slot and admitted a
+  replacement, but the overrunning work itself was left awaiting its result, holding its inputs —
+  for image work, a full-resolution frame queued for the executor. On a box that is already behind,
+  every abandonment pinned another frame, so falling behind made the process grow exactly when it
+  could least afford to ([#314](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/314)).
+  A reclaimed lease now cancels the runner; work that completes in the same instant its
+  cancellation is delivered is still ignored as a late completion, exactly as before.
+
+- **The audio correlation buffer is now bounded and cheap to maintain.** The buffer keeps up to a
+  day of raw BirdNET payloads for audio and visual correlation, and it rebuilt the entire deque on
+  every append and lookup, plus rescanned every entry — rebuilding each one's identity string — to
+  refuse a broker redelivery. At a day of ordinary audio traffic that was billions of throwaway
+  allocations, feeding the steady memory growth in
+  [#314](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/314). Entries are stamped at
+  ingest so the buffer is ordered: expiry now pops from the head, redeliveries are refused by a
+  mirrored identity set in constant time, and a hard backstop caps the buffer during a payload
+  storm. One deliberate trade: after a backwards clock step, an expired entry behind a fresher one
+  is retained until the entries ahead of it expire — bounded by the window — where before it was
+  removed immediately.
+
+- **One OpenVINO inference request now serves every classification.** Each classification and each
+  detector pass created a fresh inference request, and with it fresh runtime buffers — allocations
+  the runtime and allocator do not hand back, so busy hours turned into resident memory that never
+  returned ([#314](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/314)). The request
+  is now created once per compiled model and reused, and because a reused request rewrites its
+  output buffer on the next inference, results are copied to the caller instead of aliasing the
+  buffer — which also removes a path where a held result could be silently overwritten.
+
+- **Saving settings that change the inference provider no longer stalls the backend either.**
+  Taking hardware detection off the status path left one road back onto the event loop: a settings
+  save that changes the provider or execution mode reloads the classifier as a background task, and
+  that task rebuilt the service and loaded the model inline — the same subprocess probes, the same
+  stalled requests, just triggered by a write instead of a read. Clearing classification feedback
+  reloaded the model the same way. Both reloads now build the classifier and load the model in a
+  worker thread, so a settings save costs the saver a moment and everyone else nothing
+  ([#313](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/313)).
+
+- **A status request no longer stops the backend answering anything else.** Asking for classifier
+  status re-detected the machine's hardware capabilities, and detection starts up to three
+  short-lived child processes that each import an inference runtime, with a five second timeout
+  apiece. That ran on the thread serving every request, so while it worked, nothing else was
+  answered. A reporter's capture showed `/api/version`, which returns a fixed string and touches no
+  database, disk or network, waiting 22.5 seconds for its first byte, alongside four other requests
+  that all finished at the same moment. Detection now runs on a schedule away from any request, a
+  status read returns the last known answer, and the reply says how old that answer is rather than
+  implying it is current. The schedule re-detects every fifteen minutes rather than every minute —
+  the capabilities cannot change without a container restart, and `CLASSIFIER_ACCEL_PROBE_TTL_SECONDS`
+  tunes it — and a reading the scheduler will refresh at its next wake is reported on schedule, not
+  stale ([#313](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/313)).
+
+- **Health now says where the process's memory sits.** Resident memory was reported growing from
+  633MiB to 4.8GiB over about a day with no change of model, and nothing in the process could say
+  what held it ([#314](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/314)). Health
+  and the diagnostics bundle now report the process's resident memory split by kind — anonymous
+  heap, file-backed, and shared — alongside the Python allocator's live block count and the size of
+  the audio correlation buffer, so a sampled growth curve can be attributed to a holder instead of
+  guessed at. Anything unreadable is reported as unknown.
+
+- **Diagnostics now say what machine they came from.** A bundle recorded the app version and the
+  configuration but neither the processor count nor the memory, so a report of slowness could not be
+  sized: two bundles and a browser capture were exchanged on
+  [#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300) before anyone could say
+  whether the host was a small box or a large one. Health and the bundle now carry the usable
+  processor count, total memory, and any container CPU or memory limit, which is the number that
+  actually governs contention. The limits are read from cgroup v2 or, on hosts that still mount
+  cgroup v1 such as Unraid and older Docker, from the v1 files — a `--cpus=2` container on a
+  sixteen core v1 host reports two effective cores, not sixteen. Anything unreadable is reported
+  as unknown rather than guessed, including the effective core count when no cgroup can be read
+  at all.
+
+- **A broken test database now says what broke it.** When the test suite could not build its schema,
+  the setup printed the failure and carried on with a flag saying the database was ready. Every test
+  then ran against an empty database and reported `no such table`, so one cause surfaced as hundreds
+  of unrelated errors. Setup now stops with the Alembic output and names the usual culprit: a
+  file-sync duplicate such as `<revision> 2.py` in `migrations/versions`, which Git ignores but
+  Alembic still reads off disk.
+
+- **A public visitor no longer triggers a refused request on every Explorer load.** The Explorer
+  asked for the hidden-detection count without checking for owner access first. The count is only
+  ever shown to an owner and the endpoint refuses everyone else, so a guest got a 403 in the browser
+  console each time the page loaded. The request now waits for owner access, like the settings
+  refresh and the camera status readers already do
+  ([#302](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/302)).
+
+- **The Explorer's day chips now say which one is selected to a screen reader.** The selected chip
+  was drawn with a different background and border and nothing else, so a screen reader gave no way
+  to tell which day was active. Each chip now carries `aria-pressed`, and the chip row is a group
+  named by the scope label above it, so the scope reaches a screen reader as well as the eye.
+
+- **The time and score no longer float in the middle of the photograph.** They sit in a row
+  anchored to the bottom of the snapshot, and that row was allowed to wrap so it would not run off
+  the edge of a narrow card. The narrowest card is not a phone, where a card is full width, but the
+  densest desktop grid: measured in the real layout, four columns beside the filter rail gave a
+  168px card at 1024px and a 232px card at 1280px. So the row wrapped on an ordinary laptop, and
+  because it is anchored to the bottom, each extra line pushed the readings up over the bird. At
+  1024px it covered 76% of the picture. The row no longer wraps, the fourth column now waits for a
+  wider screen so a card is always wide enough for one line, and the "full visit ready" marker moved
+  onto the play button instead of sitting beside it as a 20px circle next to a 44px one, which read
+  as a second, broken control.
+
+- **Reduce motion now works anywhere but the Settings page.** The setting adds a `reduced-motion`
+  class that the audio history reads before it animates, but only the Settings page ever added that
+  class. So it held while you were looking at the setting, held as you navigated away within the
+  same session, and was gone after a reload: a reader who opened the audio history directly got the
+  animation regardless of what they had chosen, and a public visitor could never get it at all. It
+  is now applied at the app root, from the same public payload as the other two, and the Settings
+  page no longer keeps its own duplicate copies of all three.
+
+- **A public visitor now gets the high contrast and dyslexia-font settings the owner chose.** Both
+  were applied from `/api/settings`, which refuses anyone without owner access, so on an install with
+  authentication on and public access enabled a visitor could never receive either one, and the
+  owner had no way to give it to them. The visitor most likely to need high contrast was the one
+  visitor who could not have it. Both now travel on the public status payload, where
+  `accessibility_live_announcements` already sat: that block was split, one field public and two
+  not, which is what made this easy to miss.
+
+- **A public visitor now gets the Explorer layout the owner chose.** Settings > Appearance calls the
+  control "the layout new devices start with", and a visitor's device is the newest device there is,
+  but the layout travelled only on `/api/settings`, which refuses everyone without owner access. So
+  the store had nothing to read, fell back to cards, and the setting was silently inert on exactly
+  the installs that have visitors. It now travels on the public status payload, the same route the
+  date and time formats already take. A visitor can still switch layout for their own device, and
+  that choice still goes no further than their browser.
+
+- **The Explorer's day chips say which detections they are counting.** The chips read
+  `All 24 / Aug 27 16 / Aug 26 8` beside a heading that read `810 visits`, so two numbers measuring
+  different things sat on the same row and the pair read as a fault. The chips group the page that
+  has loaded, and clicking one narrows to that day within that page, which is what the counts have
+  always described. The row now says so
+  ([#303](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/303)).
+
 ## [2.18.0] - 2026-08-27
 
 ### Added

@@ -23,6 +23,7 @@
     import ExplorerFilters from '../components/ExplorerFilters.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { explorerViewStore } from '../stores/explorer_view.svelte';
+    import { explorerFiltersStore } from '../stores/explorer_filters.svelte';
     import { settingsStore } from '../stores/settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
@@ -76,7 +77,7 @@
     let tagSearchQuery = $state('');
     let showTagDropdown = $state(false);
     let updatingTag = $state(false);
-    const explorerView = $derived(explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view));
+    const explorerView = $derived(explorerViewStore.resolve(settingsStore.settings?.appearance_explorer_view ?? authStore.explorerView));
     let selectionMode = $state(false);
     let selectedEventIds = $state<string[]>([]);
     let showBulkTagModal = $state(false);
@@ -269,9 +270,11 @@
             availableCameras = (filters as EventFilters).cameras;
             eventFilters = filters as EventFilters;
             if (includeAuxiliary) {
+                // The hidden count is only ever shown behind owner access, and the
+                // endpoint refuses a guest, so asking as a guest just logs a 403.
                 const [labels, hidden] = await Promise.all([
                     fetchClassifierLabels().catch(() => ({ labels: [] })),
-                    fetchHiddenCount().catch(() => ({ hidden_count: 0 }))
+                    authStore.hasOwnerAccess ? fetchHiddenCount().catch(() => ({ hidden_count: 0 })) : { hidden_count: 0 }
                 ]);
                 classifierLabels = labels.labels;
                 hiddenCount = hidden.hidden_count;
@@ -1027,12 +1030,58 @@
 <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-xs text-slate-500 -mt-2">{$_('events.classification_legend')}</p>
-        <div class="flex items-center gap-3">
-            <div class="text-sm text-slate-500">{$_('events.total_count', { values: { count: totalCount } })}</div>
+        <div class="flex flex-wrap items-center gap-2">
+            <div class="mr-1 text-sm text-slate-500">{$_('events.total_count', { values: { count: totalCount } })}</div>
+            <button
+                class="btn btn-secondary hidden min-h-11 px-3 py-2 text-xs lg:inline-flex"
+                aria-expanded={!explorerFiltersStore.collapsed}
+                aria-controls="explorer-filter-rail"
+                onclick={() => explorerFiltersStore.set(!explorerFiltersStore.collapsed)}
+                data-explorer-rail-toggle
+            >
+                <svg
+                    class="h-3.5 w-3.5 transition-transform duration-200 {explorerFiltersStore.collapsed ? '' : 'rotate-180'}"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    aria-hidden="true"
+                >
+                    <path d="M12 5 7 10l5 5" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+                {explorerFiltersStore.collapsed
+                    ? $_('events.filters.show_rail', { default: 'Show filters' })
+                    : $_('events.filters.hide_rail', { default: 'Hide filters' })}
+            </button>
+            <div
+                class="inline-flex min-h-11 items-stretch rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/80"
+                role="group"
+                aria-label={$_('settings.explorer_view.label')}
+            >
+                {#each [{ value: 'cards', label: $_('settings.explorer_view.cards') }, { value: 'list', label: $_('settings.explorer_view.list') }] as option (option.value)}
+                    <button
+                        type="button"
+                        aria-pressed={explorerView === option.value}
+                        onclick={() => explorerViewStore.set(option.value as 'cards' | 'list')}
+                        data-explorer-view-toggle={option.value}
+                        class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
+                               {explorerView === option.value
+                            ? 'bg-brand-500 text-white'
+                            : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
+                    >
+                        {#if option.value === 'cards'}
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                        {:else}
+                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                        {/if}
+                        {option.label}
+                    </button>
+                {/each}
+            </div>
             {#if authStore.hasOwnerAccess}
                 <button
                     type="button"
-                    class="btn px-3 py-2 text-xs {selectionMode
+                    class="btn min-h-11 px-3 py-2 text-xs {selectionMode
                         ? 'border border-brand-300 bg-brand-100 text-brand-700 dark:border-brand-400/60 dark:bg-brand-500/20 dark:text-brand-100'
                         : 'btn-secondary'}"
                     onclick={toggleSelectionMode}
@@ -1092,11 +1141,16 @@
         </div>
     {/if}
 
-    <div class="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:items-start" data-explorer-layout>
-        <div class="lg:sticky lg:top-4">
+    <div
+        class="grid gap-6 lg:items-start {explorerFiltersStore.collapsed
+            ? ''
+            : 'lg:grid-cols-[14rem_minmax(0,1fr)]'}"
+        data-explorer-layout
+    >
+        <div id="explorer-filter-rail" class={explorerFiltersStore.collapsed ? '' : 'lg:sticky lg:top-4'}>
         <ExplorerFilters
-            view={explorerView}
-            onviewchange={(next) => explorerViewStore.set(next)}
+            collapsed={explorerFiltersStore.collapsed}
+            oncollapsechange={(next) => explorerFiltersStore.set(next)}
             species={displaySpecies}
             cameras={availableCameras}
             filters={eventFilters}
@@ -1153,7 +1207,20 @@
 
         {#if !loading && timelineBuckets.length > 0}
             <section data-events-timeline class="pb-4 pt-1">
-                <div class="flex flex-wrap items-center gap-2">
+                <!--
+                    These chips group the loaded page, and clicking one narrows to that
+                    day within the page. The heading beside them counts the whole filter,
+                    so without this the two numbers look like the same measurement
+                    disagreeing with itself.
+                -->
+                <p
+                    id="events-timeline-scope"
+                    data-events-timeline-scope
+                    class="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+                >
+                    {$_('events.timeline_scope', { default: 'Days on this page' })}
+                </p>
+                <div class="flex flex-wrap items-center gap-2" role="group" aria-labelledby="events-timeline-scope">
                     <button
                         type="button"
                         class="inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition-colors
@@ -1161,6 +1228,7 @@
                                 ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                                 : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                         onclick={() => selectedTimelineBucket = 'all'}
+                        aria-pressed={selectedTimelineBucket === 'all'}
                     >
                         <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                             <circle cx="10" cy="10" r="6"></circle>
@@ -1187,6 +1255,7 @@
                                     ? 'bg-brand-100/90 dark:bg-brand-500/20 border-brand-300/80 dark:border-brand-400/60 text-brand-700 dark:text-brand-100 shadow-sm'
                                     : 'bg-white/80 dark:bg-slate-800/60 border-slate-300/80 dark:border-slate-600/70 text-slate-600 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/70'}"
                             onclick={() => selectedTimelineBucket = bucket.key}
+                            aria-pressed={selectedTimelineBucket === bucket.key}
                         >
                             <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
                                 <rect x="3" y="4" width="14" height="13" rx="2"></rect>
@@ -1245,7 +1314,10 @@
                 {/each}
             </div>
         {:else}
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <!-- A minimum card width keeps the overlay row's one-line guarantee
+                 structural: fixed column counts measured 141-227px cards beside
+                 the open sidebar and filter rail, clipping the play button. -->
+            <div class="grid grid-cols-[repeat(auto-fill,minmax(16rem,1fr))] gap-4">
                 {#each visibleEvents as event, index (eventKey(event))}
                     <DetectionCard 
                         detection={event} 

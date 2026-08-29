@@ -691,6 +691,7 @@ async def test_llm(
 
 class SettingsUpdate(BaseModel):
     frigate_url: Optional[str] = Field(None, min_length=1, description="Frigate instance URL")
+    frigate_external_url: Optional[str] = Field("", description="External Frigate base URL (browser→Frigate)")
     mqtt_server: Optional[str] = Field(None, min_length=1, description="MQTT server hostname")
     mqtt_port: int = Field(1883, ge=1, le=65535, description="MQTT server port")
     mqtt_auth: bool = Field(False, description="Enable MQTT authentication")
@@ -730,6 +731,12 @@ class SettingsUpdate(BaseModel):
         None, ge=0.0, le=1.0, description="Classification confidence threshold (0-1)"
     )
     classification_min_confidence: float = Field(0.4, ge=0.0, le=1.0, description="Minimum confidence floor (0-1)")
+    live_worker_count: Optional[int] = Field(
+        None, ge=1, le=8, description="Live classifier worker processes; null follows the default (one)"
+    )
+    background_worker_count: Optional[int] = Field(
+        None, ge=1, le=4, description="Background classifier worker processes; null follows the default (one)"
+    )
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
     maintenance_max_concurrent: Optional[int] = Field(
@@ -772,15 +779,12 @@ class SettingsUpdate(BaseModel):
     auto_video_classification: Optional[bool] = Field(False, description="Automatically classify video clips")
     video_classification_delay: Optional[int] = Field(30, ge=0, description="Seconds to wait before checking for clip")
     video_classification_max_retries: Optional[int] = Field(3, ge=0, description="Max retries for clip availability")
-    video_classification_max_concurrent: Optional[int] = Field(
-        1, ge=1, le=20, description="Maximum concurrent video classification jobs"
-    )
     video_classification_frames: Optional[int] = Field(
         15, ge=5, le=100, description="Number of frames to sample for video classification"
     )
     image_execution_mode: Optional[str] = Field(
-        "in_process",
-        description="Image inference execution mode: in_process|subprocess",
+        "subprocess",
+        description="Image inference execution mode: subprocess|in_process",
     )
     strict_non_finite_output: Optional[bool] = Field(
         True,
@@ -943,7 +947,6 @@ class SettingsUpdate(BaseModel):
     accessibility_high_contrast: Optional[bool] = False
     accessibility_dyslexia_font: Optional[bool] = False
     accessibility_reduced_motion: Optional[bool] = False
-    accessibility_zen_mode: Optional[bool] = False
     accessibility_live_announcements: Optional[bool] = True
 
     # Authentication
@@ -1244,6 +1247,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
 
     return {
         "frigate_url": settings.frigate.frigate_url,
+        "frigate_external_url": settings.frigate.frigate_external_url,
         "mqtt_server": settings.frigate.mqtt_server,
         "mqtt_port": settings.frigate.mqtt_port,
         "mqtt_auth": settings.frigate.mqtt_auth,
@@ -1266,6 +1270,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "recording_clip_after_seconds": settings.frigate.recording_clip_after_seconds,
         "classification_threshold": settings.classification.threshold,
         "classification_min_confidence": settings.classification.min_confidence,
+        "live_worker_count": settings.classification.live_worker_count,
+        "background_worker_count": settings.classification.background_worker_count,
         "cameras": settings.frigate.camera,
         "retention_days": settings.maintenance.retention_days,
         "maintenance_max_concurrent": settings.maintenance.max_concurrent,
@@ -1288,7 +1294,6 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "auto_video_classification": settings.classification.auto_video_classification,
         "video_classification_delay": settings.classification.video_classification_delay,
         "video_classification_max_retries": settings.classification.video_classification_max_retries,
-        "video_classification_max_concurrent": settings.classification.video_classification_max_concurrent,
         "video_classification_frames": settings.classification.video_classification_frames,
         "image_execution_mode": settings.classification.image_execution_mode,
         "strict_non_finite_output": settings.classification.strict_non_finite_output,
@@ -1416,7 +1421,6 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "accessibility_high_contrast": settings.accessibility.high_contrast,
         "accessibility_dyslexia_font": settings.accessibility.dyslexia_font,
         "accessibility_reduced_motion": settings.accessibility.reduced_motion,
-        "accessibility_zen_mode": settings.accessibility.zen_mode,
         "accessibility_live_announcements": settings.accessibility.live_announcements,
         # Appearance
         "appearance_explorer_view": settings.appearance.explorer_view,
@@ -1504,6 +1508,8 @@ async def update_settings(
 
     if "frigate_url" in fields_set and update.frigate_url is not None:
         settings.frigate.frigate_url = update.frigate_url
+    if "frigate_external_url" in fields_set and update.frigate_external_url is not None:
+        settings.frigate.frigate_external_url = update.frigate_external_url.strip().rstrip("/")
     if "mqtt_server" in fields_set and update.mqtt_server is not None:
         settings.frigate.mqtt_server = update.mqtt_server
     if "mqtt_port" in fields_set:
@@ -1575,6 +1581,12 @@ async def update_settings(
         settings.classification.threshold = update.classification_threshold
     if "classification_min_confidence" in fields_set:
         settings.classification.min_confidence = update.classification_min_confidence
+    # None is meaningful here - it returns the count to default resolution - so
+    # presence in fields_set alone decides whether the stored value changes.
+    if "live_worker_count" in fields_set:
+        settings.classification.live_worker_count = update.live_worker_count
+    if "background_worker_count" in fields_set:
+        settings.classification.background_worker_count = update.background_worker_count
     if "retention_days" in fields_set:
         settings.maintenance.retention_days = update.retention_days
     if "maintenance_max_concurrent" in fields_set and update.maintenance_max_concurrent is not None:
@@ -1633,8 +1645,6 @@ async def update_settings(
         settings.classification.video_classification_delay = update.video_classification_delay
     if "video_classification_max_retries" in fields_set and update.video_classification_max_retries is not None:
         settings.classification.video_classification_max_retries = update.video_classification_max_retries
-    if "video_classification_max_concurrent" in fields_set and update.video_classification_max_concurrent is not None:
-        settings.classification.video_classification_max_concurrent = update.video_classification_max_concurrent
     if "video_classification_frames" in fields_set and update.video_classification_frames is not None:
         settings.classification.video_classification_frames = update.video_classification_frames
 
@@ -1991,8 +2001,6 @@ async def update_settings(
         settings.accessibility.dyslexia_font = update.accessibility_dyslexia_font
     if "accessibility_reduced_motion" in fields_set and update.accessibility_reduced_motion is not None:
         settings.accessibility.reduced_motion = update.accessibility_reduced_motion
-    if "accessibility_zen_mode" in fields_set and update.accessibility_zen_mode is not None:
-        settings.accessibility.zen_mode = update.accessibility_zen_mode
     if "accessibility_live_announcements" in fields_set and update.accessibility_live_announcements is not None:
         settings.accessibility.live_announcements = update.accessibility_live_announcements
 
@@ -2026,13 +2034,12 @@ async def update_settings(
         background_tasks.add_task(start_background_refresh)
 
     if inference_provider_changed or execution_mode_changed:
-        from app.services.classifier_service import get_classifier, shutdown_classifier
+        from app.services.classifier_service import reload_classifier_out_of_band
 
         async def full_reload():
             if execution_mode_changed:
                 log.info("Execution mode changed, performing full classifier service restart")
-                await shutdown_classifier()
-            await get_classifier().reload_bird_model()
+            await reload_classifier_out_of_band(full_restart=execution_mode_changed)
 
         background_tasks.add_task(full_reload)
 
@@ -2718,13 +2725,13 @@ async def reset_video_circuit(
 @router.delete("/maintenance/feedback/clear", response_model=ClearFeedbackResponse)
 async def clear_classification_feedback(background_tasks: BackgroundTasks, auth: AuthContext = Depends(require_owner)):
     """Clear all personalized re-ranking classification feedback. Owner only."""
-    from app.services.classifier_service import get_classifier
+    from app.services.classifier_service import reload_classifier_out_of_band
 
     async with get_db() as db:
         repo = DetectionRepository(db)
         deleted_count = await repo.clear_all_classification_feedback()
 
-    background_tasks.add_task(get_classifier().reload_bird_model)
+    background_tasks.add_task(reload_classifier_out_of_band, full_restart=False)
 
     return {
         "status": "success",

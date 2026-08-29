@@ -18,6 +18,7 @@
 
     let {
         frigateUrl = $bindable(''),
+        frigateExternalUrl = $bindable(''),
         mqttServer = $bindable(''),
         mqttPort = $bindable(1883),
         mqttAuth = $bindable(false),
@@ -45,6 +46,7 @@
         toggleCamera
     }: {
         frigateUrl: string;
+        frigateExternalUrl: string;
         mqttServer: string;
         mqttPort: number;
         mqttAuth: boolean;
@@ -318,6 +320,22 @@
                 placeholder={$_('settings.frigate.url_placeholder')}
                 ariaLabel={$_('settings.frigate.url')}
                 oninput={(v) => (frigateUrl = v)}
+            />
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-frigate-external-url"
+            label={$_('settings.frigate.external_url')}
+            description={$_('settings.frigate.external_url_desc')}
+            layout="stacked"
+        >
+            <SettingsInput
+                id="frigate-external-url"
+                type="url"
+                value={frigateExternalUrl}
+                placeholder={$_('settings.frigate.external_url_placeholder')}
+                ariaLabel={$_('settings.frigate.external_url')}
+                oninput={(v) => (frigateExternalUrl = v)}
             />
         </SettingsRow>
 

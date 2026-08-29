@@ -9,8 +9,9 @@
         species: EventFilterSpecies[];
         cameras: string[];
         filters: EventFilters | null;
-        view?: 'cards' | 'list';
-        onviewchange?: (view: 'cards' | 'list') => void;
+        /** Desktop only: the rail folds away and gives its width to the results. */
+        collapsed?: boolean;
+        oncollapsechange?: (collapsed: boolean) => void;
         datePreset: DatePreset;
         speciesFilter: string;
         cameraFilter: string;
@@ -42,8 +43,8 @@
         species,
         cameras,
         filters,
-        view = 'cards',
-        onviewchange,
+        collapsed = false,
+        oncollapsechange,
         datePreset,
         speciesFilter,
         cameraFilter,
@@ -62,6 +63,20 @@
     }: Props = $props();
 
     let panelOpen = $state(false);
+
+    // Collapsing arrives from the header toolbar. The collapsed desktop shares
+    // the phone's Filters button, so the moment the rail folds away the facets
+    // close with it - leaving them open would show the facets under a control
+    // reading "Show filters". Tracking the previous value keeps the valid
+    // collapsed-with-panel-open state, which is what the Filters button opens.
+    let previousCollapsed: boolean | null = null;
+    $effect(() => {
+        const current = collapsed;
+        if (previousCollapsed !== null && current && current !== previousCollapsed) {
+            panelOpen = false;
+        }
+        previousCollapsed = current;
+    });
     let search = $state('');
 
     const totals = $derived(filters?.totals ?? null);
@@ -127,7 +142,9 @@
 </script>
 
 <section
-    class="pb-4 pt-1 lg:flex lg:h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:pb-0 lg:pt-0"
+    class="pb-4 pt-1 {collapsed
+        ? ''
+        : 'lg:flex lg:h-[calc(100dvh-2rem)] lg:max-h-[calc(100dvh-2rem)] lg:flex-col lg:pb-0 lg:pt-0'}"
     data-events-filter-bar
 >
     <div class="flex shrink-0 flex-wrap items-center gap-2">
@@ -150,31 +167,10 @@
             </button>
         {/each}
 
-        <div class="ml-auto inline-flex items-center rounded-full border border-slate-200 p-0.5 dark:border-slate-700" role="group" aria-label={$_('settings.explorer_view.label')}>
-            {#each [{ value: 'cards', label: $_('settings.explorer_view.cards') }, { value: 'list', label: $_('settings.explorer_view.list') }] as option (option.value)}
-                <button
-                    type="button"
-                    aria-pressed={view === option.value}
-                    onclick={() => onviewchange?.(option.value as 'cards' | 'list')}
-                    data-explorer-view-toggle={option.value}
-                    class="inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
-                           {view === option.value
-                        ? 'bg-brand-500 text-white'
-                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
-                >
-                    {#if option.value === 'cards'}
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-                    {:else}
-                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
-                    {/if}
-                    {option.label}
-                </button>
-            {/each}
-        </div>
-
         <button
-            class="btn btn-secondary min-h-11 px-3 py-2 text-xs lg:hidden"
+            class="btn btn-secondary min-h-11 px-3 py-2 text-xs {collapsed ? '' : 'lg:hidden'}"
             aria-expanded={panelOpen}
+            aria-controls="explorer-facets"
             onclick={() => (panelOpen = !panelOpen)}
             data-explorer-filter-toggle
         >
@@ -189,9 +185,12 @@
     </div>
 
     <div
-        class="mt-3 gap-5 border-t border-slate-200 pt-3 lg:!flex dark:border-slate-700 {panelOpen
+        id="explorer-facets"
+        class="mt-3 gap-5 border-t border-slate-200 pt-3 dark:border-slate-700 {panelOpen
             ? 'grid grid-cols-1 sm:grid-cols-3'
-            : 'hidden'} lg:mt-0 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-5 lg:overflow-hidden lg:border-t-0 lg:pt-0"
+            : 'hidden'} {collapsed
+            ? ''
+            : 'lg:!flex lg:mt-0 lg:min-h-0 lg:flex-1 lg:flex-col lg:gap-5 lg:overflow-hidden lg:border-t-0 lg:pt-0'}"
         data-explorer-facets
     >
             <div>

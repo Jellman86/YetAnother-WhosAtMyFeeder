@@ -183,6 +183,10 @@ def _expand_trusted_hosts(hosts: list[str]) -> list[str]:
 
 class FrigateSettings(BaseModel):
     frigate_url: str = Field(..., description="URL of the Frigate instance")
+    frigate_external_url: str = Field(
+        default="",
+        description="Public/browser-facing base URL of the Frigate web UI (e.g. https://frigate.example.com). Used for the 'open in Frigate' links in the dashboard. Falls back to frigate_url if empty.",
+    )
     frigate_auth_token: Optional[str] = Field(None, description="Optional Bearer token for Frigate proxy auth")
     main_topic: str = "frigate"
     camera: list[str] = Field(default_factory=list, description="List of cameras to monitor")
@@ -308,7 +312,10 @@ class ClassificationSettings(BaseModel):
     video_classification_max_retries: int = Field(default=3, description="Max retries for clip availability")
     video_classification_retry_interval: int = Field(default=15, description="Seconds between retries")
     video_classification_max_concurrent: int = Field(
-        default=1, ge=1, le=20, description="Maximum concurrent video classification tasks"
+        default=1,
+        ge=1,
+        le=20,
+        description="Legacy, ignored: video-job concurrency now follows the background worker count",
     )
     video_classification_failure_threshold: int = Field(
         default=5, ge=1, description="Failures in window to open circuit breaker"
@@ -336,12 +343,16 @@ class ClassificationSettings(BaseModel):
         default="auto", description="Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu"
     )
     image_execution_mode: str = Field(
-        default="in_process",
-        description="Image inference execution mode: in_process|subprocess",
+        default="subprocess",
+        description="Image inference execution mode: subprocess|in_process",
     )
-    live_worker_count: int = Field(default=2, ge=1, le=8, description="Live classifier worker process count")
-    background_worker_count: int = Field(
-        default=1, ge=1, le=4, description="Background classifier worker process count"
+    # None derives the count from the configured concurrency (and a single
+    # accelerator derives one worker); a set value is kept as written (#312).
+    live_worker_count: Optional[int] = Field(
+        default=None, ge=1, le=8, description="Live classifier worker process count; unset follows concurrency"
+    )
+    background_worker_count: Optional[int] = Field(
+        default=None, ge=1, le=4, description="Background classifier worker process count; unset means one"
     )
     worker_heartbeat_timeout_seconds: float = Field(
         default=5.0, ge=0.5, le=60.0, description="Classifier worker heartbeat timeout in seconds"
@@ -409,11 +420,11 @@ class ClassificationSettings(BaseModel):
     @field_validator("image_execution_mode")
     @classmethod
     def validate_image_execution_mode(cls, v: str) -> str:
-        normalized = (v or "in_process").strip().lower()
+        normalized = (v or "subprocess").strip().lower()
         allowed = {"in_process", "subprocess"}
         if normalized not in allowed:
-            log.warning("Invalid image_execution_mode in config; falling back to in_process", value=v)
-            return "in_process"
+            log.warning("Invalid image_execution_mode in config; falling back to subprocess", value=v)
+            return "subprocess"
         return normalized
 
     @field_validator("bird_model_region_override")
@@ -816,7 +827,6 @@ class AccessibilitySettings(BaseModel):
     high_contrast: bool = Field(default=False, description="Enable high contrast mode")
     dyslexia_font: bool = Field(default=False, description="Enable dyslexia-friendly font")
     reduced_motion: bool = Field(default=False, description="Reduce motion/animations")
-    zen_mode: bool = Field(default=False, description="Enable simplified zen mode")
     live_announcements: bool = Field(default=True, description="Enable screen reader live announcements")
 
 

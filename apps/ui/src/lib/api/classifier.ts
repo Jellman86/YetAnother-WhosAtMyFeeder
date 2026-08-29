@@ -15,6 +15,9 @@ export interface ClassifierStatus {
     openvino_import_error?: string | null;
     openvino_probe_error?: string | null;
     openvino_gpu_probe_error?: string | null;
+    resolved_live_workers?: number;
+    resolved_background_workers?: number;
+    active_model_estimated_ram_mb?: number | null;
     openvino_model_compile_ok?: boolean | null;
     openvino_model_compile_device?: string | null;
     openvino_model_compile_error?: string | null;

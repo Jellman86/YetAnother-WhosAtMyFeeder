@@ -137,6 +137,12 @@ export default defineConfig(({ mode }) => ({
             '/api': {
                 target: process.env.VITE_BACKEND_PROXY_TARGET || 'http://yawamf-backend:8000',
                 changeOrigin: true,
+            },
+            // The backend serves its liveness probe at /health (no /api prefix);
+            // the Model Manager reads it, so the dev proxy must forward it too.
+            '/health': {
+                target: process.env.VITE_BACKEND_PROXY_TARGET || 'http://yawamf-backend:8000',
+                changeOrigin: true,
             }
         }
     },

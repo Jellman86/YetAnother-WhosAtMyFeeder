@@ -69,6 +69,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `FRIGATE__FRIGATE_URL` | `http://frigate:5000` | Frigate base URL for snapshots/clips. |
+| `FRIGATE__FRIGATE_EXTERNAL_URL` | _(empty)_ | Browser-facing Frigate URL for the detection's "open in Frigate" link. Falls back to `FRIGATE__FRIGATE_URL`. |
 | `FRIGATE__FRIGATE_AUTH_TOKEN` | _(unset)_ | Bearer token if Frigate requires auth. |
 | `FRIGATE__MAIN_TOPIC` | `frigate` | Frigate MQTT base topic. |
 | `FRIGATE__MQTT_SERVER` | `mqtt` | MQTT broker host. |
@@ -91,10 +92,11 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | --- | --- | --- |
 | `CLASSIFICATION__INFERENCE_PROVIDER` | `auto` | `auto`, `cpu`, `cuda`, `intel_gpu`, `intel_cpu`, `intel_npu`. This authoritative deployment override wins over the value saved by Settings; omit it when users should be able to change providers in the UI. |
 | `CLASSIFICATION__USE_CUDA` | _(legacy)_ | Legacy boolean; mapped to `cuda`/`cpu` when the provider is unset. |
-| `CLASSIFICATION__IMAGE_EXECUTION_MODE` | `in_process` | `in_process` (shared RAM) or `subprocess` (isolated). |
+| `CLASSIFICATION__IMAGE_EXECUTION_MODE` | `subprocess` | `subprocess` (isolated: inference runs in worker processes the app can restart) or `in_process` (one model copy shared with the app; less memory, but heavy inference competes with the interface). |
 | `CLASSIFIER_RUNTIME_BENCHMARK_ENABLED` | `false` | Opt in to a synthetic accelerated-versus-CPU comparison during startup. Routine model activation validation and runtime health checks do not require it. |
 | `CLASSIFIER_IMAGE_MAX_CONCURRENT` | `2` | Maximum concurrent image-classification jobs. Use `1` on a Raspberry Pi to protect UI and event-loop responsiveness. |
 | `CLASSIFIER_IMAGE_ADMISSION_TIMEOUT_SECONDS` | `0.5` | Maximum time background image work waits for classifier capacity before it fails conservatively. The Pi example uses `1.0`. |
+| `CLASSIFIER_ACCEL_PROBE_TTL_SECONDS` | `900` | How long a hardware-capability reading stays fresh before the background scheduler re-detects it. Detection spawns short-lived child processes, so raise this on a CPU-constrained host; the capabilities cannot change without a container restart. |
 | `CLASSIFICATION__WRITE_FRIGATE_SUBLABEL` | `true` | Write the identified species back to Frigate as a sub-label. |
 | `CLASSIFICATION__PERSONALIZED_RERANK_ENABLED` | `false` | Learn per-camera/model ranking from manual tags. |
 | `CLASSIFICATION__STRICT_NON_FINITE_OUTPUT` | `true` | Reject all-non-finite classifier output (also `CLASSIFIER_STRICT_NON_FINITE_OUTPUT`). |
@@ -106,20 +108,20 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES` | `15` | Frames sampled per video. |
 | `CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES` | `3` | Retries for a failed video job. |
 | `CLASSIFICATION__VIDEO_CLASSIFICATION_RETRY_INTERVAL` | `15` | Seconds between video retries. |
-| `CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT` | `1` | Concurrent video jobs. |
+| `CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT` | _(ignored)_ | Legacy. Video-job concurrency now follows `CLASSIFICATION__BACKGROUND_WORKER_COUNT` — one image per worker. |
 | `CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS` | `180` | Per-video timeout. |
 | `CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES` | `15` | Age after which a queued video is dropped. |
 | `CLASSIFICATION__VIDEO_FAILURE_THRESHOLD` | `5` | Failures before the video circuit opens. |
 | `CLASSIFICATION__VIDEO_FAILURE_WINDOW_MINUTES` | `10` | Window for counting video failures. |
 | `CLASSIFICATION__VIDEO_FAILURE_COOLDOWN_MINUTES` | `15` | Cooldown while the video circuit is open. |
-| `CLASSIFICATION__LIVE_WORKER_COUNT` | `2` | Live-inference worker processes. |
-| `CLASSIFICATION__BACKGROUND_WORKER_COUNT` | `1` | Background-inference worker processes. |
+| `CLASSIFICATION__LIVE_WORKER_COUNT` | _(one)_ | Live-inference worker processes; unset means one. Each worker holds its own copy of the model, so raising this buys parallelism at one model copy per worker — scale it deliberately. Admission capacity always equals the worker count. |
+| `CLASSIFICATION__BACKGROUND_WORKER_COUNT` | _(one)_ | Background-inference worker processes; unset means one. |
 | `CLASSIFICATION__LIVE_EVENT_COALESCING_ENABLED` | `true` | Coalesce rapid live events. |
 | `CLASSIFICATION__LIVE_EVENT_STALE_DROP_SECONDS` | `30.0` | Drop live events older than this. |
 | `CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS` | `5.0` | Worker heartbeat timeout. |
 | `CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS` | `35.0` | Live worker hard deadline. |
 | `CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS` | `120.0` | Background worker hard deadline. |
-| `CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS` | `20.0` | Worker start-up readiness timeout. |
+| `CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS` | `60.0` | Worker start-up readiness timeout. Start-up includes hardware probes and, on an accelerator, a model compile. |
 | `CLASSIFICATION__WORKER_RESTART_WINDOW_SECONDS` | `60.0` | Window for counting worker restarts. |
 | `CLASSIFICATION__WORKER_RESTART_THRESHOLD` | `3` | Restarts before the worker breaker trips. |
 | `CLASSIFICATION__WORKER_BREAKER_COOLDOWN_SECONDS` | `60.0` | Cooldown after the worker breaker trips. |
@@ -270,7 +272,6 @@ Discord / Pushover / Telegram / Email:
 | `ACCESSIBILITY__HIGH_CONTRAST` | `false` | High-contrast theme. |
 | `ACCESSIBILITY__DYSLEXIA_FONT` | `false` | Dyslexia-friendly font. |
 | `ACCESSIBILITY__REDUCED_MOTION` | `false` | Reduce animation. |
-| `ACCESSIBILITY__ZEN_MODE` | `false` | Minimal "zen" layout. |
 | `ACCESSIBILITY__LIVE_ANNOUNCEMENTS` | `true` | Screen-reader live announcements. |
 | `APPEARANCE__FONT_THEME` | `classic` | Font theme. |
 | `APPEARANCE__COLOR_THEME` | `bluetit` | Colour theme (`default` or `bluetit`). |

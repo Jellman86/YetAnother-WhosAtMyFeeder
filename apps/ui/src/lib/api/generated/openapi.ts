@@ -187,7 +187,11 @@ export interface components {
     total: number;
 };
     AuthStatusResponse: {
+    accessibility_dyslexia_font?: boolean;
+    accessibility_high_contrast?: boolean;
     accessibility_live_announcements?: boolean;
+    accessibility_reduced_motion?: boolean;
+    appearance_explorer_view?: string;
     auth_required: boolean;
     birdnet_enabled?: boolean;
     date_format?: string;
@@ -1244,7 +1248,6 @@ export interface components {
     accessibility_high_contrast?: boolean | null;
     accessibility_live_announcements?: boolean | null;
     accessibility_reduced_motion?: boolean | null;
-    accessibility_zen_mode?: boolean | null;
     ai_pricing_json?: string | null;
     appearance_color_theme?: string | null;
     appearance_explorer_view?: "cards" | "list" | null;
@@ -1262,6 +1265,7 @@ export interface components {
     auto_purge_missing_clips?: boolean;
     auto_purge_missing_snapshots?: boolean;
     auto_video_classification?: boolean | null;
+    background_worker_count?: number | null;
     bird_crop_detector_tier?: "fast" | "accurate" | null;
     bird_crop_source_priority?: "frigate_hints_first" | "crop_model_first" | "crop_model_only" | "frigate_hints_only" | null;
     bird_model_region_override?: string | null;
@@ -1297,6 +1301,7 @@ export interface components {
     enrichment_single_provider?: string | null;
     enrichment_summary_source?: string | null;
     enrichment_taxonomy_source?: string | null;
+    frigate_external_url?: string | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
     image_execution_mode?: string | null;
@@ -1308,6 +1313,7 @@ export interface components {
     inaturalist_default_place_guess?: string | null;
     inaturalist_enabled?: boolean | null;
     inference_provider?: string | null;
+    live_worker_count?: number | null;
     llm_analysis_prompt_template?: string | null;
     llm_api_key?: string | null;
     llm_chart_prompt_template?: string | null;
@@ -1418,7 +1424,6 @@ export interface components {
     video_classification_maintenance_circuit_failures?: number;
     video_classification_maintenance_circuit_open?: boolean;
     video_classification_maintenance_circuit_until?: string | null;
-    video_classification_max_concurrent?: number | null;
     video_classification_max_retries?: number | null;
     write_frigate_sublabel?: boolean;
 };
@@ -1427,7 +1432,6 @@ export interface components {
     accessibility_high_contrast?: boolean | null;
     accessibility_live_announcements?: boolean | null;
     accessibility_reduced_motion?: boolean | null;
-    accessibility_zen_mode?: boolean | null;
     ai_pricing_json?: string | null;
     appearance_color_theme?: string | null;
     appearance_explorer_view?: "cards" | "list" | null;
@@ -1445,6 +1449,7 @@ export interface components {
     auto_purge_missing_clips?: boolean;
     auto_purge_missing_snapshots?: boolean;
     auto_video_classification?: boolean | null;
+    background_worker_count?: number | null;
     bird_crop_detector_tier?: "fast" | "accurate" | null;
     bird_crop_source_priority?: "frigate_hints_first" | "crop_model_first" | "crop_model_only" | "frigate_hints_only" | null;
     bird_model_region_override?: string | null;
@@ -1479,6 +1484,7 @@ export interface components {
     enrichment_single_provider?: string | null;
     enrichment_summary_source?: string | null;
     enrichment_taxonomy_source?: string | null;
+    frigate_external_url?: string | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
     image_execution_mode?: string | null;
@@ -1489,6 +1495,7 @@ export interface components {
     inaturalist_default_place_guess?: string | null;
     inaturalist_enabled?: boolean | null;
     inference_provider?: string | null;
+    live_worker_count?: number | null;
     llm_analysis_prompt_template?: string | null;
     llm_api_key?: string | null;
     llm_chart_prompt_template?: string | null;
@@ -1587,7 +1594,6 @@ export interface components {
     trusted_proxy_hosts?: Array<string> | null;
     video_classification_delay?: number | null;
     video_classification_frames?: number | null;
-    video_classification_max_concurrent?: number | null;
     video_classification_max_retries?: number | null;
     write_frigate_sublabel?: boolean;
 };

@@ -24,7 +24,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-docker_args=(run --detach --name "$container_name")
+# The default execution mode loads models lazily in worker processes, so the
+# classification below pays a cold worker spawn. Emulated platforms need more
+# patience than the production defaults allow.
+docker_args=(
+  run --detach --name "$container_name"
+  -e CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS=240
+  -e CLASSIFIER_BACKGROUND_IMAGE_LEASE_TIMEOUT_SECONDS=300
+)
 if [[ -n "$platform" ]]; then
   docker_args+=(--platform "$platform")
 fi
@@ -73,7 +80,11 @@ import json
 import sys
 
 status = json.load(sys.stdin)
-if status.get("loaded") is not True:
+if status.get("image_execution_mode") == "subprocess":
+    # The default mode holds no model in the API process; workers load their
+    # own copy on first use. The classification below is the load proof.
+    pass
+elif status.get("loaded") is not True:
     error = status.get("error") or "unknown error"
     raise SystemExit(f"classifier not loaded: {error}")
 if not status.get("effective_model_id"):
@@ -87,11 +98,21 @@ from PIL import Image
 
 Image.new("RGB", (224, 224), color=(96, 128, 96)).save("/tmp/yawamf-smoke.png")
 '
-classification="$(
-  docker exec "$container_name" \
-    curl -fsS -F image=@/tmp/yawamf-smoke.png \
-    http://127.0.0.1:8080/api/classifier/classify
-)"
+# The first request pays the cold worker spawn and may outlive its lease on an
+# emulated platform; the pool persists, so a retry classifies immediately.
+classification=""
+for attempt in 1 2 3; do
+  if classification="$(
+    docker exec "$container_name" \
+      curl -fsS --max-time 360 -F image=@/tmp/yawamf-smoke.png \
+      http://127.0.0.1:8080/api/classifier/classify
+  )" && printf '%s' "$classification" \
+    | docker exec -i "$container_name" python -c 'import json,sys; raise SystemExit(0 if json.load(sys.stdin).get("status") == "ok" else 1)'; then
+    break
+  fi
+  echo "classification attempt $attempt did not succeed; the worker may still be spawning" >&2
+  sleep 15
+done
 printf '%s' "$classification" | docker exec -i "$container_name" python -c '
 import json
 import sys

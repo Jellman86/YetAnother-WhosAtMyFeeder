@@ -866,6 +866,18 @@
     const frigateIssueBadgeVisible = $derived(hasFrigateMediaIssue(detection) && !missingEventMetadataGone);
     const upstreamMissing = $derived(!isManualObservation && detection.frigate_status === 'missing');
     const missingEventNoticeVisible = $derived(upstreamMissing || missingEventMetadataGone);
+    // The originating Frigate event, for the owner only: frigate_url travels
+    // on the owner-only settings payload and never reaches a guest, and a
+    // retired event gets words instead of a link that lands on an error (#309).
+    // The public URL wins when set, because frigate_url is often a container
+    // address the browser cannot reach.
+    const frigateEventUrl = $derived.by(() => {
+        if (!hasOwnerDetectionActions || isManualObservation) return null;
+        if (missingEventMetadataGone) return null;
+        const base = settingsStore.settings?.frigate_external_url || settingsStore.settings?.frigate_url;
+        if (!base || !detection.frigate_event) return null;
+        return `${base.replace(/\/$/, '')}/explore?event_id=${encodeURIComponent(detection.frigate_event)}`;
+    });
     const videoFailureInsight = $derived.by(() => getVideoFailureInsight(detection, $_));
     const videoClassificationDiagnostics = $derived(detection.video_classification_diagnostics ?? null);
     const videoClassificationSources = $derived(
@@ -2587,6 +2599,23 @@
                     <p class="mt-1 break-all {terminalTheme.output}">
                         {detection.frigate_event}<span class="terminal-caret" aria-hidden="true">&#9608;</span>
                     </p>
+                    {#if frigateEventUrl}
+                        <p class="mt-1">
+                            <a
+                                href={frigateEventUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="text-slate-400 underline decoration-dotted underline-offset-2 transition-colors hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+                                data-frigate-event-link
+                            >
+                                {$_('detection.open_in_frigate', { default: 'Open in Frigate' })} &nearr;
+                            </a>
+                        </p>
+                    {:else if hasOwnerDetectionActions && !isManualObservation && missingEventMetadataGone}
+                        <p class="mt-1 text-slate-500" data-frigate-event-gone>
+                            {$_('detection.open_in_frigate_gone', { default: 'No longer in Frigate' })}
+                        </p>
+                    {/if}
                 </div>
                 <!-- The "Frigate event missing" indicator that used to live here as a
                      standalone pill has been folded into the consolidated snapshot/

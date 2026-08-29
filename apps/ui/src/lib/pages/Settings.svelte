@@ -205,6 +205,7 @@
     }
 
     let frigateUrl = $state('');
+    let frigateExternalUrl = $state('');
     let mqttServer = $state('');
     let mqttPort = $state(1883);
     let mqttAuth = $state(false);
@@ -228,6 +229,8 @@
     let recordingClipCapabilityLoading = $state(false);
     let threshold = $state(0.7);
     let minConfidence = $state(0.4);
+    let liveWorkerCount = $state<number | null>(null);
+    let backgroundWorkerCount = $state<number | null>(null);
     let trustFrigateSublabel = $state(true);
     let writeFrigateSublabel = $state(true);
     let displayCommonNames = $state(true);
@@ -237,10 +240,9 @@
     let autoVideoClassification = $state(false);
     let videoClassificationDelay = $state(30);
     let videoClassificationMaxRetries = $state(3);
-    let videoClassificationMaxConcurrent = $state(1);
     let videoClassificationFrames = $state(15);
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
-    let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('in_process');
+    let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('subprocess');
     let inferenceProvider = $state<'auto' | 'cpu' | 'cuda' | 'intel_gpu' | 'intel_cpu'>('auto');
     let videoCircuitOpen = $state(false);
     let videoCircuitUntil = $state<string | null>(null);
@@ -1360,7 +1362,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let dyslexiaFont = $state(false);
     let liveAnnouncements = $state(true);
     let reducedMotion = $state(false);
-    let zenMode = $state(false);
 
     // eBird
     let ebirdEnabled = $state(false);
@@ -1380,11 +1381,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let enrichmentSeasonalitySource = $state('disabled');
     let enrichmentRaritySource = $state('disabled');
     let enrichmentLinksSources = $state<string[]>(['wikipedia', 'inaturalist']);
-
-    $effect(() => {
-        if (highContrast) document.documentElement.classList.add('high-contrast');
-        else document.documentElement.classList.remove('high-contrast');
-    });
 
     function addTrustedProxyHost() {
         const host = newTrustedProxyHost.trim();
@@ -1411,21 +1407,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
     const effectiveTrustedProxyHosts = $derived.by(() => {
         return trustedProxyHostsSuggested ? ['*'] : trustedProxyHosts;
-    });
-
-    $effect(() => {
-        if (dyslexiaFont) document.documentElement.classList.add('font-dyslexic');
-        else document.documentElement.classList.remove('font-dyslexic');
-    });
-
-    $effect(() => {
-        if (reducedMotion) document.documentElement.classList.add('reduced-motion');
-        else document.documentElement.classList.remove('reduced-motion');
-    });
-
-    $effect(() => {
-        if (zenMode) document.documentElement.classList.add('zen-mode');
-        else document.documentElement.classList.remove('zen-mode');
     });
 
     $effect(() => {
@@ -1746,6 +1727,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
         const checks = [
             { key: 'frigateUrl', val: frigateUrl, store: s.frigate_url },
+            { key: 'frigateExternalUrl', val: frigateExternalUrl, store: s.frigate_external_url || '' },
             { key: 'mqttServer', val: mqttServer, store: s.mqtt_server },
             { key: 'mqttPort', val: mqttPort, store: s.mqtt_port },
             { key: 'mqttAuth', val: mqttAuth, store: s.mqtt_auth },
@@ -1773,9 +1755,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
-            { key: 'videoClassificationMaxConcurrent', val: videoClassificationMaxConcurrent, store: s.video_classification_max_concurrent ?? 1 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
-            { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'in_process' },
+            { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'subprocess' },
             { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
             { key: 'inferenceProvider', val: inferenceProvider, store: normalizeInferenceProvider(s.inference_provider) },
             { key: 'selectedCameras', val: JSON.stringify(selectedCameras), store: JSON.stringify(s.cameras || []) },
@@ -1830,6 +1811,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'cameraRoles', val: JSON.stringify(cameraRoles), store: JSON.stringify(s.camera_roles || {}) },
             { key: 'nestDedupeMinutes', val: nestDedupeMinutes, store: s.nest_dedupe_minutes ?? 30 },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
+            { key: 'liveWorkerCount', val: liveWorkerCount, store: s.live_worker_count ?? null },
+            { key: 'backgroundWorkerCount', val: backgroundWorkerCount, store: s.background_worker_count ?? null },
             { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true },
             { key: 'telemetryHealthEnabled', val: telemetryHealthEnabled, store: s.telemetry_health_enabled ?? false },
             { key: 'authEnabled', val: authEnabled, store: s.auth_enabled ?? false },
@@ -1902,8 +1885,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'highContrast', val: highContrast, store: s.accessibility_high_contrast ?? false },
             { key: 'dyslexiaFont', val: dyslexiaFont, store: s.accessibility_dyslexia_font ?? false },
             { key: 'liveAnnouncements', val: liveAnnouncements, store: s.accessibility_live_announcements ?? true },
-            { key: 'reducedMotion', val: reducedMotion, store: s.accessibility_reduced_motion ?? false },
-            { key: 'zenMode', val: zenMode, store: s.accessibility_zen_mode ?? false }
+            { key: 'reducedMotion', val: reducedMotion, store: s.accessibility_reduced_motion ?? false }
         ];
 
         if (authPassword.length > 0 || authPasswordConfirm.length > 0) {
@@ -2689,6 +2671,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             const settings = await fetchSettings();
             settingsStore.update(settings);
             frigateUrl = settings.frigate_url;
+            frigateExternalUrl = settings.frigate_external_url || '';
             mqttServer = settings.mqtt_server;
             mqttPort = settings.mqtt_port;
             mqttAuth = settings.mqtt_auth;
@@ -2732,6 +2715,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             recordingClipAfterSeconds = settings.recording_clip_after_seconds ?? 90;
             threshold = settings.classification_threshold;
             minConfidence = settings.classification_min_confidence ?? 0.4;
+            liveWorkerCount = settings.live_worker_count ?? null;
+            backgroundWorkerCount = settings.background_worker_count ?? null;
             trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
             writeFrigateSublabel = settings.write_frigate_sublabel ?? true;
             displayCommonNames = settings.display_common_names ?? true;
@@ -2741,10 +2726,9 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             autoVideoClassification = settings.auto_video_classification ?? false;
             videoClassificationDelay = settings.video_classification_delay ?? 30;
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
-            videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 1;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
-            imageExecutionMode = settings.image_execution_mode ?? 'in_process';
+            imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
             strictNonFiniteOutput = settings.strict_non_finite_output ?? true;
             inferenceProvider = normalizeInferenceProvider(settings.inference_provider);
             videoCircuitOpen = settings.video_classification_circuit_open ?? false;
@@ -2998,7 +2982,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             dyslexiaFont = settings.accessibility_dyslexia_font ?? false;
             liveAnnouncements = settings.accessibility_live_announcements ?? true;
             reducedMotion = settings.accessibility_reduced_motion ?? false;
-            zenMode = settings.accessibility_zen_mode ?? false;
 
             // Appearance (persisted)
             themeStore.setFontTheme(normalizeFontTheme(settings.appearance_font_theme));
@@ -3049,6 +3032,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         try {
             await updateSettings({
                 frigate_url: frigateUrl,
+                frigate_external_url: frigateExternalUrl,
                 mqtt_server: mqttServer,
                 mqtt_port: mqttPort,
                 mqtt_auth: mqttAuth,
@@ -3069,6 +3053,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 recording_clip_after_seconds: recordingClipAfterSeconds,
                 classification_threshold: threshold,
                 classification_min_confidence: minConfidence,
+                live_worker_count: liveWorkerCount,
+                background_worker_count: backgroundWorkerCount,
                 trust_frigate_sublabel: trustFrigateSublabel,
                 write_frigate_sublabel: writeFrigateSublabel,
                 display_common_names: displayCommonNames,
@@ -3078,7 +3064,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 auto_video_classification: autoVideoClassification,
                 video_classification_delay: videoClassificationDelay,
                 video_classification_max_retries: videoClassificationMaxRetries,
-                video_classification_max_concurrent: videoClassificationMaxConcurrent,
                 video_classification_frames: videoClassificationFrames,
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
                 image_execution_mode: imageExecutionMode,
@@ -3209,7 +3194,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 accessibility_dyslexia_font: dyslexiaFont,
                 accessibility_live_announcements: liveAnnouncements,
                 accessibility_reduced_motion: reducedMotion,
-                accessibility_zen_mode: zenMode,
 
                 // Appearance
                 appearance_font_theme: currentFontTheme,
@@ -3299,6 +3283,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {#if activeTab === 'connection'}
                 <ConnectionSettings
                     bind:frigateUrl
+                    bind:frigateExternalUrl
                     bind:mqttServer
                     bind:mqttPort
                     bind:mqttAuth
@@ -3332,13 +3317,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 <DetectionSettings
                     bind:threshold
                     bind:minConfidence
+                    bind:liveWorkerCount
+                    bind:backgroundWorkerCount
                     bind:trustFrigateSublabel
                     bind:writeFrigateSublabel
                     bind:personalizedRerankEnabled
                     bind:autoVideoClassification
                     bind:videoClassificationDelay
                     bind:videoClassificationMaxRetries
-                    bind:videoClassificationMaxConcurrent
                     bind:videoClassificationFrames
                     bind:birdModelRegionOverride
                     bind:imageExecutionMode
@@ -3631,7 +3617,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:dyslexiaFont
                     bind:liveAnnouncements
                     bind:reducedMotion
-                    bind:zenMode
                 />
             {/if}
 

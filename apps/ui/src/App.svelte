@@ -21,6 +21,7 @@
   import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
+import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte';
   import { settingsStore } from './lib/stores/settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
   import { authStore } from './lib/stores/auth.svelte';
@@ -117,16 +118,35 @@
       return path;
   }
 
-  // Accessibility Logic
-  $effect(() => {
-      const s = settingsStore.settings;
-      if (s) {
-          if (s.accessibility_high_contrast) document.documentElement.classList.add('high-contrast');
-          else document.documentElement.classList.remove('high-contrast');
+  // Accessibility Logic. An owner reads these from settings; a guest is refused
+  // that endpoint, so the public status payload carries the same three choices.
+  // Applied here rather than on the Settings page, so they hold on every route
+  // and survive a reload. AccessibilitySettings toggles the same classes from
+  // its unsaved state, which is the live preview while you are editing.
+  const highContrast = $derived(
+      accessibilityPreview.highContrast ??
+          settingsStore.settings?.accessibility_high_contrast ??
+          authStore.highContrast
+  );
+  const dyslexiaFont = $derived(
+      accessibilityPreview.dyslexiaFont ??
+          settingsStore.settings?.accessibility_dyslexia_font ??
+          authStore.dyslexiaFont
+  );
+  const reducedMotion = $derived(
+      accessibilityPreview.reducedMotion ??
+          settingsStore.settings?.accessibility_reduced_motion ??
+          authStore.reducedMotion
+  );
 
-          if (s.accessibility_dyslexia_font) document.documentElement.classList.add('font-dyslexic');
-          else document.documentElement.classList.remove('font-dyslexic');
-      }
+  $effect(() => {
+      document.documentElement.classList.toggle('high-contrast', highContrast);
+  });
+  $effect(() => {
+      document.documentElement.classList.toggle('font-dyslexic', dyslexiaFont);
+  });
+  $effect(() => {
+      document.documentElement.classList.toggle('reduced-motion', reducedMotion);
   });
 
   function navigate(path: string, opts: { replace?: boolean } = {}) {

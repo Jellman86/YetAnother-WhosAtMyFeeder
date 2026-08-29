@@ -3,19 +3,18 @@
     import SettingsCard from './_primitives/SettingsCard.svelte';
     import SettingsRow from './_primitives/SettingsRow.svelte';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
+    import { accessibilityPreview } from '../../stores/accessibility_preview.svelte';
 
     let {
         highContrast = $bindable(false),
         dyslexiaFont = $bindable(false),
         liveAnnouncements = $bindable(true),
-        reducedMotion = $bindable(false),
-        zenMode = $bindable(false)
+        reducedMotion = $bindable(false)
     }: {
         highContrast: boolean;
         dyslexiaFont: boolean;
         liveAnnouncements: boolean;
         reducedMotion: boolean;
-        zenMode: boolean;
     } = $props();
 
     // OpenDyslexic font only supports Latin characters
@@ -23,17 +22,13 @@
     const currentLocale = $derived(typeof $locale === 'string' ? $locale : 'en');
     const showDyslexicFont = $derived(latinLanguages.includes(currentLocale));
 
+    // The document root has exactly one owner: App.svelte applies
+    // preview ?? saved. Publishing only on a change (never on mount) means
+    // opening this tab cannot strip a saved-on class while settings are
+    // still loading, and clearing on unmount means an abandoned preview
+    // falls back to the saved value instead of sticking until a reload.
     $effect(() => {
-        document.documentElement.classList.toggle('high-contrast', highContrast);
-    });
-    $effect(() => {
-        document.documentElement.classList.toggle('font-dyslexic', dyslexiaFont);
-    });
-    $effect(() => {
-        document.documentElement.classList.toggle('reduced-motion', reducedMotion);
-    });
-    $effect(() => {
-        document.documentElement.classList.toggle('zen-mode', zenMode);
+        return () => accessibilityPreview.clear();
     });
 </script>
 
@@ -51,7 +46,10 @@
             checked={highContrast}
             labelledBy="setting-high-contrast"
             srLabel={$_('settings.accessibility.high_contrast')}
-            onchange={(v) => (highContrast = v)}
+            onchange={(v) => {
+                highContrast = v;
+                accessibilityPreview.highContrast = v;
+            }}
         />
     </SettingsRow>
 
@@ -65,7 +63,10 @@
                 checked={dyslexiaFont}
                 labelledBy="setting-dyslexia-font"
                 srLabel={$_('settings.accessibility.dyslexia_font')}
-                onchange={(v) => (dyslexiaFont = v)}
+                onchange={(v) => {
+                dyslexiaFont = v;
+                accessibilityPreview.dyslexiaFont = v;
+            }}
             />
         </SettingsRow>
     {/if}
@@ -79,20 +80,10 @@
             checked={reducedMotion}
             labelledBy="setting-reduced-motion"
             srLabel={$_('settings.accessibility.reduced_motion')}
-            onchange={(v) => (reducedMotion = v)}
-        />
-    </SettingsRow>
-
-    <SettingsRow
-        labelId="setting-zen-mode"
-        label={$_('settings.accessibility.zen_mode')}
-        description={$_('settings.accessibility.zen_mode_desc')}
-    >
-        <SettingsToggle
-            checked={zenMode}
-            labelledBy="setting-zen-mode"
-            srLabel={$_('settings.accessibility.zen_mode')}
-            onchange={(v) => (zenMode = v)}
+            onchange={(v) => {
+                reducedMotion = v;
+                accessibilityPreview.reducedMotion = v;
+            }}
         />
     </SettingsRow>
 

@@ -20,6 +20,8 @@
     import { testNotification } from '../../api/maintenance';
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
+    import NotificationPolicySentence from './NotificationPolicySentence.svelte';
+    import type { PolicyChannel } from '../../settings/notification-policy';
 
     function extractErrorMessage(error: unknown, fallback: string): string {
         const message = error instanceof Error ? error.message : fallback;
@@ -227,10 +229,6 @@
     let speciesSearchLoading = $state(false);
     let speciesSearchError = $state('');
 
-    const notificationsEnabled = $derived(
-        notifyMode === 'custom' ? (notifyOnInsert || notifyOnUpdate) : notifyMode !== 'silent'
-    );
-
     function applyPreset(mode: typeof notifyMode) {
         if (mode === 'silent') {
             notifyOnInsert = false;
@@ -264,9 +262,51 @@
         }
     }
 
-    function setCustom(updateFn: () => void) {
-        notifyMode = 'custom';
-        updateFn();
+    const speciesFilterSectionId = 'notification-species-filter-section';
+
+    const speciesFilterCount = $derived(
+        filterSpeciesEntries.length +
+            (filterSpeciesMode === 'whitelist' ? legacySpeciesWhitelist.length : 0)
+    );
+
+    const policyChannels = $derived<PolicyChannel[]>([
+        {
+            id: 'discord',
+            label: $_('settings.notifications.sentence.channel_discord'),
+            enabled: discordEnabled,
+            configured: Boolean(discordWebhook || discordWebhookSaved),
+        },
+        {
+            id: 'pushover',
+            label: $_('settings.notifications.sentence.channel_pushover'),
+            enabled: pushoverEnabled,
+            configured:
+                Boolean(pushoverUserKey || pushoverUserSaved) &&
+                Boolean(pushoverApiToken || pushoverTokenSaved),
+        },
+        {
+            id: 'telegram',
+            label: $_('settings.notifications.sentence.channel_telegram'),
+            enabled: telegramEnabled,
+            configured:
+                Boolean(telegramBotToken || telegramTokenSaved) &&
+                Boolean(telegramChatId || telegramChatIdSaved),
+        },
+        {
+            id: 'email',
+            label: $_('settings.notifications.sentence.channel_email'),
+            enabled: emailEnabled,
+            configured: emailUseOAuth
+                ? Boolean(emailConnectedEmail)
+                : Boolean(emailSmtpHost && emailToEmail),
+        },
+    ]);
+
+    function togglePolicyChannel(id: PolicyChannel['id'], enabled: boolean) {
+        if (id === 'discord') discordEnabled = enabled;
+        else if (id === 'pushover') pushoverEnabled = enabled;
+        else if (id === 'telegram') telegramEnabled = enabled;
+        else emailEnabled = enabled;
     }
 
     function setSpeciesFilterMode(mode: NotificationSpeciesFilterMode) {
@@ -357,181 +397,39 @@
     <!-- Global Notification Filters -->
     <SettingsCard accent iconSnippet={notificationsIcon} title={$_('settings.notifications.global_filters')}>
         <div class="space-y-6">
-            <!-- Delivery Policy -->
-            <div class="p-4 rounded-2xl bg-white/60 dark:bg-slate-800/40 border border-amber-200/30 dark:border-amber-700/20">
-                <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4">{$_('settings.notifications.delivery_policy')}</h4>
-                {#if !notificationsEnabled}
-                    <div class="mb-4 rounded-2xl border border-amber-300/60 bg-amber-100/70 px-4 py-3 text-xs font-bold text-amber-900 dark:border-amber-500/40 dark:bg-amber-900/20 dark:text-amber-200">
-                        {$_('settings.notifications.enable_notify_hint', { default: 'Notifications are currently off. Enable "Notify on new detections" or "Notify on updates" to send any alerts.' })}
-                    </div>
-                {/if}
-                <div class="mb-4 rounded-2xl border border-slate-200/70 bg-white/70 px-4 py-3 text-xs font-bold text-slate-600 dark:border-slate-700/60 dark:bg-slate-900/40 dark:text-slate-300">
-                    {$_('settings.notifications.confirmation_policy')}
+            <!-- Delivery policy as one sentence; every slot is editable in place -->
+            <NotificationPolicySentence
+                mode={notifyMode}
+                onModeChange={setMode}
+                minConfidence={notifyMinConfidence}
+                onMinConfidenceChange={(value) => (notifyMinConfidence = value)}
+                videoFallbackTimeout={notifyVideoFallbackTimeout}
+                onVideoFallbackChange={(value) => (notifyVideoFallbackTimeout = value)}
+                audioOnly={notifyAudioOnly}
+                onAudioOnlyChange={(value) => (notifyAudioOnly = value)}
+                speciesMode={filterSpeciesMode}
+                speciesCount={speciesFilterCount}
+                speciesSectionId={speciesFilterSectionId}
+                channels={policyChannels}
+                onChannelToggle={togglePolicyChannel}
+            />
+
+            <div class="flex items-center justify-between gap-4">
+                <div>
+                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
+                    <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
                 </div>
-                <div class="space-y-4">
-                    <div>
-                        <p class="text-xs font-black uppercase tracking-[0.2em] text-slate-500">{$_('settings.notifications.mode_title')}</p>
-                        <p class="text-xs text-slate-500 mt-1">{$_('settings.notifications.mode_desc')}</p>
-                    </div>
-                    <div class="grid gap-3 md:grid-cols-2">
-                        <button
-                            type="button"
-                            onclick={() => setMode('final')}
-                            class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'final' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
-                        >
-                            <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_final')}</p>
-                            <p class="text-xs font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_final_desc')}</p>
-                        </button>
-                        <button
-                            type="button"
-                            onclick={() => setMode('standard')}
-                            class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'standard' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
-                        >
-                            <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_standard')}</p>
-                            <p class="text-xs font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_standard_desc')}</p>
-                        </button>
-                        <button
-                            type="button"
-                            onclick={() => setMode('realtime')}
-                            class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'realtime' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
-                        >
-                            <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_realtime')}</p>
-                            <p class="text-xs font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_realtime_desc')}</p>
-                        </button>
-                        <button
-                            type="button"
-                            onclick={() => setMode('silent')}
-                            class="rounded-2xl border px-4 py-3 text-left transition-all duration-200 {notifyMode === 'silent' ? 'border-amber-400 bg-amber-50/80 shadow-sm' : 'border-slate-200/70 bg-white/70 hover:border-amber-200 dark:border-slate-700/60 dark:bg-slate-900/40'}"
-                        >
-                            <p class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.mode_silent')}</p>
-                            <p class="text-xs font-bold text-slate-500 mt-1">{$_('settings.notifications.mode_silent_desc')}</p>
-                        </button>
-                    </div>
-
-                    <AdvancedSection
-                        id="notifications-delivery-advanced"
-                        title={$_('settings.notifications.advanced_title')}
-                        description={$_('settings.notifications.advanced_desc')}
-                    >
-                        <div class="flex items-center justify-between gap-4">
-                            <div id="notify-insert-label">
-                                <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_insert')}</span>
-                                <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_insert_desc')}</span>
-                            </div>
-                            <SettingsToggle
-                                checked={notifyOnInsert}
-                                labelledBy="notify-insert-label"
-                                srLabel={$_('settings.notifications.notify_on_insert')}
-                                onchange={(v) => setCustom(() => (notifyOnInsert = v))}
-                            />
-                        </div>
-
-                        <div class="flex items-center justify-between gap-4">
-                            <div id="notify-update-label">
-                                <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.notify_on_update')}</span>
-                                <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.notify_on_update_desc')}</span>
-                            </div>
-                            <SettingsToggle
-                                checked={notifyOnUpdate}
-                                labelledBy="notify-update-label"
-                                srLabel={$_('settings.notifications.notify_on_update')}
-                                onchange={(v) => setCustom(() => (notifyOnUpdate = v))}
-                            />
-                        </div>
-
-                        <div class="flex items-center justify-between gap-4 {notificationsEnabled ? '' : 'opacity-50'}">
-                            <div id="notify-delay-label">
-                                <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.delay_until_video')}</span>
-                                <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.delay_until_video_desc')}</span>
-                            </div>
-                            <SettingsToggle
-                                checked={notifyDelayUntilVideo}
-                                labelledBy="notify-delay-label"
-                                srLabel={$_('settings.notifications.delay_until_video')}
-                                disabled={!notificationsEnabled}
-                                onchange={(v) => setCustom(() => (notifyDelayUntilVideo = v))}
-                            />
-                        </div>
-
-                        <div class="flex items-center justify-between gap-4">
-                            <div>
-                                <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.video_fallback_timeout')}</span>
-                                <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.video_fallback_timeout_desc')}</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="5"
-                                    bind:value={notifyVideoFallbackTimeout}
-                                    disabled={!notifyDelayUntilVideo || !notificationsEnabled}
-                                    class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs disabled:opacity-50"
-                                    aria-label={$_('settings.notifications.video_fallback_timeout')}
-                                />
-                                <span class="text-xs font-bold text-slate-500">{$_('settings.notifications.video_fallback_seconds')}</span>
-                            </div>
-                        </div>
-
-                        <div class="flex items-center justify-between gap-4">
-                            <div>
-                                <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.cooldown')}</span>
-                                <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.cooldown_desc')}</span>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <input
-                                    type="number"
-                                    min="0"
-                                    step="1"
-                                    bind:value={notifyCooldownMinutes}
-                                    class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
-                                    aria-label={$_('settings.notifications.cooldown')}
-                                />
-                                <span class="text-xs font-bold text-slate-500">{$_('settings.notifications.cooldown_unit')}</span>
-                            </div>
-                        </div>
-                    </AdvancedSection>
+                <div class="flex items-center gap-2">
+                    <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        bind:value={notifyCooldownMinutes}
+                        class="w-24 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-xs"
+                        aria-label={$_('settings.notifications.cooldown')}
+                    />
+                    <span class="text-xs font-bold text-slate-500">{$_('settings.notifications.cooldown_unit')}</span>
                 </div>
-
-                </div>
-
-            <!-- Minimum Confidence -->
-            <div>
-                <div class="flex justify-between mb-4">
-                    <label for="notify-confidence-slider" class="text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.min_confidence')}</label>
-                    <output for="notify-confidence-slider" class="px-2 py-1 bg-amber-500 text-white text-xs font-black rounded-lg">{(notifyMinConfidence * 100).toFixed(0)}%</output>
-                </div>
-                <input
-                    id="notify-confidence-slider"
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.05"
-                    bind:value={notifyMinConfidence}
-                    aria-valuemin="0"
-                    aria-valuemax="100"
-                    aria-valuenow={Math.round(notifyMinConfidence * 100)}
-                    aria-valuetext="{(notifyMinConfidence * 100).toFixed(0)} percent"
-                    aria-label={$_('settings.notifications.min_confidence_label', { values: { value: (notifyMinConfidence * 100).toFixed(0) } })}
-                    class="w-full h-2 rounded-lg bg-slate-200 dark:bg-slate-700 appearance-none cursor-pointer accent-amber-500"
-                />
-                <div class="flex justify-between mt-2">
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.notifications.notify_all')}</span>
-                    <span class="text-xs font-bold text-slate-400 uppercase tracking-tighter">{$_('settings.notifications.high_confidence_only')}</span>
-                </div>
-            </div>
-
-            <!-- Audio Only Toggle -->
-            <div class="p-4 rounded-2xl bg-white/60 dark:bg-slate-800/40 border border-amber-200/30 dark:border-amber-700/20 flex items-center justify-between gap-4">
-                <div id="audio-only-label">
-                    <span class="block text-sm font-black text-slate-900 dark:text-white">{$_('settings.notifications.audio_only')}</span>
-                    <span class="block text-xs text-slate-500 font-bold leading-tight mt-1">{$_('settings.notifications.audio_only_desc')}</span>
-                </div>
-                <SettingsToggle
-                    checked={notifyAudioOnly}
-                    labelledBy="audio-only-label"
-                    srLabel={$_('settings.notifications.audio_only')}
-                    onchange={(v) => (notifyAudioOnly = v)}
-                />
             </div>
 
             <!-- Notification Language -->
@@ -561,7 +459,7 @@
             </div>
 
             <!-- Species Filter -->
-            <div class="pt-4 border-t border-amber-200/50 dark:border-amber-700/30">
+            <div id={speciesFilterSectionId} class="pt-4 border-t border-amber-200/50 dark:border-amber-700/30 scroll-mt-24">
                 <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4">{$_('settings.notifications.species_filter')}</h4>
                 <div class="grid gap-3 md:grid-cols-3" role="radiogroup" aria-label={$_('settings.notifications.species_filter')}>
                     <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {filterSpeciesMode === 'none' ? 'border-amber-400 bg-amber-100/70 dark:bg-amber-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">

@@ -98,9 +98,19 @@ def pytest_configure(config):
         text=True,
     )
     if result.returncode != 0:
-        print(f"FAILED to initialize test database: {result.stderr}")
-    else:
-        print("Test database schema initialized successfully")
+        # Every test then runs against an empty database and reports "no such
+        # table", which buries the one real cause under hundreds of downstream
+        # errors. Stop here and say what actually failed.
+        raise RuntimeError(
+            "Could not build the test database schema, so the suite cannot run.\n"
+            f"`alembic upgrade head` exited {result.returncode}.\n\n"
+            f"{result.stderr.strip()}\n\n"
+            "A 'Multiple head revisions are present' error here usually means a "
+            "duplicated migration file, such as a file-sync copy named "
+            "'<revision> 2.py', is sitting in migrations/versions. Those are "
+            "git-ignored but Alembic still reads them off disk."
+        )
+    print("Test database schema initialized successfully")
 
     # Flag to tell app.database.init_db to skip migrations if already done
     os.environ["YA_WAMF_TEST_DB_INITIALIZED"] = "1"

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import detectionCardSource from './DetectionCard.svelte?raw';
+import eventsPageSource from '../pages/Events.svelte?raw';
 
 /**
  * #267: "The score badge is placed top left while all the others are at the
@@ -33,9 +34,31 @@ describe('detection card overlay badges', () => {
         }
     });
 
-    it('lets the row wrap rather than overflow a narrow card', () => {
-        // Time, score and a play button on one line is close to the width of a
-        // phone-sized card, so the row wraps instead of running off the edge.
-        expect(detectionCardSource).toMatch(/absolute bottom-3 left-3[^"]*flex-wrap/);
+    it('never wraps, because a second line lifts the readings off the bottom', () => {
+        // The row is anchored to the bottom of the photograph, so wrapping grows
+        // it upward. Measured in the real grid: at a 1024px viewport the row
+        // wrapped to three lines covering 76% of the picture, and at 1280px to
+        // two lines starting halfway down. The narrowest card is not a phone,
+        // where a card is full width, but the densest desktop grid.
+        expect(detectionCardSource).toMatch(/absolute bottom-3 left-3[^"]*flex-nowrap/);
+        expect(detectionCardSource).not.toMatch(/absolute bottom-3 left-3[^"]*flex-wrap/);
+    });
+
+    it('keeps a card wide enough for that one line, at every width', () => {
+        // Fixed column counts could not keep the promise: with the sidebar and
+        // the filter rail open, the three-column range at 768-1279px measured
+        // 141-227px cards against a row needing ~219px in 12-hour locales, and
+        // the card's overflow-hidden clipped the play button entirely. A
+        // minimum card width makes the guarantee structural instead of a
+        // breakpoint-by-breakpoint hope.
+        expect(eventsPageSource).toContain('grid-cols-[repeat(auto-fill,minmax(16rem,1fr))]');
+        expect(eventsPageSource).not.toMatch(/md:grid-cols-3|2xl:grid-cols-4/);
+    });
+
+    it('marks a ready full-visit clip on the play button, not beside it', () => {
+        // A 20px circle next to a 44px one read as a second, broken control, and
+        // it cost the row 28px it did not have.
+        expect(detectionCardSource).toContain('absolute -right-0.5 -top-0.5');
+        expect(detectionCardSource).not.toMatch(/inline-flex h-5 w-5[^"]*bg-brand-500\/90/);
     });
 });
