@@ -28,7 +28,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   notes moved into Technical details. The prediction is honest arithmetic — model RAM × process
   mode × worker concurrency: isolated workers multiply by the resolved live + background counts,
   in-process is one shared copy, and the caption states the formula. The aurora is a shared kit
-  effect and also plays behind the status band; the Models header lost its duplicate subtitle,
+  effect and also plays behind the status band, redrawn as an animated mesh in the manner of
+  Apple's Sports app — soft blobs of brand color drifting on two independent periods, so the
+  motion never lines up into a pattern; the Models header lost its duplicate subtitle,
   the GPU guide shrank to one link line, and the execution-mode explainer was cut to two
   sentences.
 
