@@ -1399,6 +1399,7 @@
       "blocked_species_structured": "Espécies bloqueadas",
       "model_manager_threshold_hint": "Limite de confiança recomendado para este modelo:",
       "no_blocked_species_results": "Nenhuma espécie correspondente encontrada.",
+      "block_exact_label": "Bloquear \"{label}\" tal como está escrito",
       "crop_priority_frigate_first": "Dicas do Frigate primeiro",
       "crop_priority_crop_first": "Modelo de recorte primeiro",
       "crop_priority_crop_only": "Apenas modelo de recorte",

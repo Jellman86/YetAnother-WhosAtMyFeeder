@@ -394,13 +394,32 @@
         return blockedSpecies.some((existingEntry) => sameBlockedSpeciesEntry(existingEntry, entry));
     }
 
-    function addBlockedSpecies(result: SearchResult) {
-        const entry = buildBlockedSpeciesEntry(result);
-        if (!entry) return;
-        blockedSpecies = mergeBlockedSpeciesEntries([...blockedSpecies, entry]);
+    function resetBlockedSpeciesSearch() {
         blockedSpeciesSearchQuery = '';
         blockedSpeciesSearchResults = [];
         blockedSpeciesSearchError = null;
+    }
+
+    function addBlockedLabelText(label: string) {
+        const value = label.trim();
+        if (!value) return;
+        if (!blockedLabels.some((existing) => existing.toLowerCase() === value.toLowerCase())) {
+            blockedLabels = [...blockedLabels, value];
+        }
+        resetBlockedSpeciesSearch();
+    }
+
+    function addBlockedSpecies(result: SearchResult) {
+        const entry = buildBlockedSpeciesEntry(result);
+        if (!entry) {
+            // A result with no canonical identity used to no-op silently: the
+            // row looked clickable and nothing happened. The raw label still
+            // blocks - matching is label-first - so store it as written (#311).
+            addBlockedLabelText(result.display_name || result.id);
+            return;
+        }
+        blockedSpecies = mergeBlockedSpeciesEntries([...blockedSpecies, entry]);
+        resetBlockedSpeciesSearch();
     }
 
     function removeBlockedSpecies(entryToRemove: BlockedSpeciesEntry) {
@@ -1014,6 +1033,23 @@
                         <p role="status" class="px-4 py-4 text-sm italic text-slate-500 dark:text-slate-400">
                             {blockedSpeciesSearching ? $_('common.loading') : $_('settings.detection.no_blocked_species_results', { default: 'No matching species found.' })}
                         </p>
+                    {/if}
+                    <!-- Search only offers what it can name, and some model
+                         labels carry no name it can find - the species on a
+                         detection card must always be blockable, so the typed
+                         text itself is offered as written (#311). -->
+                    {#if !blockedSpeciesSearching && blockedSpeciesSearchQuery.trim() && !blockedLabels.some((existing) => existing.toLowerCase() === blockedSpeciesSearchQuery.trim().toLowerCase())}
+                        <button
+                            type="button"
+                            onclick={() => addBlockedLabelText(blockedSpeciesSearchQuery)}
+                            data-blocked-label-escape-hatch
+                            class="min-h-11 w-full cursor-pointer rounded-xl border-t border-dashed border-slate-200 px-4 py-2.5 text-left text-sm font-medium text-slate-600 transition-colors hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-700/60 dark:text-slate-300 dark:hover:bg-red-950/20 dark:hover:text-red-300"
+                        >
+                            {$_('settings.detection.block_exact_label', {
+                                values: { label: blockedSpeciesSearchQuery.trim() },
+                                default: 'Block "{label}" exactly as written'
+                            })}
+                        </button>
                     {/if}
                 </div>
             </div>

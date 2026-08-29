@@ -1390,6 +1390,7 @@
       "blocked_species_structured": "已屏蔽物种",
       "model_manager_threshold_hint": "此模型的推荐置信度阈值：",
       "no_blocked_species_results": "未找到匹配的物种。",
+      "block_exact_label": "按原样屏蔽“{label}”",
       "crop_priority_frigate_first": "Frigate提示优先",
       "crop_priority_crop_first": "裁剪模型优先",
       "crop_priority_crop_only": "仅裁剪模型",

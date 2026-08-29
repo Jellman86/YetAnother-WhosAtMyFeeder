@@ -1248,6 +1248,7 @@
       "blocked_species_picker_desc": "Search for a species or other taxon to block it reliably across common-name, scientific-name, and taxonomy-aware matches. Cached detections and legacy raw labels still apply until you remove them.",
       "blocked_species_placeholder": "Search taxa to block",
       "no_blocked_species_results": "No matching species found.",
+      "block_exact_label": "Block \"{label}\" exactly as written",
       "blocked_species_structured": "Blocked species",
       "blocked_species_legacy": "Legacy raw labels",
       "no_blocked_labels": "No labels blocked yet.",

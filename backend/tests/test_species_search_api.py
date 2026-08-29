@@ -304,3 +304,32 @@ async def test_species_search_merges_same_species_when_only_one_source_has_a_tax
     assert len(payload) == 1, f"expected one merged species, got {[p['display_name'] for p in payload]}"
     assert payload[0]["scientific_name"] == "Rattus"
     assert payload[0]["taxa_id"] == 44436
+
+
+@pytest.mark.asyncio
+async def test_species_search_db_matches_survive_a_flood_of_label_matches(client: httpx.AsyncClient):
+    """A species known only from stored detections stays findable (#311).
+
+    Classifier-label hits were truncated together with repository hits before
+    deduplication, so a model whose label list matched the query fifty times
+    pushed every detection-derived species out of the payload - and the block
+    list can only offer what this search returns.
+    """
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    flood = [f"Floodfinch variant {i:02d}" for i in range(60)]
+    stored_species = f"Promerops cafer {uuid.uuid4().hex[:6]}"
+
+    with (
+        patch("app.routers.species.get_classifier", return_value=_MockClassifier(flood)),
+        patch(
+            "app.repositories.species_repository.SpeciesRepository.search_labels",
+            new=AsyncMock(return_value=[stored_species]),
+        ),
+    ):
+        response = await client.get("/api/species/search", params={"q": "f", "limit": 50})
+
+    assert response.status_code == 200
+    names = {row["display_name"] for row in response.json()}
+    assert stored_species in names
+    assert len(response.json()) <= 50

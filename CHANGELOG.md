@@ -79,6 +79,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A species can always be added to the block list, even when search cannot name it.** The
+  structured picker only offered what the species search could resolve to a canonical identity,
+  and some model labels carry no name it can find — the large iNat21 models label 10,000 species
+  by scientific name alone, so typing the common name shown on the detection card found nothing,
+  and clicking a result without resolved taxonomy silently did nothing at all
+  ([#311](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/311)). The picker now
+  always offers the typed text as a raw label, exactly as written — matching has always been
+  label-first, so a name copied off a detection card blocks — and an unresolvable result falls
+  back to a raw label instead of no-oping. The search itself also stops starving stored species:
+  classifier-label matches and detection-derived matches each keep their own budget, where before
+  fifty label variants could push every stored species out of the response.
+
 - **Reduce Motion now actually reduces motion.** The setting applied a `reduced-motion` class that
   no stylesheet carried a rule for, so a control described as disabling animations changed exactly
   one sparkline — the same defect the zen mode toggle was removed for. The class now applies the

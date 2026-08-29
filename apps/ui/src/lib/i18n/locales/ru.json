@@ -1399,6 +1399,7 @@
       "blocked_species_structured": "Заблокированные виды",
       "model_manager_threshold_hint": "Рекомендуемый порог уверенности для этой модели:",
       "no_blocked_species_results": "Подходящих видов не найдено.",
+      "block_exact_label": "Блокировать «{label}» как есть",
       "crop_priority_frigate_first": "Сначала подсказки Frigate",
       "crop_priority_crop_first": "Сначала модель обрезки",
       "crop_priority_crop_only": "Только модель обрезки",
