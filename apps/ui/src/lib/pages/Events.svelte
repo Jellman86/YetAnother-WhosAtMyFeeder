@@ -1054,7 +1054,7 @@
                     : $_('events.filters.hide_rail', { default: 'Hide filters' })}
             </button>
             <div
-                class="inline-flex min-h-11 items-center rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/80"
+                class="inline-flex min-h-11 items-stretch rounded-xl border border-slate-200/80 bg-white/90 p-0.5 shadow-sm dark:border-slate-700/60 dark:bg-slate-800/80"
                 role="group"
                 aria-label={$_('settings.explorer_view.label')}
             >
@@ -1064,7 +1064,7 @@
                         aria-pressed={explorerView === option.value}
                         onclick={() => explorerViewStore.set(option.value as 'cards' | 'list')}
                         data-explorer-view-toggle={option.value}
-                        class="inline-flex h-full items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
+                        class="inline-flex items-center gap-1.5 rounded-lg px-3 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500
                                {explorerView === option.value
                             ? 'bg-brand-500 text-white'
                             : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'}"
