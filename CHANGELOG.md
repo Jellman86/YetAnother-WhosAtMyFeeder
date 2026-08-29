@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.18.1] - 2026-08-29
+
 ### Changed
 
 - **One concurrency knob, not two.** Video Concurrency is gone as a separate setting: video jobs
