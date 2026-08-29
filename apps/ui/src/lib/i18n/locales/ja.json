@@ -1611,6 +1611,8 @@
     "weather_snow": "雪",
     "weather_icy": "凍結",
     "id": "検出ID",
+    "open_in_frigate": "Frigate で開く",
+    "open_in_frigate_gone": "Frigate に存在しません",
     "upstream_missing": {
       "title": "Frigate に存在しません",
       "card_label": "上流で欠落",

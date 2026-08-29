@@ -1611,6 +1611,8 @@
     "weather_snow": "雪",
     "weather_icy": "结冰",
     "id": "检测ID",
+    "open_in_frigate": "在 Frigate 中打开",
+    "open_in_frigate_gone": "已不在 Frigate 中",
     "upstream_missing": {
       "title": "Frigate 中缺失",
       "card_label": "上游缺失",

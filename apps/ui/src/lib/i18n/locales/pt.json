@@ -1620,6 +1620,8 @@
     "weather_snow": "Neve",
     "weather_icy": "Gelado",
     "id": "ID de detecção",
+    "open_in_frigate": "Abrir no Frigate",
+    "open_in_frigate_gone": "Já não está no Frigate",
     "upstream_missing": {
       "title": "Ausente no Frigate",
       "card_label": "Ausente upstream",

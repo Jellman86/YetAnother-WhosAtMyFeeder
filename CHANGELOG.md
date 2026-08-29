@@ -8,6 +8,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **An owner can open a detection's originating Frigate event.** A detection came from a Frigate
+  event, and there was no way to get from one to the other: finding the clip or timeline meant
+  searching Frigate by camera and time
+  ([#309](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/309)). The link lives with
+  the technical identifiers behind the detection-ID disclosure, not as an action on the photograph.
+  It is built from the owner-only settings payload, so a guest never sees the Frigate address, and
+  a detection whose event Frigate no longer holds says so in words instead of offering a link that
+  lands on an error. One honest caveat: the link uses the configured Frigate URL, which on some
+  installs is a container address the browser cannot reach — reachable-from-the-browser
+  configurations work today, and a separate browser-facing URL setting can follow if needed.
+
 - **The Explorer's filter rail can be folded away.** It holds 14rem of screen permanently, and once
   a filter is set the chips above the results already say what is applied, so the rail is mostly
   restating itself. Hiding it gives that width back to the detections. The control is on the filter

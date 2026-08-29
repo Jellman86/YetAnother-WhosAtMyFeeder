@@ -1611,6 +1611,8 @@
     "weather_snow": "Nieve",
     "weather_icy": "Helado",
     "id": "ID de detección",
+    "open_in_frigate": "Abrir en Frigate",
+    "open_in_frigate_gone": "Ya no está en Frigate",
     "upstream_missing": {
       "title": "Falta en Frigate",
       "card_label": "Falta en origen",

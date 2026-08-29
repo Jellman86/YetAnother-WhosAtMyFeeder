@@ -1620,6 +1620,8 @@
     "weather_snow": "Neve",
     "weather_icy": "Ghiaccio",
     "id": "ID rilevamento",
+    "open_in_frigate": "Apri in Frigate",
+    "open_in_frigate_gone": "Non più in Frigate",
     "upstream_missing": {
       "title": "Mancante in Frigate",
       "card_label": "Mancante a monte",
