@@ -1611,6 +1611,8 @@
     "weather_snow": "Schnee",
     "weather_icy": "Eisig",
     "id": "Erkennungs-ID",
+    "open_in_frigate": "In Frigate öffnen",
+    "open_in_frigate_gone": "Nicht mehr in Frigate",
     "upstream_missing": {
       "title": "In Frigate fehlend",
       "card_label": "Upstream fehlt",

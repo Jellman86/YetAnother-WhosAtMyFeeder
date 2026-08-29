@@ -1620,6 +1620,8 @@
     "weather_snow": "Снег",
     "weather_icy": "Лёд",
     "id": "ID обнаружения",
+    "open_in_frigate": "Открыть в Frigate",
+    "open_in_frigate_gone": "Больше нет в Frigate",
     "upstream_missing": {
       "title": "Отсутствует во Frigate",
       "card_label": "Отсутствует upstream",
