@@ -89,9 +89,22 @@ describe('the Explorer list row preview', () => {
         expect(eventsPageSource).toContain('overflow-hidden rounded-2xl');
     });
 
-    it('closes rather than pointing at the wrong row once the page moves', () => {
-        expect(previewSource).toContain("window.addEventListener('scroll', close, true)");
-        expect(previewSource).toContain("window.addEventListener('resize', close)");
+    it('follows its row when the page moves, closing only when the row leaves', () => {
+        // Closing on the first scroll broke the keyboard path: focusing a
+        // trigger below the fold scrolls it into view, and that scroll landed
+        // right after the panel opened, dismissing it in the same frame.
+        expect(previewSource).toContain('requestAnimationFrame');
+        expect(previewSource).toContain("window.addEventListener('scroll', follow, true)");
+        expect(previewSource).toContain("window.addEventListener('resize', follow)");
+        expect(previewSource).not.toContain("window.addEventListener('scroll', close");
+    });
+
+    it('stands aside in selection mode instead of hijacking it', () => {
+        // Activating a control announced as "Preview" must not toggle the
+        // row's selection; in selection mode the row overlay, labelled for
+        // selecting, owns every activation and the thumbnail is decoration.
+        expect(rowSource).toContain('interactive={!selectionMode}');
+        expect(previewSource).toContain('{#if interactive}');
     });
 
     it('flips above the thumbnail when there is no room below', () => {

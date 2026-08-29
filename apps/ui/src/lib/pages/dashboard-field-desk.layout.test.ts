@@ -107,7 +107,10 @@ describe('dashboard field desk layout', () => {
         // The pointer must be able to travel into the panel (WCAG 2.2 SC 1.4.13).
         expect(previewSource).toContain('CLOSE_GRACE_MS');
         expect(previewSource).toContain('motion-reduce:animate-none');
-        expect(previewSource).toContain('aria-expanded={openIndex === index}');
+        // A tooltip trigger does not disclose a region it owns: the panel is
+        // portalled to the body with no DOM or aria-controls linkage, so
+        // aria-expanded announced a state that pointed at nothing.
+        expect(previewSource).not.toContain('aria-expanded');
         expect(previewSource).toContain('focus-ring');
     });
 
