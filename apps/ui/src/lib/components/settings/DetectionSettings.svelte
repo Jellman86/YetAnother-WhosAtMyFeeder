@@ -33,13 +33,14 @@
     let {
         threshold = $bindable(0.7),
         minConfidence = $bindable(0.4),
+        liveWorkerCount = $bindable<number | null>(null),
+        backgroundWorkerCount = $bindable<number | null>(null),
         trustFrigateSublabel = $bindable(true),
         writeFrigateSublabel = $bindable(true),
         personalizedRerankEnabled = $bindable(false),
         autoVideoClassification = $bindable(false),
         videoClassificationDelay = $bindable(30),
         videoClassificationMaxRetries = $bindable(3),
-        videoClassificationMaxConcurrent = $bindable(1),
         videoClassificationFrames = $bindable(15),
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
         imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('subprocess'),
@@ -53,13 +54,14 @@
     }: {
         threshold: number;
         minConfidence: number;
+        liveWorkerCount: number | null;
+        backgroundWorkerCount: number | null;
         trustFrigateSublabel: boolean;
         writeFrigateSublabel: boolean;
         personalizedRerankEnabled: boolean;
         autoVideoClassification: boolean;
         videoClassificationDelay: number;
         videoClassificationMaxRetries: number;
-        videoClassificationMaxConcurrent: number;
         videoClassificationFrames: number;
         birdModelRegionOverride: BirdModelRegionOverride;
         imageExecutionMode: 'in_process' | 'subprocess' | string;
@@ -652,21 +654,6 @@
                                 />
                             </SettingsRow>
                             <SettingsRow
-                                labelId="setting-video-max-concurrent"
-                                label={$_('settings.detection.video_max_concurrent', { default: 'Video Concurrency' })}
-                                layout="stacked"
-                            >
-                                <SettingsInput
-                                    id="video-max-concurrent"
-                                    type="number"
-                                    min={1}
-                                    max={20}
-                                    value={videoClassificationMaxConcurrent}
-                                    ariaLabel={$_('settings.detection.video_max_concurrent_label', { default: 'Max Concurrent Video Jobs' })}
-                                    oninput={(v) => (videoClassificationMaxConcurrent = Number(v) || 1)}
-                                />
-                            </SettingsRow>
-                            <SettingsRow
                                 labelId="setting-video-frames"
                                 label={$_('settings.detection.video_frames', { default: 'Frames' })}
                                 layout="stacked"
@@ -684,11 +671,7 @@
                         </div>
                         <p class="mt-2 text-xs italic text-slate-500 dark:text-slate-400">{$_('settings.detection.video_retry_note')}</p>
                         <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                            {#if imageExecutionMode === 'in_process'}
-                                {$_('settings.detection.video_concurrency_best_practice_in_process', { default: 'In-Process mode shares one backend runtime. Best practice is to keep video concurrency at 1 unless you have verified your model runtime stays stable under overlap.' })}
-                            {:else}
-                                {$_('settings.detection.video_concurrency_best_practice_subprocess', { default: 'Subprocess mode isolates classifier workers more strongly, but raising video concurrency still increases CPU, RAM, and GPU pressure.' })}
-                            {/if}
+                            {$_('settings.detection.video_concurrency_follows_workers', { default: 'Clips are analysed as many at a time as there are background workers — the models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers.' })}
                         </p>
                     </div>
                 {/if}
@@ -771,6 +754,54 @@
                         </p>
                     {/if}
                 </SettingsRow>
+
+                {#if imageExecutionMode === 'subprocess'}
+                    <SettingsRow
+                        labelId="setting-worker-counts"
+                        label={$_('settings.detection.worker_counts', { default: 'Worker processes' })}
+                        description={$_('settings.detection.worker_counts_desc', { default: 'Each worker holds its own copy of the model. Leave empty for the default of one. Applied the next time the classifier workers restart.' })}
+                        layout="stacked"
+                    >
+                        <div class="grid grid-cols-2 gap-3">
+                            <label class="flex flex-col gap-1.5">
+                                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.worker_counts_live', { default: 'Live' })}</span>
+                                <input
+                                    id="live-worker-count"
+                                    type="number"
+                                    min="1"
+                                    max="8"
+                                    step="1"
+                                    value={liveWorkerCount ?? ''}
+                                    placeholder={$_('settings.detection.worker_counts_auto', { default: '1 (default)' })}
+                                    aria-label={$_('settings.detection.worker_counts_live', { default: 'Live' })}
+                                    oninput={(event) => {
+                                        const raw = event.currentTarget.value.trim();
+                                        liveWorkerCount = raw === '' ? null : Math.max(1, Math.min(8, Number(raw) || 1));
+                                    }}
+                                    class="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white"
+                                />
+                            </label>
+                            <label class="flex flex-col gap-1.5">
+                                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{$_('settings.detection.worker_counts_background', { default: 'Background' })}</span>
+                                <input
+                                    id="background-worker-count"
+                                    type="number"
+                                    min="1"
+                                    max="4"
+                                    step="1"
+                                    value={backgroundWorkerCount ?? ''}
+                                    placeholder={$_('settings.detection.worker_counts_auto', { default: '1 (default)' })}
+                                    aria-label={$_('settings.detection.worker_counts_background', { default: 'Background' })}
+                                    oninput={(event) => {
+                                        const raw = event.currentTarget.value.trim();
+                                        backgroundWorkerCount = raw === '' ? null : Math.max(1, Math.min(4, Number(raw) || 1));
+                                    }}
+                                    class="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 dark:border-slate-700 dark:bg-slate-900/50 dark:text-white"
+                                />
+                            </label>
+                        </div>
+                    </SettingsRow>
+                {/if}
 
                 <SettingsRow
                     labelId="setting-region-override"

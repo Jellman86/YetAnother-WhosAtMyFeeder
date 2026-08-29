@@ -8810,6 +8810,17 @@
             "default": false,
             "title": "Auto Video Classification"
           },
+          "background_worker_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Background Worker Count"
+          },
           "bird_crop_detector_tier": {
             "anyOf": [
               {
@@ -9313,6 +9324,17 @@
             ],
             "default": "auto",
             "title": "Inference Provider"
+          },
+          "live_worker_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Live Worker Count"
           },
           "llm_analysis_prompt_template": {
             "anyOf": [
@@ -10413,18 +10435,6 @@
             ],
             "title": "Video Classification Maintenance Circuit Until"
           },
-          "video_classification_max_concurrent": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": 1,
-            "title": "Video Classification Max Concurrent"
-          },
           "video_classification_max_retries": {
             "anyOf": [
               {
@@ -10674,6 +10684,20 @@
             "default": false,
             "description": "Automatically classify video clips",
             "title": "Auto Video Classification"
+          },
+          "background_worker_count": {
+            "anyOf": [
+              {
+                "maximum": 4.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Background classifier worker processes; null follows the default (one)",
+            "title": "Background Worker Count"
           },
           "bird_crop_detector_tier": {
             "anyOf": [
@@ -11217,6 +11241,20 @@
             "default": "auto",
             "description": "Preferred inference provider: auto|cpu|cuda|intel_gpu|intel_cpu|intel_npu",
             "title": "Inference Provider"
+          },
+          "live_worker_count": {
+            "anyOf": [
+              {
+                "maximum": 8.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Live classifier worker processes; null follows the default (one)",
+            "title": "Live Worker Count"
           },
           "llm_analysis_prompt_template": {
             "anyOf": [
@@ -12292,21 +12330,6 @@
             "default": 15,
             "description": "Number of frames to sample for video classification",
             "title": "Video Classification Frames"
-          },
-          "video_classification_max_concurrent": {
-            "anyOf": [
-              {
-                "maximum": 20.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": 1,
-            "description": "Maximum concurrent video classification jobs",
-            "title": "Video Classification Max Concurrent"
           },
           "video_classification_max_retries": {
             "anyOf": [

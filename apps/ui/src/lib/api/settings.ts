@@ -32,6 +32,8 @@ export interface Settings {
     recording_clip_after_seconds: number;
     classification_threshold: number;
     classification_min_confidence: number;
+    live_worker_count?: number | null;
+    background_worker_count?: number | null;
     cameras: string[];
     retention_days: number;
     maintenance_max_concurrent?: number;
@@ -49,7 +51,6 @@ export interface Settings {
     auto_video_classification: boolean;
     video_classification_delay: number;
     video_classification_max_retries: number;
-    video_classification_max_concurrent: number;
     video_classification_frames: number;
     bird_crop_detector_tier?: 'fast' | 'accurate' | string;
     bird_crop_source_priority?: 'frigate_hints_first' | 'crop_model_first' | 'crop_model_only' | 'frigate_hints_only' | string;

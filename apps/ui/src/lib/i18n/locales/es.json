@@ -1476,7 +1476,13 @@
       "model_manager_memory_title": "Uso de RAM previsto",
       "model_manager_memory_predicted": "≈ {total}",
       "model_manager_memory_formula_subprocess": "{per} por copia × {live} en vivo + {background} en segundo plano (modo aislado)",
-      "model_manager_memory_formula_in_process": "{per} para una copia compartida dentro de la aplicación (modo en proceso)"
+      "model_manager_memory_formula_in_process": "{per} para una copia compartida dentro de la aplicación (modo en proceso)",
+      "worker_counts": "Procesos de trabajo",
+      "worker_counts_desc": "Cada proceso tiene su propia copia del modelo. Deja vacío para el valor por defecto de uno. Se aplica la próxima vez que los procesos se reinicien.",
+      "worker_counts_live": "En vivo",
+      "worker_counts_background": "Segundo plano",
+      "worker_counts_auto": "1 (por defecto)",
+      "video_concurrency_follows_workers": "Los clips se analizan tantos a la vez como procesos en segundo plano hay: los modelos clasifican una imagen por proceso, así que un ajuste de concurrencia aparte solo podría encolar trabajos o dejar procesos sin uso."
     },
     "llm": {
       "title": "Análisis de IA",

@@ -152,3 +152,14 @@ def test_status_reports_label_count_without_a_resident_model(monkeypatch, tmp_pa
         service._live_image_executor.shutdown(wait=False)
         service._background_image_executor.shutdown(wait=False)
         service._video_executor.shutdown(wait=False)
+
+
+def test_video_concurrency_follows_background_workers():
+    """The models classify one image at a time, so video-job concurrency above
+    the background worker count only queues, and below it starves paid-for
+    workers. The knob is collapsed: concurrency IS the resolved background
+    worker count."""
+    from app.services.auto_video_classifier_service import resolve_video_concurrency
+
+    assert resolve_video_concurrency(configured_background=None) == 1
+    assert resolve_video_concurrency(configured_background=3) == 3

@@ -229,6 +229,8 @@
     let recordingClipCapabilityLoading = $state(false);
     let threshold = $state(0.7);
     let minConfidence = $state(0.4);
+    let liveWorkerCount = $state<number | null>(null);
+    let backgroundWorkerCount = $state<number | null>(null);
     let trustFrigateSublabel = $state(true);
     let writeFrigateSublabel = $state(true);
     let displayCommonNames = $state(true);
@@ -238,7 +240,6 @@
     let autoVideoClassification = $state(false);
     let videoClassificationDelay = $state(30);
     let videoClassificationMaxRetries = $state(3);
-    let videoClassificationMaxConcurrent = $state(1);
     let videoClassificationFrames = $state(15);
     let birdModelRegionOverride = $state<'auto' | 'eu' | 'na'>('auto');
     let imageExecutionMode = $state<'in_process' | 'subprocess' | string>('subprocess');
@@ -1754,7 +1755,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'autoVideoClassification', val: autoVideoClassification, store: s.auto_video_classification ?? false },
             { key: 'videoClassificationDelay', val: videoClassificationDelay, store: s.video_classification_delay ?? 30 },
             { key: 'videoClassificationMaxRetries', val: videoClassificationMaxRetries, store: s.video_classification_max_retries ?? 3 },
-            { key: 'videoClassificationMaxConcurrent', val: videoClassificationMaxConcurrent, store: s.video_classification_max_concurrent ?? 1 },
             { key: 'videoClassificationFrames', val: videoClassificationFrames, store: s.video_classification_frames ?? 15 },
             { key: 'imageExecutionMode', val: imageExecutionMode, store: s.image_execution_mode ?? 'subprocess' },
             { key: 'strictNonFiniteOutput', val: strictNonFiniteOutput, store: s.strict_non_finite_output ?? true },
@@ -1811,6 +1811,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'cameraRoles', val: JSON.stringify(cameraRoles), store: JSON.stringify(s.camera_roles || {}) },
             { key: 'nestDedupeMinutes', val: nestDedupeMinutes, store: s.nest_dedupe_minutes ?? 30 },
             { key: 'minConfidence', val: minConfidence, store: s.classification_min_confidence ?? 0.4 },
+            { key: 'liveWorkerCount', val: liveWorkerCount, store: s.live_worker_count ?? null },
+            { key: 'backgroundWorkerCount', val: backgroundWorkerCount, store: s.background_worker_count ?? null },
             { key: 'telemetryEnabled', val: telemetryEnabled, store: s.telemetry_enabled ?? true },
             { key: 'telemetryHealthEnabled', val: telemetryHealthEnabled, store: s.telemetry_health_enabled ?? false },
             { key: 'authEnabled', val: authEnabled, store: s.auth_enabled ?? false },
@@ -2713,6 +2715,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             recordingClipAfterSeconds = settings.recording_clip_after_seconds ?? 90;
             threshold = settings.classification_threshold;
             minConfidence = settings.classification_min_confidence ?? 0.4;
+            liveWorkerCount = settings.live_worker_count ?? null;
+            backgroundWorkerCount = settings.background_worker_count ?? null;
             trustFrigateSublabel = settings.trust_frigate_sublabel ?? true;
             writeFrigateSublabel = settings.write_frigate_sublabel ?? true;
             displayCommonNames = settings.display_common_names ?? true;
@@ -2722,7 +2726,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             autoVideoClassification = settings.auto_video_classification ?? false;
             videoClassificationDelay = settings.video_classification_delay ?? 30;
             videoClassificationMaxRetries = settings.video_classification_max_retries ?? 3;
-            videoClassificationMaxConcurrent = settings.video_classification_max_concurrent ?? 1;
             videoClassificationFrames = settings.video_classification_frames ?? 15;
             birdModelRegionOverride = resolveBirdModelRegionOverrideFromSettings(settings.bird_model_region_override);
             imageExecutionMode = settings.image_execution_mode ?? 'subprocess';
@@ -3050,6 +3053,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 recording_clip_after_seconds: recordingClipAfterSeconds,
                 classification_threshold: threshold,
                 classification_min_confidence: minConfidence,
+                live_worker_count: liveWorkerCount,
+                background_worker_count: backgroundWorkerCount,
                 trust_frigate_sublabel: trustFrigateSublabel,
                 write_frigate_sublabel: writeFrigateSublabel,
                 display_common_names: displayCommonNames,
@@ -3059,7 +3064,6 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 auto_video_classification: autoVideoClassification,
                 video_classification_delay: videoClassificationDelay,
                 video_classification_max_retries: videoClassificationMaxRetries,
-                video_classification_max_concurrent: videoClassificationMaxConcurrent,
                 video_classification_frames: videoClassificationFrames,
                 ...buildBirdModelRegionOverrideSettings(birdModelRegionOverride),
                 image_execution_mode: imageExecutionMode,
@@ -3313,13 +3317,14 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 <DetectionSettings
                     bind:threshold
                     bind:minConfidence
+                    bind:liveWorkerCount
+                    bind:backgroundWorkerCount
                     bind:trustFrigateSublabel
                     bind:writeFrigateSublabel
                     bind:personalizedRerankEnabled
                     bind:autoVideoClassification
                     bind:videoClassificationDelay
                     bind:videoClassificationMaxRetries
-                    bind:videoClassificationMaxConcurrent
                     bind:videoClassificationFrames
                     bind:birdModelRegionOverride
                     bind:imageExecutionMode

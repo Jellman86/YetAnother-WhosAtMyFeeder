@@ -29,7 +29,7 @@ def reset_auth_config():
     original_telemetry_enabled = settings.telemetry.enabled
     original_telemetry_health_enabled = settings.telemetry.health_enabled
     original_telemetry_installation_id = settings.telemetry.installation_id
-    original_video_classification_max_concurrent = settings.classification.video_classification_max_concurrent
+    original_background_worker_count = settings.classification.background_worker_count
     original_maintenance_max_concurrent = settings.maintenance.max_concurrent
     yield
     settings.auth.enabled = original_auth_enabled
@@ -37,7 +37,7 @@ def reset_auth_config():
     settings.telemetry.enabled = original_telemetry_enabled
     settings.telemetry.health_enabled = original_telemetry_health_enabled
     settings.telemetry.installation_id = original_telemetry_installation_id
-    settings.classification.video_classification_max_concurrent = original_video_classification_max_concurrent
+    settings.classification.background_worker_count = original_background_worker_count
     settings.maintenance.max_concurrent = original_maintenance_max_concurrent
 
 
@@ -199,6 +199,48 @@ async def test_settings_roundtrip_frigate_external_url(client: httpx.AsyncClient
 
     get_final = await client.get("/api/settings")
     assert get_final.json()["frigate_external_url"] == "https://frigate.example.com"
+
+
+@pytest.mark.asyncio
+async def test_settings_roundtrip_worker_counts(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    get_before = await client.get("/api/settings")
+    assert get_before.status_code == 200, get_before.text
+    before_payload = get_before.json()
+    assert "live_worker_count" in before_payload
+    assert "background_worker_count" in before_payload
+
+    base = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+    }
+
+    post_resp = await client.post("/api/settings", json={**base, "live_worker_count": 2, "background_worker_count": 1})
+    assert post_resp.status_code == 200, post_resp.text
+    after = (await client.get("/api/settings")).json()
+    assert after["live_worker_count"] == 2
+    assert after["background_worker_count"] == 1
+
+    # Omitting the fields leaves the stored values untouched.
+    post_resp = await client.post("/api/settings", json=base)
+    assert post_resp.status_code == 200, post_resp.text
+    assert (await client.get("/api/settings")).json()["live_worker_count"] == 2
+
+    # Explicit null returns the count to the default-resolution path.
+    post_resp = await client.post(
+        "/api/settings", json={**base, "live_worker_count": None, "background_worker_count": None}
+    )
+    assert post_resp.status_code == 200, post_resp.text
+    final = (await client.get("/api/settings")).json()
+    assert final["live_worker_count"] is None
+    assert final["background_worker_count"] is None
+
+    # Out-of-range counts are rejected, not clamped silently.
+    post_resp = await client.post("/api/settings", json={**base, "live_worker_count": 0})
+    assert post_resp.status_code == 422
 
 
 @pytest.mark.asyncio
@@ -604,7 +646,7 @@ async def test_backfill_async_rejects_when_same_kind_maintenance_slot_is_occupie
     # different kind (e.g. taxonomy_sync) must no longer block it.
     settings.auth.enabled = False
     settings.public_access.enabled = False
-    settings.classification.video_classification_max_concurrent = 2
+    settings.classification.background_worker_count = 2
     settings.maintenance.max_concurrent = 1
     backfill_router._JOB_STORE.clear()
     backfill_router._LATEST_JOB_BY_KIND.clear()
@@ -643,7 +685,7 @@ async def test_backfill_async_proceeds_when_a_different_kind_is_running(
     # independent.
     settings.auth.enabled = False
     settings.public_access.enabled = False
-    settings.classification.video_classification_max_concurrent = 2
+    settings.classification.background_worker_count = 2
     settings.maintenance.max_concurrent = 1
     backfill_router._JOB_STORE.clear()
     backfill_router._LATEST_JOB_BY_KIND.clear()
@@ -679,7 +721,7 @@ async def test_analyze_unknowns_coalesces_when_same_kind_slot_is_occupied(
 ):
     settings.auth.enabled = False
     settings.public_access.enabled = False
-    settings.classification.video_classification_max_concurrent = 2
+    settings.classification.background_worker_count = 2
     settings.maintenance.max_concurrent = 1
 
     async def _unexpected_run():
@@ -705,7 +747,7 @@ async def test_timezone_repair_preview_rejects_when_same_kind_slot_is_occupied(
 ):
     settings.auth.enabled = False
     settings.public_access.enabled = False
-    settings.classification.video_classification_max_concurrent = 2
+    settings.classification.background_worker_count = 2
     settings.maintenance.max_concurrent = 1
 
     acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="timezone_repair")
@@ -724,7 +766,7 @@ async def test_timezone_repair_apply_rejects_when_same_kind_slot_is_occupied(
 ):
     settings.auth.enabled = False
     settings.public_access.enabled = False
-    settings.classification.video_classification_max_concurrent = 2
+    settings.classification.background_worker_count = 2
     settings.maintenance.max_concurrent = 1
 
     acquired = await maintenance_coordinator.try_acquire("test-maintenance-slot", kind="timezone_repair")
@@ -1217,41 +1259,27 @@ async def test_settings_update_persists_classification_delay_and_env_precedence(
 
 
 @pytest.mark.asyncio
-async def test_settings_roundtrip_video_classification_max_concurrent(client: httpx.AsyncClient):
+async def test_settings_retired_video_concurrency_field(client: httpx.AsyncClient):
+    """Video-job concurrency follows the background worker count now; the old
+    field is gone from the payload, and posting it is ignored rather than an
+    error so older clients keep working."""
     settings.auth.enabled = False
     settings.public_access.enabled = False
 
-    get_before = await client.get("/api/settings")
-    assert get_before.status_code == 200, get_before.text
-    before_payload = get_before.json()
+    payload = (await client.get("/api/settings")).json()
+    assert "video_classification_max_concurrent" not in payload
 
-    assert "video_classification_max_concurrent" in before_payload
-
-    original_limit = before_payload["video_classification_max_concurrent"]
-    updated_limit = 7 if original_limit != 7 else 8
-
-    update_payload = {
-        "frigate_url": before_payload["frigate_url"],
-        "mqtt_server": before_payload["mqtt_server"],
-        "classification_threshold": before_payload["classification_threshold"],
-        "video_classification_max_concurrent": updated_limit,
-    }
-    post_resp = await client.post("/api/settings", json=update_payload)
+    post_resp = await client.post(
+        "/api/settings",
+        json={
+            "frigate_url": payload["frigate_url"],
+            "mqtt_server": payload["mqtt_server"],
+            "classification_threshold": payload["classification_threshold"],
+            "video_classification_max_concurrent": 7,
+        },
+    )
     assert post_resp.status_code == 200, post_resp.text
-
-    get_after = await client.get("/api/settings")
-    assert get_after.status_code == 200, get_after.text
-    after_payload = get_after.json()
-    assert after_payload["video_classification_max_concurrent"] == updated_limit
-
-    restore_payload = {
-        "frigate_url": before_payload["frigate_url"],
-        "mqtt_server": before_payload["mqtt_server"],
-        "classification_threshold": before_payload["classification_threshold"],
-        "video_classification_max_concurrent": original_limit,
-    }
-    restore_resp = await client.post("/api/settings", json=restore_payload)
-    assert restore_resp.status_code == 200, restore_resp.text
+    assert "video_classification_max_concurrent" not in (await client.get("/api/settings")).json()
 
 
 @pytest.mark.asyncio
@@ -1487,7 +1515,6 @@ async def test_settings_roundtrip_location_state_and_country(client: httpx.Async
         ({"inference_provider": "gpu_magic"}, "inference_provider"),
         ({"classification_threshold": 1.5}, "classification_threshold"),
         ({"video_classification_frames": 3}, "video_classification_frames"),
-        ({"video_classification_max_concurrent": 0}, "video_classification_max_concurrent"),
     ],
 )
 async def test_settings_update_rejects_invalid_classification_payload(

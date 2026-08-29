@@ -108,7 +108,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CLASSIFICATION__VIDEO_CLASSIFICATION_FRAMES` | `15` | Frames sampled per video. |
 | `CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_RETRIES` | `3` | Retries for a failed video job. |
 | `CLASSIFICATION__VIDEO_CLASSIFICATION_RETRY_INTERVAL` | `15` | Seconds between video retries. |
-| `CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT` | `1` | Concurrent video jobs. |
+| `CLASSIFICATION__VIDEO_CLASSIFICATION_MAX_CONCURRENT` | _(ignored)_ | Legacy. Video-job concurrency now follows `CLASSIFICATION__BACKGROUND_WORKER_COUNT` — one image per worker. |
 | `CLASSIFICATION__VIDEO_CLASSIFICATION_TIMEOUT_SECONDS` | `180` | Per-video timeout. |
 | `CLASSIFICATION__VIDEO_CLASSIFICATION_STALE_MINUTES` | `15` | Age after which a queued video is dropped. |
 | `CLASSIFICATION__VIDEO_FAILURE_THRESHOLD` | `5` | Failures before the video circuit opens. |
