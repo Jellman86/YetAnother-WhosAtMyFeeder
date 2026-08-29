@@ -8,6 +8,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **One concurrency knob, not two.** Video Concurrency is gone as a separate setting: video jobs
+  classify through the background worker pool at one image per worker, so a job limit above the
+  worker count could only queue and one below it could only starve workers you paid memory for.
+  Video-job concurrency now simply follows the background worker count, the auto-video tuning
+  panel says so in words, and the retired API field is ignored rather than rejected so older
+  clients keep working.
+
+- **The model dossier sits flat in the Models card.** The picker, dossier, actions, and
+  disclosures lived inside a nested sub-card with a gradient header band and a tinted footer;
+  they are now plain sections separated by rules, with the "Show all models" fold as one quiet
+  dashed row under the cards.
+
 - **Worker concurrency is now a setting you can actually set.** The live and background worker
   counts existed only as environment variables and absorbed config keys — the Detection tab had
   no control for them, which made "I set it in the UI" silently untrue. The Runtime column now

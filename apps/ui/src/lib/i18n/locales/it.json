@@ -1490,7 +1490,8 @@
       "worker_counts_desc": "Ogni processo ha la propria copia del modello. Lascia vuoto per il valore predefinito di uno. Applicato al prossimo riavvio dei processi.",
       "worker_counts_live": "Dal vivo",
       "worker_counts_background": "In background",
-      "worker_counts_auto": "1 (predefinito)"
+      "worker_counts_auto": "1 (predefinito)",
+      "video_concurrency_follows_workers": "I clip vengono analizzati tanti alla volta quanti sono i processi in background: i modelli classificano una immagine per processo, quindi una regolazione separata potrebbe solo accodare lavori o lasciare processi inutilizzati."
     },
     "llm": {
       "title": "Analisi IA",

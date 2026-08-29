@@ -28,7 +28,7 @@ def _build_service(monkeypatch):
 
     fake_classifier = types.SimpleNamespace(get_admission_status=lambda: {"live": {"queued": 0, "running": 0}})
     fake_settings = types.SimpleNamespace(
-        classification=types.SimpleNamespace(video_classification_max_concurrent=4),
+        classification=types.SimpleNamespace(background_worker_count=4),
         maintenance=types.SimpleNamespace(max_concurrent=1),
     )
 

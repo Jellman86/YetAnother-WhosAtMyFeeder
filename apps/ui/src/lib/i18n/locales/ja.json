@@ -1481,7 +1481,8 @@
       "worker_counts_desc": "各ワーカーはモデルのコピーを保持します。空欄で既定の1になります。次回ワーカー再起動時に適用されます。",
       "worker_counts_live": "ライブ",
       "worker_counts_background": "バックグラウンド",
-      "worker_counts_auto": "1(既定)"
+      "worker_counts_auto": "1(既定)",
+      "video_concurrency_follows_workers": "クリップはバックグラウンドワーカーの数だけ同時に解析されます。モデルはワーカーごとに1枚ずつ分類するため、別個の同時実行設定はジョブを待たせるかワーカーを遊ばせるだけになります。"
     },
     "llm": {
       "title": "AI インサイト",

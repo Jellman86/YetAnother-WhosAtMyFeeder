@@ -1490,7 +1490,8 @@
       "worker_counts_desc": "Each worker holds its own copy of the model. Leave empty for the default of one. Applied the next time the classifier workers restart.",
       "worker_counts_live": "Live",
       "worker_counts_background": "Background",
-      "worker_counts_auto": "1 (default)"
+      "worker_counts_auto": "1 (default)",
+      "video_concurrency_follows_workers": "Clips are analysed as many at a time as there are background workers — the models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers."
     },
     "llm": {
       "title": "AI Insights",

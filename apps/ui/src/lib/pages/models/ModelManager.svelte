@@ -601,10 +601,8 @@
             ? cropDetectorStatus
             : null}
 
-        <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 dark:border-slate-700/80 dark:bg-slate-900/70">
-            <div class="border-b border-slate-200/80 bg-gradient-to-r from-brand-50/80 via-accent-50/35 to-white p-5 dark:border-slate-700/80 dark:from-brand-950/30 dark:via-accent-950/10 dark:to-slate-900 sm:p-6">
-                <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div class="flex-1">
+        <div class="space-y-6">
+            <div>
                         <div class="flex items-center justify-between gap-3">
                             <p id="classifier-model-lineup-label" class="block text-base font-bold text-slate-900 dark:text-white">
                                 {$_('settings.detection.model_manager_select_label', { default: 'Choose the identification model' })}
@@ -667,28 +665,26 @@
                                 </div>
                             {/each}
                         </div>
-                    </div>
 
-                    {#if advancedCount > 0}
-                        <button
-                            type="button"
-                            onclick={() => {
-                                showAdvancedModels = !showAdvancedModels;
-                                if (!showAdvancedModels) {
-                                    const collapsedModels = getVisibleTieredModelLineup(classifierModels, false, selectedModelId);
-                                    if (!collapsedModels.some((model) => model.id === selectedModelId)) {
-                                        selectedModelId = collapsedModels[0]?.id || null;
-                                    }
+                {#if advancedCount > 0}
+                    <button
+                        type="button"
+                        onclick={() => {
+                            showAdvancedModels = !showAdvancedModels;
+                            if (!showAdvancedModels) {
+                                const collapsedModels = getVisibleTieredModelLineup(classifierModels, false, selectedModelId);
+                                if (!collapsedModels.some((model) => model.id === selectedModelId)) {
+                                    selectedModelId = collapsedModels[0]?.id || null;
                                 }
-                            }}
-                            class="btn btn-secondary min-h-11 px-4 shrink-0"
-                        >
-                            {showAdvancedModels
-                                ? $_('settings.detection.model_manager_hide_advanced', { default: 'Show fewer models' })
-                                : $_('settings.detection.model_manager_show_advanced', { values: { count: advancedCount }, default: 'Show all models ({count} more)' })}
-                        </button>
-                    {/if}
-                </div>
+                            }
+                        }}
+                        class="mt-4 flex min-h-11 w-full cursor-pointer items-center justify-center rounded-2xl border border-dashed border-slate-300 text-sm font-semibold text-slate-600 transition-colors hover:border-brand-400 hover:text-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-600 dark:text-slate-300 dark:hover:border-brand-500/60 dark:hover:text-brand-300"
+                    >
+                        {showAdvancedModels
+                            ? $_('settings.detection.model_manager_hide_advanced', { default: 'Show fewer models' })
+                            : $_('settings.detection.model_manager_show_advanced', { values: { count: advancedCount }, default: 'Show all models ({count} more)' })}
+                    </button>
+                {/if}
             </div>
 
             {#if selectedModelId}
@@ -705,8 +701,8 @@
                     {@const runtimeProviderOrder = active ? getRuntimeProviderOrder(classifierStatus, getProviderSupport(model)) : []}
                     {@const dynamicProviderChips = getDynamicProviderChips(model, active)}
 
-                    <section aria-labelledby="selected-model-name">
-                        <div class="p-5 sm:p-6">
+                    <section aria-labelledby="selected-model-name" class="border-t border-slate-200 pt-6 dark:border-slate-700">
+                        <div>
                             <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                                 <div class="max-w-3xl">
                                     <div class="flex flex-wrap items-center gap-2">
@@ -803,14 +799,14 @@
                             {/if}
                         </div>
 
-                        <details class="group border-t border-slate-200 dark:border-slate-700">
-                            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200 sm:px-6">
+                        <details class="group mt-5 border-t border-slate-200 dark:border-slate-700">
+                            <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200">
                                 <span>{$_('settings.detection.model_manager_technical_details', { default: 'Technical details' })}</span>
                                 <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
                                 </svg>
                             </summary>
-                            <div class="space-y-6 border-t border-slate-200 px-5 py-5 dark:border-slate-700 sm:px-6">
+                            <div class="space-y-6 py-4">
                                 <div>
                                     <h4 class="text-sm font-bold text-slate-900 dark:text-white">
                                         {$_('settings.detection.model_manager_crop_policy_automatic', { default: 'Image preparation is automatic' })}
@@ -880,7 +876,7 @@
                             </div>
                         </details>
 
-                        <div class="flex flex-col gap-4 border-t border-slate-200 bg-slate-50/60 p-5 dark:border-slate-700 dark:bg-slate-950/30 sm:p-6">
+                        <div class="flex flex-col gap-4 border-t border-slate-200 pt-4 dark:border-slate-700">
                             {#if inProgress}
                                 <div class="w-full" role="status">
                                     <div class="mb-2 flex justify-between text-sm">
@@ -959,13 +955,13 @@
 
             {#if selectedCropDetector}
                 <details class="group border-t border-slate-200 dark:border-slate-700">
-                    <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 px-5 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200 sm:px-6">
+                    <summary class="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3 text-sm font-semibold text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 dark:text-slate-200">
                         <span>{$_('settings.detection.model_manager_thumbnail_crop_title', { default: 'Cropped thumbnails' })}</span>
                         <svg class="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m6 9 6 6 6-6" />
                         </svg>
                     </summary>
-                    <div class="space-y-5 border-t border-slate-200 px-5 py-5 dark:border-slate-700 sm:px-6">
+                    <div class="space-y-5 py-4">
                         <div class="grid gap-4">
                             <div>
                                 <p class="text-sm font-bold text-slate-900 dark:text-white">

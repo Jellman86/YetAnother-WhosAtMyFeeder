@@ -1490,7 +1490,8 @@
       "worker_counts_desc": "Cada processo mantém sua própria cópia do modelo. Deixe vazio para o padrão de um. Aplicado no próximo reinício dos processos.",
       "worker_counts_live": "Ao vivo",
       "worker_counts_background": "Segundo plano",
-      "worker_counts_auto": "1 (padrão)"
+      "worker_counts_auto": "1 (padrão)",
+      "video_concurrency_follows_workers": "Os clipes são analisados tantos por vez quantos forem os processos em segundo plano — os modelos classificam uma imagem por processo, então um ajuste separado de concorrência só poderia enfileirar trabalhos ou deixar processos ociosos."
     },
     "llm": {
       "title": "Análises de IA",

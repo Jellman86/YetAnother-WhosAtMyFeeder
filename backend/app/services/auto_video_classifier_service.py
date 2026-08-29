@@ -41,6 +41,14 @@ from app.utils.video_analysis import rank_video_top_frames
 log = structlog.get_logger()
 
 
+def resolve_video_concurrency(*, configured_background: int | None) -> int:
+    """Video jobs classify through the background worker pool one image per
+    worker, so job concurrency is the resolved background worker count - a
+    separate knob could only queue or starve (#312 follow-up). Mirrors the
+    background branch of classifier_service.resolve_image_worker_counts."""
+    return max(1, int(configured_background)) if configured_background else 1
+
+
 def decode_image_bytes(contents: bytes) -> Image.Image:
     image = Image.open(BytesIO(contents))
     image.load()
@@ -418,7 +426,9 @@ class AutoVideoClassifierService:
             try:
                 self._cleanup_completed_tasks()
 
-                max_concurrent = int(settings.classification.video_classification_max_concurrent or 1)
+                max_concurrent = resolve_video_concurrency(
+                    configured_background=settings.classification.background_worker_count
+                )
                 throttle_state = self._get_mqtt_throttle_state(max_concurrent)
                 effective_max = throttle_state["effective_max_concurrent"]
 
@@ -840,7 +850,9 @@ class AutoVideoClassifierService:
         manual_timeout = self._timeout_bucket("manual")
         maintenance_timeout = self._timeout_bucket("maintenance")
         pending = self._pending_queue.qsize()
-        configured_max = int(settings.classification.video_classification_max_concurrent or 1)
+        configured_max = resolve_video_concurrency(
+            configured_background=settings.classification.background_worker_count
+        )
         throttle_state = self._get_mqtt_throttle_state(configured_max)
         maintenance_summary = self._maintenance_status_summary(throttle_state)
         self._emit_maintenance_status_diagnostic(maintenance_summary)
@@ -1144,7 +1156,7 @@ class AutoVideoClassifierService:
 
     def _maintenance_status_summary(self, throttle_state: dict | None = None) -> dict[str, object]:
         throttle = throttle_state or self._get_mqtt_throttle_state(
-            int(settings.classification.video_classification_max_concurrent or 1)
+            resolve_video_concurrency(configured_background=settings.classification.background_worker_count)
         )
         coordinator_status = maintenance_coordinator.get_status_nowait()
         active_by_kind = coordinator_status.get("active_by_kind") or {}
@@ -1218,7 +1230,7 @@ class AutoVideoClassifierService:
 
     def get_maintenance_guardrail_status(self) -> dict[str, object]:
         throttle_state = self._get_mqtt_throttle_state(
-            int(settings.classification.video_classification_max_concurrent or 1)
+            resolve_video_concurrency(configured_background=settings.classification.background_worker_count)
         )
         summary = self._maintenance_status_summary(throttle_state)
         oldest_pending_age = summary.get("oldest_maintenance_pending_age_seconds")

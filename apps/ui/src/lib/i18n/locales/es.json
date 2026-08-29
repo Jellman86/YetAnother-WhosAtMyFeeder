@@ -1481,7 +1481,8 @@
       "worker_counts_desc": "Cada proceso tiene su propia copia del modelo. Deja vacío para el valor por defecto de uno. Se aplica la próxima vez que los procesos se reinicien.",
       "worker_counts_live": "En vivo",
       "worker_counts_background": "Segundo plano",
-      "worker_counts_auto": "1 (por defecto)"
+      "worker_counts_auto": "1 (por defecto)",
+      "video_concurrency_follows_workers": "Los clips se analizan tantos a la vez como procesos en segundo plano hay: los modelos clasifican una imagen por proceso, así que un ajuste de concurrencia aparte solo podría encolar trabajos o dejar procesos sin uso."
     },
     "llm": {
       "title": "Análisis de IA",

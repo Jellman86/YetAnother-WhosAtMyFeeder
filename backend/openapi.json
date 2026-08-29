@@ -10435,18 +10435,6 @@
             ],
             "title": "Video Classification Maintenance Circuit Until"
           },
-          "video_classification_max_concurrent": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": 1,
-            "title": "Video Classification Max Concurrent"
-          },
           "video_classification_max_retries": {
             "anyOf": [
               {
@@ -12342,21 +12330,6 @@
             "default": 15,
             "description": "Number of frames to sample for video classification",
             "title": "Video Classification Frames"
-          },
-          "video_classification_max_concurrent": {
-            "anyOf": [
-              {
-                "maximum": 20.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": 1,
-            "description": "Maximum concurrent video classification jobs",
-            "title": "Video Classification Max Concurrent"
           },
           "video_classification_max_retries": {
             "anyOf": [

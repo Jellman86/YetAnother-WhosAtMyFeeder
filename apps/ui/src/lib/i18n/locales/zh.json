@@ -1481,7 +1481,8 @@
       "worker_counts_desc": "每个工作进程持有自己的模型副本。留空使用默认值 1。将在下次工作进程重启时生效。",
       "worker_counts_live": "实时",
       "worker_counts_background": "后台",
-      "worker_counts_auto": "1(默认)"
+      "worker_counts_auto": "1(默认)",
+      "video_concurrency_follows_workers": "同时分析的剪辑数量等于后台工作进程数——模型每个进程一次只分类一张图像,单独的并发设置只会让任务排队或让进程闲置。"
     },
     "llm": {
       "title": "AI 洞察",

@@ -1481,7 +1481,8 @@
       "worker_counts_desc": "Chaque processus détient sa propre copie du modèle. Laissez vide pour la valeur par défaut de un. Appliqué au prochain redémarrage des processus.",
       "worker_counts_live": "En direct",
       "worker_counts_background": "Arrière-plan",
-      "worker_counts_auto": "1 (par défaut)"
+      "worker_counts_auto": "1 (par défaut)",
+      "video_concurrency_follows_workers": "Les clips sont analysés autant à la fois qu'il y a de processus en arrière-plan : les modèles classifient une image par processus, un réglage de concurrence séparé ne pourrait donc que mettre en file ou laisser des processus inutilisés."
     },
     "llm": {
       "title": "Analyses IA",

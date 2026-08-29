@@ -312,7 +312,10 @@ class ClassificationSettings(BaseModel):
     video_classification_max_retries: int = Field(default=3, description="Max retries for clip availability")
     video_classification_retry_interval: int = Field(default=15, description="Seconds between retries")
     video_classification_max_concurrent: int = Field(
-        default=1, ge=1, le=20, description="Maximum concurrent video classification tasks"
+        default=1,
+        ge=1,
+        le=20,
+        description="Legacy, ignored: video-job concurrency now follows the background worker count",
     )
     video_classification_failure_threshold: int = Field(
         default=5, ge=1, description="Failures in window to open circuit breaker"

@@ -1481,7 +1481,8 @@
       "worker_counts_desc": "Jeder Worker hält eine eigene Kopie des Modells. Leer lassen für den Standard von eins. Gilt ab dem nächsten Neustart der Worker.",
       "worker_counts_live": "Live",
       "worker_counts_background": "Hintergrund",
-      "worker_counts_auto": "1 (Standard)"
+      "worker_counts_auto": "1 (Standard)",
+      "video_concurrency_follows_workers": "Clips werden so viele gleichzeitig analysiert, wie es Hintergrund-Worker gibt — die Modelle klassifizieren ein Bild pro Worker, ein separater Parallelitätsregler könnte also nur Aufträge stauen oder Worker brachliegen lassen."
     },
     "llm": {
       "title": "KI-Einblicke",

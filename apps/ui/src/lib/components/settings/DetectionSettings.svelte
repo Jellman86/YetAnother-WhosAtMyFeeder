@@ -41,7 +41,6 @@
         autoVideoClassification = $bindable(false),
         videoClassificationDelay = $bindable(30),
         videoClassificationMaxRetries = $bindable(3),
-        videoClassificationMaxConcurrent = $bindable(1),
         videoClassificationFrames = $bindable(15),
         birdModelRegionOverride = $bindable<BirdModelRegionOverride>('auto'),
         imageExecutionMode = $bindable<'in_process' | 'subprocess' | string>('subprocess'),
@@ -63,7 +62,6 @@
         autoVideoClassification: boolean;
         videoClassificationDelay: number;
         videoClassificationMaxRetries: number;
-        videoClassificationMaxConcurrent: number;
         videoClassificationFrames: number;
         birdModelRegionOverride: BirdModelRegionOverride;
         imageExecutionMode: 'in_process' | 'subprocess' | string;
@@ -656,21 +654,6 @@
                                 />
                             </SettingsRow>
                             <SettingsRow
-                                labelId="setting-video-max-concurrent"
-                                label={$_('settings.detection.video_max_concurrent', { default: 'Video Concurrency' })}
-                                layout="stacked"
-                            >
-                                <SettingsInput
-                                    id="video-max-concurrent"
-                                    type="number"
-                                    min={1}
-                                    max={20}
-                                    value={videoClassificationMaxConcurrent}
-                                    ariaLabel={$_('settings.detection.video_max_concurrent_label', { default: 'Max Concurrent Video Jobs' })}
-                                    oninput={(v) => (videoClassificationMaxConcurrent = Number(v) || 1)}
-                                />
-                            </SettingsRow>
-                            <SettingsRow
                                 labelId="setting-video-frames"
                                 label={$_('settings.detection.video_frames', { default: 'Frames' })}
                                 layout="stacked"
@@ -688,11 +671,7 @@
                         </div>
                         <p class="mt-2 text-xs italic text-slate-500 dark:text-slate-400">{$_('settings.detection.video_retry_note')}</p>
                         <p class="text-xs leading-relaxed text-slate-500 dark:text-slate-400">
-                            {#if imageExecutionMode === 'in_process'}
-                                {$_('settings.detection.video_concurrency_best_practice_in_process', { default: 'In-Process mode shares one backend runtime. Best practice is to keep video concurrency at 1 unless you have verified your model runtime stays stable under overlap.' })}
-                            {:else}
-                                {$_('settings.detection.video_concurrency_best_practice_subprocess', { default: 'Subprocess mode isolates classifier workers more strongly, but raising video concurrency still increases CPU, RAM, and GPU pressure.' })}
-                            {/if}
+                            {$_('settings.detection.video_concurrency_follows_workers', { default: 'Clips are analysed as many at a time as there are background workers — the models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers.' })}
                         </p>
                     </div>
                 {/if}
