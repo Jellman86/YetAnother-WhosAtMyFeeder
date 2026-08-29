@@ -1968,11 +1968,16 @@ class DetectionRepository:
             f"""
             WITH species_rows AS (
                 -- Enrich taxa_id from taxonomy_cache when the detection is missing it
-                -- but has a known scientific_name we can join on.
+                -- but has a known scientific_name we can join on. The stored id is
+                -- kept separately: grouping may use the enriched id, but the value
+                -- offered to the filter may not - the cache is rewritten whenever a
+                -- lookup corrects an id, and a filter keyed on a cache-only id goes
+                -- from counted to empty without any detection changing (#301).
                 SELECT
                     d.display_name,
                     d.scientific_name,
                     d.common_name,
+                    d.taxa_id AS stored_taxa_id,
                     COALESCE(d.taxa_id, tc.taxa_id) AS taxa_id
                 FROM detections d
                 LEFT JOIN taxonomy_cache tc
@@ -1980,6 +1985,19 @@ class DetectionRepository:
                     AND LOWER(tc.scientific_name) = LOWER(d.scientific_name)
                 WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
                   {start_filter}
+            ),
+            -- The id a filter can safely be keyed on: one some detection row
+            -- actually stores, per species group.
+            group_stored AS (
+                SELECT
+                    COALESCE(
+                        CAST(taxa_id AS TEXT),
+                        LOWER(scientific_name),
+                        LOWER(display_name)
+                    ) AS species_key,
+                    MAX(stored_taxa_id) AS stored_taxa_id
+                FROM species_rows
+                GROUP BY species_key
             ),
             -- The filter bar shows how many detections each option would return, so the
             -- count has to be taken over the same grouping the options are built from.
@@ -2030,10 +2048,11 @@ class DetectionRepository:
                 ranked.display_name,
                 ranked.scientific_name,
                 ranked.common_name,
-                ranked.taxa_id,
+                group_stored.stored_taxa_id AS taxa_id,
                 COALESCE(group_counts.detection_count, 0) AS detection_count
             FROM ranked
             LEFT JOIN group_counts ON group_counts.species_key = ranked.species_key
+            LEFT JOIN group_stored ON group_stored.species_key = ranked.species_key
             WHERE ranked.rn = 1
             ORDER BY ranked.display_name ASC
             """,

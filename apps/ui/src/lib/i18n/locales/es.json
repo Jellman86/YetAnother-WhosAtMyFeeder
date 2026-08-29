@@ -2026,7 +2026,10 @@
     "timeline_keyboard_hint": "Teclado de línea de tiempo: [ día anterior, ] día siguiente, 0 restablecer",
     "row_open": "Abrir {species}",
     "row_select": "Seleccionar {species}",
-    "row_below_threshold": "Por debajo del umbral de identificación"
+    "row_below_threshold": "Por debajo del umbral de identificación",
+    "empty_filtered_title": "Ninguna visita coincide con estos filtros",
+    "empty_filtered_desc": "Tu historial sigue aquí. Amplía el rango de fechas o quita un filtro para verlo.",
+    "empty_filtered_clear": "Quitar todos los filtros"
   },
   "audio": {
     "chart": {

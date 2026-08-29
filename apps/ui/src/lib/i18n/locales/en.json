@@ -2035,7 +2035,10 @@
     "timeline_keyboard_hint": "Timeline keyboard: [ previous day, ] next day, 0 reset",
     "row_open": "Open {species}",
     "row_select": "Select {species}",
-    "row_below_threshold": "Below the naming threshold"
+    "row_below_threshold": "Below the naming threshold",
+    "empty_filtered_title": "No visits match these filters",
+    "empty_filtered_desc": "Your history is still here. Widen the date range or remove a filter to see it.",
+    "empty_filtered_clear": "Clear all filters"
   },
   "audio": {
     "chart": {
