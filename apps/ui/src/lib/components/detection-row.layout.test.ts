@@ -107,6 +107,10 @@ describe('choosing the Explorer layout', () => {
         expect(eventsPageSource).toContain('data-explorer-view-toggle');
         expect(eventsPageSource).toContain('aria-pressed={explorerView === option.value}');
         expect(eventsPageSource).toContain('explorerViewStore.set(');
+        // The segments stretch to the control's full height: `items-center`
+        // on the container left the active pill collapsed to text height,
+        // since a child's h-full has nothing to measure against a min-h parent.
+        expect(eventsPageSource).toContain('min-h-11 items-stretch');
     });
 
     it('is offered in appearance settings beside the other display choices', () => {
