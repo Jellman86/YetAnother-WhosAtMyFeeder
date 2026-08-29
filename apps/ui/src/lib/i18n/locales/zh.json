@@ -938,7 +938,10 @@
       "full_visit_retention": "保证的连续保留期：{days} 天",
       "full_visit_attention_cameras": "需要检查的摄像头",
       "full_visit_supported": "所有 {count} 个所选摄像头均已具备连续录像覆盖。",
-      "full_visit_unavailable": "当前无法获取能力信息。"
+      "full_visit_unavailable": "当前无法获取能力信息。",
+      "external_url": "Frigate 公开 URL",
+      "external_url_desc": "当与上面的服务器地址不同时,浏览器用来打开 Frigate 的地址。用于检测的“在 Frigate 中打开”链接。",
+      "external_url_placeholder": "https://frigate.example.com"
     },
     "cameras": {
       "title": "活动摄像头",

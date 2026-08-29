@@ -183,6 +183,10 @@ def _expand_trusted_hosts(hosts: list[str]) -> list[str]:
 
 class FrigateSettings(BaseModel):
     frigate_url: str = Field(..., description="URL of the Frigate instance")
+    frigate_external_url: str = Field(
+        default="",
+        description="Public/browser-facing base URL of the Frigate web UI (e.g. https://frigate.example.com). Used for the 'open in Frigate' links in the dashboard. Falls back to frigate_url if empty.",
+    )
     frigate_auth_token: Optional[str] = Field(None, description="Optional Bearer token for Frigate proxy auth")
     main_topic: str = "frigate"
     camera: list[str] = Field(default_factory=list, description="List of cameras to monitor")

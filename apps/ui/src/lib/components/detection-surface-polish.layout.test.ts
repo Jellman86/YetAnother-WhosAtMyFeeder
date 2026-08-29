@@ -31,7 +31,11 @@ describe('detection surface polish', () => {
         // never see the address; a retired event gets words instead of a
         // link that lands on an error; and it lives with the technical
         // identifiers behind the disclosure, not on the photograph (#309).
-        expect(detectionModalSource).toContain('settingsStore.settings?.frigate_url');
+        // The browser-facing URL wins when configured, because frigate_url is
+        // often a container address the browser cannot reach.
+        expect(detectionModalSource).toContain(
+            'settingsStore.settings?.frigate_external_url || settingsStore.settings?.frigate_url'
+        );
         expect(detectionModalSource).toContain('/explore?event_id=');
         expect(detectionModalSource).toContain('if (!hasOwnerDetectionActions || isManualObservation) return null;');
         expect(detectionModalSource).toContain('if (missingEventMetadataGone) return null;');

@@ -9179,6 +9179,18 @@
             "default": "inaturalist",
             "title": "Enrichment Taxonomy Source"
           },
+          "frigate_external_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "title": "Frigate External Url"
+          },
           "frigate_missing_behavior": {
             "default": "mark_missing",
             "enum": [
@@ -11069,6 +11081,19 @@
             "default": "inaturalist",
             "description": "Provider for taxonomy/common names",
             "title": "Enrichment Taxonomy Source"
+          },
+          "frigate_external_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": "",
+            "description": "External Frigate base URL (browser\u2192Frigate)",
+            "title": "Frigate External Url"
           },
           "frigate_missing_behavior": {
             "default": "mark_missing",

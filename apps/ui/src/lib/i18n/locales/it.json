@@ -947,7 +947,10 @@
       "full_visit_retention": "Conservazione continua garantita: {days} giorno(i)",
       "full_visit_attention_cameras": "Telecamere che richiedono attenzione",
       "full_visit_supported": "La copertura continua è pronta per tutte le {count} telecamere selezionate.",
-      "full_visit_unavailable": "Le informazioni sulla capacità non sono disponibili in questo momento."
+      "full_visit_unavailable": "Le informazioni sulla capacità non sono disponibili in questo momento.",
+      "external_url": "URL pubblico di Frigate",
+      "external_url_desc": "L'indirizzo che il browser usa per aprire Frigate quando differisce dall'indirizzo del server qui sopra. Usato per il link 'Apri in Frigate' di un rilevamento.",
+      "external_url_placeholder": "https://frigate.example.com"
     },
     "cameras": {
       "title": "Telecamere Attive",

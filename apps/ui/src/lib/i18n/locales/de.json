@@ -938,7 +938,10 @@
       "full_visit_retention": "Garantierte durchgehende Aufbewahrung: {days} Tag(e)",
       "full_visit_attention_cameras": "Kameras mit Handlungsbedarf",
       "full_visit_supported": "Für alle {count} ausgewählten Kameras ist die durchgehende Abdeckung bereit.",
-      "full_visit_unavailable": "Fähigkeitsinformationen sind derzeit nicht verfügbar."
+      "full_visit_unavailable": "Fähigkeitsinformationen sind derzeit nicht verfügbar.",
+      "external_url": "Öffentliche Frigate-URL",
+      "external_url_desc": "Die Adresse, über die dein Browser Frigate öffnet, wenn sie von der Serveradresse oben abweicht. Wird für den Link 'In Frigate öffnen' einer Erkennung verwendet.",
+      "external_url_placeholder": "https://frigate.example.com"
     },
     "cameras": {
       "title": "Aktive Kameras",

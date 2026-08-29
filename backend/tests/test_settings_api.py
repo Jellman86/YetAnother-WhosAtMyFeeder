@@ -165,6 +165,43 @@ async def test_settings_roundtrip_birdnet_internal_and_external_urls(client: htt
 
 
 @pytest.mark.asyncio
+async def test_settings_roundtrip_frigate_external_url(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    get_before = await client.get("/api/settings")
+    assert get_before.status_code == 200, get_before.text
+    before_payload = get_before.json()
+
+    assert "frigate_external_url" in before_payload
+
+    update_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+        "frigate_external_url": " https://frigate.example.com/ ",
+    }
+    post_resp = await client.post("/api/settings", json=update_payload)
+    assert post_resp.status_code == 200, post_resp.text
+
+    get_after = await client.get("/api/settings")
+    assert get_after.status_code == 200, get_after.text
+    after_payload = get_after.json()
+    assert after_payload["frigate_external_url"] == "https://frigate.example.com"
+
+    omitting_payload = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+    }
+    post_resp = await client.post("/api/settings", json=omitting_payload)
+    assert post_resp.status_code == 200, post_resp.text
+
+    get_final = await client.get("/api/settings")
+    assert get_final.json()["frigate_external_url"] == "https://frigate.example.com"
+
+
+@pytest.mark.asyncio
 async def test_settings_rejects_enabling_auth_without_password(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.auth.password_hash = None

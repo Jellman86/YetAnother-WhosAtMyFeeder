@@ -22,6 +22,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **A browser-facing Frigate URL, so the "open in Frigate" link actually opens.** The detection's
+  Frigate link is built from the configured server URL, which on most Docker installs is a
+  container address like `http://frigate:5000` that a browser cannot reach. Connection settings
+  now take an optional public Frigate URL (also `FRIGATE__FRIGATE_EXTERNAL_URL`), and the link
+  prefers it, falling back to the server URL when it is not set — the same split BirdNET-Go
+  already has.
+
 - **An owner can open a detection's originating Frigate event.** A detection came from a Frigate
   event, and there was no way to get from one to the other: finding the clip or timeline meant
   searching Frigate by camera and time
