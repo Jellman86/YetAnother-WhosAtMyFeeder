@@ -79,6 +79,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Reduce Motion now actually reduces motion.** The setting applied a `reduced-motion` class that
+  no stylesheet carried a rule for, so a control described as disabling animations changed exactly
+  one sparkline — the same defect the zen mode toggle was removed for. The class now applies the
+  same suppression as the `prefers-reduced-motion` media rules, because the in-app setting must
+  work for a reader whose operating-system preference it cannot see, and the scripts that gate
+  their own motion (the footer, the species collage) honour the class as well as the media query.
+
+- **An abandoned accessibility preview no longer sticks to the whole app.** Flipping High Contrast,
+  the dyslexia font, or Reduce Motion in Settings previewed live by toggling classes on the
+  document root with nothing to undo it: leave the page without saving and the preview stayed, on
+  every page, until a reload. The editor now publishes its unsaved state and clears it on the way
+  out, and the app root — the one owner of those classes — applies the preview while it exists and
+  the saved value the moment it does not. Opening the tab also no longer strips a saved-on setting
+  while the settings are still loading.
+
 - **The list row's hover preview now survives the scroll that opens it.** Focusing a thumbnail
   below the fold scrolls it into view, and the preview closed itself on that very scroll — the
   keyboard path silently did nothing for exactly the rows that needed scrolling. The panel now

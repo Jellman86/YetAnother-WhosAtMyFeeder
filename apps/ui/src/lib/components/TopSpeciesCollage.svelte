@@ -53,7 +53,7 @@
         if (typeof window === 'undefined') return;
         const query = window.matchMedia('(prefers-reduced-motion: reduce)');
         const syncPreference = () => {
-            reduceMotion = query.matches;
+            reduceMotion = query.matches || document.documentElement.classList.contains('reduced-motion');
         };
         syncPreference();
         query.addEventListener('change', syncPreference);

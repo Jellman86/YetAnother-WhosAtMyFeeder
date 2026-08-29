@@ -659,6 +659,26 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
   }
 }
 
+/* The owner's Reduce Motion setting applies the same suppression by class.
+   The media query only honours the OS preference; the in-app control has to
+   work for a reader whose OS setting it cannot see. */
+.reduced-motion *,
+.reduced-motion *::before,
+.reduced-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+.reduced-motion .status-pulse::after {
+  animation: none !important;
+}
+
+.reduced-motion .animate-ping {
+  animation: none !important;
+}
+
 /* Screen reader only - hides visually but keeps for assistive tech */
 .sr-only {
   position: absolute;
