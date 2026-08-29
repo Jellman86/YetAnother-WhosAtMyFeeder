@@ -24,9 +24,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   name, one state chip, and its costs — download size plus a RAM meter drawn against the heaviest
   model in the lineup, so the bars compare models to each other. The selected card carries a soft
   animated aurora (GPU-composited, stilled under reduced motion). The dossier below slimmed to a
-  description, a Memory footprint meter that also states the total across the configured worker
-  copies, and the threshold hint; recommended-for, best-fit, and notes moved into Technical
-  details.
+  description, a predicted-RAM meter, and the threshold hint; recommended-for, best-fit, and
+  notes moved into Technical details. The prediction is honest arithmetic — model RAM × process
+  mode × worker concurrency: isolated workers multiply by the resolved live + background counts,
+  in-process is one shared copy, and the caption states the formula. The aurora is a shared kit
+  effect and also plays behind the status band; the Models header lost its duplicate subtitle,
+  the GPU guide shrank to one link line, and the execution-mode explainer was cut to two
+  sentences.
 
 - **The notification policy reads as one sentence, and every word of it is the control.** The
   Notifications tab opened on a preset grid, a confidence slider, an advanced disclosure hiding

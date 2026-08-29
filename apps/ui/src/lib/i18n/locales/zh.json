@@ -1290,7 +1290,7 @@
       "selected_provider_label": "已选择",
       "openvino_status": "OpenVINO",
       "execution_mode": "执行模式",
-      "execution_mode_desc": "In-Process 通过共享模型权重可显著降低 RAM 占用，尤其是在较大模型下。Subprocess 提供更强的隔离性和稳定性，但会明显占用更多内存。",
+      "execution_mode_desc": "默认的隔离工作进程在分类卡死或崩溃时可安全重启;每个工作进程持有自己的模型副本。进程内模式在应用内共享一份副本:内存更少,隔离也更弱。",
       "execution_mode_worker_plan": "此安装解析结果：{live} 个实时工作进程和 {background} 个后台工作进程，每个都持有模型的独立副本。",
       "execution_mode_worker_ram": "当前模型估计每个副本约占 {each} MB，所有工作进程合计约 {total} MB。",
       "mode_subprocess": "Subprocess（隔离）",
@@ -1473,9 +1473,10 @@
       "model_manager_state_available": "可用",
       "model_manager_card_download": "下载 {size} MB",
       "model_manager_card_ram_label": "每个工作进程副本的估计内存:{ram}",
-      "model_manager_memory_title": "内存占用",
-      "model_manager_memory_per_copy": "每份副本 {ram}",
-      "model_manager_memory_total": "按当前配置 {count} 份副本共约 {total}"
+      "model_manager_memory_title": "预计内存占用",
+      "model_manager_memory_predicted": "约 {total}",
+      "model_manager_memory_formula_subprocess": "每份 {per} × {live} 个实时 + {background} 个后台(隔离模式)",
+      "model_manager_memory_formula_in_process": "应用内共享一份,共 {per}(进程内模式)"
     },
     "llm": {
       "title": "AI 洞察",

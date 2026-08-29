@@ -702,3 +702,49 @@ html.theme-bluetit.dark .ai-markdown-surface th { color: rgb(191 219 254); }
   clip: auto;
   white-space: normal;
 }
+
+/* Decorative aurora shared by highlighted cards (selected model card, the
+   Detection status band): corner tints plus a flag-like ripple of faint
+   diagonal bands swaying sideways. Transform-only, so it stays on the
+   compositor; stilled entirely under prefers-reduced-motion. Hosts set
+   `relative overflow-hidden` and keep their content on a stacking layer. */
+.card-aurora {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 100% at 12% 0%, rgb(59 130 246 / 0.14), transparent 55%),
+    radial-gradient(110% 90% at 90% 100%, rgb(45 212 191 / 0.16), transparent 55%),
+    radial-gradient(70% 60% at 75% 15%, rgb(129 140 248 / 0.09), transparent 60%);
+}
+
+.card-aurora::after {
+  content: '';
+  position: absolute;
+  inset: -40% -35%;
+  background: repeating-linear-gradient(
+    104deg,
+    transparent 0px,
+    transparent 28px,
+    rgb(59 130 246 / 0.05) 42px,
+    rgb(45 212 191 / 0.07) 56px,
+    transparent 70px,
+    transparent 96px
+  );
+  animation: card-aurora-ripple 9s ease-in-out infinite alternate;
+}
+
+@keyframes card-aurora-ripple {
+  from {
+    transform: translateX(-4%) skewY(-1deg);
+  }
+  to {
+    transform: translateX(4%) skewY(1deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-aurora::after {
+    animation: none;
+  }
+}

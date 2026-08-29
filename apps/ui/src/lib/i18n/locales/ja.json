@@ -1290,7 +1290,7 @@
       "selected_provider_label": "選択",
       "openvino_status": "OpenVINO",
       "execution_mode": "実行モード",
-      "execution_mode_desc": "In-Process はモデルの重みを共有するため、特に大きなモデルで RAM 使用量を大きく抑えられます。Subprocess はより強い分離性と安定性を提供しますが、使用メモリは大幅に増えます。",
+      "execution_mode_desc": "既定の分離ワーカーは、分類が停止してもアプリを巻き込まず安全に再起動します。各ワーカーはモデルのコピーを保持します。インプロセスはアプリ内で1コピーを共有し、メモリは少なく、分離も弱くなります。",
       "execution_mode_worker_plan": "このインストールでの解決結果: ライブ {live}、バックグラウンド {background} のワーカープロセスが動作し、それぞれがモデルのコピーを保持します。",
       "execution_mode_worker_ram": "アクティブなモデルはコピーあたり約 {each} MB、ワーカー全体で約 {total} MB と推定されます。",
       "mode_subprocess": "Subprocess（隔離）",
@@ -1473,9 +1473,10 @@
       "model_manager_state_available": "利用可能",
       "model_manager_card_download": "ダウンロード {size} MB",
       "model_manager_card_ram_label": "ワーカーコピーあたりの推定メモリ: {ram}",
-      "model_manager_memory_title": "メモリ使用量",
-      "model_manager_memory_per_copy": "コピーあたり{ram}",
-      "model_manager_memory_total": "設定中の{count}コピー合計で約{total}"
+      "model_manager_memory_title": "予測RAM使用量",
+      "model_manager_memory_predicted": "約 {total}",
+      "model_manager_memory_formula_subprocess": "コピーあたり{per} × ライブ{live}+バックグラウンド{background}(分離モード)",
+      "model_manager_memory_formula_in_process": "アプリ内共有の1コピーで{per}(インプロセスモード)"
     },
     "llm": {
       "title": "AI インサイト",

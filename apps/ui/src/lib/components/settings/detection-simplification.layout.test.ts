@@ -1,3 +1,5 @@
+// @ts-nocheck — this source audit runs under Vitest's Node environment; Node types are
+// intentionally absent from the browser application tsconfig.
 import { describe, expect, it } from 'vitest';
 
 import diagnosticDialogSource from '../DiagnosticDialog.svelte?raw';
@@ -5,6 +7,12 @@ import advancedSectionSource from './_primitives/AdvancedSection.svelte?raw';
 import detectionSettingsSource from './DetectionSettings.svelte?raw';
 import statusBandSource from './DetectionStatusBand.svelte?raw';
 import modelManagerSource from '../../pages/models/ModelManager.svelte?raw';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+// vitest stubs CSS ?raw imports to an empty string, so the kit stylesheet is
+// read from disk (same approach as the code-quality source audits).
+const appCss = readFileSync(resolve(__dirname, '../../../app.css'), 'utf-8');
 
 describe('Detection settings, status first', () => {
     it('opens with the status band: model, runtime, workers, health', () => {
@@ -68,10 +76,12 @@ describe('Detection settings, status first', () => {
         expect(modelManagerSource).toContain('model-ram-meter');
         expect(modelManagerSource).toContain('ramShortLabel(modelOption.estimated_ram_mb)');
         expect(modelManagerSource).toContain('lineupMaxRam(classifierModels)');
-        // The selected card's aurora is decorative, GPU-composited, and stilled
-        // for reduced motion.
-        expect(modelManagerSource).toContain('model-card-aurora');
-        expect(modelManagerSource).toContain('prefers-reduced-motion');
+        // The shared aurora (kit class, see app.css) marks the selected card
+        // and the status band, and is stilled for reduced motion.
+        expect(modelManagerSource).toContain('class="card-aurora" aria-hidden="true"');
+        expect(statusBandSource).toContain('class="card-aurora" aria-hidden="true"');
+        expect(appCss).toContain('.card-aurora');
+        expect(appCss).toContain('prefers-reduced-motion');
     });
 
     it('retains visible warnings and gold-standard interaction sizing', () => {

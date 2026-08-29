@@ -1290,7 +1290,7 @@
       "selected_provider_label": "Sélectionné",
       "openvino_status": "OpenVINO",
       "execution_mode": "Mode d'exécution",
-      "execution_mode_desc": "In-Process utilise bien moins de RAM en partageant les poids du modèle, surtout avec les modèles volumineux. Subprocess offre une isolation et une stabilité plus fortes, mais consomme nettement plus de mémoire.",
+      "execution_mode_desc": "Les processus isolés, par défaut, redémarrent sans risque si une classification se bloque ; chaque processus détient sa propre copie du modèle. Le mode intégré partage une seule copie dans l'application : moins de mémoire, moins d'isolation.",
       "execution_mode_worker_plan": "Résolu pour cette installation : {live} processus de travail en direct et {background} en arrière-plan, chacun avec sa propre copie du modèle.",
       "execution_mode_worker_ram": "Le modèle actif est estimé à {each} Mo par copie, soit environ {total} Mo pour l'ensemble des processus.",
       "mode_subprocess": "Subprocess (Isolé)",
@@ -1473,9 +1473,10 @@
       "model_manager_state_available": "Disponible",
       "model_manager_card_download": "{size} Mo à télécharger",
       "model_manager_card_ram_label": "Mémoire estimée par copie du processus : {ram}",
-      "model_manager_memory_title": "Empreinte mémoire",
-      "model_manager_memory_per_copy": "{ram} par copie du processus",
-      "model_manager_memory_total": "environ {total} pour {count} copies selon la configuration"
+      "model_manager_memory_title": "Utilisation RAM prévue",
+      "model_manager_memory_predicted": "≈ {total}",
+      "model_manager_memory_formula_subprocess": "{per} par copie × {live} en direct + {background} en arrière-plan (mode isolé)",
+      "model_manager_memory_formula_in_process": "{per} pour une copie partagée dans l'application (mode intégré)"
     },
     "llm": {
       "title": "Analyses IA",

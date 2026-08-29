@@ -1299,7 +1299,7 @@
       "selected_provider_label": "Выбран",
       "openvino_status": "OpenVINO",
       "execution_mode": "Режим выполнения",
-      "execution_mode_desc": "In-Process использует значительно меньше оперативной памяти за счет общих весов модели, особенно на крупных моделях. Subprocess дает более сильную изоляцию и стабильность, но требует заметно больше памяти.",
+      "execution_mode_desc": "Изолированные процессы, вариант по умолчанию, безопасно перезапускаются при сбое; каждый процесс держит свою копию модели. Встроенный режим делит одну копию внутри приложения: меньше памяти, меньше изоляции.",
       "execution_mode_worker_plan": "Для этой установки определено: {live} рабочих процессов для живой классификации и {background} фоновых, каждый со своей копией модели.",
       "execution_mode_worker_ram": "Активная модель занимает примерно {each} МБ на копию, всего около {total} МБ на все процессы.",
       "mode_subprocess": "Subprocess (изолированный)",
@@ -1482,9 +1482,10 @@
       "model_manager_state_available": "Доступна",
       "model_manager_card_download": "{size} МБ загрузки",
       "model_manager_card_ram_label": "Оценка памяти на копию процесса: {ram}",
-      "model_manager_memory_title": "Потребление памяти",
-      "model_manager_memory_per_copy": "{ram} на копию процесса",
-      "model_manager_memory_total": "около {total} на {count} копий согласно настройкам"
+      "model_manager_memory_title": "Прогноз использования ОЗУ",
+      "model_manager_memory_predicted": "≈ {total}",
+      "model_manager_memory_formula_subprocess": "{per} на копию × {live} онлайн + {background} в фоне (изолированный режим)",
+      "model_manager_memory_formula_in_process": "{per} за одну копию внутри приложения (встроенный режим)"
     },
     "llm": {
       "title": "ИИ-аналитика",

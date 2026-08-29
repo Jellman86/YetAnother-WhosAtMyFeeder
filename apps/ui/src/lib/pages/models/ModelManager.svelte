@@ -8,6 +8,8 @@
     import { getRuntimeProviderOrder } from '../../settings/inference-providers';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
+    let { executionMode = 'subprocess' }: { executionMode?: string } = $props();
+
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
     let health = $state<HealthStatus | null>(null);
@@ -518,11 +520,14 @@
         return Math.max(6, Math.round((ramMb / maxRam) * 100));
     }
 
-    function configuredWorkerCount(): number {
-        return (
-            (classifierStatus?.resolved_live_workers ?? 1) +
-            (classifierStatus?.resolved_background_workers ?? 1)
-        );
+    // The prediction is model × process mode × concurrency: in-process shares
+    // one copy inside the app; isolated workers each hold their own, so the
+    // resolved live + background counts are the multiplier.
+    function predictedCopies(): { copies: number; live: number; background: number } {
+        if (executionMode === 'in_process') return { copies: 1, live: 0, background: 0 };
+        const live = classifierStatus?.resolved_live_workers ?? 1;
+        const background = classifierStatus?.resolved_background_workers ?? 1;
+        return { copies: live + background, live, background };
     }
 
     type ModelCardState = 'active' | 'repair' | 'installed' | 'available';
@@ -570,24 +575,6 @@
 </script>
 
 <div class="space-y-6">
-    <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <p class="max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-            {$_('settings.detection.model_manager_subtitle', { default: 'Recommended models are shown by default. Lower-performing and niche options are hidden until you need them.' })}
-        </p>
-        <button
-            type="button"
-            onclick={loadData}
-            class="btn btn-secondary min-h-11 px-4 self-start"
-            aria-label={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
-            title={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
-        >
-            <svg class="h-4 w-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" />
-            </svg>
-            {$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
-        </button>
-    </header>
-
     {#if loading}
         <div class="flex min-h-32 items-center justify-center" role="status">
             <div class="h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-t-transparent"></div>
@@ -618,12 +605,23 @@
             <div class="border-b border-slate-200/80 bg-gradient-to-r from-brand-50/80 via-accent-50/35 to-white p-5 dark:border-slate-700/80 dark:from-brand-950/30 dark:via-accent-950/10 dark:to-slate-900 sm:p-6">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                     <div class="flex-1">
-                        <p id="classifier-model-lineup-label" class="block text-base font-bold text-slate-900 dark:text-white">
-                            {$_('settings.detection.model_manager_select_label', { default: 'Choose the identification model' })}
-                        </p>
-                        <p class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-                            {$_('settings.detection.model_manager_lineup_desc', { default: 'Recommended models are shown first. Lower-performing and niche options are collapsed below.' })}
-                        </p>
+                        <div class="flex items-center justify-between gap-3">
+                            <p id="classifier-model-lineup-label" class="block text-base font-bold text-slate-900 dark:text-white">
+                                {$_('settings.detection.model_manager_select_label', { default: 'Choose the identification model' })}
+                            </p>
+                            <button
+                                type="button"
+                                onclick={loadData}
+                                class="btn btn-ghost inline-flex min-h-11 items-center gap-1.5 px-3 text-xs font-bold"
+                                aria-label={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
+                                title={$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
+                            >
+                                <svg class="h-4 w-4 {loading ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 0 0 4.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 0 1-15.357-2m15.357 2H15" />
+                                </svg>
+                                {$_('settings.detection.model_manager_refresh', { default: 'Refresh' })}
+                            </button>
+                        </div>
                         <div class="mt-3 space-y-4" aria-labelledby="classifier-model-lineup-label">
                             {#each modelGroups as group (group.category)}
                                 <div>
@@ -640,7 +638,7 @@
                                                 class="model-card relative flex h-full min-h-11 cursor-pointer flex-col gap-2.5 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'model-card-selected border-brand-500 shadow-md dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
                                             >
                                                 {#if cardSelected}
-                                                    <span class="model-card-aurora" aria-hidden="true"></span>
+                                                    <span class="card-aurora" aria-hidden="true"></span>
                                                 {/if}
                                                 <span class="relative flex items-start justify-between gap-2">
                                                     <span class="text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
@@ -750,22 +748,34 @@
                             {/if}
 
                             {#if model.estimated_ram_mb != null}
-                                {@const dossierWorkers = configuredWorkerCount()}
+                                {@const prediction = predictedCopies()}
+                                {@const predictedTotalMb = model.estimated_ram_mb * prediction.copies}
                                 <div class="mt-6">
                                     <div class="flex items-baseline justify-between gap-4">
-                                        <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.model_manager_memory_title', { default: 'Memory footprint' })}</span>
-                                        <span class="text-sm font-medium text-slate-500 dark:text-slate-400">
-                                            {$_('settings.detection.model_manager_memory_per_copy', { values: { ram: ramShortLabel(model.estimated_ram_mb) }, default: '{ram} per worker copy' })}
+                                        <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.model_manager_memory_title', { default: 'Predicted RAM use' })}</span>
+                                        <span class="text-sm font-bold text-slate-800 dark:text-slate-100">
+                                            {$_('settings.detection.model_manager_memory_predicted', { values: { total: ramShortLabel(predictedTotalMb) }, default: '≈ {total}' })}
                                         </span>
                                     </div>
                                     <div class="model-ram-meter mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/60">
-                                        <div class="h-full rounded-full bg-gradient-to-r from-brand-400 to-accent-500" style="width: {ramPercent(model.estimated_ram_mb, maxLineupRam)}%"></div>
+                                        <div class="h-full rounded-full bg-gradient-to-r from-brand-400 to-accent-500" style="width: {ramPercent(predictedTotalMb, maxLineupRam * Math.max(1, prediction.copies))}%"></div>
                                     </div>
                                     <p class="mt-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
-                                        {$_('settings.detection.model_manager_memory_total', {
-                                            values: { total: ramShortLabel(model.estimated_ram_mb * dossierWorkers), count: dossierWorkers },
-                                            default: 'about {total} across {count} worker copies as configured'
-                                        })}
+                                        {#if executionMode === 'in_process'}
+                                            {$_('settings.detection.model_manager_memory_formula_in_process', {
+                                                values: { per: ramShortLabel(model.estimated_ram_mb) },
+                                                default: '{per} for one copy shared inside the app (in-process mode)'
+                                            })}
+                                        {:else}
+                                            {$_('settings.detection.model_manager_memory_formula_subprocess', {
+                                                values: {
+                                                    per: ramShortLabel(model.estimated_ram_mb),
+                                                    live: prediction.live,
+                                                    background: prediction.background
+                                                },
+                                                default: '{per} per copy × {live} live + {background} background workers (isolated mode)'
+                                            })}
+                                        {/if}
                                         · {$_('settings.detection.model_manager_card_download', { values: { size: model.file_size_mb }, default: '{size} MB download' })}
                                     </p>
                                 </div>
@@ -1033,45 +1043,12 @@
 {/if}
 
 <style>
-    /* The selected card carries a soft, GPU-composited aurora: layered radial
-       tints plus one slowly rotating conic sheen (transform-only, so it stays
-       on the compositor), stilled entirely under prefers-reduced-motion. */
+    /* The selected card gets an opaque-enough ground for the shared aurora
+       (see .card-aurora in app.css) to read on both themes. */
     .model-card-selected {
         background-color: rgb(255 255 255 / 0.85);
     }
     :global(.dark) .model-card-selected {
         background-color: rgb(15 23 42 / 0.75);
-    }
-    .model-card-aurora {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        background:
-            radial-gradient(120% 100% at 12% 0%, rgb(59 130 246 / 0.16), transparent 55%),
-            radial-gradient(110% 90% at 90% 100%, rgb(45 212 191 / 0.18), transparent 55%),
-            radial-gradient(70% 60% at 75% 15%, rgb(129 140 248 / 0.1), transparent 60%);
-    }
-    .model-card-aurora::after {
-        content: '';
-        position: absolute;
-        inset: -60% -30%;
-        background: conic-gradient(
-            from 180deg at 50% 50%,
-            transparent 0deg,
-            rgb(59 130 246 / 0.08) 80deg,
-            rgb(45 212 191 / 0.1) 160deg,
-            transparent 240deg
-        );
-        animation: model-card-aurora-drift 14s linear infinite;
-    }
-    @keyframes model-card-aurora-drift {
-        to {
-            transform: rotate(1turn);
-        }
-    }
-    @media (prefers-reduced-motion: reduce) {
-        .model-card-aurora::after {
-            animation: none;
-        }
     }
 </style>

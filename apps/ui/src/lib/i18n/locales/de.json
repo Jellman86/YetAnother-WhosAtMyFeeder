@@ -1290,7 +1290,7 @@
       "selected_provider_label": "Ausgewählt",
       "openvino_status": "OpenVINO",
       "execution_mode": "Ausführungsmodus",
-      "execution_mode_desc": "In-Process spart deutlich RAM durch das Teilen der Modellgewichte, besonders bei größeren Modellen. Subprocess bietet stärkere Isolation und Stabilität, benötigt aber deutlich mehr Speicher.",
+      "execution_mode_desc": "Isolierte Worker, der Standard, starten bei einem Absturz sicher neu; jeder Worker hält eine eigene Kopie des Modells. In-Prozess teilt eine Kopie in der App: weniger Speicher, weniger Isolation.",
       "execution_mode_worker_plan": "Für diese Installation aufgelöst: {live} Live- und {background} Hintergrund-Workerprozesse, jeder mit einer eigenen Kopie des Modells.",
       "execution_mode_worker_ram": "Das aktive Modell wird auf {each} MB pro Kopie geschätzt, insgesamt etwa {total} MB über alle Worker.",
       "mode_subprocess": "Subprocess (Isoliert)",
@@ -1473,9 +1473,10 @@
       "model_manager_state_available": "Verfügbar",
       "model_manager_card_download": "{size} MB Download",
       "model_manager_card_ram_label": "Geschätzter Speicher pro Worker-Kopie: {ram}",
-      "model_manager_memory_title": "Speicherbedarf",
-      "model_manager_memory_per_copy": "{ram} pro Worker-Kopie",
-      "model_manager_memory_total": "etwa {total} über {count} Kopien wie konfiguriert"
+      "model_manager_memory_title": "Vorhergesagter RAM-Bedarf",
+      "model_manager_memory_predicted": "≈ {total}",
+      "model_manager_memory_formula_subprocess": "{per} pro Kopie × {live} live + {background} im Hintergrund (isolierter Modus)",
+      "model_manager_memory_formula_in_process": "{per} für eine in der App geteilte Kopie (In-Prozess-Modus)"
     },
     "llm": {
       "title": "KI-Einblicke",
