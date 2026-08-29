@@ -42,12 +42,13 @@
      is four calm facts, and only trouble grows words. -->
 <div
     role="status"
-    class="grid grid-cols-2 gap-4 rounded-2xl border border-brand-500/25 bg-white/60 p-4 dark:bg-slate-900/40 lg:grid-cols-4"
+    class="relative grid grid-cols-2 gap-4 overflow-hidden rounded-2xl border border-brand-500/25 bg-white/60 p-4 dark:bg-slate-900/40 lg:grid-cols-4"
 >
+    <span class="card-aurora" aria-hidden="true"></span>
     <button
         type="button"
         onclick={() => jumpTo(modelsAnchorId)}
-        class="group flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        class="group relative flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
     >
         <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_model')}</span>
         <span class="break-all text-sm font-bold text-slate-900 group-hover:text-brand-700 dark:text-white dark:group-hover:text-brand-300">
@@ -62,7 +63,7 @@
         </span>
     </button>
 
-    <div class="flex flex-col gap-0.5">
+    <div class="relative flex flex-col gap-0.5">
         <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime')}</span>
         <span class="text-sm font-bold text-slate-900 dark:text-white">{activeProviderLabel}</span>
         {#if classifierStatus?.fallback_reason}
@@ -77,7 +78,7 @@
         {/if}
     </div>
 
-    <div class="flex flex-col gap-0.5">
+    <div class="relative flex flex-col gap-0.5">
         <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_workers')}</span>
         {#if imageExecutionMode === 'in_process'}
             <span class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.detection.band_in_process')}</span>
@@ -99,7 +100,7 @@
     <button
         type="button"
         onclick={() => jumpTo(reportAnchorId)}
-        class="group flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        class="group relative flex min-h-11 cursor-pointer flex-col gap-0.5 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
     >
         <span class="text-xs font-black uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">{$_('settings.detection.band_health')}</span>
         {#if issueCount > 0}

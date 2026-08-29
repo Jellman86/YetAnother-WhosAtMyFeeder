@@ -798,19 +798,13 @@
                     href={GPU_DOCS_URL}
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="group flex items-center justify-between gap-3 rounded-2xl border border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-900/50 px-4 py-3 hover:border-brand-500/40 transition-colors"
+                    class="inline-flex min-h-11 items-center gap-1.5 text-xs font-bold text-brand-700 hover:underline dark:text-brand-300"
                 >
-                    <div class="min-w-0">
-                        <p class="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{$_('common.github', { default: 'GitHub' })}</p>
-                        <p class="text-xs font-bold text-slate-700 dark:text-slate-200 leading-tight">{$_('settings.detection.gpu_setup_docs', { default: 'GPU setup & diagnostics guide' })}</p>
-                    </div>
-                    <span class="inline-flex shrink-0 items-center gap-1 text-xs font-black uppercase tracking-wide text-brand-700 dark:text-brand-300">
-                        <span>{$_('common.show', { default: 'Show' })}</span>
-                        <svg class="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h4m0 0v4m0-4L10 14" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9v10h10" />
-                        </svg>
-                    </span>
+                    {$_('settings.detection.gpu_setup_docs', { default: 'GPU setup & diagnostics guide' })}
+                    <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h4m0 0v4m0-4L10 14" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 9v10h10" />
+                    </svg>
                 </a>
 
                 {#if classifierStatus && ((classifierStatus.host_available_providers?.length ?? classifierStatus.available_providers?.length ?? 0) > 0)}
@@ -1015,7 +1009,7 @@
         title={$_('settings.detection.models_card_title', { default: 'Models' })}
     >
         <div id={MODELS_CARD_ID} class="scroll-mt-24">
-            <ModelManager />
+            <ModelManager executionMode={imageExecutionMode} />
         </div>
     </SettingsCard>
 

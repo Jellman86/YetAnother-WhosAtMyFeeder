@@ -20,6 +20,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   RAM per worker copy — with the full dossier and guided install below. The dev server now also
   proxies `/health`, so the model library loads in local development.
 
+- **Model cards got quieter, and memory became a picture.** Each model card now carries only its
+  name, one state chip, and its costs — download size plus a RAM meter drawn against the heaviest
+  model in the lineup, so the bars compare models to each other. The selected card carries a soft
+  animated aurora (GPU-composited, stilled under reduced motion). The dossier below slimmed to a
+  description, a predicted-RAM meter, and the threshold hint; recommended-for, best-fit, and
+  notes moved into Technical details. The prediction is honest arithmetic — model RAM × process
+  mode × worker concurrency: isolated workers multiply by the resolved live + background counts,
+  in-process is one shared copy, and the caption states the formula. The aurora is a shared kit
+  effect and also plays behind the status band; the Models header lost its duplicate subtitle,
+  the GPU guide shrank to one link line, and the execution-mode explainer was cut to two
+  sentences.
+
 - **The notification policy reads as one sentence, and every word of it is the control.** The
   Notifications tab opened on a preset grid, a confidence slider, an advanced disclosure hiding
   three trigger toggles, and a separate audio-only panel — five surfaces all describing one

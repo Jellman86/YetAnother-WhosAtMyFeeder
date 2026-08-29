@@ -1299,7 +1299,7 @@
       "selected_provider_label": "Selezionato",
       "openvino_status": "OpenVINO",
       "execution_mode": "Modalità di esecuzione",
-      "execution_mode_desc": "In-Process usa molta meno RAM condividendo i pesi del modello, soprattutto con modelli più grandi. Subprocess offre isolamento e stabilità maggiori, ma usa molta più memoria.",
+      "execution_mode_desc": "I processi isolati, impostazione predefinita, si riavviano in sicurezza se una classificazione si blocca; ogni processo ha la propria copia del modello. In-process condivide una sola copia nell'app: meno memoria, meno isolamento.",
       "execution_mode_worker_plan": "Risolto per questa installazione: {live} processi worker live e {background} in background, ognuno con la propria copia del modello.",
       "execution_mode_worker_ram": "Il modello attivo è stimato in {each} MB per copia, circa {total} MB tra tutti i worker.",
       "mode_subprocess": "Subprocess (Isolato)",
@@ -1479,7 +1479,13 @@
       "models_card_title": "Modelli",
       "model_manager_state_repair": "Riparazione necessaria",
       "model_manager_state_installed": "Installato",
-      "model_manager_state_available": "Disponibile"
+      "model_manager_state_available": "Disponibile",
+      "model_manager_card_download": "{size} MB di download",
+      "model_manager_card_ram_label": "Memoria stimata per copia del processo: {ram}",
+      "model_manager_memory_title": "Uso RAM previsto",
+      "model_manager_memory_predicted": "≈ {total}",
+      "model_manager_memory_formula_subprocess": "{per} per copia × {live} dal vivo + {background} in background (modalità isolata)",
+      "model_manager_memory_formula_in_process": "{per} per una copia condivisa nell'app (modalità in-process)"
     },
     "llm": {
       "title": "Analisi IA",

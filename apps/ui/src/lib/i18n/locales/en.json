@@ -1305,7 +1305,7 @@
       "provider_fallback_reason": "Fallback:",
       "model_config_warning": "Model config warning:",
       "execution_mode": "Execution Mode",
-      "execution_mode_desc": "Subprocess, the default, identifies birds in worker processes the app can restart, so a stalled or crashed identification never takes the interface down. One worker runs by default; each additional worker you configure holds its own copy of the model in memory. In-Process keeps a single copy inside the app itself: less memory, but heavy identification competes with the pages you are looking at.",
+      "execution_mode_desc": "Isolated workers, the default, restart safely if a classification stalls or crashes; each worker holds its own copy of the model. In-process shares one copy inside the app: less memory, less isolation.",
       "execution_mode_worker_plan": "Resolved for this install: {live} live and {background} background worker processes, each with its own copy of the model.",
       "execution_mode_worker_ram": "The active model is estimated at {each} MB per copy, about {total} MB across the workers.",
       "mode_subprocess": "Subprocess (Isolated)",
@@ -1479,7 +1479,13 @@
       "models_card_title": "Models",
       "model_manager_state_repair": "Repair needed",
       "model_manager_state_installed": "Installed",
-      "model_manager_state_available": "Available"
+      "model_manager_state_available": "Available",
+      "model_manager_card_download": "{size} MB download",
+      "model_manager_card_ram_label": "Estimated memory per worker copy: {ram}",
+      "model_manager_memory_title": "Predicted RAM use",
+      "model_manager_memory_predicted": "≈ {total}",
+      "model_manager_memory_formula_subprocess": "{per} per copy × {live} live + {background} background workers (isolated mode)",
+      "model_manager_memory_formula_in_process": "{per} for one copy shared inside the app (in-process mode)"
     },
     "llm": {
       "title": "AI Insights",
