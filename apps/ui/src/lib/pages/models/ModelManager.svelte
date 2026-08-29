@@ -499,6 +499,42 @@
         return runInstallWizard(model, { download: false });
     }
 
+    type ModelCardState = 'active' | 'repair' | 'installed' | 'available';
+
+    function modelCardState(modelId: string): ModelCardState {
+        if (isActive(modelId)) return 'active';
+        const installed = getInstalledModel(modelId);
+        if (installed?.ready === false) return 'repair';
+        if (installed) return 'installed';
+        return 'available';
+    }
+
+    function modelCardStateLabel(state: ModelCardState): string {
+        switch (state) {
+            case 'active':
+                return t('settings.detection.model_manager_active', 'Active');
+            case 'repair':
+                return t('settings.detection.model_manager_state_repair', 'Repair needed');
+            case 'installed':
+                return t('settings.detection.model_manager_state_installed', 'Installed');
+            default:
+                return t('settings.detection.model_manager_state_available', 'Available');
+        }
+    }
+
+    function modelCardStateClass(state: ModelCardState): string {
+        switch (state) {
+            case 'active':
+                return 'border-brand-500/30 bg-brand-100 text-brand-800 dark:bg-brand-950/60 dark:text-brand-200';
+            case 'repair':
+                return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+            case 'installed':
+                return 'border-slate-400/30 bg-slate-500/10 text-slate-700 dark:text-slate-300';
+            default:
+                return 'border-slate-300/60 bg-transparent text-slate-500 dark:border-slate-600/60 dark:text-slate-400';
+        }
+    }
+
     function closeWizard() {
         if (wizardBusy) return;
         wizardModel = null;
@@ -509,14 +545,9 @@
 
 <div class="space-y-6">
     <header class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-            <h2 class="text-2xl font-bold text-slate-900 dark:text-white">
-                {$_('settings.detection.model_manager_title', { default: 'Model Manager' })}
-            </h2>
-            <p class="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-                {$_('settings.detection.model_manager_subtitle', { default: 'Recommended models are shown by default. Lower-performing and niche options are hidden until you need them.' })}
-            </p>
-        </div>
+        <p class="max-w-2xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+            {$_('settings.detection.model_manager_subtitle', { default: 'Recommended models are shown by default. Lower-performing and niche options are hidden until you need them.' })}
+        </p>
         <button
             type="button"
             onclick={loadData}
@@ -559,25 +590,41 @@
         <div class="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/80 dark:border-slate-700/80 dark:bg-slate-900/70">
             <div class="border-b border-slate-200/80 bg-gradient-to-r from-brand-50/80 via-accent-50/35 to-white p-5 dark:border-slate-700/80 dark:from-brand-950/30 dark:via-accent-950/10 dark:to-slate-900 sm:p-6">
                 <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div class="max-w-2xl flex-1">
-                        <label for="classifier-model-select" class="block text-base font-bold text-slate-900 dark:text-white">
+                    <div class="flex-1">
+                        <p id="classifier-model-lineup-label" class="block text-base font-bold text-slate-900 dark:text-white">
                             {$_('settings.detection.model_manager_select_label', { default: 'Choose the identification model' })}
-                        </label>
+                        </p>
                         <p class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
                             {$_('settings.detection.model_manager_lineup_desc', { default: 'Recommended models are shown first. Lower-performing and niche options are collapsed below.' })}
                         </p>
-                        <select id="classifier-model-select" bind:value={selectedModelId} class="select-base mt-3 w-full sm:max-w-xl">
+                        <div class="mt-3 space-y-4" aria-labelledby="classifier-model-lineup-label">
                             {#each modelGroups as group (group.category)}
-                                <optgroup label={group.info.label}>
-                                    {#each group.models as modelOption (modelOption.id)}
-                                        {@const installedOption = getInstalledModel(modelOption.id)}
-                                        <option value={modelOption.id}>
-                                            {modelOption.name} {isActive(modelOption.id) ? '— Active' : installedOption?.ready === false ? '— Repair needed' : installedOption ? '— Installed' : ''}
-                                        </option>
-                                    {/each}
-                                </optgroup>
+                                <div>
+                                    <p class="mb-2 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{group.info.label}</p>
+                                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                        {#each group.models as modelOption (modelOption.id)}
+                                            {@const cardState = modelCardState(modelOption.id)}
+                                            {@const cardSelected = selectedModelId === modelOption.id}
+                                            <button
+                                                type="button"
+                                                aria-pressed={cardSelected}
+                                                onclick={() => (selectedModelId = modelOption.id)}
+                                                class="flex h-full min-h-11 cursor-pointer flex-col gap-2 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'border-brand-500 bg-brand-50/70 shadow-sm dark:border-brand-400/70 dark:bg-brand-950/30' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
+                                            >
+                                                <span class="flex items-start justify-between gap-2">
+                                                    <span class="text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
+                                                    <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold {modelCardStateClass(cardState)}">{modelCardStateLabel(cardState)}</span>
+                                                </span>
+                                                <span class="line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{modelOption.recommended_for}</span>
+                                                <span class="mt-auto text-xs font-medium text-slate-500 dark:text-slate-400">
+                                                    {modelOption.file_size_mb} MB{formatRamLabel(modelOption) ? ' · ' + formatRamLabel(modelOption) : ''}
+                                                </span>
+                                            </button>
+                                        {/each}
+                                    </div>
+                                </div>
                             {/each}
-                        </select>
+                        </div>
                     </div>
 
                     {#if advancedCount > 0}

@@ -8,6 +8,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The Detection tab leads with its status, and models are chosen from cards.** The state you
+  previously dug three disclosures for — active model, runtime provider, worker plan, health —
+  now sits in a permanent four-fact band at the top: healthy is four calm facts, and only trouble
+  grows words (the health cell counts real problems and the runtime report opens itself when any
+  exist). Below the band, Tuning and Runtime sit side by side with nothing load-bearing behind a
+  disclosure: both confidence sliders, the provider, execution mode, region, and the
+  compatibility check are all on the surface. Models moved out of an "Advanced" fold into their
+  own card, and the model picker is no longer a select: each model is a card with one honest
+  state chip (Active, Installed, Repair needed, Available) and its real costs — download size and
+  RAM per worker copy — with the full dossier and guided install below. The dev server now also
+  proxies `/health`, so the model library loads in local development.
+
 - **The notification policy reads as one sentence, and every word of it is the control.** The
   Notifications tab opened on a preset grid, a confidence slider, an advanced disclosure hiding
   three trigger toggles, and a separate audio-only panel — five surfaces all describing one
