@@ -1300,6 +1300,7 @@ export interface components {
     enrichment_single_provider?: string | null;
     enrichment_summary_source?: string | null;
     enrichment_taxonomy_source?: string | null;
+    frigate_external_url?: string | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
     image_execution_mode?: string | null;
@@ -1481,6 +1482,7 @@ export interface components {
     enrichment_single_provider?: string | null;
     enrichment_summary_source?: string | null;
     enrichment_taxonomy_source?: string | null;
+    frigate_external_url?: string | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
     image_execution_mode?: string | null;

@@ -947,7 +947,10 @@
       "full_visit_issue_retention_unknown": "retention unknown",
       "full_visit_issue_unknown": "configuration needs attention",
       "url_placeholder": "http://frigate:5000",
-      "mqtt_broker_placeholder": "mosquitto"
+      "mqtt_broker_placeholder": "mosquitto",
+      "external_url": "Public Frigate URL",
+      "external_url_desc": "The address your browser uses to open Frigate when it differs from the server address above. Used for the 'open in Frigate' link on a detection.",
+      "external_url_placeholder": "https://frigate.example.com"
     },
     "cameras": {
       "title": "Active Cameras",

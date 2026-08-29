@@ -146,6 +146,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
     # Build frigate settings from environment variables
     frigate_data = {
         "frigate_url": os.environ.get("FRIGATE__FRIGATE_URL", "http://frigate:5000"),
+        "frigate_external_url": os.environ.get("FRIGATE__FRIGATE_EXTERNAL_URL", ""),
         "frigate_auth_token": os.environ.get("FRIGATE__FRIGATE_AUTH_TOKEN", None),
         "main_topic": os.environ.get("FRIGATE__MAIN_TOPIC", "frigate"),
         "clips_enabled": os.environ.get("FRIGATE__CLIPS_ENABLED", "true").lower() == "true",

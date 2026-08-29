@@ -691,6 +691,7 @@ async def test_llm(
 
 class SettingsUpdate(BaseModel):
     frigate_url: Optional[str] = Field(None, min_length=1, description="Frigate instance URL")
+    frigate_external_url: Optional[str] = Field("", description="External Frigate base URL (browser→Frigate)")
     mqtt_server: Optional[str] = Field(None, min_length=1, description="MQTT server hostname")
     mqtt_port: int = Field(1883, ge=1, le=65535, description="MQTT server port")
     mqtt_auth: bool = Field(False, description="Enable MQTT authentication")
@@ -1243,6 +1244,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
 
     return {
         "frigate_url": settings.frigate.frigate_url,
+        "frigate_external_url": settings.frigate.frigate_external_url,
         "mqtt_server": settings.frigate.mqtt_server,
         "mqtt_port": settings.frigate.mqtt_port,
         "mqtt_auth": settings.frigate.mqtt_auth,
@@ -1502,6 +1504,8 @@ async def update_settings(
 
     if "frigate_url" in fields_set and update.frigate_url is not None:
         settings.frigate.frigate_url = update.frigate_url
+    if "frigate_external_url" in fields_set and update.frigate_external_url is not None:
+        settings.frigate.frigate_external_url = update.frigate_external_url.strip().rstrip("/")
     if "mqtt_server" in fields_set and update.mqtt_server is not None:
         settings.frigate.mqtt_server = update.mqtt_server
     if "mqtt_port" in fields_set:

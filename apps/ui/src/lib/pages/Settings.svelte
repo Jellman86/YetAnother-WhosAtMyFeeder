@@ -205,6 +205,7 @@
     }
 
     let frigateUrl = $state('');
+    let frigateExternalUrl = $state('');
     let mqttServer = $state('');
     let mqttPort = $state(1883);
     let mqttAuth = $state(false);
@@ -1725,6 +1726,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
         const checks = [
             { key: 'frigateUrl', val: frigateUrl, store: s.frigate_url },
+            { key: 'frigateExternalUrl', val: frigateExternalUrl, store: s.frigate_external_url || '' },
             { key: 'mqttServer', val: mqttServer, store: s.mqtt_server },
             { key: 'mqttPort', val: mqttPort, store: s.mqtt_port },
             { key: 'mqttAuth', val: mqttAuth, store: s.mqtt_auth },
@@ -2667,6 +2669,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             const settings = await fetchSettings();
             settingsStore.update(settings);
             frigateUrl = settings.frigate_url;
+            frigateExternalUrl = settings.frigate_external_url || '';
             mqttServer = settings.mqtt_server;
             mqttPort = settings.mqtt_port;
             mqttAuth = settings.mqtt_auth;
@@ -3026,6 +3029,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         try {
             await updateSettings({
                 frigate_url: frigateUrl,
+                frigate_external_url: frigateExternalUrl,
                 mqtt_server: mqttServer,
                 mqtt_port: mqttPort,
                 mqtt_auth: mqttAuth,
@@ -3275,6 +3279,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {#if activeTab === 'connection'}
                 <ConnectionSettings
                     bind:frigateUrl
+                    bind:frigateExternalUrl
                     bind:mqttServer
                     bind:mqttPort
                     bind:mqttAuth

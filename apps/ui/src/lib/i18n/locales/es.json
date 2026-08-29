@@ -938,7 +938,10 @@
       "full_visit_retention": "Retención continua garantizada: {days} día(s)",
       "full_visit_attention_cameras": "Cámaras que requieren atención",
       "full_visit_supported": "La cobertura continua está lista para las {count} cámaras seleccionadas.",
-      "full_visit_unavailable": "La información de capacidad no está disponible en este momento."
+      "full_visit_unavailable": "La información de capacidad no está disponible en este momento.",
+      "external_url": "URL pública de Frigate",
+      "external_url_desc": "La dirección que usa tu navegador para abrir Frigate cuando difiere de la dirección del servidor de arriba. Se usa para el enlace 'Abrir en Frigate' de una detección.",
+      "external_url_placeholder": "https://frigate.example.com"
     },
     "cameras": {
       "title": "Cámaras Activas",

@@ -869,10 +869,12 @@
     // The originating Frigate event, for the owner only: frigate_url travels
     // on the owner-only settings payload and never reaches a guest, and a
     // retired event gets words instead of a link that lands on an error (#309).
+    // The public URL wins when set, because frigate_url is often a container
+    // address the browser cannot reach.
     const frigateEventUrl = $derived.by(() => {
         if (!hasOwnerDetectionActions || isManualObservation) return null;
         if (missingEventMetadataGone) return null;
-        const base = settingsStore.settings?.frigate_url;
+        const base = settingsStore.settings?.frigate_external_url || settingsStore.settings?.frigate_url;
         if (!base || !detection.frigate_event) return null;
         return `${base.replace(/\/$/, '')}/explore?event_id=${encodeURIComponent(detection.frigate_event)}`;
     });

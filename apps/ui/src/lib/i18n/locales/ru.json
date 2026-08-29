@@ -947,7 +947,10 @@
       "full_visit_retention": "Гарантированный срок непрерывного хранения: {days} дн.",
       "full_visit_attention_cameras": "Камеры, требующие внимания",
       "full_visit_supported": "Непрерывная запись готова для всех выбранных камер ({count}).",
-      "full_visit_unavailable": "Информация о возможности сейчас недоступна."
+      "full_visit_unavailable": "Информация о возможности сейчас недоступна.",
+      "external_url": "Публичный URL Frigate",
+      "external_url_desc": "Адрес, по которому браузер открывает Frigate, если он отличается от адреса сервера выше. Используется для ссылки «Открыть в Frigate» у обнаружения.",
+      "external_url_placeholder": "https://frigate.example.com"
     },
     "cameras": {
       "title": "Активные камеры",

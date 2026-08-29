@@ -69,6 +69,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | Variable | Default | Description |
 | --- | --- | --- |
 | `FRIGATE__FRIGATE_URL` | `http://frigate:5000` | Frigate base URL for snapshots/clips. |
+| `FRIGATE__FRIGATE_EXTERNAL_URL` | _(empty)_ | Browser-facing Frigate URL for the detection's "open in Frigate" link. Falls back to `FRIGATE__FRIGATE_URL`. |
 | `FRIGATE__FRIGATE_AUTH_TOKEN` | _(unset)_ | Bearer token if Frigate requires auth. |
 | `FRIGATE__MAIN_TOPIC` | `frigate` | Frigate MQTT base topic. |
 | `FRIGATE__MQTT_SERVER` | `mqtt` | MQTT broker host. |

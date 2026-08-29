@@ -938,7 +938,10 @@
       "full_visit_retention": "保証される連続保持期間: {days} 日",
       "full_visit_attention_cameras": "確認が必要なカメラ",
       "full_visit_supported": "選択した {count} 台すべてのカメラで連続録画を利用できます。",
-      "full_visit_unavailable": "現在、対応情報を利用できません。"
+      "full_visit_unavailable": "現在、対応情報を利用できません。",
+      "external_url": "Frigate公開URL",
+      "external_url_desc": "上のサーバーアドレスと異なる場合に、ブラウザがFrigateを開くために使うアドレスです。検出の「Frigateで開く」リンクに使われます。",
+      "external_url_placeholder": "https://frigate.example.com"
     },
     "cameras": {
       "title": "アクティブなカメラ",
