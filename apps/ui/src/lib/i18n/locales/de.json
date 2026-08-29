@@ -1390,6 +1390,7 @@
       "blocked_species_structured": "Blockierte Arten",
       "model_manager_threshold_hint": "Empfohlener Konfidenzschwellenwert für dieses Modell:",
       "no_blocked_species_results": "Keine passende Art gefunden.",
+      "block_exact_label": "\"{label}\" genau wie geschrieben blockieren",
       "crop_priority_frigate_first": "Frigate-Hinweise zuerst",
       "crop_priority_crop_first": "Zuschneidemodell zuerst",
       "crop_priority_crop_only": "Nur Zuschneidemodell",

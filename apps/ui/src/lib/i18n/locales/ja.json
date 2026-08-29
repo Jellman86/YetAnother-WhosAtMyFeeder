@@ -1390,6 +1390,7 @@
       "blocked_species_structured": "ブロック済みの種",
       "model_manager_threshold_hint": "このモデルの推奨信頼度しきい値:",
       "no_blocked_species_results": "一致する種が見つかりません。",
+      "block_exact_label": "「{label}」をそのままブロック",
       "crop_priority_frigate_first": "Frigateヒント優先",
       "crop_priority_crop_first": "切り取りモデル優先",
       "crop_priority_crop_only": "切り取りモデルのみ",

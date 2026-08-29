@@ -1390,6 +1390,7 @@
       "blocked_species_structured": "Espèces bloquées",
       "model_manager_threshold_hint": "Seuil de confiance recommandé pour ce modèle :",
       "no_blocked_species_results": "Aucune espèce correspondante trouvée.",
+      "block_exact_label": "Bloquer « {label} » tel quel",
       "crop_priority_frigate_first": "Indices Frigate en premier",
       "crop_priority_crop_first": "Modèle de recadrage en premier",
       "crop_priority_crop_only": "Modèle de recadrage uniquement",
