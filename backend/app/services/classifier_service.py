@@ -166,35 +166,21 @@ log = structlog.get_logger()
 SUPPORTED_INFERENCE_PROVIDERS = {"auto", "cpu", "cuda", "intel_gpu", "intel_cpu", "intel_npu"}
 CLASSIFIER_IMAGE_MAX_CONCURRENT = max(1, int(os.getenv("CLASSIFIER_IMAGE_MAX_CONCURRENT", "2")))
 
-# A single accelerator serialises inference, so extra workers on it are a model
-# copy apiece with no parallelism. `auto` is treated as CPU: the provider is
-# only resolved after hardware detection, and a CPU-sized pool is the honest
-# default for the installs that have not pinned one (#312).
-SINGLE_DEVICE_INFERENCE_PROVIDERS = frozenset({"cuda", "intel_gpu", "intel_npu"})
-
 
 def resolve_image_worker_counts(
     *,
     configured_live: int | None,
     configured_background: int | None,
-    image_max_concurrent: int,
-    inference_provider: str,
 ) -> tuple[int, int]:
-    """Worker counts for subprocess mode: explicit values kept, unset derived.
+    """Worker counts for subprocess mode: explicit values kept, unset means one.
 
-    The derived live count follows the configured concurrency so every
-    admitted job has a worker process to run in — a pool smaller than
-    admission burns leases in a queue the caller cannot see (#314). Each
-    worker holds its own copy of the model, so the count is also the memory
-    price, stated in Settings.
+    Each worker holds its own copy of the model, so the count is the memory
+    price: one live and one background copy by default, and scaling upward is
+    a deliberate act, never a default (#312). Admission capacity equals the
+    resolved count, so every admitted job has a worker process to run in and
+    a lease can only expire on work that is actually running (#314).
     """
-    provider = (inference_provider or "auto").strip().lower()
-    if configured_live:
-        live = max(1, int(configured_live))
-    elif provider in SINGLE_DEVICE_INFERENCE_PROVIDERS:
-        live = 1
-    else:
-        live = max(1, int(image_max_concurrent))
+    live = max(1, int(configured_live)) if configured_live else 1
     background = max(1, int(configured_background)) if configured_background else 1
     return live, background
 
@@ -2759,8 +2745,6 @@ class ClassifierService:
         resolved_live_workers, resolved_background_workers = resolve_image_worker_counts(
             configured_live=getattr(settings.classification, "live_worker_count", None),
             configured_background=getattr(settings.classification, "background_worker_count", None),
-            image_max_concurrent=image_workers,
-            inference_provider=str(getattr(settings.classification, "inference_provider", "auto") or "auto"),
         )
         live_admission_capacity = image_workers
         background_admission_capacity = 1

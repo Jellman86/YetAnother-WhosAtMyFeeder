@@ -760,7 +760,7 @@
                 <SettingsRow
                     labelId="setting-execution-mode"
                     label={$_('settings.detection.execution_mode', { default: 'Execution Mode' })}
-                    description={$_('settings.detection.execution_mode_desc', { default: 'Subprocess, the default, identifies birds in worker processes the app can restart, so a stalled or crashed identification never takes the interface down. The workers match your concurrency setting, and each keeps its own copy of the model in memory. In-Process keeps a single copy inside the app itself: less memory, but heavy identification competes with the pages you are looking at.' })}
+                    description={$_('settings.detection.execution_mode_desc', { default: 'Subprocess, the default, identifies birds in worker processes the app can restart, so a stalled or crashed identification never takes the interface down. One worker runs by default; each additional worker you configure holds its own copy of the model in memory. In-Process keeps a single copy inside the app itself: less memory, but heavy identification competes with the pages you are looking at.' })}
                     layout="stacked"
                 >
                     <SettingsSelect
