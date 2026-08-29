@@ -18,6 +18,10 @@
         primaryName: string;
         secondaryName?: string | null;
         onopen?: (detection: Detection) => void;
+        /** False renders the thumbnails as decoration: no tab stop, no click.
+         * The Explorer's selection mode owns every activation through the
+         * row overlay, which is labelled for selecting, not previewing. */
+        interactive?: boolean;
     }
 
     let {
@@ -26,7 +30,8 @@
         frameCount = 1,
         primaryName,
         secondaryName = null,
-        onopen
+        onopen,
+        interactive = true
     }: Props = $props();
 
     /**
@@ -88,6 +93,13 @@
         openIndex = index;
     }
 
+    function cancelScheduledClose(): void {
+        if (closeTimer) {
+            clearTimeout(closeTimer);
+            closeTimer = null;
+        }
+    }
+
     function hide(immediate = false): void {
         if (closeTimer) clearTimeout(closeTimer);
         if (immediate) {
@@ -121,16 +133,34 @@
         };
     });
 
-    // Placed in viewport coordinates, so scrolling or resizing would leave the
-    // panel behind. Closing is honest; a panel pointing at the wrong row is not.
+    // Placed in viewport coordinates, so the panel follows its trigger as the
+    // page moves. Closing on the first scroll broke the keyboard path: focusing
+    // a trigger below the fold scrolls it into view, and that scroll landed
+    // right after the panel opened, dismissing it in the same frame. A trigger
+    // scrolled out of sight still closes it - a panel pointing at nothing is
+    // honest to no one.
     $effect(() => {
         if (openIndex === null) return;
-        const close = () => hide(true);
-        window.addEventListener('scroll', close, true);
-        window.addEventListener('resize', close);
+        const index = openIndex;
+        let pending: number | null = null;
+        const follow = () => {
+            if (pending !== null) return;
+            pending = requestAnimationFrame(() => {
+                pending = null;
+                const rect = triggers[index]?.getBoundingClientRect();
+                if (!rect || rect.bottom < 0 || rect.top > window.innerHeight) {
+                    hide(true);
+                    return;
+                }
+                place(index);
+            });
+        };
+        window.addEventListener('scroll', follow, true);
+        window.addEventListener('resize', follow);
         return () => {
-            window.removeEventListener('scroll', close, true);
-            window.removeEventListener('resize', close);
+            if (pending !== null) cancelAnimationFrame(pending);
+            window.removeEventListener('scroll', follow, true);
+            window.removeEventListener('resize', follow);
         };
     });
 
@@ -176,19 +206,7 @@
             onfocusin={() => show(index)}
             role="presentation"
         >
-            <button
-                type="button"
-                bind:this={triggers[index]}
-                class="grid min-h-11 min-w-11 place-items-center rounded-lg focus-ring"
-                aria-expanded={openIndex === index}
-                onclick={() => onopen?.(frame)}
-            >
-                <span class="sr-only">
-                    {$_('dashboard.field_log.preview_trigger', {
-                        values: { species: primaryName },
-                        default: 'Preview {species}'
-                    })}
-                </span>
+            {#snippet thumbnail(frame: Detection)}
                 {#if failed.has(frame.frigate_event)}
                     <span
                         class="flex h-9 w-9 items-center justify-center rounded-lg border-2 border-white bg-slate-100 text-slate-300 dark:border-slate-900 dark:bg-slate-800 dark:text-slate-600"
@@ -210,18 +228,39 @@
                         onerror={() => markFailed(frame.frigate_event)}
                     />
                 {/if}
-            </button>
+            {/snippet}
+
+            {#if interactive}
+                <button
+                    type="button"
+                    bind:this={triggers[index]}
+                    class="grid min-h-11 min-w-11 place-items-center rounded-lg focus-ring"
+                    onclick={() => onopen?.(frame)}
+                >
+                    <span class="sr-only">
+                        {$_('dashboard.field_log.preview_trigger', {
+                            values: { species: primaryName },
+                            default: 'Preview {species}'
+                        })}
+                    </span>
+                    {@render thumbnail(frame)}
+                </button>
+            {:else}
+                <span bind:this={triggers[index]} class="grid min-h-11 min-w-11 place-items-center rounded-lg" aria-hidden="true">
+                    {@render thumbnail(frame)}
+                </span>
+            {/if}
 
             {#if openIndex === index && anchor}
                 <div
                     use:portal
                     style="left: {anchor.x}px; top: {anchor.y}px;"
-                    class="fixed z-[70] w-60 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 dark:bg-slate-900 {anchor.above
+                    class="fixed z-[70] w-60 max-w-[calc(100vw-16px)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-950/20 animate-in fade-in zoom-in-95 motion-reduce:animate-none dark:border-slate-700 dark:bg-slate-900 {anchor.above
                         ? '-translate-x-1/2 -translate-y-full'
                         : '-translate-x-1/2'}"
                     role="tooltip"
                     data-detection-preview-panel
-                    onmouseenter={() => show(index)}
+                    onmouseenter={cancelScheduledClose}
                     onmouseleave={() => hide()}
                 >
                     {#if failed.has(frame.frigate_event)}

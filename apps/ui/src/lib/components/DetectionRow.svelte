@@ -123,6 +123,7 @@
          opens on focus as well as hover, and closes on Escape. -->
     <div class="relative z-10 flex justify-center">
         <DetectionPreview
+            interactive={!selectionMode}
             {detection}
             primaryName={primaryName}
             secondaryName={subName}

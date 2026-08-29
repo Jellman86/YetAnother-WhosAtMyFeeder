@@ -68,6 +68,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The list row's hover preview now survives the scroll that opens it.** Focusing a thumbnail
+  below the fold scrolls it into view, and the preview closed itself on that very scroll — the
+  keyboard path silently did nothing for exactly the rows that needed scrolling. The panel now
+  follows its row as the page moves and closes only when the row actually leaves the screen. In
+  bulk-select mode the preview steps aside entirely: activating a control announced as "Preview"
+  was toggling the row's selection, so there the thumbnail is decoration and the row's own
+  labelled control owns every activation. The trigger also no longer claims an expanded state
+  for a panel it has no accessible link to, and a very narrow viewport clips the panel's margin
+  rather than its content.
+
 - **Classifier status reports the active model's label count without a resident model.** With
   inference out of the API process by default, the process answering status holds no model, and the
   label count silently read as zero on every default install. The count is a fact about the
