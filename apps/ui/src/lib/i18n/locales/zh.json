@@ -206,7 +206,13 @@
         "integrations_configured": "已配置：{integrations}",
         "integrations_none": "均未启用"
       }
-    }
+    },
+    "skip": "跳过设置",
+    "skip_failed": "无法跳过——无法连接服务器。",
+    "skip_confirm_title": "跳过设置并打开应用?",
+    "skip_confirm_body_no_account": "在您于设置 → 安全中设置密码之前,应用将在无密码状态下运行。此向导涵盖的所有内容都可以稍后配置,并且您可以随时从设置 → 设置向导重新运行它。",
+    "skip_confirm_body": "此向导涵盖的所有内容都可以稍后配置,并且您可以随时从设置 → 设置向导重新运行它。",
+    "skip_confirm_action": "跳过并打开应用"
   },
   "theme": {
     "switch_light": "切换到浅色模式",

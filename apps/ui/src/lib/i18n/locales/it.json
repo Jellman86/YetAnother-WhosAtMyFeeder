@@ -206,7 +206,13 @@
         "integrations_configured": "Configurato: {integrations}",
         "integrations_none": "Nessuna attivata"
       }
-    }
+    },
+    "skip": "Salta la configurazione",
+    "skip_failed": "Impossibile saltare: il server non è raggiungibile.",
+    "skip_confirm_title": "Saltare la configurazione e aprire l'app?",
+    "skip_confirm_body_no_account": "L'app funzionerà senza password finché non ne imposti una in Impostazioni → Sicurezza. Tutto ciò che copre questa procedura può essere configurato in seguito, e puoi rieseguirla in qualsiasi momento da Impostazioni → Procedura guidata.",
+    "skip_confirm_body": "Tutto ciò che copre questa procedura può essere configurato in seguito, e puoi rieseguirla in qualsiasi momento da Impostazioni → Procedura guidata.",
+    "skip_confirm_action": "Salta e apri l'app"
   },
   "theme": {
     "switch_light": "Passa alla modalità chiara",

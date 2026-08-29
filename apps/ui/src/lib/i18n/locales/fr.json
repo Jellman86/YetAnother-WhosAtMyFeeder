@@ -206,7 +206,13 @@
         "integrations_configured": "Configuré : {integrations}",
         "integrations_none": "Aucune activée"
       }
-    }
+    },
+    "skip": "Ignorer la configuration",
+    "skip_failed": "Échec : le serveur est injoignable.",
+    "skip_confirm_title": "Ignorer la configuration et ouvrir l'application ?",
+    "skip_confirm_body_no_account": "L'application fonctionnera sans mot de passe jusqu'à ce que vous en définissiez un dans Réglages → Sécurité. Tout ce que couvre cet assistant peut être configuré plus tard, et vous pouvez le relancer à tout moment depuis Réglages → Assistant de configuration.",
+    "skip_confirm_body": "Tout ce que couvre cet assistant peut être configuré plus tard, et vous pouvez le relancer à tout moment depuis Réglages → Assistant de configuration.",
+    "skip_confirm_action": "Ignorer et ouvrir l'application"
   },
   "theme": {
     "switch_light": "Passer au mode clair",

@@ -206,7 +206,13 @@
         "integrations_configured": "Configurado: {integrations}",
         "integrations_none": "Ninguna activada"
       }
-    }
+    },
+    "skip": "Omitir configuración",
+    "skip_failed": "No se pudo omitir: no se pudo contactar con el servidor.",
+    "skip_confirm_title": "¿Omitir la configuración y abrir la aplicación?",
+    "skip_confirm_body_no_account": "La aplicación funcionará sin contraseña hasta que definas una en Ajustes → Seguridad. Todo lo que cubre este asistente puede configurarse después, y puedes volver a ejecutarlo desde Ajustes → Asistente de configuración.",
+    "skip_confirm_body": "Todo lo que cubre este asistente puede configurarse después, y puedes volver a ejecutarlo desde Ajustes → Asistente de configuración.",
+    "skip_confirm_action": "Omitir y abrir la aplicación"
   },
   "theme": {
     "switch_light": "Cambiar a modo claro",
