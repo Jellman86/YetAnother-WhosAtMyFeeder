@@ -9,8 +9,6 @@ process to run in — a pool smaller than admission burns leases in a queue,
 which is the abandonment pathology #314 closed.
 """
 
-import pytest
-
 import app.config as config_module
 from app.config import Settings
 from app.services.classifier_service import resolve_image_worker_counts
@@ -30,39 +28,21 @@ def test_a_fresh_install_runs_inference_out_of_process(monkeypatch, tmp_path):
     assert loaded.classification.live_worker_count is None
 
 
-def test_worker_counts_follow_configured_concurrency():
-    assert resolve_image_worker_counts(
-        configured_live=None,
-        configured_background=None,
-        image_max_concurrent=2,
-        inference_provider="cpu",
-    ) == (2, 1)
-    assert resolve_image_worker_counts(
-        configured_live=None,
-        configured_background=None,
-        image_max_concurrent=4,
-        inference_provider="auto",
-    ) == (4, 1)
-
-
-@pytest.mark.parametrize("provider", ["cuda", "intel_gpu", "intel_npu"])
-def test_a_single_accelerator_gets_one_derived_worker(provider):
-    """One accelerator serialises the work; extra workers add a model copy
-    apiece and no parallelism, so they are memory spent on nothing."""
-    assert resolve_image_worker_counts(
-        configured_live=None,
-        configured_background=None,
-        image_max_concurrent=4,
-        inference_provider=provider,
-    ) == (1, 1)
+def test_one_worker_of_each_kind_is_the_default():
+    """Each worker holds its own copy of the model, so the count is the
+    memory price: one live and one background copy by default, on any
+    provider, and scaling upward is a deliberate act, never a default."""
+    for provider in ("cpu", "auto", "cuda", "intel_gpu", "intel_npu"):
+        assert resolve_image_worker_counts(
+            configured_live=None,
+            configured_background=None,
+        ) == (1, 1), provider
 
 
 def test_an_explicit_worker_count_is_kept():
     assert resolve_image_worker_counts(
         configured_live=3,
         configured_background=2,
-        image_max_concurrent=2,
-        inference_provider="intel_npu",
     ) == (3, 2)
 
 
@@ -110,7 +90,7 @@ def test_admission_capacity_matches_the_worker_pool(monkeypatch):
     monkeypatch.setattr(settings.classification, "image_execution_mode", "subprocess")
     monkeypatch.setattr(settings.classification, "live_worker_count", None)
     monkeypatch.setattr(settings.classification, "background_worker_count", None)
-    monkeypatch.setattr(settings.classification, "inference_provider", "intel_npu")
+    monkeypatch.setattr(settings.classification, "inference_provider", "cpu")
 
     with (
         patch.object(ClassifierService, "_init_bird_model", return_value=None),

@@ -59,14 +59,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   Settings page being starved ([#312](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/312),
   found through [#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)). New
   installs default to `subprocess`: supervised worker processes the app can kill and restart when
-  they stall, spawned only when work actually arrives. Worker counts now follow the configured
-  concurrency (`CLASSIFIER_IMAGE_MAX_CONCURRENT`) so every admitted job has a process to run in,
-  except on a single accelerator (`cuda`, `intel_gpu`, `intel_npu`), where one worker is derived —
-  the device serialises inference, so extra workers cost a model copy each and add no speed. An
-  explicitly set mode or worker count is kept exactly as written, and every existing install keeps
-  the mode saved in its `config.json`. The honest trade: each worker holds its own copy of the
-  model, so the default costs more memory than one shared copy — it buys an interface that stays
-  responsive under load and inference that can be restarted rather than waited out.
+  they stall, spawned only when work actually arrives — and one worker of each kind, never more,
+  unless the owner asks. Each worker holds its own copy of the model, so the worker count is the
+  memory price, and scaling upward is a deliberate act rather than a default. Admission capacity
+  always equals the worker count, so every admitted job has a process to run in. An explicitly set
+  mode or worker count is kept exactly as written, and every existing install keeps the mode saved
+  in its `config.json`. The honest trade: the default still costs more memory than one shared
+  in-process copy — it buys an interface that stays responsive under load and inference that can
+  be restarted rather than waited out.
 
 - **The Explorer's view controls live on one row, in one style.** Hide filters, the Cards/List
   switch, and Multi-select acted on the same list from two places in two styles: Multi-select sat

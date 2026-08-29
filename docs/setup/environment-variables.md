@@ -113,7 +113,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CLASSIFICATION__VIDEO_FAILURE_THRESHOLD` | `5` | Failures before the video circuit opens. |
 | `CLASSIFICATION__VIDEO_FAILURE_WINDOW_MINUTES` | `10` | Window for counting video failures. |
 | `CLASSIFICATION__VIDEO_FAILURE_COOLDOWN_MINUTES` | `15` | Cooldown while the video circuit is open. |
-| `CLASSIFICATION__LIVE_WORKER_COUNT` | _(follows concurrency)_ | Live-inference worker processes. Unset follows `CLASSIFIER_IMAGE_MAX_CONCURRENT`, except on a single accelerator (`cuda`, `intel_gpu`, `intel_npu`), which derives one worker — the device serialises inference, so extra workers cost a model copy each and add no speed. Each worker holds its own copy of the model. |
+| `CLASSIFICATION__LIVE_WORKER_COUNT` | _(one)_ | Live-inference worker processes; unset means one. Each worker holds its own copy of the model, so raising this buys parallelism at one model copy per worker — scale it deliberately. Admission capacity always equals the worker count. |
 | `CLASSIFICATION__BACKGROUND_WORKER_COUNT` | _(one)_ | Background-inference worker processes; unset means one. |
 | `CLASSIFICATION__LIVE_EVENT_COALESCING_ENABLED` | `true` | Coalesce rapid live events. |
 | `CLASSIFICATION__LIVE_EVENT_STALE_DROP_SECONDS` | `30.0` | Drop live events older than this. |
