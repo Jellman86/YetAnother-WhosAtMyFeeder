@@ -63,8 +63,15 @@ describe('Detection settings, status first', () => {
         for (const state of ['model_manager_state_repair', 'model_manager_state_installed', 'model_manager_state_available']) {
             expect(modelManagerSource).toContain(state);
         }
-        // Each card carries the honest costs: download size and RAM per copy.
-        expect(modelManagerSource).toContain('formatRamLabel(modelOption)');
+        // Each card carries the honest costs: download size and a RAM meter
+        // drawn against the heaviest model in the lineup.
+        expect(modelManagerSource).toContain('model-ram-meter');
+        expect(modelManagerSource).toContain('ramShortLabel(modelOption.estimated_ram_mb)');
+        expect(modelManagerSource).toContain('lineupMaxRam(classifierModels)');
+        // The selected card's aurora is decorative, GPU-composited, and stilled
+        // for reduced motion.
+        expect(modelManagerSource).toContain('model-card-aurora');
+        expect(modelManagerSource).toContain('prefers-reduced-motion');
     });
 
     it('retains visible warnings and gold-standard interaction sizing', () => {

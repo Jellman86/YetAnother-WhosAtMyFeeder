@@ -499,6 +499,32 @@
         return runInstallWizard(model, { download: false });
     }
 
+    function ramShortLabel(ramMb: number): string {
+        if (ramMb >= 1024) {
+            const gb = ramMb / 1024;
+            return `~${Number.isInteger(gb) ? gb.toFixed(0) : gb.toFixed(1)} GB`;
+        }
+        return `~${ramMb} MB`;
+    }
+
+    // Every RAM meter is drawn against the heaviest model in the lineup, so the
+    // bars compare models to each other rather than to an arbitrary maximum.
+    function lineupMaxRam(models: ModelMetadata[]): number {
+        return models.reduce((max, model) => Math.max(max, model.estimated_ram_mb ?? 0), 0);
+    }
+
+    function ramPercent(ramMb: number | null | undefined, maxRam: number): number {
+        if (!ramMb || maxRam <= 0) return 0;
+        return Math.max(6, Math.round((ramMb / maxRam) * 100));
+    }
+
+    function configuredWorkerCount(): number {
+        return (
+            (classifierStatus?.resolved_live_workers ?? 1) +
+            (classifierStatus?.resolved_background_workers ?? 1)
+        );
+    }
+
     type ModelCardState = 'active' | 'repair' | 'installed' | 'available';
 
     function modelCardState(modelId: string): ModelCardState {
@@ -579,6 +605,7 @@
         {@const visibleModels = getVisibleTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
         {@const modelGroups = groupTieredModelLineup(classifierModels, showAdvancedModels, selectedModelId)}
         {@const advancedCount = classifierModels.filter((model) => model.advanced_only).length}
+        {@const maxLineupRam = lineupMaxRam(classifierModels)}
         {@const selectedCropDetector = cropDetectorModels.find((model) => (model.tier || '').toLowerCase() === 'accurate')
             || cropDetectorModels[0]}
         {@const selectedCropDetectorInstalled = selectedCropDetector ? isCropDetectorInstalled(selectedCropDetector.id) : false}
@@ -605,19 +632,36 @@
                                         {#each group.models as modelOption (modelOption.id)}
                                             {@const cardState = modelCardState(modelOption.id)}
                                             {@const cardSelected = selectedModelId === modelOption.id}
+                                            {@const cardRamPct = ramPercent(modelOption.estimated_ram_mb, maxLineupRam)}
                                             <button
                                                 type="button"
                                                 aria-pressed={cardSelected}
                                                 onclick={() => (selectedModelId = modelOption.id)}
-                                                class="flex h-full min-h-11 cursor-pointer flex-col gap-2 rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'border-brand-500 bg-brand-50/70 shadow-sm dark:border-brand-400/70 dark:bg-brand-950/30' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
+                                                class="model-card relative flex h-full min-h-11 cursor-pointer flex-col gap-2.5 overflow-hidden rounded-2xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 {cardSelected ? 'model-card-selected border-brand-500 shadow-md dark:border-brand-400/70' : 'border-slate-200 bg-white/70 hover:border-brand-300 dark:border-slate-700 dark:bg-slate-900/40 dark:hover:border-brand-500/50'}"
                                             >
-                                                <span class="flex items-start justify-between gap-2">
+                                                {#if cardSelected}
+                                                    <span class="model-card-aurora" aria-hidden="true"></span>
+                                                {/if}
+                                                <span class="relative flex items-start justify-between gap-2">
                                                     <span class="text-sm font-bold leading-snug text-slate-900 dark:text-white">{modelOption.name}</span>
                                                     <span class="shrink-0 rounded-full border px-2 py-0.5 text-xs font-semibold {modelCardStateClass(cardState)}">{modelCardStateLabel(cardState)}</span>
                                                 </span>
-                                                <span class="line-clamp-2 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{modelOption.recommended_for}</span>
-                                                <span class="mt-auto text-xs font-medium text-slate-500 dark:text-slate-400">
-                                                    {modelOption.file_size_mb} MB{formatRamLabel(modelOption) ? ' · ' + formatRamLabel(modelOption) : ''}
+                                                <span class="relative mt-auto flex flex-col gap-1.5">
+                                                    <span class="flex items-baseline justify-between gap-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                                                        <span>{t('settings.detection.model_manager_card_download', '{size} MB download', { size: modelOption.file_size_mb })}</span>
+                                                        {#if modelOption.estimated_ram_mb != null}
+                                                            <span>{ramShortLabel(modelOption.estimated_ram_mb)}</span>
+                                                        {/if}
+                                                    </span>
+                                                    {#if modelOption.estimated_ram_mb != null}
+                                                        <span
+                                                            class="model-ram-meter block h-1.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/60"
+                                                            role="img"
+                                                            aria-label={t('settings.detection.model_manager_card_ram_label', 'Estimated memory per worker copy: {ram}', { ram: ramShortLabel(modelOption.estimated_ram_mb) })}
+                                                        >
+                                                            <span class="block h-full rounded-full bg-gradient-to-r from-brand-400 to-accent-500" style="width: {cardRamPct}%"></span>
+                                                        </span>
+                                                    {/if}
                                                 </span>
                                             </button>
                                         {/each}
@@ -689,52 +733,46 @@
                                 </div>
                             </div>
 
-                            <dl class="mt-6 divide-y divide-slate-200 border-y border-slate-200 dark:divide-slate-700 dark:border-slate-700">
-                                <div class="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-5">
-                                    <dt class="text-sm font-semibold text-slate-500 dark:text-slate-400">
-                                        {$_('settings.detection.model_manager_recommended_for', { default: 'Recommended for' })}
-                                    </dt>
-                                    <dd class="text-sm font-medium text-slate-800 dark:text-slate-100">{model.recommended_for}</dd>
-                                </div>
-                                {#if active && classifierStatus?.active_provider}
-                                    <div class="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-5" aria-live="polite">
-                                        <dt class="text-sm font-semibold text-slate-500 dark:text-slate-400">
-                                            {$_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}
-                                        </dt>
-                                        <dd class="text-sm text-slate-800 dark:text-slate-100">
-                                            <span class="inline-flex items-center gap-2 font-semibold">
-                                                <span class="h-2 w-2 rounded-full bg-accent-500" aria-hidden="true"></span>
-                                                {providerLabel(classifierStatus.active_provider)}
-                                            </span>
-                                            {#if runtimeProviderOrder.length > 1}
-                                                <span class="mt-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-                                                    {$_('settings.detection.model_manager_runtime_order', { default: 'Automatic order' })}:
-                                                    {runtimeProviderOrder.map(providerLabel).join(' → ')}
-                                                </span>
-                                            {/if}
-                                        </dd>
-                                    </div>
-                                {/if}
-                                <div class="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-5">
-                                    <dt class="text-sm font-semibold text-slate-500 dark:text-slate-400">
-                                        {$_('settings.detection.model_manager_best_fit', { default: 'Best fit' })}
-                                    </dt>
-                                    <dd class="text-sm font-medium text-slate-800 dark:text-slate-100">
-                                        {MODEL_CATEGORY_INFO[category].label} · {scopeLabel(model.taxonomy_scope)} · {model.inference_speed}
-                                    </dd>
-                                </div>
-                                <div class="grid gap-1 py-4 sm:grid-cols-[11rem_1fr] sm:gap-5">
-                                    <dt class="text-sm font-semibold text-slate-500 dark:text-slate-400">
-                                        {$_('settings.detection.model_manager_download_size', { default: 'Download and memory' })}
-                                    </dt>
-                                    <dd class="text-sm font-medium text-slate-800 dark:text-slate-100">
-                                        {model.file_size_mb} MB{formatRamLabel(model) ? ' · ' + formatRamLabel(model) : ''}
-                                    </dd>
-                                </div>
-                            </dl>
+                            {#if active && classifierStatus?.active_provider}
+                                <p class="mt-3 text-sm text-slate-800 dark:text-slate-100" aria-live="polite">
+                                    <span class="mr-2 text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_current_runtime', { default: 'Current runtime' })}</span>
+                                    <span class="inline-flex items-center gap-2 font-semibold">
+                                        <span class="h-2 w-2 rounded-full bg-accent-500" aria-hidden="true"></span>
+                                        {providerLabel(classifierStatus.active_provider)}
+                                    </span>
+                                    {#if runtimeProviderOrder.length > 1}
+                                        <span class="mt-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+                                            {$_('settings.detection.model_manager_runtime_order', { default: 'Automatic order' })}:
+                                            {runtimeProviderOrder.map(providerLabel).join(' → ')}
+                                        </span>
+                                    {/if}
+                                </p>
+                            {/if}
 
-                            {#if model.notes}
-                                <p class="mt-4 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{model.notes}</p>
+                            {#if model.estimated_ram_mb != null}
+                                {@const dossierWorkers = configuredWorkerCount()}
+                                <div class="mt-6">
+                                    <div class="flex items-baseline justify-between gap-4">
+                                        <span class="text-sm font-semibold text-slate-700 dark:text-slate-200">{$_('settings.detection.model_manager_memory_title', { default: 'Memory footprint' })}</span>
+                                        <span class="text-sm font-medium text-slate-500 dark:text-slate-400">
+                                            {$_('settings.detection.model_manager_memory_per_copy', { values: { ram: ramShortLabel(model.estimated_ram_mb) }, default: '{ram} per worker copy' })}
+                                        </span>
+                                    </div>
+                                    <div class="model-ram-meter mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200/80 dark:bg-slate-700/60">
+                                        <div class="h-full rounded-full bg-gradient-to-r from-brand-400 to-accent-500" style="width: {ramPercent(model.estimated_ram_mb, maxLineupRam)}%"></div>
+                                    </div>
+                                    <p class="mt-1.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                                        {$_('settings.detection.model_manager_memory_total', {
+                                            values: { total: ramShortLabel(model.estimated_ram_mb * dossierWorkers), count: dossierWorkers },
+                                            default: 'about {total} across {count} worker copies as configured'
+                                        })}
+                                        · {$_('settings.detection.model_manager_card_download', { values: { size: model.file_size_mb }, default: '{size} MB download' })}
+                                    </p>
+                                </div>
+                            {:else}
+                                <p class="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">
+                                    {$_('settings.detection.model_manager_card_download', { values: { size: model.file_size_mb }, default: '{size} MB download' })}
+                                </p>
                             {/if}
 
                             {#if model.recommended_threshold != null}
@@ -771,6 +809,21 @@
                                         {$_('settings.detection.model_manager_crop_policy_automatic_desc', { default: 'YA-WAMF uses the crop policy tested for this model. There is nothing to tune when you switch models.' })}
                                     </p>
                                 </div>
+
+                                <dl class="grid gap-4 text-sm sm:grid-cols-2">
+                                    <div>
+                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_recommended_for', { default: 'Recommended for' })}</dt>
+                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{model.recommended_for}</dd>
+                                    </div>
+                                    <div>
+                                        <dt class="font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.model_manager_best_fit', { default: 'Best fit' })}</dt>
+                                        <dd class="mt-1 font-medium text-slate-800 dark:text-slate-100">{MODEL_CATEGORY_INFO[category].label} · {scopeLabel(model.taxonomy_scope)} · {model.inference_speed}</dd>
+                                    </div>
+                                </dl>
+
+                                {#if model.notes}
+                                    <p class="text-sm leading-relaxed text-slate-500 dark:text-slate-400">{model.notes}</p>
+                                {/if}
 
                                 <dl class="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
                                     <div>
@@ -978,3 +1031,47 @@
         {/snippet}
     </DiagnosticDialog>
 {/if}
+
+<style>
+    /* The selected card carries a soft, GPU-composited aurora: layered radial
+       tints plus one slowly rotating conic sheen (transform-only, so it stays
+       on the compositor), stilled entirely under prefers-reduced-motion. */
+    .model-card-selected {
+        background-color: rgb(255 255 255 / 0.85);
+    }
+    :global(.dark) .model-card-selected {
+        background-color: rgb(15 23 42 / 0.75);
+    }
+    .model-card-aurora {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        background:
+            radial-gradient(120% 100% at 12% 0%, rgb(59 130 246 / 0.16), transparent 55%),
+            radial-gradient(110% 90% at 90% 100%, rgb(45 212 191 / 0.18), transparent 55%),
+            radial-gradient(70% 60% at 75% 15%, rgb(129 140 248 / 0.1), transparent 60%);
+    }
+    .model-card-aurora::after {
+        content: '';
+        position: absolute;
+        inset: -60% -30%;
+        background: conic-gradient(
+            from 180deg at 50% 50%,
+            transparent 0deg,
+            rgb(59 130 246 / 0.08) 80deg,
+            rgb(45 212 191 / 0.1) 160deg,
+            transparent 240deg
+        );
+        animation: model-card-aurora-drift 14s linear infinite;
+    }
+    @keyframes model-card-aurora-drift {
+        to {
+            transform: rotate(1turn);
+        }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .model-card-aurora::after {
+            animation: none;
+        }
+    }
+</style>

@@ -1470,7 +1470,12 @@
       "models_card_title": "模型",
       "model_manager_state_repair": "需要修复",
       "model_manager_state_installed": "已安装",
-      "model_manager_state_available": "可用"
+      "model_manager_state_available": "可用",
+      "model_manager_card_download": "下载 {size} MB",
+      "model_manager_card_ram_label": "每个工作进程副本的估计内存:{ram}",
+      "model_manager_memory_title": "内存占用",
+      "model_manager_memory_per_copy": "每份副本 {ram}",
+      "model_manager_memory_total": "按当前配置 {count} 份副本共约 {total}"
     },
     "llm": {
       "title": "AI 洞察",

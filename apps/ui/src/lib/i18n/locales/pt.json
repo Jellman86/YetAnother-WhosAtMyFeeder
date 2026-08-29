@@ -1479,7 +1479,12 @@
       "models_card_title": "Modelos",
       "model_manager_state_repair": "Reparo necessário",
       "model_manager_state_installed": "Instalado",
-      "model_manager_state_available": "Disponível"
+      "model_manager_state_available": "Disponível",
+      "model_manager_card_download": "{size} MB de download",
+      "model_manager_card_ram_label": "Memória estimada por cópia do processo: {ram}",
+      "model_manager_memory_title": "Uso de memória",
+      "model_manager_memory_per_copy": "{ram} por cópia do processo",
+      "model_manager_memory_total": "cerca de {total} em {count} cópias conforme configurado"
     },
     "llm": {
       "title": "Análises de IA",

@@ -1470,7 +1470,12 @@
       "models_card_title": "モデル",
       "model_manager_state_repair": "修復が必要",
       "model_manager_state_installed": "インストール済み",
-      "model_manager_state_available": "利用可能"
+      "model_manager_state_available": "利用可能",
+      "model_manager_card_download": "ダウンロード {size} MB",
+      "model_manager_card_ram_label": "ワーカーコピーあたりの推定メモリ: {ram}",
+      "model_manager_memory_title": "メモリ使用量",
+      "model_manager_memory_per_copy": "コピーあたり{ram}",
+      "model_manager_memory_total": "設定中の{count}コピー合計で約{total}"
     },
     "llm": {
       "title": "AI インサイト",

@@ -1470,7 +1470,12 @@
       "models_card_title": "Modelos",
       "model_manager_state_repair": "Reparación necesaria",
       "model_manager_state_installed": "Instalado",
-      "model_manager_state_available": "Disponible"
+      "model_manager_state_available": "Disponible",
+      "model_manager_card_download": "{size} MB de descarga",
+      "model_manager_card_ram_label": "Memoria estimada por copia del proceso: {ram}",
+      "model_manager_memory_title": "Huella de memoria",
+      "model_manager_memory_per_copy": "{ram} por copia del proceso",
+      "model_manager_memory_total": "unos {total} entre {count} copias según la configuración"
     },
     "llm": {
       "title": "Análisis de IA",

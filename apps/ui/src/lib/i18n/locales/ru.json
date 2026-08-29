@@ -1479,7 +1479,12 @@
       "models_card_title": "Модели",
       "model_manager_state_repair": "Нужен ремонт",
       "model_manager_state_installed": "Установлена",
-      "model_manager_state_available": "Доступна"
+      "model_manager_state_available": "Доступна",
+      "model_manager_card_download": "{size} МБ загрузки",
+      "model_manager_card_ram_label": "Оценка памяти на копию процесса: {ram}",
+      "model_manager_memory_title": "Потребление памяти",
+      "model_manager_memory_per_copy": "{ram} на копию процесса",
+      "model_manager_memory_total": "около {total} на {count} копий согласно настройкам"
     },
     "llm": {
       "title": "ИИ-аналитика",

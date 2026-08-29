@@ -1470,7 +1470,12 @@
       "models_card_title": "Modelle",
       "model_manager_state_repair": "Reparatur nötig",
       "model_manager_state_installed": "Installiert",
-      "model_manager_state_available": "Verfügbar"
+      "model_manager_state_available": "Verfügbar",
+      "model_manager_card_download": "{size} MB Download",
+      "model_manager_card_ram_label": "Geschätzter Speicher pro Worker-Kopie: {ram}",
+      "model_manager_memory_title": "Speicherbedarf",
+      "model_manager_memory_per_copy": "{ram} pro Worker-Kopie",
+      "model_manager_memory_total": "etwa {total} über {count} Kopien wie konfiguriert"
     },
     "llm": {
       "title": "KI-Einblicke",

@@ -1479,7 +1479,12 @@
       "models_card_title": "Models",
       "model_manager_state_repair": "Repair needed",
       "model_manager_state_installed": "Installed",
-      "model_manager_state_available": "Available"
+      "model_manager_state_available": "Available",
+      "model_manager_card_download": "{size} MB download",
+      "model_manager_card_ram_label": "Estimated memory per worker copy: {ram}",
+      "model_manager_memory_title": "Memory footprint",
+      "model_manager_memory_per_copy": "{ram} per worker copy",
+      "model_manager_memory_total": "about {total} across {count} worker copies as configured"
     },
     "llm": {
       "title": "AI Insights",
