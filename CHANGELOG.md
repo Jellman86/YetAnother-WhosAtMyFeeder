@@ -6,6 +6,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **The notification policy reads as one sentence, and every word of it is the control.** The
+  Notifications tab opened on a preset grid, a confidence slider, an advanced disclosure hiding
+  three trigger toggles, and a separate audio-only panel — five surfaces all describing one
+  decision. They are now a single line: *Tell me about [new visits] that are at least [70% sure]
+  of [any species] on [Discord and Email]* — each slot opens a small editor in place. The
+  destinations slot names the enabled channels and lets several be picked at once, with an honest
+  "needs setup" beside any channel that is switched on but not yet configured. The audio-confirmed
+  filter lives inside the confidence slot and shows in the chip as "sure and heard"; the video
+  fallback timeout appears only under the one preset that uses it; the advanced trigger toggles are
+  gone because the presets are exactly those three switches. Silent mode is its own honest
+  sentence: *Stay silent and keep recording detections.*
+
 ### Added
 
 - **An owner can open a detection's originating Frigate event.** A detection came from a Frigate
