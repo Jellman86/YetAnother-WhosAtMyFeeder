@@ -221,12 +221,12 @@ async def gmail_oauth_callback(request: Request, code: str = Query(...), state: 
     except Exception as e:
         log.error("gmail_oauth_callback_error", error=str(e))
         return HTMLResponse(
-            content=f"""
+            content="""
         <html>
             <head><title>Gmail Connection Failed</title></head>
             <body style="font-family: sans-serif; text-align: center; padding: 50px;">
                 <h1 style="color: #ef4444;">✗ Gmail Connection Failed</h1>
-                <p>{str(e)}</p>
+                <p>The connection attempt failed. Check the YA-WAMF server logs for details.</p>
                 <p><a href="javascript:window.close()">Close Window</a></p>
             </body>
         </html>
@@ -358,12 +358,12 @@ async def outlook_oauth_callback(request: Request, code: str = Query(...), state
     except Exception as e:
         log.error("outlook_oauth_callback_error", error=str(e))
         return HTMLResponse(
-            content=f"""
+            content="""
         <html>
             <head><title>Outlook Connection Failed</title></head>
             <body style="font-family: sans-serif; text-align: center; padding: 50px;">
                 <h1 style="color: #ef4444;">✗ Outlook Connection Failed</h1>
-                <p>{str(e)}</p>
+                <p>The connection attempt failed. Check the YA-WAMF server logs for details.</p>
                 <p><a href="javascript:window.close()">Close Window</a></p>
             </body>
         </html>
