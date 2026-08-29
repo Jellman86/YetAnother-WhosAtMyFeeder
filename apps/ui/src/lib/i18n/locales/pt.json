@@ -1485,7 +1485,12 @@
       "model_manager_memory_title": "Uso de RAM previsto",
       "model_manager_memory_predicted": "≈ {total}",
       "model_manager_memory_formula_subprocess": "{per} por cópia × {live} ao vivo + {background} em segundo plano (modo isolado)",
-      "model_manager_memory_formula_in_process": "{per} para uma cópia compartilhada no aplicativo (modo no processo)"
+      "model_manager_memory_formula_in_process": "{per} para uma cópia compartilhada no aplicativo (modo no processo)",
+      "worker_counts": "Processos de trabalho",
+      "worker_counts_desc": "Cada processo mantém sua própria cópia do modelo. Deixe vazio para o padrão de um. Aplicado no próximo reinício dos processos.",
+      "worker_counts_live": "Ao vivo",
+      "worker_counts_background": "Segundo plano",
+      "worker_counts_auto": "1 (padrão)"
     },
     "llm": {
       "title": "Análises de IA",

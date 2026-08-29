@@ -1476,7 +1476,12 @@
       "model_manager_memory_title": "预计内存占用",
       "model_manager_memory_predicted": "约 {total}",
       "model_manager_memory_formula_subprocess": "每份 {per} × {live} 个实时 + {background} 个后台(隔离模式)",
-      "model_manager_memory_formula_in_process": "应用内共享一份,共 {per}(进程内模式)"
+      "model_manager_memory_formula_in_process": "应用内共享一份,共 {per}(进程内模式)",
+      "worker_counts": "工作进程数",
+      "worker_counts_desc": "每个工作进程持有自己的模型副本。留空使用默认值 1。将在下次工作进程重启时生效。",
+      "worker_counts_live": "实时",
+      "worker_counts_background": "后台",
+      "worker_counts_auto": "1(默认)"
     },
     "llm": {
       "title": "AI 洞察",

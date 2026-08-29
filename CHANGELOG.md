@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Worker concurrency is now a setting you can actually set.** The live and background worker
+  counts existed only as environment variables and absorbed config keys — the Detection tab had
+  no control for them, which made "I set it in the UI" silently untrue. The Runtime column now
+  has a Worker processes row (visible in isolated-worker mode): two small inputs, empty meaning
+  the default of one, each labelled with the honest cost that every worker holds its own model
+  copy, applied the next time the workers restart. Null round-trips through the settings API as
+  "return to default", an omitted field leaves the stored value untouched, and out-of-range
+  counts are rejected rather than silently clamped.
+
 - **The Detection tab leads with its status, and models are chosen from cards.** The state you
   previously dug three disclosures for — active model, runtime provider, worker plan, health —
   now sits in a permanent four-fact band at the top: healthy is four calm facts, and only trouble

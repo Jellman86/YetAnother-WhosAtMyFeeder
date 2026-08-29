@@ -1265,6 +1265,7 @@ export interface components {
     auto_purge_missing_clips?: boolean;
     auto_purge_missing_snapshots?: boolean;
     auto_video_classification?: boolean | null;
+    background_worker_count?: number | null;
     bird_crop_detector_tier?: "fast" | "accurate" | null;
     bird_crop_source_priority?: "frigate_hints_first" | "crop_model_first" | "crop_model_only" | "frigate_hints_only" | null;
     bird_model_region_override?: string | null;
@@ -1312,6 +1313,7 @@ export interface components {
     inaturalist_default_place_guess?: string | null;
     inaturalist_enabled?: boolean | null;
     inference_provider?: string | null;
+    live_worker_count?: number | null;
     llm_analysis_prompt_template?: string | null;
     llm_api_key?: string | null;
     llm_chart_prompt_template?: string | null;
@@ -1448,6 +1450,7 @@ export interface components {
     auto_purge_missing_clips?: boolean;
     auto_purge_missing_snapshots?: boolean;
     auto_video_classification?: boolean | null;
+    background_worker_count?: number | null;
     bird_crop_detector_tier?: "fast" | "accurate" | null;
     bird_crop_source_priority?: "frigate_hints_first" | "crop_model_first" | "crop_model_only" | "frigate_hints_only" | null;
     bird_model_region_override?: string | null;
@@ -1493,6 +1496,7 @@ export interface components {
     inaturalist_default_place_guess?: string | null;
     inaturalist_enabled?: boolean | null;
     inference_provider?: string | null;
+    live_worker_count?: number | null;
     llm_analysis_prompt_template?: string | null;
     llm_api_key?: string | null;
     llm_chart_prompt_template?: string | null;

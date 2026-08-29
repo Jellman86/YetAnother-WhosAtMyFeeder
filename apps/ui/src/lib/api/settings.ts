@@ -32,6 +32,8 @@ export interface Settings {
     recording_clip_after_seconds: number;
     classification_threshold: number;
     classification_min_confidence: number;
+    live_worker_count?: number | null;
+    background_worker_count?: number | null;
     cameras: string[];
     retention_days: number;
     maintenance_max_concurrent?: number;

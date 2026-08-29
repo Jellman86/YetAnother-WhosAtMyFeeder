@@ -1476,7 +1476,12 @@
       "model_manager_memory_title": "予測RAM使用量",
       "model_manager_memory_predicted": "約 {total}",
       "model_manager_memory_formula_subprocess": "コピーあたり{per} × ライブ{live}+バックグラウンド{background}(分離モード)",
-      "model_manager_memory_formula_in_process": "アプリ内共有の1コピーで{per}(インプロセスモード)"
+      "model_manager_memory_formula_in_process": "アプリ内共有の1コピーで{per}(インプロセスモード)",
+      "worker_counts": "ワーカープロセス",
+      "worker_counts_desc": "各ワーカーはモデルのコピーを保持します。空欄で既定の1になります。次回ワーカー再起動時に適用されます。",
+      "worker_counts_live": "ライブ",
+      "worker_counts_background": "バックグラウンド",
+      "worker_counts_auto": "1(既定)"
     },
     "llm": {
       "title": "AI インサイト",

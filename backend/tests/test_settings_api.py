@@ -202,6 +202,50 @@ async def test_settings_roundtrip_frigate_external_url(client: httpx.AsyncClient
 
 
 @pytest.mark.asyncio
+async def test_settings_roundtrip_worker_counts(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+
+    get_before = await client.get("/api/settings")
+    assert get_before.status_code == 200, get_before.text
+    before_payload = get_before.json()
+    assert "live_worker_count" in before_payload
+    assert "background_worker_count" in before_payload
+
+    base = {
+        "frigate_url": before_payload["frigate_url"],
+        "mqtt_server": before_payload["mqtt_server"],
+        "classification_threshold": before_payload["classification_threshold"],
+    }
+
+    post_resp = await client.post(
+        "/api/settings", json={**base, "live_worker_count": 2, "background_worker_count": 1}
+    )
+    assert post_resp.status_code == 200, post_resp.text
+    after = (await client.get("/api/settings")).json()
+    assert after["live_worker_count"] == 2
+    assert after["background_worker_count"] == 1
+
+    # Omitting the fields leaves the stored values untouched.
+    post_resp = await client.post("/api/settings", json=base)
+    assert post_resp.status_code == 200, post_resp.text
+    assert (await client.get("/api/settings")).json()["live_worker_count"] == 2
+
+    # Explicit null returns the count to the default-resolution path.
+    post_resp = await client.post(
+        "/api/settings", json={**base, "live_worker_count": None, "background_worker_count": None}
+    )
+    assert post_resp.status_code == 200, post_resp.text
+    final = (await client.get("/api/settings")).json()
+    assert final["live_worker_count"] is None
+    assert final["background_worker_count"] is None
+
+    # Out-of-range counts are rejected, not clamped silently.
+    post_resp = await client.post("/api/settings", json={**base, "live_worker_count": 0})
+    assert post_resp.status_code == 422
+
+
+@pytest.mark.asyncio
 async def test_settings_rejects_enabling_auth_without_password(client: httpx.AsyncClient):
     settings.auth.enabled = False
     settings.auth.password_hash = None

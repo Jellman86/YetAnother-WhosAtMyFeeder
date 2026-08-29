@@ -57,6 +57,7 @@
     "settings.detection.provider_cpu",
     "settings.detection.provider_cuda",
     "settings.detection.provider_fallback_reason",
+    "settings.detection.worker_counts_live",
     "settings.discord.bot_placeholder",
     "settings.email.smtp_port",
     "settings.frigate.mqtt_broker_placeholder",

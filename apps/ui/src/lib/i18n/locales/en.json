@@ -1485,7 +1485,12 @@
       "model_manager_memory_title": "Predicted RAM use",
       "model_manager_memory_predicted": "≈ {total}",
       "model_manager_memory_formula_subprocess": "{per} per copy × {live} live + {background} background workers (isolated mode)",
-      "model_manager_memory_formula_in_process": "{per} for one copy shared inside the app (in-process mode)"
+      "model_manager_memory_formula_in_process": "{per} for one copy shared inside the app (in-process mode)",
+      "worker_counts": "Worker processes",
+      "worker_counts_desc": "Each worker holds its own copy of the model. Leave empty for the default of one. Applied the next time the classifier workers restart.",
+      "worker_counts_live": "Live",
+      "worker_counts_background": "Background",
+      "worker_counts_auto": "1 (default)"
     },
     "llm": {
       "title": "AI Insights",

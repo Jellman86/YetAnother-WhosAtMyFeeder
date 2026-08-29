@@ -731,6 +731,12 @@ class SettingsUpdate(BaseModel):
         None, ge=0.0, le=1.0, description="Classification confidence threshold (0-1)"
     )
     classification_min_confidence: float = Field(0.4, ge=0.0, le=1.0, description="Minimum confidence floor (0-1)")
+    live_worker_count: Optional[int] = Field(
+        None, ge=1, le=8, description="Live classifier worker processes; null follows the default (one)"
+    )
+    background_worker_count: Optional[int] = Field(
+        None, ge=1, le=4, description="Background classifier worker processes; null follows the default (one)"
+    )
     cameras: List[str] = Field(default_factory=list, description="List of cameras to monitor")
     retention_days: int = Field(0, ge=0, description="Days to keep detections (0 = unlimited)")
     maintenance_max_concurrent: Optional[int] = Field(
@@ -1267,6 +1273,8 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "recording_clip_after_seconds": settings.frigate.recording_clip_after_seconds,
         "classification_threshold": settings.classification.threshold,
         "classification_min_confidence": settings.classification.min_confidence,
+        "live_worker_count": settings.classification.live_worker_count,
+        "background_worker_count": settings.classification.background_worker_count,
         "cameras": settings.frigate.camera,
         "retention_days": settings.maintenance.retention_days,
         "maintenance_max_concurrent": settings.maintenance.max_concurrent,
@@ -1577,6 +1585,12 @@ async def update_settings(
         settings.classification.threshold = update.classification_threshold
     if "classification_min_confidence" in fields_set:
         settings.classification.min_confidence = update.classification_min_confidence
+    # None is meaningful here - it returns the count to default resolution - so
+    # presence in fields_set alone decides whether the stored value changes.
+    if "live_worker_count" in fields_set:
+        settings.classification.live_worker_count = update.live_worker_count
+    if "background_worker_count" in fields_set:
+        settings.classification.background_worker_count = update.background_worker_count
     if "retention_days" in fields_set:
         settings.maintenance.retention_days = update.retention_days
     if "maintenance_max_concurrent" in fields_set and update.maintenance_max_concurrent is not None:
