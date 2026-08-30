@@ -2356,7 +2356,9 @@
     "time_of_day": "Heure de la journée",
     "day_of_week": "Jour de la semaine",
     "month": "Mois",
-    "copy_diagnostics_bundle": "Copier le lot de diagnostics"
+    "copy_diagnostics_bundle": "Copier le lot de diagnostics",
+    "no_local_visits_title": "Aucune visite à votre mangeoire pour l'instant",
+    "no_local_visits_body": "Vos caméras n'ont pas encore enregistré cet oiseau. Tout ce qui suit provient de sources de référence publiques."
   },
   "pagination": {
     "navigation": "Pagination",

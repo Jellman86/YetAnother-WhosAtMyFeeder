@@ -2365,7 +2365,9 @@
     "inat_observations": "iNaturalist Observations",
     "time_of_day": "Time of Day",
     "day_of_week": "Day of Week",
-    "month": "Month"
+    "month": "Month",
+    "no_local_visits_title": "No visits at your feeder yet",
+    "no_local_visits_body": "Your cameras have not recorded this bird. Everything below comes from public reference sources."
   },
   "pagination": {
     "navigation": "Pagination",

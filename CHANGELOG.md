@@ -15,6 +15,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The species card now opens for a bird the feeder has never seen.** Opening a notable nearby
+  sighting answered "Detection not found", because the stats request 404s for a species with no
+  local visits and the card treated that as a failure. An empty record is the normal case for a
+  rare bird reported in the area: the card now says plainly that the feeder has no visits yet and
+  still shows the naming, description, reference image, and range from public sources.
+
 - **The Hidden facet now shows the hidden visits
   ([#347](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/347)).** The toggle sits
   under "Only", beside facets that filter the list down, but it was wired to *include* hidden rows

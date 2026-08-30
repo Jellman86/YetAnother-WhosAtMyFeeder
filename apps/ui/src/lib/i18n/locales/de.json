@@ -2356,7 +2356,9 @@
     "time_of_day": "Tageszeit",
     "day_of_week": "Wochentag",
     "month": "Monat",
-    "copy_diagnostics_bundle": "Diagnosepaket kopieren"
+    "copy_diagnostics_bundle": "Diagnosepaket kopieren",
+    "no_local_visits_title": "Noch keine Besuche an Ihrer Futterstelle",
+    "no_local_visits_body": "Ihre Kameras haben diesen Vogel noch nicht aufgezeichnet. Alles Folgende stammt aus öffentlichen Nachschlagequellen."
   },
   "pagination": {
     "navigation": "Paginierung",

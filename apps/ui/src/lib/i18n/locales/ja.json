@@ -2356,7 +2356,9 @@
     "time_of_day": "時間帯",
     "day_of_week": "曜日",
     "month": "月",
-    "copy_diagnostics_bundle": "診断バンドルをコピー"
+    "copy_diagnostics_bundle": "診断バンドルをコピー",
+    "no_local_visits_title": "あなたのフィーダーへの来訪はまだありません",
+    "no_local_visits_body": "カメラはこの鳥をまだ記録していません。以下の情報はすべて公開されている参考資料によるものです。"
   },
   "pagination": {
     "navigation": "ページネーション",
