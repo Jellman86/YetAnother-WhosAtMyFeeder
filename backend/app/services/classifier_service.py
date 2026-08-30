@@ -2971,7 +2971,7 @@ class ClassifierService:
         startup_self_test_enabled = _openvino_gpu_startup_self_test_enabled() and not self._worker_process_mode
         return {
             "startup_self_test_enabled": startup_self_test_enabled,
-            "cache_dir": os.getenv("OPENVINO_CACHE_DIR", "/tmp/openvino_cache"),
+            "cache_dir": resolve_openvino_cache_dir(),
             "requested_compile_properties": {
                 "PERFORMANCE_HINT": "LATENCY",
                 "NUM_STREAMS": "1",

@@ -13,6 +13,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   so an unusual bird reported in your area is one click from its description, taxonomy, and your
   own history with it — including when that history is empty.
 
+- **First-run setup can be skipped.** The wizard's header now offers *Skip setup* wherever the
+  rerun mode shows its close button. Skipping asks first and is honest about its one consequence:
+  leaving before the account step means the app runs without a password until one is set under
+  Settings → Security. It completes initial setup through the same path the account step uses
+  (auth disabled), so the gate state stays consistent, and the wizard remains re-runnable from
+  Settings at any time. Escape-to-close stays rerun-only.
+
 ### Fixed
 
 - **A worker loading a large model is no longer mistaken for a dead one.** Observed in the field:
@@ -70,8 +77,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   32 MB property of the protocol shared by both ends, and an encode that would exceed it is
   refused before it is written, so the framing can never be poisoned mid-line.
 
-### Fixed
-
 - **The log speaks at the right volume.** Three realignments so an error in the log means an
   actual error: a worker's relayed crash traceback is now a warning instead of an info line (and
   runtime start-up banners drop to debug); a clip Frigate simply never stored logs at info,
@@ -110,15 +115,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   polynomial on crafted labels. The eight deliberate keeps — owner-facing diagnostic messages,
   the informational /health payload, and the Fernet key derived from a generated high-entropy
   secret — are dismissed on GitHub with the reasoning recorded on each alert.
-
-### Added
-
-- **First-run setup can be skipped.** The wizard's header now offers *Skip setup* wherever the
-  rerun mode shows its close button. Skipping asks first and is honest about its one consequence:
-  leaving before the account step means the app runs without a password until one is set under
-  Settings → Security. It completes initial setup through the same path the account step uses
-  (auth disabled), so the gate state stays consistent, and the wizard remains re-runnable from
-  Settings at any time. Escape-to-close stays rerun-only.
 
 ## [2.18.1] - 2026-08-29
 

@@ -27,6 +27,34 @@ def test_worker_stderr_severity_reflects_content():
     assert classify_worker_stderr_severity("loading model catalogue") == "info"
 
 
+def test_worker_stderr_severity_keeps_tensorflow_faults_visible():
+    # TensorFlow's own error lines carry the file path all its chatter does;
+    # only the informational severity letters are noise. An E/F line is a
+    # real fault and must never be demoted to debug.
+    assert (
+        classify_worker_stderr_severity(
+            "E tensorflow/core/framework/op_kernel.cc:1616] OP_REQUIRES failed at gather_op.cc:161 : "
+            "INVALID_ARGUMENT: indices[0,0,0] = 5 is not in [0, 4)"
+        )
+        == "warning"
+    )
+    assert classify_worker_stderr_severity("F tensorflow/core/util/some_check.cc:99] check failed") == "warning"
+    assert (
+        classify_worker_stderr_severity(
+            "I0000 00:00:1788107191.829092 199 cpu_feature_guard.cc:227] I tensorflow/core banner"
+        )
+        == "debug"
+    )
+    # A buffer mixing banner chatter with a crash surfaces as a warning.
+    assert (
+        classify_worker_stderr_severity(
+            "I tensorflow/core/platform/cpu_feature_guard.cc:210] oneDNN is on\n"
+            "Traceback (most recent call last):\n  raise RuntimeError('boom')"
+        )
+        == "warning"
+    )
+
+
 def test_expected_frigate_absences_are_not_warnings():
     from app.services import frigate_client
 
