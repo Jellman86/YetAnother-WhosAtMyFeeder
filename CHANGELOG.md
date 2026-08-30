@@ -49,6 +49,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The log speaks at the right volume.** Three realignments so an error in the log means an
+  actual error: a worker's relayed crash traceback is now a warning instead of an info line (and
+  runtime start-up banners drop to debug); a clip Frigate simply never stored logs at info,
+  because the absence is an expected state the UI already reports honestly; and the nested
+  DB-acquire detector now names the connection's holder as well as the nested caller, and says
+  each unique pair once per process instead of on every request.
+
 - **A species the filter panel offers can no longer come back as an empty page
   ([#301](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/301)).** The filter list
   keyed some options on a taxon id that lived only in the taxonomy cache, and the cache is
