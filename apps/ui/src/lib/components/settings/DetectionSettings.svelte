@@ -472,6 +472,7 @@
         <DetectionStatusBand
             {classifierStatus}
             {imageExecutionMode}
+            autoVideoEnabled={autoVideoClassification}
             activeProviderLabel={bandProviderLabel}
             issueCount={healthIssueCount}
             modelsAnchorId={MODELS_CARD_ID}
@@ -1040,7 +1041,7 @@
         title={$_('settings.detection.models_card_title', { default: 'Models' })}
     >
         <div id={MODELS_CARD_ID} class="scroll-mt-24">
-            <ModelManager executionMode={imageExecutionMode} />
+            <ModelManager executionMode={imageExecutionMode} autoVideoEnabled={autoVideoClassification} />
         </div>
     </SettingsCard>
 

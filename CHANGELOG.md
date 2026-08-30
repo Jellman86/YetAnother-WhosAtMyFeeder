@@ -8,6 +8,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The RAM prediction now counts the video worker, and the video pool follows the one knob.**
+  Video analysis runs on its own worker pool, so with video enabled those model copies are real
+  memory — observed live as a video-0 worker holding a copy no prediction accounted for. The
+  predicted-RAM formula and the status band's workers cell now include the video workers, and the
+  pool itself is sized from the background worker count instead of the retired Video Concurrency
+  setting, which it was the last consumer of.
+
+- **The API process no longer retains gigabytes of freed memory.** With ~70 threads, unbounded
+  glibc malloc arenas kept the high-water mark of large transient buffers (whole video clips pass
+  through memory on their way to the worker) — observed live as ~3.2 GB resident against an
+  expected ~1 GB. `MALLOC_ARENA_MAX=2` bounds that retention for every process in the image;
+  streaming clips to disk instead of through the heap is tracked in
+  [#341](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/341).
+
 - **A single large image can no longer kill a classifier worker.** The worker pipe carries
   newline-framed JSON, and its two ends disagreed about how large a line may be: the worker read
   requests with a 4 MB limit — which a high-quality snapshot exceeds as base64 — and the
