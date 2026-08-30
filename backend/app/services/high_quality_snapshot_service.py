@@ -312,27 +312,6 @@ class HighQualitySnapshotService:
 
         return None
 
-    async def replace_from_clip_bytes(
-        self,
-        event_id: str,
-        clip_bytes: bytes,
-        event_data: Optional[dict[str, Any]] = None,
-        *,
-        clip_variant: str = "event",
-    ) -> str:
-        """Best-effort replacement using clip bytes already fetched by another workflow."""
-        tmp_path = await asyncio.to_thread(_write_temp_clip, clip_bytes)
-        try:
-            return await self.replace_from_clip_path(
-                event_id,
-                tmp_path,
-                event_data,
-                clip_variant=clip_variant,
-            )
-        finally:
-            with contextlib.suppress(Exception):
-                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-
     async def replace_from_clip_path(
         self,
         event_id: str,

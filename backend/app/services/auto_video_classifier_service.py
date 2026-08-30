@@ -2171,9 +2171,10 @@ class AutoVideoClassifierService:
             downloaded, error = await frigate_client.download_clip_to_file(frigate_event, dest_path, timeout=10.0)
 
             if downloaded:
-                if await self._clip_file_valid(dest_path):
+                validation_error = await self._clip_file_error(dest_path)
+                if validation_error is None:
                     return True, None
-                last_error = "clip_decode_failed"
+                last_error = validation_error
             else:
                 last_error = error or "clip_unavailable"
 
@@ -2301,8 +2302,12 @@ class AutoVideoClassifierService:
         cap.release()
         return ok
 
-    async def _clip_file_valid(self, clip_path: str) -> bool:
-        """Ensure the clip file carries an MP4 header and decodes one frame.
+    async def _clip_file_error(self, clip_path: str) -> Optional[str]:
+        """Validate the clip file; None when good, else the error code.
+
+        A non-MP4 body (Frigate answering 200 with an error stub) reports
+        `clip_invalid`; a real MP4 that will not decode reports
+        `clip_decode_failed` - the interface words the two differently.
 
         Works on the file directly - clips used to be validated as bytes and
         written to a temp file for cv2 anyway, so keeping them in memory bought
@@ -2323,15 +2328,19 @@ class AutoVideoClassifierService:
             return bool(head) and (head.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in head)
 
         if not await asyncio.to_thread(_has_mp4_header):
-            return False
+            return "clip_invalid"
         try:
-            return await asyncio.wait_for(
+            decodes = await asyncio.wait_for(
                 asyncio.to_thread(self._clip_decodes_sync, clip_path),
                 timeout=30.0,
             )
         except asyncio.TimeoutError:
             log.warning("Clip decode check timed out — treating clip as invalid")
-            return False
+            return "clip_decode_failed"
+        return None if decodes else "clip_decode_failed"
+
+    async def _clip_file_valid(self, clip_path: str) -> bool:
+        return await self._clip_file_error(clip_path) is None
 
     def _schedule_precheck_retry(
         self,

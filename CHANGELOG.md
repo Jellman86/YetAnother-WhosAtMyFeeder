@@ -28,7 +28,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   transits were what glibc's arenas retained at high-water. Frigate downloads now stream straight
   to the job's temp file, cached clips are copied disk-to-disk, validation runs against the file,
   and the high-quality snapshot path takes the file path. The whole-clip byte string is gone from
-  the pipeline, and a source-level test keeps it gone.
+  the auto-video pipeline, and a source-level test keeps it gone. The high-quality snapshot
+  service's own queued fetch path (off by default) still buffers clips and keeps its bytes
+  entrypoints for that reason.
 
 - **A single large image can no longer kill a classifier worker.** The worker pipe carries
   newline-framed JSON, and its two ends disagreed about how large a line may be: the worker read

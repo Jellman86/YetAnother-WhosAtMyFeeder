@@ -33,6 +33,13 @@ def _jpeg_bytes(color: str, size: tuple[int, int] = (32, 32), *, quality: int = 
     return buffer.getvalue()
 
 
+def _clip_file(tmp_path):
+    """The clip reaches the service as a file the caller owns (#341)."""
+    path = tmp_path / "clip.mp4"
+    path.write_bytes(b"clip-bytes")
+    return path
+
+
 def _make_cache_service(tmp_path, monkeypatch):
     cache_base = tmp_path / "media_cache"
     snapshots = cache_base / "snapshots"
@@ -52,7 +59,7 @@ def _make_cache_service(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_replace_from_clip_bytes_persists_and_selects_ranked_snapshot_candidates(tmp_path, monkeypatch):
+async def test_replace_from_clip_path_persists_and_selects_ranked_snapshot_candidates(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_candidates", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
@@ -124,7 +131,9 @@ async def test_replace_from_clip_bytes_persists_and_selects_ranked_snapshot_cand
         raising=False,
     )
 
-    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_candidates", b"clip-bytes")
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_path(
+        "evt_candidates", _clip_file(tmp_path)
+    )
 
     assert result == "bird_crop_replaced"
     assert persisted["event_id"] == "evt_candidates"
@@ -2123,7 +2132,7 @@ async def test_high_quality_snapshot_service_status_tracks_outcomes(tmp_path, mo
 
 
 @pytest.mark.asyncio
-async def test_replace_from_clip_bytes_replaces_cached_snapshot_when_enabled(tmp_path, monkeypatch):
+async def test_replace_from_clip_path_replaces_cached_snapshot_when_enabled(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_clip_bytes", b"frigate-bytes")
     settings.media_cache.high_quality_event_snapshots = True
@@ -2134,14 +2143,16 @@ async def test_replace_from_clip_bytes_replaces_cached_snapshot_when_enabled(tmp
         lambda clip_path, *_args: b"derived-bytes",
     )
 
-    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_bytes", b"clip-bytes")
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_path(
+        "evt_clip_bytes", _clip_file(tmp_path)
+    )
 
     assert result == "replaced"
     assert await cache_service.get_snapshot("evt_clip_bytes") == b"derived-bytes"
 
 
 @pytest.mark.asyncio
-async def test_replace_from_clip_bytes_is_disabled_when_feature_flag_off(tmp_path, monkeypatch):
+async def test_replace_from_clip_path_is_disabled_when_feature_flag_off(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_clip_disabled", b"frigate-bytes")
     settings.media_cache.high_quality_event_snapshots = False
@@ -2152,14 +2163,16 @@ async def test_replace_from_clip_bytes_is_disabled_when_feature_flag_off(tmp_pat
         lambda clip_path, *_args: b"derived-bytes",
     )
 
-    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_disabled", b"clip-bytes")
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_path(
+        "evt_clip_disabled", _clip_file(tmp_path)
+    )
 
     assert result == "disabled"
     assert await cache_service.get_snapshot("evt_clip_disabled") == b"frigate-bytes"
 
 
 @pytest.mark.asyncio
-async def test_replace_from_clip_bytes_preserves_original_on_extraction_failure(tmp_path, monkeypatch):
+async def test_replace_from_clip_path_preserves_original_on_extraction_failure(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_clip_failure", b"frigate-bytes")
     settings.media_cache.high_quality_event_snapshots = True
@@ -2173,16 +2186,16 @@ async def test_replace_from_clip_bytes_preserves_original_on_extraction_failure(
         _boom,
     )
 
-    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_failure", b"clip-bytes")
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_path(
+        "evt_clip_failure", _clip_file(tmp_path)
+    )
 
     assert result == "frame_extract_failed"
     assert await cache_service.get_snapshot("evt_clip_failure") == b"frigate-bytes"
 
 
 @pytest.mark.asyncio
-async def test_replace_from_clip_bytes_satisfies_queued_event_without_duplicate_worker_processing(
-    tmp_path, monkeypatch
-):
+async def test_replace_from_clip_path_satisfies_queued_event_without_duplicate_worker_processing(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_clip_queued", b"frigate-bytes")
     settings.media_cache.high_quality_event_snapshots = True
@@ -2209,7 +2222,9 @@ async def test_replace_from_clip_bytes_satisfies_queued_event_without_duplicate_
     queued = hq_module.high_quality_snapshot_service.schedule_replacement("evt_clip_queued")
     assert queued is True
 
-    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_queued", b"clip-bytes")
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_path(
+        "evt_clip_queued", _clip_file(tmp_path)
+    )
     assert result == "replaced"
 
     worker_task = asyncio.create_task(hq_module.high_quality_snapshot_service._worker_loop(0))
@@ -2223,7 +2238,7 @@ async def test_replace_from_clip_bytes_satisfies_queued_event_without_duplicate_
 
 
 @pytest.mark.asyncio
-async def test_replace_from_clip_bytes_satisfies_deferred_event_without_later_worker_processing(tmp_path, monkeypatch):
+async def test_replace_from_clip_path_satisfies_deferred_event_without_later_worker_processing(tmp_path, monkeypatch):
     cache_service = _make_cache_service(tmp_path, monkeypatch)
     await cache_service.cache_snapshot("evt_clip_deferred_1", b"frigate-bytes")
     await cache_service.cache_snapshot("evt_clip_deferred_2", b"frigate-bytes")
@@ -2253,7 +2268,9 @@ async def test_replace_from_clip_bytes_satisfies_deferred_event_without_later_wo
     assert hq_module.high_quality_snapshot_service.schedule_replacement("evt_clip_deferred_1") is True
     assert hq_module.high_quality_snapshot_service.schedule_replacement("evt_clip_deferred_2") is True
 
-    result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_deferred_2", b"clip-bytes")
+    result = await hq_module.high_quality_snapshot_service.replace_from_clip_path(
+        "evt_clip_deferred_2", _clip_file(tmp_path)
+    )
     assert result == "replaced"
 
     worker_task = asyncio.create_task(hq_module.high_quality_snapshot_service._worker_loop(0))
