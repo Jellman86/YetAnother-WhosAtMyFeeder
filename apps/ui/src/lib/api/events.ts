@@ -11,6 +11,7 @@ export interface FetchEventsOptions {
     camera?: string;
     sort?: 'newest' | 'oldest' | 'confidence';
     includeHidden?: boolean;
+    onlyHidden?: boolean;
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
     eventId?: string;
@@ -20,7 +21,7 @@ export interface FetchEventsOptions {
 }
 
 export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Detection[]> {
-    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, favoritesOnly, audioConfirmedOnly, eventId, fields, requestKey, signal } = options;
+    const { limit = 50, offset = 0, startDate, endDate, species, camera, sort, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, eventId, fields, requestKey, signal } = options;
     const params = new URLSearchParams();
     params.set('limit', limit.toString());
     params.set('offset', offset.toString());
@@ -30,6 +31,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
     if (camera) params.set('camera', camera);
     if (sort) params.set('sort', sort);
     if (includeHidden) params.set('include_hidden', 'true');
+    if (onlyHidden) params.set('only_hidden', 'true');
     if (favoritesOnly) params.set('favorites', 'true');
     if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
     if (eventId) params.set('event_id', eventId);
@@ -40,7 +42,7 @@ export async function fetchEvents(options: FetchEventsOptions = {}): Promise<Det
         species || 'all',
         camera || 'all',
         sort || 'newest',
-        includeHidden ? 'hidden' : 'visible',
+        onlyHidden ? 'only-hidden' : includeHidden ? 'hidden' : 'visible',
         favoritesOnly ? 'favorites' : 'all',
         audioConfirmedOnly ? 'audio' : 'all',
         eventId || 'all-events',
@@ -86,6 +88,7 @@ export interface EventsCountOptions {
     species?: string;
     camera?: string;
     includeHidden?: boolean;
+    onlyHidden?: boolean;
     favoritesOnly?: boolean;
     audioConfirmedOnly?: boolean;
     requestKey?: string | null;
@@ -94,13 +97,14 @@ export interface EventsCountOptions {
 export type EventsCountResponse = paths['/api/events/count']['get']['response'];
 
 export async function fetchEventsCount(options: EventsCountOptions = {}): Promise<EventsCountResponse> {
-    const { startDate, endDate, species, camera, includeHidden, favoritesOnly, audioConfirmedOnly, requestKey } = options;
+    const { startDate, endDate, species, camera, includeHidden, onlyHidden, favoritesOnly, audioConfirmedOnly, requestKey } = options;
     const params = new URLSearchParams();
     if (startDate) params.set('start_date', startDate);
     if (endDate) params.set('end_date', endDate);
     if (species) params.set('species', species);
     if (camera) params.set('camera', camera);
     if (includeHidden) params.set('include_hidden', 'true');
+    if (onlyHidden) params.set('only_hidden', 'true');
     if (favoritesOnly) params.set('favorites', 'true');
     if (audioConfirmedOnly) params.set('audio_confirmed_only', 'true');
 
@@ -108,7 +112,7 @@ export async function fetchEventsCount(options: EventsCountOptions = {}): Promis
         'events-count',
         species || 'all',
         camera || 'all',
-        includeHidden ? 'hidden' : 'visible',
+        onlyHidden ? 'only-hidden' : includeHidden ? 'hidden' : 'visible',
         favoritesOnly ? 'favorites' : 'all',
         audioConfirmedOnly ? 'audio' : 'all',
         startDate || 'none',

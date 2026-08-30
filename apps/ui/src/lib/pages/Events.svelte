@@ -199,7 +199,7 @@
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
                     sort: sortOrder,
-                    includeHidden: showHidden,
+                    onlyHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
                     fields: 'list',
@@ -210,7 +210,7 @@
                     endDate: range.end,
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
-                    includeHidden: showHidden,
+                    onlyHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
                     requestKey: 'events-page:count'
@@ -690,7 +690,10 @@
                 selectedEvent = null;
                 hiddenCount++;
             } else {
-                events = events.map(e => e.frigate_event === eventId ? { ...e, is_hidden: false } : e);
+                // In the hidden-only view an unhidden row no longer qualifies.
+                events = showHidden
+                    ? events.filter(e => e.frigate_event !== eventId)
+                    : events.map(e => e.frigate_event === eventId ? { ...e, is_hidden: false } : e);
                 hiddenCount = Math.max(0, hiddenCount - 1);
                 selectedEvent = null;
             }
@@ -1421,7 +1424,10 @@
                 }
                 hiddenCount++;
             } else {
-                events = events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: false } : event);
+                // In the hidden-only view an unhidden row no longer qualifies.
+                events = showHidden
+                    ? events.filter((event) => event.frigate_event !== hiddenEventId)
+                    : events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: false } : event);
                 hiddenCount = Math.max(0, hiddenCount - 1);
             }
             selectedEvent = null;

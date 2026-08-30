@@ -18225,6 +18225,18 @@
             }
           },
           {
+            "description": "Return only hidden/ignored detections",
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Return only hidden/ignored detections",
+              "title": "Only Hidden",
+              "type": "boolean"
+            }
+          },
+          {
             "description": "Comma-separated field names to return. Use 'list' for minimal fields, 'detail' for all. Default: all fields.",
             "in": "query",
             "name": "fields",
@@ -18515,6 +18527,18 @@
               "default": false,
               "description": "Include hidden/ignored detections",
               "title": "Include Hidden",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Count only hidden/ignored detections",
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Count only hidden/ignored detections",
+              "title": "Only Hidden",
               "type": "boolean"
             }
           }

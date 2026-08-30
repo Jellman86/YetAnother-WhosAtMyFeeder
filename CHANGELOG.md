@@ -15,6 +15,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The Hidden facet now shows the hidden visits
+  ([#347](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/347)).** The toggle sits
+  under "Only", beside facets that filter the list down, but it was wired to *include* hidden rows
+  in the full list - with one hidden visit among a thousand, selecting it visibly did nothing.
+  Selecting Hidden now shows exactly the hidden visits, and unhiding one removes it from that view.
+
 - **The RAM prediction now counts the video worker, and the video pool follows the one knob.**
   Video analysis runs on its own worker pool, so with video enabled those model copies are real
   memory — observed live as a video-0 worker holding a copy no prediction accounted for. The

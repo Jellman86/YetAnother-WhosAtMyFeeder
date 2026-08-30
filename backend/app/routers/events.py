@@ -637,6 +637,7 @@ async def get_events(
     audio_confirmed_only: bool = Query(default=False, description="Only return detections with audio confirmation"),
     sort: Literal["newest", "oldest", "confidence"] = Query(default="newest", description="Sort order"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
+    only_hidden: bool = Query(default=False, description="Return only hidden/ignored detections"),
     fields: Optional[str] = Query(
         default=None,
         description="Comma-separated field names to return. Use 'list' for minimal fields, 'detail' for all. Default: all fields.",
@@ -670,6 +671,7 @@ async def get_events(
 
         # Never show hidden detections to guests
         include_hidden = False
+        only_hidden = False
 
         # Prevent camera-based filtering if camera names are hidden
         if hide_camera_names:
@@ -697,6 +699,7 @@ async def get_events(
             camera=camera,
             sort=sort,
             include_hidden=include_hidden,
+            hidden_only=only_hidden,
             favorite_only=favorites,
             audio_confirmed_only=audio_confirmed_only,
             frigate_event=event_id,
@@ -928,6 +931,7 @@ async def get_events_count(
     favorites: bool = Query(default=False, description="Only count favorited detections"),
     audio_confirmed_only: bool = Query(default=False, description="Only count detections with audio confirmation"),
     include_hidden: bool = Query(default=False, description="Include hidden/ignored detections"),
+    only_hidden: bool = Query(default=False, description="Count only hidden/ignored detections"),
     auth: AuthContext = Depends(get_auth_context_with_legacy),
 ):
     """Get total count of events (optionally filtered). Public users see limited historical data."""
@@ -945,6 +949,7 @@ async def get_events_count(
             start_date = date.today()
             end_date = date.today()
         include_hidden = False
+        only_hidden = False
         if hide_camera_names:
             camera = None
 
@@ -966,12 +971,13 @@ async def get_events_count(
             taxa_id=taxa_id,
             camera=camera,
             include_hidden=include_hidden,
+            hidden_only=only_hidden,
             favorite_only=favorites,
             audio_confirmed_only=audio_confirmed_only,
         )
 
         # Determine if any filters are applied
-        filtered = any([start_date, end_date, species, camera, favorites, audio_confirmed_only])
+        filtered = any([start_date, end_date, species, camera, favorites, audio_confirmed_only, only_hidden])
 
         return EventsCountResponse(count=count, filtered=filtered)
 
