@@ -1744,6 +1744,7 @@ class DetectionRepository:
         camera: str | None = None,
         sort: str = "newest",
         include_hidden: bool = False,
+        hidden_only: bool = False,
         favorite_only: bool = False,
         audio_confirmed_only: bool = False,
         frigate_event: str | None = None,
@@ -1775,8 +1776,11 @@ class DetectionRepository:
         params: list = []
         conditions = []
 
-        # By default, exclude hidden detections
-        if not include_hidden:
+        # Hidden rows are excluded by default; the Explorer's Hidden facet
+        # asks for them exclusively, which outranks merely including them.
+        if hidden_only:
+            conditions.append("d.is_hidden = 1")
+        elif not include_hidden:
             conditions.append("(d.is_hidden = 0 OR d.is_hidden IS NULL)")
 
         if start_date:
@@ -1851,6 +1855,7 @@ class DetectionRepository:
         taxa_id: int | None = None,
         camera: str | None = None,
         include_hidden: bool = False,
+        hidden_only: bool = False,
         favorite_only: bool = False,
         exclude_favorites: bool = False,
         audio_confirmed_only: bool = False,
@@ -1878,8 +1883,11 @@ class DetectionRepository:
         params: list = []
         conditions = []
 
-        # By default, exclude hidden detections
-        if not include_hidden:
+        # Hidden rows are excluded by default; the Explorer's Hidden facet
+        # asks for them exclusively, which outranks merely including them.
+        if hidden_only:
+            conditions.append("d.is_hidden = 1")
+        elif not include_hidden:
             conditions.append("(d.is_hidden = 0 OR d.is_hidden IS NULL)")
 
         if start_date:

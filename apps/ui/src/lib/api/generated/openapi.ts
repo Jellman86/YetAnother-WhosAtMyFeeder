@@ -2577,6 +2577,7 @@ export interface paths {
     include_hidden?: boolean;
     limit?: number;
     offset?: number;
+    only_hidden?: boolean;
     sort?: "newest" | "oldest" | "confidence";
     species?: string | null;
     start_date?: string | null;
@@ -2613,6 +2614,7 @@ export interface paths {
     end_date?: string | null;
     favorites?: boolean;
     include_hidden?: boolean;
+    only_hidden?: boolean;
     species?: string | null;
     start_date?: string | null;
 };
