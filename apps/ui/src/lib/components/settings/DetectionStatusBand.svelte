@@ -5,6 +5,7 @@
     let {
         classifierStatus,
         imageExecutionMode,
+        autoVideoEnabled = false,
         activeProviderLabel,
         issueCount,
         modelsAnchorId,
@@ -12,6 +13,7 @@
     }: {
         classifierStatus: ClassifierStatus | null;
         imageExecutionMode: string;
+        autoVideoEnabled?: boolean;
         activeProviderLabel: string;
         issueCount: number;
         modelsAnchorId: string;
@@ -85,7 +87,11 @@
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.band_shared_runtime')}</span>
         {:else}
             <span class="text-sm font-bold text-slate-900 dark:text-white">
-                {$_('settings.detection.band_worker_split', { values: { live: liveWorkers, background: backgroundWorkers } })}
+                {#if autoVideoEnabled}
+                    {$_('settings.detection.band_worker_split_video', { values: { live: liveWorkers, background: backgroundWorkers, video: backgroundWorkers } })}
+                {:else}
+                    {$_('settings.detection.band_worker_split', { values: { live: liveWorkers, background: backgroundWorkers } })}
+                {/if}
             </span>
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 {#if ramPerCopy}

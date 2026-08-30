@@ -1488,7 +1488,9 @@
       "worker_counts_live": "ライブ",
       "worker_counts_background": "バックグラウンド",
       "worker_counts_auto": "1(既定)",
-      "video_concurrency_follows_workers": "クリップはバックグラウンドワーカーの数だけ同時に解析されます。モデルはワーカーごとに1枚ずつ分類するため、別個の同時実行設定はジョブを待たせるかワーカーを遊ばせるだけになります。"
+      "video_concurrency_follows_workers": "クリップはバックグラウンドワーカーの数だけ同時に解析されます。モデルはワーカーごとに1枚ずつ分類するため、別個の同時実行設定はジョブを待たせるかワーカーを遊ばせるだけになります。",
+      "band_worker_split_video": "ライブ{live}・バックグラウンド{background}・動画{video}",
+      "model_manager_memory_formula_subprocess_video": "コピーあたり{per} × ライブ{live}+バックグラウンド{background}+動画{video}(分離モード)"
     },
     "llm": {
       "title": "AI インサイト",

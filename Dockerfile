@@ -61,6 +61,11 @@ ENV GIT_HASH=${GIT_HASH}
 ENV APP_VERSION_BASE=${APP_VERSION_BASE}
 ENV APP_BRANCH=${APP_BRANCH}
 ENV YAWAMF_IMAGE_FLAVOR=${RUNTIME_FLAVOR}
+# Long-lived Python service with ~70 threads: unbounded glibc malloc arenas
+# retain the high-water mark of large transient buffers (whole video clips
+# pass through memory), observed live as ~3.2GB resident in the API process.
+# Two arenas bound that retention; contention at this scale is negligible.
+ENV MALLOC_ARENA_MAX=2
 
 LABEL io.yawamf.image.flavor="${RUNTIME_FLAVOR}"
 

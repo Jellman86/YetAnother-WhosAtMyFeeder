@@ -2732,12 +2732,15 @@ class ClassifierService:
         self._crop_source_resolver = crop_source_resolver
         # Use dedicated executors so long-running video analysis cannot starve
         # live snapshot/audio-adjacent classification work.
+        # The one concurrency knob: video-job concurrency follows the background
+        # worker count, so the pool that runs those jobs must match it - a pool
+        # smaller than the job limit only queues, and this was the last consumer
+        # of the retired video_classification_max_concurrent setting. Mirrors
+        # auto_video_classifier_service.resolve_video_concurrency.
+        _configured_background = settings.classification.background_worker_count
         video_workers = max(
             1,
-            min(
-                2,
-                int(getattr(settings.classification, "video_classification_max_concurrent", 1) or 1),
-            ),
+            int(_configured_background) if _configured_background else 1,
         )
         image_workers = CLASSIFIER_IMAGE_MAX_CONCURRENT
         # One resolution serves admission and the pool: every admitted job has
