@@ -317,7 +317,8 @@
       "error": "Não foi possível carregar os relatos notáveis.",
       "retry": "Tentar novamente",
       "empty": "Nenhum relato raro ou incomum foi encontrado em um raio de {distance} nos últimos {days} dias.",
-      "empty_hint": "Este é um resultado válido do eBird; ainda pode haver muitos avistamentos comuns nas proximidades."
+      "empty_hint": "Este é um resultado válido do eBird; ainda pode haver muitos avistamentos comuns nas proximidades.",
+      "open_species": "{species} — abrir a ficha da espécie"
     },
     "day_bar": {
       "today": "Hoje",

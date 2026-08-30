@@ -317,7 +317,8 @@
       "error": "Impossible de charger les signalements notables.",
       "retry": "Réessayer",
       "empty": "Aucun signalement rare ou inhabituel n’a été trouvé dans un rayon de {distance} au cours des {days} derniers jours.",
-      "empty_hint": "Il s’agit d’un résultat eBird valide ; les observations courantes à proximité peuvent néanmoins être nombreuses."
+      "empty_hint": "Il s’agit d’un résultat eBird valide ; les observations courantes à proximité peuvent néanmoins être nombreuses.",
+      "open_species": "{species} — ouvrir la fiche de l’espèce"
     },
     "day_bar": {
       "today": "Aujourd’hui",

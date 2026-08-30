@@ -12,9 +12,10 @@
         canConfigure?: boolean;
         refreshKey?: number;
         onconfigure?: () => void;
+        onselectspecies?: (species: string) => void;
     }
 
-    let { canConfigure = false, refreshKey = 0, onconfigure }: Props = $props();
+    let { canConfigure = false, refreshKey = 0, onconfigure, onselectspecies }: Props = $props();
 
     let result = $state<EbirdNotableResult | null>(null);
     let loading = $state(false);
@@ -157,7 +158,17 @@
              Two or more still pair up. -->
         <ul class="grid gap-2 {result.results.length > 1 ? 'sm:grid-cols-2' : ''}">
             {#each result.results.slice(0, 4) as observation}
-                <li class="flex min-w-0 items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/45 p-3 dark:border-amber-900/40 dark:bg-amber-950/10">
+                {@const observationName = observation.common_name || observation.scientific_name || ''}
+                <li class="min-w-0">
+                    <!-- The whole sighting is the control: it opens the same
+                         species card the rest of the dashboard uses. -->
+                    <button
+                        type="button"
+                        disabled={!onselectspecies || !observationName}
+                        onclick={() => observationName && onselectspecies?.(observationName)}
+                        aria-label={$_('dashboard.notable_nearby.open_species', { values: { species: observationName || $_('common.unknown_species') } })}
+                        class="flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/45 p-3 text-left transition-colors hover:border-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-default disabled:hover:border-amber-100 dark:border-amber-900/40 dark:bg-amber-950/10 dark:hover:border-amber-700/60 dark:focus-visible:ring-offset-slate-950 dark:disabled:hover:border-amber-900/40"
+                    >
                     {#if observation.thumbnail_url}
                         <img
                             src={observation.thumbnail_url}
@@ -185,6 +196,7 @@
                             {observation.location_name || '—'} · {observation.observed_at ? formatDateTime(observation.observed_at) : '—'}
                         </p>
                     </div>
+                    </button>
                 </li>
             {/each}
         </ul>
