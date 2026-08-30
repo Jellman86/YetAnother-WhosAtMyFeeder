@@ -15,6 +15,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A worker loading a large model is no longer mistaken for a dead one.** Observed in the field:
+  the supervisor killed a worker with "heartbeat timeout" while its stderr was mid-way through
+  TensorFlow's import chatter — heavy imports and cold GPU model compiles hold the GIL long enough
+  to starve the heartbeat, and on slow hardware the kill/reload loop meant subprocess mode never
+  classified anything. Three defences now: stderr output counts as proof of life; the first load
+  is judged against a warm-up deadline (3 minutes by default) instead of the 5-second steady-state
+  window; and if the worker circuit still trips, classification falls back to the main process and
+  the Detection status band says so in amber instead of silently dropping every visit. The
+  OpenVINO kernel cache also moved to the persistent models volume, so a slow first compile is
+  paid once, not on every container start.
+
 - **The species card now opens for a bird the feeder has never seen.** Opening a notable nearby
   sighting answered "Detection not found", because the stats request 404s for a species with no
   local visits and the card treated that as a failure. An empty record is the normal case for a

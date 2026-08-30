@@ -1491,7 +1491,9 @@
       "worker_counts_auto": "1 (Standard)",
       "video_concurrency_follows_workers": "Clips werden so viele gleichzeitig analysiert, wie es Hintergrund-Worker gibt — die Modelle klassifizieren ein Bild pro Worker, ein separater Parallelitätsregler könnte also nur Aufträge stauen oder Worker brachliegen lassen.",
       "band_worker_split_video": "{live} live · {background} im Hintergrund · {video} Video",
-      "model_manager_memory_formula_subprocess_video": "{per} pro Kopie × {live} live + {background} im Hintergrund + {video} Video (isolierter Modus)"
+      "model_manager_memory_formula_subprocess_video": "{per} pro Kopie × {live} live + {background} im Hintergrund + {video} Video (isolierter Modus)",
+      "band_worker_fallback": "Worker fallen aus — Klassifizierung im Hauptprozess",
+      "band_worker_fallback_detail": "Isolierte Worker sterben beim Laden des Modells; Erkennungen laufen im Hauptprozess weiter."
     },
     "llm": {
       "title": "KI-Einblicke",

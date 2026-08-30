@@ -1500,7 +1500,9 @@
       "worker_counts_auto": "1 (default)",
       "video_concurrency_follows_workers": "Clips are analysed as many at a time as there are background workers — the models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers.",
       "band_worker_split_video": "{live} live · {background} background · {video} video",
-      "model_manager_memory_formula_subprocess_video": "{per} per copy × {live} live + {background} background + {video} video workers (isolated mode)"
+      "model_manager_memory_formula_subprocess_video": "{per} per copy × {live} live + {background} background + {video} video workers (isolated mode)",
+      "band_worker_fallback": "Workers failing — classifying in-process",
+      "band_worker_fallback_detail": "Isolated workers keep dying during model load; detections continue in the main process."
     },
     "llm": {
       "title": "AI Insights",

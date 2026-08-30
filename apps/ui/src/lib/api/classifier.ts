@@ -17,6 +17,12 @@ export interface ClassifierStatus {
     openvino_gpu_probe_error?: string | null;
     resolved_live_workers?: number;
     resolved_background_workers?: number;
+    worker_in_process_fallback?: {
+        active: boolean;
+        reason: string | null;
+        active_seconds: number | null;
+        classifications: number;
+    };
     active_model_estimated_ram_mb?: number | null;
     openvino_model_compile_ok?: boolean | null;
     openvino_model_compile_device?: string | null;

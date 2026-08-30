@@ -1121,7 +1121,9 @@ async def test_classifier_service_can_propagate_supervisor_video_failure_reason(
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_maps_supervisor_circuit_open_to_live_overload(mock_tflite, mock_os_path_exists):
+async def test_classifier_service_circuit_open_falls_back_to_in_process(mock_tflite, mock_os_path_exists):
+    """An open circuit means the workers keep dying; dropping every detection
+    until someone notices is worse than classifying in-process and saying so."""
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
 
@@ -1129,12 +1131,16 @@ async def test_classifier_service_maps_supervisor_circuit_open_to_live_overload(
         async def classify(self, **_kwargs):
             raise ClassifierWorkerCircuitOpenError("live circuit open")
 
+    sentinel = [{"display_name": "Robin", "score": 0.9, "index": 1}]
     try:
         with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
             service = ClassifierService(supervisor=_FakeSupervisor())
+            service.classify = lambda image, camera_name=None, model_id=None, input_context=None: sentinel
             img = Image.new("RGB", (16, 16), color="green")
-            with pytest.raises(LiveImageClassificationOverloadedError, match="classify_snapshot_circuit_open"):
-                await service.classify_async_live(img, camera_name="front")
+            results = await service.classify_async_live(img, camera_name="front")
+            assert results == sentinel
+            assert service.get_worker_fallback_status()["active"] is True
+            assert service.get_worker_fallback_status()["reason"] == "circuit_open"
             await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode

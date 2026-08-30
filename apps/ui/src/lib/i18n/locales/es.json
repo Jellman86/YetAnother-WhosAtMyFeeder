@@ -1491,7 +1491,9 @@
       "worker_counts_auto": "1 (por defecto)",
       "video_concurrency_follows_workers": "Los clips se analizan tantos a la vez como procesos en segundo plano hay: los modelos clasifican una imagen por proceso, así que un ajuste de concurrencia aparte solo podría encolar trabajos o dejar procesos sin uso.",
       "band_worker_split_video": "{live} en vivo · {background} en segundo plano · {video} de vídeo",
-      "model_manager_memory_formula_subprocess_video": "{per} por copia × {live} en vivo + {background} en segundo plano + {video} de vídeo (modo aislado)"
+      "model_manager_memory_formula_subprocess_video": "{per} por copia × {live} en vivo + {background} en segundo plano + {video} de vídeo (modo aislado)",
+      "band_worker_fallback": "Los workers fallan — clasificando en el proceso principal",
+      "band_worker_fallback_detail": "Los workers aislados mueren al cargar el modelo; las detecciones continúan en el proceso principal."
     },
     "llm": {
       "title": "Análisis de IA",

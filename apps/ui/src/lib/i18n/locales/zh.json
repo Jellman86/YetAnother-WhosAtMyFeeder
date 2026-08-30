@@ -1491,7 +1491,9 @@
       "worker_counts_auto": "1(默认)",
       "video_concurrency_follows_workers": "同时分析的剪辑数量等于后台工作进程数——模型每个进程一次只分类一张图像,单独的并发设置只会让任务排队或让进程闲置。",
       "band_worker_split_video": "{live} 个实时 · {background} 个后台 · {video} 个视频",
-      "model_manager_memory_formula_subprocess_video": "每份 {per} × {live} 个实时 + {background} 个后台 + {video} 个视频(隔离模式)"
+      "model_manager_memory_formula_subprocess_video": "每份 {per} × {live} 个实时 + {background} 个后台 + {video} 个视频(隔离模式)",
+      "band_worker_fallback": "工作进程故障 — 正在主进程中分类",
+      "band_worker_fallback_detail": "隔离的工作进程在加载模型时不断崩溃；检测在主进程中继续进行。"
     },
     "llm": {
       "title": "AI 洞察",

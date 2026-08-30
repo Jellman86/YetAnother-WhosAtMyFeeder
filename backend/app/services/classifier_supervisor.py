@@ -69,6 +69,7 @@ class ClassifierSupervisor:
         video_hard_deadline_seconds: float | None = None,
         worker_ready_timeout_seconds: float = 20.0,
         video_worker_ready_timeout_seconds: float | None = None,
+        warmup_liveness_timeout_seconds: float | None = None,
         worker_factory=None,
         watchdog_interval_seconds: float = 0.05,
         restart_window_seconds: float = 60.0,
@@ -108,6 +109,16 @@ class ClassifierSupervisor:
                 else base_ready_timeout_seconds,
             ),
         }
+        # A cold model load legitimately starves heartbeats for minutes
+        # (native imports and GPU kernel compiles hold the GIL), so until a
+        # worker has completed its first request it is judged against this
+        # longer window instead of the steady-state heartbeat timeout.
+        self._warmup_liveness_timeout_seconds = (
+            max(self._heartbeat_timeout_seconds, float(warmup_liveness_timeout_seconds))
+            if warmup_liveness_timeout_seconds is not None
+            else None
+        )
+        self._completed_once: set[tuple[str, int]] = set()
         self._watchdog_interval_seconds = max(0.01, float(watchdog_interval_seconds))
         self._restart_window_seconds = max(0.01, float(restart_window_seconds))
         self._restart_threshold = max(1, int(restart_threshold))
@@ -633,6 +644,7 @@ class ClassifierSupervisor:
 
             self._assignments.pop(worker_name, None)
             if message["type"] == "result":
+                self._completed_once.add((worker_name, generation))
                 if not assignment.future.done():
                     assignment.future.set_result(list(message["results"]))
             else:
@@ -673,12 +685,23 @@ class ClassifierSupervisor:
                     last_activity = status.get("last_activity_monotonic")
                     if not isinstance(last_activity, (int, float)):
                         last_activity = status.get("last_heartbeat_monotonic")
-                    liveness_reference = (
-                        max(float(last_activity), assignment.started_at)
-                        if isinstance(last_activity, (int, float))
-                        else assignment.started_at
+                    liveness_candidates = [assignment.started_at]
+                    if isinstance(last_activity, (int, float)):
+                        liveness_candidates.append(float(last_activity))
+                    # A worker printing to stderr is demonstrably alive: heavy
+                    # imports chatter there while starving the heartbeat task.
+                    last_stderr = status.get("last_stderr_monotonic")
+                    if isinstance(last_stderr, (int, float)):
+                        liveness_candidates.append(float(last_stderr))
+                    liveness_reference = max(liveness_candidates)
+                    warming_up = (
+                        self._warmup_liveness_timeout_seconds is not None
+                        and (slot.worker_name, slot.worker_generation) not in self._completed_once
                     )
-                    if now - liveness_reference > self._heartbeat_timeout_seconds:
+                    liveness_budget = (
+                        self._warmup_liveness_timeout_seconds if warming_up else self._heartbeat_timeout_seconds
+                    )
+                    if now - liveness_reference > liveness_budget:
                         await self._replace_worker(
                             priority,
                             index,
@@ -687,7 +710,10 @@ class ClassifierSupervisor:
                             kill=True,
                         )
                         continue
-                    if now - assignment.started_at > self._hard_deadline_seconds[priority]:
+                    deadline_budget = self._hard_deadline_seconds[priority]
+                    if warming_up:
+                        deadline_budget = max(deadline_budget, self._warmup_liveness_timeout_seconds)
+                    if now - assignment.started_at > deadline_budget:
                         await self._replace_worker(
                             priority,
                             index,
@@ -714,6 +740,7 @@ class ClassifierSupervisor:
         assignment = self._assignments.pop(slot.worker_name, None)
         if assignment is not None and not assignment.future.done():
             assignment.future.set_exception(assignment_error)
+        self._completed_once.discard((slot.worker_name, slot.worker_generation))
         self._metrics[priority]["restarts"] += 1
         self._metrics[priority]["last_exit_reason"] = reason
         self._metrics[priority]["last_stderr_excerpt"] = str(worker_status.get("recent_stderr_excerpt") or "")

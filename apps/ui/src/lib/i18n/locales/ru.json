@@ -1500,7 +1500,9 @@
       "worker_counts_auto": "1 (по умолчанию)",
       "video_concurrency_follows_workers": "Клипы анализируются одновременно в количестве фоновых процессов: модели классифицируют по одному изображению на процесс, поэтому отдельная настройка параллельности могла бы лишь копить очередь или простаивать процессы.",
       "band_worker_split_video": "{live} онлайн · {background} в фоне · {video} видео",
-      "model_manager_memory_formula_subprocess_video": "{per} на копию × {live} онлайн + {background} в фоне + {video} видео (изолированный режим)"
+      "model_manager_memory_formula_subprocess_video": "{per} на копию × {live} онлайн + {background} в фоне + {video} видео (изолированный режим)",
+      "band_worker_fallback": "Сбой воркеров — классификация в основном процессе",
+      "band_worker_fallback_detail": "Изолированные воркеры продолжают падать при загрузке модели; распознавание продолжается в основном процессе."
     },
     "llm": {
       "title": "ИИ-аналитика",
