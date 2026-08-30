@@ -5,7 +5,11 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from .classifier_worker_protocol import decode_protocol_message, encode_protocol_message
+from .classifier_worker_protocol import (
+    WORKER_PROTOCOL_STREAM_LIMIT_BYTES,
+    decode_protocol_message,
+    encode_protocol_message,
+)
 
 
 ProcessFactory = Callable[..., Awaitable[Any]]
@@ -216,8 +220,8 @@ class ClassifierWorkerClient:
 
     async def _spawn_process(self, *, worker_name: str, worker_generation: int) -> Any:
         backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        # Use a large limit (512KB) for the StreamReader to prevent LimitOverrunError
-        # if a worker dumps a massive JSON payload or large GPU error stack trace.
+        # The stream limit is the protocol's own: both ends read newline-framed
+        # JSON, and a single high-quality frame is megabytes of base64.
         return await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
@@ -228,5 +232,5 @@ class ClassifierWorkerClient:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=backend_root,
-            limit=512 * 1024,
+            limit=WORKER_PROTOCOL_STREAM_LIMIT_BYTES,
         )

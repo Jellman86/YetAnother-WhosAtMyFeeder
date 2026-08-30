@@ -9,6 +9,7 @@ from typing import Any, Awaitable, Callable
 from PIL import Image
 
 from .classifier_worker_protocol import (
+    WORKER_PROTOCOL_STREAM_LIMIT_BYTES,
     build_error_event,
     build_heartbeat_event,
     build_progress_event,
@@ -18,8 +19,6 @@ from .classifier_worker_protocol import (
     decode_protocol_message,
     encode_protocol_message,
 )
-
-WORKER_PROTOCOL_STREAM_LIMIT_BYTES = 4 * 1024 * 1024
 
 
 class _StdoutWriter:

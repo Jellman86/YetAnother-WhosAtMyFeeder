@@ -8,6 +8,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A single large image can no longer kill a classifier worker.** The worker pipe carries
+  newline-framed JSON, and its two ends disagreed about how large a line may be: the worker read
+  requests with a 4 MB limit — which a high-quality snapshot exceeds as base64 — and the
+  supervisor read responses with only 512 KB. One oversized frame raised LimitOverrunError and
+  took the worker down instead of failing one request (observed live). The limit is now a single
+  32 MB property of the protocol shared by both ends, and an encode that would exceed it is
+  refused before it is written, so the framing can never be poisoned mid-line.
+
+### Fixed
+
 - **A species the filter panel offers can no longer come back as an empty page
   ([#301](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/301)).** The filter list
   keyed some options on a taxon id that lived only in the taxonomy cache, and the cache is
