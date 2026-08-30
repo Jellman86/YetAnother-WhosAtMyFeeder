@@ -1491,7 +1491,9 @@
       "worker_counts_auto": "1(既定)",
       "video_concurrency_follows_workers": "クリップはバックグラウンドワーカーの数だけ同時に解析されます。モデルはワーカーごとに1枚ずつ分類するため、別個の同時実行設定はジョブを待たせるかワーカーを遊ばせるだけになります。",
       "band_worker_split_video": "ライブ{live}・バックグラウンド{background}・動画{video}",
-      "model_manager_memory_formula_subprocess_video": "コピーあたり{per} × ライブ{live}+バックグラウンド{background}+動画{video}(分離モード)"
+      "model_manager_memory_formula_subprocess_video": "コピーあたり{per} × ライブ{live}+バックグラウンド{background}+動画{video}(分離モード)",
+      "band_worker_fallback": "ワーカーが失敗 — メインプロセスで分類中",
+      "band_worker_fallback_detail": "分離ワーカーがモデル読み込み中に停止し続けています。検出はメインプロセスで継続しています。"
     },
     "llm": {
       "title": "AI インサイト",

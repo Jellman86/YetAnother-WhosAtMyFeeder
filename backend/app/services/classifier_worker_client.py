@@ -17,10 +17,13 @@ ProcessFactory = Callable[..., Awaitable[Any]]
 
 _STDERR_NOISE_MARKERS = (
     # Runtime banners emitted at every worker start; they carry no signal
-    # beyond "the runtime initialised", so they log at debug.
+    # beyond "the runtime initialised", so they log at debug. TensorFlow's
+    # own lines are matched by their severity letter: only informational
+    # and warning chatter is noise — E/F lines are faults, below.
     "absl::InitializeLog()",
     "TF-TRT Warning",
-    "tensorflow/core",
+    "I tensorflow/",
+    "W tensorflow/",
 )
 _STDERR_FAULT_MARKERS = (
     "Traceback (most recent call last):",
@@ -28,18 +31,23 @@ _STDERR_FAULT_MARKERS = (
     "Error(",
     "raise ",
     "Exception",
+    "E tensorflow/",
+    "F tensorflow/",
+    "OP_REQUIRES failed",
 )
 
 
 def classify_worker_stderr_severity(text: str) -> str:
     """Errors when there are actual errors: a relayed crash traceback is a
-    warning, a runtime banner is debug, everything else stays info."""
-    for marker in _STDERR_NOISE_MARKERS:
-        if marker in text:
-            return "debug"
+    warning, a runtime banner is debug, everything else stays info. Faults
+    are checked first so a buffer that mixes banner chatter with a crash
+    still surfaces as a warning."""
     for marker in _STDERR_FAULT_MARKERS:
         if marker in text:
             return "warning"
+    for marker in _STDERR_NOISE_MARKERS:
+        if marker in text:
+            return "debug"
     if "error" in text.lower():
         return "warning"
     return "info"

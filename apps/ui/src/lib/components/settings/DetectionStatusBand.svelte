@@ -34,6 +34,7 @@
     const liveWorkers = $derived(classifierStatus?.resolved_live_workers ?? 1);
     const backgroundWorkers = $derived(classifierStatus?.resolved_background_workers ?? 1);
     const ramPerCopy = $derived(classifierStatus?.active_model_estimated_ram_mb ?? null);
+    const workerFallbackActive = $derived(classifierStatus?.worker_in_process_fallback?.active ?? false);
 
     function jumpTo(anchorId: string) {
         document.getElementById(anchorId)?.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -85,6 +86,11 @@
         {#if imageExecutionMode === 'in_process'}
             <span class="text-sm font-bold text-slate-900 dark:text-white">{$_('settings.detection.band_in_process')}</span>
             <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.band_shared_runtime')}</span>
+        {:else if workerFallbackActive}
+            <!-- Work that needs a person, stated in words: the isolated workers
+                 keep dying and classification is running in-process meanwhile. -->
+            <span class="text-sm font-bold text-amber-700 dark:text-amber-300">{$_('settings.detection.band_worker_fallback')}</span>
+            <span class="text-xs font-semibold text-amber-700/80 dark:text-amber-300/80">{$_('settings.detection.band_worker_fallback_detail')}</span>
         {:else}
             <span class="text-sm font-bold text-slate-900 dark:text-white">
                 {#if autoVideoEnabled}

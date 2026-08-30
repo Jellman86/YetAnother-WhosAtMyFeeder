@@ -1500,7 +1500,9 @@
       "worker_counts_auto": "1 (predefinito)",
       "video_concurrency_follows_workers": "I clip vengono analizzati tanti alla volta quanti sono i processi in background: i modelli classificano una immagine per processo, quindi una regolazione separata potrebbe solo accodare lavori o lasciare processi inutilizzati.",
       "band_worker_split_video": "{live} dal vivo · {background} in background · {video} video",
-      "model_manager_memory_formula_subprocess_video": "{per} per copia × {live} dal vivo + {background} in background + {video} video (modalità isolata)"
+      "model_manager_memory_formula_subprocess_video": "{per} per copia × {live} dal vivo + {background} in background + {video} video (modalità isolata)",
+      "band_worker_fallback": "Worker in errore — classificazione nel processo principale",
+      "band_worker_fallback_detail": "I worker isolati muoiono durante il caricamento del modello; i rilevamenti continuano nel processo principale."
     },
     "llm": {
       "title": "Analisi IA",

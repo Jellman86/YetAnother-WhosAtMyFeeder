@@ -14,6 +14,7 @@ import structlog
 from PIL import Image
 
 from app.config import settings
+from app.services.openvino_cache import resolve_openvino_cache_dir
 
 log = structlog.get_logger()
 
@@ -67,7 +68,7 @@ class _OpenVINODetectorSession:
         self.device = str(device or "CPU")
         self._lock = threading.Lock()
         self._core = core_cls()
-        cache_dir = os.getenv("OPENVINO_CACHE_DIR", "/tmp/openvino_cache")
+        cache_dir = resolve_openvino_cache_dir()
         os.makedirs(cache_dir, exist_ok=True)
         try:
             self._core.set_property({"CACHE_DIR": cache_dir})
