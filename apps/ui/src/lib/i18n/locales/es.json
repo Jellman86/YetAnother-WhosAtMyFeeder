@@ -317,7 +317,8 @@
       "error": "No se pudieron cargar los reportes destacables.",
       "retry": "Intentar de nuevo",
       "empty": "No se encontraron reportes raros o inusuales en un radio de {distance} durante los últimos {days} días.",
-      "empty_hint": "Es un resultado válido de eBird; aun así puede haber muchos avistamientos habituales cerca."
+      "empty_hint": "Es un resultado válido de eBird; aun así puede haber muchos avistamientos habituales cerca.",
+      "open_species": "{species}: abrir la ficha de la especie"
     },
     "day_bar": {
       "today": "Hoy",

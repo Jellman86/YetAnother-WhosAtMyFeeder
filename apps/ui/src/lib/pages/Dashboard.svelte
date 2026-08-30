@@ -492,6 +492,7 @@
                 canConfigure={canReview}
                 refreshKey={notableRefreshKey}
                 onconfigure={() => onnavigate?.('/settings/integrations')}
+                onselectspecies={(species) => (selectedSpecies = species)}
             />
         </div>
 

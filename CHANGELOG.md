@@ -6,6 +6,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **A notable sighting nearby opens its species card.** The dashboard's notable-nearby rows were
+  read-only; each sighting is now a button that opens the same species card used everywhere else,
+  so an unusual bird reported in your area is one click from its description, taxonomy, and your
+  own history with it — including when that history is empty.
+
 ### Fixed
 
 - **The RAM prediction now counts the video worker, and the video pool follows the one knob.**

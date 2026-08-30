@@ -317,7 +317,8 @@
       "error": "Impossibile caricare le segnalazioni notevoli.",
       "retry": "Riprova",
       "empty": "Non sono state trovate segnalazioni rare o insolite entro {distance} negli ultimi {days} giorni.",
-      "empty_hint": "È un risultato eBird valido; gli avvistamenti comuni nelle vicinanze possono comunque essere numerosi."
+      "empty_hint": "È un risultato eBird valido; gli avvistamenti comuni nelle vicinanze possono comunque essere numerosi.",
+      "open_species": "{species} — apri la scheda della specie"
     },
     "day_bar": {
       "today": "Oggi",
