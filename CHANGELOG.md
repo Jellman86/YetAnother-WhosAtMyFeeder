@@ -18,9 +18,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **The API process no longer retains gigabytes of freed memory.** With ~70 threads, unbounded
   glibc malloc arenas kept the high-water mark of large transient buffers (whole video clips pass
   through memory on their way to the worker) — observed live as ~3.2 GB resident against an
-  expected ~1 GB. `MALLOC_ARENA_MAX=2` bounds that retention for every process in the image;
-  streaming clips to disk instead of through the heap is tracked in
-  [#341](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/341).
+  expected ~1 GB. `MALLOC_ARENA_MAX=2` bounds that retention for every process in the image.
+
+- **Video clips no longer pass through the API process's memory
+  ([#341](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/341)).** Every video job
+  used to load the whole clip into the main process — Frigate fetches as one byte string, cached
+  clips via read-into-memory — then write it to a temp file the worker reads anyway, and hand the
+  bytes to the snapshot upgrader, which wrote its own temp copy. Freed after each job, those
+  transits were what glibc's arenas retained at high-water. Frigate downloads now stream straight
+  to the job's temp file, cached clips are copied disk-to-disk, validation runs against the file,
+  and the high-quality snapshot path takes the file path. The whole-clip byte string is gone from
+  the auto-video pipeline, and a source-level test keeps it gone. The high-quality snapshot
+  service's own queued fetch path (off by default) still buffers clips and keeps its bytes
+  entrypoints for that reason.
 
 - **A single large image can no longer kill a classifier worker.** The worker pipe carries
   newline-framed JSON, and its two ends disagreed about how large a line may be: the worker read
