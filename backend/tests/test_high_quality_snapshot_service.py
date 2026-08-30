@@ -57,9 +57,10 @@ async def test_replace_from_clip_bytes_persists_and_selects_ranked_snapshot_cand
     await cache_service.cache_snapshot("evt_candidates", b"frigate-bytes")
     monkeypatch.setattr(settings.media_cache, "high_quality_event_snapshots", True, raising=False)
 
-    async def fake_generate(event_id, clip_bytes, event_data=None, clip_variant="event"):
+    async def fake_generate(event_id, clip_path, event_data=None, clip_variant="event"):
         assert event_id == "evt_candidates"
-        assert clip_bytes == b"clip-bytes"
+        # The clip reaches candidate generation as a file, never as bytes (#341).
+        assert Path(clip_path).read_bytes() == b"clip-bytes"
         assert clip_variant == "event"
         return {
             "selected_candidate": {
@@ -112,7 +113,7 @@ async def test_replace_from_clip_bytes_persists_and_selects_ranked_snapshot_cand
 
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
-        "generate_snapshot_candidates_from_clip_bytes",
+        "generate_snapshot_candidates_from_clip_path",
         fake_generate,
         raising=False,
     )
@@ -1879,7 +1880,7 @@ async def test_process_event_falls_back_to_cached_recording_clip_when_event_clip
     )
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
-        "generate_snapshot_candidates_from_clip_bytes",
+        "generate_snapshot_candidates_from_clip_path",
         AsyncMock(return_value={}),
     )
     extraction_call = {}
@@ -2129,8 +2130,8 @@ async def test_replace_from_clip_bytes_replaces_cached_snapshot_when_enabled(tmp
 
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
-        "_extract_snapshot_from_clip",
-        lambda clip_bytes, *_args: b"derived-bytes",
+        "_extract_snapshot_from_clip_path",
+        lambda clip_path, *_args: b"derived-bytes",
     )
 
     result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_bytes", b"clip-bytes")
@@ -2147,8 +2148,8 @@ async def test_replace_from_clip_bytes_is_disabled_when_feature_flag_off(tmp_pat
 
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
-        "_extract_snapshot_from_clip",
-        lambda clip_bytes, *_args: b"derived-bytes",
+        "_extract_snapshot_from_clip_path",
+        lambda clip_path, *_args: b"derived-bytes",
     )
 
     result = await hq_module.high_quality_snapshot_service.replace_from_clip_bytes("evt_clip_disabled", b"clip-bytes")
@@ -2189,8 +2190,8 @@ async def test_replace_from_clip_bytes_satisfies_queued_event_without_duplicate_
     monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_ensure_workers_started", lambda: None)
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
-        "_extract_snapshot_from_clip",
-        lambda clip_bytes, *_args: b"derived-bytes",
+        "_extract_snapshot_from_clip_path",
+        lambda clip_path, *_args: b"derived-bytes",
     )
 
     worker_processed = asyncio.Event()
@@ -2233,8 +2234,8 @@ async def test_replace_from_clip_bytes_satisfies_deferred_event_without_later_wo
     monkeypatch.setattr(hq_module.high_quality_snapshot_service, "_ensure_workers_started", lambda: None)
     monkeypatch.setattr(
         hq_module.high_quality_snapshot_service,
-        "_extract_snapshot_from_clip",
-        lambda clip_bytes, *_args: b"derived-bytes",
+        "_extract_snapshot_from_clip_path",
+        lambda clip_path, *_args: b"derived-bytes",
     )
 
     worker_processed: list[str] = []

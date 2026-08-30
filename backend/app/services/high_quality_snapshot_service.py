@@ -321,6 +321,27 @@ class HighQualitySnapshotService:
         clip_variant: str = "event",
     ) -> str:
         """Best-effort replacement using clip bytes already fetched by another workflow."""
+        tmp_path = await asyncio.to_thread(_write_temp_clip, clip_bytes)
+        try:
+            return await self.replace_from_clip_path(
+                event_id,
+                tmp_path,
+                event_data,
+                clip_variant=clip_variant,
+            )
+        finally:
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+
+    async def replace_from_clip_path(
+        self,
+        event_id: str,
+        clip_path: Path,
+        event_data: Optional[dict[str, Any]] = None,
+        *,
+        clip_variant: str = "event",
+    ) -> str:
+        """Best-effort replacement from a clip already on disk; the caller owns the file (#341)."""
         if not self.enabled():
             return self._record_outcome(event_id, "disabled")
 
@@ -340,9 +361,9 @@ class HighQualitySnapshotService:
             selected_candidate = None
             classification_candidates: list[dict[str, Any]] = []
             try:
-                candidate_bundle = await self.generate_snapshot_candidates_from_clip_bytes(
+                candidate_bundle = await self.generate_snapshot_candidates_from_clip_path(
                     event_id,
-                    clip_bytes,
+                    Path(clip_path),
                     event_data=crop_event_data,
                     clip_variant=clip_variant,
                 )
@@ -365,8 +386,8 @@ class HighQualitySnapshotService:
             else:
                 try:
                     image_bytes = await asyncio.to_thread(
-                        self._extract_snapshot_from_clip,
-                        clip_bytes,
+                        self._extract_snapshot_from_clip_path,
+                        Path(clip_path),
                         snapshot_event_data,
                         clip_variant,
                     )
@@ -396,7 +417,7 @@ class HighQualitySnapshotService:
                 self._completed_ids.add(event_id)
 
             log.info(
-                "High-quality snapshot replaced from clip bytes",
+                "High-quality snapshot replaced from clip",
                 event_id=event_id,
                 size=len(image_bytes),
                 source=snapshot_source,
@@ -444,31 +465,47 @@ class HighQualitySnapshotService:
         event_data: Optional[dict[str, Any]] = None,
         clip_variant: str = "event",
     ) -> dict[str, Any]:
+        tmp_path = await asyncio.to_thread(_write_temp_clip, clip_bytes)
+        try:
+            return await self.generate_snapshot_candidates_from_clip_path(
+                event_id,
+                tmp_path,
+                event_data=event_data,
+                clip_variant=clip_variant,
+            )
+        finally:
+            with contextlib.suppress(Exception):
+                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+
+    async def generate_snapshot_candidates_from_clip_path(
+        self,
+        event_id: str,
+        clip_path: Path,
+        *,
+        event_data: Optional[dict[str, Any]] = None,
+        clip_variant: str = "event",
+    ) -> dict[str, Any]:
+        """Candidate generation against a clip already on disk; the caller owns the file (#341)."""
         preferred_indices = await self._load_preferred_frame_indices(event_id, clip_variant=clip_variant)
 
         raw_candidates: list[dict[str, Any]] = []
         extraction_error: Exception | None = None
-        tmp_path = await asyncio.to_thread(_write_temp_clip, clip_bytes)
         try:
-            try:
-                raw_candidates = await asyncio.to_thread(
-                    self._extract_snapshot_candidate_payloads_from_clip_path,
-                    tmp_path,
-                    event_id=event_id,
-                    event_data=event_data,
-                    clip_variant=clip_variant,
-                    override_frame_indices=preferred_indices,
-                )
-            except Exception as exc:
-                extraction_error = exc
-                log.warning(
-                    "High-quality clip candidate extraction failed; trying final Frigate snapshot",
-                    event_id=event_id,
-                    error=str(exc),
-                )
-        finally:
-            with contextlib.suppress(Exception):
-                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+            raw_candidates = await asyncio.to_thread(
+                self._extract_snapshot_candidate_payloads_from_clip_path,
+                Path(clip_path),
+                event_id=event_id,
+                event_data=event_data,
+                clip_variant=clip_variant,
+                override_frame_indices=preferred_indices,
+            )
+        except Exception as exc:
+            extraction_error = exc
+            log.warning(
+                "High-quality clip candidate extraction failed; trying final Frigate snapshot",
+                event_id=event_id,
+                error=str(exc),
+            )
 
         raw_candidates.extend(await self._load_final_frigate_snapshot_candidates(event_id, event_data))
         if not raw_candidates and extraction_error is not None:

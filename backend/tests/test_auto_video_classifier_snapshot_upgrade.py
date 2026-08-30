@@ -2,7 +2,7 @@ import asyncio
 import contextlib
 import os
 import tempfile
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -91,7 +91,7 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
     settings.media_cache.high_quality_event_snapshots = True
 
     with (
@@ -103,13 +103,13 @@ async def test_process_event_triggers_snapshot_upgrade_when_clip_valid():
         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
         patch.object(auto_video_classifier_module, "high_quality_snapshot_service") as mock_hq,
     ):
-        mock_hq.replace_from_clip_bytes = AsyncMock(return_value="replaced")
+        mock_hq.replace_from_clip_path = AsyncMock(return_value="replaced")
 
         await service._process_event("evt-auto-video-upgrade", "cam1", skip_delay=True)
 
-    mock_hq.replace_from_clip_bytes.assert_awaited_once_with(
+    mock_hq.replace_from_clip_path.assert_awaited_once_with(
         "evt-auto-video-upgrade",
-        b"clip-bytes",
+        ANY,
         event_data={"has_clip": True},
         clip_variant="event",
     )
@@ -138,7 +138,7 @@ async def test_process_event_records_temporal_abstention_without_breaker_failure
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
     service._record_failure = MagicMock()  # type: ignore[method-assign]
     error_diagnostics_history.clear()
 
@@ -206,7 +206,7 @@ async def test_manual_video_abstention_falls_back_to_best_retained_snapshot():
     service._classifier.classify_video_async = AsyncMock(side_effect=classify_without_consensus)
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
     service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
     service._record_success = MagicMock()  # type: ignore[method-assign]
     service._record_failure = MagicMock()  # type: ignore[method-assign]
@@ -255,7 +255,7 @@ async def test_manual_video_result_below_promotion_threshold_uses_snapshot_inste
     )
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
     service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
     service._record_success = MagicMock()  # type: ignore[method-assign]
     service._record_failure = MagicMock()  # type: ignore[method-assign]
@@ -300,7 +300,7 @@ async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
     settings.media_cache.high_quality_event_snapshots = True
 
     with (
@@ -312,13 +312,13 @@ async def test_process_event_still_classifies_when_snapshot_upgrade_fails():
         patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
         patch.object(auto_video_classifier_module, "high_quality_snapshot_service") as mock_hq,
     ):
-        mock_hq.replace_from_clip_bytes = AsyncMock(return_value="frame_extract_failed")
+        mock_hq.replace_from_clip_path = AsyncMock(return_value="frame_extract_failed")
 
         await service._process_event("evt-auto-video-upgrade-failure", "cam1", skip_delay=True)
 
-    mock_hq.replace_from_clip_bytes.assert_awaited_once_with(
+    mock_hq.replace_from_clip_path.assert_awaited_once_with(
         "evt-auto-video-upgrade-failure",
-        b"clip-bytes",
+        ANY,
         event_data={"has_clip": True},
         clip_variant="event",
     )
@@ -335,7 +335,7 @@ async def test_process_event_falls_back_to_snapshot_when_clip_not_retained_for_b
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(None, "clip_not_retained"))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(False, "clip_not_retained"))  # type: ignore[method-assign]
 
     with (
         patch.object(
@@ -401,7 +401,7 @@ async def test_manual_reclassification_falls_back_for_any_unavailable_video_erro
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
     service._load_preferred_clip = AsyncMock(  # type: ignore[method-assign]
-        return_value=(None, "clip_fetch_failed", "event", None)
+        return_value=(False, "clip_fetch_failed", "event", None)
     )
     service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
 
@@ -449,7 +449,7 @@ async def test_process_event_snapshot_fallback_retries_background_overload_then_
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(None, "clip_not_retained"))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(False, "clip_not_retained"))  # type: ignore[method-assign]
     service._record_success = MagicMock()  # type: ignore[method-assign]
     service._record_failure = MagicMock()  # type: ignore[method-assign]
 
@@ -502,7 +502,7 @@ async def test_process_event_snapshot_fallback_marks_background_overload_distinc
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(None, "clip_not_retained"))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(False, "clip_not_retained"))  # type: ignore[method-assign]
     service._record_success = MagicMock()  # type: ignore[method-assign]
     service._record_failure = MagicMock()  # type: ignore[method-assign]
 
@@ -550,7 +550,7 @@ async def test_process_event_snapshot_fallback_uses_extended_background_queue_ti
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(None, "clip_not_retained"))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(False, "clip_not_retained"))  # type: ignore[method-assign]
 
     with (
         patch.object(
@@ -583,7 +583,7 @@ async def test_process_event_passes_event_id_into_video_classification_context()
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
 
     with (
         patch.object(
@@ -629,7 +629,7 @@ async def test_process_event_prefers_cached_recording_clip_when_available():
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"event-clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
 
     # Write a real temp file so asyncio.to_thread(Path(...).read_bytes) succeeds.
     fd, recording_path = tempfile.mkstemp(suffix=".mp4")
@@ -649,7 +649,7 @@ async def test_process_event_prefers_cached_recording_clip_when_available():
                 "_get_valid_cached_recording_clip_path",
                 new=AsyncMock(return_value=(recording_path, "cam1", 1, 2)),
             ),
-            patch.object(AutoVideoClassifierService, "_clip_decodes", new=AsyncMock(return_value=True)),
+            patch.object(AutoVideoClassifierService, "_clip_file_valid", new=AsyncMock(return_value=True)),
         ):
             await service._process_event("evt-recording-preferred", "cam1", skip_delay=True)
     finally:
@@ -675,7 +675,7 @@ async def test_process_event_falls_back_to_event_clip_when_cached_recording_is_i
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"\x00\x00\x00\x18ftypevent-clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
 
     fd, recording_path = tempfile.mkstemp(suffix=".mp4")
     try:
@@ -694,7 +694,7 @@ async def test_process_event_falls_back_to_event_clip_when_cached_recording_is_i
                 "_get_valid_cached_recording_clip_path",
                 new=AsyncMock(return_value=(recording_path, "cam1", 1, 2)),
             ),
-            patch.object(AutoVideoClassifierService, "_clip_decodes", new=AsyncMock(return_value=False)),
+            patch.object(AutoVideoClassifierService, "_clip_file_valid", new=AsyncMock(return_value=False)),
         ):
             await service._process_event("evt-recording-invalid", "cam1", skip_delay=True)
     finally:
@@ -717,7 +717,7 @@ async def test_process_event_marks_failed_when_clip_not_retained_for_auto_mode()
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(None, "clip_not_retained"))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(False, "clip_not_retained"))  # type: ignore[method-assign]
 
     with (
         patch.object(
@@ -743,7 +743,7 @@ async def test_process_event_records_backend_diagnostic_for_worker_failure():
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
     error_diagnostics_history.clear()
 
     try:
@@ -776,7 +776,7 @@ async def test_process_event_worker_failure_falls_back_to_snapshot_for_manual_re
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
     service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
     service._broadcast_snapshot_fallback = AsyncMock()  # type: ignore[method-assign]
     service._record_success = MagicMock()  # type: ignore[method-assign]
@@ -853,7 +853,7 @@ async def test_process_event_diagnostic_includes_inference_provider_context():
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
     error_diagnostics_history.clear()
 
     try:
@@ -917,7 +917,7 @@ async def test_process_event_timeout_diagnostic_includes_job_source_and_clip_con
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
     error_diagnostics_history.clear()
 
     try:
@@ -944,7 +944,9 @@ async def test_process_event_timeout_diagnostic_includes_job_source_and_clip_con
         )
         assert event["context"]["source"] == "maintenance"
         assert event["context"]["camera"] == "cam1"
-        assert event["context"]["clip_bytes"] == len(b"clip-bytes")
+        # The stubbed loader writes nothing into the temp file, so the
+        # diagnostic reports the file's true size.
+        assert event["context"]["clip_bytes"] == 0
         assert event["context"]["timeout_seconds"] == settings.classification.video_classification_timeout_seconds
         assert event["context"]["max_frames"] == settings.classification.video_classification_frames
         assert event["context"]["inference_backend"] == "openvino"
@@ -961,7 +963,7 @@ async def test_process_event_maintenance_timeout_falls_back_to_snapshot_without_
     service._update_status = AsyncMock()  # type: ignore[method-assign]
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
     service._classify_from_snapshot = AsyncMock(return_value=None)  # type: ignore[method-assign]
     service._record_success = MagicMock()  # type: ignore[method-assign]
     service._record_failure = MagicMock()  # type: ignore[method-assign]
@@ -1014,7 +1016,7 @@ async def test_process_event_persists_top_frames_after_successful_video_classifi
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
     service._persist_video_top_frames = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
 
     async def mock_classify(video_path, **kwargs):
         cb = kwargs.get("progress_callback")
@@ -1058,7 +1060,7 @@ async def test_process_event_top_frames_ranked_by_score_descending():
     service._save_results = AsyncMock()  # type: ignore[method-assign]
     service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
     service._persist_video_top_frames = AsyncMock()  # type: ignore[method-assign]
-    service._wait_for_clip = AsyncMock(return_value=(b"clip-bytes", None))  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
 
     async def mock_classify(video_path, **kwargs):
         cb = kwargs.get("progress_callback")

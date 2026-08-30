@@ -6,6 +6,7 @@ import math
 import os
 from pathlib import Path
 import random
+import shutil
 import tempfile
 import structlog
 import time
@@ -1613,12 +1614,24 @@ class AutoVideoClassifierService:
                     )
                     return
 
-            # 2. Prefer a cached recording/full-visit clip when available.
-            clip_bytes, clip_error, clip_variant, clip_start_timestamp = await self._load_preferred_clip(
-                frigate_event,
-                skip_delay=skip_delay,
-            )
-            if not clip_bytes:
+            # 2. Prefer a cached recording/full-visit clip when available. The
+            # temp file is reserved first and the loader fills it directly, so
+            # the clip never passes through this process's heap (#341).
+            _fd, tmp_path = tempfile.mkstemp(suffix=".mp4")
+            os.close(_fd)
+            try:
+                clip_loaded, clip_error, clip_variant, clip_start_timestamp = await self._load_preferred_clip(
+                    frigate_event,
+                    tmp_path,
+                    skip_delay=skip_delay,
+                )
+            except BaseException:
+                with contextlib.suppress(OSError):
+                    await asyncio.to_thread(os.remove, tmp_path)
+                raise
+            if not clip_loaded:
+                with contextlib.suppress(OSError):
+                    await asyncio.to_thread(os.remove, tmp_path)
                 if snapshot_fallback_requested():
                     log.info(
                         "Falling back to snapshot classification because video is unavailable",
@@ -1661,19 +1674,6 @@ class AutoVideoClassifierService:
                     reason=clip_error or "clip_unavailable",
                 )
                 return
-
-            # 3. Save to temp file for processing (write offloaded so large clips don't
-            # block the loop).  mkstemp reserves the path synchronously so tmp_path is
-            # always set before the first cancellation-risk await, avoiding a NameError
-            # in the CancelledError cleanup path if the task is cancelled mid-write.
-            _fd, tmp_path = tempfile.mkstemp(suffix=".mp4")
-            os.close(_fd)
-            try:
-                await asyncio.to_thread(Path(tmp_path).write_bytes, clip_bytes)
-            except BaseException:
-                with contextlib.suppress(OSError):
-                    await asyncio.to_thread(os.remove, tmp_path)
-                raise
 
             try:
                 # 4. Run classification
@@ -1770,7 +1770,7 @@ class AutoVideoClassifierService:
                         "timeout_seconds": timeout,
                         "source": source,
                         "camera": camera,
-                        "clip_bytes": len(clip_bytes),
+                        "clip_bytes": await asyncio.to_thread(os.path.getsize, tmp_path),
                         "max_frames": settings.classification.video_classification_frames,
                     }
                     timeout_context.update(await asyncio.to_thread(self._clip_probe_context_sync, tmp_path))
@@ -1944,16 +1944,16 @@ class AutoVideoClassifierService:
 
                     # Generate HQ snapshot after top frames are persisted so the
                     # crop model works on the best-scored frames from this run.
-                    # Wrapped with a hard timeout: replace_from_clip_bytes runs
+                    # Wrapped with a hard timeout: replace_from_clip_path runs
                     # asyncio.to_thread CPU work (ONNX bird-crop model) and a
                     # synchronous classifier.classify() call with no inner timeout.
                     # A hang here holds the maintenance coordinator slot forever.
                     if settings.media_cache.high_quality_event_snapshots:
                         try:
                             await asyncio.wait_for(
-                                high_quality_snapshot_service.replace_from_clip_bytes(
+                                high_quality_snapshot_service.replace_from_clip_path(
                                     frigate_event,
-                                    clip_bytes,
+                                    Path(tmp_path),
                                     event_data=event_data,
                                     clip_variant=clip_variant,
                                 ),
@@ -2155,9 +2155,9 @@ class AutoVideoClassifierService:
             cap.release()
 
     async def _wait_for_clip(
-        self, frigate_event: str, skip_delay: bool = False
-    ) -> tuple[Optional[bytes], Optional[str]]:
-        """Poll Frigate for clip availability with retries."""
+        self, frigate_event: str, dest_path: str, skip_delay: bool = False
+    ) -> tuple[bool, Optional[str]]:
+        """Poll Frigate for clip availability with retries, streaming into dest_path."""
         # Initial delay to allow Frigate to finalize the clip
         if not skip_delay:
             await asyncio.sleep(settings.classification.video_classification_delay)
@@ -2168,16 +2168,12 @@ class AutoVideoClassifierService:
         last_error: Optional[str] = None
         for attempt in range(max_retries + 1):
             log.debug("Polling for clip", event_id=frigate_event, attempt=attempt)
-            clip_bytes, error = await frigate_client.get_clip_with_error(frigate_event, timeout=10.0)
+            downloaded, error = await frigate_client.download_clip_to_file(frigate_event, dest_path, timeout=10.0)
 
-            if clip_bytes and len(clip_bytes) > 0:
-                # Basic sanity check: MP4 header
-                if clip_bytes.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_bytes[:32]:
-                    if await self._clip_decodes(clip_bytes):
-                        return clip_bytes, None
-                    last_error = "clip_decode_failed"
-                else:
-                    last_error = "clip_invalid"
+            if downloaded:
+                if await self._clip_file_valid(dest_path):
+                    return True, None
+                last_error = "clip_decode_failed"
             else:
                 last_error = error or "clip_unavailable"
 
@@ -2190,15 +2186,29 @@ class AutoVideoClassifierService:
                 log.debug(f"Clip not ready, waiting {wait_time}s", event_id=frigate_event)
                 await asyncio.sleep(wait_time)
 
-        return None, last_error
+        return False, last_error
 
     async def _load_preferred_clip(
         self,
         frigate_event: str,
+        dest_path: str,
         *,
         skip_delay: bool = False,
-    ) -> tuple[Optional[bytes], Optional[str], Literal["event", "recording"], float | None]:
-        """Prefer a cached recording/full-visit clip when available, otherwise poll the event clip."""
+    ) -> tuple[bool, Optional[str], Literal["event", "recording"], float | None]:
+        """Fill dest_path with the preferred clip: a cached recording/full-visit
+        clip when available, otherwise the polled event clip.
+
+        Cached clips are copied disk-to-disk and Frigate downloads are streamed,
+        so no whole clip ever transits this process's heap (#341).
+        """
+
+        async def _copy_and_validate(source_path: str) -> bool:
+            try:
+                await asyncio.to_thread(shutil.copyfile, source_path, dest_path)
+            except OSError:
+                return False
+            return await self._clip_file_valid(dest_path)
+
         recording_start_ts: float | int | None = None
         try:
             (
@@ -2212,14 +2222,9 @@ class AutoVideoClassifierService:
             )
             if recording_cached_path:
                 log.info("Using cached recording clip for auto video classification", event_id=frigate_event)
-                clip_bytes = await asyncio.to_thread(Path(recording_cached_path).read_bytes)
-                if (
-                    clip_bytes
-                    and (clip_bytes.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_bytes[:32])
-                    and await self._clip_decodes(clip_bytes)
-                ):
+                if await _copy_and_validate(str(recording_cached_path)):
                     return (
-                        clip_bytes,
+                        True,
                         None,
                         "recording",
                         float(recording_start_ts) if recording_start_ts is not None else None,
@@ -2239,18 +2244,13 @@ class AutoVideoClassifierService:
         partial_recording_path = media_cache.get_recording_clip_path(frigate_event)
         if partial_recording_path:
             try:
-                clip_bytes = await asyncio.to_thread(Path(partial_recording_path).read_bytes)
-                if (
-                    clip_bytes
-                    and (clip_bytes.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_bytes[:32])
-                    and await self._clip_decodes(clip_bytes)
-                ):
+                if await _copy_and_validate(str(partial_recording_path)):
                     log.info(
                         "Using retained partial recording clip for auto video classification",
                         event_id=frigate_event,
                     )
                     return (
-                        clip_bytes,
+                        True,
                         None,
                         "recording",
                         float(recording_start_ts) if recording_start_ts is not None else None,
@@ -2270,14 +2270,9 @@ class AutoVideoClassifierService:
         cached_clip_path = media_cache.get_clip_path(frigate_event)
         if cached_clip_path:
             try:
-                clip_bytes = await asyncio.to_thread(Path(cached_clip_path).read_bytes)
-                if (
-                    clip_bytes
-                    and (clip_bytes.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in clip_bytes[:32])
-                    and await self._clip_decodes(clip_bytes)
-                ):
+                if await _copy_and_validate(str(cached_clip_path)):
                     log.info("Using cached event clip for auto video classification", event_id=frigate_event)
-                    return clip_bytes, None, "event", None
+                    return True, None, "event", None
                 log.warning(
                     "Cached event clip was invalid; falling back to Frigate fetch",
                     event_id=frigate_event,
@@ -2290,43 +2285,48 @@ class AutoVideoClassifierService:
                     error=str(exc),
                 )
 
-        clip_bytes, clip_error = await self._wait_for_clip(frigate_event, skip_delay=skip_delay)
-        return clip_bytes, clip_error, "event", None
+        loaded, clip_error = await self._wait_for_clip(frigate_event, dest_path, skip_delay=skip_delay)
+        return loaded, clip_error, "event", None
 
     @staticmethod
-    def _clip_decodes_sync(clip_bytes: bytes) -> bool:
+    def _clip_decodes_sync(clip_path: str) -> bool:
         """Synchronous inner check — runs in a thread so it cannot block the event loop."""
         import cv2
 
-        tmp_path = None
-        try:
-            with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
-                tmp.write(clip_bytes)
-                tmp_path = tmp.name
-
-            cap = cv2.VideoCapture(tmp_path)
-            if not cap.isOpened():
-                cap.release()
-                return False
-            ok, _frame = cap.read()
+        cap = cv2.VideoCapture(clip_path)
+        if not cap.isOpened():
             cap.release()
-            return ok
-        finally:
-            if tmp_path and os.path.exists(tmp_path):
-                with contextlib.suppress(OSError):
-                    os.remove(tmp_path)
+            return False
+        ok, _frame = cap.read()
+        cap.release()
+        return ok
 
-    async def _clip_decodes(self, clip_bytes: bytes) -> bool:
-        """Ensure clip bytes decode into at least one frame.
+    async def _clip_file_valid(self, clip_path: str) -> bool:
+        """Ensure the clip file carries an MP4 header and decodes one frame.
+
+        Works on the file directly - clips used to be validated as bytes and
+        written to a temp file for cv2 anyway, so keeping them in memory bought
+        nothing but glibc arena high-water in the API process (#341).
 
         cv2.VideoCapture and cap.read() are synchronous and can block
         indefinitely on corrupt or truncated MP4s.  Running them in a
         thread prevents the asyncio event loop from stalling (which would
         also silently disable all other timeouts in the job).
         """
+
+        def _has_mp4_header() -> bool:
+            try:
+                with open(clip_path, "rb") as handle:
+                    head = handle.read(32)
+            except OSError:
+                return False
+            return bool(head) and (head.startswith(b"\x00\x00\x00\x18ftyp") or b"ftyp" in head)
+
+        if not await asyncio.to_thread(_has_mp4_header):
+            return False
         try:
             return await asyncio.wait_for(
-                asyncio.to_thread(self._clip_decodes_sync, clip_bytes),
+                asyncio.to_thread(self._clip_decodes_sync, clip_path),
                 timeout=30.0,
             )
         except asyncio.TimeoutError:
