@@ -306,6 +306,7 @@ def durable_work():
 # such callers, every connection is held by someone waiting for one only another
 # waiter can release.
 _acquire_depth: ContextVar[int] = ContextVar("db_acquire_depth", default=0)
+_acquire_label: ContextVar[Optional[str]] = ContextVar("db_acquire_label", default=None)
 
 
 def is_durable_work() -> bool:
@@ -355,6 +356,7 @@ class DatabasePool:
         # because aiosqlite connections are not hashable by value.
         self._checked_out: dict[int, tuple[float, str]] = {}
         self._nested_acquires = 0
+        self._nested_acquire_warned: set = set()
         self._last_nested_acquire_label: Optional[str] = None
 
     async def _create_connection(self) -> aiosqlite.Connection:
@@ -407,12 +409,20 @@ class DatabasePool:
         if depth:
             self._nested_acquires += 1
             self._last_nested_acquire_label = label
-            log.warning(
-                "Nested DB connection acquire",
-                held_by=label,
-                depth=depth + 1,
-                pool_size=self.pool_size,
-            )
+            # Name the holder, and say it once per unique pair: the detector is
+            # for finding the call site, and repeating it every request buries
+            # actual errors. The counter still counts every occurrence.
+            outer = _acquire_label.get()
+            pair = (outer, label)
+            if pair not in self._nested_acquire_warned:
+                self._nested_acquire_warned.add(pair)
+                log.warning(
+                    "Nested DB connection acquire",
+                    outer_held_by=outer,
+                    nested_by=label,
+                    depth=depth + 1,
+                    pool_size=self.pool_size,
+                )
         # An unbounded wait is only safe while holding nothing. A durable task
         # that already holds a connection must still take the deadline: hanging
         # here stops ingest for good and loses every later detection, where
@@ -866,12 +876,16 @@ async def get_db():
             yield db
         return
 
-    conn = await _db_pool.acquire(label=_caller_label())
+    caller = _caller_label()
+    conn = await _db_pool.acquire(label=caller)
     # Counted for the lifetime of the hold, so a second acquire from the same
-    # task is recognised as nesting rather than as an ordinary acquire.
+    # task is recognised as nesting rather than as an ordinary acquire - and
+    # labelled, so the nested-acquire warning can name who was holding.
     depth_token = _acquire_depth.set(_acquire_depth.get() + 1)
+    label_token = _acquire_label.set(caller)
     try:
         yield conn
     finally:
+        _acquire_label.reset(label_token)
         _acquire_depth.reset(depth_token)
         await _db_pool.release(conn)

@@ -15,6 +15,36 @@ from .classifier_worker_protocol import (
 ProcessFactory = Callable[..., Awaitable[Any]]
 
 
+_STDERR_NOISE_MARKERS = (
+    # Runtime banners emitted at every worker start; they carry no signal
+    # beyond "the runtime initialised", so they log at debug.
+    "absl::InitializeLog()",
+    "TF-TRT Warning",
+    "tensorflow/core",
+)
+_STDERR_FAULT_MARKERS = (
+    "Traceback (most recent call last):",
+    "Error:",
+    "Error(",
+    "raise ",
+    "Exception",
+)
+
+
+def classify_worker_stderr_severity(text: str) -> str:
+    """Errors when there are actual errors: a relayed crash traceback is a
+    warning, a runtime banner is debug, everything else stays info."""
+    for marker in _STDERR_NOISE_MARKERS:
+        if marker in text:
+            return "debug"
+    for marker in _STDERR_FAULT_MARKERS:
+        if marker in text:
+            return "warning"
+    if "error" in text.lower():
+        return "warning"
+    return "info"
+
+
 class ClassifierWorkerClient:
     def __init__(
         self,
@@ -179,7 +209,8 @@ class ClassifierWorkerClient:
                 from structlog import get_logger
 
                 log = get_logger()
-                log.info(f"Worker {self.worker_name} stderr", text=text)
+                severity = classify_worker_stderr_severity(text)
+                getattr(log, severity)(f"Worker {self.worker_name} stderr", text=text)
         except Exception:
             pass
 
