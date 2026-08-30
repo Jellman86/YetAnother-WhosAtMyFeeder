@@ -2356,7 +2356,9 @@
     "time_of_day": "Hora del día",
     "day_of_week": "Día de la semana",
     "month": "Mes",
-    "copy_diagnostics_bundle": "Copiar paquete de diagnósticos"
+    "copy_diagnostics_bundle": "Copiar paquete de diagnósticos",
+    "no_local_visits_title": "Aún no hay visitas en tu comedero",
+    "no_local_visits_body": "Tus cámaras no han registrado esta ave. Todo lo siguiente proviene de fuentes de referencia públicas."
   },
   "pagination": {
     "navigation": "Paginación",

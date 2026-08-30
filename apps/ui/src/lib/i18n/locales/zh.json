@@ -2356,7 +2356,9 @@
     "time_of_day": "时间段",
     "day_of_week": "星期几",
     "month": "月份",
-    "copy_diagnostics_bundle": "复制诊断包"
+    "copy_diagnostics_bundle": "复制诊断包",
+    "no_local_visits_title": "您的喂食器尚无到访记录",
+    "no_local_visits_body": "您的摄像头尚未记录到这种鸟。以下内容均来自公开参考资料。"
   },
   "pagination": {
     "navigation": "分页",

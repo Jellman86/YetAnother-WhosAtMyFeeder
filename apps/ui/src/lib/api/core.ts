@@ -200,10 +200,22 @@ export function cancelRequest(key: string) {
     }
 }
 
+/** A failed API response, keeping the HTTP status so callers can tell
+ * "this thing does not exist" (404) apart from "the request broke". */
+export class ApiRequestError extends Error {
+    readonly status: number;
+
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = 'ApiRequestError';
+        this.status = status;
+    }
+}
+
 export async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
         const error = await readApiErrorMessage(response, `HTTP ${response.status}`);
-        throw new Error(error);
+        throw new ApiRequestError(error, response.status);
     }
     return response.json();
 }

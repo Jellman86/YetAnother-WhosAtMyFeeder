@@ -12,7 +12,8 @@
         type SpeciesInfo,
         type EbirdNearbyResult,
         type Detection,
-        getThumbnailUrl
+        getThumbnailUrl,
+        ApiRequestError
     } from '../api';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
@@ -286,11 +287,18 @@
         isUnknownBird = isUnknownLabel(speciesName);
 
         try {
-            const statsData = await fetchSpeciesStats(isUnknownBird ? UNKNOWN_SPECIES_NAME : speciesName);
-            stats = statsData;
+            try {
+                stats = await fetchSpeciesStats(isUnknownBird ? UNKNOWN_SPECIES_NAME : speciesName);
+            } catch (e) {
+                // A species with no visits at this feeder 404s here. That is
+                // the normal case for a notable sighting nearby, not an error:
+                // the card still has naming, description, and range to show.
+                if (!(e instanceof ApiRequestError && e.status === 404)) throw e;
+                stats = null;
+            }
 
             if (!isUnknownBird) {
-                const statsTaxaId = statsData?.recent_sightings?.[0]?.taxa_id ?? null;
+                const statsTaxaId = stats?.recent_sightings?.[0]?.taxa_id ?? null;
                 if (summaryEnabled || (seasonalityEnabled && !statsTaxaId)) {
                     info = await fetchSpeciesInfo(speciesName);
                 }
@@ -621,9 +629,18 @@
                             </div>
                         </section>
                     {/if}
+                {:else if !isUnknownBird}
+                    <section data-species-no-local-visits class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-800/40">
+                        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            {$_('species_detail.no_local_visits_title', { default: 'No visits at your feeder yet' })}
+                        </p>
+                        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+                            {$_('species_detail.no_local_visits_body', { default: 'Your cameras have not recorded this bird. Everything below comes from public reference sources.' })}
+                        </p>
+                    </section>
                 {/if}
 
-                {#if summaryEnabled && stats}
+                {#if summaryEnabled}
                     <!-- Reference image: preserve the full animal rather than filling a panoramic crop. -->
                     {#if info?.thumbnail_url}
                         <section

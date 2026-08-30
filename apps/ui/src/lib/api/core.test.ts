@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { apiFetch, fetchWithAbort, handleResponse } from './core';
+import { ApiRequestError, apiFetch, fetchWithAbort, handleResponse } from './core';
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -74,5 +74,22 @@ describe('handleResponse', () => {
 
         await secondResult;
         await expect(thirdRequest).resolves.toEqual({ ok: true });
+    });
+});
+
+describe('ApiRequestError', () => {
+    it('keeps the HTTP status so callers can tell absence from failure', async () => {
+        const response = new Response(JSON.stringify({ detail: 'Detection not found' }), {
+            status: 404,
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        const outcome = await handleResponse(response).then(
+            () => null,
+            (e: unknown) => e
+        );
+        expect(outcome).toBeInstanceOf(ApiRequestError);
+        expect((outcome as ApiRequestError).status).toBe(404);
+        expect((outcome as ApiRequestError).message).toBe('Detection not found');
     });
 });

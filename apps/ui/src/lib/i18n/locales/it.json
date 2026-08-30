@@ -2365,7 +2365,9 @@
     "time_of_day": "Ora del giorno",
     "day_of_week": "Giorno della settimana",
     "month": "Mese",
-    "copy_diagnostics_bundle": "Copia pacchetto diagnostico"
+    "copy_diagnostics_bundle": "Copia pacchetto diagnostico",
+    "no_local_visits_title": "Ancora nessuna visita alla tua mangiatoia",
+    "no_local_visits_body": "Le tue telecamere non hanno registrato questo uccello. Tutto ciò che segue proviene da fonti di riferimento pubbliche."
   },
   "pagination": {
     "navigation": "Paginazione",
