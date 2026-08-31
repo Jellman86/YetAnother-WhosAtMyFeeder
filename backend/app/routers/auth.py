@@ -65,6 +65,9 @@ class AuthStatusResponse(BaseModel):
     public_access_enabled: bool
     public_access_show_ai_conversation: bool = False
     public_access_allow_clip_downloads: bool = False
+    public_access_show_audio: bool = True
+    public_access_show_snapshots: bool = True
+    public_access_show_clips: bool = True
     is_authenticated: bool
     birdnet_enabled: bool = False
     llm_enabled: bool = False
@@ -282,6 +285,9 @@ async def get_auth_status(request: Request):
         public_access_enabled=settings.public_access.enabled,
         public_access_show_ai_conversation=settings.public_access.show_ai_conversation,
         public_access_allow_clip_downloads=settings.public_access.allow_clip_downloads,
+        public_access_show_audio=settings.public_access.show_audio,
+        public_access_show_snapshots=settings.public_access.show_snapshots,
+        public_access_show_clips=settings.public_access.show_clips,
         is_authenticated=auth_level == AuthLevel.OWNER,
         birdnet_enabled=settings.frigate.birdnet_enabled,
         llm_enabled=settings.llm.enabled,

@@ -314,10 +314,17 @@ class TaxonomyService:
                (scientific_name, common_name, taxa_id, is_not_found, thumbnail_url, last_updated) 
                VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT(scientific_name) DO UPDATE SET
-                   common_name = excluded.common_name,
-                   taxa_id = excluded.taxa_id,
-                   is_not_found = excluded.is_not_found,
-                   thumbnail_url = excluded.thumbnail_url,
+                   common_name = COALESCE(excluded.common_name, taxonomy_cache.common_name),
+                   -- A lookup may correct an id, but a failed one may never take an
+                   -- identity away: features key on the id a row carries, and nulling
+                   -- it turns an offered species into an empty filter (#301).
+                   taxa_id = COALESCE(excluded.taxa_id, taxonomy_cache.taxa_id),
+                   is_not_found = CASE
+                       WHEN taxonomy_cache.taxa_id IS NOT NULL AND excluded.taxa_id IS NULL
+                           THEN taxonomy_cache.is_not_found
+                       ELSE excluded.is_not_found
+                   END,
+                   thumbnail_url = COALESCE(excluded.thumbnail_url, taxonomy_cache.thumbnail_url),
                    last_updated = excluded.last_updated""",
             (
                 data["scientific_name"],

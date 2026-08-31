@@ -210,3 +210,26 @@ export async function testMQTTPublish(options: MQTTTestRequest = {}): Promise<{ 
     });
     return handleResponse<{ status: string; message: string }>(response);
 }
+
+export interface HaWeatherTestResult {
+    status: string;
+    message: string;
+    readings?: Record<string, unknown>;
+}
+
+export async function testHaWeather(options: {
+    baseUrl?: string;
+    accessToken?: string;
+    weatherEntity?: string;
+} = {}): Promise<HaWeatherTestResult> {
+    const response = await apiFetch(`${API_BASE}/settings/ha-weather/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            base_url: options.baseUrl || undefined,
+            access_token: options.accessToken || undefined,
+            weather_entity: options.weatherEntity || undefined
+        })
+    });
+    return handleResponse<HaWeatherTestResult>(response);
+}

@@ -206,7 +206,13 @@
         "integrations_configured": "Configuré : {integrations}",
         "integrations_none": "Aucune activée"
       }
-    }
+    },
+    "skip": "Ignorer la configuration",
+    "skip_failed": "Échec : le serveur est injoignable.",
+    "skip_confirm_title": "Ignorer la configuration et ouvrir l'application ?",
+    "skip_confirm_body_no_account": "L'application fonctionnera sans mot de passe jusqu'à ce que vous en définissiez un dans Réglages → Sécurité. Tout ce que couvre cet assistant peut être configuré plus tard, et vous pouvez le relancer à tout moment depuis Réglages → Assistant de configuration.",
+    "skip_confirm_body": "Tout ce que couvre cet assistant peut être configuré plus tard, et vous pouvez le relancer à tout moment depuis Réglages → Assistant de configuration.",
+    "skip_confirm_action": "Ignorer et ouvrir l'application"
   },
   "theme": {
     "switch_light": "Passer au mode clair",
@@ -311,7 +317,8 @@
       "error": "Impossible de charger les signalements notables.",
       "retry": "Réessayer",
       "empty": "Aucun signalement rare ou inhabituel n’a été trouvé dans un rayon de {distance} au cours des {days} derniers jours.",
-      "empty_hint": "Il s’agit d’un résultat eBird valide ; les observations courantes à proximité peuvent néanmoins être nombreuses."
+      "empty_hint": "Il s’agit d’un résultat eBird valide ; les observations courantes à proximité peuvent néanmoins être nombreuses.",
+      "open_species": "{species} — ouvrir la fiche de l’espèce"
     },
     "day_bar": {
       "today": "Aujourd’hui",
@@ -337,7 +344,8 @@
       "title": "Nécessite votre décision",
       "empty": "Chaque visite d’aujourd’hui a une espèce. Rien ne vous attend.",
       "remaining": "{count} autres en attente",
-      "work_through": "Traiter la file"
+      "work_through": "Traiter la file",
+      "new_species_tag": "Nouvelle espèce · {count} observation(s)"
     },
     "review_session": {
       "position": "{position} sur {total}",
@@ -362,7 +370,11 @@
       "crop": "Meilleur recadrage",
       "full_frame": "Image entière",
       "view_label": "Quelle image afficher",
-      "no_crop": "Aucun recadrage enregistré pour cette détection. Ouvrez la fiche complète pour en chercher un."
+      "no_crop": "Aucun recadrage enregistré pour cette détection. Ouvrez la fiche complète pour en chercher un.",
+      "new_species_note": "Premier {species} enregistré ici. Confirmez-le, corrigez-le ou bloquez cette espèce.",
+      "confirm_species": "Confirmer {species}",
+      "block_species": "Bloquer cette espèce",
+      "species_blocked": "{species} bloqué. Les futures détections seront ignorées."
     }
   },
   "common": {
@@ -821,6 +833,31 @@
         "test_loading": "Vérification…",
         "test_success": "Connexion BirdWeather vérifiée !",
         "test_error": "Échec de la connexion BirdWeather"
+      },
+      "ha_weather": {
+        "title": "Météo Home Assistant",
+        "toggle_label": "Enregistrer la météo depuis vos propres capteurs plutôt que l'API de prévision. Un capteur qui ne peut pas répondre est enregistré comme inconnu, jamais comme une prévision.",
+        "base_url": "URL de Home Assistant",
+        "base_url_desc": "L'adresse que ce serveur peut atteindre, p. ex. http://homeassistant.local:8123",
+        "token": "Jeton d'accès longue durée",
+        "token_desc": "Créé dans Home Assistant sous votre profil, Sécurité, jetons d'accès longue durée.",
+        "token_placeholder": "Collez un jeton d'accès longue durée",
+        "entity": "Entité météo",
+        "entity_desc": "La source générale, p. ex. weather.home. Laissez vide pour ne compter que sur les capteurs dédiés.",
+        "overrides": "Capteurs dédiés par mesure",
+        "overrides_desc": "Un capteur indiqué ici prime sur l'entité météo pour sa mesure. S'il ne peut pas répondre, la mesure reste inconnue.",
+        "override_temperature": "Capteur de température",
+        "override_wind_speed": "Capteur de vitesse du vent",
+        "override_wind_direction": "Capteur de direction du vent",
+        "override_cloud_cover": "Capteur de couverture nuageuse",
+        "override_precipitation": "Capteur de précipitations",
+        "override_rain": "Capteur de pluie",
+        "override_snowfall": "Capteur de neige",
+        "test_button": "Récupérer une mesure en direct",
+        "test_loading": "Récupération…",
+        "test_title": "Test météo Home Assistant",
+        "test_subtitle": "Récupère les mesures actuelles que vos détections enregistreraient.",
+        "stage_fetch": "Mesures en direct depuis Home Assistant"
       }
     },
     "enrichment": {
@@ -882,7 +919,19 @@
       "share_base_url": "URL de base des liens partagés (facultatif)",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "Si définie, les nouveaux liens partagés utilisent cette URL publique plutôt que l’hôte détecté de la requête.",
-      "advanced_title": "Fenêtres d'historique & limites de débit"
+      "advanced_title": "Fenêtres d'historique & limites de débit",
+      "show_audio": "Partager l'audio avec les visiteurs",
+      "show_audio_desc": "Détections BirdNET, spectrogrammes et clips audio. Désactivé signifie que les visiteurs ne voient aucune surface audio.",
+      "show_snapshots": "Partager les photos avec les visiteurs",
+      "show_snapshots_desc": "Instantanés et vignettes. Désactivé signifie que les visiteurs voient des espaces réservés au lieu des images.",
+      "show_clips": "Partager la vidéo avec les visiteurs",
+      "show_clips_desc": "Clips vidéo et leurs aperçus. Désactivé signifie que les visiteurs ne peuvent lire aucune vidéo ; l'interrupteur de téléchargement ci-dessous ne contrôle que l'enregistrement du fichier.",
+      "location_precision": "Localisation montrée aux visiteurs",
+      "location_precision_desc": "Approximative arrondit la localisation à environ 10 km avant toute utilisation côté visiteur : partager votre mangeoire ne publie pas votre adresse.",
+      "location_approximate": "Approximative",
+      "location_approximate_sub": "Environ 10 km. Le choix sûr par défaut.",
+      "location_exact": "Exacte",
+      "location_exact_sub": "Les coordonnées configurées telles quelles."
     },
     "accessibility": {
       "title": "Options d'accessibilité",
@@ -941,7 +990,9 @@
       "full_visit_unavailable": "Les informations de capacité sont indisponibles pour le moment.",
       "external_url": "URL publique de Frigate",
       "external_url_desc": "L'adresse que votre navigateur utilise pour ouvrir Frigate lorsqu'elle diffère de l'adresse du serveur ci-dessus. Utilisée pour le lien « Ouvrir dans Frigate » d'une détection.",
-      "external_url_placeholder": "https://frigate.example.com"
+      "external_url_placeholder": "https://frigate.example.com",
+      "ingest_labels": "Étiquettes Frigate à traiter",
+      "ingest_labels_desc": "Séparées par des virgules. Ajoutez les étiquettes que votre modèle Frigate utilise pour les oiseaux (p. ex. bird, duck, goose) ; tout ce qui est listé passe par le pipeline d'identification des oiseaux."
     },
     "cameras": {
       "title": "Caméras actives",
@@ -1482,7 +1533,11 @@
       "worker_counts_live": "En direct",
       "worker_counts_background": "Arrière-plan",
       "worker_counts_auto": "1 (par défaut)",
-      "video_concurrency_follows_workers": "Les clips sont analysés autant à la fois qu'il y a de processus en arrière-plan : les modèles classifient une image par processus, un réglage de concurrence séparé ne pourrait donc que mettre en file ou laisser des processus inutilisés."
+      "video_concurrency_follows_workers": "Les clips sont analysés autant à la fois qu'il y a de processus en arrière-plan : les modèles classifient une image par processus, un réglage de concurrence séparé ne pourrait donc que mettre en file ou laisser des processus inutilisés.",
+      "band_worker_split_video": "{live} en direct · {background} en arrière-plan · {video} vidéo",
+      "model_manager_memory_formula_subprocess_video": "{per} par copie × {live} en direct + {background} en arrière-plan + {video} vidéo (mode isolé)",
+      "band_worker_fallback": "Workers en échec — classification dans le processus principal",
+      "band_worker_fallback_detail": "Les workers isolés meurent au chargement du modèle. Les détections continuent dans le processus principal."
     },
     "llm": {
       "title": "Analyses IA",
@@ -1638,13 +1693,13 @@
     "clear_notifications": "Effacer les notifications"
   },
   "actions": {
-    "confirm_delete": "Supprimer cette détection de {species} ?",
+    "confirm_delete": "Supprimer toute cette visite de {species} ? L'enregistrement et ses médias quittent l'historique définitivement. Masquer conserve l'enregistrement.",
     "play_video": "Lire la vidéo",
     "deep_reclassify": "Reclassification profonde",
     "manual_tag": "Étiquette manuelle",
     "reclassify": "Reclassifier",
     "species_info": "Infos sur l'espèce",
-    "delete_detection": "Supprimer la détection",
+    "delete_detection": "Supprimer cette visite définitivement",
     "hide_detection": "Masquer la détection",
     "unhide_detection": "Afficher la détection",
     "read_more_wikipedia": "Lire la suite sur Wikipédia",
@@ -2020,7 +2075,10 @@
     "timeline_keyboard_hint": "Clavier de la chronologie : [ jour précédent, ] jour suivant, 0 réinitialiser",
     "row_open": "Ouvrir {species}",
     "row_select": "Sélectionner {species}",
-    "row_below_threshold": "Sous le seuil de nommage"
+    "row_below_threshold": "Sous le seuil de nommage",
+    "empty_filtered_title": "Aucune visite ne correspond à ces filtres",
+    "empty_filtered_desc": "Votre historique est toujours là. Élargissez la période ou retirez un filtre pour le voir.",
+    "empty_filtered_clear": "Effacer tous les filtres"
   },
   "audio": {
     "chart": {
@@ -2078,7 +2136,9 @@
     "sources": {
       "title": "Sources",
       "empty": "Aucune source pour le moment."
-    }
+    },
+    "not_shared_title": "L'audio n'est pas partagé publiquement",
+    "not_shared_body": "Le propriétaire de cette instance a désactivé l'audio pour les visiteurs."
   },
   "leaderboard": {
     "source_toggle": "Source de détection",
@@ -2344,7 +2404,9 @@
     "time_of_day": "Heure de la journée",
     "day_of_week": "Jour de la semaine",
     "month": "Mois",
-    "copy_diagnostics_bundle": "Copier le lot de diagnostics"
+    "copy_diagnostics_bundle": "Copier le lot de diagnostics",
+    "no_local_visits_title": "Aucune visite à votre mangeoire pour l'instant",
+    "no_local_visits_body": "Vos caméras n'ont pas encore enregistré cet oiseau. Tout ce qui suit provient de sources de référence publiques."
   },
   "pagination": {
     "navigation": "Pagination",

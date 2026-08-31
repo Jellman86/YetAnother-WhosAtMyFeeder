@@ -427,17 +427,17 @@ async def test_trigger_classification_ignores_open_maintenance_circuit(monkeypat
 
 
 @pytest.mark.asyncio
-async def test_wait_for_clip_stops_retrying_on_terminal_clip_not_retained(monkeypatch: pytest.MonkeyPatch):
+async def test_wait_for_clip_stops_retrying_on_terminal_clip_not_retained(monkeypatch: pytest.MonkeyPatch, tmp_path):
     service = AutoVideoClassifierService()
-    fetch = AsyncMock(return_value=(None, "clip_not_retained"))
-    monkeypatch.setattr(auto_video_classifier_module.frigate_client, "get_clip_with_error", fetch)
+    fetch = AsyncMock(return_value=(False, "clip_not_retained"))
+    monkeypatch.setattr(auto_video_classifier_module.frigate_client, "download_clip_to_file", fetch)
     monkeypatch.setattr(settings.classification, "video_classification_delay", 0)
     monkeypatch.setattr(settings.classification, "video_classification_max_retries", 4)
     monkeypatch.setattr(settings.classification, "video_classification_retry_interval", 0)
 
-    clip_bytes, error = await service._wait_for_clip("evt-no-recordings", skip_delay=True)
+    loaded, error = await service._wait_for_clip("evt-no-recordings", str(tmp_path / "clip.mp4"), skip_delay=True)
 
-    assert clip_bytes is None
+    assert loaded is False
     assert error == "clip_not_retained"
     assert fetch.await_count == 1
 
@@ -1047,40 +1047,33 @@ async def test_process_event_still_fails_when_precheck_returns_event_not_found_a
 
 
 @pytest.mark.asyncio
-async def test_load_preferred_clip_uses_cached_event_clip_before_polling_frigate(monkeypatch):
+async def test_load_preferred_clip_uses_cached_event_clip_before_polling_frigate(monkeypatch, tmp_path):
     """_load_preferred_clip must serve the cached event clip (media_cache) instead of
     calling _wait_for_clip when a valid event clip is locally cached.
 
     This prevents the scenario where the precheck bypass fires (has_clip=True) but
     _wait_for_clip still goes to Frigate, fails, and triggers _auto_delete_if_missing
     — which would delete the cached media we just confirmed was present."""
-    import asyncio as _asyncio
-
     service = AutoVideoClassifierService()
 
     valid_clip = b"\x00\x00\x00\x18ftypisomcachedclip"
-    fake_path = MagicMock()
-    fake_path.read_bytes = MagicMock(return_value=valid_clip)
+    cached = tmp_path / "cached.mp4"
+    cached.write_bytes(valid_clip)
+    dest = tmp_path / "dest.mp4"
 
     monkeypatch.setattr(
         auto_video_classifier_module.media_cache,
         "get_clip_path",
-        lambda event_id: fake_path,
+        lambda event_id: str(cached),
     )
     monkeypatch.setattr(
-        service,
-        "_clip_decodes",
-        AsyncMock(return_value=True),
+        auto_video_classifier_module.media_cache,
+        "get_recording_clip_path",
+        lambda event_id: None,
     )
+    monkeypatch.setattr(service, "_clip_file_valid", AsyncMock(return_value=True))
 
-    monkeypatch.setattr(
-        auto_video_classifier_module,
-        "Path",
-        lambda p: fake_path,
-    )
-    monkeypatch.setattr(_asyncio, "to_thread", AsyncMock(return_value=valid_clip))
-
-    wait_for_clip_mock = AsyncMock(return_value=(None, "clip_not_found"))
+    wait_for_clip_mock = AsyncMock(return_value=(False, "clip_not_found"))
     monkeypatch.setattr(service, "_wait_for_clip", wait_for_clip_mock)
 
     # No recording clip cached.
@@ -1090,24 +1083,26 @@ async def test_load_preferred_clip_uses_cached_event_clip_before_polling_frigate
         AsyncMock(return_value=(None, None, None, None)),
     )
 
-    clip_bytes, clip_error, clip_variant, clip_start_timestamp = await service._load_preferred_clip(
-        "evt-cached-event-clip", skip_delay=True
+    loaded, clip_error, clip_variant, clip_start_timestamp = await service._load_preferred_clip(
+        "evt-cached-event-clip", str(dest), skip_delay=True
     )
 
-    assert clip_bytes == valid_clip
+    assert loaded is True
     assert clip_error is None
     assert clip_variant == "event"
     assert clip_start_timestamp is None
+    # The cached clip was copied disk-to-disk into the destination.
+    assert dest.read_bytes() == valid_clip
     wait_for_clip_mock.assert_not_awaited()  # must NOT have gone to Frigate
 
 
 @pytest.mark.asyncio
-async def test_load_preferred_clip_classifies_retained_partial_recording(monkeypatch):
-    import asyncio as _asyncio
-
+async def test_load_preferred_clip_classifies_retained_partial_recording(monkeypatch, tmp_path):
     service = AutoVideoClassifierService()
     valid_clip = b"\x00\x00\x00\x18ftypisompartialrecording"
-    fake_path = MagicMock()
+    partial = tmp_path / "partial.mp4"
+    partial.write_bytes(valid_clip)
+    dest = tmp_path / "dest.mp4"
 
     monkeypatch.setattr(
         auto_video_classifier_module,
@@ -1117,22 +1112,22 @@ async def test_load_preferred_clip_classifies_retained_partial_recording(monkeyp
     monkeypatch.setattr(
         auto_video_classifier_module.media_cache,
         "get_recording_clip_path",
-        lambda event_id: fake_path,
+        lambda event_id: str(partial),
     )
     monkeypatch.setattr(auto_video_classifier_module.media_cache, "get_clip_path", lambda event_id: None)
-    monkeypatch.setattr(auto_video_classifier_module, "Path", lambda path: fake_path)
-    monkeypatch.setattr(_asyncio, "to_thread", AsyncMock(return_value=valid_clip))
-    monkeypatch.setattr(service, "_clip_decodes", AsyncMock(return_value=True))
-    wait_for_clip_mock = AsyncMock(return_value=(None, "clip_not_found"))
+    monkeypatch.setattr(service, "_clip_file_valid", AsyncMock(return_value=True))
+    wait_for_clip_mock = AsyncMock(return_value=(False, "clip_not_found"))
     monkeypatch.setattr(service, "_wait_for_clip", wait_for_clip_mock)
 
-    clip_bytes, clip_error, clip_variant, clip_start_timestamp = await service._load_preferred_clip(
+    loaded, clip_error, clip_variant, clip_start_timestamp = await service._load_preferred_clip(
         "evt-partial-recording",
+        str(dest),
         skip_delay=True,
     )
 
-    assert clip_bytes == valid_clip
+    assert loaded is True
     assert clip_error is None
     assert clip_variant == "recording"
     assert clip_start_timestamp == 100.0
+    assert dest.read_bytes() == valid_clip
     wait_for_clip_mock.assert_not_awaited()

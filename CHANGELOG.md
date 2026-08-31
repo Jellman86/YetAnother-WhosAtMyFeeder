@@ -6,6 +6,199 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-08-31
+
+### Added
+
+- **The Frigate labels YA-WAMF acts on are configurable
+  ([#252](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/252)).** Hard-coding
+  `bird` had no reason behind it: a custom Frigate model that emits `duck` or `goose` as its own
+  class saw those events silently dropped. Settings → Connection now takes a comma-separated
+  label list (default `bird`, matching case-insensitively), and the setting says plainly that
+  everything listed flows through the bird identification pipeline - so it is for the labels your
+  model uses for birds, not for turning the app into a general animal tracker.
+
+- **What a visitor sees is now the owner's call, per medium
+  ([#291](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/291)).** Audio was the one
+  medium with no control at all: BirdNET detections and spectrograms were visible to any visitor
+  with no way to turn them off. Settings → Security now offers three switches - share audio,
+  share photographs, share video - each enforced at the API, with the visitor-facing surfaces
+  saying plainly that a medium is not shared rather than erroring. And the location visitors' 
+  features search from is now **approximate by default**: rounded to about 10 km before any
+  guest-facing eBird search uses it, so sharing a feeder does not publish an address. An owner who
+  wants the exact position public can still say so; nobody publishes their address by not reading
+  a settings page.
+
+- **A new species asks for one confirmation
+  ([#310](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/310)).** A first-ever
+  sighting — a 34% Hadeda Ibis far from its range — used to sit in the Explorer waiting to be
+  stumbled over. The dashboard's "Needs your call" queue now also carries each recently arrived
+  species with no confirmed history, worded as what it is ("New species · 1 sighting"), and the
+  review dialog offers the three answers a first record deserves: confirm it as real, correct it
+  to what it actually was, or block the species outright.
+
+- **The weather can come from your own Home Assistant sensors
+  ([#277](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/277)).** A sensor a few
+  metres from the feeder is better evidence than a regional forecast for what a bird was actually
+  flying in. Settings → Integrations gains a Home Assistant card: the URL this server can reach, a
+  long-lived access token stored as a secret, a weather entity as the general source, and one
+  optional sensor override per reading for anyone with a better probe for temperature, wind,
+  cloud, or rain. Readings convert from whatever units Home Assistant reports into the stored
+  metric ones, a test button fetches a live reading through the shared diagnostic dialog, and the
+  degradation is honest: a sensor that cannot answer records unknown - it is never backfilled
+  from a forecast and presented as measured. Detections keep the weather they were recorded with.
+
+- **A notable sighting nearby opens its species card.** The dashboard's notable-nearby rows were
+  read-only; each sighting is now a button that opens the same species card used everywhere else,
+  so an unusual bird reported in your area is one click from its description, taxonomy, and your
+  own history with it — including when that history is empty.
+
+- **First-run setup can be skipped.** The wizard's header now offers *Skip setup* wherever the
+  rerun mode shows its close button. Skipping asks first and is honest about its one consequence:
+  leaving before the account step means the app runs without a password until one is set under
+  Settings → Security. It completes initial setup through the same path the account step uses
+  (auth disabled), so the gate state stays consistent, and the wizard remains re-runnable from
+  Settings at any time. Escape-to-close stays rerun-only.
+
+### Fixed
+
+- **The Home Assistant weather test names an empty configuration.** A saved URL and token with no
+  weather entity and no overrides answered with a generic fetch failure; it now says plainly that
+  there is nothing to read yet and what to set.
+
+- **A duplicated species can no longer take down the lower dashboard.** When catalogue identity
+  is patchy across a species' rows - written between ingest and the next identity backfill - the
+  canonical grouping split one Dunnock into two summary rows, and the top-visitors list crashed
+  on the duplicate key, killing everything rendered after it. The daily summary now folds rows
+  that share a taxon (or a name when the taxon is missing) back into one bird, and the list
+  dedupes defensively besides, so a bad payload degrades to a merged row instead of a dead page.
+
+- **The delete control names its own effect
+  ([#256](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/256)).** It said "Delete
+  Detection" and asked "Delete this Robin detection?" - never saying whether that removed the
+  identification or the whole visit, that the media goes with it, that it is permanent, or that
+  hiding exists for the reversible case. It now says all four, in every locale.
+
+- **Filtering by a rare species no longer reads the whole history
+  ([#258](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/258)).** The reporter
+  measured the shape exactly: common species filtered instantly, species with under a hundred
+  detections hung, and adding a date range fixed it - the time-ordered page walk reads more of the
+  table the rarer the species is. A bare species filter now takes one newest-first index seek per
+  species term instead, served by new composite (name, time) indexes plus the (taxa_id, time)
+  index that was missing entirely, so both extremes answer in under a millisecond on a 100,000-row
+  test table. The alias resolution that scanned the detections table on every filtered request is
+  cached briefly as well.
+
+- **The weather is stated once in the event view
+  ([#268](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/268)).** Condition and
+  temperature appeared in the facts list, again in a weather section header, and a third time
+  inside a disclosure hiding four more numbers - a click to reveal a single line. One condensed
+  facts row now carries every measured value (condition, temperature, wind, cloud, rain and snow),
+  omits what was not measured instead of printing dashes, and the section and its disclosure are
+  gone.
+
+- **Deleting a model also clears the compile cache.** The OpenVINO kernel cache now lives on the
+  persistent volume, and its blobs are keyed by opaque model hashes — so a deleted model's
+  compiled kernels (hundreds of megabytes for a large model) would otherwise sit there forever
+  with no way to map them back. Deleting a model empties the cache; the surviving models pay one
+  recompile, which the warm-up window covers, and cache themselves fresh. Model changes were
+  never at risk: the hash keying means a blob can only ever be reused by the exact model that
+  produced it.
+
+- **A worker loading a large model is no longer mistaken for a dead one.** Observed in the field:
+  the supervisor killed a worker with "heartbeat timeout" while its stderr was mid-way through
+  TensorFlow's import chatter — heavy imports and cold GPU model compiles hold the GIL long enough
+  to starve the heartbeat, and on slow hardware the kill/reload loop meant subprocess mode never
+  classified anything. Three defences now: stderr output counts as proof of life; the first load
+  is judged against a warm-up deadline (3 minutes by default) instead of the 5-second steady-state
+  window; and if the worker circuit still trips, classification falls back to the main process and
+  the Detection status band says so in amber instead of silently dropping every visit. The
+  OpenVINO kernel cache also moved to the persistent models volume, so a slow first compile is
+  paid once, not on every container start.
+
+- **The species card now opens for a bird the feeder has never seen.** Opening a notable nearby
+  sighting answered "Detection not found", because the stats request 404s for a species with no
+  local visits and the card treated that as a failure. An empty record is the normal case for a
+  rare bird reported in the area: the card now says plainly that the feeder has no visits yet and
+  still shows the naming, description, reference image, and range from public sources.
+
+- **The Hidden facet now shows the hidden visits
+  ([#347](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/347)).** The toggle sits
+  under "Only", beside facets that filter the list down, but it was wired to *include* hidden rows
+  in the full list - with one hidden visit among a thousand, selecting it visibly did nothing.
+  Selecting Hidden now shows exactly the hidden visits, and unhiding one removes it from that view.
+
+- **The RAM prediction now counts the video worker, and the video pool follows the one knob.**
+  Video analysis runs on its own worker pool, so with video enabled those model copies are real
+  memory — observed live as a video-0 worker holding a copy no prediction accounted for. The
+  predicted-RAM formula and the status band's workers cell now include the video workers, and the
+  pool itself is sized from the background worker count instead of the retired Video Concurrency
+  setting, which it was the last consumer of.
+
+- **The API process no longer retains gigabytes of freed memory.** With ~70 threads, unbounded
+  glibc malloc arenas kept the high-water mark of large transient buffers (whole video clips pass
+  through memory on their way to the worker) — observed live as ~3.2 GB resident against an
+  expected ~1 GB. `MALLOC_ARENA_MAX=2` bounds that retention for every process in the image.
+
+- **Video clips no longer pass through the API process's memory
+  ([#341](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/341)).** Every video job
+  used to load the whole clip into the main process — Frigate fetches as one byte string, cached
+  clips via read-into-memory — then write it to a temp file the worker reads anyway, and hand the
+  bytes to the snapshot upgrader, which wrote its own temp copy. Freed after each job, those
+  transits were what glibc's arenas retained at high-water. Frigate downloads now stream straight
+  to the job's temp file, cached clips are copied disk-to-disk, validation runs against the file,
+  and the high-quality snapshot path takes the file path. The whole-clip byte string is gone from
+  the auto-video pipeline, and a source-level test keeps it gone. The high-quality snapshot
+  service's own queued fetch path (off by default) still buffers clips and keeps its bytes
+  entrypoints for that reason.
+
+- **A single large image can no longer kill a classifier worker.** The worker pipe carries
+  newline-framed JSON, and its two ends disagreed about how large a line may be: the worker read
+  requests with a 4 MB limit — which a high-quality snapshot exceeds as base64 — and the
+  supervisor read responses with only 512 KB. One oversized frame raised LimitOverrunError and
+  took the worker down instead of failing one request (observed live). The limit is now a single
+  32 MB property of the protocol shared by both ends, and an encode that would exceed it is
+  refused before it is written, so the framing can never be poisoned mid-line.
+
+- **The log speaks at the right volume.** Three realignments so an error in the log means an
+  actual error: a worker's relayed crash traceback is now a warning instead of an info line (and
+  runtime start-up banners drop to debug); a clip Frigate simply never stored logs at info,
+  because the absence is an expected state the UI already reports honestly; and the nested
+  DB-acquire detector now names the connection's holder as well as the nested caller, and says
+  each unique pair once per process instead of on every request.
+
+- **A species the filter panel offers can no longer come back as an empty page
+  ([#301](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/301)).** The filter list
+  keyed some options on a taxon id that lived only in the taxonomy cache, and the cache is
+  rewritten whenever a lookup corrects an id — so "Eurasian Blue Tit · 2" could return "0 visits"
+  moments later without any detection changing. An option now carries a taxon id only when some
+  detection row actually stores it; cache-linked groups filter by name, which reaches the rows
+  through their own columns and survives cache drift. Alongside it, a failed taxonomy lookup can
+  no longer take an identity away: the cache upsert keeps an existing taxon id and name when the
+  incoming write has none. A new invariant suite drives adversarial label shapes through the real
+  API and asserts an offered option is never an empty answer.
+
+- **An empty Explorer page under active filters now says so.** It used to show "No events yet —
+  Backfill or wait for new detections", telling an owner their history was gone when a filter
+  simply matched nothing. With filters active it now says no visits match, that the history is
+  still there, and offers one button that clears every filter.
+
+### Security
+
+- **The 49 CodeQL alerts are triaged: fixed, or dismissed with a written reason
+  ([#305](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/305)).** The 34
+  path-injection alerts covered code that was already safe — every cache path flows through a
+  character allow-list — but the containment proof used filesystem calls static analysis cannot
+  credit. Each cache path is now proven contained with pure string operations before anything
+  touches the filesystem, and a regression test drives hostile identifiers at every path helper.
+  Two classifier diagnostics endpoints no longer return Python tracebacks in the response body
+  (the message stays; the trace moved to the server log), the unauthenticated OAuth callback
+  pages and the Home Assistant ingress proxy now return generic failure text instead of raw
+  exception strings, and the label-collapse regex lost the ambiguity that made matching
+  polynomial on crafted labels. The eight deliberate keeps — owner-facing diagnostic messages,
+  the informational /health payload, and the Fernet key derived from a generated high-entropy
+  secret — are dismissed on GitHub with the reasoning recorded on each alert.
+
 ## [2.18.1] - 2026-08-29
 
 ### Changed

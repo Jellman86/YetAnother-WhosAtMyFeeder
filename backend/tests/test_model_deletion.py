@@ -198,3 +198,32 @@ async def test_the_api_addresses_a_nested_region_variant(models_dir, monkeypatch
     assert response.status_code == 200
     assert not (models_dir / "medium_birds" / "eu").exists()
     assert (models_dir / "medium_birds" / "na" / "model.onnx").exists()
+
+
+def test_deleting_a_model_clears_the_openvino_compile_cache(models_dir, tmp_path, monkeypatch):
+    """Cache blobs are keyed by opaque model hashes, so a deleted model's
+    compiled kernels can never be mapped back and reclaimed individually.
+    Clearing the whole cache on delete keeps the persistent volume honest;
+    the surviving models pay one recompile, which the warm-up window covers."""
+    cache_dir = tmp_path / "ov_cache"
+    cache_dir.mkdir()
+    (cache_dir / "abc123.blob").write_bytes(b"y" * 64)
+    monkeypatch.setattr(
+        "app.services.model_manager.resolve_openvino_cache_dir",
+        lambda: str(cache_dir),
+    )
+
+    _install(models_dir, "spare_model")
+    model_manager.delete_installed_model("spare_model", active_model_id="other")
+
+    assert not any(cache_dir.iterdir())
+
+
+def test_deleting_a_model_survives_a_missing_cache_directory(models_dir, tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "app.services.model_manager.resolve_openvino_cache_dir",
+        lambda: str(tmp_path / "never_created"),
+    )
+    _install(models_dir, "spare_model")
+    freed = model_manager.delete_installed_model("spare_model", active_model_id="other")
+    assert freed > 0

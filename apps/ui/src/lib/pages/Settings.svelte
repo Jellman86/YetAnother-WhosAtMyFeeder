@@ -205,6 +205,7 @@
     }
 
     let frigateUrl = $state('');
+    let frigateIngestLabels = $state('bird');
     let frigateExternalUrl = $state('');
     let mqttServer = $state('');
     let mqttPort = $state(1883);
@@ -282,6 +283,18 @@
     let birdweatherEnabled = $state(false);
     let birdweatherStationToken = $state('');
     let birdweatherStationTokenSaved = $state(false);
+    let haWeatherEnabled = $state(false);
+    let haWeatherBaseUrl = $state('');
+    let haWeatherAccessToken = $state('');
+    let haWeatherAccessTokenSaved = $state(false);
+    let haWeatherEntity = $state('');
+    let haWeatherTemperatureEntity = $state('');
+    let haWeatherWindSpeedEntity = $state('');
+    let haWeatherWindDirectionEntity = $state('');
+    let haWeatherCloudCoverEntity = $state('');
+    let haWeatherPrecipitationEntity = $state('');
+    let haWeatherRainEntity = $state('');
+    let haWeatherSnowfallEntity = $state('');
 
     // iNaturalist Settings
     let inaturalistEnabled = $state(false);
@@ -1268,6 +1281,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let publicAccessShowCameraNames = $state(true);
     let publicAccessShowAiConversation = $state(false);
     let publicAccessAllowClipDownloads = $state(false);
+    let publicAccessShowAudio = $state(true);
+    let publicAccessShowSnapshots = $state(true);
+    let publicAccessShowClips = $state(true);
+    let publicAccessLocationPrecision = $state<'approximate' | 'exact'>('approximate');
     let publicAccessHistoricalDaysMode = $state<'retention' | 'custom'>('retention');
     let publicAccessHistoricalDays = $state(7);
     let publicAccessMediaDaysMode = $state<'retention' | 'custom'>('retention');
@@ -1727,6 +1744,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
         const checks = [
             { key: 'frigateUrl', val: frigateUrl, store: s.frigate_url },
+            { key: 'frigateIngestLabels', val: frigateIngestLabels, store: (s.frigate_ingest_labels ?? ['bird']).join(', ') },
             { key: 'frigateExternalUrl', val: frigateExternalUrl, store: s.frigate_external_url || '' },
             { key: 'mqttServer', val: mqttServer, store: s.mqtt_server },
             { key: 'mqttPort', val: mqttPort, store: s.mqtt_port },
@@ -1779,6 +1797,17 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days ?? 0 },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
             { key: 'birdweatherStationToken', val: birdweatherStationToken, store: normalizeSecret(s.birdweather_station_token) },
+            { key: 'haWeatherEnabled', val: haWeatherEnabled, store: s.ha_weather_enabled ?? false },
+            { key: 'haWeatherBaseUrl', val: haWeatherBaseUrl, store: s.ha_weather_base_url ?? '' },
+            { key: 'haWeatherAccessToken', val: haWeatherAccessToken, store: normalizeSecret(s.ha_weather_access_token) },
+            { key: 'haWeatherEntity', val: haWeatherEntity, store: s.ha_weather_entity ?? '' },
+            { key: 'haWeatherTemperatureEntity', val: haWeatherTemperatureEntity, store: s.ha_weather_temperature_entity ?? '' },
+            { key: 'haWeatherWindSpeedEntity', val: haWeatherWindSpeedEntity, store: s.ha_weather_wind_speed_entity ?? '' },
+            { key: 'haWeatherWindDirectionEntity', val: haWeatherWindDirectionEntity, store: s.ha_weather_wind_direction_entity ?? '' },
+            { key: 'haWeatherCloudCoverEntity', val: haWeatherCloudCoverEntity, store: s.ha_weather_cloud_cover_entity ?? '' },
+            { key: 'haWeatherPrecipitationEntity', val: haWeatherPrecipitationEntity, store: s.ha_weather_precipitation_entity ?? '' },
+            { key: 'haWeatherRainEntity', val: haWeatherRainEntity, store: s.ha_weather_rain_entity ?? '' },
+            { key: 'haWeatherSnowfallEntity', val: haWeatherSnowfallEntity, store: s.ha_weather_snowfall_entity ?? '' },
             { key: 'ebirdEnabled', val: ebirdEnabled, store: s.ebird_enabled ?? false },
             { key: 'ebirdApiKey', val: ebirdApiKey, store: normalizeSecret(s.ebird_api_key) },
             { key: 'ebirdDefaultRadiusKm', val: ebirdDefaultRadiusKm, store: s.ebird_default_radius_km ?? 25 },
@@ -1823,6 +1852,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
             { key: 'publicAccessShowAiConversation', val: publicAccessShowAiConversation, store: s.public_access_show_ai_conversation ?? false },
             { key: 'publicAccessAllowClipDownloads', val: publicAccessAllowClipDownloads, store: s.public_access_allow_clip_downloads ?? false },
+            { key: 'publicAccessShowAudio', val: publicAccessShowAudio, store: s.public_access_show_audio ?? true },
+            { key: 'publicAccessShowSnapshots', val: publicAccessShowSnapshots, store: s.public_access_show_snapshots ?? true },
+            { key: 'publicAccessShowClips', val: publicAccessShowClips, store: s.public_access_show_clips ?? true },
+            { key: 'publicAccessLocationPrecision', val: publicAccessLocationPrecision, store: s.public_access_location_precision ?? 'approximate' },
             { key: 'publicAccessHistoricalDaysMode', val: publicAccessHistoricalDaysMode, store: normalizePublicDaysMode(s.public_access_historical_days_mode) },
             { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
             { key: 'publicAccessMediaDaysMode', val: publicAccessMediaDaysMode, store: normalizePublicDaysMode(s.public_access_media_days_mode) },
@@ -2671,6 +2704,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             const settings = await fetchSettings();
             settingsStore.update(settings);
             frigateUrl = settings.frigate_url;
+            frigateIngestLabels = (settings.frigate_ingest_labels ?? ['bird']).join(', ');
             frigateExternalUrl = settings.frigate_external_url || '';
             mqttServer = settings.mqtt_server;
             mqttPort = settings.mqtt_port;
@@ -2778,6 +2812,23 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 birdweatherStationTokenSaved = false;
                 birdweatherStationToken = settings.birdweather_station_token ?? '';
             }
+            haWeatherEnabled = settings.ha_weather_enabled ?? false;
+            haWeatherBaseUrl = settings.ha_weather_base_url ?? '';
+            if (settings.ha_weather_access_token === '***REDACTED***') {
+                haWeatherAccessTokenSaved = true;
+                haWeatherAccessToken = '';
+            } else {
+                haWeatherAccessTokenSaved = false;
+                haWeatherAccessToken = settings.ha_weather_access_token ?? '';
+            }
+            haWeatherEntity = settings.ha_weather_entity ?? '';
+            haWeatherTemperatureEntity = settings.ha_weather_temperature_entity ?? '';
+            haWeatherWindSpeedEntity = settings.ha_weather_wind_speed_entity ?? '';
+            haWeatherWindDirectionEntity = settings.ha_weather_wind_direction_entity ?? '';
+            haWeatherCloudCoverEntity = settings.ha_weather_cloud_cover_entity ?? '';
+            haWeatherPrecipitationEntity = settings.ha_weather_precipitation_entity ?? '';
+            haWeatherRainEntity = settings.ha_weather_rain_entity ?? '';
+            haWeatherSnowfallEntity = settings.ha_weather_snowfall_entity ?? '';
             // eBird settings
             ebirdEnabled = settings.ebird_enabled ?? false;
             if (settings.ebird_api_key === '***REDACTED***') {
@@ -2857,6 +2908,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
             publicAccessShowAiConversation = settings.public_access_show_ai_conversation ?? false;
             publicAccessAllowClipDownloads = settings.public_access_allow_clip_downloads ?? false;
+            publicAccessShowAudio = settings.public_access_show_audio ?? true;
+            publicAccessShowSnapshots = settings.public_access_show_snapshots ?? true;
+            publicAccessShowClips = settings.public_access_show_clips ?? true;
+            publicAccessLocationPrecision = (settings.public_access_location_precision as 'approximate' | 'exact') ?? 'approximate';
             publicAccessHistoricalDaysMode = normalizePublicDaysMode(settings.public_access_historical_days_mode);
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
             publicAccessMediaDaysMode = normalizePublicDaysMode(settings.public_access_media_days_mode);
@@ -3032,6 +3087,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         try {
             await updateSettings({
                 frigate_url: frigateUrl,
+                frigate_ingest_labels: frigateIngestLabels.split(',').map((l) => l.trim()).filter(Boolean),
                 frigate_external_url: frigateExternalUrl,
                 mqtt_server: mqttServer,
                 mqtt_port: mqttPort,
@@ -3094,6 +3150,17 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 location_weather_unit_system: locationWeatherUnitSystem,
                 birdweather_enabled: birdweatherEnabled,
                 birdweather_station_token: birdweatherStationToken,
+                ha_weather_enabled: haWeatherEnabled,
+                ha_weather_base_url: haWeatherBaseUrl || null,
+                ha_weather_access_token: haWeatherAccessToken,
+                ha_weather_entity: haWeatherEntity || null,
+                ha_weather_temperature_entity: haWeatherTemperatureEntity || null,
+                ha_weather_wind_speed_entity: haWeatherWindSpeedEntity || null,
+                ha_weather_wind_direction_entity: haWeatherWindDirectionEntity || null,
+                ha_weather_cloud_cover_entity: haWeatherCloudCoverEntity || null,
+                ha_weather_precipitation_entity: haWeatherPrecipitationEntity || null,
+                ha_weather_rain_entity: haWeatherRainEntity || null,
+                ha_weather_snowfall_entity: haWeatherSnowfallEntity || null,
                 ebird_enabled: ebirdEnabled,
                 ebird_api_key: ebirdApiKey,
                 ebird_default_radius_km: ebirdDefaultRadiusKm,
@@ -3133,6 +3200,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 public_access_show_camera_names: publicAccessShowCameraNames,
                 public_access_show_ai_conversation: publicAccessShowAiConversation,
                 public_access_allow_clip_downloads: publicAccessAllowClipDownloads,
+                public_access_show_audio: publicAccessShowAudio,
+                public_access_show_snapshots: publicAccessShowSnapshots,
+                public_access_show_clips: publicAccessShowClips,
+                public_access_location_precision: publicAccessLocationPrecision,
                 public_access_historical_days_mode: publicAccessHistoricalDaysMode,
                 public_access_historical_days: publicAccessHistoricalDays,
                 public_access_media_days_mode: publicAccessMediaDaysMode,
@@ -3283,6 +3354,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {#if activeTab === 'connection'}
                 <ConnectionSettings
                     bind:frigateUrl
+                    bind:frigateIngestLabels
                     bind:frigateExternalUrl
                     bind:mqttServer
                     bind:mqttPort
@@ -3421,6 +3493,18 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:birdweatherEnabled
                     bind:birdweatherStationToken
                     bind:birdweatherStationTokenSaved
+                    bind:haWeatherEnabled
+                    bind:haWeatherBaseUrl
+                    bind:haWeatherAccessToken
+                    bind:haWeatherAccessTokenSaved
+                    bind:haWeatherEntity
+                    bind:haWeatherTemperatureEntity
+                    bind:haWeatherWindSpeedEntity
+                    bind:haWeatherWindDirectionEntity
+                    bind:haWeatherCloudCoverEntity
+                    bind:haWeatherPrecipitationEntity
+                    bind:haWeatherRainEntity
+                    bind:haWeatherSnowfallEntity
                     bind:ebirdEnabled
                     bind:ebirdApiKey
                     bind:ebirdApiKeySaved
@@ -3514,6 +3598,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:publicAccessShowCameraNames
                     bind:publicAccessShowAiConversation
                     bind:publicAccessAllowClipDownloads
+                    bind:publicAccessShowAudio
+                    bind:publicAccessShowSnapshots
+                    bind:publicAccessShowClips
+                    bind:publicAccessLocationPrecision
                     bind:publicAccessHistoricalDaysMode
                     bind:publicAccessHistoricalDays
                     bind:publicAccessMediaDaysMode

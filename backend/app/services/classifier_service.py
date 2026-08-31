@@ -4,6 +4,7 @@ import os
 import cv2
 import asyncio
 import contextlib
+import functools
 import inspect
 import base64
 import ctypes
@@ -23,6 +24,7 @@ from PIL import Image
 from typing import Optional, Any, Awaitable, Callable, Literal
 
 from app.services.inference_health import InferenceHealth, Outcome, RuntimeKey
+from app.services.openvino_cache import resolve_openvino_cache_dir
 from app.services.startup_status import startup_status
 from app.utils.canonical_species import should_hide_species_label
 from app.utils.runtime_flavor import get_image_flavor, image_flavor_warning, packaged_inference_providers
@@ -2466,7 +2468,7 @@ class OpenVINOModelInstance:
 
             # Enable caching so GPU model compilation isn't repeated from scratch
             # on every worker process startup, avoiding readiness timeouts.
-            cache_dir = os.getenv("OPENVINO_CACHE_DIR", "/tmp/openvino_cache")
+            cache_dir = resolve_openvino_cache_dir()
             os.makedirs(cache_dir, exist_ok=True)
             self.core.set_property({"CACHE_DIR": cache_dir})
 
@@ -2732,12 +2734,15 @@ class ClassifierService:
         self._crop_source_resolver = crop_source_resolver
         # Use dedicated executors so long-running video analysis cannot starve
         # live snapshot/audio-adjacent classification work.
+        # The one concurrency knob: video-job concurrency follows the background
+        # worker count, so the pool that runs those jobs must match it - a pool
+        # smaller than the job limit only queues, and this was the last consumer
+        # of the retired video_classification_max_concurrent setting. Mirrors
+        # auto_video_classifier_service.resolve_video_concurrency.
+        _configured_background = settings.classification.background_worker_count
         video_workers = max(
             1,
-            min(
-                2,
-                int(getattr(settings.classification, "video_classification_max_concurrent", 1) or 1),
-            ),
+            int(_configured_background) if _configured_background else 1,
         )
         image_workers = CLASSIFIER_IMAGE_MAX_CONCURRENT
         # One resolution serves admission and the pool: every admitted job has
@@ -2805,6 +2810,13 @@ class ClassifierService:
                     float(getattr(settings.classification, "worker_ready_timeout_seconds", 20.0) or 20.0),
                     min(60.0, max(30.0, video_timeout_seconds / 2.0)),
                 ),
+                # A cold model load (native imports, GPU kernel compiles) can
+                # legitimately hold a worker silent far past the steady-state
+                # heartbeat window; killing it mid-load loops forever on slow
+                # hardware and classifies nothing (observed on #300).
+                warmup_liveness_timeout_seconds=float(
+                    getattr(settings.classification, "worker_first_load_grace_seconds", 180.0) or 180.0
+                ),
             )
             self._video_supervisor = isolated_supervisor
             if self._image_execution_mode == "subprocess":
@@ -2825,6 +2837,13 @@ class ClassifierService:
         self._runtime_gpu_retries = 0
         self._runtime_gpu_restore_attempts = 0
         self._runtime_gpu_restore_successes = 0
+        self._worker_fallback_lock = asyncio.Lock()
+        self._worker_fallback_state: dict[str, Any] = {
+            "active": False,
+            "reason": None,
+            "since_monotonic": None,
+            "classifications": 0,
+        }
         self._runtime_gpu_restore_failures = 0
         self._gpu_invalid_retry_remaining = CLASSIFIER_GPU_INVALID_RETRY_LIMIT
         self._gpu_restore_not_before_monotonic: float = 0.0
@@ -2952,7 +2971,7 @@ class ClassifierService:
         startup_self_test_enabled = _openvino_gpu_startup_self_test_enabled() and not self._worker_process_mode
         return {
             "startup_self_test_enabled": startup_self_test_enabled,
-            "cache_dir": os.getenv("OPENVINO_CACHE_DIR", "/tmp/openvino_cache"),
+            "cache_dir": resolve_openvino_cache_dir(),
             "requested_compile_properties": {
                 "PERFORMANCE_HINT": "LATENCY",
                 "NUM_STREAMS": "1",
@@ -4648,6 +4667,9 @@ class ClassifierService:
 
         status = {
             "image_execution_mode": self._image_execution_mode,
+            # Honest degradation: when the worker circuit opens, classification
+            # continues in-process and this says so instead of hiding it.
+            "worker_in_process_fallback": self.get_worker_fallback_status(),
             # The worker count is derived from concurrency and provider now, so
             # Settings must be able to show what it resolved to and what each
             # worker costs — the price is stated, not implied (#312).
@@ -5527,7 +5549,7 @@ class ClassifierService:
             raise RuntimeError("classifier supervisor is not configured")
         normalized_input_context = _normalize_classification_input_context(input_context)
         try:
-            return await self._classifier_supervisor.classify(
+            results = await self._classifier_supervisor.classify(
                 priority=priority,
                 work_id=str(work_id or f"{priority}-{time.monotonic_ns()}"),
                 lease_token=int(lease_token or 1),
@@ -5538,10 +5560,18 @@ class ClassifierService:
                 if normalized_input_context is not None
                 else None,
             )
+            if self._worker_fallback_state["active"]:
+                self._worker_fallback_state["active"] = False
+                log.info("classifier_worker_fallback_recovered", reason=self._worker_fallback_state["reason"])
+            return results
         except ClassifierWorkerCircuitOpenError:
-            if priority == "live":
-                raise LiveImageClassificationOverloadedError("classify_snapshot_circuit_open") from None
-            raise BackgroundImageClassificationUnavailableError("background_image_circuit_open") from None
+            return await self._classify_in_process_as_last_resort(
+                priority=priority,
+                image=image,
+                camera_name=camera_name,
+                model_id=model_id,
+                input_context=normalized_input_context,
+            )
         except (ClassifierWorkerHeartbeatTimeoutError, ClassifierWorkerDeadlineExceededError):
             if priority == "live":
                 raise ClassificationLeaseExpiredError(
@@ -5558,6 +5588,61 @@ class ClassifierService:
             if priority == "live":
                 raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable") from None
             raise BackgroundImageClassificationUnavailableError("background_image_worker_unavailable") from None
+
+    async def _classify_in_process_as_last_resort(
+        self,
+        *,
+        priority: Literal["live", "background"],
+        image: Image.Image,
+        camera_name: Optional[str],
+        model_id: Optional[str],
+        input_context: Any | None,
+    ) -> list[dict]:
+        """Classify in this process when the worker circuit is open.
+
+        An open circuit means the isolated workers keep dying — on slow
+        hardware, typically killed mid-model-load. Dropping every detection
+        until someone notices is the worst outcome for a recorder of
+        history, so the main process loads its own copy and keeps
+        classifying, and the status endpoint says so plainly.
+        """
+        async with self._worker_fallback_lock:
+            if not self.model_loaded:
+                try:
+                    await asyncio.to_thread(self._init_bird_model)
+                except Exception as exc:
+                    log.error("worker_fallback_model_load_failed", error=str(exc))
+        if not self.model_loaded:
+            if priority == "live":
+                raise LiveImageClassificationOverloadedError("classify_snapshot_circuit_open") from None
+            raise BackgroundImageClassificationUnavailableError("background_image_circuit_open") from None
+
+        if not self._worker_fallback_state["active"]:
+            self._worker_fallback_state["active"] = True
+            self._worker_fallback_state["reason"] = "circuit_open"
+            self._worker_fallback_state["since_monotonic"] = time.monotonic()
+            log.warning(
+                "classifier_worker_fallback_engaged",
+                reason="circuit_open",
+                detail="isolated workers keep failing; classifying in-process until they recover",
+            )
+        self._worker_fallback_state["classifications"] += 1
+
+        executor = self._live_image_executor if priority == "live" else self._background_image_executor
+        return await asyncio.get_running_loop().run_in_executor(
+            executor,
+            functools.partial(self.classify, image, camera_name, model_id, input_context),
+        )
+
+    def get_worker_fallback_status(self) -> dict[str, Any]:
+        state = self._worker_fallback_state
+        since = state.get("since_monotonic")
+        return {
+            "active": bool(state["active"]),
+            "reason": state["reason"],
+            "active_seconds": (time.monotonic() - float(since)) if state["active"] and since else None,
+            "classifications": int(state["classifications"]),
+        }
 
     async def _run_coordinated_inference(
         self,

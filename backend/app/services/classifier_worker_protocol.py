@@ -24,8 +24,22 @@ _REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
 }
 
 
+# One limit for both ends of the newline-framed pipe. A high-quality event
+# snapshot is ~3MB of JPEG and ~4MB as base64, and results can carry large
+# diagnostics, so the ceiling is generous - and enforced at encode time so an
+# oversized message fails one request instead of desynchronising the framing
+# and killing the worker (observed live as asyncio LimitOverrunError).
+WORKER_PROTOCOL_STREAM_LIMIT_BYTES = 32 * 1024 * 1024
+
+
 def encode_protocol_message(message: dict[str, Any]) -> bytes:
-    return (json.dumps(message, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-8")
+    encoded = (json.dumps(message, separators=(",", ":"), sort_keys=True) + "\n").encode("utf-8")
+    if len(encoded) > WORKER_PROTOCOL_STREAM_LIMIT_BYTES:
+        raise ValueError(
+            f"protocol message of {len(encoded)} bytes exceeds the protocol stream limit "
+            f"({WORKER_PROTOCOL_STREAM_LIMIT_BYTES} bytes)"
+        )
+    return encoded
 
 
 def decode_protocol_message(raw: bytes | str) -> dict[str, Any]:

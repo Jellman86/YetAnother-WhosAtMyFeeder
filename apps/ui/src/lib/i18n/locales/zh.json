@@ -206,7 +206,13 @@
         "integrations_configured": "已配置：{integrations}",
         "integrations_none": "均未启用"
       }
-    }
+    },
+    "skip": "跳过设置",
+    "skip_failed": "无法跳过——无法连接服务器。",
+    "skip_confirm_title": "跳过设置并打开应用?",
+    "skip_confirm_body_no_account": "在您于设置 → 安全中设置密码之前,应用将在无密码状态下运行。此向导涵盖的所有内容都可以稍后配置,并且您可以随时从设置 → 设置向导重新运行它。",
+    "skip_confirm_body": "此向导涵盖的所有内容都可以稍后配置,并且您可以随时从设置 → 设置向导重新运行它。",
+    "skip_confirm_action": "跳过并打开应用"
   },
   "theme": {
     "switch_light": "切换到浅色模式",
@@ -311,7 +317,8 @@
       "error": "无法加载稀有报告。",
       "retry": "重试",
       "empty": "过去 {days} 天内，{distance} 范围内没有发现稀有或异常报告。",
-      "empty_hint": "这是有效的 eBird 结果；附近仍可能有许多普通观鸟记录。"
+      "empty_hint": "这是有效的 eBird 结果；附近仍可能有许多普通观鸟记录。",
+      "open_species": "{species} — 打开物种卡片"
     },
     "day_bar": {
       "today": "今天",
@@ -337,7 +344,8 @@
       "title": "需要你确认",
       "empty": "今天的每次到访都有物种，没有待处理项。",
       "remaining": "还有 {count} 项待处理",
-      "work_through": "处理待办队列"
+      "work_through": "处理待办队列",
+      "new_species_tag": "新物种 · {count} 次目击"
     },
     "review_session": {
       "position": "第 {position} 项，共 {total} 项",
@@ -362,7 +370,11 @@
       "crop": "最佳裁剪",
       "full_frame": "完整画面",
       "view_label": "显示哪张图",
-      "no_crop": "这条检测没有保存裁剪图。打开完整记录以查找。"
+      "no_crop": "这条检测没有保存裁剪图。打开完整记录以查找。",
+      "new_species_note": "这里首次记录到{species}。可以确认、更正或屏蔽该物种。",
+      "confirm_species": "确认{species}",
+      "block_species": "屏蔽该物种",
+      "species_blocked": "已屏蔽{species}。之后的检测将被丢弃。"
     }
   },
   "common": {
@@ -821,6 +833,31 @@
         "test_loading": "正在验证…",
         "test_success": "BirdWeather 连接已验证！",
         "test_error": "BirdWeather 连接失败"
+      },
+      "ha_weather": {
+        "title": "Home Assistant 天气",
+        "toggle_label": "从您自己的传感器记录天气，而不是预报 API。无法响应的传感器记录为未知，绝不会用预报冒充。",
+        "base_url": "Home Assistant 地址",
+        "base_url_desc": "本服务器可访问的地址，例如 http://homeassistant.local:8123",
+        "token": "长期访问令牌",
+        "token_desc": "在 Home Assistant 的个人资料 > 安全 > 长期访问令牌中创建。",
+        "token_placeholder": "粘贴长期访问令牌",
+        "entity": "天气实体",
+        "entity_desc": "通用来源，例如 weather.home。留空则仅依赖传感器覆盖。",
+        "overrides": "按读数的传感器覆盖",
+        "overrides_desc": "此处指定的传感器在其读数上优先于天气实体。若无法响应，该读数保持未知。",
+        "override_temperature": "温度传感器",
+        "override_wind_speed": "风速传感器",
+        "override_wind_direction": "风向传感器",
+        "override_cloud_cover": "云量传感器",
+        "override_precipitation": "降水传感器",
+        "override_rain": "雨量传感器",
+        "override_snowfall": "降雪传感器",
+        "test_button": "获取实时读数",
+        "test_loading": "获取中…",
+        "test_title": "Home Assistant 天气测试",
+        "test_subtitle": "获取您的检测将会记录的当前读数。",
+        "stage_fetch": "来自 Home Assistant 的实时读数"
       }
     },
     "enrichment": {
@@ -882,7 +919,19 @@
       "share_base_url": "分享链接基础 URL（可选）",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "设置后，新建分享链接将使用此公共基础 URL，而不是检测到的请求主机。",
-      "advanced_title": "历史窗口与速率限制"
+      "advanced_title": "历史窗口与速率限制",
+      "show_audio": "与访客共享音频",
+      "show_audio_desc": "BirdNET 检测、频谱图和音频片段。关闭后访客完全看不到音频相关内容。",
+      "show_snapshots": "与访客共享照片",
+      "show_snapshots_desc": "快照和缩略图。关闭后访客看到的是占位符而不是图片。",
+      "show_clips": "与访客共享视频",
+      "show_clips_desc": "视频片段及其预览。关闭后访客完全无法播放视频；下方的下载开关仅控制文件保存。",
+      "location_precision": "向访客显示的位置",
+      "location_precision_desc": "「大致」会在任何访客功能使用前将位置四舍五入到约 10 公里，分享喂食器不会公开您的地址。",
+      "location_approximate": "大致",
+      "location_approximate_sub": "约 10 公里。安全的默认值。",
+      "location_exact": "精确",
+      "location_exact_sub": "按配置的坐标原样使用。"
     },
     "accessibility": {
       "title": "辅助功能选项",
@@ -941,7 +990,9 @@
       "full_visit_unavailable": "当前无法获取能力信息。",
       "external_url": "Frigate 公开 URL",
       "external_url_desc": "当与上面的服务器地址不同时,浏览器用来打开 Frigate 的地址。用于检测的“在 Frigate 中打开”链接。",
-      "external_url_placeholder": "https://frigate.example.com"
+      "external_url_placeholder": "https://frigate.example.com",
+      "ingest_labels": "要处理的 Frigate 标签",
+      "ingest_labels_desc": "逗号分隔。请添加您的 Frigate 模型用于鸟类的标签（如 bird、duck、goose）；列出的所有标签都会进入鸟类识别流程。"
     },
     "cameras": {
       "title": "活动摄像头",
@@ -1482,7 +1533,11 @@
       "worker_counts_live": "实时",
       "worker_counts_background": "后台",
       "worker_counts_auto": "1(默认)",
-      "video_concurrency_follows_workers": "同时分析的剪辑数量等于后台工作进程数——模型每个进程一次只分类一张图像,单独的并发设置只会让任务排队或让进程闲置。"
+      "video_concurrency_follows_workers": "同时分析的剪辑数量等于后台工作进程数——模型每个进程一次只分类一张图像,单独的并发设置只会让任务排队或让进程闲置。",
+      "band_worker_split_video": "{live} 个实时 · {background} 个后台 · {video} 个视频",
+      "model_manager_memory_formula_subprocess_video": "每份 {per} × {live} 个实时 + {background} 个后台 + {video} 个视频(隔离模式)",
+      "band_worker_fallback": "工作进程故障 — 正在主进程中分类",
+      "band_worker_fallback_detail": "隔离的工作进程在加载模型时不断崩溃；检测在主进程中继续进行。"
     },
     "llm": {
       "title": "AI 洞察",
@@ -1638,13 +1693,13 @@
     "clear_notifications": "清除通知"
   },
   "actions": {
-    "confirm_delete": "删除此 {species} 检测记录？",
+    "confirm_delete": "删除这次{species}的完整到访记录？该记录及其媒体将永久从历史中消失。改为隐藏则会保留记录。",
     "play_video": "播放视频",
     "deep_reclassify": "深度重新分类",
     "manual_tag": "手动标记",
     "reclassify": "重新分类",
     "species_info": "物种信息",
-    "delete_detection": "删除检测",
+    "delete_detection": "永久删除此次到访",
     "hide_detection": "隐藏检测",
     "unhide_detection": "取消隐藏检测",
     "read_more_wikipedia": "在维基百科上阅读更多",
@@ -2020,7 +2075,10 @@
     "timeline_keyboard_hint": "时间线快捷键：[ 前一天，] 后一天，0 重置",
     "row_open": "打开 {species}",
     "row_select": "选择 {species}",
-    "row_below_threshold": "低于命名阈值"
+    "row_below_threshold": "低于命名阈值",
+    "empty_filtered_title": "没有符合这些筛选条件的到访",
+    "empty_filtered_desc": "您的历史记录仍在。放宽日期范围或移除一个筛选即可看到。",
+    "empty_filtered_clear": "清除所有筛选"
   },
   "audio": {
     "chart": {
@@ -2078,7 +2136,9 @@
     "sources": {
       "title": "来源",
       "empty": "尚无来源。"
-    }
+    },
+    "not_shared_title": "音频未公开共享",
+    "not_shared_body": "此实例的所有者已为访客关闭音频。"
   },
   "leaderboard": {
     "source_toggle": "检测来源",
@@ -2344,7 +2404,9 @@
     "time_of_day": "时间段",
     "day_of_week": "星期几",
     "month": "月份",
-    "copy_diagnostics_bundle": "复制诊断包"
+    "copy_diagnostics_bundle": "复制诊断包",
+    "no_local_visits_title": "您的喂食器尚无到访记录",
+    "no_local_visits_body": "您的摄像头尚未记录到这种鸟。以下内容均来自公开参考资料。"
   },
   "pagination": {
     "navigation": "分页",

@@ -6,6 +6,7 @@ with connection pooling, authentication, and consistent error handling.
 
 import math
 
+import aiofiles
 import httpx
 import structlog
 from typing import Optional
@@ -162,7 +163,9 @@ class FrigateClient:
             if resp.status_code == 200:
                 return resp.content, None
             if resp.status_code == 404:
-                log.warning("Clip not found", event_id=event_id)
+                # Expected state: Frigate simply never stored a clip for this
+                # event. The caller reports the absence honestly to the UI.
+                log.info("Clip not found", event_id=event_id)
                 return None, "clip_not_found"
             if resp.status_code == 400:
                 try:
@@ -171,7 +174,7 @@ class FrigateClient:
                     payload = None
                 message = str((payload or {}).get("message") or "")
                 if "No recordings found for the specified time range" in message:
-                    log.warning("Clip recordings not retained", event_id=event_id)
+                    log.info("Clip recordings not retained", event_id=event_id)
                     return None, "clip_not_retained"
             log.warning("Failed to fetch clip", event_id=event_id, status=resp.status_code)
             return None, f"clip_http_{resp.status_code}"
@@ -184,6 +187,49 @@ class FrigateClient:
         except Exception as e:
             log.error("Unexpected error fetching clip", event_id=event_id, error=str(e))
             return None, "clip_unknown_error"
+
+    async def download_clip_to_file(
+        self, event_id: str, dest_path: str, timeout: float = 20.0
+    ) -> tuple[bool, Optional[str]]:
+        """Stream the event clip straight to a file.
+
+        Mirrors get_clip_with_error's status mapping, but the clip never passes
+        through this process's heap - whole clips transiting memory were the
+        dominant transient behind glibc arena retention in the API process
+        (#341).
+        """
+        url = f"{self.base_url}/api/events/{event_id}/clip.mp4"
+        client = self._get_client()
+        try:
+            async with client.stream("GET", url, headers=self._get_headers(), timeout=timeout) as resp:
+                if resp.status_code == 200:
+                    async with aiofiles.open(dest_path, "wb") as f:
+                        async for chunk in resp.aiter_bytes(256 * 1024):
+                            await f.write(chunk)
+                    return True, None
+                if resp.status_code == 404:
+                    # Expected state: Frigate never stored a clip for this event.
+                    log.info("Clip not found", event_id=event_id)
+                    return False, "clip_not_found"
+                if resp.status_code == 400:
+                    try:
+                        payload = (await resp.aread()).decode("utf-8", errors="replace")
+                    except Exception:
+                        payload = ""
+                    if "No recordings found for the specified time range" in payload:
+                        log.info("Clip recordings not retained", event_id=event_id)
+                        return False, "clip_not_retained"
+                log.warning("Failed to fetch clip", event_id=event_id, status=resp.status_code)
+                return False, f"clip_http_{resp.status_code}"
+        except httpx.TimeoutException:
+            log.warning("Clip fetch timed out", event_id=event_id)
+            return False, "clip_timeout"
+        except httpx.RequestError as e:
+            log.error("Error fetching clip", event_id=event_id, error=str(e))
+            return False, "clip_request_error"
+        except Exception as e:
+            log.error("Unexpected error fetching clip", event_id=event_id, error=str(e))
+            return False, "clip_unknown_error"
 
     async def get_clip(self, event_id: str) -> Optional[bytes]:
         """Fetch video clip for an event."""

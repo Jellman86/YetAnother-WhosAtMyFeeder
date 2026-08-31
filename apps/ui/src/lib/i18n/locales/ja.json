@@ -206,7 +206,13 @@
         "integrations_configured": "設定済み: {integrations}",
         "integrations_none": "有効な連携なし"
       }
-    }
+    },
+    "skip": "セットアップをスキップ",
+    "skip_failed": "スキップできませんでした。サーバーに接続できません。",
+    "skip_confirm_title": "セットアップをスキップしてアプリを開きますか?",
+    "skip_confirm_body_no_account": "設定 → セキュリティでパスワードを設定するまで、アプリはパスワードなしで動作します。このウィザードの内容は後から設定でき、設定 → セットアップウィザードからいつでも再実行できます。",
+    "skip_confirm_body": "このウィザードの内容は後から設定でき、設定 → セットアップウィザードからいつでも再実行できます。",
+    "skip_confirm_action": "スキップしてアプリを開く"
   },
   "theme": {
     "switch_light": "ライトモードに切り替え",
@@ -311,7 +317,8 @@
       "error": "注目記録を読み込めませんでした。",
       "retry": "再試行",
       "empty": "過去 {days} 日間、半径 {distance} 以内に希少または珍しい報告はありませんでした。",
-      "empty_hint": "これは有効な eBird の結果です。通常の周辺観察は多数ある場合があります。"
+      "empty_hint": "これは有効な eBird の結果です。通常の周辺観察は多数ある場合があります。",
+      "open_species": "{species} — 種のカードを開く"
     },
     "day_bar": {
       "today": "今日",
@@ -337,7 +344,8 @@
       "title": "確認が必要です",
       "empty": "今日の訪問にはすべて種名が付いています。保留中の項目はありません。",
       "remaining": "他に {count} 件が保留中",
-      "work_through": "キューを処理する"
+      "work_through": "キューを処理する",
+      "new_species_tag": "新しい種 · {count} 回の観察"
     },
     "review_session": {
       "position": "{total} 件中 {position} 件目",
@@ -362,7 +370,11 @@
       "crop": "最適な切り抜き",
       "full_frame": "フル画像",
       "view_label": "表示する画像",
-      "no_crop": "この検出には切り抜きが保存されていません。完全な記録を開いて検索してください。"
+      "no_crop": "この検出には切り抜きが保存されていません。完全な記録を開いて検索してください。",
+      "new_species_note": "この場所で初めての{species}です。確認、修正、または種のブロックができます。",
+      "confirm_species": "{species}を確認",
+      "block_species": "この種をブロック",
+      "species_blocked": "{species}をブロックしました。今後の検出は破棄されます。"
     }
   },
   "common": {
@@ -821,6 +833,31 @@
         "test_loading": "確認中…",
         "test_success": "BirdWeather への接続が確認されました！",
         "test_error": "BirdWeather への接続に失敗しました"
+      },
+      "ha_weather": {
+        "title": "Home Assistant の天気",
+        "toggle_label": "予報 API ではなく自分のセンサーから天気を記録します。応答できないセンサーは不明として記録され、予報で代用されることはありません。",
+        "base_url": "Home Assistant の URL",
+        "base_url_desc": "このサーバーから到達できるアドレス（例: http://homeassistant.local:8123）",
+        "token": "長期アクセストークン",
+        "token_desc": "Home Assistant のプロフィール > セキュリティ > 長期アクセストークンで作成します。",
+        "token_placeholder": "長期アクセストークンを貼り付け",
+        "entity": "天気エンティティ",
+        "entity_desc": "全般的なソース（例: weather.home）。空欄にするとセンサー上書きのみを使用します。",
+        "overrides": "測定値ごとのセンサー上書き",
+        "overrides_desc": "ここで指定したセンサーは、その測定値について天気エンティティより優先されます。応答できない場合、その測定値は不明のままです。",
+        "override_temperature": "温度センサー",
+        "override_wind_speed": "風速センサー",
+        "override_wind_direction": "風向センサー",
+        "override_cloud_cover": "雲量センサー",
+        "override_precipitation": "降水量センサー",
+        "override_rain": "雨量センサー",
+        "override_snowfall": "降雪量センサー",
+        "test_button": "ライブ測定値を取得",
+        "test_loading": "取得中…",
+        "test_title": "Home Assistant 天気テスト",
+        "test_subtitle": "検出時に記録される現在の測定値を取得します。",
+        "stage_fetch": "Home Assistant からのライブ測定値"
       }
     },
     "enrichment": {
@@ -882,7 +919,19 @@
       "share_base_url": "共有リンクのベースURL（任意）",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "設定すると、新しい共有リンクは検出されたリクエストホストではなく、この公開ベースURLを使用します。",
-      "advanced_title": "履歴ウィンドウとレート制限"
+      "advanced_title": "履歴ウィンドウとレート制限",
+      "show_audio": "訪問者と音声を共有",
+      "show_audio_desc": "BirdNET の検出、スペクトログラム、音声クリップ。オフにすると訪問者には音声関連の画面が一切表示されません。",
+      "show_snapshots": "訪問者と写真を共有",
+      "show_snapshots_desc": "スナップショットとサムネイル。オフにすると訪問者には画像の代わりにプレースホルダーが表示されます。",
+      "show_clips": "訪問者と動画を共有",
+      "show_clips_desc": "動画クリップとそのプレビュー。オフにすると訪問者は動画を再生できません。下のダウンロードスイッチはファイル保存のみを制御します。",
+      "location_precision": "訪問者に表示する位置情報",
+      "location_precision_desc": "「おおよそ」は訪問者向け機能が使う前に位置を約 10 km 単位に丸めます。フィーダーを共有しても住所は公開されません。",
+      "location_approximate": "おおよそ",
+      "location_approximate_sub": "約 10 km。安全な既定値。",
+      "location_exact": "正確",
+      "location_exact_sub": "設定した座標をそのまま使用。"
     },
     "accessibility": {
       "title": "アクセシビリティオプション",
@@ -941,7 +990,9 @@
       "full_visit_unavailable": "現在、対応情報を利用できません。",
       "external_url": "Frigate公開URL",
       "external_url_desc": "上のサーバーアドレスと異なる場合に、ブラウザがFrigateを開くために使うアドレスです。検出の「Frigateで開く」リンクに使われます。",
-      "external_url_placeholder": "https://frigate.example.com"
+      "external_url_placeholder": "https://frigate.example.com",
+      "ingest_labels": "処理する Frigate ラベル",
+      "ingest_labels_desc": "カンマ区切り。Frigate モデルが鳥に使うラベル（例: bird、duck、goose）を追加してください。ここに挙げたものはすべて鳥の識別パイプラインを通ります。"
     },
     "cameras": {
       "title": "アクティブなカメラ",
@@ -1482,7 +1533,11 @@
       "worker_counts_live": "ライブ",
       "worker_counts_background": "バックグラウンド",
       "worker_counts_auto": "1(既定)",
-      "video_concurrency_follows_workers": "クリップはバックグラウンドワーカーの数だけ同時に解析されます。モデルはワーカーごとに1枚ずつ分類するため、別個の同時実行設定はジョブを待たせるかワーカーを遊ばせるだけになります。"
+      "video_concurrency_follows_workers": "クリップはバックグラウンドワーカーの数だけ同時に解析されます。モデルはワーカーごとに1枚ずつ分類するため、別個の同時実行設定はジョブを待たせるかワーカーを遊ばせるだけになります。",
+      "band_worker_split_video": "ライブ{live}・バックグラウンド{background}・動画{video}",
+      "model_manager_memory_formula_subprocess_video": "コピーあたり{per} × ライブ{live}+バックグラウンド{background}+動画{video}(分離モード)",
+      "band_worker_fallback": "ワーカーが失敗 — メインプロセスで分類中",
+      "band_worker_fallback_detail": "分離ワーカーがモデル読み込み中に停止し続けています。検出はメインプロセスで継続しています。"
     },
     "llm": {
       "title": "AI インサイト",
@@ -1638,13 +1693,13 @@
     "clear_notifications": "通知をクリア"
   },
   "actions": {
-    "confirm_delete": "この {species} の検出を削除しますか？",
+    "confirm_delete": "この{species}の来訪をまるごと削除しますか？記録とメディアは履歴から完全に消えます。代わりに非表示にすれば記録は残ります。",
     "play_video": "ビデオを再生",
     "deep_reclassify": "詳細な再分類",
     "manual_tag": "手動タグ付け",
     "reclassify": "再分類",
     "species_info": "種の情報",
-    "delete_detection": "検出を削除",
+    "delete_detection": "この来訪を完全に削除",
     "hide_detection": "検出を非表示",
     "unhide_detection": "検出を再表示",
     "read_more_wikipedia": "ウィキペディアで続きを読む",
@@ -2020,7 +2075,10 @@
     "timeline_keyboard_hint": "タイムライン操作: [ 前日、] 翌日、0 リセット",
     "row_open": "{species} を開く",
     "row_select": "{species} を選択",
-    "row_below_threshold": "命名のしきい値未満"
+    "row_below_threshold": "命名のしきい値未満",
+    "empty_filtered_title": "このフィルターに一致する訪問はありません",
+    "empty_filtered_desc": "履歴は残っています。期間を広げるかフィルターを外すと表示されます。",
+    "empty_filtered_clear": "すべてのフィルターを解除"
   },
   "audio": {
     "chart": {
@@ -2078,7 +2136,9 @@
     "sources": {
       "title": "音源",
       "empty": "音源はまだありません。"
-    }
+    },
+    "not_shared_title": "音声は公開されていません",
+    "not_shared_body": "このインスタンスの所有者は訪問者向けの音声をオフにしています。"
   },
   "leaderboard": {
     "source_toggle": "検出元",
@@ -2344,7 +2404,9 @@
     "time_of_day": "時間帯",
     "day_of_week": "曜日",
     "month": "月",
-    "copy_diagnostics_bundle": "診断バンドルをコピー"
+    "copy_diagnostics_bundle": "診断バンドルをコピー",
+    "no_local_visits_title": "あなたのフィーダーへの来訪はまだありません",
+    "no_local_visits_body": "カメラはこの鳥をまだ記録していません。以下の情報はすべて公開されている参考資料によるものです。"
   },
   "pagination": {
     "navigation": "ページネーション",

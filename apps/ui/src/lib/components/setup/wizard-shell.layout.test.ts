@@ -111,6 +111,24 @@ describe('setup wizard wiring', () => {
         expect(camerasStepSource).not.toContain('classification_threshold: threshold');
     });
 
+    it('lets first-run be skipped honestly, without weakening the rerun exit', () => {
+        // First-run shows Skip setup where rerun shows the close button.
+        expect(wizardShellSource).toContain("$_('setup.skip'");
+        expect(wizardShellSource).toContain('skipConfirming = true');
+        // Skipping states its one consequence and asks before acting.
+        expect(wizardShellSource).toContain('role="alertdialog"');
+        expect(wizardShellSource).toContain('skip_confirm_body_no_account');
+        // It completes initial setup with auth disabled only when still needed,
+        // through the same store path the account step uses, then closes.
+        expect(wizardShellSource).toContain('if (authStore.needsInitialSetup)');
+        expect(wizardShellSource).toContain("completeInitialSetup({ username: 'admin', password: null, enableAuth: false })");
+        expect(wizardShellSource).toContain('setupWizardStore.close()');
+        // A failed skip is reported, not swallowed.
+        expect(wizardShellSource).toContain('skipError =');
+        // Escape stays rerun-only.
+        expect(wizardShellSource).toContain('&& canExit');
+    });
+
     it('offers a consent-based background history import during setup', () => {
         expect(historyStepSource).toContain('startBackfillJob');
         expect(historyStepSource).toContain('importHistory = $state(false)');

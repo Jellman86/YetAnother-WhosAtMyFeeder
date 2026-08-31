@@ -1,0 +1,53 @@
+
+Initializing test database schema at /var/folders/7f/8fht73vj5wd3qrvstm_9r7340000gn/T/yawamf_test__sxb89vc/test_speciesid.db...
+Test database schema initialized successfully
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/powdrill/Developer/YetAnother-WhosAtMyFeeder
+configfile: pyproject.toml
+plugins: asyncio-1.4.0, anyio-4.14.2
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 1 item
+
+tests/test_species_filter_fast_path.py F
+
+=================================== FAILURES ===================================
+_________ test_fast_path_matches_the_general_path_for_a_common_species _________
+
+    @pytest.mark.asyncio
+    async def test_fast_path_matches_the_general_path_for_a_common_species():
+        async with get_db() as db:
+            repo = DetectionRepository(db)
+            fast = await repo.get_all(species="Common Bird", limit=50, offset=25)
+            # A date range disqualifies the fast path, so this is the general
+            # query answering the same question.
+            general = await repo.get_all(
+                species="Common Bird",
+                limit=50,
+                offset=25,
+                start_date=__import__("datetime").datetime(2020, 1, 1),
+            )
+>           assert [d.frigate_event for d in fast] == [d.frigate_event for d in general]
+E           AssertionError: assert ['common_530'...mon_334', ...] == ['common_530'...mon_334', ...]
+E             
+E             At index 49 diff: 'common_444' != 'common_24'
+E             Use -v to get more diff
+
+tests/test_species_filter_fast_path.py:106: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2026-08-31 10:08:49 [info     ] Test DB already initialized, skipping migrations
+2026-08-31 10:08:49 [info     ] Initializing database connection pool db_path=/var/folders/7f/8fht73vj5wd3qrvstm_9r7340000gn/T/yawamf_test__sxb89vc/test_speciesid.db pool_size=5
+2026-08-31 10:08:49 [info     ] Database connection pool initialized
+--------------------------- Captured stdout teardown ---------------------------
+2026-08-31 10:08:49 [info     ] Closing database connection pool
+2026-08-31 10:08:49 [info     ] Database connection pool closed
+=============================== warnings summary ===============================
+app/routers/models.py:6
+  /Users/powdrill/Developer/YetAnother-WhosAtMyFeeder/backend/app/routers/models.py:6: UserWarning: Model directory resolved to '/Users/powdrill/Developer/YetAnother-WhosAtMyFeeder/backend/data/models' which is inside the container image filesystem. Downloaded models will be lost on container restart. Mount a persistent volume at /data or set MODEL_DIR to a writable host path.
+    from app.services.model_manager import (
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_species_filter_fast_path.py::test_fast_path_matches_the_general_path_for_a_common_species
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+========================= 1 failed, 1 warning in 1.77s =========================

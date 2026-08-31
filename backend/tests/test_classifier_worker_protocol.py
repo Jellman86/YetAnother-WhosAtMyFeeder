@@ -171,3 +171,39 @@ def test_classifier_worker_protocol_round_trips_video_messages():
     assert decoded_progress["current_frame"] == 3
     assert decoded_progress["top_label"] == "Robin"
     assert decoded_progress["frame_offset_seconds"] == 1.25
+
+
+def test_stream_limit_is_a_shared_protocol_property():
+    """Both ends of the pipe read newline-framed JSON, so both must share one
+    generous limit. A high-quality snapshot is ~3MB of JPEG, ~4MB as base64 -
+    the worker's old 4MB stdin limit sat exactly on that boundary, and the
+    supervisor read responses with only 512KB, so a single large frame killed
+    the worker with LimitOverrunError instead of failing one request (#305
+    era hardening, observed live on 2026-08-29)."""
+    import inspect
+
+    from app.services import classifier_worker_client, classifier_worker_process
+    from app.services.classifier_worker_protocol import WORKER_PROTOCOL_STREAM_LIMIT_BYTES
+
+    assert WORKER_PROTOCOL_STREAM_LIMIT_BYTES >= 32 * 1024 * 1024
+
+    assert classifier_worker_process.WORKER_PROTOCOL_STREAM_LIMIT_BYTES is WORKER_PROTOCOL_STREAM_LIMIT_BYTES
+    spawn_source = inspect.getsource(classifier_worker_client.ClassifierWorkerClient._spawn_process)
+    assert "limit=WORKER_PROTOCOL_STREAM_LIMIT_BYTES" in spawn_source
+    assert "512 * 1024" not in spawn_source
+
+
+def test_oversized_request_fails_cleanly_instead_of_poisoning_the_pipe():
+    """A message that cannot fit the stream limit must be refused before it is
+    written: half-written giant lines desynchronise the newline framing and
+    take the worker down with them."""
+    import pytest
+
+    from app.services.classifier_worker_protocol import (
+        WORKER_PROTOCOL_STREAM_LIMIT_BYTES,
+        encode_protocol_message,
+    )
+
+    huge = {"type": "classify", "image_b64": "x" * (WORKER_PROTOCOL_STREAM_LIMIT_BYTES + 1)}
+    with pytest.raises(ValueError, match="exceeds the protocol stream limit"):
+        encode_protocol_message(huge)

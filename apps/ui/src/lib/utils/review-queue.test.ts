@@ -102,3 +102,53 @@ describe('buildReviewQueue', () => {
         expect(queue.remaining).toBe(0);
     });
 });
+
+describe('buildReviewQueue with new-species candidates (#310)', () => {
+    it('queues an unconfirmed newcomer with its reason and sighting count', () => {
+        const newcomer = detection({ frigate_event: 'ibis', display_name: 'Hadeda Ibis', score: 0.34 });
+        const queue = buildQueue([detection({ frigate_event: 'named', score: 0.98 })], {
+            reviewThreshold: 0.3,
+            newSpecies: [{ detection: newcomer, sightings: 2 }]
+        });
+
+        expect(queue.items.map((item) => item.frigate_event)).toEqual(['ibis']);
+        expect(queue.reasons.get('ibis')).toBe('new_species');
+        expect(queue.newSpeciesSightings.get('ibis')).toBe(2);
+    });
+
+    it('one detection qualifying both ways appears once, wearing the sharper reason', () => {
+        const both = detection({ frigate_event: 'both', score: 0.2 });
+        const queue = buildQueue([both], {
+            reviewThreshold: 0.6,
+            newSpecies: [{ detection: both, sightings: 1 }]
+        });
+
+        expect(queue.total).toBe(1);
+        expect(queue.reasons.get('both')).toBe('new_species');
+    });
+
+    it('a hidden or already-confirmed newcomer asks for nothing', () => {
+        const hidden = detection({ frigate_event: 'hid', is_hidden: true });
+        const confirmed = detection({ frigate_event: 'conf', manual_tagged: true });
+        const queue = buildQueue([], {
+            reviewThreshold: 0.6,
+            newSpecies: [
+                { detection: hidden, sightings: 1 },
+                { detection: confirmed, sightings: 1 }
+            ]
+        });
+
+        expect(queue.total).toBe(0);
+    });
+
+    it('merged entries keep the oldest-first order', () => {
+        const older = detection({ frigate_event: 'older', score: 0.2, detection_time: '2026-08-10T08:00:00Z' });
+        const newer = detection({ frigate_event: 'newer', detection_time: '2026-08-11T08:00:00Z' });
+        const queue = buildQueue([older], {
+            reviewThreshold: 0.6,
+            newSpecies: [{ detection: newer, sightings: 1 }]
+        });
+
+        expect(queue.items.map((item) => item.frigate_event)).toEqual(['older', 'newer']);
+    });
+});

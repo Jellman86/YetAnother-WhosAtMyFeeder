@@ -5,10 +5,52 @@ import time
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from .classifier_worker_protocol import decode_protocol_message, encode_protocol_message
+from .classifier_worker_protocol import (
+    WORKER_PROTOCOL_STREAM_LIMIT_BYTES,
+    decode_protocol_message,
+    encode_protocol_message,
+)
 
 
 ProcessFactory = Callable[..., Awaitable[Any]]
+
+
+_STDERR_NOISE_MARKERS = (
+    # Runtime banners emitted at every worker start; they carry no signal
+    # beyond "the runtime initialised", so they log at debug. TensorFlow's
+    # own lines are matched by their severity letter: only informational
+    # and warning chatter is noise — E/F lines are faults, below.
+    "absl::InitializeLog()",
+    "TF-TRT Warning",
+    "I tensorflow/",
+    "W tensorflow/",
+)
+_STDERR_FAULT_MARKERS = (
+    "Traceback (most recent call last):",
+    "Error:",
+    "Error(",
+    "raise ",
+    "Exception",
+    "E tensorflow/",
+    "F tensorflow/",
+    "OP_REQUIRES failed",
+)
+
+
+def classify_worker_stderr_severity(text: str) -> str:
+    """Errors when there are actual errors: a relayed crash traceback is a
+    warning, a runtime banner is debug, everything else stays info. Faults
+    are checked first so a buffer that mixes banner chatter with a crash
+    still surfaces as a warning."""
+    for marker in _STDERR_FAULT_MARKERS:
+        if marker in text:
+            return "warning"
+    for marker in _STDERR_NOISE_MARKERS:
+        if marker in text:
+            return "debug"
+    if "error" in text.lower():
+        return "warning"
+    return "info"
 
 
 class ClassifierWorkerClient:
@@ -175,7 +217,8 @@ class ClassifierWorkerClient:
                 from structlog import get_logger
 
                 log = get_logger()
-                log.info(f"Worker {self.worker_name} stderr", text=text)
+                severity = classify_worker_stderr_severity(text)
+                getattr(log, severity)(f"Worker {self.worker_name} stderr", text=text)
         except Exception:
             pass
 
@@ -216,8 +259,8 @@ class ClassifierWorkerClient:
 
     async def _spawn_process(self, *, worker_name: str, worker_generation: int) -> Any:
         backend_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        # Use a large limit (512KB) for the StreamReader to prevent LimitOverrunError
-        # if a worker dumps a massive JSON payload or large GPU error stack trace.
+        # The stream limit is the protocol's own: both ends read newline-framed
+        # JSON, and a single high-quality frame is megabytes of base64.
         return await asyncio.create_subprocess_exec(
             sys.executable,
             "-m",
@@ -228,5 +271,5 @@ class ClassifierWorkerClient:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=backend_root,
-            limit=512 * 1024,
+            limit=WORKER_PROTOCOL_STREAM_LIMIT_BYTES,
         )

@@ -106,6 +106,9 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
   for public guests, they also use the configured public-history window so filter metadata cannot
   reveal older private visits.
 - `GET /api/events/hidden-count` (owner)
+- `GET /api/events/new-species` (owner) — species that appeared recently with no confirmed
+  history, each represented by its latest sighting, for the dashboard's review queue.
+  `max_sightings` (default 3) and `window_days` (default 14) bound what still counts as new.
 - `GET /api/events/{event_id}/classification-status` (owner)
 - `PATCH /api/events/{event_id}` (owner)
 - `PATCH /api/events/bulk/manual-tag` (owner)
@@ -355,6 +358,8 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
   time-bounded MQTT client and never replaces the live ingest connection.
 - `POST /api/settings/notifications/test` (owner)
 - `POST /api/settings/birdweather/test` (owner)
+- `POST /api/settings/ha-weather/test` (owner) — fetches a live reading from the configured
+  Home Assistant weather source so the settings page can prove the URL, token, and entities work.
 - `POST /api/settings/llm/test` (owner) — returns structured AI diagnostic metadata (`provider`,
   `model`, `frame_count`, `failure_stage`, `retryable`, and optional `retry_after_seconds`) for the
   Settings multi-stage test panel. Provider 429 and 503 statuses are preserved.

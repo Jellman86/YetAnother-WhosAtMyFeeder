@@ -429,3 +429,46 @@ async def test_thumbnail_cache_uses_distinct_key_from_snapshot_cache(tmp_path, m
     assert thumbnail_path == snapshots / f"{event_id}_thumb.jpg"
     assert await service.get_snapshot(event_id) == b"snapshot-bytes"
     assert await service.get_thumbnail(event_id) == b"thumbnail-bytes"
+
+
+@pytest.mark.parametrize(
+    "hostile_event_id",
+    [
+        "../escape",
+        "..",
+        "a/../../b",
+        "/etc/passwd",
+        "..\\windows",
+        ".hidden",
+        "",
+    ],
+)
+def test_every_cache_path_helper_contains_hostile_ids(tmp_path, monkeypatch, hostile_event_id):
+    """Media identifiers are attacker-influenced; every path helper must either
+    refuse a hostile identifier or neutralise it into a single filename that
+    stays inside its own cache directory (#305)."""
+    service, _snapshots = _make_service(tmp_path, monkeypatch)
+    cache_base = tmp_path / "media_cache"
+    helpers = [
+        service._snapshot_path,
+        service._thumbnail_path,
+        service._clip_path,
+        service._recording_clip_path,
+        service._preview_sprite_path,
+        service._preview_manifest_path,
+    ]
+    for helper in helpers:
+        try:
+            path = helper(hostile_event_id)
+        except ValueError:
+            continue
+        assert path.parent.is_relative_to(cache_base), path
+        assert "/" not in path.name and "\\" not in path.name
+        assert ".." not in path.name.split(".")  # no bare parent reference survives
+
+
+def test_cache_path_helpers_contain_benign_ids(tmp_path, monkeypatch):
+    service, snapshots = _make_service(tmp_path, monkeypatch)
+    path = service._snapshot_path("evt-1234.ok_id")
+    assert path == snapshots / "evt-1234.ok_id.jpg"
+    assert str(path).startswith(str(snapshots))

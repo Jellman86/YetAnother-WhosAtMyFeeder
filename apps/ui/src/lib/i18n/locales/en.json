@@ -206,7 +206,13 @@
         "integrations_configured": "Configured: {integrations}",
         "integrations_none": "None enabled"
       }
-    }
+    },
+    "skip": "Skip setup",
+    "skip_failed": "Skipping failed — the server could not be reached.",
+    "skip_confirm_title": "Skip setup and open the app?",
+    "skip_confirm_body_no_account": "The app will run without a password until you set one under Settings → Security. Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
+    "skip_confirm_body": "Everything this wizard covers can be configured later, and you can re-run it any time from Settings → Setup wizard.",
+    "skip_confirm_action": "Skip and open the app"
   },
   "theme": {
     "switch_light": "Switch to light mode",
@@ -311,7 +317,8 @@
       "error": "Notable reports could not be loaded.",
       "retry": "Try again",
       "empty": "No rare or unusual reports were found within {distance} in the last {days} days.",
-      "empty_hint": "That is a valid eBird result; ordinary nearby sightings may still be plentiful."
+      "empty_hint": "That is a valid eBird result; ordinary nearby sightings may still be plentiful.",
+      "open_species": "{species} — open the species card"
     },
     "day_bar": {
       "today": "Today",
@@ -337,7 +344,8 @@
       "title": "Needs your call",
       "empty": "Every visit today has a species. Nothing waiting on you.",
       "remaining": "{count} more waiting",
-      "work_through": "Work through the queue"
+      "work_through": "Work through the queue",
+      "new_species_tag": "New species · {count} sighting(s)"
     },
     "review_session": {
       "position": "{position} of {total}",
@@ -362,7 +370,11 @@
       "crop": "Best crop",
       "full_frame": "Full frame",
       "view_label": "Which frame to show",
-      "no_crop": "No crop stored for this detection. Open the full record to scan for one."
+      "no_crop": "No crop stored for this detection. Open the full record to scan for one.",
+      "new_species_note": "First {species} recorded here. Confirm it, correct it, or block the species.",
+      "confirm_species": "Confirm {species}",
+      "block_species": "Block this species",
+      "species_blocked": "{species} blocked. Future detections will be dropped."
     }
   },
   "common": {
@@ -830,6 +842,31 @@
         "test_loading": "Verifying…",
         "test_success": "BirdWeather connection verified!",
         "test_error": "BirdWeather connection failed"
+      },
+      "ha_weather": {
+        "title": "Home Assistant weather",
+        "toggle_label": "Record the weather from your own sensors instead of the forecast API. A sensor that cannot answer reads as unknown, never as a forecast.",
+        "base_url": "Home Assistant URL",
+        "base_url_desc": "The address this server can reach, e.g. http://homeassistant.local:8123",
+        "token": "Long-lived access token",
+        "token_desc": "Created in Home Assistant under your profile, Security, Long-lived access tokens.",
+        "token_placeholder": "Paste a long-lived access token",
+        "entity": "Weather entity",
+        "entity_desc": "The general source, e.g. weather.home. Leave empty to rely on sensor overrides alone.",
+        "overrides": "Per-reading sensor overrides",
+        "overrides_desc": "A sensor named here outranks the weather entity for its one reading. When it cannot answer, that reading is unknown.",
+        "override_temperature": "Temperature sensor",
+        "override_wind_speed": "Wind speed sensor",
+        "override_wind_direction": "Wind direction sensor",
+        "override_cloud_cover": "Cloud cover sensor",
+        "override_precipitation": "Precipitation sensor",
+        "override_rain": "Rain sensor",
+        "override_snowfall": "Snowfall sensor",
+        "test_button": "Fetch a live reading",
+        "test_loading": "Fetching…",
+        "test_title": "Home Assistant weather test",
+        "test_subtitle": "Fetches the current readings your detections would record.",
+        "stage_fetch": "Live readings from Home Assistant"
       }
     },
     "enrichment": {
@@ -891,7 +928,19 @@
       "share_base_url": "Share link base URL (optional)",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "If set, new share links use this public base URL instead of the detected request host.",
-      "advanced_title": "History windows & rate limits"
+      "advanced_title": "History windows & rate limits",
+      "show_audio": "Share audio with visitors",
+      "show_audio_desc": "BirdNET detections, spectrograms and audio clips. Off means visitors see no audio surfaces at all.",
+      "show_snapshots": "Share photographs with visitors",
+      "show_snapshots_desc": "Snapshots and thumbnails. Off means visitors see placeholders instead of images.",
+      "show_clips": "Share video with visitors",
+      "show_clips_desc": "Video clips and their previews. Off means visitors cannot play video at all; the download switch below only controls saving the file.",
+      "location_precision": "Location shown to visitors",
+      "location_precision_desc": "Approximate rounds the location to about 10 km before any visitor-facing feature uses it, so sharing your feeder does not publish your address.",
+      "location_approximate": "Approximate",
+      "location_approximate_sub": "About 10 km. The safe default.",
+      "location_exact": "Exact",
+      "location_exact_sub": "The configured coordinates as-is."
     },
     "accessibility": {
       "title": "Accessibility Options",
@@ -950,7 +999,9 @@
       "mqtt_broker_placeholder": "mosquitto",
       "external_url": "Public Frigate URL",
       "external_url_desc": "The address your browser uses to open Frigate when it differs from the server address above. Used for the 'open in Frigate' link on a detection.",
-      "external_url_placeholder": "https://frigate.example.com"
+      "external_url_placeholder": "https://frigate.example.com",
+      "ingest_labels": "Frigate labels to act on",
+      "ingest_labels_desc": "Comma-separated. Add the labels your Frigate model uses for birds (e.g. bird, duck, goose); everything listed flows through the bird identification pipeline."
     },
     "cameras": {
       "title": "Active Cameras",
@@ -1491,7 +1542,11 @@
       "worker_counts_live": "Live",
       "worker_counts_background": "Background",
       "worker_counts_auto": "1 (default)",
-      "video_concurrency_follows_workers": "Clips are analysed as many at a time as there are background workers — the models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers."
+      "video_concurrency_follows_workers": "Clips are analysed as many at a time as there are background workers — the models classify one image per worker, so a separate concurrency setting could only queue jobs or starve workers.",
+      "band_worker_split_video": "{live} live · {background} background · {video} video",
+      "model_manager_memory_formula_subprocess_video": "{per} per copy × {live} live + {background} background + {video} video workers (isolated mode)",
+      "band_worker_fallback": "Workers failing — classifying in-process",
+      "band_worker_fallback_detail": "Isolated workers keep dying during model load; detections continue in the main process."
     },
     "llm": {
       "title": "AI Insights",
@@ -1647,13 +1702,13 @@
     "clear_notifications": "Clear notifications"
   },
   "actions": {
-    "confirm_delete": "Delete this {species} detection?",
+    "confirm_delete": "Delete this whole {species} visit? The record and its media leave the history permanently. Hiding it instead keeps the record.",
     "play_video": "Play Video",
     "deep_reclassify": "Deep Reclassify",
     "manual_tag": "Manual Tag",
     "reclassify": "Reclassify",
     "species_info": "Species Info",
-    "delete_detection": "Delete Detection",
+    "delete_detection": "Delete this visit permanently",
     "hide_detection": "Hide Detection",
     "unhide_detection": "Unhide Detection",
     "read_more_wikipedia": "Read more on Wikipedia",
@@ -2029,7 +2084,10 @@
     "timeline_keyboard_hint": "Timeline keyboard: [ previous day, ] next day, 0 reset",
     "row_open": "Open {species}",
     "row_select": "Select {species}",
-    "row_below_threshold": "Below the naming threshold"
+    "row_below_threshold": "Below the naming threshold",
+    "empty_filtered_title": "No visits match these filters",
+    "empty_filtered_desc": "Your history is still here. Widen the date range or remove a filter to see it.",
+    "empty_filtered_clear": "Clear all filters"
   },
   "audio": {
     "chart": {
@@ -2087,7 +2145,9 @@
     "sources": {
       "title": "Sources",
       "empty": "No sources yet."
-    }
+    },
+    "not_shared_title": "Audio is not shared publicly",
+    "not_shared_body": "The owner of this instance has turned off audio for visitors."
   },
   "leaderboard": {
     "title": "Species Leaderboard",
@@ -2353,7 +2413,9 @@
     "inat_observations": "iNaturalist Observations",
     "time_of_day": "Time of Day",
     "day_of_week": "Day of Week",
-    "month": "Month"
+    "month": "Month",
+    "no_local_visits_title": "No visits at your feeder yet",
+    "no_local_visits_body": "Your cameras have not recorded this bird. Everything below comes from public reference sources."
   },
   "pagination": {
     "navigation": "Pagination",

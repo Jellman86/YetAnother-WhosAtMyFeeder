@@ -11,6 +11,7 @@ import aiofiles
 import httpx
 import structlog
 from datetime import datetime, UTC
+from app.services.openvino_cache import clear_openvino_cache, resolve_openvino_cache_dir
 from typing import Any, List, Optional, Dict
 from app.models.ai_models import CropGeneratorConfig, ModelMetadata, InstalledModel, DownloadProgress
 from app.config import settings
@@ -1690,7 +1691,16 @@ class ModelManager:
         freed = _directory_size_bytes(target)
         shutil.rmtree(target)
         _remove_empty_family_dir(os.path.dirname(target), models_root)
-        log.info("Deleted installed model", model_id=candidate, bytes_freed=freed)
+        # The compile cache keys blobs by opaque model hashes, so the deleted
+        # model's kernels cannot be reclaimed individually — clear it all and
+        # let the surviving models recompile once into a fresh cache.
+        cache_freed = clear_openvino_cache(resolve_openvino_cache_dir())
+        log.info(
+            "Deleted installed model",
+            model_id=candidate,
+            bytes_freed=freed,
+            compile_cache_bytes_freed=cache_freed,
+        )
         return freed
 
     def get_download_status(self, model_id: str) -> Optional[DownloadProgress]:

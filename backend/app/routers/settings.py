@@ -614,6 +614,69 @@ async def test_birdweather(
     )
 
 
+class HaWeatherTestRequest(BaseModel):
+    base_url: Optional[str] = None
+    access_token: Optional[str] = None
+    weather_entity: Optional[str] = None
+
+
+class HaWeatherTestResponse(BaseModel):
+    status: Literal["ok", "error"]
+    message: str
+    readings: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post("/settings/ha-weather/test", response_model=HaWeatherTestResponse)
+async def test_ha_weather(
+    request: HaWeatherTestRequest, _auth: AuthContext = Depends(require_owner)
+) -> HaWeatherTestResponse | JSONResponse:
+    """Fetch a live reading from Home Assistant with the given or stored config. Owner only."""
+    from app.services.ha_weather import HomeAssistantWeatherSource
+
+    base_url = (request.base_url or settings.ha_weather.base_url or "").strip()
+    token = request.access_token if request.access_token not in (None, "", "***REDACTED***") else None
+    token = token or settings.ha_weather.access_token or ""
+    weather_entity = (request.weather_entity or settings.ha_weather.weather_entity or "").strip() or None
+    if not base_url or not token:
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": "A base URL and access token are required.", "readings": {}},
+        )
+
+    override_entities = settings.ha_weather.override_entities()
+    if not weather_entity and not override_entities:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": "Nothing to read yet: set a weather entity (e.g. weather.home) or at least one sensor override.",
+                "readings": {},
+            },
+        )
+
+    source = HomeAssistantWeatherSource(
+        base_url=base_url,
+        access_token=token,
+        weather_entity=weather_entity,
+        override_entities=override_entities,
+    )
+    readings = await source.get_current_weather()
+    if not readings:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "status": "error",
+                "message": "No readings came back. Check the URL, the token, and the entity ids.",
+                "readings": {},
+            },
+        )
+    return HaWeatherTestResponse(
+        status="ok",
+        message=f"{len(readings)} reading(s) received from Home Assistant.",
+        readings=readings,
+    )
+
+
 class LlmTestRequest(BaseModel):
     llm_enabled: Optional[bool] = None
     llm_provider: Optional[str] = None
@@ -691,6 +754,7 @@ async def test_llm(
 
 class SettingsUpdate(BaseModel):
     frigate_url: Optional[str] = Field(None, min_length=1, description="Frigate instance URL")
+    frigate_ingest_labels: Optional[List[str]] = Field(None, description="Frigate event labels YA-WAMF acts on")
     frigate_external_url: Optional[str] = Field("", description="External Frigate base URL (browser→Frigate)")
     mqtt_server: Optional[str] = Field(None, min_length=1, description="MQTT server hostname")
     mqtt_port: int = Field(1883, ge=1, le=65535, description="MQTT server port")
@@ -845,6 +909,18 @@ class SettingsUpdate(BaseModel):
     # BirdWeather settings
     birdweather_enabled: Optional[bool] = Field(False, description="Enable BirdWeather reporting")
     birdweather_station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
+    # Home Assistant weather source (#277)
+    ha_weather_enabled: Optional[bool] = Field(None, description="Source live weather from Home Assistant")
+    ha_weather_base_url: Optional[str] = Field(None, description="Home Assistant base URL")
+    ha_weather_access_token: Optional[str] = Field(None, description="Home Assistant long-lived access token")
+    ha_weather_entity: Optional[str] = Field(None, description="Weather entity used as the general source")
+    ha_weather_temperature_entity: Optional[str] = Field(None, description="Sensor overriding temperature")
+    ha_weather_wind_speed_entity: Optional[str] = Field(None, description="Sensor overriding wind speed")
+    ha_weather_wind_direction_entity: Optional[str] = Field(None, description="Sensor overriding wind direction")
+    ha_weather_cloud_cover_entity: Optional[str] = Field(None, description="Sensor overriding cloud cover")
+    ha_weather_precipitation_entity: Optional[str] = Field(None, description="Sensor overriding precipitation")
+    ha_weather_rain_entity: Optional[str] = Field(None, description="Sensor overriding rainfall")
+    ha_weather_snowfall_entity: Optional[str] = Field(None, description="Sensor overriding snowfall")
     # eBird settings
     ebird_enabled: Optional[bool] = Field(False, description="Enable eBird enrichment")
     ebird_api_key: Optional[str] = Field(None, description="eBird API key")
@@ -1000,6 +1076,12 @@ class SettingsUpdate(BaseModel):
     public_access_media_historical_days: Optional[int] = Field(None, ge=0, le=365)
     public_access_rate_limit_per_minute: Optional[int] = Field(None, ge=1, le=100)
     public_access_external_base_url: Optional[str] = Field(None, max_length=512)
+    public_access_show_audio: Optional[bool] = Field(None, description="Show BirdNET audio to public visitors")
+    public_access_show_snapshots: Optional[bool] = Field(None, description="Show snapshots to public visitors")
+    public_access_show_clips: Optional[bool] = Field(None, description="Show clips to public visitors")
+    public_access_location_precision: Optional[Literal["approximate", "exact"]] = Field(
+        None, description="Location precision for guest-facing features"
+    )
 
     species_info_source: Optional[str] = "auto"
     date_format: Optional[str] = None
@@ -1247,6 +1329,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
 
     return {
         "frigate_url": settings.frigate.frigate_url,
+        "frigate_ingest_labels": settings.frigate.ingest_labels,
         "frigate_external_url": settings.frigate.frigate_external_url,
         "mqtt_server": settings.frigate.mqtt_server,
         "mqtt_port": settings.frigate.mqtt_port,
@@ -1329,6 +1412,18 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "birdweather_enabled": settings.birdweather.enabled,
         # SECURITY: Never expose station tokens via API
         "birdweather_station_token": "***REDACTED***" if settings.birdweather.station_token else None,
+        # Home Assistant weather source (#277)
+        "ha_weather_enabled": settings.ha_weather.enabled,
+        "ha_weather_base_url": settings.ha_weather.base_url,
+        "ha_weather_access_token": "***REDACTED***" if settings.ha_weather.access_token else None,
+        "ha_weather_entity": settings.ha_weather.weather_entity,
+        "ha_weather_temperature_entity": settings.ha_weather.temperature_entity,
+        "ha_weather_wind_speed_entity": settings.ha_weather.wind_speed_entity,
+        "ha_weather_wind_direction_entity": settings.ha_weather.wind_direction_entity,
+        "ha_weather_cloud_cover_entity": settings.ha_weather.cloud_cover_entity,
+        "ha_weather_precipitation_entity": settings.ha_weather.precipitation_entity,
+        "ha_weather_rain_entity": settings.ha_weather.rain_entity,
+        "ha_weather_snowfall_entity": settings.ha_weather.snowfall_entity,
         # eBird settings
         "ebird_enabled": ebird_active,
         "ebird_api_key": "***REDACTED***" if settings.ebird.api_key else None,
@@ -1439,6 +1534,10 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "public_access_show_camera_names": settings.public_access.show_camera_names,
         "public_access_show_ai_conversation": settings.public_access.show_ai_conversation,
         "public_access_allow_clip_downloads": settings.public_access.allow_clip_downloads,
+        "public_access_show_audio": settings.public_access.show_audio,
+        "public_access_show_snapshots": settings.public_access.show_snapshots,
+        "public_access_show_clips": settings.public_access.show_clips,
+        "public_access_location_precision": settings.public_access.location_precision,
         "public_access_historical_days_mode": settings.public_access.historical_days_mode,
         "public_access_historical_days": settings.public_access.show_historical_days,
         "public_access_media_days_mode": settings.public_access.media_days_mode,
@@ -1508,6 +1607,10 @@ async def update_settings(
 
     if "frigate_url" in fields_set and update.frigate_url is not None:
         settings.frigate.frigate_url = update.frigate_url
+    if "frigate_ingest_labels" in fields_set and update.frigate_ingest_labels is not None:
+        from app.utils.frigate import normalize_ingest_labels
+
+        settings.frigate.ingest_labels = normalize_ingest_labels(update.frigate_ingest_labels)
     if "frigate_external_url" in fields_set and update.frigate_external_url is not None:
         settings.frigate.frigate_external_url = update.frigate_external_url.strip().rstrip("/")
     if "mqtt_server" in fields_set and update.mqtt_server is not None:
@@ -1722,6 +1825,26 @@ async def update_settings(
     if "birdweather_station_token" in fields_set and should_update_secret(update.birdweather_station_token):
         settings.birdweather.station_token = update.birdweather_station_token
 
+    # Home Assistant weather source (#277)
+    if "ha_weather_enabled" in fields_set and update.ha_weather_enabled is not None:
+        settings.ha_weather.enabled = update.ha_weather_enabled
+    if "ha_weather_access_token" in fields_set and should_update_secret(update.ha_weather_access_token):
+        settings.ha_weather.access_token = update.ha_weather_access_token
+    for _ha_field, _ha_target in (
+        ("ha_weather_base_url", "base_url"),
+        ("ha_weather_entity", "weather_entity"),
+        ("ha_weather_temperature_entity", "temperature_entity"),
+        ("ha_weather_wind_speed_entity", "wind_speed_entity"),
+        ("ha_weather_wind_direction_entity", "wind_direction_entity"),
+        ("ha_weather_cloud_cover_entity", "cloud_cover_entity"),
+        ("ha_weather_precipitation_entity", "precipitation_entity"),
+        ("ha_weather_rain_entity", "rain_entity"),
+        ("ha_weather_snowfall_entity", "snowfall_entity"),
+    ):
+        if _ha_field in fields_set:
+            _ha_value = getattr(update, _ha_field)
+            setattr(settings.ha_weather, _ha_target, (_ha_value or "").strip() or None)
+
     # eBird settings
     if "ebird_enabled" in fields_set and update.ebird_enabled is not None:
         settings.ebird.enabled = update.ebird_enabled
@@ -1848,6 +1971,14 @@ async def update_settings(
         settings.public_access.show_ai_conversation = update.public_access_show_ai_conversation
     if "public_access_allow_clip_downloads" in fields_set and update.public_access_allow_clip_downloads is not None:
         settings.public_access.allow_clip_downloads = update.public_access_allow_clip_downloads
+    if "public_access_show_audio" in fields_set and update.public_access_show_audio is not None:
+        settings.public_access.show_audio = update.public_access_show_audio
+    if "public_access_show_snapshots" in fields_set and update.public_access_show_snapshots is not None:
+        settings.public_access.show_snapshots = update.public_access_show_snapshots
+    if "public_access_show_clips" in fields_set and update.public_access_show_clips is not None:
+        settings.public_access.show_clips = update.public_access_show_clips
+    if "public_access_location_precision" in fields_set and update.public_access_location_precision is not None:
+        settings.public_access.location_precision = update.public_access_location_precision
     if "public_access_historical_days_mode" in fields_set and update.public_access_historical_days_mode is not None:
         settings.public_access.historical_days_mode = update.public_access_historical_days_mode
     if "public_access_historical_days" in fields_set and update.public_access_historical_days is not None:

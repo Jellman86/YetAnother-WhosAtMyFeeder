@@ -1399,6 +1399,21 @@
             "title": "Public Access Show Ai Conversation",
             "type": "boolean"
           },
+          "public_access_show_audio": {
+            "default": true,
+            "title": "Public Access Show Audio",
+            "type": "boolean"
+          },
+          "public_access_show_clips": {
+            "default": true,
+            "title": "Public Access Show Clips",
+            "type": "boolean"
+          },
+          "public_access_show_snapshots": {
+            "default": true,
+            "title": "Public Access Show Snapshots",
+            "type": "boolean"
+          },
           "scientific_name_primary": {
             "default": false,
             "title": "Scientific Name Primary",
@@ -5696,6 +5711,72 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HaWeatherTestRequest": {
+        "properties": {
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "weather_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weather Entity"
+          }
+        },
+        "title": "HaWeatherTestRequest",
+        "type": "object"
+      },
+      "HaWeatherTestResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "readings": {
+            "additionalProperties": true,
+            "title": "Readings",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "HaWeatherTestResponse",
+        "type": "object"
+      },
       "HiddenCountResponse": {
         "description": "Response for hidden count endpoint.",
         "properties": {
@@ -8123,6 +8204,114 @@
         "title": "ModelValidateResponse",
         "type": "object"
       },
+      "NewSpeciesQueueResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NewSpeciesSighting"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "max_sightings": {
+            "title": "Max Sightings",
+            "type": "integer"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "max_sightings",
+          "window_days"
+        ],
+        "title": "NewSpeciesQueueResponse",
+        "type": "object"
+      },
+      "NewSpeciesSighting": {
+        "description": "The latest sighting of a species with no confirmed history here.",
+        "properties": {
+          "camera_name": {
+            "title": "Camera Name",
+            "type": "string"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "detection_time": {
+            "title": "Detection Time",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "is_hidden": {
+            "title": "Is Hidden",
+            "type": "boolean"
+          },
+          "manual_tagged": {
+            "title": "Manual Tagged",
+            "type": "boolean"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "species_sightings": {
+            "title": "Species Sightings",
+            "type": "integer"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "frigate_event",
+          "display_name",
+          "camera_name",
+          "detection_time",
+          "score",
+          "manual_tagged",
+          "is_hidden",
+          "species_sightings"
+        ],
+        "title": "NewSpeciesSighting",
+        "type": "object"
+      },
       "NotificationTestRequest": {
         "properties": {
           "api_token": {
@@ -9202,6 +9391,20 @@
             "default": "",
             "title": "Frigate External Url"
           },
+          "frigate_ingest_labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frigate Ingest Labels"
+          },
           "frigate_missing_behavior": {
             "default": "mark_missing",
             "enum": [
@@ -9222,6 +9425,127 @@
               }
             ],
             "title": "Frigate Url"
+          },
+          "ha_weather_access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Access Token"
+          },
+          "ha_weather_base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Base Url"
+          },
+          "ha_weather_cloud_cover_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Cloud Cover Entity"
+          },
+          "ha_weather_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Enabled"
+          },
+          "ha_weather_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Entity"
+          },
+          "ha_weather_precipitation_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Precipitation Entity"
+          },
+          "ha_weather_rain_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Rain Entity"
+          },
+          "ha_weather_snowfall_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Snowfall Entity"
+          },
+          "ha_weather_temperature_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Temperature Entity"
+          },
+          "ha_weather_wind_direction_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Wind Direction Entity"
+          },
+          "ha_weather_wind_speed_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Wind Speed Entity"
           },
           "image_execution_mode": {
             "anyOf": [
@@ -10172,6 +10496,21 @@
             ],
             "title": "Public Access Historical Days Mode"
           },
+          "public_access_location_precision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "approximate",
+                  "exact"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Access Location Precision"
+          },
           "public_access_media_days_mode": {
             "anyOf": [
               {
@@ -10216,6 +10555,17 @@
             ],
             "title": "Public Access Show Ai Conversation"
           },
+          "public_access_show_audio": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Access Show Audio"
+          },
           "public_access_show_camera_names": {
             "anyOf": [
               {
@@ -10226,6 +10576,28 @@
               }
             ],
             "title": "Public Access Show Camera Names"
+          },
+          "public_access_show_clips": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Access Show Clips"
+          },
+          "public_access_show_snapshots": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Access Show Snapshots"
           },
           "recording_clip_after_seconds": {
             "default": 90,
@@ -11119,6 +11491,21 @@
             "description": "External Frigate base URL (browser\u2192Frigate)",
             "title": "Frigate External Url"
           },
+          "frigate_ingest_labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Frigate event labels YA-WAMF acts on",
+            "title": "Frigate Ingest Labels"
+          },
           "frigate_missing_behavior": {
             "default": "mark_missing",
             "description": "How YA-WAMF should react when Frigate no longer has the event or retained media",
@@ -11142,6 +11529,138 @@
             ],
             "description": "Frigate instance URL",
             "title": "Frigate Url"
+          },
+          "ha_weather_access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Home Assistant long-lived access token",
+            "title": "Ha Weather Access Token"
+          },
+          "ha_weather_base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Home Assistant base URL",
+            "title": "Ha Weather Base Url"
+          },
+          "ha_weather_cloud_cover_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding cloud cover",
+            "title": "Ha Weather Cloud Cover Entity"
+          },
+          "ha_weather_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Source live weather from Home Assistant",
+            "title": "Ha Weather Enabled"
+          },
+          "ha_weather_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Weather entity used as the general source",
+            "title": "Ha Weather Entity"
+          },
+          "ha_weather_precipitation_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding precipitation",
+            "title": "Ha Weather Precipitation Entity"
+          },
+          "ha_weather_rain_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding rainfall",
+            "title": "Ha Weather Rain Entity"
+          },
+          "ha_weather_snowfall_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding snowfall",
+            "title": "Ha Weather Snowfall Entity"
+          },
+          "ha_weather_temperature_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding temperature",
+            "title": "Ha Weather Temperature Entity"
+          },
+          "ha_weather_wind_direction_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding wind direction",
+            "title": "Ha Weather Wind Direction Entity"
+          },
+          "ha_weather_wind_speed_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding wind speed",
+            "title": "Ha Weather Wind Speed Entity"
           },
           "image_execution_mode": {
             "anyOf": [
@@ -12126,6 +12645,22 @@
             ],
             "title": "Public Access Historical Days Mode"
           },
+          "public_access_location_precision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "approximate",
+                  "exact"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Location precision for guest-facing features",
+            "title": "Public Access Location Precision"
+          },
           "public_access_media_days_mode": {
             "anyOf": [
               {
@@ -12174,6 +12709,18 @@
             ],
             "title": "Public Access Show Ai Conversation"
           },
+          "public_access_show_audio": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Show BirdNET audio to public visitors",
+            "title": "Public Access Show Audio"
+          },
           "public_access_show_camera_names": {
             "anyOf": [
               {
@@ -12184,6 +12731,30 @@
               }
             ],
             "title": "Public Access Show Camera Names"
+          },
+          "public_access_show_clips": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Show clips to public visitors",
+            "title": "Public Access Show Clips"
+          },
+          "public_access_show_snapshots": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Show snapshots to public visitors",
+            "title": "Public Access Show Snapshots"
           },
           "recording_clip_after_seconds": {
             "default": 90,
@@ -14719,7 +15290,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.18.1"
+    "version": "2.19.0"
   },
   "openapi": "3.1.0",
   "paths": {
@@ -18225,6 +18796,18 @@
             }
           },
           {
+            "description": "Return only hidden/ignored detections",
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Return only hidden/ignored detections",
+              "title": "Only Hidden",
+              "type": "boolean"
+            }
+          },
+          {
             "description": "Comma-separated field names to return. Use 'list' for minimal fields, 'detail' for all. Default: all fields.",
             "in": "query",
             "name": "fields",
@@ -18517,6 +19100,18 @@
               "title": "Include Hidden",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Count only hidden/ignored detections",
+            "in": "query",
+            "name": "only_hidden",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Count only hidden/ignored detections",
+              "title": "Only Hidden",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -18637,6 +19232,76 @@
           }
         ],
         "summary": "Get Hidden Count"
+      }
+    },
+    "/api/events/new-species": {
+      "get": {
+        "description": "Species that appeared recently and no person has confirmed (#310).\n\nEach item is the species' latest sighting, so the review queue can ask\nthe one question a first record deserves: is this bird real here, a\nmisidentification to correct, or a label to block? Owner only \u2014\nconfirmation is a curator's job.",
+        "operationId": "get_new_species_queue_api_events_new_species_get",
+        "parameters": [
+          {
+            "description": "A species with more sightings is established",
+            "in": "query",
+            "name": "max_sightings",
+            "required": false,
+            "schema": {
+              "default": 3,
+              "description": "A species with more sightings is established",
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Max Sightings",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only species first seen this recently",
+            "in": "query",
+            "name": "window_days",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "description": "Only species first seen this recently",
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Window Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewSpeciesQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get New Species Queue"
       }
     },
     "/api/events/{event_id}": {
@@ -22368,6 +23033,56 @@
           }
         ],
         "summary": "Export Settings"
+      }
+    },
+    "/api/settings/ha-weather/test": {
+      "post": {
+        "description": "Fetch a live reading from Home Assistant with the given or stored config. Owner only.",
+        "operationId": "test_ha_weather_api_settings_ha_weather_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HaWeatherTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HaWeatherTestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Test Ha Weather"
       }
     },
     "/api/settings/import": {

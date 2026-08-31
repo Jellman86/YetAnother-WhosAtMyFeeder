@@ -163,3 +163,19 @@ def test_video_concurrency_follows_background_workers():
 
     assert resolve_video_concurrency(configured_background=None) == 1
     assert resolve_video_concurrency(configured_background=3) == 3
+
+
+def test_video_pool_follows_background_workers_not_the_retired_knob():
+    """The video worker pool must match the video-job concurrency, which follows
+    the background worker count. It was the last consumer of the retired
+    video_classification_max_concurrent setting - observed live as a video-0
+    worker holding a third model copy that no prediction accounted for."""
+    import inspect
+
+    from app.services import classifier_service
+
+    source = inspect.getsource(classifier_service)
+    start = source.index("video_workers = max")
+    window = source[start - 600 : start + 200]
+    assert 'settings.classification, "video_classification_max_concurrent"' not in window
+    assert "background_worker_count" in window

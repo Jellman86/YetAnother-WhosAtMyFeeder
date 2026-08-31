@@ -45,6 +45,20 @@ class WeatherService:
         Note: Always fetches temperature in Celsius for consistent database storage.
         Frontend converts to user's preferred unit for display.
         """
+        # A configured Home Assistant source replaces the forecast API for
+        # live conditions: local sensors are the better evidence, and when
+        # one cannot answer, that reading stays unknown rather than being
+        # backfilled from a forecast and presented as measured (#277).
+        if settings.ha_weather.is_usable():
+            from app.services.ha_weather import HomeAssistantWeatherSource
+
+            source = HomeAssistantWeatherSource(
+                base_url=settings.ha_weather.base_url or "",
+                access_token=settings.ha_weather.access_token or "",
+                weather_entity=settings.ha_weather.weather_entity,
+                override_entities=settings.ha_weather.override_entities(),
+            )
+            return await source.get_current_weather()
         try:
             lat, lon = await self.get_location()
 

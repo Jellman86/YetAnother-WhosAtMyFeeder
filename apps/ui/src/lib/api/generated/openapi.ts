@@ -216,6 +216,9 @@ export interface components {
     public_access_allow_clip_downloads?: boolean;
     public_access_enabled: boolean;
     public_access_show_ai_conversation?: boolean;
+    public_access_show_audio?: boolean;
+    public_access_show_clips?: boolean;
+    public_access_show_snapshots?: boolean;
     scientific_name_primary?: boolean;
     time_format?: string;
     username?: string | null;
@@ -830,6 +833,16 @@ export interface components {
     HTTPValidationError: {
     detail?: Array<components['schemas']['ValidationError']>;
 };
+    HaWeatherTestRequest: {
+    access_token?: string | null;
+    base_url?: string | null;
+    weather_entity?: string | null;
+};
+    HaWeatherTestResponse: {
+    message: string;
+    readings?: Record<string, unknown>;
+    status: "ok" | "error";
+};
     HiddenCountResponse: {
     hidden_count: number;
 };
@@ -1172,6 +1185,24 @@ export interface components {
     providers?: Array<components['schemas']['ModelValidateDevice']>;
     reason: string;
 };
+    NewSpeciesQueueResponse: {
+    items: Array<components['schemas']['NewSpeciesSighting']>;
+    max_sightings: number;
+    window_days: number;
+};
+    NewSpeciesSighting: {
+    camera_name: string;
+    common_name?: string | null;
+    detection_time: string;
+    display_name: string;
+    frigate_event: string;
+    is_hidden: boolean;
+    manual_tagged: boolean;
+    scientific_name?: string | null;
+    score: number;
+    species_sightings: number;
+    taxa_id?: number | null;
+};
     NotificationTestRequest: {
     api_token?: string | null;
     bot_token?: string | null;
@@ -1302,8 +1333,20 @@ export interface components {
     enrichment_summary_source?: string | null;
     enrichment_taxonomy_source?: string | null;
     frigate_external_url?: string | null;
+    frigate_ingest_labels?: Array<string> | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
+    ha_weather_access_token?: string | null;
+    ha_weather_base_url?: string | null;
+    ha_weather_cloud_cover_entity?: string | null;
+    ha_weather_enabled?: boolean | null;
+    ha_weather_entity?: string | null;
+    ha_weather_precipitation_entity?: string | null;
+    ha_weather_rain_entity?: string | null;
+    ha_weather_snowfall_entity?: string | null;
+    ha_weather_temperature_entity?: string | null;
+    ha_weather_wind_direction_entity?: string | null;
+    ha_weather_wind_speed_entity?: string | null;
     image_execution_mode?: string | null;
     inaturalist_client_id?: string | null;
     inaturalist_client_secret?: string | null;
@@ -1395,11 +1438,15 @@ export interface components {
     public_access_external_base_url?: string | null;
     public_access_historical_days?: number | null;
     public_access_historical_days_mode?: string | null;
+    public_access_location_precision?: "approximate" | "exact" | null;
     public_access_media_days_mode?: string | null;
     public_access_media_historical_days?: number | null;
     public_access_rate_limit_per_minute?: number | null;
     public_access_show_ai_conversation?: boolean | null;
+    public_access_show_audio?: boolean | null;
     public_access_show_camera_names?: boolean | null;
+    public_access_show_clips?: boolean | null;
+    public_access_show_snapshots?: boolean | null;
     recording_clip_after_seconds?: number;
     recording_clip_before_seconds?: number;
     recording_clip_enabled?: boolean;
@@ -1485,8 +1532,20 @@ export interface components {
     enrichment_summary_source?: string | null;
     enrichment_taxonomy_source?: string | null;
     frigate_external_url?: string | null;
+    frigate_ingest_labels?: Array<string> | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
+    ha_weather_access_token?: string | null;
+    ha_weather_base_url?: string | null;
+    ha_weather_cloud_cover_entity?: string | null;
+    ha_weather_enabled?: boolean | null;
+    ha_weather_entity?: string | null;
+    ha_weather_precipitation_entity?: string | null;
+    ha_weather_rain_entity?: string | null;
+    ha_weather_snowfall_entity?: string | null;
+    ha_weather_temperature_entity?: string | null;
+    ha_weather_wind_direction_entity?: string | null;
+    ha_weather_wind_speed_entity?: string | null;
     image_execution_mode?: string | null;
     inaturalist_client_id?: string | null;
     inaturalist_client_secret?: string | null;
@@ -1575,11 +1634,15 @@ export interface components {
     public_access_external_base_url?: string | null;
     public_access_historical_days?: number | null;
     public_access_historical_days_mode?: string | null;
+    public_access_location_precision?: "approximate" | "exact" | null;
     public_access_media_days_mode?: string | null;
     public_access_media_historical_days?: number | null;
     public_access_rate_limit_per_minute?: number | null;
     public_access_show_ai_conversation?: boolean | null;
+    public_access_show_audio?: boolean | null;
     public_access_show_camera_names?: boolean | null;
+    public_access_show_clips?: boolean | null;
+    public_access_show_snapshots?: boolean | null;
     recording_clip_after_seconds?: number;
     recording_clip_before_seconds?: number;
     recording_clip_enabled?: boolean;
@@ -2577,6 +2640,7 @@ export interface paths {
     include_hidden?: boolean;
     limit?: number;
     offset?: number;
+    only_hidden?: boolean;
     sort?: "newest" | "oldest" | "confidence";
     species?: string | null;
     start_date?: string | null;
@@ -2613,6 +2677,7 @@ export interface paths {
     end_date?: string | null;
     favorites?: boolean;
     include_hidden?: boolean;
+    only_hidden?: boolean;
     species?: string | null;
     start_date?: string | null;
 };
@@ -2638,6 +2703,18 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['HiddenCountResponse'];
+    };
+  };
+  "/api/events/new-species": {
+    get: {
+      operationId: "get_new_species_queue_api_events_new_species_get";
+      path: never;
+      query: {
+    max_sightings?: number;
+    window_days?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['NewSpeciesQueueResponse'];
     };
   };
   "/api/events/{event_id}": {
@@ -3425,6 +3502,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: unknown;
+    };
+  };
+  "/api/settings/ha-weather/test": {
+    post: {
+      operationId: "test_ha_weather_api_settings_ha_weather_test_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['HaWeatherTestRequest'];
+      response: components['schemas']['HaWeatherTestResponse'];
     };
   };
   "/api/settings/import": {

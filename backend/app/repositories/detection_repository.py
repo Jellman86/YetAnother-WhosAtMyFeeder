@@ -5,6 +5,7 @@ import aiosqlite
 import asyncio
 import json
 import re
+import time
 import unicodedata
 import structlog
 from app.utils.frigate import normalize_sub_label
@@ -16,6 +17,70 @@ from app.utils.canonical_species import (
 from app.utils.api_datetime import serialize_api_datetime, serialize_storage_datetime, utc_naive_now
 
 log = structlog.get_logger()
+
+# Species alias sets change only when a new label variant lands, but the
+# lookup reads the detections table - a fixed cost the species filter used to
+# pay on every request (#258). Cached per process, briefly.
+_SPECIES_ALIAS_CACHE: dict[tuple[str, str], tuple[float, dict]] = {}
+_SPECIES_ALIAS_CACHE_TTL_SECONDS = 60.0
+_SPECIES_ALIAS_CACHE_MAX_ENTRIES = 512
+
+
+def clear_species_alias_cache() -> None:
+    _SPECIES_ALIAS_CACHE.clear()
+
+
+def merge_species_count_rows(rows: list[dict]) -> list[dict]:
+    """Fold count rows that are the same bird under different identity keys.
+
+    The canonical key prefers catalogue identity, but a row written between
+    ingest and the next identity backfill can lack `species_id` while its
+    neighbours carry it - and one Dunnock then arrives as two rows, which the
+    dashboard's keyed list cannot survive. Same taxon, or same name when a
+    taxon is missing, means the same bird here.
+    """
+    by_taxa: dict[int, dict] = {}
+    by_name: dict[str, dict] = {}
+    merged: list[dict] = []
+    for row in rows:
+        taxa_id = row.get("taxa_id")
+        name = str(row.get("species") or "").strip().lower()
+        target = None
+        if taxa_id is not None and taxa_id in by_taxa:
+            target = by_taxa[taxa_id]
+        elif name and name in by_name:
+            target = by_name[name]
+        if target is None:
+            entry = dict(row)
+            merged.append(entry)
+            if taxa_id is not None:
+                by_taxa[taxa_id] = entry
+            if name:
+                by_name[name] = entry
+            continue
+        target["count"] = int(target.get("count") or 0) + int(row.get("count") or 0)
+        row_time = row.get("latest_detection_time")
+        target_time = target.get("latest_detection_time")
+        if row_time is not None and (target_time is None or row_time > target_time):
+            target["latest_detection_time"] = row_time
+            target["latest_event"] = row.get("latest_event")
+        if target.get("taxa_id") is None and taxa_id is not None:
+            target["taxa_id"] = taxa_id
+            by_taxa[taxa_id] = target
+        for field in ("scientific_name", "common_name"):
+            if not target.get(field) and row.get(field):
+                target[field] = row.get(field)
+    merged.sort(key=lambda entry: int(entry.get("count") or 0), reverse=True)
+    return merged
+
+
+def _copy_alias_info(alias_info: dict) -> dict:
+    copied = dict(alias_info)
+    for key in ("display_labels", "match_names"):
+        if isinstance(copied.get(key), list):
+            copied[key] = list(copied[key])
+    return copied
+
 
 DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
                       d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
@@ -1297,6 +1362,59 @@ class DetectionRepository:
             row = await cursor.fetchone()
             return row[0] if row else 0
 
+    async def get_new_species_candidates(
+        self,
+        *,
+        max_sightings: int,
+        first_seen_cutoff: datetime,
+        excluded_labels: list[str] | None = None,
+        limit: int = 20,
+    ) -> list[tuple[Detection, int]]:
+        """Species with no confirmed history, represented by their latest sighting.
+
+        A species qualifies while all of its visible sightings are recent
+        arrivals: few of them, none manually tagged, first seen inside the
+        window. Each returns once, wearing its newest detection, so the
+        review queue can ask a person the one question that matters —
+        is this bird real here?
+        """
+        excluded = [label.strip().lower() for label in (excluded_labels or []) if label and label.strip()]
+        exclusion_clause = ""
+        params: list = []
+        if excluded:
+            placeholders = ",".join("?" for _ in excluded)
+            exclusion_clause = f"AND LOWER(d.display_name) NOT IN ({placeholders})"
+            params.extend(excluded)
+        query = f"""
+            WITH species_history AS (
+                SELECT LOWER(COALESCE(NULLIF(TRIM(d.scientific_name), ''), d.display_name)) AS species_key,
+                       COUNT(*) AS sightings,
+                       MAX(CASE WHEN d.manual_tagged = 1 THEN 1 ELSE 0 END) AS confirmed,
+                       MIN(d.detection_time) AS first_seen,
+                       MAX(d.id) AS latest_id
+                FROM detections d
+                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                  AND d.display_name IS NOT NULL
+                  {exclusion_clause}
+                GROUP BY species_key
+            )
+            SELECT {DETECTION_SELECT_COLUMNS}, sh.sightings AS species_sightings
+            FROM species_history sh
+            JOIN detections d ON d.id = sh.latest_id
+            LEFT JOIN detection_favorites f ON f.detection_id = d.id
+            WHERE sh.sightings <= ?
+              AND sh.confirmed = 0
+              AND sh.first_seen >= ?
+            ORDER BY sh.first_seen DESC
+            LIMIT ?
+        """
+        params.extend([max(1, int(max_sightings)), first_seen_cutoff.isoformat(sep=" "), max(1, int(limit))])
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+        # Rows come back positional; the sighting count is the one column
+        # appended after DETECTION_SELECT_COLUMNS.
+        return [(_row_to_detection(row), int(row[-1])) for row in rows]
+
     async def delete_by_id(self, detection_id: int) -> bool:
         """Delete a detection by ID. Returns True if deleted."""
         await self.db.execute("DELETE FROM detections WHERE id = ?", (detection_id,))
@@ -1732,6 +1850,122 @@ class DetectionRepository:
         await self.db.commit()
         return changes > 0
 
+    def _species_fast_path_eligible(
+        self,
+        *,
+        species: str | None,
+        species_any: list[str] | None,
+        taxa_id: int | None,
+        sort: str,
+        start_date: datetime | None,
+        end_date: datetime | None,
+        camera: str | None,
+        favorite_only: bool,
+        audio_confirmed_only: bool,
+        frigate_event: str | None,
+    ) -> bool:
+        """The pathological shape is a bare species filter ordered by time.
+
+        Any other filter narrows the walk on its own (the reporter measured a
+        date range fixing it), and the hidden-species label matching needs
+        LIKE fragments no index serves, so only the bare shape takes the
+        seek-per-branch path.
+        """
+        if not (species or species_any or taxa_id is not None):
+            return False
+        if sort not in ("newest", "oldest"):
+            return False
+        if start_date or end_date or camera or frigate_event:
+            return False
+        if favorite_only or audio_confirmed_only:
+            return False
+        if species and should_hide_species_label(species):
+            return False
+        if any(should_hide_species_label(name) for name in species_any or []):
+            return False
+        return True
+
+    async def _collect_species_filter_terms(
+        self,
+        species: str | None,
+        species_any: list[str] | None,
+        taxa_id: int | None,
+    ) -> tuple[list[int], list[str]]:
+        taxa_ids: list[int] = []
+        names: list[str] = []
+
+        def _add_taxa(value: int | None) -> None:
+            if value is not None and value not in taxa_ids:
+                taxa_ids.append(int(value))
+
+        def _add_name(value: str | None) -> None:
+            lowered = str(value or "").strip().lower()
+            if lowered and lowered not in names:
+                names.append(lowered)
+
+        _add_taxa(taxa_id)
+        for requested in [species, *(species_any or [])]:
+            if not requested:
+                continue
+            alias_info = await self.resolve_species_aliases(requested)
+            _add_taxa(alias_info.get("taxa_id"))
+            _add_name(alias_info.get("scientific_name"))
+            for name in alias_info.get("match_names") or []:
+                _add_name(name)
+        return taxa_ids, names
+
+    def _build_species_fast_path_query(
+        self,
+        *,
+        taxa_ids: list[int],
+        names: list[str],
+        limit: int,
+        offset: int,
+        sort: str,
+        include_hidden: bool,
+        hidden_only: bool,
+    ) -> tuple[str, list]:
+        """One newest-first (or oldest-first) seek per species term.
+
+        Each branch takes its own top of the (term, time) index, capped at
+        limit+offset, and the outer query orders the merged candidates. Both
+        extremes stay seeks: a rare species has few candidates, a common one
+        caps every branch at a page.
+        """
+        direction = "DESC" if sort == "newest" else "ASC"
+        if hidden_only:
+            hidden_clause = "is_hidden = 1"
+        elif include_hidden:
+            hidden_clause = "1 = 1"
+        else:
+            hidden_clause = "(is_hidden = 0 OR is_hidden IS NULL)"
+        branch_limit = max(1, int(limit)) + max(0, int(offset))
+
+        branches: list[str] = []
+        params: list = []
+
+        def _branch(where: str, value: int | str) -> None:
+            branches.append(
+                f"SELECT id FROM (SELECT id FROM detections WHERE {where} AND {hidden_clause} "
+                f"ORDER BY detection_time {direction} LIMIT {branch_limit})"
+            )
+            params.append(value)
+
+        for taxa in taxa_ids:
+            _branch("taxa_id = ?", taxa)
+        for column in ("display_name", "scientific_name", "common_name"):
+            for name in names:
+                _branch(f"LOWER({column}) = ?", name)
+
+        union = " UNION ".join(branches)
+        query = (
+            f"SELECT {DETECTION_SELECT_COLUMNS} FROM detections d "
+            "LEFT JOIN detection_favorites f ON f.detection_id = d.id "
+            f"WHERE d.id IN ({union}) ORDER BY d.detection_time {direction} LIMIT ? OFFSET ?"
+        )
+        params.extend([limit, offset])
+        return query, params
+
     async def get_all(
         self,
         limit: int = 50,
@@ -1744,10 +1978,38 @@ class DetectionRepository:
         camera: str | None = None,
         sort: str = "newest",
         include_hidden: bool = False,
+        hidden_only: bool = False,
         favorite_only: bool = False,
         audio_confirmed_only: bool = False,
         frigate_event: str | None = None,
     ) -> list[Detection]:
+        if self._species_fast_path_eligible(
+            species=species,
+            species_any=species_any,
+            taxa_id=taxa_id,
+            sort=sort,
+            start_date=start_date,
+            end_date=end_date,
+            camera=camera,
+            favorite_only=favorite_only,
+            audio_confirmed_only=audio_confirmed_only,
+            frigate_event=frigate_event,
+        ):
+            taxa_ids, names = await self._collect_species_filter_terms(species, species_any, taxa_id)
+            if taxa_ids or names:
+                query, params = self._build_species_fast_path_query(
+                    taxa_ids=taxa_ids,
+                    names=names,
+                    limit=limit,
+                    offset=offset,
+                    sort=sort,
+                    include_hidden=include_hidden,
+                    hidden_only=hidden_only,
+                )
+                async with self.db.execute(query, params) as cursor:
+                    rows = await cursor.fetchall()
+                return [_row_to_detection(row) for row in rows]
+
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
         # The join is kept only for a `taxa_id` filter, which still reads the
         # cached taxon id for a detection that has none of its own. Species
@@ -1775,8 +2037,11 @@ class DetectionRepository:
         params: list = []
         conditions = []
 
-        # By default, exclude hidden detections
-        if not include_hidden:
+        # Hidden rows are excluded by default; the Explorer's Hidden facet
+        # asks for them exclusively, which outranks merely including them.
+        if hidden_only:
+            conditions.append("d.is_hidden = 1")
+        elif not include_hidden:
             conditions.append("(d.is_hidden = 0 OR d.is_hidden IS NULL)")
 
         if start_date:
@@ -1851,6 +2116,7 @@ class DetectionRepository:
         taxa_id: int | None = None,
         camera: str | None = None,
         include_hidden: bool = False,
+        hidden_only: bool = False,
         favorite_only: bool = False,
         exclude_favorites: bool = False,
         audio_confirmed_only: bool = False,
@@ -1878,8 +2144,11 @@ class DetectionRepository:
         params: list = []
         conditions = []
 
-        # By default, exclude hidden detections
-        if not include_hidden:
+        # Hidden rows are excluded by default; the Explorer's Hidden facet
+        # asks for them exclusively, which outranks merely including them.
+        if hidden_only:
+            conditions.append("d.is_hidden = 1")
+        elif not include_hidden:
             conditions.append("(d.is_hidden = 0 OR d.is_hidden IS NULL)")
 
         if start_date:
@@ -1968,11 +2237,16 @@ class DetectionRepository:
             f"""
             WITH species_rows AS (
                 -- Enrich taxa_id from taxonomy_cache when the detection is missing it
-                -- but has a known scientific_name we can join on.
+                -- but has a known scientific_name we can join on. The stored id is
+                -- kept separately: grouping may use the enriched id, but the value
+                -- offered to the filter may not - the cache is rewritten whenever a
+                -- lookup corrects an id, and a filter keyed on a cache-only id goes
+                -- from counted to empty without any detection changing (#301).
                 SELECT
                     d.display_name,
                     d.scientific_name,
                     d.common_name,
+                    d.taxa_id AS stored_taxa_id,
                     COALESCE(d.taxa_id, tc.taxa_id) AS taxa_id
                 FROM detections d
                 LEFT JOIN taxonomy_cache tc
@@ -1980,6 +2254,19 @@ class DetectionRepository:
                     AND LOWER(tc.scientific_name) = LOWER(d.scientific_name)
                 WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
                   {start_filter}
+            ),
+            -- The id a filter can safely be keyed on: one some detection row
+            -- actually stores, per species group.
+            group_stored AS (
+                SELECT
+                    COALESCE(
+                        CAST(taxa_id AS TEXT),
+                        LOWER(scientific_name),
+                        LOWER(display_name)
+                    ) AS species_key,
+                    MAX(stored_taxa_id) AS stored_taxa_id
+                FROM species_rows
+                GROUP BY species_key
             ),
             -- The filter bar shows how many detections each option would return, so the
             -- count has to be taken over the same grouping the options are built from.
@@ -2030,10 +2317,11 @@ class DetectionRepository:
                 ranked.display_name,
                 ranked.scientific_name,
                 ranked.common_name,
-                ranked.taxa_id,
+                group_stored.stored_taxa_id AS taxa_id,
                 COALESCE(group_counts.detection_count, 0) AS detection_count
             FROM ranked
             LEFT JOIN group_counts ON group_counts.species_key = ranked.species_key
+            LEFT JOIN group_stored ON group_stored.species_key = ranked.species_key
             WHERE ranked.rn = 1
             ORDER BY ranked.display_name ASC
             """,
@@ -2439,7 +2727,24 @@ class DetectionRepository:
         - scientific_name / common_name / taxa_id
         - display_labels: distinct `detections.display_name` values representing the species
         - match_names: names suitable for matching across display/scientific columns
+
+        The result is cached briefly per process: the display-label lookup
+        reads the detections table, and it used to run on every filtered
+        request as a fixed overhead (#258). A new label variant appears in
+        the alias set within the TTL, which the filter can tolerate.
         """
+        cache_key = (str(species_name or "").strip().lower(), str(language or ""))
+        cached = _SPECIES_ALIAS_CACHE.get(cache_key)
+        if cached is not None and (time.monotonic() - cached[0]) < _SPECIES_ALIAS_CACHE_TTL_SECONDS:
+            return _copy_alias_info(cached[1])
+        alias_info = await self._resolve_species_aliases_uncached(species_name, language=language)
+        _SPECIES_ALIAS_CACHE[cache_key] = (time.monotonic(), _copy_alias_info(alias_info))
+        if len(_SPECIES_ALIAS_CACHE) > _SPECIES_ALIAS_CACHE_MAX_ENTRIES:
+            oldest_key = min(_SPECIES_ALIAS_CACHE, key=lambda key: _SPECIES_ALIAS_CACHE[key][0])
+            _SPECIES_ALIAS_CACHE.pop(oldest_key, None)
+        return alias_info
+
+    async def _resolve_species_aliases_uncached(self, species_name: str, language: str | None = None) -> dict:
         taxonomy = await self.get_taxonomy_names(species_name, language=language)
         taxa_id = taxonomy.get("taxa_id")
         scientific_name = taxonomy.get("scientific_name")
@@ -4057,18 +4362,20 @@ class DetectionRepository:
         """
         async with self.db.execute(query, (start_date.isoformat(sep=" "), end_date.isoformat(sep=" "))) as cursor:
             rows = await cursor.fetchall()
-            return [
-                {
-                    "species": row[6],
-                    "count": row[1],
-                    "latest_event": row[2],
-                    "latest_detection_time": _parse_datetime(row[3]) if row[3] else None,
-                    "scientific_name": row[4],
-                    "common_name": row[5],
-                    "taxa_id": row[7],
-                }
-                for row in rows
-            ]
+            return merge_species_count_rows(
+                [
+                    {
+                        "species": row[6],
+                        "count": row[1],
+                        "latest_event": row[2],
+                        "latest_detection_time": _parse_datetime(row[3]) if row[3] else None,
+                        "scientific_name": row[4],
+                        "common_name": row[5],
+                        "taxa_id": row[7],
+                    }
+                    for row in rows
+                ]
+            )
 
     async def insert_audio_detection(
         self,

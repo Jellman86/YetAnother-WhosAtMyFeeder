@@ -19,6 +19,9 @@ class AuthStore {
     publicAccessEnabled = $state(false);
     publicAccessShowAiConversation = $state(false);
     publicAccessAllowClipDownloads = $state(false);
+    publicAccessShowAudio = $state(true);
+    publicAccessShowSnapshots = $state(true);
+    publicAccessShowClips = $state(true);
     needsInitialSetup = $state(false);
     isAuthenticated = $state(false);
     username = $state<string | null>(null);
@@ -66,6 +69,9 @@ class AuthStore {
     isGuest = $derived(this.statusLoaded && this.statusHealthy && this.authRequired && !this.isAuthenticated && this.publicAccessEnabled);
     showSettings = $derived(this.hasOwnerAccess);
     canViewAiConversation = $derived(this.hasOwnerAccess || (this.isGuest && this.publicAccessShowAiConversation));
+    // Audio is the owner's to share (#291): a guest sees the audio surfaces
+    // only when the switch is on.
+    canViewAudio = $derived(this.hasOwnerAccess || !this.isGuest || this.publicAccessShowAudio);
 
     constructor() {
         // Status is loaded via loadStatus()
@@ -88,6 +94,9 @@ class AuthStore {
             this.authRequired = status.auth_required;
             this.publicAccessEnabled = status.public_access_enabled;
             this.publicAccessShowAiConversation = status.public_access_show_ai_conversation ?? false;
+            this.publicAccessShowAudio = status.public_access_show_audio ?? true;
+            this.publicAccessShowSnapshots = status.public_access_show_snapshots ?? true;
+            this.publicAccessShowClips = status.public_access_show_clips ?? true;
             this.publicAccessAllowClipDownloads = status.public_access_allow_clip_downloads ?? false;
             this.needsInitialSetup = status.needs_initial_setup ?? false;
             this.isAuthenticated = status.is_authenticated;

@@ -8,7 +8,10 @@
     import { getRuntimeProviderOrder } from '../../settings/inference-providers';
     import DiagnosticDialog from '../../components/DiagnosticDialog.svelte';
     import type { DiagnosticStage, DiagnosticResult } from '../../utils/diagnostic-runner';
-    let { executionMode = 'subprocess' }: { executionMode?: string } = $props();
+    let { executionMode = 'subprocess', autoVideoEnabled = false }: {
+        executionMode?: string;
+        autoVideoEnabled?: boolean;
+    } = $props();
 
     let availableModels = $state<ModelMetadata[]>([]);
     let installedModels = $state<InstalledModel[]>([]);
@@ -523,11 +526,15 @@
     // The prediction is model × process mode × concurrency: in-process shares
     // one copy inside the app; isolated workers each hold their own, so the
     // resolved live + background counts are the multiplier.
-    function predictedCopies(): { copies: number; live: number; background: number } {
-        if (executionMode === 'in_process') return { copies: 1, live: 0, background: 0 };
+    function predictedCopies(): { copies: number; live: number; background: number; video: number } {
+        if (executionMode === 'in_process') return { copies: 1, live: 0, background: 0, video: 0 };
         const live = classifierStatus?.resolved_live_workers ?? 1;
         const background = classifierStatus?.resolved_background_workers ?? 1;
-        return { copies: live + background, live, background };
+        // Video analysis runs on its own worker pool sized like the background
+        // pool, so with video enabled those copies are real memory too -
+        // observed live as a video-0 worker no prediction accounted for.
+        const video = autoVideoEnabled ? background : 0;
+        return { copies: live + background + video, live, background, video };
     }
 
     type ModelCardState = 'active' | 'repair' | 'installed' | 'available';
@@ -761,6 +768,16 @@
                                             {$_('settings.detection.model_manager_memory_formula_in_process', {
                                                 values: { per: ramShortLabel(model.estimated_ram_mb) },
                                                 default: '{per} for one copy shared inside the app (in-process mode)'
+                                            })}
+                                        {:else if prediction.video > 0}
+                                            {$_('settings.detection.model_manager_memory_formula_subprocess_video', {
+                                                values: {
+                                                    per: ramShortLabel(model.estimated_ram_mb),
+                                                    live: prediction.live,
+                                                    background: prediction.background,
+                                                    video: prediction.video
+                                                },
+                                                default: '{per} per copy × {live} live + {background} background + {video} video workers (isolated mode)'
                                             })}
                                         {:else}
                                             {$_('settings.detection.model_manager_memory_formula_subprocess', {

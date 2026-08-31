@@ -163,6 +163,21 @@ class MediaCacheService:
 
         return safe_id
 
+    def _contained_path(self, base: Path, filename: str, event_id: str) -> Path:
+        """Join base/filename and prove containment before any filesystem access.
+
+        os.path.normpath plus a prefix check are pure string operations, so the
+        guard itself cannot be abused through the filesystem, and static
+        analysis recognises the normalise-then-compare barrier (#305). The
+        character allow-list in _sanitize_event_id already makes traversal
+        impossible; this check is the explicit, machine-checkable proof.
+        """
+        base_str = str(base)
+        candidate = os.path.normpath(os.path.join(base_str, filename))
+        if not candidate.startswith(base_str + os.sep):
+            raise ValueError(f"Path traversal detected: {event_id}")
+        return Path(candidate)
+
     def _snapshot_path(self, event_id: str) -> Path:
         """Get the path for a cached snapshot.
 
@@ -170,17 +185,7 @@ class MediaCacheService:
             ValueError: If event_id is invalid
         """
         safe_id = self._sanitize_event_id(event_id)
-        path = SNAPSHOTS_DIR / f"{safe_id}.jpg"
-
-        # Security: Verify path is within cache directory using resolve()
-        try:
-            resolved = path.resolve()
-            if not resolved.is_relative_to(SNAPSHOTS_DIR):
-                raise ValueError(f"Path traversal detected: {event_id}")
-        except (ValueError, OSError):
-            raise ValueError(f"Invalid snapshot path for event: {event_id}")
-
-        return path
+        return self._contained_path(SNAPSHOTS_DIR, f"{safe_id}.jpg", event_id)
 
     def _snapshot_metadata_path(self, event_id: str) -> Path:
         return self._snapshot_path(event_id).with_suffix(".jpg.meta.json")
@@ -192,16 +197,7 @@ class MediaCacheService:
             ValueError: If event_id is invalid
         """
         safe_id = self._sanitize_event_id(event_id)
-        path = SNAPSHOTS_DIR / f"{safe_id}_thumb.jpg"
-
-        try:
-            resolved = path.resolve()
-            if not resolved.is_relative_to(SNAPSHOTS_DIR):
-                raise ValueError(f"Path traversal detected: {event_id}")
-        except (ValueError, OSError):
-            raise ValueError(f"Invalid thumbnail path for event: {event_id}")
-
-        return path
+        return self._contained_path(SNAPSHOTS_DIR, f"{safe_id}_thumb.jpg", event_id)
 
     def _thumbnail_metadata_path(self, event_id: str) -> Path:
         return self._thumbnail_path(event_id).with_suffix(".jpg.meta.json")
@@ -213,55 +209,22 @@ class MediaCacheService:
             ValueError: If event_id is invalid
         """
         safe_id = self._sanitize_event_id(event_id)
-        path = CLIPS_DIR / f"{safe_id}.mp4"
-
-        # Security: Verify path is within cache directory using resolve()
-        try:
-            resolved = path.resolve()
-            if not resolved.is_relative_to(CLIPS_DIR):
-                raise ValueError(f"Path traversal detected: {event_id}")
-        except (ValueError, OSError):
-            raise ValueError(f"Invalid clip path for event: {event_id}")
-
-        return path
+        return self._contained_path(CLIPS_DIR, f"{safe_id}.mp4", event_id)
 
     def _recording_clip_path(self, event_id: str) -> Path:
         """Get the path for a cached recording clip variant."""
         safe_id = self._sanitize_event_id(event_id)
-        path = CLIPS_DIR / f"{safe_id}_recording.mp4"
-
-        try:
-            resolved = path.resolve()
-            if not resolved.is_relative_to(CLIPS_DIR):
-                raise ValueError(f"Path traversal detected: {event_id}")
-        except (ValueError, OSError):
-            raise ValueError(f"Invalid recording clip path for event: {event_id}")
-
-        return path
+        return self._contained_path(CLIPS_DIR, f"{safe_id}_recording.mp4", event_id)
 
     def _preview_sprite_path(self, event_id: str) -> Path:
         """Get the path for a cached preview sprite image."""
         safe_id = self._sanitize_event_id(event_id)
-        path = PREVIEWS_DIR / f"{safe_id}.jpg"
-        try:
-            resolved = path.resolve()
-            if not resolved.is_relative_to(PREVIEWS_DIR):
-                raise ValueError(f"Path traversal detected: {event_id}")
-        except (ValueError, OSError):
-            raise ValueError(f"Invalid preview sprite path for event: {event_id}")
-        return path
+        return self._contained_path(PREVIEWS_DIR, f"{safe_id}.jpg", event_id)
 
     def _preview_manifest_path(self, event_id: str) -> Path:
         """Get the path for a cached preview cue manifest."""
         safe_id = self._sanitize_event_id(event_id)
-        path = PREVIEWS_DIR / f"{safe_id}.json"
-        try:
-            resolved = path.resolve()
-            if not resolved.is_relative_to(PREVIEWS_DIR):
-                raise ValueError(f"Path traversal detected: {event_id}")
-        except (ValueError, OSError):
-            raise ValueError(f"Invalid preview manifest path for event: {event_id}")
-        return path
+        return self._contained_path(PREVIEWS_DIR, f"{safe_id}.json", event_id)
 
     def _invalidate_recording_clip_duration_cache(self, path: Path) -> None:
         self._recording_clip_duration_cache.pop(str(path), None)

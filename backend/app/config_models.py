@@ -190,6 +190,22 @@ class FrigateSettings(BaseModel):
     frigate_auth_token: Optional[str] = Field(None, description="Optional Bearer token for Frigate proxy auth")
     main_topic: str = "frigate"
     camera: list[str] = Field(default_factory=list, description="List of cameras to monitor")
+    ingest_labels: list[str] = Field(
+        default_factory=lambda: ["bird"],
+        description=(
+            "Frigate event labels YA-WAMF acts on (#252). Add the labels your "
+            "Frigate model uses for birds (e.g. duck, goose); everything here "
+            "flows through the bird identification pipeline."
+        ),
+    )
+
+    @field_validator("ingest_labels", mode="before")
+    @classmethod
+    def _normalize_ingest_labels(cls, value):
+        from app.utils.frigate import normalize_ingest_labels
+
+        return normalize_ingest_labels(value)
+
     clips_enabled: bool = Field(default=True, description="Enable fetching of video clips from Frigate")
     recording_clip_enabled: bool = Field(
         default=False,
@@ -619,6 +635,46 @@ class BirdWeatherSettings(BaseModel):
     station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
 
 
+class HomeAssistantWeatherSettings(BaseModel):
+    """Weather from Home Assistant's own sensors instead of the forecast API (#277).
+
+    The weather entity is the general source; a per-category sensor override
+    wins for its one reading. An unavailable sensor reads as unknown - it is
+    never backfilled from a forecast and presented as measured.
+    """
+
+    enabled: bool = Field(default=False, description="Source live weather from Home Assistant")
+    base_url: Optional[str] = Field(
+        default=None, description="Home Assistant base URL, e.g. http://homeassistant.local:8123"
+    )
+    access_token: Optional[str] = Field(default=None, description="Home Assistant long-lived access token")
+    weather_entity: Optional[str] = Field(
+        default=None, description="Weather entity used as the general source, e.g. weather.home"
+    )
+    temperature_entity: Optional[str] = Field(default=None, description="Sensor overriding temperature")
+    wind_speed_entity: Optional[str] = Field(default=None, description="Sensor overriding wind speed")
+    wind_direction_entity: Optional[str] = Field(default=None, description="Sensor overriding wind direction (degrees)")
+    cloud_cover_entity: Optional[str] = Field(default=None, description="Sensor overriding cloud cover (percent)")
+    precipitation_entity: Optional[str] = Field(default=None, description="Sensor overriding precipitation")
+    rain_entity: Optional[str] = Field(default=None, description="Sensor overriding rainfall")
+    snowfall_entity: Optional[str] = Field(default=None, description="Sensor overriding snowfall")
+
+    def override_entities(self) -> dict[str, str]:
+        pairs = {
+            "temperature": self.temperature_entity,
+            "wind_speed": self.wind_speed_entity,
+            "wind_direction": self.wind_direction_entity,
+            "cloud_cover": self.cloud_cover_entity,
+            "precipitation": self.precipitation_entity,
+            "rain": self.rain_entity,
+            "snowfall": self.snowfall_entity,
+        }
+        return {category: entity.strip() for category, entity in pairs.items() if entity and entity.strip()}
+
+    def is_usable(self) -> bool:
+        return bool(self.enabled and (self.base_url or "").strip() and (self.access_token or "").strip())
+
+
 class EbirdSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable eBird enrichment")
     api_key: Optional[str] = Field(default=None, description="eBird API key")
@@ -909,6 +965,18 @@ class PublicAccessSettings(BaseModel):
 
     enabled: bool = Field(default=False, description="Allow unauthenticated public access to view detections")
     show_camera_names: bool = Field(default=True, description="Show camera names to public visitors")
+    # Per-medium switches (#291): audio previously had no control at all.
+    show_audio: bool = Field(
+        default=True, description="Show BirdNET audio detections and spectrograms to public visitors"
+    )
+    show_snapshots: bool = Field(default=True, description="Show detection snapshots and thumbnails to public visitors")
+    show_clips: bool = Field(default=True, description="Show video clips to public visitors")
+    # Approximate by default: the person doxxed by an exact location is the
+    # person who never found this setting.
+    location_precision: Literal["approximate", "exact"] = Field(
+        default="approximate",
+        description="How precisely guest-facing features may use the configured location",
+    )
     show_ai_conversation: bool = Field(
         default=False, description="Allow public visitors to view AI conversation threads"
     )

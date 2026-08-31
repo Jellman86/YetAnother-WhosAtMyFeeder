@@ -1,4 +1,3 @@
-import re
 from collections.abc import Iterable
 
 
@@ -48,8 +47,17 @@ def collapse_classifier_label(label: str | None, *, strategy: str | None = None)
     normalized = normalize_classifier_label(label)
     strategy_name = str(strategy or "").strip().lower()
     if strategy_name == "strip_trailing_parenthetical":
-        collapsed = re.sub(r"\s*\([^)]*\)\s*$", "", normalized).strip()
-        return collapsed or normalized
+        # Plain string scanning instead of a regex: labels are
+        # attacker-influenced, and every regex form of "optional spaces then a
+        # trailing parenthetical" kept a quantifier ambiguity that made
+        # matching polynomial on crafted input (#305).
+        trimmed = normalized.rstrip()
+        if trimmed.endswith(")"):
+            start = trimmed.rfind("(")
+            inner = trimmed[start + 1 : -1]
+            if start > 0 and "(" not in inner and ")" not in inner:
+                collapsed = trimmed[:start].rstrip()
+                return collapsed or normalized
     return normalized
 
 

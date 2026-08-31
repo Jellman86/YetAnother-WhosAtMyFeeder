@@ -199,7 +199,7 @@
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
                     sort: sortOrder,
-                    includeHidden: showHidden,
+                    onlyHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
                     fields: 'list',
@@ -210,7 +210,7 @@
                     endDate: range.end,
                     species: speciesFilter || undefined,
                     camera: cameraFilter || undefined,
-                    includeHidden: showHidden,
+                    onlyHidden: showHidden,
                     favoritesOnly,
                     audioConfirmedOnly,
                     requestKey: 'events-page:count'
@@ -690,7 +690,10 @@
                 selectedEvent = null;
                 hiddenCount++;
             } else {
-                events = events.map(e => e.frigate_event === eventId ? { ...e, is_hidden: false } : e);
+                // In the hidden-only view an unhidden row no longer qualifies.
+                events = showHidden
+                    ? events.filter(e => e.frigate_event !== eventId)
+                    : events.map(e => e.frigate_event === eventId ? { ...e, is_hidden: false } : e);
                 hiddenCount = Math.max(0, hiddenCount - 1);
                 selectedEvent = null;
             }
@@ -740,6 +743,18 @@
             .sort((a, b) => b[0].localeCompare(a[0]))
             .map(([key, count]) => ({ key, count, label: formatTimelineBucketLabel(key) }));
     });
+
+    let hasActiveExplorerFilters = $derived(
+        Boolean(
+            speciesFilter ||
+                cameraFilter ||
+                favoritesOnly ||
+                audioConfirmedOnly ||
+                showHidden ||
+                datePreset !== 'all' ||
+                selectedTimelineBucket !== 'all'
+        )
+    );
 
     let visibleEvents = $derived.by(() => {
         if (selectedTimelineBucket === 'all') return events;
@@ -1292,8 +1307,35 @@
                     <path stroke-linecap="round" stroke-linejoin="round" d="M16 7h.01M3.5 18H12a8 8 0 0 0 8-8V7a4 4 0 0 0-7.3-2.3L2 20" />
                     <path stroke-linecap="round" stroke-linejoin="round" d="m20 7 2 .5-2 .5M10 18v3m4-3.25V21M7 18a6 6 0 0 0 3.8-10.6" />
                 </svg>
-                <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h3>
-                <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
+                {#if hasActiveExplorerFilters}
+                    <!-- An empty page under active filters is a statement about the
+                         filters, never about the feeder (#301): saying "no events
+                         yet" here told an owner their history was gone. -->
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_filtered_title', { default: 'No visits match these filters' })}</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_filtered_desc', { default: 'Your history is still here. Widen the date range or remove a filter to see it.' })}</p>
+                    <button
+                        type="button"
+                        class="btn btn-secondary mt-4 min-h-11 px-4"
+                        onclick={() => {
+                            datePreset = 'all';
+                            speciesFilter = '';
+                            cameraFilter = '';
+                            favoritesOnly = false;
+                            audioConfirmedOnly = false;
+                            showHidden = false;
+                            customStartDate = '';
+                            customEndDate = '';
+                            selectedTimelineBucket = 'all';
+                            currentPage = 1;
+                            loadEvents();
+                        }}
+                    >
+                        {$_('events.empty_filtered_clear', { default: 'Clear all filters' })}
+                    </button>
+                {:else}
+                    <h3 class="text-lg font-semibold text-slate-900 dark:text-white">{$_('events.empty_title')}</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400 mt-2">{$_('events.empty_desc')}</p>
+                {/if}
             </div>
         {:else if explorerView === 'list'}
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-900/50" data-explorer-list>
@@ -1382,7 +1424,10 @@
                 }
                 hiddenCount++;
             } else {
-                events = events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: false } : event);
+                // In the hidden-only view an unhidden row no longer qualifies.
+                events = showHidden
+                    ? events.filter((event) => event.frigate_event !== hiddenEventId)
+                    : events.map((event) => event.frigate_event === hiddenEventId ? { ...event, is_hidden: false } : event);
                 hiddenCount = Math.max(0, hiddenCount - 1);
             }
             selectedEvent = null;
