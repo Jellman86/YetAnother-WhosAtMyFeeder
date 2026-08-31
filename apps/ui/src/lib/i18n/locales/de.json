@@ -919,7 +919,19 @@
       "share_base_url": "Basis-URL für Freigabelinks (optional)",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "Wenn gesetzt, verwenden neue Freigabelinks diese öffentliche Basis-URL statt des erkannten Anfrage-Hosts.",
-      "advanced_title": "Verlaufs-Zeitfenster & Ratenbegrenzungen"
+      "advanced_title": "Verlaufs-Zeitfenster & Ratenbegrenzungen",
+      "show_audio": "Audio mit Besuchern teilen",
+      "show_audio_desc": "BirdNET-Erkennungen, Spektrogramme und Audioclips. Aus bedeutet: Besucher sehen keinerlei Audio.",
+      "show_snapshots": "Fotos mit Besuchern teilen",
+      "show_snapshots_desc": "Schnappschüsse und Vorschaubilder. Aus bedeutet: Besucher sehen Platzhalter statt Bilder.",
+      "show_clips": "Video mit Besuchern teilen",
+      "show_clips_desc": "Videoclips und ihre Vorschauen. Aus bedeutet: Besucher können gar kein Video abspielen; der Download-Schalter unten regelt nur das Speichern der Datei.",
+      "location_precision": "Für Besucher angezeigter Standort",
+      "location_precision_desc": "Ungefähr rundet den Standort auf etwa 10 km, bevor eine Besucherfunktion ihn nutzt - das Teilen der Futterstelle veröffentlicht so nicht Ihre Adresse.",
+      "location_approximate": "Ungefähr",
+      "location_approximate_sub": "Etwa 10 km. Der sichere Standard.",
+      "location_exact": "Genau",
+      "location_exact_sub": "Die konfigurierten Koordinaten unverändert."
     },
     "accessibility": {
       "title": "Barrierefreiheit-Optionen",
@@ -2122,7 +2134,9 @@
     "sources": {
       "title": "Quellen",
       "empty": "Noch keine Quellen."
-    }
+    },
+    "not_shared_title": "Audio wird nicht öffentlich geteilt",
+    "not_shared_body": "Die Besitzerin oder der Besitzer dieser Instanz hat Audio für Besucher deaktiviert."
   },
   "leaderboard": {
     "source_toggle": "Erkennungsquelle",

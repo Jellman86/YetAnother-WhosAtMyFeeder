@@ -193,6 +193,10 @@ export interface Settings {
     public_access_show_camera_names: boolean;
     public_access_show_ai_conversation?: boolean;
     public_access_allow_clip_downloads?: boolean;
+    public_access_show_audio?: boolean;
+    public_access_show_snapshots?: boolean;
+    public_access_show_clips?: boolean;
+    public_access_location_precision?: 'approximate' | 'exact' | string;
     public_access_historical_days_mode?: string;
     public_access_historical_days: number;
     public_access_media_days_mode?: string;

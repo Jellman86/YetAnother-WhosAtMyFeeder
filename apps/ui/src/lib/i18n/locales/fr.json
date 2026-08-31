@@ -919,7 +919,19 @@
       "share_base_url": "URL de base des liens partagés (facultatif)",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "Si définie, les nouveaux liens partagés utilisent cette URL publique plutôt que l’hôte détecté de la requête.",
-      "advanced_title": "Fenêtres d'historique & limites de débit"
+      "advanced_title": "Fenêtres d'historique & limites de débit",
+      "show_audio": "Partager l'audio avec les visiteurs",
+      "show_audio_desc": "Détections BirdNET, spectrogrammes et clips audio. Désactivé signifie que les visiteurs ne voient aucune surface audio.",
+      "show_snapshots": "Partager les photos avec les visiteurs",
+      "show_snapshots_desc": "Instantanés et vignettes. Désactivé signifie que les visiteurs voient des espaces réservés au lieu des images.",
+      "show_clips": "Partager la vidéo avec les visiteurs",
+      "show_clips_desc": "Clips vidéo et leurs aperçus. Désactivé signifie que les visiteurs ne peuvent lire aucune vidéo ; l'interrupteur de téléchargement ci-dessous ne contrôle que l'enregistrement du fichier.",
+      "location_precision": "Localisation montrée aux visiteurs",
+      "location_precision_desc": "Approximative arrondit la localisation à environ 10 km avant toute utilisation côté visiteur : partager votre mangeoire ne publie pas votre adresse.",
+      "location_approximate": "Approximative",
+      "location_approximate_sub": "Environ 10 km. Le choix sûr par défaut.",
+      "location_exact": "Exacte",
+      "location_exact_sub": "Les coordonnées configurées telles quelles."
     },
     "accessibility": {
       "title": "Options d'accessibilité",
@@ -2122,7 +2134,9 @@
     "sources": {
       "title": "Sources",
       "empty": "Aucune source pour le moment."
-    }
+    },
+    "not_shared_title": "L'audio n'est pas partagé publiquement",
+    "not_shared_body": "Le propriétaire de cette instance a désactivé l'audio pour les visiteurs."
   },
   "leaderboard": {
     "source_toggle": "Source de détection",

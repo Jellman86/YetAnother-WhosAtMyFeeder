@@ -919,7 +919,19 @@
       "share_base_url": "共有リンクのベースURL（任意）",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "設定すると、新しい共有リンクは検出されたリクエストホストではなく、この公開ベースURLを使用します。",
-      "advanced_title": "履歴ウィンドウとレート制限"
+      "advanced_title": "履歴ウィンドウとレート制限",
+      "show_audio": "訪問者と音声を共有",
+      "show_audio_desc": "BirdNET の検出、スペクトログラム、音声クリップ。オフにすると訪問者には音声関連の画面が一切表示されません。",
+      "show_snapshots": "訪問者と写真を共有",
+      "show_snapshots_desc": "スナップショットとサムネイル。オフにすると訪問者には画像の代わりにプレースホルダーが表示されます。",
+      "show_clips": "訪問者と動画を共有",
+      "show_clips_desc": "動画クリップとそのプレビュー。オフにすると訪問者は動画を再生できません。下のダウンロードスイッチはファイル保存のみを制御します。",
+      "location_precision": "訪問者に表示する位置情報",
+      "location_precision_desc": "「おおよそ」は訪問者向け機能が使う前に位置を約 10 km 単位に丸めます。フィーダーを共有しても住所は公開されません。",
+      "location_approximate": "おおよそ",
+      "location_approximate_sub": "約 10 km。安全な既定値。",
+      "location_exact": "正確",
+      "location_exact_sub": "設定した座標をそのまま使用。"
     },
     "accessibility": {
       "title": "アクセシビリティオプション",
@@ -2122,7 +2134,9 @@
     "sources": {
       "title": "音源",
       "empty": "音源はまだありません。"
-    }
+    },
+    "not_shared_title": "音声は公開されていません",
+    "not_shared_body": "このインスタンスの所有者は訪問者向けの音声をオフにしています。"
   },
   "leaderboard": {
     "source_toggle": "検出元",

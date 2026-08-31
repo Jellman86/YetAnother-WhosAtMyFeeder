@@ -928,7 +928,19 @@
       "share_base_url": "URL base de partilha (opcional)",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "Se definido, novos links de partilha usarão esta URL base pública em vez do host detectado na requisição.",
-      "advanced_title": "Janelas de histórico e limites de taxa"
+      "advanced_title": "Janelas de histórico e limites de taxa",
+      "show_audio": "Compartilhar áudio com visitantes",
+      "show_audio_desc": "Detecções do BirdNET, espectrogramas e clipes de áudio. Desligado significa que os visitantes não veem nenhuma superfície de áudio.",
+      "show_snapshots": "Compartilhar fotografias com visitantes",
+      "show_snapshots_desc": "Instantâneos e miniaturas. Desligado significa que os visitantes veem espaços reservados em vez de imagens.",
+      "show_clips": "Compartilhar vídeo com visitantes",
+      "show_clips_desc": "Clipes de vídeo e suas prévias. Desligado significa que os visitantes não podem reproduzir vídeo; o botão de download abaixo controla apenas salvar o arquivo.",
+      "location_precision": "Localização mostrada aos visitantes",
+      "location_precision_desc": "Aproximada arredonda a localização para cerca de 10 km antes de qualquer recurso para visitantes usá-la, para que compartilhar seu comedouro não publique seu endereço.",
+      "location_approximate": "Aproximada",
+      "location_approximate_sub": "Cerca de 10 km. O padrão seguro.",
+      "location_exact": "Exata",
+      "location_exact_sub": "As coordenadas configuradas como estão."
     },
     "accessibility": {
       "title": "Opções de Acessibilidade",
@@ -2131,7 +2143,9 @@
     "sources": {
       "title": "Fontes",
       "empty": "Ainda não há fontes."
-    }
+    },
+    "not_shared_title": "O áudio não é compartilhado publicamente",
+    "not_shared_body": "O proprietário desta instância desativou o áudio para visitantes."
   },
   "leaderboard": {
     "source_toggle": "Fonte da deteção",

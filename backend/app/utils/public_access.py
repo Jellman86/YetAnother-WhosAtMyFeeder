@@ -30,3 +30,23 @@ def effective_public_media_days() -> int:
         retention_days = int(settings.maintenance.retention_days or 0)
         return _cap_public_days(retention_days if retention_days > 0 else 365)
     return _cap_public_days(settings.public_access.media_historical_days)
+
+
+def approximate_coordinate(value: float | None) -> float | None:
+    """One decimal place is roughly 11 km: a town, not a garden."""
+    if value is None:
+        return None
+    return round(float(value), 1)
+
+
+def guest_location() -> tuple[float | None, float | None]:
+    """The configured location at the precision the owner shares publicly."""
+    lat = settings.location.latitude
+    lng = settings.location.longitude
+    if settings.public_access.location_precision == "exact":
+        return lat, lng
+    return approximate_coordinate(lat), approximate_coordinate(lng)
+
+
+def public_audio_allowed() -> bool:
+    return bool(settings.public_access.show_audio)

@@ -8,6 +8,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **What a visitor sees is now the owner's call, per medium
+  ([#291](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/291)).** Audio was the one
+  medium with no control at all: BirdNET detections and spectrograms were visible to any visitor
+  with no way to turn them off. Settings → Security now offers three switches - share audio,
+  share photographs, share video - each enforced at the API, with the visitor-facing surfaces
+  saying plainly that a medium is not shared rather than erroring. And the location visitors' 
+  features search from is now **approximate by default**: rounded to about 10 km before any
+  guest-facing eBird search uses it, so sharing a feeder does not publish an address. An owner who
+  wants the exact position public can still say so; nobody publishes their address by not reading
+  a settings page.
+
 - **A new species asks for one confirmation
   ([#310](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/310)).** A first-ever
   sighting — a 34% Hadeda Ibis far from its range — used to sit in the Explorer waiting to be

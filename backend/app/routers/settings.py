@@ -1064,6 +1064,12 @@ class SettingsUpdate(BaseModel):
     public_access_media_historical_days: Optional[int] = Field(None, ge=0, le=365)
     public_access_rate_limit_per_minute: Optional[int] = Field(None, ge=1, le=100)
     public_access_external_base_url: Optional[str] = Field(None, max_length=512)
+    public_access_show_audio: Optional[bool] = Field(None, description="Show BirdNET audio to public visitors")
+    public_access_show_snapshots: Optional[bool] = Field(None, description="Show snapshots to public visitors")
+    public_access_show_clips: Optional[bool] = Field(None, description="Show clips to public visitors")
+    public_access_location_precision: Optional[Literal["approximate", "exact"]] = Field(
+        None, description="Location precision for guest-facing features"
+    )
 
     species_info_source: Optional[str] = "auto"
     date_format: Optional[str] = None
@@ -1515,6 +1521,10 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "public_access_show_camera_names": settings.public_access.show_camera_names,
         "public_access_show_ai_conversation": settings.public_access.show_ai_conversation,
         "public_access_allow_clip_downloads": settings.public_access.allow_clip_downloads,
+        "public_access_show_audio": settings.public_access.show_audio,
+        "public_access_show_snapshots": settings.public_access.show_snapshots,
+        "public_access_show_clips": settings.public_access.show_clips,
+        "public_access_location_precision": settings.public_access.location_precision,
         "public_access_historical_days_mode": settings.public_access.historical_days_mode,
         "public_access_historical_days": settings.public_access.show_historical_days,
         "public_access_media_days_mode": settings.public_access.media_days_mode,
@@ -1944,6 +1954,14 @@ async def update_settings(
         settings.public_access.show_ai_conversation = update.public_access_show_ai_conversation
     if "public_access_allow_clip_downloads" in fields_set and update.public_access_allow_clip_downloads is not None:
         settings.public_access.allow_clip_downloads = update.public_access_allow_clip_downloads
+    if "public_access_show_audio" in fields_set and update.public_access_show_audio is not None:
+        settings.public_access.show_audio = update.public_access_show_audio
+    if "public_access_show_snapshots" in fields_set and update.public_access_show_snapshots is not None:
+        settings.public_access.show_snapshots = update.public_access_show_snapshots
+    if "public_access_show_clips" in fields_set and update.public_access_show_clips is not None:
+        settings.public_access.show_clips = update.public_access_show_clips
+    if "public_access_location_precision" in fields_set and update.public_access_location_precision is not None:
+        settings.public_access.location_precision = update.public_access_location_precision
     if "public_access_historical_days_mode" in fields_set and update.public_access_historical_days_mode is not None:
         settings.public_access.historical_days_mode = update.public_access_historical_days_mode
     if "public_access_historical_days" in fields_set and update.public_access_historical_days is not None:

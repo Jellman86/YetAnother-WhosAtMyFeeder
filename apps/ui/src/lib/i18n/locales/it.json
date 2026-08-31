@@ -928,7 +928,19 @@
       "share_base_url": "URL di base dei link condivisi (opzionale)",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "Se impostato, i nuovi link condivisi useranno questo URL pubblico di base invece dell'host della richiesta rilevato.",
-      "advanced_title": "Finestre storiche e limiti di velocità"
+      "advanced_title": "Finestre storiche e limiti di velocità",
+      "show_audio": "Condividi l'audio con i visitatori",
+      "show_audio_desc": "Rilevamenti BirdNET, spettrogrammi e clip audio. Disattivato significa che i visitatori non vedono alcuna superficie audio.",
+      "show_snapshots": "Condividi le fotografie con i visitatori",
+      "show_snapshots_desc": "Istantanee e miniature. Disattivato significa che i visitatori vedono segnaposto al posto delle immagini.",
+      "show_clips": "Condividi i video con i visitatori",
+      "show_clips_desc": "Clip video e le loro anteprime. Disattivato significa che i visitatori non possono riprodurre video; l'interruttore di download qui sotto controlla solo il salvataggio del file.",
+      "location_precision": "Posizione mostrata ai visitatori",
+      "location_precision_desc": "Approssimativa arrotonda la posizione a circa 10 km prima che qualsiasi funzione per i visitatori la usi: condividere la mangiatoia non pubblica il tuo indirizzo.",
+      "location_approximate": "Approssimativa",
+      "location_approximate_sub": "Circa 10 km. L'impostazione sicura.",
+      "location_exact": "Esatta",
+      "location_exact_sub": "Le coordinate configurate così come sono."
     },
     "accessibility": {
       "title": "Opzioni Accessibilità",
@@ -2131,7 +2143,9 @@
     "sources": {
       "title": "Fonti",
       "empty": "Ancora nessuna fonte."
-    }
+    },
+    "not_shared_title": "L'audio non è condiviso pubblicamente",
+    "not_shared_body": "Il proprietario di questa istanza ha disattivato l'audio per i visitatori."
   },
   "leaderboard": {
     "source_toggle": "Fonte del rilevamento",

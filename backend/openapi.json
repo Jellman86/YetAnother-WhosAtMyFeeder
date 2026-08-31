@@ -1399,6 +1399,21 @@
             "title": "Public Access Show Ai Conversation",
             "type": "boolean"
           },
+          "public_access_show_audio": {
+            "default": true,
+            "title": "Public Access Show Audio",
+            "type": "boolean"
+          },
+          "public_access_show_clips": {
+            "default": true,
+            "title": "Public Access Show Clips",
+            "type": "boolean"
+          },
+          "public_access_show_snapshots": {
+            "default": true,
+            "title": "Public Access Show Snapshots",
+            "type": "boolean"
+          },
           "scientific_name_primary": {
             "default": false,
             "title": "Scientific Name Primary",
@@ -10467,6 +10482,21 @@
             ],
             "title": "Public Access Historical Days Mode"
           },
+          "public_access_location_precision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "approximate",
+                  "exact"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Access Location Precision"
+          },
           "public_access_media_days_mode": {
             "anyOf": [
               {
@@ -10511,6 +10541,17 @@
             ],
             "title": "Public Access Show Ai Conversation"
           },
+          "public_access_show_audio": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Access Show Audio"
+          },
           "public_access_show_camera_names": {
             "anyOf": [
               {
@@ -10521,6 +10562,28 @@
               }
             ],
             "title": "Public Access Show Camera Names"
+          },
+          "public_access_show_clips": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Access Show Clips"
+          },
+          "public_access_show_snapshots": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Public Access Show Snapshots"
           },
           "recording_clip_after_seconds": {
             "default": 90,
@@ -12553,6 +12616,22 @@
             ],
             "title": "Public Access Historical Days Mode"
           },
+          "public_access_location_precision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "approximate",
+                  "exact"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Location precision for guest-facing features",
+            "title": "Public Access Location Precision"
+          },
           "public_access_media_days_mode": {
             "anyOf": [
               {
@@ -12601,6 +12680,18 @@
             ],
             "title": "Public Access Show Ai Conversation"
           },
+          "public_access_show_audio": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Show BirdNET audio to public visitors",
+            "title": "Public Access Show Audio"
+          },
           "public_access_show_camera_names": {
             "anyOf": [
               {
@@ -12611,6 +12702,30 @@
               }
             ],
             "title": "Public Access Show Camera Names"
+          },
+          "public_access_show_clips": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Show clips to public visitors",
+            "title": "Public Access Show Clips"
+          },
+          "public_access_show_snapshots": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Show snapshots to public visitors",
+            "title": "Public Access Show Snapshots"
           },
           "recording_clip_after_seconds": {
             "default": 90,

@@ -919,7 +919,19 @@
       "share_base_url": "URL base de enlaces compartidos (opcional)",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "Si se configura, los nuevos enlaces compartidos usarán esta URL base pública en lugar del host detectado de la solicitud.",
-      "advanced_title": "Ventanas de historial y límites de tasa"
+      "advanced_title": "Ventanas de historial y límites de tasa",
+      "show_audio": "Compartir audio con visitantes",
+      "show_audio_desc": "Detecciones de BirdNET, espectrogramas y clips de audio. Desactivado significa que los visitantes no ven ninguna superficie de audio.",
+      "show_snapshots": "Compartir fotografías con visitantes",
+      "show_snapshots_desc": "Instantáneas y miniaturas. Desactivado significa que los visitantes ven marcadores en lugar de imágenes.",
+      "show_clips": "Compartir vídeo con visitantes",
+      "show_clips_desc": "Clips de vídeo y sus vistas previas. Desactivado significa que los visitantes no pueden reproducir vídeo; el interruptor de descarga de abajo solo controla guardar el archivo.",
+      "location_precision": "Ubicación mostrada a los visitantes",
+      "location_precision_desc": "Aproximada redondea la ubicación a unos 10 km antes de que cualquier función para visitantes la use, para que compartir tu comedero no publique tu dirección.",
+      "location_approximate": "Aproximada",
+      "location_approximate_sub": "Unos 10 km. El valor seguro por defecto.",
+      "location_exact": "Exacta",
+      "location_exact_sub": "Las coordenadas configuradas tal cual."
     },
     "accessibility": {
       "title": "Opciones de accesibilidad",
@@ -2122,7 +2134,9 @@
     "sources": {
       "title": "Fuentes",
       "empty": "Aún no hay fuentes."
-    }
+    },
+    "not_shared_title": "El audio no se comparte públicamente",
+    "not_shared_body": "El propietario de esta instancia ha desactivado el audio para visitantes."
   },
   "leaderboard": {
     "source_toggle": "Fuente de detección",

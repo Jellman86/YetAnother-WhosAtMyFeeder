@@ -61,7 +61,7 @@
     });
 
     const birdnetEnabled = $derived(
-        settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false
+        (settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false) && authStore.canViewAudio
     );
 
     // AI Analysis state

@@ -279,6 +279,18 @@
     });
 </script>
 
+{#if !authStore.canViewAudio}
+    <!-- Audio is the owner's to share (#291); a visitor gets words, not errors. -->
+    <section data-audio-not-shared class="mx-auto max-w-lg py-16 text-center">
+        <p class="text-sm font-semibold text-slate-800 dark:text-slate-100">
+            {$_('audio.not_shared_title', { default: 'Audio is not shared publicly' })}
+        </p>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            {$_('audio.not_shared_body', { default: 'The owner of this instance has turned off audio for visitors.' })}
+        </p>
+    </section>
+{:else}
+
 <div class="space-y-10" data-audio-history-page>
     <section class="border-y border-slate-200/80 dark:border-slate-800" data-audio-history-summary aria-label={$_('audio.history.title')}>
         <dl class="grid grid-cols-2 lg:grid-cols-4">
@@ -565,4 +577,5 @@
 
 {#if selectedSpecies}
     <SpeciesDetailModal speciesName={selectedSpecies} onclose={() => selectedSpecies = null} />
+{/if}
 {/if}
