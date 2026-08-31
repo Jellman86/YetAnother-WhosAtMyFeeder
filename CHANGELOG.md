@@ -60,6 +60,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A duplicated species can no longer take down the lower dashboard.** When catalogue identity
+  is patchy across a species' rows - written between ingest and the next identity backfill - the
+  canonical grouping split one Dunnock into two summary rows, and the top-visitors list crashed
+  on the duplicate key, killing everything rendered after it. The daily summary now folds rows
+  that share a taxon (or a name when the taxon is missing) back into one bird, and the list
+  dedupes defensively besides, so a bad payload degrades to a merged row instead of a dead page.
+
 - **The delete control names its own effect
   ([#256](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/256)).** It said "Delete
   Detection" and asked "Delete this Robin detection?" - never saying whether that removed the

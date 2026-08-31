@@ -30,6 +30,50 @@ def clear_species_alias_cache() -> None:
     _SPECIES_ALIAS_CACHE.clear()
 
 
+def merge_species_count_rows(rows: list[dict]) -> list[dict]:
+    """Fold count rows that are the same bird under different identity keys.
+
+    The canonical key prefers catalogue identity, but a row written between
+    ingest and the next identity backfill can lack `species_id` while its
+    neighbours carry it - and one Dunnock then arrives as two rows, which the
+    dashboard's keyed list cannot survive. Same taxon, or same name when a
+    taxon is missing, means the same bird here.
+    """
+    by_taxa: dict[int, dict] = {}
+    by_name: dict[str, dict] = {}
+    merged: list[dict] = []
+    for row in rows:
+        taxa_id = row.get("taxa_id")
+        name = str(row.get("species") or "").strip().lower()
+        target = None
+        if taxa_id is not None and taxa_id in by_taxa:
+            target = by_taxa[taxa_id]
+        elif name and name in by_name:
+            target = by_name[name]
+        if target is None:
+            entry = dict(row)
+            merged.append(entry)
+            if taxa_id is not None:
+                by_taxa[taxa_id] = entry
+            if name:
+                by_name[name] = entry
+            continue
+        target["count"] = int(target.get("count") or 0) + int(row.get("count") or 0)
+        row_time = row.get("latest_detection_time")
+        target_time = target.get("latest_detection_time")
+        if row_time is not None and (target_time is None or row_time > target_time):
+            target["latest_detection_time"] = row_time
+            target["latest_event"] = row.get("latest_event")
+        if target.get("taxa_id") is None and taxa_id is not None:
+            target["taxa_id"] = taxa_id
+            by_taxa[taxa_id] = target
+        for field in ("scientific_name", "common_name"):
+            if not target.get(field) and row.get(field):
+                target[field] = row.get(field)
+    merged.sort(key=lambda entry: int(entry.get("count") or 0), reverse=True)
+    return merged
+
+
 def _copy_alias_info(alias_info: dict) -> dict:
     copied = dict(alias_info)
     for key in ("display_labels", "match_names"):
@@ -4318,18 +4362,20 @@ class DetectionRepository:
         """
         async with self.db.execute(query, (start_date.isoformat(sep=" "), end_date.isoformat(sep=" "))) as cursor:
             rows = await cursor.fetchall()
-            return [
-                {
-                    "species": row[6],
-                    "count": row[1],
-                    "latest_event": row[2],
-                    "latest_detection_time": _parse_datetime(row[3]) if row[3] else None,
-                    "scientific_name": row[4],
-                    "common_name": row[5],
-                    "taxa_id": row[7],
-                }
-                for row in rows
-            ]
+            return merge_species_count_rows(
+                [
+                    {
+                        "species": row[6],
+                        "count": row[1],
+                        "latest_event": row[2],
+                        "latest_detection_time": _parse_datetime(row[3]) if row[3] else None,
+                        "scientific_name": row[4],
+                        "common_name": row[5],
+                        "taxa_id": row[7],
+                    }
+                    for row in rows
+                ]
+            )
 
     async def insert_audio_detection(
         self,
