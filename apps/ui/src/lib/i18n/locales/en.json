@@ -1702,13 +1702,13 @@
     "clear_notifications": "Clear notifications"
   },
   "actions": {
-    "confirm_delete": "Delete this {species} detection?",
+    "confirm_delete": "Delete this whole {species} visit? The record and its media leave the history permanently. Hiding it instead keeps the record.",
     "play_video": "Play Video",
     "deep_reclassify": "Deep Reclassify",
     "manual_tag": "Manual Tag",
     "reclassify": "Reclassify",
     "species_info": "Species Info",
-    "delete_detection": "Delete Detection",
+    "delete_detection": "Delete this visit permanently",
     "hide_detection": "Hide Detection",
     "unhide_detection": "Unhide Detection",
     "read_more_wikipedia": "Read more on Wikipedia",

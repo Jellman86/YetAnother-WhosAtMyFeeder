@@ -1693,13 +1693,13 @@
     "clear_notifications": "清除通知"
   },
   "actions": {
-    "confirm_delete": "删除此 {species} 检测记录？",
+    "confirm_delete": "删除这次{species}的完整到访记录？该记录及其媒体将永久从历史中消失。改为隐藏则会保留记录。",
     "play_video": "播放视频",
     "deep_reclassify": "深度重新分类",
     "manual_tag": "手动标记",
     "reclassify": "重新分类",
     "species_info": "物种信息",
-    "delete_detection": "删除检测",
+    "delete_detection": "永久删除此次到访",
     "hide_detection": "隐藏检测",
     "unhide_detection": "取消隐藏检测",
     "read_more_wikipedia": "在维基百科上阅读更多",
