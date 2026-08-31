@@ -972,7 +972,9 @@ async def get_new_species_queue(
                 scientific_name=detection.scientific_name,
                 taxa_id=detection.taxa_id,
                 camera_name=detection.camera_name,
-                detection_time=str(detection.detection_time),
+                # Explicit UTC, like every other timestamp this API returns: a
+                # naive string is read as local time by the browser (#363).
+                detection_time=serialize_api_datetime(detection.detection_time) or "",
                 score=float(detection.score or 0.0),
                 manual_tagged=bool(detection.manual_tagged),
                 is_hidden=bool(detection.is_hidden),

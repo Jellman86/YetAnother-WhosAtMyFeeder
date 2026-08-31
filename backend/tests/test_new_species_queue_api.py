@@ -83,3 +83,18 @@ async def test_new_species_thresholds_are_honoured():
         res = await client.get("/api/events/new-species?window_days=90")
         names = {item["display_name"] for item in res.json()["items"]}
         assert "Gray Catbird" in names
+
+
+@pytest.mark.asyncio
+async def test_new_species_times_are_explicit_utc():
+    """A naive timestamp is read by the browser as local time, so the queue
+    showed the wrong clock to anyone outside UTC (#363). Every other endpoint
+    serialises detection times as explicit UTC; this one must too."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.get("/api/events/new-species")
+        assert res.status_code == 200
+        times = [item["detection_time"] for item in res.json()["items"]]
+        assert times, "expected newcomers in the fixture"
+        for value in times:
+            assert value.endswith("Z"), value
+            assert "T" in value, value

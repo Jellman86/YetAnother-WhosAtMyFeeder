@@ -6,6 +6,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.1] - 2026-08-31
+
+### Fixed
+
+- **The review queue shows the right time
+  ([#363](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/363)).** The new-species
+  entries carried a timestamp without a timezone, which a browser reads as local time - so anyone
+  outside UTC saw a sighting's clock shifted by their offset. Those times are now explicit UTC,
+  like every other timestamp the API returns.
+
+- **Home Assistant weather settings survive a restart.** The settings loader builds each section
+  explicitly, and the Home Assistant section was never passed to it - so the block saved in
+  `config.json` was read and thrown away on every start. The configuration appeared to save, then
+  came back blank after the next restart, and the following save wrote the defaults over it for
+  good. The section is now loaded like every other one, with environment variables still winning
+  over the file.
+
 ## [2.19.0] - 2026-08-31
 
 ### Added

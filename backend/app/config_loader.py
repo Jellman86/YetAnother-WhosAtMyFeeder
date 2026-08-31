@@ -11,6 +11,7 @@ from .config_models import (
     AccessibilitySettings,
     AppearanceSettings,
     BirdWeatherSettings,
+    HomeAssistantWeatherSettings,
     ClassificationSettings,
     DEFAULT_AI_ANALYSIS_PROMPT,
     DEFAULT_AI_CONVERSATION_PROMPT,
@@ -307,6 +308,15 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "station_token": os.environ.get("BIRDWEATHER__STATION_TOKEN", None),
     }
 
+    # Home Assistant weather settings (#277). Every field is optional: an
+    # absent section means the forecast provider stays the source.
+    ha_weather_data = {
+        "enabled": os.environ.get("HA_WEATHER__ENABLED", "false").lower() == "true",
+        "base_url": os.environ.get("HA_WEATHER__BASE_URL", None),
+        "access_token": os.environ.get("HA_WEATHER__ACCESS_TOKEN", None),
+        "weather_entity": os.environ.get("HA_WEATHER__WEATHER_ENTITY", None),
+    }
+
     # eBird settings
     ebird_data = {
         "enabled": os.environ.get("EBIRD__ENABLED", "false").lower() == "true",
@@ -548,6 +558,12 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
                     env_key = f"BIRDWEATHER__{key.upper()}"
                     if env_key not in os.environ:
                         birdweather_data[key] = value
+
+            if "ha_weather" in file_data:
+                for key, value in file_data["ha_weather"].items():
+                    env_key = f"HA_WEATHER__{key.upper()}"
+                    if env_key not in os.environ:
+                        ha_weather_data[key] = value
 
             if "ebird" in file_data:
                 for key, value in file_data["ebird"].items():
@@ -804,6 +820,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         media_cache=MediaCacheSettings(**media_cache_data),
         location=LocationSettings(**location_data),
         birdweather=BirdWeatherSettings(**birdweather_data),
+        ha_weather=HomeAssistantWeatherSettings(**ha_weather_data),
         ebird=EbirdSettings(**ebird_data),
         inaturalist=InaturalistSettings(**inaturalist_data),
         enrichment=EnrichmentSettings(**enrichment_data),
