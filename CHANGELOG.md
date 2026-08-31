@@ -41,6 +41,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Filtering by a rare species no longer reads the whole history
+  ([#258](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/258)).** The reporter
+  measured the shape exactly: common species filtered instantly, species with under a hundred
+  detections hung, and adding a date range fixed it - the time-ordered page walk reads more of the
+  table the rarer the species is. A bare species filter now takes one newest-first index seek per
+  species term instead, served by new composite (name, time) indexes plus the (taxa_id, time)
+  index that was missing entirely, so both extremes answer in under a millisecond on a 100,000-row
+  test table. The alias resolution that scanned the detections table on every filtered request is
+  cached briefly as well.
+
 - **The weather is stated once in the event view
   ([#268](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/268)).** Condition and
   temperature appeared in the facts list, again in a weather section header, and a third time
