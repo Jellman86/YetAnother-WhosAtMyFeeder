@@ -21,6 +21,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   good. The section is now loaded like every other one, with environment variables still winning
   over the file.
 
+## [2.19.0] - 2026-08-31
+
 ### Added
 
 - **The Frigate labels YA-WAMF acts on are configurable
