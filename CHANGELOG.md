@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.1] - 2026-08-31
+
 ### Fixed
 
 - **The review queue shows the right time
