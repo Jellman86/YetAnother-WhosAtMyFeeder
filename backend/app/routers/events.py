@@ -32,7 +32,7 @@ from app.auth import require_owner, AuthContext
 from app.auth import get_auth_context_with_legacy
 from app.ratelimit import guest_rate_limit
 from app.utils.public_access import effective_public_events_days
-from app.utils.api_datetime import serialize_api_datetime
+from app.utils.api_datetime import serialize_api_datetime, utc_naive_now
 from app.utils.canonical_species import (
     UNKNOWN_BIRD_DISPLAY_LABEL as CANONICAL_UNKNOWN_BIRD_DISPLAY_LABEL,
     should_hide_species_label,
@@ -955,7 +955,9 @@ async def get_new_species_queue(
     misidentification to correct, or a label to block? Owner only —
     confirmation is a curator's job.
     """
-    cutoff = datetime.now() - timedelta(days=window_days)
+    # detection_time is stored as naive UTC; a local-clock cutoff would shift
+    # the window by the host's timezone offset.
+    cutoff = utc_naive_now() - timedelta(days=window_days)
     async with get_db() as db:
         repo = DetectionRepository(db)
         candidates = await repo.get_new_species_candidates(
