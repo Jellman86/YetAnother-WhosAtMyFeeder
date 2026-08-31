@@ -51,14 +51,31 @@
         const showCommon = settingsStore.settings?.display_common_names ?? authStore.displayCommonNames ?? true;
         const preferSci = settingsStore.settings?.scientific_name_primary ?? authStore.scientificNamePrimary ?? false;
 
-        return species.slice(0, 5).map((item) => {
-            const naming = getBirdNames(item, showCommon, preferSci);
-            return {
-                ...item,
-                displayName: naming.primary,
-                subName: naming.secondary
-            };
-        });
+        // The API once returned the same species twice when catalogue identity
+        // was patchy across its rows, and a duplicate key here took the whole
+        // lower dashboard down. Merge duplicates instead of trusting the list.
+        const merged = new Map<string, (typeof species)[number]>();
+        for (const item of species) {
+            const key = (item.species ?? '').trim().toLowerCase();
+            const existing = merged.get(key);
+            if (existing) {
+                merged.set(key, { ...existing, count: existing.count + item.count });
+            } else {
+                merged.set(key, item);
+            }
+        }
+
+        return [...merged.values()]
+            .sort((left, right) => right.count - left.count)
+            .slice(0, 5)
+            .map((item) => {
+                const naming = getBirdNames(item, showCommon, preferSci);
+                return {
+                    ...item,
+                    displayName: naming.primary,
+                    subName: naming.secondary
+                };
+            });
     });
 
     $effect(() => {
