@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-08-31
+
 ### Added
 
 - **The Frigate labels YA-WAMF acts on are configurable
