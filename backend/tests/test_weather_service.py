@@ -13,6 +13,7 @@ def weather_service():
 async def test_get_location_from_config(weather_service):
     """Should use configured location if available."""
     with patch("app.services.weather_service.settings") as mock_settings:
+        mock_settings.ha_weather.is_usable.return_value = False
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 
@@ -87,6 +88,7 @@ async def test_get_location_no_config_no_auto(weather_service):
 async def test_get_current_weather_success(weather_service):
     """Should fetch current weather successfully."""
     with patch("app.services.weather_service.settings") as mock_settings:
+        mock_settings.ha_weather.is_usable.return_value = False
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 
@@ -129,6 +131,7 @@ async def test_get_current_weather_api_timeout(weather_service):
     import httpx
 
     with patch("app.services.weather_service.settings") as mock_settings:
+        mock_settings.ha_weather.is_usable.return_value = False
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 
@@ -149,6 +152,7 @@ async def test_get_current_weather_api_timeout(weather_service):
 async def test_get_current_weather_api_error(weather_service):
     """Should handle API errors gracefully."""
     with patch("app.services.weather_service.settings") as mock_settings:
+        mock_settings.ha_weather.is_usable.return_value = False
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 
@@ -219,6 +223,7 @@ def test_get_condition_text_default(weather_service):
 async def test_get_current_weather_includes_all_fields(weather_service):
     """Weather response should include all expected fields."""
     with patch("app.services.weather_service.settings") as mock_settings:
+        mock_settings.ha_weather.is_usable.return_value = False
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 
@@ -250,6 +255,7 @@ async def test_get_current_weather_includes_all_fields(weather_service):
 async def test_get_daily_sun_times_uses_local_timezone(weather_service):
     """Sun times should request local timezone from Open-Meteo."""
     with patch("app.services.weather_service.settings") as mock_settings:
+        mock_settings.ha_weather.is_usable.return_value = False
         mock_settings.location.latitude = 40.7128
         mock_settings.location.longitude = -74.0060
 

@@ -619,6 +619,46 @@ class BirdWeatherSettings(BaseModel):
     station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
 
 
+class HomeAssistantWeatherSettings(BaseModel):
+    """Weather from Home Assistant's own sensors instead of the forecast API (#277).
+
+    The weather entity is the general source; a per-category sensor override
+    wins for its one reading. An unavailable sensor reads as unknown - it is
+    never backfilled from a forecast and presented as measured.
+    """
+
+    enabled: bool = Field(default=False, description="Source live weather from Home Assistant")
+    base_url: Optional[str] = Field(
+        default=None, description="Home Assistant base URL, e.g. http://homeassistant.local:8123"
+    )
+    access_token: Optional[str] = Field(default=None, description="Home Assistant long-lived access token")
+    weather_entity: Optional[str] = Field(
+        default=None, description="Weather entity used as the general source, e.g. weather.home"
+    )
+    temperature_entity: Optional[str] = Field(default=None, description="Sensor overriding temperature")
+    wind_speed_entity: Optional[str] = Field(default=None, description="Sensor overriding wind speed")
+    wind_direction_entity: Optional[str] = Field(default=None, description="Sensor overriding wind direction (degrees)")
+    cloud_cover_entity: Optional[str] = Field(default=None, description="Sensor overriding cloud cover (percent)")
+    precipitation_entity: Optional[str] = Field(default=None, description="Sensor overriding precipitation")
+    rain_entity: Optional[str] = Field(default=None, description="Sensor overriding rainfall")
+    snowfall_entity: Optional[str] = Field(default=None, description="Sensor overriding snowfall")
+
+    def override_entities(self) -> dict[str, str]:
+        pairs = {
+            "temperature": self.temperature_entity,
+            "wind_speed": self.wind_speed_entity,
+            "wind_direction": self.wind_direction_entity,
+            "cloud_cover": self.cloud_cover_entity,
+            "precipitation": self.precipitation_entity,
+            "rain": self.rain_entity,
+            "snowfall": self.snowfall_entity,
+        }
+        return {category: entity.strip() for category, entity in pairs.items() if entity and entity.strip()}
+
+    def is_usable(self) -> bool:
+        return bool(self.enabled and (self.base_url or "").strip() and (self.access_token or "").strip())
+
+
 class EbirdSettings(BaseModel):
     enabled: bool = Field(default=False, description="Enable eBird enrichment")
     api_key: Optional[str] = Field(default=None, description="eBird API key")

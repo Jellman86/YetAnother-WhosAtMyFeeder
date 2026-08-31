@@ -842,6 +842,31 @@
         "test_loading": "Verificando…",
         "test_success": "Conexão BirdWeather verificada!",
         "test_error": "Falha na conexão BirdWeather"
+      },
+      "ha_weather": {
+        "title": "Clima do Home Assistant",
+        "toggle_label": "Registre o clima dos seus próprios sensores em vez da API de previsão. Um sensor que não pode responder é registrado como desconhecido, nunca como previsão.",
+        "base_url": "URL do Home Assistant",
+        "base_url_desc": "O endereço que este servidor consegue alcançar, ex.: http://homeassistant.local:8123",
+        "token": "Token de acesso de longa duração",
+        "token_desc": "Criado no Home Assistant em seu perfil, Segurança, tokens de acesso de longa duração.",
+        "token_placeholder": "Cole um token de acesso de longa duração",
+        "entity": "Entidade de clima",
+        "entity_desc": "A fonte geral, ex.: weather.home. Deixe vazio para depender apenas dos sensores dedicados.",
+        "overrides": "Sensores dedicados por leitura",
+        "overrides_desc": "Um sensor indicado aqui prevalece sobre a entidade de clima para sua leitura. Se não puder responder, essa leitura fica desconhecida.",
+        "override_temperature": "Sensor de temperatura",
+        "override_wind_speed": "Sensor de velocidade do vento",
+        "override_wind_direction": "Sensor de direção do vento",
+        "override_cloud_cover": "Sensor de nebulosidade",
+        "override_precipitation": "Sensor de precipitação",
+        "override_rain": "Sensor de chuva",
+        "override_snowfall": "Sensor de neve",
+        "test_button": "Obter uma leitura ao vivo",
+        "test_loading": "Obtendo…",
+        "test_title": "Teste de clima do Home Assistant",
+        "test_subtitle": "Obtém as leituras atuais que suas detecções registrariam.",
+        "stage_fetch": "Leituras ao vivo do Home Assistant"
       }
     },
     "enrichment": {

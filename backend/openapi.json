@@ -5696,6 +5696,72 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "HaWeatherTestRequest": {
+        "properties": {
+          "access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access Token"
+          },
+          "base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Url"
+          },
+          "weather_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weather Entity"
+          }
+        },
+        "title": "HaWeatherTestRequest",
+        "type": "object"
+      },
+      "HaWeatherTestResponse": {
+        "properties": {
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "readings": {
+            "additionalProperties": true,
+            "title": "Readings",
+            "type": "object"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "message"
+        ],
+        "title": "HaWeatherTestResponse",
+        "type": "object"
+      },
       "HiddenCountResponse": {
         "description": "Response for hidden count endpoint.",
         "properties": {
@@ -9331,6 +9397,127 @@
             ],
             "title": "Frigate Url"
           },
+          "ha_weather_access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Access Token"
+          },
+          "ha_weather_base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Base Url"
+          },
+          "ha_weather_cloud_cover_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Cloud Cover Entity"
+          },
+          "ha_weather_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Enabled"
+          },
+          "ha_weather_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Entity"
+          },
+          "ha_weather_precipitation_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Precipitation Entity"
+          },
+          "ha_weather_rain_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Rain Entity"
+          },
+          "ha_weather_snowfall_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Snowfall Entity"
+          },
+          "ha_weather_temperature_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Temperature Entity"
+          },
+          "ha_weather_wind_direction_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Wind Direction Entity"
+          },
+          "ha_weather_wind_speed_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ha Weather Wind Speed Entity"
+          },
           "image_execution_mode": {
             "anyOf": [
               {
@@ -11250,6 +11437,138 @@
             ],
             "description": "Frigate instance URL",
             "title": "Frigate Url"
+          },
+          "ha_weather_access_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Home Assistant long-lived access token",
+            "title": "Ha Weather Access Token"
+          },
+          "ha_weather_base_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Home Assistant base URL",
+            "title": "Ha Weather Base Url"
+          },
+          "ha_weather_cloud_cover_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding cloud cover",
+            "title": "Ha Weather Cloud Cover Entity"
+          },
+          "ha_weather_enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Source live weather from Home Assistant",
+            "title": "Ha Weather Enabled"
+          },
+          "ha_weather_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Weather entity used as the general source",
+            "title": "Ha Weather Entity"
+          },
+          "ha_weather_precipitation_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding precipitation",
+            "title": "Ha Weather Precipitation Entity"
+          },
+          "ha_weather_rain_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding rainfall",
+            "title": "Ha Weather Rain Entity"
+          },
+          "ha_weather_snowfall_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding snowfall",
+            "title": "Ha Weather Snowfall Entity"
+          },
+          "ha_weather_temperature_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding temperature",
+            "title": "Ha Weather Temperature Entity"
+          },
+          "ha_weather_wind_direction_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding wind direction",
+            "title": "Ha Weather Wind Direction Entity"
+          },
+          "ha_weather_wind_speed_entity": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Sensor overriding wind speed",
+            "title": "Ha Weather Wind Speed Entity"
           },
           "image_execution_mode": {
             "anyOf": [
@@ -22570,6 +22889,56 @@
           }
         ],
         "summary": "Export Settings"
+      }
+    },
+    "/api/settings/ha-weather/test": {
+      "post": {
+        "description": "Fetch a live reading from Home Assistant with the given or stored config. Owner only.",
+        "operationId": "test_ha_weather_api_settings_ha_weather_test_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HaWeatherTestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HaWeatherTestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Test Ha Weather"
       }
     },
     "/api/settings/import": {

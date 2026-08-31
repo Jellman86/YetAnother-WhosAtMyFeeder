@@ -833,6 +833,31 @@
         "test_loading": "確認中…",
         "test_success": "BirdWeather への接続が確認されました！",
         "test_error": "BirdWeather への接続に失敗しました"
+      },
+      "ha_weather": {
+        "title": "Home Assistant の天気",
+        "toggle_label": "予報 API ではなく自分のセンサーから天気を記録します。応答できないセンサーは不明として記録され、予報で代用されることはありません。",
+        "base_url": "Home Assistant の URL",
+        "base_url_desc": "このサーバーから到達できるアドレス（例: http://homeassistant.local:8123）",
+        "token": "長期アクセストークン",
+        "token_desc": "Home Assistant のプロフィール > セキュリティ > 長期アクセストークンで作成します。",
+        "token_placeholder": "長期アクセストークンを貼り付け",
+        "entity": "天気エンティティ",
+        "entity_desc": "全般的なソース（例: weather.home）。空欄にするとセンサー上書きのみを使用します。",
+        "overrides": "測定値ごとのセンサー上書き",
+        "overrides_desc": "ここで指定したセンサーは、その測定値について天気エンティティより優先されます。応答できない場合、その測定値は不明のままです。",
+        "override_temperature": "温度センサー",
+        "override_wind_speed": "風速センサー",
+        "override_wind_direction": "風向センサー",
+        "override_cloud_cover": "雲量センサー",
+        "override_precipitation": "降水量センサー",
+        "override_rain": "雨量センサー",
+        "override_snowfall": "降雪量センサー",
+        "test_button": "ライブ測定値を取得",
+        "test_loading": "取得中…",
+        "test_title": "Home Assistant 天気テスト",
+        "test_subtitle": "検出時に記録される現在の測定値を取得します。",
+        "stage_fetch": "Home Assistant からのライブ測定値"
       }
     },
     "enrichment": {

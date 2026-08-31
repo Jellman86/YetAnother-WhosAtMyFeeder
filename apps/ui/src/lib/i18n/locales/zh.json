@@ -833,6 +833,31 @@
         "test_loading": "正在验证…",
         "test_success": "BirdWeather 连接已验证！",
         "test_error": "BirdWeather 连接失败"
+      },
+      "ha_weather": {
+        "title": "Home Assistant 天气",
+        "toggle_label": "从您自己的传感器记录天气，而不是预报 API。无法响应的传感器记录为未知，绝不会用预报冒充。",
+        "base_url": "Home Assistant 地址",
+        "base_url_desc": "本服务器可访问的地址，例如 http://homeassistant.local:8123",
+        "token": "长期访问令牌",
+        "token_desc": "在 Home Assistant 的个人资料 > 安全 > 长期访问令牌中创建。",
+        "token_placeholder": "粘贴长期访问令牌",
+        "entity": "天气实体",
+        "entity_desc": "通用来源，例如 weather.home。留空则仅依赖传感器覆盖。",
+        "overrides": "按读数的传感器覆盖",
+        "overrides_desc": "此处指定的传感器在其读数上优先于天气实体。若无法响应，该读数保持未知。",
+        "override_temperature": "温度传感器",
+        "override_wind_speed": "风速传感器",
+        "override_wind_direction": "风向传感器",
+        "override_cloud_cover": "云量传感器",
+        "override_precipitation": "降水传感器",
+        "override_rain": "雨量传感器",
+        "override_snowfall": "降雪传感器",
+        "test_button": "获取实时读数",
+        "test_loading": "获取中…",
+        "test_title": "Home Assistant 天气测试",
+        "test_subtitle": "获取您的检测将会记录的当前读数。",
+        "stage_fetch": "来自 Home Assistant 的实时读数"
       }
     },
     "enrichment": {

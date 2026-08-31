@@ -13,7 +13,7 @@
     import { reverseGeocode } from '../../api/geocoding';
     import DiagnosticDialog from '../DiagnosticDialog.svelte';
     import { runSequentialDiagnostic, type DiagnosticStage, type DiagnosticResult } from '../../utils/diagnostic-runner';
-    import { testBirdNET, testBirdWeather, testMQTTPublish, checkBirdNetReachability } from '../../api/maintenance';
+    import { testBirdNET, testBirdWeather, testHaWeather, testMQTTPublish, checkBirdNetReachability } from '../../api/maintenance';
     import type { WeatherUnitSystem } from '../../utils/weather-units';
     import {
         ebirdRadiusFromDisplayValue,
@@ -35,6 +35,18 @@
         availableCameras = [],
         birdweatherEnabled = $bindable(false),
         birdweatherStationToken = $bindable(''),
+        haWeatherEnabled = $bindable(false),
+        haWeatherBaseUrl = $bindable(''),
+        haWeatherAccessToken = $bindable(''),
+        haWeatherAccessTokenSaved = $bindable(false),
+        haWeatherEntity = $bindable(''),
+        haWeatherTemperatureEntity = $bindable(''),
+        haWeatherWindSpeedEntity = $bindable(''),
+        haWeatherWindDirectionEntity = $bindable(''),
+        haWeatherCloudCoverEntity = $bindable(''),
+        haWeatherPrecipitationEntity = $bindable(''),
+        haWeatherRainEntity = $bindable(''),
+        haWeatherSnowfallEntity = $bindable(''),
         ebirdEnabled = $bindable(false),
         ebirdApiKey = $bindable(''),
         ebirdApiKeySaved = $bindable(false),
@@ -85,6 +97,18 @@
         availableCameras: string[];
         birdweatherEnabled: boolean;
         birdweatherStationToken: string;
+        haWeatherEnabled: boolean;
+        haWeatherBaseUrl: string;
+        haWeatherAccessToken: string;
+        haWeatherAccessTokenSaved: boolean;
+        haWeatherEntity: string;
+        haWeatherTemperatureEntity: string;
+        haWeatherWindSpeedEntity: string;
+        haWeatherWindDirectionEntity: string;
+        haWeatherCloudCoverEntity: string;
+        haWeatherPrecipitationEntity: string;
+        haWeatherRainEntity: string;
+        haWeatherSnowfallEntity: string;
         ebirdEnabled: boolean;
         ebirdApiKey: string;
         ebirdApiKeySaved: boolean;
@@ -182,6 +206,12 @@
     let bwResult = $state<DiagnosticResult | null>(null);
     let bwRunId = $state(0);
 
+    let hawTestOpen = $state(false);
+    let hawRunning = $state(false);
+    let hawStages = $state<DiagnosticStage[]>([]);
+    let hawResult = $state<DiagnosticResult | null>(null);
+    let hawRunId = $state(0);
+
     async function runBirdNetDiagnostic(): Promise<void> {
         bnTestOpen = true;
         bnRunning = true;
@@ -213,6 +243,31 @@
             (stages) => (bwStages = stages)
         );
         bwRunning = false;
+    }
+
+    async function runHaWeatherDiagnostic(): Promise<void> {
+        hawTestOpen = true;
+        hawRunning = true;
+        hawResult = null;
+        hawRunId += 1;
+        hawResult = await runSequentialDiagnostic(
+            [
+                {
+                    id: 'readings',
+                    label: $_('settings.integrations.ha_weather.stage_fetch', { default: 'Live readings from Home Assistant' }),
+                    run: async () => {
+                        const result = await testHaWeather({
+                            baseUrl: haWeatherBaseUrl || undefined,
+                            accessToken: haWeatherAccessToken || undefined,
+                            weatherEntity: haWeatherEntity || undefined
+                        });
+                        return { status: result.status, message: result.message };
+                    }
+                }
+            ],
+            (stages) => (hawStages = stages)
+        );
+        hawRunning = false;
     }
 
     async function connectInaturalist(): Promise<void> {
@@ -261,6 +316,7 @@
 
     $effect(() => {
         if (birdweatherStationTokenSaved && birdweatherStationToken) birdweatherStationTokenSaved = false;
+        if (haWeatherAccessTokenSaved && haWeatherAccessToken) haWeatherAccessTokenSaved = false;
     });
 
     $effect(() => {
@@ -1023,6 +1079,104 @@
         {/if}
     </SettingsCard>
 
+    <SettingsCard accent iconSnippet={birdweatherIcon} title={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })}>
+        <SettingsRow
+            labelId="setting-ha-weather-enabled"
+            label={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })}
+            description={$_('settings.integrations.ha_weather.toggle_label', { default: 'Record the weather from your own sensors instead of the forecast API. A sensor that cannot answer reads as unknown, never as a forecast.' })}
+        >
+            <SettingsToggle
+                checked={haWeatherEnabled}
+                labelledBy="setting-ha-weather-enabled"
+                srLabel={$_('settings.integrations.ha_weather.title', { default: 'Home Assistant weather' })}
+                onchange={(v) => (haWeatherEnabled = v)}
+            />
+        </SettingsRow>
+
+        {#if haWeatherEnabled}
+        <SettingsRow
+            labelId="setting-ha-weather-url"
+            label={$_('settings.integrations.ha_weather.base_url', { default: 'Home Assistant URL' })}
+            description={$_('settings.integrations.ha_weather.base_url_desc', { default: 'The address this server can reach, e.g. http://homeassistant.local:8123' })}
+            layout="stacked"
+        >
+            <SettingsInput
+                id="ha-weather-url"
+                type="text"
+                value={haWeatherBaseUrl}
+                ariaLabel={$_('settings.integrations.ha_weather.base_url', { default: 'Home Assistant URL' })}
+                oninput={(v) => (haWeatherBaseUrl = v)}
+            />
+        </SettingsRow>
+        <SettingsRow
+            labelId="setting-ha-weather-token"
+            label={$_('settings.integrations.ha_weather.token', { default: 'Long-lived access token' })}
+            description={$_('settings.integrations.ha_weather.token_desc', { default: 'Created in Home Assistant under your profile, Security, Long-lived access tokens.' })}
+            layout="stacked"
+        >
+            <SecretInput
+                id="ha-weather-token"
+                value={haWeatherAccessToken}
+                saved={haWeatherAccessTokenSaved}
+                emptyPlaceholder={$_('settings.integrations.ha_weather.token_placeholder', { default: 'Paste a long-lived access token' })}
+                ariaLabel={$_('settings.integrations.ha_weather.token', { default: 'Long-lived access token' })}
+                oninput={(v) => (haWeatherAccessToken = v)}
+            />
+        </SettingsRow>
+        <SettingsRow
+            labelId="setting-ha-weather-entity"
+            label={$_('settings.integrations.ha_weather.entity', { default: 'Weather entity' })}
+            description={$_('settings.integrations.ha_weather.entity_desc', { default: 'The general source, e.g. weather.home. Leave empty to rely on sensor overrides alone.' })}
+            layout="stacked"
+        >
+            <SettingsInput
+                id="ha-weather-entity"
+                type="text"
+                value={haWeatherEntity}
+                ariaLabel={$_('settings.integrations.ha_weather.entity', { default: 'Weather entity' })}
+                oninput={(v) => (haWeatherEntity = v)}
+            />
+        </SettingsRow>
+
+        <AdvancedSection
+            title={$_('settings.integrations.ha_weather.overrides', { default: 'Per-reading sensor overrides' })}
+            description={$_('settings.integrations.ha_weather.overrides_desc', { default: 'A sensor named here outranks the weather entity for its one reading. When it cannot answer, that reading is unknown.' })}
+        >
+            <div class="space-y-3">
+                {#each [
+                    { id: 'temperature', label: $_('settings.integrations.ha_weather.override_temperature', { default: 'Temperature sensor' }), get: () => haWeatherTemperatureEntity, set: (v: string) => (haWeatherTemperatureEntity = v) },
+                    { id: 'wind-speed', label: $_('settings.integrations.ha_weather.override_wind_speed', { default: 'Wind speed sensor' }), get: () => haWeatherWindSpeedEntity, set: (v: string) => (haWeatherWindSpeedEntity = v) },
+                    { id: 'wind-direction', label: $_('settings.integrations.ha_weather.override_wind_direction', { default: 'Wind direction sensor' }), get: () => haWeatherWindDirectionEntity, set: (v: string) => (haWeatherWindDirectionEntity = v) },
+                    { id: 'cloud-cover', label: $_('settings.integrations.ha_weather.override_cloud_cover', { default: 'Cloud cover sensor' }), get: () => haWeatherCloudCoverEntity, set: (v: string) => (haWeatherCloudCoverEntity = v) },
+                    { id: 'precipitation', label: $_('settings.integrations.ha_weather.override_precipitation', { default: 'Precipitation sensor' }), get: () => haWeatherPrecipitationEntity, set: (v: string) => (haWeatherPrecipitationEntity = v) },
+                    { id: 'rain', label: $_('settings.integrations.ha_weather.override_rain', { default: 'Rain sensor' }), get: () => haWeatherRainEntity, set: (v: string) => (haWeatherRainEntity = v) },
+                    { id: 'snowfall', label: $_('settings.integrations.ha_weather.override_snowfall', { default: 'Snowfall sensor' }), get: () => haWeatherSnowfallEntity, set: (v: string) => (haWeatherSnowfallEntity = v) }
+                ] as override (override.id)}
+                    <SettingsRow labelId={'setting-ha-weather-' + override.id} label={override.label} layout="stacked">
+                        <SettingsInput
+                            id={'ha-weather-' + override.id}
+                            type="text"
+                            value={override.get()}
+                            ariaLabel={override.label}
+                            oninput={override.set}
+                        />
+                    </SettingsRow>
+                {/each}
+            </div>
+        </AdvancedSection>
+
+        <button
+            type="button"
+            onclick={runHaWeatherDiagnostic}
+            disabled={hawRunning || !haWeatherBaseUrl || (!haWeatherAccessToken && !haWeatherAccessTokenSaved)}
+            aria-label={$_('settings.integrations.ha_weather.test_button', { default: 'Fetch a live reading' })}
+            class="w-full {buttonPrimaryClass}"
+        >
+            {hawRunning ? $_('settings.integrations.ha_weather.test_loading', { default: 'Fetching…' }) : $_('settings.integrations.ha_weather.test_button', { default: 'Fetch a live reading' })}
+        </button>
+        {/if}
+    </SettingsCard>
+
     <div class="md:col-span-2">
         <SettingsCard
             accent
@@ -1171,5 +1325,19 @@
         retryLabel={$_('settings.integrations.birdweather.test_button')}
         onClose={() => (bwTestOpen = false)}
         onRetry={runBirdWeatherDiagnostic}
+    />
+{/if}
+
+{#if hawTestOpen}
+    <DiagnosticDialog
+        title={$_('settings.integrations.ha_weather.test_title', { default: 'Home Assistant weather test' })}
+        subtitle={$_('settings.integrations.ha_weather.test_subtitle', { default: 'Fetches the current readings your detections would record.' })}
+        stages={hawStages}
+        busy={hawRunning}
+        result={hawResult}
+        runId={hawRunId}
+        retryLabel={$_('settings.integrations.ha_weather.test_button', { default: 'Fetch a live reading' })}
+        onClose={() => (hawTestOpen = false)}
+        onRetry={runHaWeatherDiagnostic}
     />
 {/if}

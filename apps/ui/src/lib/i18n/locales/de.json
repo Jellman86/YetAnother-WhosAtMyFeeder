@@ -833,6 +833,31 @@
         "test_loading": "Verifizierung…",
         "test_success": "BirdWeather-Verbindung verifiziert!",
         "test_error": "BirdWeather-Verbindung fehlgeschlagen"
+      },
+      "ha_weather": {
+        "title": "Home-Assistant-Wetter",
+        "toggle_label": "Wetter von eigenen Sensoren statt von der Vorhersage-API aufzeichnen. Ein Sensor, der nicht antworten kann, gilt als unbekannt, nie als Vorhersage.",
+        "base_url": "Home-Assistant-URL",
+        "base_url_desc": "Die Adresse, die dieser Server erreichen kann, z. B. http://homeassistant.local:8123",
+        "token": "Langlebiges Zugriffstoken",
+        "token_desc": "In Home Assistant unter Profil, Sicherheit, langlebige Zugriffstoken erstellt.",
+        "token_placeholder": "Langlebiges Zugriffstoken einfügen",
+        "entity": "Wetter-Entität",
+        "entity_desc": "Die allgemeine Quelle, z. B. weather.home. Leer lassen, um nur Sensor-Überschreibungen zu nutzen.",
+        "overrides": "Sensor-Überschreibungen je Messwert",
+        "overrides_desc": "Ein hier benannter Sensor hat für seinen Messwert Vorrang vor der Wetter-Entität. Kann er nicht antworten, bleibt der Messwert unbekannt.",
+        "override_temperature": "Temperatursensor",
+        "override_wind_speed": "Windgeschwindigkeitssensor",
+        "override_wind_direction": "Windrichtungssensor",
+        "override_cloud_cover": "Bewölkungssensor",
+        "override_precipitation": "Niederschlagssensor",
+        "override_rain": "Regensensor",
+        "override_snowfall": "Schneefallsensor",
+        "test_button": "Live-Messwert abrufen",
+        "test_loading": "Wird abgerufen…",
+        "test_title": "Home-Assistant-Wettertest",
+        "test_subtitle": "Ruft die aktuellen Messwerte ab, die Ihre Erkennungen aufzeichnen würden.",
+        "stage_fetch": "Live-Messwerte von Home Assistant"
       }
     },
     "enrichment": {

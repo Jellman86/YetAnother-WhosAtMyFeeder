@@ -1,0 +1,83 @@
+
+Initializing test database schema at /var/folders/7f/8fht73vj5wd3qrvstm_9r7340000gn/T/yawamf_test_8fe6j5mh/test_speciesid.db...
+Test database schema initialized successfully
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/powdrill/Developer/YetAnother-WhosAtMyFeeder
+configfile: pyproject.toml
+plugins: asyncio-1.4.0, anyio-4.14.2
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 1 item
+
+tests/test_ha_weather.py F
+
+=================================== FAILURES ===================================
+_____________ test_settings_api_redacts_and_preserves_the_ha_token _____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10c458920>
+tmp_path = PosixPath('/private/var/folders/7f/8fht73vj5wd3qrvstm_9r7340000gn/T/pytest-of-powdrill/pytest-6/test_settings_api_redacts_and_0')
+
+    @pytest.mark.asyncio
+    async def test_settings_api_redacts_and_preserves_the_ha_token(monkeypatch, tmp_path):
+        import app.config as config_module
+        from httpx import ASGITransport, AsyncClient
+    
+        from app.config import settings
+        from app.main import app
+    
+        monkeypatch.setattr(config_module, "CONFIG_PATH", tmp_path / "config.json")
+        monkeypatch.setattr(settings.ha_weather, "enabled", False)
+        monkeypatch.setattr(settings.ha_weather, "access_token", None)
+        monkeypatch.setattr(settings.ha_weather, "base_url", None)
+    
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            res = await client.put(
+                "/api/settings",
+                json={
+                    "ha_weather_enabled": True,
+                    "ha_weather_base_url": "http://ha.local:8123",
+                    "ha_weather_access_token": "secret-token",
+                    "ha_weather_entity": "weather.home",
+                    "ha_weather_temperature_entity": "sensor.feeder_temp",
+                },
+            )
+>           assert res.status_code == 200
+E           assert 405 == 200
+E            +  where 405 = <Response [405 Method Not Allowed]>.status_code
+
+tests/test_ha_weather.py:214: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2026-08-31 09:04:42 [info     ] MQTT config                    auth=False port=1883 server=mqtt
+2026-08-31 09:04:42 [info     ] Maintenance config             retention_days=0
+2026-08-31 09:04:42 [info     ] Classification config          blocked_labels=[] blocked_species=[] display_common_names=True inference_provider=auto min_confidence=0.4 personalized_rerank_enabled=False scientific_name_primary=False threshold=0.7 trust_frigate_sublabel=True unknown_bird_labels=['background', 'Background'] write_frigate_sublabel=True
+2026-08-31 09:04:42 [info     ] Media cache config             cache_clips=False cache_snapshots=True enabled=True high_quality_event_snapshot_bird_crop=False high_quality_event_snapshot_jpeg_quality=95 high_quality_event_snapshots=False retention_days=0
+2026-08-31 09:04:42 [info     ] BirdWeather config             enabled=False
+2026-08-31 09:04:42 [info     ] eBird config                   enabled=False
+2026-08-31 09:04:42 [info     ] iNaturalist config             enabled=False
+2026-08-31 09:04:42 [info     ] Enrichment config              mode=per_enrichment
+2026-08-31 09:04:42 [info     ] LLM config                     enabled=False provider=gemini
+2026-08-31 09:04:42 [info     ] Telemetry config               enabled=False has_installation_id=False
+2026-08-31 09:04:42 [info     ] Notification config            discord=False pushover=False telegram=False
+2026-08-31 09:04:42 [info     ] Auth config                    enabled=False has_password=False initial_setup_complete=False username=admin
+2026-08-31 09:04:42 [info     ] Public access config           enabled=False external_base_url=False historical_days=7 media_historical_days=7
+----------------------------- Captured stdout call -----------------------------
+2026-08-31 09:04:43 [info     ] AudioService initialized       buffer_duration_hours=24 correlation_window_seconds=300
+2026-08-31 09:04:43 [info     ] loaded_translation             language=zh
+2026-08-31 09:04:43 [info     ] loaded_translation             language=ja
+2026-08-31 09:04:43 [info     ] loaded_translation             language=de
+2026-08-31 09:04:43 [info     ] loaded_translation             language=ru
+2026-08-31 09:04:43 [info     ] loaded_translation             language=pt
+2026-08-31 09:04:43 [info     ] loaded_translation             language=en
+2026-08-31 09:04:43 [info     ] loaded_translation             language=it
+2026-08-31 09:04:43 [info     ] loaded_translation             language=fr
+2026-08-31 09:04:43 [info     ] loaded_translation             language=es
+=============================== warnings summary ===============================
+backend/tests/test_ha_weather.py::test_settings_api_redacts_and_preserves_the_ha_token
+  /Users/powdrill/Developer/YetAnother-WhosAtMyFeeder/backend/app/routers/models.py:6: UserWarning: Model directory resolved to '/Users/powdrill/Developer/YetAnother-WhosAtMyFeeder/backend/data/models' which is inside the container image filesystem. Downloaded models will be lost on container restart. Mount a persistent volume at /data or set MODEL_DIR to a writable host path.
+    from app.services.model_manager import (
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_ha_weather.py::test_settings_api_redacts_and_preserves_the_ha_token
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+========================= 1 failed, 1 warning in 1.89s =========================

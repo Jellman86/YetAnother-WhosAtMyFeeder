@@ -13,6 +13,7 @@ from .config_models import (
     AccessibilitySettings,
     AppearanceSettings,
     BirdWeatherSettings,
+    HomeAssistantWeatherSettings,
     ClassificationSettings,
     EbirdSettings,
     EnrichmentSettings,
@@ -46,6 +47,7 @@ class Settings(BaseSettings):
     media_cache: MediaCacheSettings = MediaCacheSettings()
     location: LocationSettings = LocationSettings()
     birdweather: BirdWeatherSettings = BirdWeatherSettings()
+    ha_weather: HomeAssistantWeatherSettings = HomeAssistantWeatherSettings()
     ebird: EbirdSettings = EbirdSettings()
     inaturalist: InaturalistSettings = InaturalistSettings()
     enrichment: EnrichmentSettings = EnrichmentSettings()

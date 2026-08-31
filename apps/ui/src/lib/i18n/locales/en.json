@@ -842,6 +842,31 @@
         "test_loading": "Verifying…",
         "test_success": "BirdWeather connection verified!",
         "test_error": "BirdWeather connection failed"
+      },
+      "ha_weather": {
+        "title": "Home Assistant weather",
+        "toggle_label": "Record the weather from your own sensors instead of the forecast API. A sensor that cannot answer reads as unknown, never as a forecast.",
+        "base_url": "Home Assistant URL",
+        "base_url_desc": "The address this server can reach, e.g. http://homeassistant.local:8123",
+        "token": "Long-lived access token",
+        "token_desc": "Created in Home Assistant under your profile, Security, Long-lived access tokens.",
+        "token_placeholder": "Paste a long-lived access token",
+        "entity": "Weather entity",
+        "entity_desc": "The general source, e.g. weather.home. Leave empty to rely on sensor overrides alone.",
+        "overrides": "Per-reading sensor overrides",
+        "overrides_desc": "A sensor named here outranks the weather entity for its one reading. When it cannot answer, that reading is unknown.",
+        "override_temperature": "Temperature sensor",
+        "override_wind_speed": "Wind speed sensor",
+        "override_wind_direction": "Wind direction sensor",
+        "override_cloud_cover": "Cloud cover sensor",
+        "override_precipitation": "Precipitation sensor",
+        "override_rain": "Rain sensor",
+        "override_snowfall": "Snowfall sensor",
+        "test_button": "Fetch a live reading",
+        "test_loading": "Fetching…",
+        "test_title": "Home Assistant weather test",
+        "test_subtitle": "Fetches the current readings your detections would record.",
+        "stage_fetch": "Live readings from Home Assistant"
       }
     },
     "enrichment": {
