@@ -7,6 +7,7 @@
     import { trapFocus } from '../utils/focus-trap';
     import { portal } from '../utils/portal';
     import { findMatchingFullFrameCandidate } from '../utils/detection-evidence';
+    import type { ReviewReason } from '../utils/review-queue';
     import { _ } from 'svelte-i18n';
 
     interface Props {
@@ -15,13 +16,17 @@
         labels?: string[];
         /** Species this feeder actually sees, offered first. */
         suggestions?: string[];
+        /** Why each detection is queued; absent means a low score. */
+        reasons?: Map<string, ReviewReason>;
         onidentify: (detection: Detection, species: string) => Promise<void> | void;
         onhide: (detection: Detection) => Promise<void> | void;
+        /** Add the detection's species to the blocked list (#310). */
+        onblock?: (detection: Detection) => Promise<void> | void;
         onopen?: (detection: Detection) => void;
         onclose: () => void;
     }
 
-    let { queue, labels = [], suggestions = [], onidentify, onhide, onopen, onclose }: Props = $props();
+    let { queue, labels = [], suggestions = [], reasons, onidentify, onhide, onblock, onopen, onclose }: Props = $props();
 
     let session = $state<ReviewSession>(untrack(() => createReviewSession(queue)));
     // A wide feeder shot does not settle what a 56% blur is; the crop the classifier
@@ -139,6 +144,18 @@
         }
     }
 
+    async function block(): Promise<void> {
+        const current = session.current;
+        if (!current || busy || !onblock) return;
+        busy = true;
+        try {
+            await onblock(current);
+            session = advance(session, 'resolved');
+        } finally {
+            busy = false;
+        }
+    }
+
     function skip(): void {
         if (busy) return;
         session = advance(session, 'skipped');
@@ -231,6 +248,7 @@
             </div>
         {:else if session.current}
             {@const current = session.current}
+            {@const isNewSpecies = reasons?.get(current.frigate_event) === 'new_species'}
             <div class="grid min-h-0 flex-1 gap-0 overflow-y-auto md:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] md:overflow-hidden">
                 <div class="flex min-h-0 flex-col justify-center bg-slate-950">
                     {#if imageFailed}
@@ -294,11 +312,44 @@
                             {$_('dashboard.review_session.what_is_it', { default: 'What is it?' })}
                         </p>
                         <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-                            {$_('dashboard.review_session.threshold_note', {
-                                default: 'The model scored this below the naming threshold.'
-                            })}
+                            {#if isNewSpecies}
+                                {$_('dashboard.review_session.new_species_note', {
+                                    values: { species: current.display_name },
+                                    default: 'First {species} recorded here. Confirm it, correct it, or block the species.'
+                                })}
+                            {:else}
+                                {$_('dashboard.review_session.threshold_note', {
+                                    default: 'The model scored this below the naming threshold.'
+                                })}
+                            {/if}
                         </p>
                     </div>
+
+                    {#if isNewSpecies}
+                        <div class="flex flex-wrap gap-2" data-review-new-species-actions>
+                            <button
+                                class="btn btn-primary min-h-11 flex-1 px-3 py-2 text-xs"
+                                disabled={busy}
+                                onclick={() => identify(current.display_name)}
+                            >
+                                {$_('dashboard.review_session.confirm_species', {
+                                    values: { species: current.display_name },
+                                    default: 'Confirm {species}'
+                                })}
+                            </button>
+                            {#if onblock}
+                                <button
+                                    class="btn btn-secondary min-h-11 px-3 py-2 text-xs"
+                                    disabled={busy}
+                                    onclick={block}
+                                >
+                                    {$_('dashboard.review_session.block_species', {
+                                        default: 'Block this species'
+                                    })}
+                                </button>
+                            {/if}
+                        </div>
+                    {/if}
 
                     <label class="block">
                         <span class="sr-only">{$_('detection.search_species', { default: 'Search species' })}</span>

@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **A new species asks for one confirmation
+  ([#310](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/310)).** A first-ever
+  sighting — a 34% Hadeda Ibis far from its range — used to sit in the Explorer waiting to be
+  stumbled over. The dashboard's "Needs your call" queue now also carries each recently arrived
+  species with no confirmed history, worded as what it is ("New species · 1 sighting"), and the
+  review dialog offers the three answers a first record deserves: confirm it as real, correct it
+  to what it actually was, or block the species outright.
+
 - **A notable sighting nearby opens its species card.** The dashboard's notable-nearby rows were
   read-only; each sighting is now a button that opens the same species card used everywhere else,
   so an unusual bird reported in your area is one click from its description, taxonomy, and your

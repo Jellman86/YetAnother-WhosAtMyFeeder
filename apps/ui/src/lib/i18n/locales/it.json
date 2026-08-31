@@ -344,7 +344,8 @@
       "title": "Richiede una tua decisione",
       "empty": "Ogni visita di oggi ha una specie. Non c’è nulla in sospeso.",
       "remaining": "Altri {count} in attesa",
-      "work_through": "Smaltisci la coda"
+      "work_through": "Smaltisci la coda",
+      "new_species_tag": "Nuova specie · {count} avvistamento/i"
     },
     "review_session": {
       "position": "{position} di {total}",
@@ -369,7 +370,11 @@
       "crop": "Ritaglio migliore",
       "full_frame": "Fotogramma intero",
       "view_label": "Quale immagine mostrare",
-      "no_crop": "Nessun ritaglio salvato per questo rilevamento. Apri la scheda completa per cercarne uno."
+      "no_crop": "Nessun ritaglio salvato per questo rilevamento. Apri la scheda completa per cercarne uno.",
+      "new_species_note": "Primo {species} registrato qui. Confermalo, correggilo o blocca la specie.",
+      "confirm_species": "Conferma {species}",
+      "block_species": "Blocca questa specie",
+      "species_blocked": "{species} bloccato. I futuri rilevamenti verranno scartati."
     }
   },
   "common": {

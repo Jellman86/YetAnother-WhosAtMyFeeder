@@ -106,6 +106,9 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
   for public guests, they also use the configured public-history window so filter metadata cannot
   reveal older private visits.
 - `GET /api/events/hidden-count` (owner)
+- `GET /api/events/new-species` (owner) — species that appeared recently with no confirmed
+  history, each represented by its latest sighting, for the dashboard's review queue.
+  `max_sightings` (default 3) and `window_days` (default 14) bound what still counts as new.
 - `GET /api/events/{event_id}/classification-status` (owner)
 - `PATCH /api/events/{event_id}` (owner)
 - `PATCH /api/events/bulk/manual-tag` (owner)

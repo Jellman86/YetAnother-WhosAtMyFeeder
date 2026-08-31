@@ -1172,6 +1172,24 @@ export interface components {
     providers?: Array<components['schemas']['ModelValidateDevice']>;
     reason: string;
 };
+    NewSpeciesQueueResponse: {
+    items: Array<components['schemas']['NewSpeciesSighting']>;
+    max_sightings: number;
+    window_days: number;
+};
+    NewSpeciesSighting: {
+    camera_name: string;
+    common_name?: string | null;
+    detection_time: string;
+    display_name: string;
+    frigate_event: string;
+    is_hidden: boolean;
+    manual_tagged: boolean;
+    scientific_name?: string | null;
+    score: number;
+    species_sightings: number;
+    taxa_id?: number | null;
+};
     NotificationTestRequest: {
     api_token?: string | null;
     bot_token?: string | null;
@@ -2640,6 +2658,18 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['HiddenCountResponse'];
+    };
+  };
+  "/api/events/new-species": {
+    get: {
+      operationId: "get_new_species_queue_api_events_new_species_get";
+      path: never;
+      query: {
+    max_sightings?: number;
+    window_days?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['NewSpeciesQueueResponse'];
     };
   };
   "/api/events/{event_id}": {

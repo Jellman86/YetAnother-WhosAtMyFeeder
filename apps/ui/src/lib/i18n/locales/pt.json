@@ -344,7 +344,8 @@
       "title": "Precisa da sua decisão",
       "empty": "Todas as visitas de hoje têm espécie. Não há nada pendente.",
       "remaining": "Mais {count} em espera",
-      "work_through": "Tratar da fila"
+      "work_through": "Tratar da fila",
+      "new_species_tag": "Espécie nova · {count} avistamento(s)"
     },
     "review_session": {
       "position": "{position} de {total}",
@@ -369,7 +370,11 @@
       "crop": "Melhor recorte",
       "full_frame": "Imagem completa",
       "view_label": "Que imagem mostrar",
-      "no_crop": "Não há recorte guardado para esta deteção. Abra o registo completo para procurar um."
+      "no_crop": "Não há recorte guardado para esta deteção. Abra o registo completo para procurar um.",
+      "new_species_note": "Primeiro {species} registrado aqui. Confirme, corrija ou bloqueie a espécie.",
+      "confirm_species": "Confirmar {species}",
+      "block_species": "Bloquear esta espécie",
+      "species_blocked": "{species} bloqueado. Detecções futuras serão descartadas."
     }
   },
   "common": {

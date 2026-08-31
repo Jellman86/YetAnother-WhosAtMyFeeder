@@ -344,7 +344,8 @@
       "title": "Erfordert Ihre Entscheidung",
       "empty": "Jeder Besuch heute hat eine Art. Es wartet nichts auf Sie.",
       "remaining": "{count} weitere warten",
-      "work_through": "Warteschlange abarbeiten"
+      "work_through": "Warteschlange abarbeiten",
+      "new_species_tag": "Neue Art · {count} Sichtung(en)"
     },
     "review_session": {
       "position": "{position} von {total}",
@@ -369,7 +370,11 @@
       "crop": "Bester Ausschnitt",
       "full_frame": "Vollbild",
       "view_label": "Welches Bild gezeigt wird",
-      "no_crop": "Für diese Erkennung ist kein Ausschnitt gespeichert. Öffnen Sie den vollständigen Eintrag, um einen zu suchen."
+      "no_crop": "Für diese Erkennung ist kein Ausschnitt gespeichert. Öffnen Sie den vollständigen Eintrag, um einen zu suchen.",
+      "new_species_note": "Erste {species} an dieser Futterstelle. Bestätigen, korrigieren oder die Art blockieren.",
+      "confirm_species": "{species} bestätigen",
+      "block_species": "Diese Art blockieren",
+      "species_blocked": "{species} blockiert. Künftige Erkennungen werden verworfen."
     }
   },
   "common": {

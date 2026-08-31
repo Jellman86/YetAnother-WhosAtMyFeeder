@@ -172,3 +172,12 @@ export async function fetchHiddenCount(): Promise<paths['/api/events/hidden-coun
     const response = await apiFetch(`${API_BASE}/events/hidden-count`);
     return handleResponse<paths['/api/events/hidden-count']['get']['response']>(response);
 }
+
+export type NewSpeciesQueueResponse = paths['/api/events/new-species']['get']['response'];
+export type NewSpeciesSighting = NewSpeciesQueueResponse['items'][number];
+
+/** Species that appeared recently and no person has confirmed (#310). Owner only. */
+export async function fetchNewSpeciesQueue(): Promise<NewSpeciesQueueResponse> {
+    const response = await apiFetch(`${API_BASE}/events/new-species`);
+    return handleResponse<NewSpeciesQueueResponse>(response);
+}
