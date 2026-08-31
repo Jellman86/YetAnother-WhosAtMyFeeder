@@ -22,6 +22,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Deleting a model also clears the compile cache.** The OpenVINO kernel cache now lives on the
+  persistent volume, and its blobs are keyed by opaque model hashes — so a deleted model's
+  compiled kernels (hundreds of megabytes for a large model) would otherwise sit there forever
+  with no way to map them back. Deleting a model empties the cache; the surviving models pay one
+  recompile, which the warm-up window covers, and cache themselves fresh. Model changes were
+  never at risk: the hash keying means a blob can only ever be reused by the exact model that
+  produced it.
+
 - **A worker loading a large model is no longer mistaken for a dead one.** Observed in the field:
   the supervisor killed a worker with "heartbeat timeout" while its stderr was mid-way through
   TensorFlow's import chatter — heavy imports and cold GPU model compiles hold the GIL long enough
