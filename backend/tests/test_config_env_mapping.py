@@ -532,3 +532,55 @@ def test_media_cache_high_quality_event_snapshot_jpeg_quality_env_overrides_file
     loaded = Settings.load()
 
     assert loaded.media_cache.high_quality_event_snapshot_jpeg_quality == 81
+
+
+def test_home_assistant_weather_survives_a_restart(monkeypatch, tmp_path):
+    """Configuration the owner saved must come back when the process does.
+
+    The loader builds each section explicitly, and a section it never passes
+    silently takes model defaults - so the stored block was read and thrown
+    away, the settings page showed blank after a restart, and the next save
+    wrote the defaults over the owner's configuration for good.
+    """
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "ha_weather": {
+                    "enabled": True,
+                    "base_url": "https://homeassistant.example.com",
+                    "access_token": "stored-token",
+                    "weather_entity": "weather.forecast_home",
+                    "temperature_entity": "sensor.feeder_temp",
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    for name in ("HA_WEATHER__ENABLED", "HA_WEATHER__BASE_URL", "HA_WEATHER__ACCESS_TOKEN"):
+        monkeypatch.delenv(name, raising=False)
+
+    loaded = Settings.load()
+
+    assert loaded.ha_weather.enabled is True
+    assert loaded.ha_weather.base_url == "https://homeassistant.example.com"
+    assert loaded.ha_weather.access_token == "stored-token"
+    assert loaded.ha_weather.weather_entity == "weather.forecast_home"
+    assert loaded.ha_weather.temperature_entity == "sensor.feeder_temp"
+
+
+def test_home_assistant_weather_env_overrides_the_file(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps({"ha_weather": {"enabled": False, "base_url": "https://from-file.example.com"}}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(config_module, "CONFIG_PATH", config_path)
+    monkeypatch.setenv("HA_WEATHER__ENABLED", "true")
+    monkeypatch.setenv("HA_WEATHER__BASE_URL", "https://from-env.example.com")
+
+    loaded = Settings.load()
+
+    assert loaded.ha_weather.enabled is True
+    assert loaded.ha_weather.base_url == "https://from-env.example.com"
