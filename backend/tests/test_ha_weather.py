@@ -230,3 +230,33 @@ async def test_settings_api_redacts_and_preserves_the_ha_token(monkeypatch, tmp_
         res = await client.post("/api/settings", json={"ha_weather_access_token": "***REDACTED***"})
         assert res.status_code == 200
         assert settings.ha_weather.access_token == "secret-token"
+
+
+@pytest.mark.asyncio
+async def test_test_endpoint_names_the_empty_configuration(monkeypatch):
+    """A URL and token with nothing to read is a configuration gap, and the
+    test should name it instead of reporting a generic fetch failure."""
+    from httpx import ASGITransport, AsyncClient
+
+    from app.config import settings
+    from app.main import app
+
+    monkeypatch.setattr(settings.ha_weather, "weather_entity", None)
+    for field in (
+        "temperature_entity",
+        "wind_speed_entity",
+        "wind_direction_entity",
+        "cloud_cover_entity",
+        "precipitation_entity",
+        "rain_entity",
+        "snowfall_entity",
+    ):
+        monkeypatch.setattr(settings.ha_weather, field, None)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post(
+            "/api/settings/ha-weather/test",
+            json={"base_url": "http://ha.local:8123", "access_token": "token"},
+        )
+        assert res.status_code == 400
+        assert "weather entity" in res.json()["message"]

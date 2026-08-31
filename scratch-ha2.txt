@@ -1,0 +1,31 @@
+
+Initializing test database schema at /var/folders/7f/8fht73vj5wd3qrvstm_9r7340000gn/T/yawamf_test_qy9sha7o/test_speciesid.db...
+Test database schema initialized successfully
+............F                                                            [100%]
+=================================== FAILURES ===================================
+_______________ test_test_endpoint_names_the_empty_configuration _______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x12a1ab260>
+
+    @pytest.mark.asyncio
+    async def test_test_endpoint_names_the_empty_configuration(monkeypatch):
+        """A URL and token with nothing to read is a configuration gap, and the
+        test should name it instead of reporting a generic fetch failure."""
+        from httpx import ASGITransport, AsyncClient
+    
+        from app.main import app
+    
+>       monkeypatch.setattr(settings.ha_weather, "weather_entity", None)
+                            ^^^^^^^^
+E       NameError: name 'settings' is not defined
+
+tests/test_ha_weather.py:243: NameError
+=============================== warnings summary ===============================
+backend/tests/test_ha_weather.py::test_settings_api_redacts_and_preserves_the_ha_token
+  /Users/powdrill/Developer/YetAnother-WhosAtMyFeeder/backend/app/routers/models.py:6: UserWarning: Model directory resolved to '/Users/powdrill/Developer/YetAnother-WhosAtMyFeeder/backend/data/models' which is inside the container image filesystem. Downloaded models will be lost on container restart. Mount a persistent volume at /data or set MODEL_DIR to a writable host path.
+    from app.services.model_manager import (
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_ha_weather.py::test_test_endpoint_names_the_empty_configuration
+1 failed, 12 passed, 1 warning in 2.35s

@@ -643,11 +643,22 @@ async def test_ha_weather(
             content={"status": "error", "message": "A base URL and access token are required.", "readings": {}},
         )
 
+    override_entities = settings.ha_weather.override_entities()
+    if not weather_entity and not override_entities:
+        return JSONResponse(
+            status_code=400,
+            content={
+                "status": "error",
+                "message": "Nothing to read yet: set a weather entity (e.g. weather.home) or at least one sensor override.",
+                "readings": {},
+            },
+        )
+
     source = HomeAssistantWeatherSource(
         base_url=base_url,
         access_token=token,
         weather_entity=weather_entity,
-        override_entities=settings.ha_weather.override_entities(),
+        override_entities=override_entities,
     )
     readings = await source.get_current_weather()
     if not readings:
