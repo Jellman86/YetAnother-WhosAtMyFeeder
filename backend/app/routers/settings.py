@@ -614,6 +614,58 @@ async def test_birdweather(
     )
 
 
+class HaWeatherTestRequest(BaseModel):
+    base_url: Optional[str] = None
+    access_token: Optional[str] = None
+    weather_entity: Optional[str] = None
+
+
+class HaWeatherTestResponse(BaseModel):
+    status: Literal["ok", "error"]
+    message: str
+    readings: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.post("/settings/ha-weather/test", response_model=HaWeatherTestResponse)
+async def test_ha_weather(
+    request: HaWeatherTestRequest, _auth: AuthContext = Depends(require_owner)
+) -> HaWeatherTestResponse | JSONResponse:
+    """Fetch a live reading from Home Assistant with the given or stored config. Owner only."""
+    from app.services.ha_weather import HomeAssistantWeatherSource
+
+    base_url = (request.base_url or settings.ha_weather.base_url or "").strip()
+    token = request.access_token if request.access_token not in (None, "", "***REDACTED***") else None
+    token = token or settings.ha_weather.access_token or ""
+    weather_entity = (request.weather_entity or settings.ha_weather.weather_entity or "").strip() or None
+    if not base_url or not token:
+        return JSONResponse(
+            status_code=400,
+            content={"status": "error", "message": "A base URL and access token are required.", "readings": {}},
+        )
+
+    source = HomeAssistantWeatherSource(
+        base_url=base_url,
+        access_token=token,
+        weather_entity=weather_entity,
+        override_entities=settings.ha_weather.override_entities(),
+    )
+    readings = await source.get_current_weather()
+    if not readings:
+        return JSONResponse(
+            status_code=502,
+            content={
+                "status": "error",
+                "message": "No readings came back. Check the URL, the token, and the entity ids.",
+                "readings": {},
+            },
+        )
+    return HaWeatherTestResponse(
+        status="ok",
+        message=f"{len(readings)} reading(s) received from Home Assistant.",
+        readings=readings,
+    )
+
+
 class LlmTestRequest(BaseModel):
     llm_enabled: Optional[bool] = None
     llm_provider: Optional[str] = None
@@ -845,6 +897,18 @@ class SettingsUpdate(BaseModel):
     # BirdWeather settings
     birdweather_enabled: Optional[bool] = Field(False, description="Enable BirdWeather reporting")
     birdweather_station_token: Optional[str] = Field(None, description="BirdWeather Station Token")
+    # Home Assistant weather source (#277)
+    ha_weather_enabled: Optional[bool] = Field(None, description="Source live weather from Home Assistant")
+    ha_weather_base_url: Optional[str] = Field(None, description="Home Assistant base URL")
+    ha_weather_access_token: Optional[str] = Field(None, description="Home Assistant long-lived access token")
+    ha_weather_entity: Optional[str] = Field(None, description="Weather entity used as the general source")
+    ha_weather_temperature_entity: Optional[str] = Field(None, description="Sensor overriding temperature")
+    ha_weather_wind_speed_entity: Optional[str] = Field(None, description="Sensor overriding wind speed")
+    ha_weather_wind_direction_entity: Optional[str] = Field(None, description="Sensor overriding wind direction")
+    ha_weather_cloud_cover_entity: Optional[str] = Field(None, description="Sensor overriding cloud cover")
+    ha_weather_precipitation_entity: Optional[str] = Field(None, description="Sensor overriding precipitation")
+    ha_weather_rain_entity: Optional[str] = Field(None, description="Sensor overriding rainfall")
+    ha_weather_snowfall_entity: Optional[str] = Field(None, description="Sensor overriding snowfall")
     # eBird settings
     ebird_enabled: Optional[bool] = Field(False, description="Enable eBird enrichment")
     ebird_api_key: Optional[str] = Field(None, description="eBird API key")
@@ -1329,6 +1393,18 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "birdweather_enabled": settings.birdweather.enabled,
         # SECURITY: Never expose station tokens via API
         "birdweather_station_token": "***REDACTED***" if settings.birdweather.station_token else None,
+        # Home Assistant weather source (#277)
+        "ha_weather_enabled": settings.ha_weather.enabled,
+        "ha_weather_base_url": settings.ha_weather.base_url,
+        "ha_weather_access_token": "***REDACTED***" if settings.ha_weather.access_token else None,
+        "ha_weather_entity": settings.ha_weather.weather_entity,
+        "ha_weather_temperature_entity": settings.ha_weather.temperature_entity,
+        "ha_weather_wind_speed_entity": settings.ha_weather.wind_speed_entity,
+        "ha_weather_wind_direction_entity": settings.ha_weather.wind_direction_entity,
+        "ha_weather_cloud_cover_entity": settings.ha_weather.cloud_cover_entity,
+        "ha_weather_precipitation_entity": settings.ha_weather.precipitation_entity,
+        "ha_weather_rain_entity": settings.ha_weather.rain_entity,
+        "ha_weather_snowfall_entity": settings.ha_weather.snowfall_entity,
         # eBird settings
         "ebird_enabled": ebird_active,
         "ebird_api_key": "***REDACTED***" if settings.ebird.api_key else None,
@@ -1721,6 +1797,26 @@ async def update_settings(
     # Only update token if it's not the redacted placeholder
     if "birdweather_station_token" in fields_set and should_update_secret(update.birdweather_station_token):
         settings.birdweather.station_token = update.birdweather_station_token
+
+    # Home Assistant weather source (#277)
+    if "ha_weather_enabled" in fields_set and update.ha_weather_enabled is not None:
+        settings.ha_weather.enabled = update.ha_weather_enabled
+    if "ha_weather_access_token" in fields_set and should_update_secret(update.ha_weather_access_token):
+        settings.ha_weather.access_token = update.ha_weather_access_token
+    for _ha_field, _ha_target in (
+        ("ha_weather_base_url", "base_url"),
+        ("ha_weather_entity", "weather_entity"),
+        ("ha_weather_temperature_entity", "temperature_entity"),
+        ("ha_weather_wind_speed_entity", "wind_speed_entity"),
+        ("ha_weather_wind_direction_entity", "wind_direction_entity"),
+        ("ha_weather_cloud_cover_entity", "cloud_cover_entity"),
+        ("ha_weather_precipitation_entity", "precipitation_entity"),
+        ("ha_weather_rain_entity", "rain_entity"),
+        ("ha_weather_snowfall_entity", "snowfall_entity"),
+    ):
+        if _ha_field in fields_set:
+            _ha_value = getattr(update, _ha_field)
+            setattr(settings.ha_weather, _ha_target, (_ha_value or "").strip() or None)
 
     # eBird settings
     if "ebird_enabled" in fields_set and update.ebird_enabled is not None:

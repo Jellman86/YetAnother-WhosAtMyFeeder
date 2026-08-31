@@ -842,6 +842,31 @@
         "test_loading": "Verifica in corso…",
         "test_success": "Connessione BirdWeather verificata!",
         "test_error": "Connessione BirdWeather fallita"
+      },
+      "ha_weather": {
+        "title": "Meteo Home Assistant",
+        "toggle_label": "Registra il meteo dai tuoi sensori invece che dall'API di previsione. Un sensore che non può rispondere risulta sconosciuto, mai una previsione.",
+        "base_url": "URL di Home Assistant",
+        "base_url_desc": "L'indirizzo raggiungibile da questo server, ad es. http://homeassistant.local:8123",
+        "token": "Token di accesso a lunga durata",
+        "token_desc": "Creato in Home Assistant nel tuo profilo, Sicurezza, token di accesso a lunga durata.",
+        "token_placeholder": "Incolla un token di accesso a lunga durata",
+        "entity": "Entità meteo",
+        "entity_desc": "La fonte generale, ad es. weather.home. Lascia vuoto per usare solo i sensori dedicati.",
+        "overrides": "Sensori dedicati per lettura",
+        "overrides_desc": "Un sensore indicato qui prevale sull'entità meteo per la sua lettura. Se non può rispondere, quella lettura resta sconosciuta.",
+        "override_temperature": "Sensore di temperatura",
+        "override_wind_speed": "Sensore velocità del vento",
+        "override_wind_direction": "Sensore direzione del vento",
+        "override_cloud_cover": "Sensore copertura nuvolosa",
+        "override_precipitation": "Sensore precipitazioni",
+        "override_rain": "Sensore pioggia",
+        "override_snowfall": "Sensore neve",
+        "test_button": "Recupera una lettura in tempo reale",
+        "test_loading": "Recupero…",
+        "test_title": "Test meteo Home Assistant",
+        "test_subtitle": "Recupera le letture attuali che le tue rilevazioni registrerebbero.",
+        "stage_fetch": "Letture in tempo reale da Home Assistant"
       }
     },
     "enrichment": {

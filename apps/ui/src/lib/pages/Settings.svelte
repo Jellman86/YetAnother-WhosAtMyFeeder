@@ -282,6 +282,18 @@
     let birdweatherEnabled = $state(false);
     let birdweatherStationToken = $state('');
     let birdweatherStationTokenSaved = $state(false);
+    let haWeatherEnabled = $state(false);
+    let haWeatherBaseUrl = $state('');
+    let haWeatherAccessToken = $state('');
+    let haWeatherAccessTokenSaved = $state(false);
+    let haWeatherEntity = $state('');
+    let haWeatherTemperatureEntity = $state('');
+    let haWeatherWindSpeedEntity = $state('');
+    let haWeatherWindDirectionEntity = $state('');
+    let haWeatherCloudCoverEntity = $state('');
+    let haWeatherPrecipitationEntity = $state('');
+    let haWeatherRainEntity = $state('');
+    let haWeatherSnowfallEntity = $state('');
 
     // iNaturalist Settings
     let inaturalistEnabled = $state(false);
@@ -1779,6 +1791,17 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days ?? 0 },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
             { key: 'birdweatherStationToken', val: birdweatherStationToken, store: normalizeSecret(s.birdweather_station_token) },
+            { key: 'haWeatherEnabled', val: haWeatherEnabled, store: s.ha_weather_enabled ?? false },
+            { key: 'haWeatherBaseUrl', val: haWeatherBaseUrl, store: s.ha_weather_base_url ?? '' },
+            { key: 'haWeatherAccessToken', val: haWeatherAccessToken, store: normalizeSecret(s.ha_weather_access_token) },
+            { key: 'haWeatherEntity', val: haWeatherEntity, store: s.ha_weather_entity ?? '' },
+            { key: 'haWeatherTemperatureEntity', val: haWeatherTemperatureEntity, store: s.ha_weather_temperature_entity ?? '' },
+            { key: 'haWeatherWindSpeedEntity', val: haWeatherWindSpeedEntity, store: s.ha_weather_wind_speed_entity ?? '' },
+            { key: 'haWeatherWindDirectionEntity', val: haWeatherWindDirectionEntity, store: s.ha_weather_wind_direction_entity ?? '' },
+            { key: 'haWeatherCloudCoverEntity', val: haWeatherCloudCoverEntity, store: s.ha_weather_cloud_cover_entity ?? '' },
+            { key: 'haWeatherPrecipitationEntity', val: haWeatherPrecipitationEntity, store: s.ha_weather_precipitation_entity ?? '' },
+            { key: 'haWeatherRainEntity', val: haWeatherRainEntity, store: s.ha_weather_rain_entity ?? '' },
+            { key: 'haWeatherSnowfallEntity', val: haWeatherSnowfallEntity, store: s.ha_weather_snowfall_entity ?? '' },
             { key: 'ebirdEnabled', val: ebirdEnabled, store: s.ebird_enabled ?? false },
             { key: 'ebirdApiKey', val: ebirdApiKey, store: normalizeSecret(s.ebird_api_key) },
             { key: 'ebirdDefaultRadiusKm', val: ebirdDefaultRadiusKm, store: s.ebird_default_radius_km ?? 25 },
@@ -2778,6 +2801,23 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 birdweatherStationTokenSaved = false;
                 birdweatherStationToken = settings.birdweather_station_token ?? '';
             }
+            haWeatherEnabled = settings.ha_weather_enabled ?? false;
+            haWeatherBaseUrl = settings.ha_weather_base_url ?? '';
+            if (settings.ha_weather_access_token === '***REDACTED***') {
+                haWeatherAccessTokenSaved = true;
+                haWeatherAccessToken = '';
+            } else {
+                haWeatherAccessTokenSaved = false;
+                haWeatherAccessToken = settings.ha_weather_access_token ?? '';
+            }
+            haWeatherEntity = settings.ha_weather_entity ?? '';
+            haWeatherTemperatureEntity = settings.ha_weather_temperature_entity ?? '';
+            haWeatherWindSpeedEntity = settings.ha_weather_wind_speed_entity ?? '';
+            haWeatherWindDirectionEntity = settings.ha_weather_wind_direction_entity ?? '';
+            haWeatherCloudCoverEntity = settings.ha_weather_cloud_cover_entity ?? '';
+            haWeatherPrecipitationEntity = settings.ha_weather_precipitation_entity ?? '';
+            haWeatherRainEntity = settings.ha_weather_rain_entity ?? '';
+            haWeatherSnowfallEntity = settings.ha_weather_snowfall_entity ?? '';
             // eBird settings
             ebirdEnabled = settings.ebird_enabled ?? false;
             if (settings.ebird_api_key === '***REDACTED***') {
@@ -3094,6 +3134,17 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 location_weather_unit_system: locationWeatherUnitSystem,
                 birdweather_enabled: birdweatherEnabled,
                 birdweather_station_token: birdweatherStationToken,
+                ha_weather_enabled: haWeatherEnabled,
+                ha_weather_base_url: haWeatherBaseUrl || null,
+                ha_weather_access_token: haWeatherAccessToken,
+                ha_weather_entity: haWeatherEntity || null,
+                ha_weather_temperature_entity: haWeatherTemperatureEntity || null,
+                ha_weather_wind_speed_entity: haWeatherWindSpeedEntity || null,
+                ha_weather_wind_direction_entity: haWeatherWindDirectionEntity || null,
+                ha_weather_cloud_cover_entity: haWeatherCloudCoverEntity || null,
+                ha_weather_precipitation_entity: haWeatherPrecipitationEntity || null,
+                ha_weather_rain_entity: haWeatherRainEntity || null,
+                ha_weather_snowfall_entity: haWeatherSnowfallEntity || null,
                 ebird_enabled: ebirdEnabled,
                 ebird_api_key: ebirdApiKey,
                 ebird_default_radius_km: ebirdDefaultRadiusKm,
@@ -3421,6 +3472,18 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:birdweatherEnabled
                     bind:birdweatherStationToken
                     bind:birdweatherStationTokenSaved
+                    bind:haWeatherEnabled
+                    bind:haWeatherBaseUrl
+                    bind:haWeatherAccessToken
+                    bind:haWeatherAccessTokenSaved
+                    bind:haWeatherEntity
+                    bind:haWeatherTemperatureEntity
+                    bind:haWeatherWindSpeedEntity
+                    bind:haWeatherWindDirectionEntity
+                    bind:haWeatherCloudCoverEntity
+                    bind:haWeatherPrecipitationEntity
+                    bind:haWeatherRainEntity
+                    bind:haWeatherSnowfallEntity
                     bind:ebirdEnabled
                     bind:ebirdApiKey
                     bind:ebirdApiKeySaved

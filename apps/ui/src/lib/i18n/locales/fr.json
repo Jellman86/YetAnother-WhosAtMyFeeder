@@ -833,6 +833,31 @@
         "test_loading": "Vérification…",
         "test_success": "Connexion BirdWeather vérifiée !",
         "test_error": "Échec de la connexion BirdWeather"
+      },
+      "ha_weather": {
+        "title": "Météo Home Assistant",
+        "toggle_label": "Enregistrer la météo depuis vos propres capteurs plutôt que l'API de prévision. Un capteur qui ne peut pas répondre est enregistré comme inconnu, jamais comme une prévision.",
+        "base_url": "URL de Home Assistant",
+        "base_url_desc": "L'adresse que ce serveur peut atteindre, p. ex. http://homeassistant.local:8123",
+        "token": "Jeton d'accès longue durée",
+        "token_desc": "Créé dans Home Assistant sous votre profil, Sécurité, jetons d'accès longue durée.",
+        "token_placeholder": "Collez un jeton d'accès longue durée",
+        "entity": "Entité météo",
+        "entity_desc": "La source générale, p. ex. weather.home. Laissez vide pour ne compter que sur les capteurs dédiés.",
+        "overrides": "Capteurs dédiés par mesure",
+        "overrides_desc": "Un capteur indiqué ici prime sur l'entité météo pour sa mesure. S'il ne peut pas répondre, la mesure reste inconnue.",
+        "override_temperature": "Capteur de température",
+        "override_wind_speed": "Capteur de vitesse du vent",
+        "override_wind_direction": "Capteur de direction du vent",
+        "override_cloud_cover": "Capteur de couverture nuageuse",
+        "override_precipitation": "Capteur de précipitations",
+        "override_rain": "Capteur de pluie",
+        "override_snowfall": "Capteur de neige",
+        "test_button": "Récupérer une mesure en direct",
+        "test_loading": "Récupération…",
+        "test_title": "Test météo Home Assistant",
+        "test_subtitle": "Récupère les mesures actuelles que vos détections enregistreraient.",
+        "stage_fetch": "Mesures en direct depuis Home Assistant"
       }
     },
     "enrichment": {

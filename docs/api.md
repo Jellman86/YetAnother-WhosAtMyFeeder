@@ -358,6 +358,8 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
   time-bounded MQTT client and never replaces the live ingest connection.
 - `POST /api/settings/notifications/test` (owner)
 - `POST /api/settings/birdweather/test` (owner)
+- `POST /api/settings/ha-weather/test` (owner) — fetches a live reading from the configured
+  Home Assistant weather source so the settings page can prove the URL, token, and entities work.
 - `POST /api/settings/llm/test` (owner) — returns structured AI diagnostic metadata (`provider`,
   `model`, `frame_count`, `failure_stage`, `retryable`, and optional `retry_after_seconds`) for the
   Settings multi-stage test panel. Provider 429 and 503 statuses are preserved.

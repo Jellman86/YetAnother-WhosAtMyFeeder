@@ -16,6 +16,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   review dialog offers the three answers a first record deserves: confirm it as real, correct it
   to what it actually was, or block the species outright.
 
+- **The weather can come from your own Home Assistant sensors
+  ([#277](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/277)).** A sensor a few
+  metres from the feeder is better evidence than a regional forecast for what a bird was actually
+  flying in. Settings → Integrations gains a Home Assistant card: the URL this server can reach, a
+  long-lived access token stored as a secret, a weather entity as the general source, and one
+  optional sensor override per reading for anyone with a better probe for temperature, wind,
+  cloud, or rain. Readings convert from whatever units Home Assistant reports into the stored
+  metric ones, a test button fetches a live reading through the shared diagnostic dialog, and the
+  degradation is honest: a sensor that cannot answer records unknown - it is never backfilled
+  from a forecast and presented as measured. Detections keep the weather they were recorded with.
+
 - **A notable sighting nearby opens its species card.** The dashboard's notable-nearby rows were
   read-only; each sighting is now a button that opens the same species card used everywhere else,
   so an unusual bird reported in your area is one click from its description, taxonomy, and your

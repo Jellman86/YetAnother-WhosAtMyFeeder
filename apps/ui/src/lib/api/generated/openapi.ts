@@ -830,6 +830,16 @@ export interface components {
     HTTPValidationError: {
     detail?: Array<components['schemas']['ValidationError']>;
 };
+    HaWeatherTestRequest: {
+    access_token?: string | null;
+    base_url?: string | null;
+    weather_entity?: string | null;
+};
+    HaWeatherTestResponse: {
+    message: string;
+    readings?: Record<string, unknown>;
+    status: "ok" | "error";
+};
     HiddenCountResponse: {
     hidden_count: number;
 };
@@ -1322,6 +1332,17 @@ export interface components {
     frigate_external_url?: string | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
+    ha_weather_access_token?: string | null;
+    ha_weather_base_url?: string | null;
+    ha_weather_cloud_cover_entity?: string | null;
+    ha_weather_enabled?: boolean | null;
+    ha_weather_entity?: string | null;
+    ha_weather_precipitation_entity?: string | null;
+    ha_weather_rain_entity?: string | null;
+    ha_weather_snowfall_entity?: string | null;
+    ha_weather_temperature_entity?: string | null;
+    ha_weather_wind_direction_entity?: string | null;
+    ha_weather_wind_speed_entity?: string | null;
     image_execution_mode?: string | null;
     inaturalist_client_id?: string | null;
     inaturalist_client_secret?: string | null;
@@ -1505,6 +1526,17 @@ export interface components {
     frigate_external_url?: string | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
+    ha_weather_access_token?: string | null;
+    ha_weather_base_url?: string | null;
+    ha_weather_cloud_cover_entity?: string | null;
+    ha_weather_enabled?: boolean | null;
+    ha_weather_entity?: string | null;
+    ha_weather_precipitation_entity?: string | null;
+    ha_weather_rain_entity?: string | null;
+    ha_weather_snowfall_entity?: string | null;
+    ha_weather_temperature_entity?: string | null;
+    ha_weather_wind_direction_entity?: string | null;
+    ha_weather_wind_speed_entity?: string | null;
     image_execution_mode?: string | null;
     inaturalist_client_id?: string | null;
     inaturalist_client_secret?: string | null;
@@ -3457,6 +3489,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: unknown;
+    };
+  };
+  "/api/settings/ha-weather/test": {
+    post: {
+      operationId: "test_ha_weather_api_settings_ha_weather_test_post";
+      path: never;
+      query: never;
+      requestBody: components['schemas']['HaWeatherTestRequest'];
+      response: components['schemas']['HaWeatherTestResponse'];
     };
   };
   "/api/settings/import": {
