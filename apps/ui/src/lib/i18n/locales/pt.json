@@ -1700,13 +1700,13 @@
     "clear_notifications": "Limpar notificações"
   },
   "actions": {
-    "confirm_delete": "Excluir esta detecção de {species}?",
+    "confirm_delete": "Excluir toda esta visita de {species}? O registro e suas mídias saem do histórico permanentemente. Ocultá-la, em vez disso, mantém o registro.",
     "play_video": "Reproduzir Vídeo",
     "deep_reclassify": "Reclassificação Profunda",
     "manual_tag": "Tag Manual",
     "reclassify": "Reclassificar",
     "species_info": "Info da Espécie",
-    "delete_detection": "Excluir Detecção",
+    "delete_detection": "Excluir esta visita permanentemente",
     "hide_detection": "Ocultar Detecção",
     "unhide_detection": "Mostrar Detecção",
     "read_more_wikipedia": "Leia mais na Wikipedia",

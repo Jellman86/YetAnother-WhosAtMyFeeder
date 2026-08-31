@@ -1691,13 +1691,13 @@
     "clear_notifications": "通知をクリア"
   },
   "actions": {
-    "confirm_delete": "この {species} の検出を削除しますか？",
+    "confirm_delete": "この{species}の来訪をまるごと削除しますか？記録とメディアは履歴から完全に消えます。代わりに非表示にすれば記録は残ります。",
     "play_video": "ビデオを再生",
     "deep_reclassify": "詳細な再分類",
     "manual_tag": "手動タグ付け",
     "reclassify": "再分類",
     "species_info": "種の情報",
-    "delete_detection": "検出を削除",
+    "delete_detection": "この来訪を完全に削除",
     "hide_detection": "検出を非表示",
     "unhide_detection": "検出を再表示",
     "read_more_wikipedia": "ウィキペディアで続きを読む",

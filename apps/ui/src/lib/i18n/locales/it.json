@@ -1700,13 +1700,13 @@
     "clear_notifications": "Cancella notifiche"
   },
   "actions": {
-    "confirm_delete": "Eliminare questo rilevamento di {species}?",
+    "confirm_delete": "Eliminare l'intera visita di {species}? Il record e i suoi contenuti multimediali escono dalla cronologia definitivamente. Nasconderla invece conserva il record.",
     "play_video": "Riproduci Video",
     "deep_reclassify": "Riclassificazione Profonda",
     "manual_tag": "Tag Manuale",
     "reclassify": "Riclassifica",
     "species_info": "Info Specie",
-    "delete_detection": "Elimina Rilevamento",
+    "delete_detection": "Elimina questa visita definitivamente",
     "hide_detection": "Nascondi Rilevamento",
     "unhide_detection": "Mostra Rilevamento",
     "read_more_wikipedia": "Leggi altro su Wikipedia",

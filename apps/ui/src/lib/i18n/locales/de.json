@@ -1691,13 +1691,13 @@
     "clear_notifications": "Benachrichtigungen löschen"
   },
   "actions": {
-    "confirm_delete": "Diese {species} Erkennung löschen?",
+    "confirm_delete": "Diesen gesamten {species}-Besuch löschen? Der Eintrag und seine Medien verschwinden dauerhaft aus der Historie. Ausblenden behält den Eintrag stattdessen.",
     "play_video": "Video abspielen",
     "deep_reclassify": "Tiefen-Reklassifizierung",
     "manual_tag": "Manuelles Tag",
     "reclassify": "Reklassifizieren",
     "species_info": "Spezies-Info",
-    "delete_detection": "Erkennung löschen",
+    "delete_detection": "Diesen Besuch dauerhaft löschen",
     "hide_detection": "Erkennung ausblenden",
     "unhide_detection": "Erkennung einblenden",
     "read_more_wikipedia": "Mehr auf Wikipedia lesen",

@@ -1691,13 +1691,13 @@
     "clear_notifications": "Borrar notificaciones"
   },
   "actions": {
-    "confirm_delete": "¿Eliminar esta detección de {species}?",
+    "confirm_delete": "¿Eliminar toda esta visita de {species}? El registro y sus medios desaparecen de la historia permanentemente. Ocultarla, en cambio, conserva el registro.",
     "play_video": "Reproducir Video",
     "deep_reclassify": "Reclasificación Profunda",
     "manual_tag": "Etiquetado Manual",
     "reclassify": "Reclasificar",
     "species_info": "Información de la Especie",
-    "delete_detection": "Eliminar Detección",
+    "delete_detection": "Eliminar esta visita permanentemente",
     "hide_detection": "Ocultar Detección",
     "unhide_detection": "Mostrar Detección",
     "read_more_wikipedia": "Leer más en Wikipedia",

@@ -52,6 +52,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The delete control names its own effect
+  ([#256](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/256)).** It said "Delete
+  Detection" and asked "Delete this Robin detection?" - never saying whether that removed the
+  identification or the whole visit, that the media goes with it, that it is permanent, or that
+  hiding exists for the reversible case. It now says all four, in every locale.
+
 - **Filtering by a rare species no longer reads the whole history
   ([#258](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/258)).** The reporter
   measured the shape exactly: common species filtered instantly, species with under a hundred
