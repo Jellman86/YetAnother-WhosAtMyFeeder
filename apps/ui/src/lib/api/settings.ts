@@ -13,6 +13,7 @@ export type NotificationSpeciesFilterMode = 'none' | 'blacklist' | 'whitelist';
 
 export interface Settings {
     frigate_url: string;
+    frigate_ingest_labels?: string[];
     frigate_external_url: string;
     mqtt_server: string;
     mqtt_port: number;

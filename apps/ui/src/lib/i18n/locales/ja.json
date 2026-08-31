@@ -990,7 +990,9 @@
       "full_visit_unavailable": "現在、対応情報を利用できません。",
       "external_url": "Frigate公開URL",
       "external_url_desc": "上のサーバーアドレスと異なる場合に、ブラウザがFrigateを開くために使うアドレスです。検出の「Frigateで開く」リンクに使われます。",
-      "external_url_placeholder": "https://frigate.example.com"
+      "external_url_placeholder": "https://frigate.example.com",
+      "ingest_labels": "処理する Frigate ラベル",
+      "ingest_labels_desc": "カンマ区切り。Frigate モデルが鳥に使うラベル（例: bird、duck、goose）を追加してください。ここに挙げたものはすべて鳥の識別パイプラインを通ります。"
     },
     "cameras": {
       "title": "アクティブなカメラ",

@@ -8,6 +8,7 @@ import random
 import time
 from aiomqtt import Client, MqttError
 from app.config import settings
+from app.utils.frigate import is_ingest_label
 from app.services.error_diagnostics import error_diagnostics_history
 from app.utils.tasks import create_background_task
 
@@ -499,7 +500,10 @@ class MQTTService:
             label = str(after.get("label") or "").strip().lower()
             false_positive = bool(after.get("false_positive", False))
             event_id = str(after.get("id") or "").strip()
-            should_process = bool(label == "bird" and (false_positive or event_type in {"new", "end"}))
+            should_process = bool(
+                is_ingest_label(label, settings.frigate.ingest_labels)
+                and (false_positive or event_type in {"new", "end"})
+            )
             return {
                 "event_id": event_id or None,
                 "should_process": should_process,

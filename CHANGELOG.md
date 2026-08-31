@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **The Frigate labels YA-WAMF acts on are configurable
+  ([#252](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/252)).** Hard-coding
+  `bird` had no reason behind it: a custom Frigate model that emits `duck` or `goose` as its own
+  class saw those events silently dropped. Settings → Connection now takes a comma-separated
+  label list (default `bird`, matching case-insensitively), and the setting says plainly that
+  everything listed flows through the bird identification pipeline - so it is for the labels your
+  model uses for birds, not for turning the app into a general animal tracker.
+
 - **What a visitor sees is now the owner's call, per medium
   ([#291](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/291)).** Audio was the one
   medium with no control at all: BirdNET detections and spectrograms were visible to any visitor

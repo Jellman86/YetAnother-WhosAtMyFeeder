@@ -190,6 +190,22 @@ class FrigateSettings(BaseModel):
     frigate_auth_token: Optional[str] = Field(None, description="Optional Bearer token for Frigate proxy auth")
     main_topic: str = "frigate"
     camera: list[str] = Field(default_factory=list, description="List of cameras to monitor")
+    ingest_labels: list[str] = Field(
+        default_factory=lambda: ["bird"],
+        description=(
+            "Frigate event labels YA-WAMF acts on (#252). Add the labels your "
+            "Frigate model uses for birds (e.g. duck, goose); everything here "
+            "flows through the bird identification pipeline."
+        ),
+    )
+
+    @field_validator("ingest_labels", mode="before")
+    @classmethod
+    def _normalize_ingest_labels(cls, value):
+        from app.utils.frigate import normalize_ingest_labels
+
+        return normalize_ingest_labels(value)
+
     clips_enabled: bool = Field(default=True, description="Enable fetching of video clips from Frigate")
     recording_clip_enabled: bool = Field(
         default=False,

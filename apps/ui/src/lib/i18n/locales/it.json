@@ -999,7 +999,9 @@
       "full_visit_unavailable": "Le informazioni sulla capacità non sono disponibili in questo momento.",
       "external_url": "URL pubblico di Frigate",
       "external_url_desc": "L'indirizzo che il browser usa per aprire Frigate quando differisce dall'indirizzo del server qui sopra. Usato per il link 'Apri in Frigate' di un rilevamento.",
-      "external_url_placeholder": "https://frigate.example.com"
+      "external_url_placeholder": "https://frigate.example.com",
+      "ingest_labels": "Etichette Frigate da elaborare",
+      "ingest_labels_desc": "Separate da virgole. Aggiungi le etichette che il tuo modello Frigate usa per gli uccelli (es. bird, duck, goose); tutto ciò che è elencato passa per la pipeline di identificazione degli uccelli."
     },
     "cameras": {
       "title": "Telecamere Attive",
