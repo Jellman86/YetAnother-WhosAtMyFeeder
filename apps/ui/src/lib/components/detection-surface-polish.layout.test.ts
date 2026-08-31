@@ -52,9 +52,10 @@ describe('detection surface polish', () => {
 
     it('uses section dividers for supporting context instead of stacked feature cards', () => {
         expect(detectionModalSource).toContain('data-detection-audio-section');
-        expect(detectionModalSource).toContain('data-detection-weather-section');
         expect(detectionModalSource).toMatch(/data-detection-audio-section[^>]+border-t/);
-        expect(detectionModalSource).toMatch(/data-detection-weather-section[^>]+border-t/);
+        // The weather no longer gets a section at all: it is one condensed
+        // facts row (#268), pinned by weather-stated-once.layout.test.ts.
+        expect(detectionModalSource).not.toContain('data-detection-weather-section');
     });
 
     it('replaces the old snapshot overlay with an honest inline frame picker', () => {

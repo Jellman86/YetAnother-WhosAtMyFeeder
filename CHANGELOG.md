@@ -22,6 +22,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The weather is stated once in the event view
+  ([#268](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/268)).** Condition and
+  temperature appeared in the facts list, again in a weather section header, and a third time
+  inside a disclosure hiding four more numbers - a click to reveal a single line. One condensed
+  facts row now carries every measured value (condition, temperature, wind, cloud, rain and snow),
+  omits what was not measured instead of printing dashes, and the section and its disclosure are
+  gone.
+
 - **Deleting a model also clears the compile cache.** The OpenVINO kernel cache now lives on the
   persistent volume, and its blobs are keyed by opaque model hashes — so a deleted model's
   compiled kernels (hundreds of megabytes for a large model) would otherwise sit there forever
