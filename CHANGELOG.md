@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **The review queue shows the right time
+  ([#363](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/363)).** The new-species
+  entries carried a timestamp without a timezone, which a browser reads as local time - so anyone
+  outside UTC saw a sighting's clock shifted by their offset. Those times are now explicit UTC,
+  like every other timestamp the API returns.
+
 ### Added
 
 - **The Frigate labels YA-WAMF acts on are configurable
