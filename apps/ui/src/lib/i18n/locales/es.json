@@ -344,7 +344,8 @@
       "title": "Necesita tu decisión",
       "empty": "Todas las visitas de hoy tienen especie. No hay nada pendiente.",
       "remaining": "{count} más en espera",
-      "work_through": "Revisar la cola"
+      "work_through": "Revisar la cola",
+      "new_species_tag": "Especie nueva · {count} avistamiento(s)"
     },
     "review_session": {
       "position": "{position} de {total}",
@@ -369,7 +370,11 @@
       "crop": "Mejor recorte",
       "full_frame": "Fotograma completo",
       "view_label": "Qué imagen mostrar",
-      "no_crop": "No hay recorte guardado para esta detección. Abre el registro completo para buscar uno."
+      "no_crop": "No hay recorte guardado para esta detección. Abre el registro completo para buscar uno.",
+      "new_species_note": "Primer {species} registrado aquí. Confírmalo, corrígelo o bloquea la especie.",
+      "confirm_species": "Confirmar {species}",
+      "block_species": "Bloquear esta especie",
+      "species_blocked": "{species} bloqueado. Las futuras detecciones se descartarán."
     }
   },
   "common": {

@@ -1297,6 +1297,59 @@ class DetectionRepository:
             row = await cursor.fetchone()
             return row[0] if row else 0
 
+    async def get_new_species_candidates(
+        self,
+        *,
+        max_sightings: int,
+        first_seen_cutoff: datetime,
+        excluded_labels: list[str] | None = None,
+        limit: int = 20,
+    ) -> list[tuple[Detection, int]]:
+        """Species with no confirmed history, represented by their latest sighting.
+
+        A species qualifies while all of its visible sightings are recent
+        arrivals: few of them, none manually tagged, first seen inside the
+        window. Each returns once, wearing its newest detection, so the
+        review queue can ask a person the one question that matters —
+        is this bird real here?
+        """
+        excluded = [label.strip().lower() for label in (excluded_labels or []) if label and label.strip()]
+        exclusion_clause = ""
+        params: list = []
+        if excluded:
+            placeholders = ",".join("?" for _ in excluded)
+            exclusion_clause = f"AND LOWER(d.display_name) NOT IN ({placeholders})"
+            params.extend(excluded)
+        query = f"""
+            WITH species_history AS (
+                SELECT LOWER(COALESCE(NULLIF(TRIM(d.scientific_name), ''), d.display_name)) AS species_key,
+                       COUNT(*) AS sightings,
+                       MAX(CASE WHEN d.manual_tagged = 1 THEN 1 ELSE 0 END) AS confirmed,
+                       MIN(d.detection_time) AS first_seen,
+                       MAX(d.id) AS latest_id
+                FROM detections d
+                WHERE (d.is_hidden = 0 OR d.is_hidden IS NULL)
+                  AND d.display_name IS NOT NULL
+                  {exclusion_clause}
+                GROUP BY species_key
+            )
+            SELECT {DETECTION_SELECT_COLUMNS}, sh.sightings AS species_sightings
+            FROM species_history sh
+            JOIN detections d ON d.id = sh.latest_id
+            LEFT JOIN detection_favorites f ON f.detection_id = d.id
+            WHERE sh.sightings <= ?
+              AND sh.confirmed = 0
+              AND sh.first_seen >= ?
+            ORDER BY sh.first_seen DESC
+            LIMIT ?
+        """
+        params.extend([max(1, int(max_sightings)), first_seen_cutoff.isoformat(sep=" "), max(1, int(limit))])
+        async with self.db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+        # Rows come back positional; the sighting count is the one column
+        # appended after DETECTION_SELECT_COLUMNS.
+        return [(_row_to_detection(row), int(row[-1])) for row in rows]
+
     async def delete_by_id(self, detection_id: int) -> bool:
         """Delete a detection by ID. Returns True if deleted."""
         await self.db.execute("DELETE FROM detections WHERE id = ?", (detection_id,))

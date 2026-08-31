@@ -8123,6 +8123,114 @@
         "title": "ModelValidateResponse",
         "type": "object"
       },
+      "NewSpeciesQueueResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NewSpeciesSighting"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "max_sightings": {
+            "title": "Max Sightings",
+            "type": "integer"
+          },
+          "window_days": {
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "max_sightings",
+          "window_days"
+        ],
+        "title": "NewSpeciesQueueResponse",
+        "type": "object"
+      },
+      "NewSpeciesSighting": {
+        "description": "The latest sighting of a species with no confirmed history here.",
+        "properties": {
+          "camera_name": {
+            "title": "Camera Name",
+            "type": "string"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "detection_time": {
+            "title": "Detection Time",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "is_hidden": {
+            "title": "Is Hidden",
+            "type": "boolean"
+          },
+          "manual_tagged": {
+            "title": "Manual Tagged",
+            "type": "boolean"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "species_sightings": {
+            "title": "Species Sightings",
+            "type": "integer"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "frigate_event",
+          "display_name",
+          "camera_name",
+          "detection_time",
+          "score",
+          "manual_tagged",
+          "is_hidden",
+          "species_sightings"
+        ],
+        "title": "NewSpeciesSighting",
+        "type": "object"
+      },
       "NotificationTestRequest": {
         "properties": {
           "api_token": {
@@ -18661,6 +18769,76 @@
           }
         ],
         "summary": "Get Hidden Count"
+      }
+    },
+    "/api/events/new-species": {
+      "get": {
+        "description": "Species that appeared recently and no person has confirmed (#310).\n\nEach item is the species' latest sighting, so the review queue can ask\nthe one question a first record deserves: is this bird real here, a\nmisidentification to correct, or a label to block? Owner only \u2014\nconfirmation is a curator's job.",
+        "operationId": "get_new_species_queue_api_events_new_species_get",
+        "parameters": [
+          {
+            "description": "A species with more sightings is established",
+            "in": "query",
+            "name": "max_sightings",
+            "required": false,
+            "schema": {
+              "default": 3,
+              "description": "A species with more sightings is established",
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Max Sightings",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only species first seen this recently",
+            "in": "query",
+            "name": "window_days",
+            "required": false,
+            "schema": {
+              "default": 14,
+              "description": "Only species first seen this recently",
+              "maximum": 365,
+              "minimum": 1,
+              "title": "Window Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewSpeciesQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get New Species Queue"
       }
     },
     "/api/events/{event_id}": {

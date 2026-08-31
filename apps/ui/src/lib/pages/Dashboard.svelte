@@ -16,7 +16,7 @@
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import type { AudioSummaryResponse, Detection, DailySummary, SpeciesInfo } from '../api';
-    import { deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchAudioSummary, fetchDailySummary, fetchClassifierLabels, reclassifyDetection, fetchSpeciesInfo } from '../api';
+    import { deleteDetection, hideDetection, updateDetectionSpecies, analyzeDetection, fetchAudioSummary, fetchDailySummary, fetchClassifierLabels, reclassifyDetection, fetchSpeciesInfo, fetchNewSpeciesQueue, updateSettings } from '../api';
     import { settingsStore } from '../stores/settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
@@ -28,7 +28,7 @@
 
     import { getBirdNames } from '../naming';
     import { groupDetectionsIntoVisits, withinDeskWindow } from '../utils/visit-grouping';
-    import { buildReviewQueue } from '../utils/review-queue';
+    import { buildReviewQueue, type NewSpeciesEntry } from '../utils/review-queue';
     import { applyManualTagResult } from '../utils/manual-tag';
 
     interface Props {
@@ -140,6 +140,7 @@
             const result = await updateDetectionSpecies(detection.frigate_event, species);
             detectionsStore.updateDetection(applyManualTagResult(detection, result));
             toastStore.show($_('detection.species_updated', { default: 'Species updated' }), 'success');
+            void refreshNewSpecies();
         } catch (e) {
             toastStore.show(getErrorMessage(e), 'error');
             throw e;
@@ -150,14 +151,66 @@
         try {
             await hideDetection(detection.frigate_event);
             detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
+            void refreshNewSpecies();
         } catch (e) {
             toastStore.show(getErrorMessage(e), 'error');
             throw e;
         }
     }
 
+    async function blockFromQueue(detection: Detection): Promise<void> {
+        try {
+            const existing = settingsStore.settings?.blocked_species ?? [];
+            await updateSettings({
+                blocked_species: [
+                    ...existing,
+                    {
+                        scientific_name: detection.scientific_name ?? null,
+                        common_name: detection.common_name ?? detection.display_name,
+                        taxa_id: detection.taxa_id ?? null
+                    }
+                ]
+            });
+            await settingsStore.load();
+            toastStore.show(
+                $_('dashboard.review_session.species_blocked', {
+                    values: { species: detection.display_name },
+                    default: '{species} blocked. Future detections will be dropped.'
+                }),
+                'success'
+            );
+            void refreshNewSpecies();
+        } catch (e) {
+            toastStore.show(getErrorMessage(e), 'error');
+            throw e;
+        }
+    }
+
+    // Each unconfirmed new species' latest sighting, asking for one human call (#310).
+    let newSpeciesEntries = $state<NewSpeciesEntry[]>([]);
+    async function refreshNewSpecies(): Promise<void> {
+        if (!canReview) {
+            newSpeciesEntries = [];
+            return;
+        }
+        try {
+            const res = await fetchNewSpeciesQueue();
+            newSpeciesEntries = res.items.map((item) => ({
+                detection: item as unknown as Detection,
+                sightings: item.species_sightings
+            }));
+        } catch {
+            newSpeciesEntries = [];
+        }
+    }
+
+    $effect(() => {
+        void canReview;
+        void refreshNewSpecies();
+    });
+
     // Detections still waiting on a person, oldest first.
-    let reviewQueue = $derived(buildReviewQueue(deskDetections, { reviewThreshold }));
+    let reviewQueue = $derived(buildReviewQueue(deskDetections, { reviewThreshold, newSpecies: newSpeciesEntries }));
 
     // Derive reclassification progress for the modal
     let modalReclassifyProgress = $derived(
@@ -538,15 +591,19 @@
 </div>
 
 {#if reviewSessionOpen && canReview}
+    {@const fullQueue = buildReviewQueue(deskDetections, {
+        reviewThreshold,
+        limit: Number.MAX_SAFE_INTEGER,
+        newSpecies: newSpeciesEntries
+    })}
     <ReviewQueueModal
-        queue={buildReviewQueue(deskDetections, {
-            reviewThreshold,
-            limit: Number.MAX_SAFE_INTEGER
-        }).items}
+        queue={fullQueue.items}
+        reasons={fullQueue.reasons}
         labels={classifierLabels}
         suggestions={recentSpecies}
         onidentify={identifyFromQueue}
         onhide={hideFromQueue}
+        onblock={blockFromQueue}
         onopen={(detection) => { reviewSessionOpen = false; selectedEvent = detection; }}
         onclose={() => (reviewSessionOpen = false)}
     />

@@ -344,7 +344,8 @@
       "title": "Nécessite votre décision",
       "empty": "Chaque visite d’aujourd’hui a une espèce. Rien ne vous attend.",
       "remaining": "{count} autres en attente",
-      "work_through": "Traiter la file"
+      "work_through": "Traiter la file",
+      "new_species_tag": "Nouvelle espèce · {count} observation(s)"
     },
     "review_session": {
       "position": "{position} sur {total}",
@@ -369,7 +370,11 @@
       "crop": "Meilleur recadrage",
       "full_frame": "Image entière",
       "view_label": "Quelle image afficher",
-      "no_crop": "Aucun recadrage enregistré pour cette détection. Ouvrez la fiche complète pour en chercher un."
+      "no_crop": "Aucun recadrage enregistré pour cette détection. Ouvrez la fiche complète pour en chercher un.",
+      "new_species_note": "Premier {species} enregistré ici. Confirmez-le, corrigez-le ou bloquez cette espèce.",
+      "confirm_species": "Confirmer {species}",
+      "block_species": "Bloquer cette espèce",
+      "species_blocked": "{species} bloqué. Les futures détections seront ignorées."
     }
   },
   "common": {

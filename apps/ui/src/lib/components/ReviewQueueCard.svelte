@@ -85,6 +85,15 @@
                                 {detection.display_name}
                             </span>
                             <span class="block truncate text-[11px] text-slate-500 dark:text-slate-400">
+                                {#if queue.reasons.get(detection.frigate_event) === 'new_species'}
+                                    <span class="font-semibold text-accent-700 dark:text-accent-300">
+                                        {$_('dashboard.review_queue.new_species_tag', {
+                                            values: { count: queue.newSpeciesSightings.get(detection.frigate_event) ?? 1 },
+                                            default: 'New species · {count} sighting(s)'
+                                        })}
+                                    </span>
+                                    ·
+                                {/if}
                                 {when(detection)} · {detection.camera_name}
                             </span>
                         </span>

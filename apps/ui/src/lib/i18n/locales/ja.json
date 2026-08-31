@@ -344,7 +344,8 @@
       "title": "確認が必要です",
       "empty": "今日の訪問にはすべて種名が付いています。保留中の項目はありません。",
       "remaining": "他に {count} 件が保留中",
-      "work_through": "キューを処理する"
+      "work_through": "キューを処理する",
+      "new_species_tag": "新しい種 · {count} 回の観察"
     },
     "review_session": {
       "position": "{total} 件中 {position} 件目",
@@ -369,7 +370,11 @@
       "crop": "最適な切り抜き",
       "full_frame": "フル画像",
       "view_label": "表示する画像",
-      "no_crop": "この検出には切り抜きが保存されていません。完全な記録を開いて検索してください。"
+      "no_crop": "この検出には切り抜きが保存されていません。完全な記録を開いて検索してください。",
+      "new_species_note": "この場所で初めての{species}です。確認、修正、または種のブロックができます。",
+      "confirm_species": "{species}を確認",
+      "block_species": "この種をブロック",
+      "species_blocked": "{species}をブロックしました。今後の検出は破棄されます。"
     }
   },
   "common": {

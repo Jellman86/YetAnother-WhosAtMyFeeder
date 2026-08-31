@@ -344,7 +344,8 @@
       "title": "Needs your call",
       "empty": "Every visit today has a species. Nothing waiting on you.",
       "remaining": "{count} more waiting",
-      "work_through": "Work through the queue"
+      "work_through": "Work through the queue",
+      "new_species_tag": "New species · {count} sighting(s)"
     },
     "review_session": {
       "position": "{position} of {total}",
@@ -369,7 +370,11 @@
       "crop": "Best crop",
       "full_frame": "Full frame",
       "view_label": "Which frame to show",
-      "no_crop": "No crop stored for this detection. Open the full record to scan for one."
+      "no_crop": "No crop stored for this detection. Open the full record to scan for one.",
+      "new_species_note": "First {species} recorded here. Confirm it, correct it, or block the species.",
+      "confirm_species": "Confirm {species}",
+      "block_species": "Block this species",
+      "species_blocked": "{species} blocked. Future detections will be dropped."
     }
   },
   "common": {

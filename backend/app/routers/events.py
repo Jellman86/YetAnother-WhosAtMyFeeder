@@ -920,6 +920,71 @@ async def get_hidden_count(auth: AuthContext = Depends(require_owner)):
         return HiddenCountResponse(hidden_count=count)
 
 
+class NewSpeciesSighting(BaseModel):
+    """The latest sighting of a species with no confirmed history here."""
+
+    frigate_event: str
+    display_name: str
+    common_name: Optional[str] = None
+    scientific_name: Optional[str] = None
+    taxa_id: Optional[int] = None
+    camera_name: str
+    detection_time: str
+    score: float
+    manual_tagged: bool
+    is_hidden: bool
+    species_sightings: int
+
+
+class NewSpeciesQueueResponse(BaseModel):
+    items: List[NewSpeciesSighting]
+    max_sightings: int
+    window_days: int
+
+
+@router.get("/events/new-species", response_model=NewSpeciesQueueResponse)
+async def get_new_species_queue(
+    max_sightings: int = Query(default=3, ge=1, le=50, description="A species with more sightings is established"),
+    window_days: int = Query(default=14, ge=1, le=365, description="Only species first seen this recently"),
+    auth: AuthContext = Depends(require_owner),
+):
+    """Species that appeared recently and no person has confirmed (#310).
+
+    Each item is the species' latest sighting, so the review queue can ask
+    the one question a first record deserves: is this bird real here, a
+    misidentification to correct, or a label to block? Owner only —
+    confirmation is a curator's job.
+    """
+    cutoff = datetime.now() - timedelta(days=window_days)
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        candidates = await repo.get_new_species_candidates(
+            max_sightings=max_sightings,
+            first_seen_cutoff=cutoff,
+            excluded_labels=[*settings.classification.unknown_bird_labels, "Unknown Bird"],
+        )
+    return NewSpeciesQueueResponse(
+        items=[
+            NewSpeciesSighting(
+                frigate_event=detection.frigate_event,
+                display_name=detection.display_name,
+                common_name=detection.common_name,
+                scientific_name=detection.scientific_name,
+                taxa_id=detection.taxa_id,
+                camera_name=detection.camera_name,
+                detection_time=str(detection.detection_time),
+                score=float(detection.score or 0.0),
+                manual_tagged=bool(detection.manual_tagged),
+                is_hidden=bool(detection.is_hidden),
+                species_sightings=sightings,
+            )
+            for detection, sightings in candidates
+        ],
+        max_sightings=max_sightings,
+        window_days=window_days,
+    )
+
+
 @router.get("/events/count", response_model=EventsCountResponse)
 @guest_rate_limit()
 async def get_events_count(
