@@ -129,6 +129,17 @@ def disable_rate_limiting():
     limiter.enabled = old_enabled
 
 
+@pytest.fixture(autouse=True)
+def clear_species_alias_cache_between_tests():
+    """Each test owns its rows; a cached alias set from another test's data
+    would leak across the per-test DELETE."""
+    from app.repositories.detection_repository import clear_species_alias_cache
+
+    clear_species_alias_cache()
+    yield
+    clear_species_alias_cache()
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def cleanup_async_singletons():
     yield

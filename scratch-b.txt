@@ -1,0 +1,53 @@
+
+Initializing test database schema at /var/folders/7f/8fht73vj5wd3qrvstm_9r7340000gn/T/yawamf_test_cgwtwhw3/test_speciesid.db...
+Test database schema initialized successfully
+============================= test session starts ==============================
+platform darwin -- Python 3.12.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/powdrill/Developer/YetAnother-WhosAtMyFeeder
+configfile: pyproject.toml
+plugins: asyncio-1.4.0, anyio-4.14.2
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 1 item
+
+tests/test_rollup_canonical_identity.py F
+
+=================================== FAILURES ===================================
+_______________ test_the_migration_reverses_and_keeps_the_totals _______________
+
+migrated = PosixPath('/private/var/folders/7f/8fht73vj5wd3qrvstm_9r7340000gn/T/pytest-of-powdrill/pytest-15/test_the_migration_reverses_an0/speciesid.db')
+
+    def test_the_migration_reverses_and_keeps_the_totals(migrated):
+        _seed(migrated)
+        before = _total(migrated)
+        _alembic(migrated, "upgrade", "head")
+        _alembic(migrated, "downgrade", "-1")
+        assert _total(migrated) == before
+    
+        # `species_id` is gone after a downgrade, so read only what still exists.
+        connection = sqlite3.connect(migrated)
+        keys = {row[0] for row in connection.execute("SELECT canonical_key FROM species_daily_rollup")}
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(species_daily_rollup)")}
+        connection.close()
+    
+>       assert "species_id" not in columns
+E       AssertionError: assert 'species_id' not in {'avg_confidence', 'camera_count', 'canonical_key', 'common_name', 'detection_count', 'display_name', ...}
+
+tests/test_rollup_canonical_identity.py:129: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+2026-08-31 10:11:11 [info     ] MQTT config                    auth=False port=1883 server=mqtt
+2026-08-31 10:11:11 [info     ] Maintenance config             retention_days=0
+2026-08-31 10:11:11 [info     ] Classification config          blocked_labels=[] blocked_species=[] display_common_names=True inference_provider=auto min_confidence=0.4 personalized_rerank_enabled=False scientific_name_primary=False threshold=0.7 trust_frigate_sublabel=True unknown_bird_labels=['background', 'Background'] write_frigate_sublabel=True
+2026-08-31 10:11:11 [info     ] Media cache config             cache_clips=False cache_snapshots=True enabled=True high_quality_event_snapshot_bird_crop=False high_quality_event_snapshot_jpeg_quality=95 high_quality_event_snapshots=False retention_days=0
+2026-08-31 10:11:11 [info     ] BirdWeather config             enabled=False
+2026-08-31 10:11:11 [info     ] eBird config                   enabled=False
+2026-08-31 10:11:11 [info     ] iNaturalist config             enabled=False
+2026-08-31 10:11:11 [info     ] Enrichment config              mode=per_enrichment
+2026-08-31 10:11:11 [info     ] LLM config                     enabled=False provider=gemini
+2026-08-31 10:11:11 [info     ] Telemetry config               enabled=False has_installation_id=False
+2026-08-31 10:11:11 [info     ] Notification config            discord=False pushover=False telegram=False
+2026-08-31 10:11:11 [info     ] Auth config                    enabled=False has_password=False initial_setup_complete=False username=admin
+2026-08-31 10:11:11 [info     ] Public access config           enabled=False external_base_url=False historical_days=7 media_historical_days=7
+=========================== short test summary info ============================
+FAILED tests/test_rollup_canonical_identity.py::test_the_migration_reverses_and_keeps_the_totals
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+============================== 1 failed in 0.93s ===============================

@@ -5,6 +5,7 @@ import aiosqlite
 import asyncio
 import json
 import re
+import time
 import unicodedata
 import structlog
 from app.utils.frigate import normalize_sub_label
@@ -16,6 +17,26 @@ from app.utils.canonical_species import (
 from app.utils.api_datetime import serialize_api_datetime, serialize_storage_datetime, utc_naive_now
 
 log = structlog.get_logger()
+
+# Species alias sets change only when a new label variant lands, but the
+# lookup reads the detections table - a fixed cost the species filter used to
+# pay on every request (#258). Cached per process, briefly.
+_SPECIES_ALIAS_CACHE: dict[tuple[str, str], tuple[float, dict]] = {}
+_SPECIES_ALIAS_CACHE_TTL_SECONDS = 60.0
+_SPECIES_ALIAS_CACHE_MAX_ENTRIES = 512
+
+
+def clear_species_alias_cache() -> None:
+    _SPECIES_ALIAS_CACHE.clear()
+
+
+def _copy_alias_info(alias_info: dict) -> dict:
+    copied = dict(alias_info)
+    for key in ("display_labels", "match_names"):
+        if isinstance(copied.get(key), list):
+            copied[key] = list(copied[key])
+    return copied
+
 
 DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score, d.display_name, d.category_name, d.frigate_event, d.camera_name,
                       d.is_hidden, d.frigate_score, d.sub_label, d.audio_confirmed, d.audio_species, d.audio_score,
@@ -1785,6 +1806,122 @@ class DetectionRepository:
         await self.db.commit()
         return changes > 0
 
+    def _species_fast_path_eligible(
+        self,
+        *,
+        species: str | None,
+        species_any: list[str] | None,
+        taxa_id: int | None,
+        sort: str,
+        start_date: datetime | None,
+        end_date: datetime | None,
+        camera: str | None,
+        favorite_only: bool,
+        audio_confirmed_only: bool,
+        frigate_event: str | None,
+    ) -> bool:
+        """The pathological shape is a bare species filter ordered by time.
+
+        Any other filter narrows the walk on its own (the reporter measured a
+        date range fixing it), and the hidden-species label matching needs
+        LIKE fragments no index serves, so only the bare shape takes the
+        seek-per-branch path.
+        """
+        if not (species or species_any or taxa_id is not None):
+            return False
+        if sort not in ("newest", "oldest"):
+            return False
+        if start_date or end_date or camera or frigate_event:
+            return False
+        if favorite_only or audio_confirmed_only:
+            return False
+        if species and should_hide_species_label(species):
+            return False
+        if any(should_hide_species_label(name) for name in species_any or []):
+            return False
+        return True
+
+    async def _collect_species_filter_terms(
+        self,
+        species: str | None,
+        species_any: list[str] | None,
+        taxa_id: int | None,
+    ) -> tuple[list[int], list[str]]:
+        taxa_ids: list[int] = []
+        names: list[str] = []
+
+        def _add_taxa(value: int | None) -> None:
+            if value is not None and value not in taxa_ids:
+                taxa_ids.append(int(value))
+
+        def _add_name(value: str | None) -> None:
+            lowered = str(value or "").strip().lower()
+            if lowered and lowered not in names:
+                names.append(lowered)
+
+        _add_taxa(taxa_id)
+        for requested in [species, *(species_any or [])]:
+            if not requested:
+                continue
+            alias_info = await self.resolve_species_aliases(requested)
+            _add_taxa(alias_info.get("taxa_id"))
+            _add_name(alias_info.get("scientific_name"))
+            for name in alias_info.get("match_names") or []:
+                _add_name(name)
+        return taxa_ids, names
+
+    def _build_species_fast_path_query(
+        self,
+        *,
+        taxa_ids: list[int],
+        names: list[str],
+        limit: int,
+        offset: int,
+        sort: str,
+        include_hidden: bool,
+        hidden_only: bool,
+    ) -> tuple[str, list]:
+        """One newest-first (or oldest-first) seek per species term.
+
+        Each branch takes its own top of the (term, time) index, capped at
+        limit+offset, and the outer query orders the merged candidates. Both
+        extremes stay seeks: a rare species has few candidates, a common one
+        caps every branch at a page.
+        """
+        direction = "DESC" if sort == "newest" else "ASC"
+        if hidden_only:
+            hidden_clause = "is_hidden = 1"
+        elif include_hidden:
+            hidden_clause = "1 = 1"
+        else:
+            hidden_clause = "(is_hidden = 0 OR is_hidden IS NULL)"
+        branch_limit = max(1, int(limit)) + max(0, int(offset))
+
+        branches: list[str] = []
+        params: list = []
+
+        def _branch(where: str, value: int | str) -> None:
+            branches.append(
+                f"SELECT id FROM (SELECT id FROM detections WHERE {where} AND {hidden_clause} "
+                f"ORDER BY detection_time {direction} LIMIT {branch_limit})"
+            )
+            params.append(value)
+
+        for taxa in taxa_ids:
+            _branch("taxa_id = ?", taxa)
+        for column in ("display_name", "scientific_name", "common_name"):
+            for name in names:
+                _branch(f"LOWER({column}) = ?", name)
+
+        union = " UNION ".join(branches)
+        query = (
+            f"SELECT {DETECTION_SELECT_COLUMNS} FROM detections d "
+            "LEFT JOIN detection_favorites f ON f.detection_id = d.id "
+            f"WHERE d.id IN ({union}) ORDER BY d.detection_time {direction} LIMIT ? OFFSET ?"
+        )
+        params.extend([limit, offset])
+        return query, params
+
     async def get_all(
         self,
         limit: int = 50,
@@ -1802,6 +1939,33 @@ class DetectionRepository:
         audio_confirmed_only: bool = False,
         frigate_event: str | None = None,
     ) -> list[Detection]:
+        if self._species_fast_path_eligible(
+            species=species,
+            species_any=species_any,
+            taxa_id=taxa_id,
+            sort=sort,
+            start_date=start_date,
+            end_date=end_date,
+            camera=camera,
+            favorite_only=favorite_only,
+            audio_confirmed_only=audio_confirmed_only,
+            frigate_event=frigate_event,
+        ):
+            taxa_ids, names = await self._collect_species_filter_terms(species, species_any, taxa_id)
+            if taxa_ids or names:
+                query, params = self._build_species_fast_path_query(
+                    taxa_ids=taxa_ids,
+                    names=names,
+                    limit=limit,
+                    offset=offset,
+                    sort=sort,
+                    include_hidden=include_hidden,
+                    hidden_only=hidden_only,
+                )
+                async with self.db.execute(query, params) as cursor:
+                    rows = await cursor.fetchall()
+                return [_row_to_detection(row) for row in rows]
+
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
         # The join is kept only for a `taxa_id` filter, which still reads the
         # cached taxon id for a detection that has none of its own. Species
@@ -2519,7 +2683,24 @@ class DetectionRepository:
         - scientific_name / common_name / taxa_id
         - display_labels: distinct `detections.display_name` values representing the species
         - match_names: names suitable for matching across display/scientific columns
+
+        The result is cached briefly per process: the display-label lookup
+        reads the detections table, and it used to run on every filtered
+        request as a fixed overhead (#258). A new label variant appears in
+        the alias set within the TTL, which the filter can tolerate.
         """
+        cache_key = (str(species_name or "").strip().lower(), str(language or ""))
+        cached = _SPECIES_ALIAS_CACHE.get(cache_key)
+        if cached is not None and (time.monotonic() - cached[0]) < _SPECIES_ALIAS_CACHE_TTL_SECONDS:
+            return _copy_alias_info(cached[1])
+        alias_info = await self._resolve_species_aliases_uncached(species_name, language=language)
+        _SPECIES_ALIAS_CACHE[cache_key] = (time.monotonic(), _copy_alias_info(alias_info))
+        if len(_SPECIES_ALIAS_CACHE) > _SPECIES_ALIAS_CACHE_MAX_ENTRIES:
+            oldest_key = min(_SPECIES_ALIAS_CACHE, key=lambda key: _SPECIES_ALIAS_CACHE[key][0])
+            _SPECIES_ALIAS_CACHE.pop(oldest_key, None)
+        return alias_info
+
+    async def _resolve_species_aliases_uncached(self, species_name: str, language: str | None = None) -> dict:
         taxonomy = await self.get_taxonomy_names(species_name, language=language)
         taxa_id = taxonomy.get("taxa_id")
         scientific_name = taxonomy.get("scientific_name")

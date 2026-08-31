@@ -117,7 +117,7 @@ def test_the_migration_reverses_and_keeps_the_totals(migrated):
     _seed(migrated)
     before = _total(migrated)
     _alembic(migrated, "upgrade", "head")
-    _alembic(migrated, "downgrade", "-1")
+    _alembic(migrated, "downgrade", "e2b8c47f91a3")
     assert _total(migrated) == before
 
     # `species_id` is gone after a downgrade, so read only what still exists.
@@ -134,7 +134,7 @@ def test_upgrading_again_after_a_downgrade_is_stable(migrated):
     _seed(migrated)
     before = _total(migrated)
     _alembic(migrated, "upgrade", "head")
-    _alembic(migrated, "downgrade", "-1")
+    _alembic(migrated, "downgrade", "e2b8c47f91a3")
     _alembic(migrated, "upgrade", "head")
     assert _total(migrated) == before
     assert len(_rows(migrated)) == 2
