@@ -177,7 +177,6 @@
     let audioContext = $state<AudioContextDetection[]>([]);
     let audioContextSuppressed = $state(0);
     let audioContextError = $state<string | null>(null);
-    let weatherDetailsOpen = $state(false);
     let inatPanelOpen = $state(false);
     let inatLoading = $state(false);
     let inatSubmitting = $state(false);
@@ -630,15 +629,6 @@
 
         return () => controller.abort();
     });
-    const hasWeather = $derived(
-        detection.temperature !== undefined && detection.temperature !== null ||
-        !!detection.weather_condition ||
-        detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null ||
-        detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null ||
-        detection.weather_precipitation !== undefined && detection.weather_precipitation !== null ||
-        detection.weather_rain !== undefined && detection.weather_rain !== null ||
-        detection.weather_snowfall !== undefined && detection.weather_snowfall !== null
-    );
     const inatEnabled = $derived(settingsStore.settings?.inaturalist_enabled ?? authStore.inaturalistEnabled ?? false);
     const inatConnectedUser = $derived(settingsStore.settings?.inaturalist_connected_user ?? null);
     const canShowInat = $derived(!readOnly && authStore.canModify && inatEnabled && !!inatConnectedUser);
@@ -1298,6 +1288,39 @@
         )
     );
     const temperatureUnit = $derived(getTemperatureUnitForSystem(weatherUnitSystem));
+
+    // The weather is stated once, in one condensed row (#268). Only measured
+    // facts appear; an unknown is omitted rather than shown as a dash.
+    const weatherSummary = $derived.by(() => {
+        const parts: string[] = [];
+        const condition = detection.weather_condition ?? '';
+        const hasTemperature = detection.temperature !== undefined && detection.temperature !== null;
+        if (condition || hasTemperature) {
+            const temperature = hasTemperature ? formatTemperature(detection.temperature as number, temperatureUnit) : '';
+            parts.push([condition, temperature].filter(Boolean).join(' '));
+        }
+        if (detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null) {
+            const speed = formatWindSpeed(detection.weather_wind_speed, weatherUnitSystem, {
+                metric: $_('common.unit_kmh', { default: 'km/h' }),
+                imperial: $_('common.unit_mph', { default: 'mph' })
+            });
+            parts.push(
+                [$_('detection.weather_wind'), speed, formatWindDirection(detection.weather_wind_direction)]
+                    .filter(Boolean)
+                    .join(' ')
+            );
+        }
+        if (detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null) {
+            parts.push(`${$_('detection.weather_cloud')} ${Math.round(detection.weather_cloud_cover)}%`);
+        }
+        if (detection.weather_rain !== undefined && detection.weather_rain !== null && detection.weather_rain > 0) {
+            parts.push(`${$_('detection.weather_rain')} ${formatPrecip(detection.weather_rain)}`);
+        }
+        if (detection.weather_snowfall !== undefined && detection.weather_snowfall !== null && detection.weather_snowfall > 0) {
+            parts.push(`${$_('detection.weather_snow')} ${formatPrecip(detection.weather_snowfall)}`);
+        }
+        return parts.join(' · ');
+    });
     const ebirdRadiusLabel = $derived(
         formatDistance(ebirdRadius, weatherUnitSystem, {
             metric: $_('common.unit_km', { default: 'km' }),
@@ -2864,16 +2887,14 @@
                         {formatDateTime(detection.detection_time)} &middot; {detection.camera_name}
                     </dd>
                 </div>
-                {#if detection.weather_condition || detection.temperature !== undefined && detection.temperature !== null}
-                    <div class="flex items-baseline justify-between gap-3 py-2">
+                {#if weatherSummary}
+                    <div class="flex items-baseline justify-between gap-3 py-2" data-detection-weather-row>
                         <dt class="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                             <svg class="h-3.5 w-3.5 shrink-0 text-sky-500/80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" /></svg>
                             {$_('detection.fact_conditions', { default: 'Conditions' })}
                         </dt>
                         <dd class="text-right font-medium text-slate-800 dark:text-slate-100">
-                            {detection.weather_condition ?? ''}{detection.temperature !== undefined && detection.temperature !== null
-                                ? ` ${formatTemperature(detection.temperature, temperatureUnit)}`
-                                : ''}
+                            {weatherSummary}
                         </dd>
                     </div>
                 {/if}
@@ -3218,106 +3239,6 @@
                 </section>
             {/if}
 
-            {#if hasWeather}
-                <section data-detection-weather-section class="space-y-3 border-t border-slate-200 pt-5 dark:border-slate-700">
-                    <div class="flex items-center justify-between gap-3">
-                        <div class="flex items-center gap-3 min-w-0">
-                            <div class="w-10 h-10 rounded-xl bg-sky-500/20 flex items-center justify-center flex-shrink-0">
-                                <svg class="w-5 h-5 text-sky-600 dark:text-sky-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
-                                </svg>
-                            </div>
-                            <div class="min-w-0">
-                                <p class="text-[10px] font-semibold text-sky-600/70 dark:text-sky-300/70 mb-0.5">
-                                    {$_('detection.weather_title')}
-                                </p>
-                                <p class="text-xs text-slate-500 dark:text-slate-400">
-                                    {$_('detection.weather_breakdown', {
-                                        default: 'Cloud, wind and rain at the time'
-                                    })}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                    <button
-                        type="button"
-                        onclick={(event) => { event.stopPropagation(); weatherDetailsOpen = !weatherDetailsOpen; }}
-                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-slate-100/70 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60 text-[11px] font-semibold text-slate-600 dark:text-slate-300"
-                        aria-label={$_('detection.weather_details')}
-                    >
-                        <span class="flex items-center gap-2">
-                            <svg class="w-3 h-3 transition-transform {weatherDetailsOpen ? '-rotate-90' : 'rotate-0'}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                            </svg>
-                            {$_('detection.weather_details')}
-                        </span>
-                        <span class="text-[9px] font-bold text-slate-400">{weatherDetailsOpen ? $_('common.hide') : $_('common.show')}</span>
-                    </button>
-                    {#if weatherDetailsOpen}
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                <div class="flex items-center gap-2 text-[9px] font-semibold text-slate-400">
-                                    <svg class="w-3 h-3 text-accent-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h11a3 3 0 100-6M2 12h13a3 3 0 110 6H9" />
-                                    </svg>
-                                    {$_('detection.weather_wind')}
-                                </div>
-                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                    {#if detection.weather_wind_speed !== undefined && detection.weather_wind_speed !== null}
-                                        {formatWindSpeed(detection.weather_wind_speed, weatherUnitSystem, {
-                                            metric: $_('common.unit_kmh', { default: 'km/h' }),
-                                            imperial: $_('common.unit_mph', { default: 'mph' })
-                                        })} {formatWindDirection(detection.weather_wind_direction)}
-                                    {:else}
-                                        —
-                                    {/if}
-                                </p>
-                            </div>
-                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                <div class="flex items-center gap-2 text-[9px] font-semibold text-slate-400">
-                                    <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
-                                    </svg>
-                                    {$_('detection.weather_cloud')}
-                                </div>
-                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                    {#if detection.weather_cloud_cover !== undefined && detection.weather_cloud_cover !== null}
-                                        {Math.round(detection.weather_cloud_cover)}%
-                                    {:else}
-                                        —
-                                    {/if}
-                                </p>
-                            </div>
-                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                <div class="flex items-center gap-2 text-[9px] font-semibold text-slate-400">
-                                    <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a4 4 0 100-8h-1a5 5 0 10-9 4H7a4 4 0 00-4 4z" />
-                                    </svg>
-                                    {$_('detection.weather_title')}
-                                </div>
-                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                    {detection.weather_condition || $_('detection.weather_unknown')}
-                                </p>
-                            </div>
-                            <div class="rounded-xl bg-white/80 dark:bg-slate-900/50 border border-slate-200/60 dark:border-slate-700/60 p-2">
-                                <div class="flex items-center gap-2 text-[9px] font-semibold text-slate-400">
-                                    <svg class="w-3 h-3 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v18m9-9H3m15.364-6.364l-12.728 12.728m0-12.728l12.728 12.728" />
-                                    </svg>
-                                    {$_('detection.weather_rain')} / {$_('detection.weather_snow')}
-                                </div>
-                                <p class="text-xs font-bold text-slate-700 dark:text-slate-200">
-                                    {#if detection.weather_rain !== undefined && detection.weather_rain !== null || detection.weather_snowfall !== undefined && detection.weather_snowfall !== null}
-                                        {formatPrecip(detection.weather_rain)} / {formatPrecip(detection.weather_snowfall)}
-                                    {:else}
-                                        —
-                                    {/if}
-                                </p>
-                            </div>
-                        </div>
-                    {/if}
-                </section>
-            {/if}
 
             {#if !isUnknownSpecies && (speciesInfoLoading || speciesInfo || speciesInfoError || showEbirdNearby)}
                 <section data-detection-reference class="space-y-3">
