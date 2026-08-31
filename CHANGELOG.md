@@ -60,6 +60,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The Home Assistant weather test names an empty configuration.** A saved URL and token with no
+  weather entity and no overrides answered with a generic fetch failure; it now says plainly that
+  there is nothing to read yet and what to set.
+
 - **A duplicated species can no longer take down the lower dashboard.** When catalogue identity
   is patchy across a species' rows - written between ingest and the next identity backfill - the
   canonical grouping split one Dunnock into two summary rows, and the top-visitors list crashed
