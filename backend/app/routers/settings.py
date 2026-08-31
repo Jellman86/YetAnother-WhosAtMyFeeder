@@ -743,6 +743,7 @@ async def test_llm(
 
 class SettingsUpdate(BaseModel):
     frigate_url: Optional[str] = Field(None, min_length=1, description="Frigate instance URL")
+    frigate_ingest_labels: Optional[List[str]] = Field(None, description="Frigate event labels YA-WAMF acts on")
     frigate_external_url: Optional[str] = Field("", description="External Frigate base URL (browser→Frigate)")
     mqtt_server: Optional[str] = Field(None, min_length=1, description="MQTT server hostname")
     mqtt_port: int = Field(1883, ge=1, le=65535, description="MQTT server port")
@@ -1317,6 +1318,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
 
     return {
         "frigate_url": settings.frigate.frigate_url,
+        "frigate_ingest_labels": settings.frigate.ingest_labels,
         "frigate_external_url": settings.frigate.frigate_external_url,
         "mqtt_server": settings.frigate.mqtt_server,
         "mqtt_port": settings.frigate.mqtt_port,
@@ -1594,6 +1596,10 @@ async def update_settings(
 
     if "frigate_url" in fields_set and update.frigate_url is not None:
         settings.frigate.frigate_url = update.frigate_url
+    if "frigate_ingest_labels" in fields_set and update.frigate_ingest_labels is not None:
+        from app.utils.frigate import normalize_ingest_labels
+
+        settings.frigate.ingest_labels = normalize_ingest_labels(update.frigate_ingest_labels)
     if "frigate_external_url" in fields_set and update.frigate_external_url is not None:
         settings.frigate.frigate_external_url = update.frigate_external_url.strip().rstrip("/")
     if "mqtt_server" in fields_set and update.mqtt_server is not None:

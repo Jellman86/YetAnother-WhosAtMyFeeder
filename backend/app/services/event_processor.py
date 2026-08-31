@@ -36,7 +36,7 @@ from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.error_diagnostics import error_diagnostics_history
 from app.services.full_visit_clip_service import full_visit_clip_service
 from app.services.mqtt_service import mqtt_service
-from app.utils.frigate import parse_sub_label
+from app.utils.frigate import is_ingest_label, parse_sub_label
 
 # Backward-compat for tests that patch event_processor.notification_service
 from app.services.notification_service import notification_service  # noqa: F401
@@ -180,6 +180,10 @@ class EventProcessor:
         self._last_critical_failure_monotonic: float | None = None
         self._last_critical_failure: dict[str, Any] | None = None
         self._active_live_event_keys: set[str] = set()
+
+    def _passes_label_gate(self, event) -> bool:
+        """Only configured Frigate labels enter the pipeline (#252)."""
+        return is_ingest_label(event.label, settings.frigate.ingest_labels)
 
     @property
     def classifier(self) -> ClassifierService:
@@ -899,8 +903,7 @@ class EventProcessor:
                 false_positive=event.is_false_positive,
             )
 
-        # Only process bird events
-        if event.label != "bird":
+        if not self._passes_label_gate(event):
             return None
 
         # Updates are admitted only for a later database-backed recovery check;

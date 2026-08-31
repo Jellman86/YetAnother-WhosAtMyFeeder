@@ -999,7 +999,9 @@
       "full_visit_unavailable": "Информация о возможности сейчас недоступна.",
       "external_url": "Публичный URL Frigate",
       "external_url_desc": "Адрес, по которому браузер открывает Frigate, если он отличается от адреса сервера выше. Используется для ссылки «Открыть в Frigate» у обнаружения.",
-      "external_url_placeholder": "https://frigate.example.com"
+      "external_url_placeholder": "https://frigate.example.com",
+      "ingest_labels": "Метки Frigate для обработки",
+      "ingest_labels_desc": "Через запятую. Добавьте метки, которые ваша модель Frigate использует для птиц (например bird, duck, goose); всё перечисленное проходит через конвейер определения птиц."
     },
     "cameras": {
       "title": "Активные камеры",

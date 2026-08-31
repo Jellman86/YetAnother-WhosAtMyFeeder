@@ -990,7 +990,9 @@
       "full_visit_unavailable": "当前无法获取能力信息。",
       "external_url": "Frigate 公开 URL",
       "external_url_desc": "当与上面的服务器地址不同时,浏览器用来打开 Frigate 的地址。用于检测的“在 Frigate 中打开”链接。",
-      "external_url_placeholder": "https://frigate.example.com"
+      "external_url_placeholder": "https://frigate.example.com",
+      "ingest_labels": "要处理的 Frigate 标签",
+      "ingest_labels_desc": "逗号分隔。请添加您的 Frigate 模型用于鸟类的标签（如 bird、duck、goose）；列出的所有标签都会进入鸟类识别流程。"
     },
     "cameras": {
       "title": "活动摄像头",

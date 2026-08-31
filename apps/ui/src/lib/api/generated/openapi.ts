@@ -1333,6 +1333,7 @@ export interface components {
     enrichment_summary_source?: string | null;
     enrichment_taxonomy_source?: string | null;
     frigate_external_url?: string | null;
+    frigate_ingest_labels?: Array<string> | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
     ha_weather_access_token?: string | null;
@@ -1531,6 +1532,7 @@ export interface components {
     enrichment_summary_source?: string | null;
     enrichment_taxonomy_source?: string | null;
     frigate_external_url?: string | null;
+    frigate_ingest_labels?: Array<string> | null;
     frigate_missing_behavior?: "mark_missing" | "keep" | "delete";
     frigate_url?: string | null;
     ha_weather_access_token?: string | null;

@@ -82,3 +82,22 @@ def parse_sub_label(value: Any) -> FrigateSubLabel:
 def normalize_sub_label(value: Any) -> str | None:
     """Normalize Frigate sub_label payloads into a single displayable label string."""
     return parse_sub_label(value).label
+
+
+def normalize_ingest_labels(labels: Any) -> list[str]:
+    """The Frigate labels YA-WAMF acts on, lowercased and deduplicated.
+
+    An empty configuration falls back to `bird`: a list that admits nothing
+    would silently kill every detection, which no one configures on purpose.
+    """
+    normalized: list[str] = []
+    for label in labels or []:
+        text = str(label or "").strip().lower()
+        if text and text not in normalized:
+            normalized.append(text)
+    return normalized or ["bird"]
+
+
+def is_ingest_label(label: Any, configured: list[str]) -> bool:
+    text = str(label or "").strip().lower()
+    return bool(text) and text in configured

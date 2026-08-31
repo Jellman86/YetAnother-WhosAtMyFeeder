@@ -999,7 +999,9 @@
       "mqtt_broker_placeholder": "mosquitto",
       "external_url": "Public Frigate URL",
       "external_url_desc": "The address your browser uses to open Frigate when it differs from the server address above. Used for the 'open in Frigate' link on a detection.",
-      "external_url_placeholder": "https://frigate.example.com"
+      "external_url_placeholder": "https://frigate.example.com",
+      "ingest_labels": "Frigate labels to act on",
+      "ingest_labels_desc": "Comma-separated. Add the labels your Frigate model uses for birds (e.g. bird, duck, goose); everything listed flows through the bird identification pipeline."
     },
     "cameras": {
       "title": "Active Cameras",

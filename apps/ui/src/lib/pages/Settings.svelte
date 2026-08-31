@@ -205,6 +205,7 @@
     }
 
     let frigateUrl = $state('');
+    let frigateIngestLabels = $state('bird');
     let frigateExternalUrl = $state('');
     let mqttServer = $state('');
     let mqttPort = $state(1883);
@@ -1743,6 +1744,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
 
         const checks = [
             { key: 'frigateUrl', val: frigateUrl, store: s.frigate_url },
+            { key: 'frigateIngestLabels', val: frigateIngestLabels, store: (s.frigate_ingest_labels ?? ['bird']).join(', ') },
             { key: 'frigateExternalUrl', val: frigateExternalUrl, store: s.frigate_external_url || '' },
             { key: 'mqttServer', val: mqttServer, store: s.mqtt_server },
             { key: 'mqttPort', val: mqttPort, store: s.mqtt_port },
@@ -2702,6 +2704,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             const settings = await fetchSettings();
             settingsStore.update(settings);
             frigateUrl = settings.frigate_url;
+            frigateIngestLabels = (settings.frigate_ingest_labels ?? ['bird']).join(', ');
             frigateExternalUrl = settings.frigate_external_url || '';
             mqttServer = settings.mqtt_server;
             mqttPort = settings.mqtt_port;
@@ -3084,6 +3087,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
         try {
             await updateSettings({
                 frigate_url: frigateUrl,
+                frigate_ingest_labels: frigateIngestLabels.split(',').map((l) => l.trim()).filter(Boolean),
                 frigate_external_url: frigateExternalUrl,
                 mqtt_server: mqttServer,
                 mqtt_port: mqttPort,
@@ -3350,6 +3354,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             {#if activeTab === 'connection'}
                 <ConnectionSettings
                     bind:frigateUrl
+                    bind:frigateIngestLabels
                     bind:frigateExternalUrl
                     bind:mqttServer
                     bind:mqttPort

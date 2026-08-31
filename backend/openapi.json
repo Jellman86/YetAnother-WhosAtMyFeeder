@@ -9391,6 +9391,20 @@
             "default": "",
             "title": "Frigate External Url"
           },
+          "frigate_ingest_labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frigate Ingest Labels"
+          },
           "frigate_missing_behavior": {
             "default": "mark_missing",
             "enum": [
@@ -11476,6 +11490,21 @@
             "default": "",
             "description": "External Frigate base URL (browser\u2192Frigate)",
             "title": "Frigate External Url"
+          },
+          "frigate_ingest_labels": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Frigate event labels YA-WAMF acts on",
+            "title": "Frigate Ingest Labels"
           },
           "frigate_missing_behavior": {
             "default": "mark_missing",

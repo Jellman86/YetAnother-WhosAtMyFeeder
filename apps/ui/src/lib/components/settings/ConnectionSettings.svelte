@@ -18,6 +18,7 @@
 
     let {
         frigateUrl = $bindable(''),
+        frigateIngestLabels = $bindable('bird'),
         frigateExternalUrl = $bindable(''),
         mqttServer = $bindable(''),
         mqttPort = $bindable(1883),
@@ -46,6 +47,7 @@
         toggleCamera
     }: {
         frigateUrl: string;
+        frigateIngestLabels: string;
         frigateExternalUrl: string;
         mqttServer: string;
         mqttPort: number;
@@ -320,6 +322,22 @@
                 placeholder={$_('settings.frigate.url_placeholder')}
                 ariaLabel={$_('settings.frigate.url')}
                 oninput={(v) => (frigateUrl = v)}
+            />
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-frigate-ingest-labels"
+            label={$_('settings.frigate.ingest_labels', { default: 'Frigate labels to act on' })}
+            description={$_('settings.frigate.ingest_labels_desc', { default: 'Comma-separated. Add the labels your Frigate model uses for birds (e.g. bird, duck, goose); everything listed flows through the bird identification pipeline.' })}
+            layout="stacked"
+        >
+            <SettingsInput
+                id="frigate-ingest-labels"
+                type="text"
+                value={frigateIngestLabels}
+                placeholder="bird"
+                ariaLabel={$_('settings.frigate.ingest_labels', { default: 'Frigate labels to act on' })}
+                oninput={(v) => (frigateIngestLabels = v)}
             />
         </SettingsRow>
 
