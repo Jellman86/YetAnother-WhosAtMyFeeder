@@ -7,6 +7,7 @@
     import SettingsToggle from './_primitives/SettingsToggle.svelte';
     import SettingsInput from './_primitives/SettingsInput.svelte';
     import SettingsSelect from './_primitives/SettingsSelect.svelte';
+    import SettingsSegmented from './_primitives/SettingsSegmented.svelte';
     import AdvancedSection from './_primitives/AdvancedSection.svelte';
 
     let {
@@ -23,6 +24,10 @@
         publicAccessShowCameraNames = $bindable(true),
         publicAccessShowAiConversation = $bindable(false),
         publicAccessAllowClipDownloads = $bindable(false),
+        publicAccessShowAudio = $bindable(true),
+        publicAccessShowSnapshots = $bindable(true),
+        publicAccessShowClips = $bindable(true),
+        publicAccessLocationPrecision = $bindable<'approximate' | 'exact'>('approximate'),
         publicAccessHistoricalDaysMode = $bindable<'retention' | 'custom'>('retention'),
         publicAccessHistoricalDays = $bindable(7),
         publicAccessMediaDaysMode = $bindable<'retention' | 'custom'>('retention'),
@@ -47,6 +52,10 @@
         publicAccessShowCameraNames: boolean;
         publicAccessShowAiConversation: boolean;
         publicAccessAllowClipDownloads: boolean;
+        publicAccessShowAudio: boolean;
+        publicAccessShowSnapshots: boolean;
+        publicAccessShowClips: boolean;
+        publicAccessLocationPrecision: 'approximate' | 'exact';
         publicAccessHistoricalDaysMode: 'retention' | 'custom';
         publicAccessHistoricalDays: number;
         publicAccessMediaDaysMode: 'retention' | 'custom';
@@ -302,6 +311,72 @@
                 labelledBy="setting-public-show-cameras"
                 srLabel={$_('settings.public_access.show_camera_names')}
                 onchange={(v) => (publicAccessShowCameraNames = v)}
+            />
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-public-show-audio"
+            label={$_('settings.public_access.show_audio', { default: 'Share audio with visitors' })}
+            description={$_('settings.public_access.show_audio_desc', { default: 'BirdNET detections, spectrograms and audio clips. Off means visitors see no audio surfaces at all.' })}
+        >
+            <SettingsToggle
+                checked={publicAccessShowAudio}
+                labelledBy="setting-public-show-audio"
+                srLabel={$_('settings.public_access.show_audio', { default: 'Share audio with visitors' })}
+                onchange={(v) => (publicAccessShowAudio = v)}
+            />
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-public-show-snapshots"
+            label={$_('settings.public_access.show_snapshots', { default: 'Share photographs with visitors' })}
+            description={$_('settings.public_access.show_snapshots_desc', { default: 'Snapshots and thumbnails. Off means visitors see placeholders instead of images.' })}
+        >
+            <SettingsToggle
+                checked={publicAccessShowSnapshots}
+                labelledBy="setting-public-show-snapshots"
+                srLabel={$_('settings.public_access.show_snapshots', { default: 'Share photographs with visitors' })}
+                onchange={(v) => (publicAccessShowSnapshots = v)}
+            />
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-public-show-clips"
+            label={$_('settings.public_access.show_clips', { default: 'Share video with visitors' })}
+            description={$_('settings.public_access.show_clips_desc', { default: 'Video clips and their previews. Off means visitors cannot play video at all; the download switch below only controls saving the file.' })}
+        >
+            <SettingsToggle
+                checked={publicAccessShowClips}
+                labelledBy="setting-public-show-clips"
+                srLabel={$_('settings.public_access.show_clips', { default: 'Share video with visitors' })}
+                onchange={(v) => (publicAccessShowClips = v)}
+            />
+        </SettingsRow>
+
+        <SettingsRow
+            labelId="setting-public-location-precision"
+            label={$_('settings.public_access.location_precision', { default: 'Location shown to visitors' })}
+            description={$_('settings.public_access.location_precision_desc', { default: 'Approximate rounds the location to about 10 km before any visitor-facing feature uses it, so sharing your feeder does not publish your address.' })}
+            layout="stacked"
+        >
+            <SettingsSegmented
+                value={publicAccessLocationPrecision}
+                layout="card"
+                columns={2}
+                ariaLabelTemplate={(label) => label}
+                onchange={(v) => (publicAccessLocationPrecision = v as 'approximate' | 'exact')}
+                options={[
+                    {
+                        value: 'approximate',
+                        label: $_('settings.public_access.location_approximate', { default: 'Approximate' }),
+                        sub: $_('settings.public_access.location_approximate_sub', { default: 'About 10 km. The safe default.' })
+                    },
+                    {
+                        value: 'exact',
+                        label: $_('settings.public_access.location_exact', { default: 'Exact' }),
+                        sub: $_('settings.public_access.location_exact_sub', { default: 'The configured coordinates as-is.' })
+                    }
+                ]}
             />
         </SettingsRow>
 

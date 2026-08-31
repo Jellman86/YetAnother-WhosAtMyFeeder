@@ -928,7 +928,19 @@
       "share_base_url": "Share link base URL (optional)",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "If set, new share links use this public base URL instead of the detected request host.",
-      "advanced_title": "History windows & rate limits"
+      "advanced_title": "History windows & rate limits",
+      "show_audio": "Share audio with visitors",
+      "show_audio_desc": "BirdNET detections, spectrograms and audio clips. Off means visitors see no audio surfaces at all.",
+      "show_snapshots": "Share photographs with visitors",
+      "show_snapshots_desc": "Snapshots and thumbnails. Off means visitors see placeholders instead of images.",
+      "show_clips": "Share video with visitors",
+      "show_clips_desc": "Video clips and their previews. Off means visitors cannot play video at all; the download switch below only controls saving the file.",
+      "location_precision": "Location shown to visitors",
+      "location_precision_desc": "Approximate rounds the location to about 10 km before any visitor-facing feature uses it, so sharing your feeder does not publish your address.",
+      "location_approximate": "Approximate",
+      "location_approximate_sub": "About 10 km. The safe default.",
+      "location_exact": "Exact",
+      "location_exact_sub": "The configured coordinates as-is."
     },
     "accessibility": {
       "title": "Accessibility Options",
@@ -2131,7 +2143,9 @@
     "sources": {
       "title": "Sources",
       "empty": "No sources yet."
-    }
+    },
+    "not_shared_title": "Audio is not shared publicly",
+    "not_shared_body": "The owner of this instance has turned off audio for visitors."
   },
   "leaderboard": {
     "title": "Species Leaderboard",

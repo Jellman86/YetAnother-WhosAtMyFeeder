@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from app.auth import get_auth_context_with_legacy
 from app.database import get_db
 from app.config import settings
+from app.utils.public_access import guest_location
 from app.services.ebird_service import ebird_service
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.repositories.ebird_repository import EbirdRepository
@@ -498,8 +499,13 @@ async def get_nearby_observations(
     if lat is None or lng is None:
         if settings.location.latitude is None or settings.location.longitude is None:
             raise HTTPException(status_code=400, detail="Location is not configured")
-        lat = settings.location.latitude
-        lng = settings.location.longitude
+        if getattr(auth, "is_owner", False):
+            lat = settings.location.latitude
+            lng = settings.location.longitude
+        else:
+            # A visitor's search centres on the location at the precision the
+            # owner shares publicly - approximate by default (#291).
+            lat, lng = guest_location()
 
     dist = dist_km or settings.ebird.default_radius_km
     back = days_back or settings.ebird.default_days_back
@@ -546,8 +552,13 @@ async def get_notable_observations(
     if lat is None or lng is None:
         if settings.location.latitude is None or settings.location.longitude is None:
             raise HTTPException(status_code=400, detail="Location is not configured")
-        lat = settings.location.latitude
-        lng = settings.location.longitude
+        if getattr(auth, "is_owner", False):
+            lat = settings.location.latitude
+            lng = settings.location.longitude
+        else:
+            # A visitor's search centres on the location at the precision the
+            # owner shares publicly - approximate by default (#291).
+            lat, lng = guest_location()
 
     dist = dist_km or settings.ebird.default_radius_km
     back = days_back or settings.ebird.default_days_back

@@ -949,6 +949,18 @@ class PublicAccessSettings(BaseModel):
 
     enabled: bool = Field(default=False, description="Allow unauthenticated public access to view detections")
     show_camera_names: bool = Field(default=True, description="Show camera names to public visitors")
+    # Per-medium switches (#291): audio previously had no control at all.
+    show_audio: bool = Field(
+        default=True, description="Show BirdNET audio detections and spectrograms to public visitors"
+    )
+    show_snapshots: bool = Field(default=True, description="Show detection snapshots and thumbnails to public visitors")
+    show_clips: bool = Field(default=True, description="Show video clips to public visitors")
+    # Approximate by default: the person doxxed by an exact location is the
+    # person who never found this setting.
+    location_precision: Literal["approximate", "exact"] = Field(
+        default="approximate",
+        description="How precisely guest-facing features may use the configured location",
+    )
     show_ai_conversation: bool = Field(
         default=False, description="Allow public visitors to view AI conversation threads"
     )

@@ -20,6 +20,17 @@ from app.utils.api_datetime import serialize_api_datetime
 from app.utils.public_access import effective_public_events_days
 
 router = APIRouter(prefix="/audio", tags=["audio"])
+
+
+async def require_public_audio(auth: AuthContext = Depends(get_auth_context_with_legacy)) -> AuthContext:
+    """Audio is the owner's to share (#291): a visitor is refused plainly
+    when the switch is off, instead of audio being the one medium with no
+    control at all."""
+    if not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_audio:
+        raise HTTPException(status_code=403, detail="Audio is not shared publicly on this instance.")
+    return auth
+
+
 log = structlog.get_logger()
 AUDIO_SUPPRESSED_BY_MAPPING_HEADER = "X-YAWAMF-Audio-Suppressed-By-Mapping"
 AUDIO_CONTEXT_RESPONSE_METADATA = {
@@ -187,9 +198,7 @@ def _parse_audio_source_fields(raw_data: str | None, stored_sensor_id: str | Non
 
 @router.get("/recent", response_model=list[AudioDetectionResponse])
 @guest_rate_limit()
-async def get_recent_audio(
-    request: Request, limit: int = 10, auth: AuthContext = Depends(get_auth_context_with_legacy)
-):
+async def get_recent_audio(request: Request, limit: int = 10, auth: AuthContext = Depends(require_public_audio)):
     """Get the most recent audio detections from the memory buffer."""
     detections = await audio_service.get_recent_detections(limit=limit)
     lang = get_user_language(request) or "en"
@@ -218,7 +227,7 @@ async def get_audio_history(
     min_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
-    auth: AuthContext = Depends(get_auth_context_with_legacy),
+    auth: AuthContext = Depends(require_public_audio),
 ):
     """Browse persisted BirdNET-Go detections separately from visual detections."""
     window = _history_window(days, start_date, end_date)
@@ -288,7 +297,7 @@ async def get_audio_summary(
     species: str | None = Query(default=None, max_length=120),
     source: str | None = Query(default=None, max_length=120),
     min_confidence: float | None = Query(default=None, ge=0.0, le=1.0),
-    auth: AuthContext = Depends(get_auth_context_with_legacy),
+    auth: AuthContext = Depends(require_public_audio),
 ):
     """Summarise persisted BirdNET-Go detection history."""
     window = _history_window(days, start_date, end_date)
@@ -339,7 +348,7 @@ def _leaderboard_window(span: str) -> tuple[datetime, datetime, datetime, dateti
 async def get_audio_species_leaderboard(
     request: Request,
     span: Literal["day", "week", "month", "all"] = Query(default="week"),
-    auth: AuthContext = Depends(get_auth_context_with_legacy),
+    auth: AuthContext = Depends(require_public_audio),
 ):
     """Heard-count leaderboard over persisted BirdNET-Go detections.
 
@@ -399,7 +408,7 @@ async def get_audio_species_leaderboard(
 async def get_audio_spectrogram(
     birdnet_id: int,
     width: int = Query(default=400, ge=64, le=1600),
-    auth: AuthContext = Depends(get_auth_context_with_legacy),
+    auth: AuthContext = Depends(require_public_audio),
 ):
     """Proxy a BirdNET-Go spectrogram PNG so the browser does not need a
     direct route to the BirdNET-Go host.
@@ -436,7 +445,7 @@ async def get_audio_spectrogram(
 async def get_audio_clip(
     birdnet_id: int,
     request: Request,
-    auth: AuthContext = Depends(get_auth_context_with_legacy),
+    auth: AuthContext = Depends(require_public_audio),
 ):
     """Proxy a BirdNET-Go audio clip so the browser can play the matched
     audio inline in the detection modal.
@@ -494,7 +503,7 @@ async def get_audio_context(
     camera: str | None = Query(default=None, description="Camera name for sensor mapping"),
     window_seconds: int = Query(default=300, ge=5, le=3600),
     limit: int = Query(default=5, ge=1, le=20),
-    auth: AuthContext = Depends(get_auth_context_with_legacy),
+    auth: AuthContext = Depends(require_public_audio),
 ):
     """Get audio detections near a specific detection time."""
     target_time = timestamp
@@ -528,7 +537,7 @@ async def get_event_audio_context(
     request: Request,
     response: Response,
     event_id: str = ApiPath(..., min_length=1, max_length=255),
-    auth: AuthContext = Depends(get_auth_context_with_legacy),
+    auth: AuthContext = Depends(require_public_audio),
 ):
     """Get BirdNET-Go detections near a persisted visual event.
 
@@ -588,7 +597,7 @@ async def get_event_audio_context(
 async def get_audio_sources(
     request: Request,
     limit: int = Query(default=20, ge=1, le=100),
-    auth: AuthContext = Depends(get_auth_context_with_legacy),
+    auth: AuthContext = Depends(require_public_audio),
 ):
     """Get recently observed BirdNET source names for camera mapping."""
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names

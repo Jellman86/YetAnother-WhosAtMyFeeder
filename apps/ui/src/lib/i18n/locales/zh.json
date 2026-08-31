@@ -919,7 +919,19 @@
       "share_base_url": "分享链接基础 URL（可选）",
       "share_base_url_placeholder": "https://your-public-domain.example",
       "share_base_url_desc": "设置后，新建分享链接将使用此公共基础 URL，而不是检测到的请求主机。",
-      "advanced_title": "历史窗口与速率限制"
+      "advanced_title": "历史窗口与速率限制",
+      "show_audio": "与访客共享音频",
+      "show_audio_desc": "BirdNET 检测、频谱图和音频片段。关闭后访客完全看不到音频相关内容。",
+      "show_snapshots": "与访客共享照片",
+      "show_snapshots_desc": "快照和缩略图。关闭后访客看到的是占位符而不是图片。",
+      "show_clips": "与访客共享视频",
+      "show_clips_desc": "视频片段及其预览。关闭后访客完全无法播放视频；下方的下载开关仅控制文件保存。",
+      "location_precision": "向访客显示的位置",
+      "location_precision_desc": "「大致」会在任何访客功能使用前将位置四舍五入到约 10 公里，分享喂食器不会公开您的地址。",
+      "location_approximate": "大致",
+      "location_approximate_sub": "约 10 公里。安全的默认值。",
+      "location_exact": "精确",
+      "location_exact_sub": "按配置的坐标原样使用。"
     },
     "accessibility": {
       "title": "辅助功能选项",
@@ -2122,7 +2134,9 @@
     "sources": {
       "title": "来源",
       "empty": "尚无来源。"
-    }
+    },
+    "not_shared_title": "音频未公开共享",
+    "not_shared_body": "此实例的所有者已为访客关闭音频。"
   },
   "leaderboard": {
     "source_toggle": "检测来源",

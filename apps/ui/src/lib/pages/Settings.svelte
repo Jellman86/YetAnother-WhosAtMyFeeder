@@ -1280,6 +1280,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let publicAccessShowCameraNames = $state(true);
     let publicAccessShowAiConversation = $state(false);
     let publicAccessAllowClipDownloads = $state(false);
+    let publicAccessShowAudio = $state(true);
+    let publicAccessShowSnapshots = $state(true);
+    let publicAccessShowClips = $state(true);
+    let publicAccessLocationPrecision = $state<'approximate' | 'exact'>('approximate');
     let publicAccessHistoricalDaysMode = $state<'retention' | 'custom'>('retention');
     let publicAccessHistoricalDays = $state(7);
     let publicAccessMediaDaysMode = $state<'retention' | 'custom'>('retention');
@@ -1846,6 +1850,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'publicAccessShowCameraNames', val: publicAccessShowCameraNames, store: s.public_access_show_camera_names ?? true },
             { key: 'publicAccessShowAiConversation', val: publicAccessShowAiConversation, store: s.public_access_show_ai_conversation ?? false },
             { key: 'publicAccessAllowClipDownloads', val: publicAccessAllowClipDownloads, store: s.public_access_allow_clip_downloads ?? false },
+            { key: 'publicAccessShowAudio', val: publicAccessShowAudio, store: s.public_access_show_audio ?? true },
+            { key: 'publicAccessShowSnapshots', val: publicAccessShowSnapshots, store: s.public_access_show_snapshots ?? true },
+            { key: 'publicAccessShowClips', val: publicAccessShowClips, store: s.public_access_show_clips ?? true },
+            { key: 'publicAccessLocationPrecision', val: publicAccessLocationPrecision, store: s.public_access_location_precision ?? 'approximate' },
             { key: 'publicAccessHistoricalDaysMode', val: publicAccessHistoricalDaysMode, store: normalizePublicDaysMode(s.public_access_historical_days_mode) },
             { key: 'publicAccessHistoricalDays', val: publicAccessHistoricalDays, store: s.public_access_historical_days ?? 7 },
             { key: 'publicAccessMediaDaysMode', val: publicAccessMediaDaysMode, store: normalizePublicDaysMode(s.public_access_media_days_mode) },
@@ -2897,6 +2905,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             publicAccessShowCameraNames = settings.public_access_show_camera_names ?? true;
             publicAccessShowAiConversation = settings.public_access_show_ai_conversation ?? false;
             publicAccessAllowClipDownloads = settings.public_access_allow_clip_downloads ?? false;
+            publicAccessShowAudio = settings.public_access_show_audio ?? true;
+            publicAccessShowSnapshots = settings.public_access_show_snapshots ?? true;
+            publicAccessShowClips = settings.public_access_show_clips ?? true;
+            publicAccessLocationPrecision = (settings.public_access_location_precision as 'approximate' | 'exact') ?? 'approximate';
             publicAccessHistoricalDaysMode = normalizePublicDaysMode(settings.public_access_historical_days_mode);
             publicAccessHistoricalDays = settings.public_access_historical_days ?? 7;
             publicAccessMediaDaysMode = normalizePublicDaysMode(settings.public_access_media_days_mode);
@@ -3184,6 +3196,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 public_access_show_camera_names: publicAccessShowCameraNames,
                 public_access_show_ai_conversation: publicAccessShowAiConversation,
                 public_access_allow_clip_downloads: publicAccessAllowClipDownloads,
+                public_access_show_audio: publicAccessShowAudio,
+                public_access_show_snapshots: publicAccessShowSnapshots,
+                public_access_show_clips: publicAccessShowClips,
+                public_access_location_precision: publicAccessLocationPrecision,
                 public_access_historical_days_mode: publicAccessHistoricalDaysMode,
                 public_access_historical_days: publicAccessHistoricalDays,
                 public_access_media_days_mode: publicAccessMediaDaysMode,
@@ -3577,6 +3593,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:publicAccessShowCameraNames
                     bind:publicAccessShowAiConversation
                     bind:publicAccessAllowClipDownloads
+                    bind:publicAccessShowAudio
+                    bind:publicAccessShowSnapshots
+                    bind:publicAccessShowClips
+                    bind:publicAccessLocationPrecision
                     bind:publicAccessHistoricalDaysMode
                     bind:publicAccessHistoricalDays
                     bind:publicAccessMediaDaysMode

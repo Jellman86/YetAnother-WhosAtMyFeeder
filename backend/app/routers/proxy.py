@@ -755,10 +755,17 @@ async def get_proxy_auth_context(
     return await get_auth_context_with_legacy(request, credentials, header_key, query_key)
 
 
-async def require_event_access(event_id: str, auth: AuthContext, lang: str) -> None:
-    """Ensure guests can only access visible, recent events."""
+async def require_event_access(event_id: str, auth: AuthContext, lang: str, media: str = "snapshot") -> None:
+    """Ensure guests can only access visible, recent events, and only the
+    media kinds the owner shares (#291)."""
     if auth.is_owner:
         return
+
+    if settings.public_access.enabled:
+        if media == "snapshot" and not settings.public_access.show_snapshots:
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
+        if media == "clip" and not settings.public_access.show_clips:
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.proxy.event_not_found", lang))
 
     try:
         async with get_db() as db:
@@ -1651,7 +1658,7 @@ async def proxy_snapshot(
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
 
     if not _has_valid_share_context(request, event_id):
-        await require_event_access(event_id, auth, lang)
+        await require_event_access(event_id, auth, lang, media="snapshot")
 
     if event_id.startswith("manual_"):
         from app.services.manual_observation_service import manual_observation_service
@@ -1830,7 +1837,7 @@ async def check_clip_exists(
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
 
     if not _has_valid_share_context(request, event_id):
-        await require_event_access(event_id, auth, lang)
+        await require_event_access(event_id, auth, lang, media="clip")
 
     if event_id.startswith("manual_"):
         from app.services.manual_observation_service import manual_observation_service
@@ -1914,7 +1921,7 @@ async def check_recording_clip_exists(
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
 
     if not _has_valid_share_context(request, event_id):
-        await require_event_access(event_id, auth, lang)
+        await require_event_access(event_id, auth, lang, media="clip")
 
     import time
 
@@ -1987,7 +1994,7 @@ async def fetch_recording_clip(
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
 
     if not _has_valid_share_context(request, event_id):
-        await require_event_access(event_id, auth, lang)
+        await require_event_access(event_id, auth, lang, media="clip")
 
     recording_state = await _fetch_recording_clip_ready(event_id, lang)
     return RecordingClipFetchResponse(
@@ -2018,7 +2025,7 @@ async def proxy_clip(
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
 
     if not _has_valid_share_context(request, event_id):
-        await require_event_access(event_id, auth, lang)
+        await require_event_access(event_id, auth, lang, media="clip")
 
     if event_id.startswith("manual_"):
         from app.services.manual_observation_service import manual_observation_service
@@ -2240,7 +2247,7 @@ async def proxy_recording_clip(
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
 
     if not _has_valid_share_context(request, event_id):
-        await require_event_access(event_id, auth, lang)
+        await require_event_access(event_id, auth, lang, media="clip")
 
     if download_requested and (not auth.is_owner) and (not settings.public_access.allow_clip_downloads):
         raise HTTPException(status_code=403, detail=i18n_service.translate("errors.proxy.download_forbidden", lang))
@@ -2390,7 +2397,7 @@ async def proxy_clip_thumbnails_vtt(
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
 
     if not _has_valid_share_context(request, event_id):
-        await require_event_access(event_id, auth, lang)
+        await require_event_access(event_id, auth, lang, media="clip")
 
     try:
         event_data = await frigate_client.get_event(event_id)
@@ -2477,7 +2484,7 @@ async def proxy_clip_thumbnails_sprite(
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
 
     if not _has_valid_share_context(request, event_id):
-        await require_event_access(event_id, auth, lang)
+        await require_event_access(event_id, auth, lang, media="clip")
     try:
         generation_outcome = await _ensure_preview_assets(event_id, lang)
     except HTTPException as exc:
@@ -2519,7 +2526,7 @@ async def proxy_thumb(
         raise HTTPException(status_code=400, detail=i18n_service.translate("errors.proxy.invalid_event_id", lang))
 
     if not _has_valid_share_context(request, event_id):
-        await require_event_access(event_id, auth, lang)
+        await require_event_access(event_id, auth, lang, media="snapshot")
 
     if event_id.startswith("manual_"):
         from app.services.manual_observation_service import manual_observation_service

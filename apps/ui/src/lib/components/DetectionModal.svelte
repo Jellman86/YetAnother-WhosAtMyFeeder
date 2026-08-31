@@ -636,7 +636,7 @@
     // Rows that come from an integration only appear when that integration is on:
     // "no matching call" from a disabled BirdNET would be a measurement we never took.
     const birdnetEnabled = $derived(
-        settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false
+        (settingsStore.settings?.birdnet_enabled ?? authStore.birdnetEnabled ?? false) && authStore.canViewAudio
     );
     const snapshotImageUrl = $derived.by(() => withCacheBust(getSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
     const originalFrigateSnapshotUrl = $derived.by(() => withCacheBust(getOriginalFrigateSnapshotUrl(detection.frigate_event), snapshotRefreshToken));
