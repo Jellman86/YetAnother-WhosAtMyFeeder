@@ -142,3 +142,29 @@ async def test_confirming_the_same_species_keeps_its_identity():
         await db.commit()
 
         assert (await _stored(db, "evt"))["species_id"] == SPECIES_ID
+
+
+@pytest.mark.asyncio
+async def test_a_correction_records_the_new_species_identity_when_it_is_known():
+    """Dropping the wrong identity is the floor; recording the right one is
+    the point. The caller resolves the corrected species and passes it in."""
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        await repo.insert_if_not_exists(_detection())
+        await repo.assign_species_id_by_scientific_name("Prunella modularis", SPECIES_ID)
+
+        await repo.apply_manual_species_tag(
+            frigate_event="evt",
+            display_name="Robin",
+            category_name="Robin",
+            scientific_name="Erithacus rubecula",
+            common_name="Robin",
+            taxa_id=None,
+            audio_confirmed=False,
+            audio_species=None,
+            audio_score=None,
+            species_id=4242,
+        )
+        await db.commit()
+
+        assert (await _stored(db, "evt"))["species_id"] == 4242

@@ -15,6 +15,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   now described the way someone picking one would: the whole frame, close on the bird, or as
   Frigate recorded it, with the species a frame was read as still shown where one exists.
 
+- **A species filter's list and its count agree, and a correction records the right identity.**
+  Two refinements found by reviewing the fixes above before they reached anyone. The seek that
+  reaches cache-identified rows was broader than the query it stands in for, so a page could show
+  a row the count never counted; it now mirrors that query exactly, matching a row on its own
+  scientific name and falling back to the display name only where the row has none. And a manual
+  correction now records the corrected species' catalogue identity rather than only dropping the
+  previous one, so the row is right immediately instead of waiting for the next startup.
+
 - **A species filter finds every visit again
   ([#365](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/365)).** 2.19.0 made a bare
   species filter answer by index seek, and that seek checked only the taxon id stored on the

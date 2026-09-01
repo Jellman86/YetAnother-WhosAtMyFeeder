@@ -1393,6 +1393,21 @@ async def _apply_manual_tag_update(
     detection.common_name = com_name
     detection.taxa_id = t_id
 
+    # A correction changes which bird this is, so its catalogue identity has to
+    # change with it. Resolving off the loop: the resolver reads its own
+    # database. An unresolvable name records no identity rather than keeping
+    # the previous species' one (#360).
+    corrected_species_id = None
+    if sci_name:
+        try:
+            from app.services.species_catalog_resolver import species_catalog_resolver
+
+            corrected_species_id, _reason = await asyncio.to_thread(
+                species_catalog_resolver.resolve_scientific_name, sci_name
+            )
+        except Exception as exc:  # pragma: no cover - identity stays unknown
+            log.warning("Could not resolve corrected species identity", error=str(exc), event_id=event_id)
+
     await repo.apply_manual_species_tag(
         frigate_event=event_id,
         display_name=stored_display_name,
@@ -1403,6 +1418,7 @@ async def _apply_manual_tag_update(
         audio_confirmed=audio_confirmed,
         audio_species=audio_species,
         audio_score=audio_score,
+        species_id=corrected_species_id,
     )
 
     model_id = _get_active_model_id_for_feedback()
