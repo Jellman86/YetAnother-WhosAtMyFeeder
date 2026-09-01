@@ -111,10 +111,11 @@ async def test_fast_path_matches_the_general_path_for_a_common_species():
 async def test_fast_path_query_never_scans_the_detections_table():
     async with get_db() as db:
         repo = DetectionRepository(db)
-        taxa_ids, names = await repo._collect_species_filter_terms("Rare Bird", None, None)
+        taxa_ids, names, cache_names = await repo._collect_species_filter_terms("Rare Bird", None, None)
         query, params = repo._build_species_fast_path_query(
             taxa_ids=taxa_ids,
             names=names,
+            cache_names=cache_names,
             limit=50,
             offset=0,
             sort="newest",

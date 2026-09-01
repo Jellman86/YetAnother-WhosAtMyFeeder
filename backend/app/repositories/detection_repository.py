@@ -1890,9 +1890,10 @@ class DetectionRepository:
         species: str | None,
         species_any: list[str] | None,
         taxa_id: int | None,
-    ) -> tuple[list[int], list[str]]:
+    ) -> tuple[list[int], list[str], list[str]]:
         taxa_ids: list[int] = []
         names: list[str] = []
+        cache_names: list[str] = []
 
         def _add_taxa(value: int | None) -> None:
             if value is not None and value not in taxa_ids:
@@ -1912,13 +1913,30 @@ class DetectionRepository:
             _add_name(alias_info.get("scientific_name"))
             for name in alias_info.get("match_names") or []:
                 _add_name(name)
-        return taxa_ids, names
+
+        # The general query reaches a row whose own taxon id was never filled
+        # by joining the taxonomy cache; these names let the fast path reach
+        # the same rows by seek, and they are applied only where the row has
+        # no taxon of its own, which is exactly what that COALESCE means.
+        if taxa_ids and await self._table_exists("taxonomy_cache"):
+            placeholders = ",".join("?" for _ in taxa_ids)
+            async with self.db.execute(
+                f"SELECT scientific_name, common_name FROM taxonomy_cache WHERE taxa_id IN ({placeholders})",
+                taxa_ids,
+            ) as cursor:
+                for row in await cursor.fetchall():
+                    for value in (row[0], row[1]):
+                        lowered = str(value or "").strip().lower()
+                        if lowered and lowered not in names and lowered not in cache_names:
+                            cache_names.append(lowered)
+        return taxa_ids, names, cache_names
 
     def _build_species_fast_path_query(
         self,
         *,
         taxa_ids: list[int],
         names: list[str],
+        cache_names: list[str] | None = None,
         limit: int,
         offset: int,
         sort: str,
@@ -1956,6 +1974,11 @@ class DetectionRepository:
         for column in ("display_name", "scientific_name", "common_name"):
             for name in names:
                 _branch(f"LOWER({column}) = ?", name)
+            # A cache-derived name identifies a row only where the row itself
+            # carries no taxon, matching the general query's COALESCE rather
+            # than widening the filter to rows that named a different taxon.
+            for name in cache_names or []:
+                _branch(f"LOWER({column}) = ? AND taxa_id IS NULL", name)
 
         union = " UNION ".join(branches)
         query = (
@@ -1995,11 +2018,12 @@ class DetectionRepository:
             audio_confirmed_only=audio_confirmed_only,
             frigate_event=frigate_event,
         ):
-            taxa_ids, names = await self._collect_species_filter_terms(species, species_any, taxa_id)
+            taxa_ids, names, cache_names = await self._collect_species_filter_terms(species, species_any, taxa_id)
             if taxa_ids or names:
                 query, params = self._build_species_fast_path_query(
                     taxa_ids=taxa_ids,
                     names=names,
+                    cache_names=cache_names,
                     limit=limit,
                     offset=offset,
                     sort=sort,

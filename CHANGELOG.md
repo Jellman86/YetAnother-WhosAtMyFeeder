@@ -6,6 +6,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **A species filter finds every visit again
+  ([#365](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/365)).** 2.19.0 made a bare
+  species filter answer by index seek, and that seek checked only the taxon id stored on the
+  detection itself. Where those ids are patchy the filter reported "no visits match these filters"
+  for a species with plenty of visits - and adding a date range appeared to fix it, because a date
+  range routes back to the older query, which resolves the taxon through the taxonomy cache. The
+  seek now reaches those rows too, on the same terms the older query used: a cached name identifies
+  a row only where the row carries no taxon of its own. The filter is still scan-free.
+
 ## [2.19.1] - 2026-08-31
 
 ### Fixed
