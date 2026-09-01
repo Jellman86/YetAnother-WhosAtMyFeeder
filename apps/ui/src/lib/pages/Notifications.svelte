@@ -20,9 +20,9 @@
     import { toAppPath } from '../app/url-base';
     import Pagination from '../components/Pagination.svelte';
     import { paginateItems } from '../utils/pagination';
-    import Jobs from './Jobs.svelte';
+    import JobCircuitBanner from '../components/JobCircuitBanner.svelte';
 
-    let { onNavigate, currentRoute = '/notifications' } = $props<{ onNavigate?: (path: string) => void; currentRoute?: string }>();
+    let { onNavigate } = $props<{ onNavigate?: (path: string) => void }>();
 
     const FILTERS: NotificationFilter[] = ['all', 'birds', 'updates', 'jobs', 'errors'];
 
@@ -122,18 +122,8 @@
     };
 </script>
 
-{#if currentRoute.startsWith('/notifications/jobs') && isOwner}
-    <div class="space-y-5" data-jobs-page>
-        <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => navigate('/notifications')}>
-            <svg class="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
-                <path d="m10 3-5 5 5 5" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            {$_('notifications.page_history', { default: 'History' })}
-        </button>
-        <Jobs {onNavigate} embedded />
-    </div>
-{:else}
 <div class="space-y-5" data-notifications-timeline>
+    <JobCircuitBanner />
     <!-- One window, stated once, with the same metrics the dashboard day bar uses. -->
     <div class="flex flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -150,14 +140,6 @@
             </p>
         </div>
         <div class="flex flex-wrap gap-2">
-            {#if isOwner}
-                <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => navigate('/notifications/jobs')}>
-                    {$_('notifications.job_manager', { default: 'Job manager' })}
-                    {#if activeJobs.length > 0}
-                        <span class="ml-1.5 tabular-nums">{activeJobs.length}</span>
-                    {/if}
-                </button>
-            {/if}
             <button type="button" class="btn btn-secondary min-h-11 px-3 py-2 text-xs" onclick={() => notificationCenter.markAllRead()}>
                 {$_('notifications.center_mark_all')}
             </button>
@@ -360,4 +342,3 @@
         </div>
     {/if}
 </div>
-{/if}

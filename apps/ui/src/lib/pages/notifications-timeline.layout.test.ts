@@ -25,13 +25,6 @@ describe('Notifications timeline layout', () => {
         expect(source).toContain('onPageSizeChange={changePageSize}');
     });
 
-    it('routes the job manager to the dedicated bounded jobs view', () => {
-        expect(source).toContain("import Jobs from './Jobs.svelte'");
-        expect(source).toContain("currentRoute.startsWith('/notifications/jobs') && isOwner");
-        expect(source).toContain('<Jobs {onNavigate} embedded />');
-        expect(source).toContain('data-jobs-page');
-    });
-
     it('hides owner-only filters rather than showing them empty', () => {
         expect(source).toContain('isOwner || !isOwnerOnlyFilter(name)');
         // Leaving an owner filter selected as access drops must not strand a guest on it.

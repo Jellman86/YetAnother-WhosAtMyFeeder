@@ -5,23 +5,6 @@ import type { JobPipelineKindRow } from './pipeline';
 export type JobsTranslationValues = Record<string, string | number | boolean | Date | null | undefined>;
 export type JobsTranslateFn = (key: string, values?: JobsTranslationValues, fallback?: string) => string;
 
-export interface PresentedActiveJob {
-    activityLabel: string;
-    progressLabel: string;
-    capacityLabel: string | null;
-    blockerLabel: string | null;
-    detailLabel: string | null;
-    freshnessLabel: string;
-    determinate: boolean;
-    percent: number | null;
-    isStale: boolean;
-}
-
-export interface PresentedJobKindIcon {
-    key: 'reclassify' | 'backfill' | 'weather' | 'download' | 'job';
-    label: string;
-}
-
 export interface PresentedPipelineKindRow {
     activityLabel: string;
     capacityLabel: string | null;
@@ -62,22 +45,6 @@ function formatRunningHeadline(count: number, t: JobsTranslateFn): string {
 
 function supportsReclassifyQueueStatus(kind: string): boolean {
     return kind === 'reclassify' || kind === 'reclassify_batch';
-}
-
-export function presentJobKindIcon(kind: string): PresentedJobKindIcon {
-    switch (kind) {
-        case 'reclassify':
-        case 'reclassify_batch':
-            return { key: 'reclassify', label: 'Analysis' };
-        case 'backfill':
-            return { key: 'backfill', label: 'Backfill' };
-        case 'weather_backfill':
-            return { key: 'weather', label: 'Weather' };
-        case 'model_download':
-            return { key: 'download', label: 'Download' };
-        default:
-            return { key: 'job', label: 'Job' };
-    }
 }
 
 function rankRow(row: JobPipelineKindRow): number {
@@ -214,7 +181,9 @@ function resolveLaneCapacity(row: JobPipelineKindRow | null, t: JobsTranslateFn)
 }
 
 function resolveLaneTitle(row: JobPipelineKindRow, t: JobsTranslateFn, kindLabel: (kind: string) => string): string {
-    if (supportsReclassifyQueueStatus(row.kind)) {
+    // Both reclassify kinds read the same queue telemetry, but they are not the same work:
+    // titling both "Analyze Unknowns" showed one job twice under one name.
+    if (row.kind === 'reclassify') {
         return t('jobs.work_lane_analyze_unknowns', undefined, 'Analyze Unknowns');
     }
     return kindLabel(row.kind);
@@ -301,39 +270,6 @@ function resolveBlockerLabel(
         return t('jobs.blocker_mqtt_pressure', undefined, 'MQTT pressure reduced background capacity');
     }
     return null;
-}
-
-export function presentActiveJob(
-    job: JobProgressItem,
-    row: JobPipelineKindRow | null,
-    analysisStatus: AnalysisStatus | null | undefined,
-    nowTs: number,
-    t: JobsTranslateFn
-): PresentedActiveJob {
-    const determinate = job.total > 0 && job.current >= 0;
-    const percent = determinate ? Math.min(100, Math.max(0, Math.round((job.current / job.total) * 100))) : null;
-    const progressLabel = determinate
-        ? formatProgress(job.current, job.total, resolveProgressUnit(job), t)
-        : t('jobs.progress_working', undefined, 'Working...');
-    const age = formatAge(Math.max(0, nowTs - job.updatedAt));
-    const isStale = job.status === 'stale';
-    const freshnessLabel = isStale
-        ? t('jobs.freshness_stale', { age }, 'No update for {age}')
-        : t('jobs.freshness_updated', { age }, 'Updated {age} ago');
-    const blockerLabel = resolveBlockerLabel(row, analysisStatus, t);
-    const detailLabel = isStale ? freshnessLabel : blockerLabel;
-
-    return {
-        activityLabel: resolveActivityLabel(job, row, analysisStatus, t),
-        progressLabel,
-        capacityLabel: resolveCapacityLabel(row, t),
-        blockerLabel,
-        detailLabel,
-        freshnessLabel,
-        determinate,
-        percent,
-        isStale
-    };
 }
 
 export function presentPipelineKindRow(

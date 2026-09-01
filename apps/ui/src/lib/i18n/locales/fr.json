@@ -1689,7 +1689,6 @@
     "empty_body": "Les visites apparaissent ici dès que le classifieur les nomme, la plus récente en premier.",
     "empty_action": "Ouvrir le journal de terrain",
     "empty_filtered": "Rien ne correspond à ce filtre.",
-    "job_manager": "Gestionnaire de tâches",
     "clear_notifications": "Effacer les notifications"
   },
   "actions": {
@@ -2582,13 +2581,9 @@
     "more": "+{count} tâches supplémentaires",
     "clear_history": "Effacer l’historique",
     "clear_all": "Tout effacer",
-    "active": "Actives",
-    "active_empty": "Aucune tâche active.",
     "thread_slot": "Voie {index}",
     "thread_idle": "Inactif",
     "thread_idle_detail": "Cet emplacement affichera la prochaine tâche active.",
-    "recent": "Récentes",
-    "recent_empty": "Aucune tâche terminée pour le moment.",
     "updated": "Mis à jour il y a {age}",
     "pipeline_title": "Pipeline",
     "pipeline_subtitle": "Le travail en file d’attente passe au traitement actif, puis aux résultats terminés.",
@@ -2640,11 +2635,6 @@
     "kind_video_analysis": "Analyse vidéo",
     "kind_high_quality_snapshot": "Captures de qualité optimale",
     "kind_full_visit": "Clips de visites complètes",
-    "server_status_unavailable": "L’état en direct des tâches est temporairement indisponible. La progression existante reste affichée et YA-WAMF réessaiera automatiquement.",
-    "status_running": "En cours",
-    "status_stale": "Attention requise",
-    "status_failed": "Échec",
-    "status_completed": "Terminé",
     "errors_title": "Santé",
     "errors_subtitle": "Diagnostics groupés pour éviter le spam ; exportez le JSON pour le dépannage.",
     "errors_export": "Exporter le JSON actuel",
@@ -2804,13 +2794,8 @@
     "errors_updated_seconds": "Mis à jour il y a {count}s",
     "errors_updated_minutes": "Mis à jour il y a {count}m",
     "system_ram_usage": "Utilisation RAM système",
-    "active_job": "Tâche active",
     "circuit_open_detail": "{queued} éléments en file d'attente. Échecs récents : {failures}.",
-    "coordinator_detail": "Une tâche coordinatrice gère la capacité des workers du classifieur pour ce backfill.",
-    "coordinator_job": "Tâche coordinatrice",
-    "more_lanes": "+{count} files de travail supplémentaires",
-    "work_lanes": "Files de travail",
-    "work_lanes_empty": "Aucune tâche en attente ou en cours."
+    "more_lanes": "+{count} files de travail supplémentaires"
   },
   "errors": {
     "stack_trace": "Trace de pile :"

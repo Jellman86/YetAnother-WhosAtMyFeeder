@@ -1698,7 +1698,6 @@
     "empty_body": "Visits appear here as the classifier names them, newest first.",
     "empty_action": "Open the field log",
     "empty_filtered": "Nothing matches this filter.",
-    "job_manager": "Job manager",
     "clear_notifications": "Clear notifications"
   },
   "actions": {
@@ -2501,18 +2500,9 @@
     "kind_video_analysis": "Video analysis",
     "kind_high_quality_snapshot": "Best-quality snapshots",
     "kind_full_visit": "Full visit clips",
-    "server_status_unavailable": "Live job status is temporarily unavailable. Existing progress is shown and YA-WAMF will retry automatically.",
-    "status_running": "Running",
-    "status_stale": "Needs attention",
-    "status_failed": "Failed",
-    "status_completed": "Completed",
-    "active": "Active",
-    "active_empty": "No active jobs.",
     "thread_slot": "Thread {index}",
     "thread_idle": "Idle",
     "thread_idle_detail": "This slot will hold the next active job.",
-    "recent": "Recent",
-    "recent_empty": "No completed jobs yet.",
     "updated": "Updated {age} ago",
     "errors_title": "Health",
     "errors_subtitle": "Grouped diagnostics to avoid spam; export JSON for troubleshooting.",
@@ -2671,13 +2661,8 @@
     "errors_updated_seconds": "Updated {count}s ago",
     "errors_updated_minutes": "Updated {count}m ago",
     "system_ram_usage": "System RAM Usage",
-    "active_job": "Active Job",
     "circuit_open_detail": "{queued} queued items are waiting. Recent failures: {failures}.",
-    "coordinator_detail": "One coordinator job manages classifier worker capacity for this backfill.",
-    "coordinator_job": "Coordinator Job",
-    "more_lanes": "+{count} more work lanes",
-    "work_lanes": "Work Lanes",
-    "work_lanes_empty": "No queued or running work."
+    "more_lanes": "+{count} more work lanes"
   },
   "footer": {
     "did_you_know": "Did you know?",

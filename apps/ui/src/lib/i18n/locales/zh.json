@@ -1689,7 +1689,6 @@
     "empty_body": "分类器一旦识别出访客，就会按从新到旧的顺序显示在这里。",
     "empty_action": "打开观察日志",
     "empty_filtered": "没有符合此筛选条件的内容。",
-    "job_manager": "任务管理",
     "clear_notifications": "清除通知"
   },
   "actions": {
@@ -2582,13 +2581,9 @@
     "more": "+{count} 个更多任务",
     "clear_history": "清除历史",
     "clear_all": "全部清除",
-    "active": "活跃",
-    "active_empty": "没有活跃任务。",
     "thread_slot": "线程 {index}",
     "thread_idle": "空闲",
     "thread_idle_detail": "此槽位将显示下一个活动任务。",
-    "recent": "最近",
-    "recent_empty": "还没有已完成任务。",
     "updated": "{age} 前更新",
     "pipeline_title": "Pipeline",
     "pipeline_subtitle": "排队的工作会流向活动处理，然后进入已完成结果。",
@@ -2640,11 +2635,6 @@
     "kind_video_analysis": "视频分析",
     "kind_high_quality_snapshot": "最佳质量快照",
     "kind_full_visit": "完整访问片段",
-    "server_status_unavailable": "实时任务状态暂时不可用。现有进度仍会显示，YA-WAMF 将自动重试。",
-    "status_running": "运行中",
-    "status_stale": "需要关注",
-    "status_failed": "失败",
-    "status_completed": "已完成",
     "errors_title": "健康",
     "errors_subtitle": "分组诊断以避免垃圾信息；导出 JSON 进行故障排除。",
     "errors_export": "导出当前 JSON",
@@ -2804,13 +2794,8 @@
     "errors_updated_seconds": "{count}秒前更新",
     "errors_updated_minutes": "{count}分钟前更新",
     "system_ram_usage": "系统内存使用率",
-    "active_job": "正在运行的任务",
     "circuit_open_detail": "队列中有 {queued} 项正在等待。最近失败次数:{failures}。",
-    "coordinator_detail": "一个协调任务负责管理此回填的分类器工作进程容量。",
-    "coordinator_job": "协调任务",
-    "more_lanes": "另有 {count} 条工作通道",
-    "work_lanes": "工作通道",
-    "work_lanes_empty": "没有排队或正在运行的任务。"
+    "more_lanes": "另有 {count} 条工作通道"
   },
   "errors": {
     "stack_trace": "堆栈跟踪："

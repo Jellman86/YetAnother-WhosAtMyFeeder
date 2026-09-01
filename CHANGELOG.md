@@ -6,6 +6,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **Background work is now shown once, on the Notifications page.** The separate jobs view listed
+  the same work three times over: four counters at the top, a "Work Lanes" list, and an "Active
+  Work" list below it, with two lanes both titled "Analyze Unknowns" and rows named after raw
+  Frigate event ids like `1788274081.133679-ycxd6p`. Nothing there was missing from the
+  notifications timeline, which already carried every job with its live progress, so the second
+  view existed mainly to disagree with the first. The jobs view is gone and its one irreplaceable
+  control, resuming a queue the circuit breaker has paused, now sits at the top of Notifications
+  where work that needs a person belongs. Old jobs links still work and land on the timeline.
+
+### Fixed
+
+- **Background work is named by what it is, not by an event id.** Jobs were titled with the Frigate
+  event they belonged to, which told an owner nothing about whether the row mattered to them. They
+  now read as "Automatic video analysis", "Full visit clips", and so on.
+- **Batch analysis no longer appears as a second "Analyze Unknowns".** Both reclassify job kinds
+  share queue telemetry, and the shared name made one piece of work look like two unrelated jobs.
+
 ## [2.19.2] - 2026-09-01
 
 ### Fixed

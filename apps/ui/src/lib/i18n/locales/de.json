@@ -1689,7 +1689,6 @@
     "empty_body": "Besuche erscheinen hier, sobald der Klassifikator sie benennt, neueste zuerst.",
     "empty_action": "Feldprotokoll öffnen",
     "empty_filtered": "Nichts entspricht diesem Filter.",
-    "job_manager": "Aufgabenverwaltung",
     "clear_notifications": "Benachrichtigungen löschen"
   },
   "actions": {
@@ -2582,13 +2581,9 @@
     "more": "+{count} weitere Aufträge",
     "clear_history": "Verlauf löschen",
     "clear_all": "Alles löschen",
-    "active": "Aktiv",
-    "active_empty": "Keine aktiven Aufträge.",
     "thread_slot": "Slot {index}",
     "thread_idle": "Leerlauf",
     "thread_idle_detail": "Dieser Slot zeigt den nächsten aktiven Auftrag an.",
-    "recent": "Zuletzt",
-    "recent_empty": "Noch keine abgeschlossenen Aufträge.",
     "updated": "Vor {age} aktualisiert",
     "pipeline_title": "Pipeline",
     "pipeline_subtitle": "Eingereihte Arbeit wandert in die aktive Verarbeitung und anschließend in abgeschlossene Ergebnisse.",
@@ -2640,11 +2635,6 @@
     "kind_video_analysis": "Videoanalyse",
     "kind_high_quality_snapshot": "Aufnahmen in bester Qualität",
     "kind_full_visit": "Clips vollständiger Besuche",
-    "server_status_unavailable": "Der Live-Auftragsstatus ist vorübergehend nicht verfügbar. Der vorhandene Fortschritt wird angezeigt und YA-WAMF versucht es automatisch erneut.",
-    "status_running": "Läuft",
-    "status_stale": "Aufmerksamkeit erforderlich",
-    "status_failed": "Fehlgeschlagen",
-    "status_completed": "Abgeschlossen",
     "errors_title": "Zustand",
     "errors_subtitle": "Gruppierte Diagnosen zur Vermeidung von Spam; JSON für die Fehlersuche exportieren.",
     "errors_export": "Aktuelles JSON exportieren",
@@ -2804,13 +2794,8 @@
     "errors_updated_seconds": "Vor {count}s aktualisiert",
     "errors_updated_minutes": "Vor {count}m aktualisiert",
     "system_ram_usage": "System-RAM-Auslastung",
-    "active_job": "Aktiver Job",
     "circuit_open_detail": "{queued} Elemente warten in der Warteschlange. Letzte Fehler: {failures}.",
-    "coordinator_detail": "Ein Koordinatorjob steuert die Klassifizierungs-Worker-Kapazität für diesen Backfill.",
-    "coordinator_job": "Koordinator-Job",
-    "more_lanes": "+{count} weitere Arbeitslinien",
-    "work_lanes": "Arbeitslinien",
-    "work_lanes_empty": "Keine wartenden oder laufenden Aufgaben."
+    "more_lanes": "+{count} weitere Arbeitslinien"
   },
   "errors": {
     "stack_trace": "Stack-Trace:"

@@ -1689,7 +1689,6 @@
     "empty_body": "分類器が名前を付けた順に、新しいものから訪問がここに表示されます。",
     "empty_action": "フィールドログを開く",
     "empty_filtered": "このフィルターに一致するものはありません。",
-    "job_manager": "ジョブ管理",
     "clear_notifications": "通知をクリア"
   },
   "actions": {
@@ -2582,13 +2581,9 @@
     "more": "+{count}件の追加ジョブ",
     "clear_history": "履歴をクリア",
     "clear_all": "すべてクリア",
-    "active": "実行中",
-    "active_empty": "実行中のジョブはありません。",
     "thread_slot": "スレッド {index}",
     "thread_idle": "待機中",
     "thread_idle_detail": "このスロットに次のアクティブなジョブが表示されます。",
-    "recent": "最近",
-    "recent_empty": "完了したジョブはまだありません。",
     "updated": "{age}前に更新",
     "pipeline_title": "Pipeline",
     "pipeline_subtitle": "キューに入った作業はアクティブ処理へ進み、その後完了済みの結果になります。",
@@ -2640,11 +2635,6 @@
     "kind_video_analysis": "映像解析",
     "kind_high_quality_snapshot": "最高品質のスナップショット",
     "kind_full_visit": "訪問全体のクリップ",
-    "server_status_unavailable": "ジョブのライブ状態を一時的に取得できません。既存の進行状況を表示し、YA-WAMF が自動的に再試行します。",
-    "status_running": "実行中",
-    "status_stale": "確認が必要",
-    "status_failed": "失敗",
-    "status_completed": "完了",
     "errors_title": "ヘルス",
     "errors_subtitle": "スパムを防ぐためにグループ化された診断情報。トラブルシューティング用にJSONをエクスポートできます。",
     "errors_export": "現在のJSONをエクスポート",
@@ -2804,13 +2794,8 @@
     "errors_updated_seconds": "{count}秒前に更新",
     "errors_updated_minutes": "{count}分前に更新",
     "system_ram_usage": "システムRAM使用率",
-    "active_job": "実行中のジョブ",
     "circuit_open_detail": "{queued} 件のキュー項目が待機中です。最近の失敗: {failures}。",
-    "coordinator_detail": "コーディネータージョブがこのバックフィルの分類ワーカー容量を管理します。",
-    "coordinator_job": "コーディネータージョブ",
-    "more_lanes": "他に {count} 件のワークレーン",
-    "work_lanes": "ワークレーン",
-    "work_lanes_empty": "キューに入っているか実行中のジョブはありません。"
+    "more_lanes": "他に {count} 件のワークレーン"
   },
   "errors": {
     "stack_trace": "スタックトレース:"

@@ -1698,7 +1698,6 @@
     "empty_body": "As visitas aparecem aqui assim que o classificador as nomeia, a mais recente primeiro.",
     "empty_action": "Abrir o diário de campo",
     "empty_filtered": "Nada corresponde a este filtro.",
-    "job_manager": "Gestor de tarefas",
     "clear_notifications": "Limpar notificações"
   },
   "actions": {
@@ -2582,13 +2581,9 @@
     "more": "+{count} tarefas adicionais",
     "clear_history": "Limpar histórico",
     "clear_all": "Limpar tudo",
-    "active": "Ativas",
-    "active_empty": "Nenhuma tarefa ativa.",
     "thread_slot": "Slot {index}",
     "thread_idle": "Ocioso",
     "thread_idle_detail": "Este slot mostrará a próxima tarefa ativa.",
-    "recent": "Recentes",
-    "recent_empty": "Nenhuma tarefa concluída ainda.",
     "updated": "Atualizado há {age}",
     "pipeline_title": "Pipeline",
     "pipeline_subtitle": "O trabalho enfileirado flui para o processamento ativo e depois para os resultados concluídos.",
@@ -2640,11 +2635,6 @@
     "kind_video_analysis": "Análise de vídeo",
     "kind_high_quality_snapshot": "Capturas de melhor qualidade",
     "kind_full_visit": "Clipes de visitas completas",
-    "server_status_unavailable": "O estado dos trabalhos ao vivo está temporariamente indisponível. O progresso existente é exibido e o YA-WAMF tentará novamente de forma automática.",
-    "status_running": "Em execução",
-    "status_stale": "Requer atenção",
-    "status_failed": "Falhou",
-    "status_completed": "Concluído",
     "errors_title": "Saúde",
     "errors_subtitle": "Diagnósticos agrupados para evitar spam; exporte JSON para solução de problemas.",
     "errors_export": "Exportar JSON atual",
@@ -2804,13 +2794,8 @@
     "errors_updated_seconds": "Atualizado há {count}s",
     "errors_updated_minutes": "Atualizado há {count}m",
     "system_ram_usage": "Uso de RAM do sistema",
-    "active_job": "Tarefa ativa",
     "circuit_open_detail": "{queued} itens em fila estão à espera. Falhas recentes: {failures}.",
-    "coordinator_detail": "Uma tarefa coordenadora gere a capacidade dos workers do classificador para este backfill.",
-    "coordinator_job": "Tarefa coordenadora",
-    "more_lanes": "+{count} pistas de trabalho adicionais",
-    "work_lanes": "Pistas de trabalho",
-    "work_lanes_empty": "Sem tarefas em fila ou em execução."
+    "more_lanes": "+{count} pistas de trabalho adicionais"
   },
   "errors": {
     "stack_trace": "Rastreamento de pilha:"

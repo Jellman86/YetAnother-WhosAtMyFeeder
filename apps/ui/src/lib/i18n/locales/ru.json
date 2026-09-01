@@ -1698,7 +1698,6 @@
     "empty_body": "Визиты появятся здесь, как только классификатор их назовёт, начиная с самых свежих.",
     "empty_action": "Открыть полевой журнал",
     "empty_filtered": "Ничего не соответствует этому фильтру.",
-    "job_manager": "Менеджер задач",
     "clear_notifications": "Очистить уведомления"
   },
   "actions": {
@@ -2582,13 +2581,9 @@
     "more": "+{count} задач",
     "clear_history": "Очистить историю",
     "clear_all": "Очистить всё",
-    "active": "Активные",
-    "active_empty": "Нет активных задач.",
     "thread_slot": "Поток {index}",
     "thread_idle": "Ожидание",
     "thread_idle_detail": "Этот слот покажет следующую активную задачу.",
-    "recent": "Недавние",
-    "recent_empty": "Пока нет завершённых задач.",
     "updated": "Обновлено {age} назад",
     "pipeline_title": "Pipeline",
     "pipeline_subtitle": "Задачи из очереди переходят в активную обработку, а затем в завершённые результаты.",
@@ -2640,11 +2635,6 @@
     "kind_video_analysis": "Анализ видео",
     "kind_high_quality_snapshot": "Снимки наилучшего качества",
     "kind_full_visit": "Клипы полных посещений",
-    "server_status_unavailable": "Текущий статус заданий временно недоступен. Существующий прогресс отображается, а YA-WAMF автоматически повторит попытку.",
-    "status_running": "Выполняется",
-    "status_stale": "Требует внимания",
-    "status_failed": "Ошибка",
-    "status_completed": "Завершено",
     "errors_title": "Здоровье",
     "errors_subtitle": "Сгруппированная диагностика для снижения шума; экспортируйте JSON для устранения неполадок.",
     "errors_export": "Экспортировать текущий JSON",
@@ -2804,13 +2794,8 @@
     "errors_updated_seconds": "Обновлено {count}с назад",
     "errors_updated_minutes": "Обновмено {count}мин назад",
     "system_ram_usage": "Использование ОЗУ системы",
-    "active_job": "Активная задача",
     "circuit_open_detail": "В очереди ожидает {queued} элементов. Недавних сбоев: {failures}.",
-    "coordinator_detail": "Координирующая задача управляет ёмкостью воркеров классификатора для этого backfill.",
-    "coordinator_job": "Координирующая задача",
-    "more_lanes": "+{count} дополнительных линий работы",
-    "work_lanes": "Линии работы",
-    "work_lanes_empty": "Нет задач в очереди или выполняющихся."
+    "more_lanes": "+{count} дополнительных линий работы"
   },
   "errors": {
     "stack_trace": "Трассировка стека:"

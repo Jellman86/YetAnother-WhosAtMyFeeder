@@ -1,3 +1,5 @@
+import { get } from 'svelte/store';
+import { _, locale } from 'svelte-i18n';
 import { fetchJobsSnapshot, type JobsSnapshot, type ServerJob } from '../api/jobs';
 import type { QueueTelemetryByKind } from '../jobs/pipeline';
 import { authStore } from './auth.svelte';
@@ -13,7 +15,12 @@ function parseTimestamp(value: string | null | undefined, fallback: number): num
 }
 
 function titleForJob(job: ServerJob): string {
-    return job.event_id ?? job.kind.replace(/_/g, ' ');
+    // A Frigate event id is an identifier, not a title. Naming the work is what tells an owner
+    // whether a row matters to them; the event it belongs to is reachable by opening the row.
+    const humanKind = job.kind.replace(/_/g, ' ');
+    // A poll can materialize jobs before the locale finishes loading, and formatting then throws.
+    if (!get(locale)) return humanKind;
+    return get(_)(`jobs.kind_${job.kind}`, { default: humanKind });
 }
 
 function toProgressItem(
@@ -63,12 +70,6 @@ function correlationEventId(job: JobProgressItem): string | null {
     }
     if (job.id.startsWith('video:')) return job.id.slice('video:'.length) || null;
     return null;
-}
-
-/** Stable across the browser's reclassify id and the server's video id for one event. */
-export function stableJobIdentity(job: JobProgressItem): string {
-    const eventId = correlationEventId(job);
-    return eventId ? `event:${eventId}` : `job:${job.id}`;
 }
 
 export class ServerJobsStore {
