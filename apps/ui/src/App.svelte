@@ -43,8 +43,6 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   import {
       canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
-      getNotificationsTabPathForAccess,
-      getNotificationsTabPath,
       isNotificationRoute
   } from './lib/app/notifications_route';
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
@@ -479,7 +477,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               'g d': () => navigate('/'),
               'g e': () => navigate('/events'),
               'g l': () => navigate('/species'),
-              'g j': () => navigate(getNotificationsTabPathForAccess('jobs', authStore.showSettings)),
+              'g j': () => navigate('/notifications'),
               'g t': () => navigate('/settings'),
               'Escape': () => {
                   // Close keyboard shortcuts modal
@@ -793,7 +791,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               {:else if currentRoute.startsWith('/notifications')}
                   <LazyRoute
                       loader={loadNotificationsPage}
-                      props={{ onNavigate: navigate, currentRoute }}
+                      props={{ onNavigate: navigate }}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />

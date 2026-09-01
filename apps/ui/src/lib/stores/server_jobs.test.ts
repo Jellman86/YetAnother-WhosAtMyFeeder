@@ -1,7 +1,41 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
+import { addMessages, init, locale } from 'svelte-i18n';
+import en from '../i18n/locales/en.json';
 import { ServerJobsStore } from './server_jobs.svelte';
 
 describe('ServerJobsStore', () => {
+    it('names background work by what it is, not by a Frigate event id', () => {
+        // The jobs view listed rows titled "1788274081.133679-ycxd6p". An identifier does not
+        // tell an owner whether the row matters; the kind of work does.
+        addMessages('en', en);
+        init({ fallbackLocale: 'en', initialLocale: 'en' });
+        locale.set('en');
+
+        const store = new ServerJobsStore();
+        store.snapshot = {
+            captured_at: '2026-07-22T12:00:00Z',
+            items: [{
+                id: 'video:1788274081.133679-ycxd6p',
+                event_id: '1788274081.133679-ycxd6p',
+                kind: 'auto_video',
+                source: 'maintenance',
+                status: 'running',
+                phase: 'analyzing',
+                current: 3,
+                total: 15,
+                unit: 'frames',
+                visibility: 'routine'
+            }],
+            lanes: []
+        };
+
+        expect(store.activeJobs[0].title).toBe('Automatic video analysis');
+        expect(store.activeJobs[0].title).not.toContain('1788274081');
+        // Two clips analysed at once would otherwise be two identical rows, so the event
+        // stays visible as detail rather than disappearing with the id.
+        expect(store.activeJobs[0].message).toBe('analyzing \u00b7 1788274081.133679-ycxd6p');
+    });
+
     it('keeps queued server work distinct from running worker use', () => {
         const store = new ServerJobsStore();
         store.snapshot = {

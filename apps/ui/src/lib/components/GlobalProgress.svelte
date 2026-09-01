@@ -3,7 +3,6 @@
     import { slide } from 'svelte/transition';
     import { _ } from 'svelte-i18n';
     import { jobProgressStore } from '../stores/job_progress.svelte';
-    import { getNotificationsTabPathForAccess } from '../app/notifications_route';
     import { authStore } from '../stores/auth.svelte';
     import { buildJobsPipelineModel } from '../jobs/pipeline';
     import { buildGlobalProgressSummary, presentWorkLane, type JobsTranslateFn } from '../jobs/presenter';
@@ -86,12 +85,11 @@
     });
 
     function openJobsPage() {
-        const jobsTabPath = getNotificationsTabPathForAccess('jobs', authStore.showSettings);
         if (onNavigate) {
-            onNavigate(jobsTabPath);
+            onNavigate('/notifications');
             return;
         }
-        window.location.assign(toAppPath(jobsTabPath));
+        window.location.assign(toAppPath('/notifications'));
     }
 </script>
 

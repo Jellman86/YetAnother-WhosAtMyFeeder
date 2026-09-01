@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AnalysisStatus } from '../api/maintenance';
 import type { JobProgressItem } from '../stores/job_progress.svelte';
 import type { JobPipelineKindRow } from './pipeline';
-import { buildGlobalProgressSummary, presentActiveJob, presentJobKindIcon, presentPipelineKindRow, presentWorkLane } from './presenter';
+import { buildGlobalProgressSummary, presentPipelineKindRow, presentWorkLane } from './presenter';
 
 function renderTemplate(template: string, values: Record<string, unknown> = {}): string {
     return template.replace(/\{(\w+)\}/g, (_, key) => String(values[key] ?? ''));
@@ -51,65 +51,6 @@ function makeRow(overrides: Partial<JobPipelineKindRow> = {}): JobPipelineKindRo
 }
 
 describe('jobs presenter', () => {
-    it('builds determinate progress and capacity labels for active reclassification work', () => {
-        const presented = presentActiveJob(makeJob(), makeRow(), null, 125_000, t);
-
-        expect(presented.activityLabel).toBe('Analyzing clips');
-        expect(presented.progressLabel).toBe('3 / 10 frames');
-        expect(presented.capacityLabel).toBe('2 of 4 worker slots busy');
-        expect(presented.blockerLabel).toBeNull();
-        expect(presented.detailLabel).toBeNull();
-        expect(presented.determinate).toBe(true);
-        expect(presented.percent).toBe(30);
-    });
-
-    it('marks MQTT-throttled work as waiting and indeterminate when total is unknown', () => {
-        const presented = presentActiveJob(
-            makeJob({ current: 0, total: 0 }),
-            makeRow({
-                running: 1,
-                maxConcurrentConfigured: 4,
-                maxConcurrentEffective: 2,
-                throttledForMqttPressure: true,
-                mqttPressureLevel: 'high',
-                mqttInFlight: 9,
-                mqttInFlightCapacity: 10
-            }),
-            null,
-            125_000,
-            t
-        );
-
-        expect(presented.activityLabel).toBe('Waiting for classifier slots');
-        expect(presented.progressLabel).toBe('Working...');
-        expect(presented.capacityLabel).toBe('1 of 2 worker slots busy');
-        expect(presented.blockerLabel).toBe('MQTT pressure reduced background capacity');
-        expect(presented.detailLabel).toBe('MQTT pressure reduced background capacity');
-        expect(presented.determinate).toBe(false);
-        expect(presented.percent).toBeNull();
-    });
-
-    it('surfaces live-priority throttling without blaming MQTT pressure', () => {
-        const presented = presentActiveJob(
-            makeJob({ current: 0, total: 0 }),
-            makeRow({
-                running: 1,
-                maxConcurrentConfigured: 4,
-                maxConcurrentEffective: 0,
-                throttledForLivePressure: true,
-                liveInFlight: 1,
-                liveQueued: 2
-            }),
-            null,
-            125_000,
-            t
-        );
-
-        expect(presented.activityLabel).toBe('Waiting for live detections');
-        expect(presented.blockerLabel).toBe('Live detections have priority');
-        expect(presented.detailLabel).toBe('Live detections have priority');
-    });
-
     it('surfaces circuit-open pause state for queue rows', () => {
         const analysisStatus: AnalysisStatus = {
             pending: 12,
@@ -173,6 +114,20 @@ describe('jobs presenter', () => {
         expect(presented.candidateLabel).toBe('132 more candidates may remain');
     });
 
+    it('gives the batch lane its own name instead of a second Analyze Unknowns', () => {
+        // Both reclassify kinds share queue telemetry, so both lanes were titled
+        // "Analyze Unknowns" and the same work read as two unrelated jobs.
+        const presented = presentWorkLane(
+            makeRow({ kind: 'reclassify_batch', queued: 4, running: 1 }),
+            null,
+            125_000,
+            t,
+            (kind) => (kind === 'reclassify_batch' ? 'Batch Analysis' : kind)
+        );
+
+        expect(presented.title).toBe('Batch Analysis');
+    });
+
     it('does not leak reclassify circuit and queue telemetry into unrelated job rows', () => {
         const analysisStatus: AnalysisStatus = {
             pending: 12,
@@ -198,20 +153,6 @@ describe('jobs presenter', () => {
         expect(presented.activityLabel).toBe('Processing work');
         expect(presented.blockerLabel).toBeNull();
         expect(presented.queueCapacityLabel).toBeNull();
-    });
-
-    it('marks stale jobs with explicit freshness labels', () => {
-        const presented = presentActiveJob(
-            makeJob({ status: 'stale', updatedAt: 0 }),
-            makeRow(),
-            null,
-            301_000,
-            t
-        );
-
-        expect(presented.freshnessLabel).toBe('No update for 5m 1s');
-        expect(presented.detailLabel).toBe('No update for 5m 1s');
-        expect(presented.isStale).toBe(true);
     });
 
     it('builds an indeterminate banner summary for mixed-unit jobs', () => {
@@ -313,21 +254,6 @@ describe('jobs presenter', () => {
         expect(summary.percent).toBe(42);
     });
 
-    it('shows truthful zero-percent progress when the total is known', () => {
-        // Backfill: Frigate has returned 200 events but none have been processed yet.
-        const presented = presentActiveJob(
-            makeJob({ kind: 'backfill', current: 0, total: 200 }),
-            makeRow({ kind: 'backfill', queued: 0, running: 1, maxConcurrentConfigured: null, maxConcurrentEffective: null }),
-            null,
-            125_000,
-            t
-        );
-
-        expect(presented.determinate).toBe(true);
-        expect(presented.percent).toBe(0);
-        expect(presented.progressLabel).toBe('0 / 200 items');
-    });
-
     it('shows zero-percent progress for a not-yet-started known batch', () => {
         const summary = buildGlobalProgressSummary(
             [makeJob({ kind: 'backfill', current: 0, total: 200, title: 'Backfill' })],
@@ -366,9 +292,4 @@ describe('jobs presenter', () => {
         expect(summary.progressLabel).toBe('8 / 20 frames');
     });
 
-    it('returns stable icon descriptors for supported job kinds', () => {
-        expect(presentJobKindIcon('backfill')).toEqual({ key: 'backfill', label: 'Backfill' });
-        expect(presentJobKindIcon('reclassify')).toEqual({ key: 'reclassify', label: 'Analysis' });
-        expect(presentJobKindIcon('model_download')).toEqual({ key: 'download', label: 'Download' });
-    });
 });
