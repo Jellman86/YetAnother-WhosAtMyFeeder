@@ -18,10 +18,10 @@
     let resetting = $state(false);
     let resetError = $state<string | null>(null);
 
-    // The status is normally kept current by the event stream. A paused queue that started
-    // before this page opened would otherwise stay invisible until the next event arrives.
+    // App.svelte ingests this status from the event stream, but a page opened cold has nothing
+    // to show until the first event lands, and a paused queue emits none. One read covers that.
     onMount(() => {
-        if (authStore.showSettings) void analysisQueueStatusStore.refresh();
+        if (isOwner) void analysisQueueStatusStore.refresh();
     });
 
     async function handleReset() {

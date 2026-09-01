@@ -21,7 +21,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 - **Background work is named by what it is, not by an event id.** Jobs were titled with the Frigate
   event they belonged to, which told an owner nothing about whether the row mattered to them. They
-  now read as "Automatic video analysis", "Full visit clips", and so on.
+  now read as "Automatic video analysis", "Full visit clips", and so on, with the event kept
+  alongside the phase underneath so two clips analysed at once are still told apart.
+- **The `g j` shortcut says where it goes.** The keyboard help listed it as "Go to Jobs tab", which
+  no longer exists; it goes to Notifications and now says so.
 - **Batch analysis no longer appears as a second "Analyze Unknowns".** Both reclassify job kinds
   share queue telemetry, and the shared name made one piece of work look like two unrelated jobs.
 

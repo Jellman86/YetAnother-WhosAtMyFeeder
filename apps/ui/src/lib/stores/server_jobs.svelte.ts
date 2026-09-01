@@ -17,10 +17,17 @@ function parseTimestamp(value: string | null | undefined, fallback: number): num
 function titleForJob(job: ServerJob): string {
     // A Frigate event id is an identifier, not a title. Naming the work is what tells an owner
     // whether a row matters to them; the event it belongs to is reachable by opening the row.
-    const humanKind = job.kind.replace(/_/g, ' ');
+    const words = job.kind.replace(/_/g, ' ');
+    const humanKind = words.charAt(0).toUpperCase() + words.slice(1);
     // A poll can materialize jobs before the locale finishes loading, and formatting then throws.
     if (!get(locale)) return humanKind;
     return get(_)(`jobs.kind_${job.kind}`, { default: humanKind });
+}
+
+/** Two jobs of one kind look identical without it, so the event stays visible as detail. */
+function detailForJob(job: ServerJob): string | undefined {
+    const parts = [job.phase, job.event_id].filter((part): part is string => Boolean(part));
+    return parts.length > 0 ? parts.join(' \u00b7 ') : undefined;
 }
 
 function toProgressItem(
@@ -41,7 +48,7 @@ function toProgressItem(
         id: job.id,
         kind: job.kind,
         title: titleForJob(job),
-        message: job.phase,
+        message: detailForJob(job),
         route: job.route ?? undefined,
         status: job.status === 'failed'
             ? 'failed'

@@ -31,6 +31,9 @@ describe('ServerJobsStore', () => {
 
         expect(store.activeJobs[0].title).toBe('Automatic video analysis');
         expect(store.activeJobs[0].title).not.toContain('1788274081');
+        // Two clips analysed at once would otherwise be two identical rows, so the event
+        // stays visible as detail rather than disappearing with the id.
+        expect(store.activeJobs[0].message).toBe('analyzing \u00b7 1788274081.133679-ycxd6p');
     });
 
     it('keeps queued server work distinct from running worker use', () => {
