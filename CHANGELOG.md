@@ -8,6 +8,26 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A subspecies now resolves to the species IOC actually recognises.** A trinomial like
+  `Anas crecca carolinensis` is not automatically its first two words: IOC treats it as the
+  separate species `Anas carolinensis`, so dropping the third epithet would have filed an American
+  Green-winged Teal as a Eurasian Teal. The build now tries the elevated species first and accepts
+  it only when the catalogue's own name for it backs up the name the label carries, falls back to
+  the parent species where that is the honest answer (a Domestic Duck is an `Anas platyrhynchos`,
+  a Feral Pigeon is a Rock Dove), and leaves the label unresolved rather than guessing when a
+  distinct species exists under the subspecies name but nothing corroborates it. 42 outputs gain an
+  identity, including six that a simpler rule would have attributed to the wrong bird.
+
+- **A common name IOC has renamed or split now resolves through a model that already named it.**
+  One model writes `Tyto alba (Barn Owl)` and resolves through the scientific name. Another writes
+  only `Barn Owl`, which IOC no longer uses, having split it into Western, American and Eastern
+  Barn Owl, so it resolved to nothing and the detection kept its label text instead of a catalogue
+  identity. The first model had already said which bird that name means, and the catalogue had
+  already accepted it. The mapping build now makes that second pass. Measured against the shipped
+  mappings: 127 outputs recover, taking unresolved from 1,548 to 1,421. Nothing is guessed. A
+  common name that two paired labels disagree about is refused rather than resolved to the first,
+  and a name no paired label claims stays unresolved.
+
 - **A hyphen or an American spelling no longer hides a bird from the species catalogue.** Measured
   against the shipped mappings: of the 180 model output labels the bird models could not match to a
   catalogue identity, 38 were ordinary species the catalogue already holds, written with a
