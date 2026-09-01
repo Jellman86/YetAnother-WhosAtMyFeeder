@@ -10,6 +10,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A bird's identity is no longer lost or left stale by a later write
+  ([#360](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/360)).** Catalogue identity
+  decides whether two detections are the same bird, and two writes were careless with it. A
+  higher-scoring result for the same species replaced the identity unconditionally, so one that
+  carried none erased what the startup backfill had already resolved - which is how a single
+  Dunnock came to be grouped as two. And a manual correction rewrote every name but left the old
+  identity in place, filing the corrected bird under the species it used to be. An identity is now
+  kept when the species is unchanged and the new result has none, and dropped when the species
+  actually changes, so a row is either right or honestly unidentified.
+
 - **The review queue shows the right time
   ([#363](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/363)).** The new-species
   entries carried a timestamp without a timezone, which a browser reads as local time - so anyone
