@@ -16,12 +16,29 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   a guest and an owner, as a named allowlist rather than a filtered copy, so a new preference is
   public or owner-only by decision.
 
+- **Delete a detection while working the "needs your call" queue**
+  ([#375](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/375)). The queue offered a
+  species, a block, or hiding, and hiding is right for a real bird the classifier scored badly. It
+  is not right for a rock. Deleting one meant leaving the queue for Explorer and losing your place.
+  There is now a Delete permanently action beside the others, confirmed with the same wording used
+  everywhere else: it says the record and its media leave the history for good, and that hiding
+  keeps the record instead.
+
 ### Changed
 
 - **Model Evaluation looks like the rest of the app.** It was the only page on a different grey,
   used a blue the app does not use anywhere else, styled its buttons as one-off utility classes
   instead of the shared kit, and had no control large enough to hit comfortably on a phone. Same
   palette, same controls, same touch-target floor as every other page now.
+
+- **Background work is now shown once, on the Notifications page.** The separate jobs view listed
+  the same work three times over: four counters at the top, a "Work Lanes" list, and an "Active
+  Work" list below it, with two lanes both titled "Analyze Unknowns" and rows named after raw
+  Frigate event ids like `1788274081.133679-ycxd6p`. Nothing there was missing from the
+  notifications timeline, which already carried every job with its live progress, so the second
+  view existed mainly to disagree with the first. The jobs view is gone and its one irreplaceable
+  control, resuming a queue the circuit breaker has paused, now sits at the top of Notifications
+  where work that needs a person belongs. Old jobs links still work and land on the timeline.
 
 ### Fixed
 
@@ -81,29 +98,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   plain ASCII still finds `Krüper's Nuthatch` and `Rüppell's Vulture`. Owner-supplied models gain
   this as soon as they upgrade; the shipped registry mappings gain it when the catalogue is next
   rebuilt.
-
-### Added
-
-- **Delete a detection while working the "needs your call" queue**
-  ([#375](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/375)). The queue offered a
-  species, a block, or hiding, and hiding is right for a real bird the classifier scored badly. It
-  is not right for a rock. Deleting one meant leaving the queue for Explorer and losing your place.
-  There is now a Delete permanently action beside the others, confirmed with the same wording used
-  everywhere else: it says the record and its media leave the history for good, and that hiding
-  keeps the record instead.
-
-### Changed
-
-- **Background work is now shown once, on the Notifications page.** The separate jobs view listed
-  the same work three times over: four counters at the top, a "Work Lanes" list, and an "Active
-  Work" list below it, with two lanes both titled "Analyze Unknowns" and rows named after raw
-  Frigate event ids like `1788274081.133679-ycxd6p`. Nothing there was missing from the
-  notifications timeline, which already carried every job with its live progress, so the second
-  view existed mainly to disagree with the first. The jobs view is gone and its one irreplaceable
-  control, resuming a queue the circuit breaker has paused, now sits at the top of Notifications
-  where work that needs a person belongs. Old jobs links still work and land on the timeline.
-
-### Fixed
 
 - **Background work is named by what it is, not by an event id.** Jobs were titled with the Frigate
   event they belonged to, which told an owner nothing about whether the row mattered to them. They
