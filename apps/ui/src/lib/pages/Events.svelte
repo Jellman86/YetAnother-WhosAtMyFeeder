@@ -25,6 +25,7 @@
     import { explorerViewStore } from '../stores/explorer_view.svelte';
     import { explorerFiltersStore } from '../stores/explorer_filters.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { pageRefreshAction } from '../stores/page_refresh_action.svelte';
     import { fullVisitStore } from '../stores/full-visit.svelte';
     import { authStore } from '../stores/auth.svelte';
@@ -92,8 +93,8 @@
     let fullVisitAvailability = $derived(fullVisitStore.availability);
     let fullVisitFetchState = $derived(fullVisitStore.fetchState);
     let recordingClipFetchEnabled = $derived(
-        (settingsStore.settings?.recording_clip_enabled ?? false) &&
-        (settingsStore.settings?.clips_enabled ?? false)
+        (settingsStore.settings?.recording_clip_enabled ?? publicSettingsStore.settings?.recording_clip_enabled ?? false) &&
+        (settingsStore.settings?.clips_enabled ?? publicSettingsStore.settings?.clips_enabled ?? false)
     );
     let selectedEventFullVisitHandler = $derived.by(() => {
         const current = selectedEvent;

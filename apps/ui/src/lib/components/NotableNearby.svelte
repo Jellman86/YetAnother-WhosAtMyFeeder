@@ -6,6 +6,7 @@
     import { getErrorMessage } from '../utils/error-handling';
     import { authStore } from '../stores/auth.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { formatDistance, resolveWeatherUnitSystem } from '../utils/weather-units';
 
     interface Props {
@@ -38,7 +39,9 @@
     const radius = $derived(
         settingsStore.settings?.ebird_default_radius_km ?? authStore.ebirdDefaultRadiusKm ?? 25
     );
-    const daysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
+    const daysBack = $derived(
+        settingsStore.settings?.ebird_default_days_back ?? publicSettingsStore.settings?.ebird_default_days_back ?? 14
+    );
     const weatherUnitSystem = $derived(
         resolveWeatherUnitSystem(
             settingsStore.settings?.location_weather_unit_system ?? authStore.locationWeatherUnitSystem,

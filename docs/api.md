@@ -344,6 +344,10 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 ### Settings and Maintenance
 
 - `GET /api/settings` (owner)
+- `GET /api/settings/public` — the display preferences a viewer needs, served identically to a
+  guest and to an owner. Deliberately unauthenticated, and an allowlist rather than a filtered
+  copy: a setting is public because it is named in `backend/app/models/public_settings.py`, so a
+  new one is public or owner-only by decision rather than by whether anyone remembered.
 - `POST /api/settings` (owner)
 - `POST /api/settings/birdnet/test` (owner) — synchronously proves a mock detection can
   enter the audio-correlation buffer and complete a database insert/delete; returns `502`
