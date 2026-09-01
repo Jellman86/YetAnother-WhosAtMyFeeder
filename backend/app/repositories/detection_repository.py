@@ -1713,7 +1713,11 @@ class DetectionRepository:
                     THEN COALESCE(:taxa_id, taxa_id)
                     ELSE :taxa_id
                 END,
-                species_id = :species_id,
+                species_id = CASE
+                    WHEN LOWER(TRIM(:category_name)) = LOWER(TRIM(category_name))
+                    THEN COALESCE(:species_id, species_id)
+                    ELSE :species_id
+                END,
                 model_artifact_id = :model_artifact_id,
                 model_output_index = :model_output_index,
                 manual_tagged = manual_tagged,
@@ -2443,6 +2447,14 @@ class DetectionRepository:
             UPDATE detections
             SET display_name = ?, category_name = ?,
                 scientific_name = ?, common_name = ?, taxa_id = ?,
+                -- A corrected bird must not keep the identity of the species
+                -- it used to be: that files it with the wrong bird wherever
+                -- catalogue identity decides grouping. Cleared, the row falls
+                -- back to its names until the identity backfill resolves it.
+                species_id = CASE
+                    WHEN LOWER(TRIM(?)) = LOWER(TRIM(category_name)) THEN species_id
+                    ELSE NULL
+                END,
                 audio_confirmed = ?, audio_species = ?, audio_score = ?,
                 manual_tagged = 1
             WHERE frigate_event = ?
@@ -2453,6 +2465,7 @@ class DetectionRepository:
                 scientific_name,
                 common_name,
                 taxa_id,
+                category_name,
                 int(audio_confirmed),
                 audio_species,
                 audio_score,
