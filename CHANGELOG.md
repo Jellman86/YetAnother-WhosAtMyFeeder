@@ -8,6 +8,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A common name IOC has renamed or split now resolves through a model that already named it.**
+  One model writes `Tyto alba (Barn Owl)` and resolves through the scientific name. Another writes
+  only `Barn Owl`, which IOC no longer uses, having split it into Western, American and Eastern
+  Barn Owl, so it resolved to nothing and the detection kept its label text instead of a catalogue
+  identity. The first model had already said which bird that name means, and the catalogue had
+  already accepted it. The mapping build now makes that second pass. Measured against the shipped
+  mappings: 127 outputs recover, taking unresolved from 1,548 to 1,421. Nothing is guessed. A
+  common name that two paired labels disagree about is refused rather than resolved to the first,
+  and a name no paired label claims stays unresolved.
+
 - **A hyphen or an American spelling no longer hides a bird from the species catalogue.** Measured
   against the shipped mappings: of the 180 model output labels the bird models could not match to a
   catalogue identity, 38 were ordinary species the catalogue already holds, written with a

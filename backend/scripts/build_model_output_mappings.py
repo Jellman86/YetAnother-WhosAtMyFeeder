@@ -29,7 +29,7 @@ import sqlite3
 import sys
 import tempfile
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional
 
@@ -39,6 +39,7 @@ if str(_BACKEND_DIR) not in sys.path:
 
 from app.services.model_registry_inventory import registry_artifacts  # noqa: E402
 from app.services.model_taxon_map import normalize_common_name as _normalize_common  # noqa: E402
+from app.services.model_taxon_map import paired_common_name  # noqa: E402
 from app.services.model_taxon_map import scientific_name_from_label  # noqa: E402
 
 DEFAULT_OUTPUT = _BACKEND_DIR / "app" / "assets" / "model_output_mappings.json"
@@ -56,6 +57,56 @@ class OutputRow:
     provider: Optional[str] = None
     taxon: Optional[str] = None
     unresolved: Optional[str] = None
+
+
+@dataclass
+class LabelFileResult:
+    """One label file's rows, kept with the grammar they were read under so a
+    second pass can tell a paired label from a bare common name."""
+
+    label_format: str
+    rows: list[OutputRow]
+
+
+def bridge_common_names(results: dict[str, LabelFileResult]) -> int:
+    """Resolve bare common names through paired labels that already named them.
+
+    A paired label like `Tyto alba (Barn Owl)` is the model author's own statement
+    that this common name means this taxon, and it reached a concept through the
+    reviewed scientific path. A second model writing only `Barn Owl` is asking the
+    same question, and IOC's rename or split is why it fails on its own. Nothing is
+    guessed: a name two paired labels disagree about is refused, and a name no
+    paired label claims is left unresolved.
+    """
+    claims: dict[str, set[tuple[str, str]]] = {}
+    for result in results.values():
+        for row in result.rows:
+            if row.kind != "species" or not row.provider or not row.taxon:
+                continue
+            common = paired_common_name(row.label)
+            if not common:
+                continue
+            key = _normalize_common(common)
+            if key:
+                claims.setdefault(key, set()).add((row.provider, row.taxon))
+
+    settled = {key: next(iter(values)) for key, values in claims.items() if len(values) == 1}
+
+    recovered = 0
+    for result in results.values():
+        if result.label_format != "common_name":
+            continue
+        for position, row in enumerate(result.rows):
+            if row.unresolved != "no catalogue identity":
+                continue
+            reference = settled.get(_normalize_common(row.label))
+            if not reference:
+                continue
+            # OutputRow is frozen so a compiled row cannot be edited in place by
+            # accident; the recovered one replaces it rather than mutating it.
+            result.rows[position] = replace(row, provider=reference[0], taxon=reference[1], unresolved=None)
+            recovered += 1
+    return recovered
 
 
 class CatalogResolver:
@@ -194,15 +245,17 @@ def compile_mappings(labels_dir: Path, seed_path: Path) -> dict[str, object]:
     classifiers = [a for a in registry_artifacts() if a.artifact_kind == "classifier"]
 
     label_files: dict[str, dict[str, object]] = {}
+    compiled: dict[str, LabelFileResult] = {}
+    widths: dict[str, int] = {}
     for artifact in classifiers:
         if not artifact.labels_sha256:
             raise SystemExit(f"Classifier artifact '{artifact.artifact_id}' publishes no labels checksum")
-        existing = label_files.get(artifact.labels_sha256)
+        existing = compiled.get(artifact.labels_sha256)
         if existing is not None:
             # A shared label file is compiled once; every artifact sharing it
             # must declare the same grammar or the second one would silently
             # inherit the first's resolution.
-            if existing["label_format"] != artifact.label_format:
+            if existing.label_format != artifact.label_format:
                 raise SystemExit(
                     f"Artifact '{artifact.artifact_id}' declares label_format '{artifact.label_format}'"
                     f" but label file {artifact.labels_sha256} was compiled as '{existing['label_format']}'"
@@ -210,13 +263,23 @@ def compile_mappings(labels_dir: Path, seed_path: Path) -> dict[str, object]:
             continue
         labels = _read_labels(labels_dir, artifact.labels_sha256)
         rows = map_labels(labels, artifact.label_format, resolver)
-        label_files[artifact.labels_sha256] = {
-            "label_format": artifact.label_format,
-            "output_width": len(labels),
-            "outputs": [{key: value for key, value in vars(row).items() if value is not None} for row in rows],
+        widths[artifact.labels_sha256] = len(labels)
+        compiled[artifact.labels_sha256] = LabelFileResult(label_format=artifact.label_format, rows=rows)
+
+    # A common name IOC has since renamed or split resolves to nothing on its own,
+    # but another model's paired label may already have named the same bird through
+    # the scientific path. That is a second pass because it needs every file first.
+    bridged = bridge_common_names(compiled)
+
+    for labels_sha256, result in compiled.items():
+        label_files[labels_sha256] = {
+            "label_format": result.label_format,
+            "output_width": widths[labels_sha256],
+            "outputs": [{key: value for key, value in vars(row).items() if value is not None} for row in result.rows],
         }
 
     return {
+        "bridged_common_names": bridged,
         "schema_version": 1,
         "label_files": label_files,
         "artifacts": [
