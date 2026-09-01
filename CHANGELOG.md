@@ -8,6 +8,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Asking Frigate about a page of visits no longer blocks everything else
+  ([#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)).** Loading the events
+  list asks Frigate about every event on the page, one network round trip each, and it did that
+  while holding one of the five pooled database connections. On a real install that hold reached 27
+  seconds, and every other request needing the database queued behind it, which is what an owner
+  experienced as the whole interface being slow. Resetting the database appeared to fix it only
+  because a smaller history asks about fewer events. The rows are read first and the connection
+  given back before Frigate is asked, and a test now fails if a connection is ever held across that
+  wait.
+
+
+### Fixed
+
 - **The frame picker names pictures instead of subsystems
   ([#256](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/256)).** Choosing the
   photograph for a visit offered "Frigate hint crop", "Model crop" and "Full snapshot" - which part
