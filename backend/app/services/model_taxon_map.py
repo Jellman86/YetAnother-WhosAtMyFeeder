@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import re
+import unicodedata
 import sqlite3
 import threading
 from pathlib import Path
@@ -171,10 +172,13 @@ def normalize_common_name(name: str) -> str:
     `Western Screech-Owl` meets IOC's `Western Screech Owl` and `Gray Catbird` meets
     its `Grey Catbird`. Deliberately conservative: it never reorders or drops words,
     because `Great Grey Owl` and `Grey Great Owl` are not the same claim, and it
-    folds spellings only as whole words, because `Grayling` is a fish.
+    folds spellings only as whole words, because `Grayling` is a fish. Accents fold
+    too, so a label that lost them still finds `Kr\u00fcper\u2019s Nuthatch`.
     """
     stripped = _TRAILING_PARENTHETICAL.sub("", name)
-    folded = _HYPHENS.sub(" ", stripped.translate(_APOSTROPHES).casefold())
+    decomposed = unicodedata.normalize("NFKD", stripped.translate(_APOSTROPHES).casefold())
+    unaccented = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    folded = _HYPHENS.sub(" ", unaccented)
     for pattern, replacement in _SPELLINGS:
         folded = pattern.sub(replacement, folded)
     return " ".join(folded.split())

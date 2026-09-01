@@ -461,6 +461,16 @@ def test_a_hyphen_and_an_american_spelling_do_not_hide_a_bird_from_the_catalogue
     assert normalize_common_name("Gray-crowned Rosy-Finch") == normalize_common_name("Grey-crowned Rosy Finch")
 
 
+def test_a_label_that_lost_its_accents_still_finds_the_bird():
+    """Model label files are frequently written in plain ASCII. `Ruppells vulture`
+    is IOC's `R\u00fcppell\u2019s Vulture` and `Krupers nuthatch` its `Kr\u00fcper\u2019s Nuthatch`.
+    """
+    from app.services.model_taxon_map import normalize_common_name
+
+    assert normalize_common_name("Ruppells vulture") == normalize_common_name("R\u00fcppell\u2019s Vulture")
+    assert normalize_common_name("Krupers nuthatch") == normalize_common_name("Kr\u00fcper\u2019s Nuthatch")
+
+
 def test_normalising_still_refuses_to_make_two_birds_one():
     """The folding is spelling only. It must not reorder or drop words, and it must
     not fold a word that merely contains a colour name, or `Grayson` and `Greyson`
