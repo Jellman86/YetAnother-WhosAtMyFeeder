@@ -62,7 +62,7 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain("Save this frame");
         expect(detectionModalSource).toContain("Regenerate snapshots");
         expect(detectionModalSource).toContain("Preview, not saved");
-        expect(detectionModalSource).toContain("snapshot_source_original");
+        expect(detectionModalSource).toContain("snapshot_framing_as_recorded");
         expect(detectionModalSource).toContain('handleApplySnapshot');
         expect(detectionModalSource).toContain('{#if canShowFavoriteAction}');
         expect(detectionModalSource).not.toContain('snapshotRepairOpen');

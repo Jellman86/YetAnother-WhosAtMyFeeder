@@ -159,7 +159,7 @@ const REQUIRED_ACTIVE_KEYS = [
     'detection.snapshot_picker_sources_hint',
     'detection.snapshot_source_full_frame_hint',
     'detection.snapshot_source_frigate_hint_hint',
-    'detection.snapshot_source_model_crop',
+    'detection.snapshot_framing_close',
     'detection.snapshot_source_original_hint',
     'detection.snapshot_source_original_unavailable_hint',
     'detection.snapshot_source_short_model_crop',
