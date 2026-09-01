@@ -8,6 +8,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The frame picker names pictures instead of subsystems
+  ([#256](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/256)).** Choosing the
+  photograph for a visit offered "Frigate hint crop", "Model crop" and "Full snapshot" - which part
+  of the app produced a frame, which the person choosing it has no reason to care about. Frames are
+  now described the way someone picking one would: the whole frame, close on the bird, or as
+  Frigate recorded it, with the species a frame was read as still shown where one exists.
+
 - **A species filter finds every visit again
   ([#365](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/365)).** 2.19.0 made a bare
   species filter answer by index seek, and that seek checked only the taxon id stored on the

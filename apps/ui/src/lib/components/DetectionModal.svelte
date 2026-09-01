@@ -1469,25 +1469,14 @@
         }
     }
 
+    // Which subsystem produced a frame is the app's own plumbing; the person
+    // choosing the most representative photograph cares how it is framed (#256).
     function snapshotSourceLabel(source: string | null | undefined) {
-        switch (String(source || '').trim()) {
-            case 'full_frame':
-            case 'hq_candidate_full_frame':
-                return $_('detection.snapshot_source_full_frame', { default: 'Full snapshot' });
-            case 'frigate_hint_crop':
-            case 'hq_candidate_frigate_hint_crop':
-                return $_('detection.snapshot_source_frigate_hint_crop', { default: 'Frigate hint crop' });
-            case 'model_crop':
-            case 'hq_candidate_model_crop':
-            case 'high_quality_bird_crop':
-                return $_('detection.snapshot_source_model_crop', { default: 'Model crop' });
-            case 'frigate_snapshot':
-                return $_('detection.snapshot_source_original', { default: 'Original Frigate crop' });
-            case 'high_quality_snapshot':
-                return $_('detection.snapshot_source_auto_best', { default: 'Auto best snapshot' });
-            default:
-                return source || $_('detection.snapshot_source_unknown', { default: 'Unknown source' });
-        }
+        const normalized = String(source || '').trim();
+        const wholeFrame = normalized === 'full_frame' || normalized === 'hq_candidate_full_frame';
+        return wholeFrame
+            ? $_('detection.snapshot_framing_whole', { default: 'Whole frame' })
+            : $_('detection.snapshot_framing_close', { default: 'Close on the bird' });
     }
 
     function stageSnapshotCandidate(candidateId: string | null) {
@@ -2476,8 +2465,8 @@
                                         <button
                                             type="button"
                                             class="relative min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {originalIsSelected ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50' : 'opacity-70 hover:z-10 hover:-translate-y-0.5 hover:scale-105 hover:opacity-100 hover:shadow-md active:translate-y-0 active:scale-95'}"
-                                            title={$_('detection.snapshot_source_original', { default: 'Original Frigate crop' })}
-                                            aria-label={$_('detection.snapshot_preview_original_aria', { default: 'Preview original Frigate snapshot' })}
+                                            title={$_('detection.snapshot_framing_as_recorded', { default: 'As Frigate recorded it' })}
+                                            aria-label={$_('detection.snapshot_preview_original_aria', { default: 'Preview the frame as Frigate recorded it' })}
                                             aria-pressed={originalIsSelected}
                                             onclick={(event) => { event.stopPropagation(); stageOriginalFrigateSnapshot(); }}
                                         >
