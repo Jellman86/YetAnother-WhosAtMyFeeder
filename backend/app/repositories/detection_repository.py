@@ -1894,10 +1894,14 @@ class DetectionRepository:
         species: str | None,
         species_any: list[str] | None,
         taxa_id: int | None,
-    ) -> tuple[list[int], list[str], list[str]]:
+    ) -> tuple[list[int], list[str], dict[str, list[str]]]:
         taxa_ids: list[int] = []
         names: list[str] = []
-        cache_names: list[str] = []
+        # The general query's join is not symmetric: a row carrying its own
+        # scientific name is matched on that name alone, and only a row with
+        # no scientific name is matched on its display name. Keeping the two
+        # roles apart is what stops the seek claiming rows the count will not.
+        cache_terms: dict[str, list[str]] = {"scientific": [], "display": []}
 
         def _add_taxa(value: int | None) -> None:
             if value is not None and value not in taxa_ids:
@@ -1929,18 +1933,21 @@ class DetectionRepository:
                 taxa_ids,
             ) as cursor:
                 for row in await cursor.fetchall():
-                    for value in (row[0], row[1]):
-                        lowered = str(value or "").strip().lower()
-                        if lowered and lowered not in names and lowered not in cache_names:
-                            cache_names.append(lowered)
-        return taxa_ids, names, cache_names
+                    scientific = str(row[0] or "").strip().lower()
+                    common = str(row[1] or "").strip().lower()
+                    if scientific and scientific not in cache_terms["scientific"]:
+                        cache_terms["scientific"].append(scientific)
+                    for value in (scientific, common):
+                        if value and value not in cache_terms["display"]:
+                            cache_terms["display"].append(value)
+        return taxa_ids, names, cache_terms
 
     def _build_species_fast_path_query(
         self,
         *,
         taxa_ids: list[int],
         names: list[str],
-        cache_names: list[str] | None = None,
+        cache_terms: dict[str, list[str]] | None = None,
         limit: int,
         offset: int,
         sort: str,
@@ -1978,11 +1985,14 @@ class DetectionRepository:
         for column in ("display_name", "scientific_name", "common_name"):
             for name in names:
                 _branch(f"LOWER({column}) = ?", name)
-            # A cache-derived name identifies a row only where the row itself
-            # carries no taxon, matching the general query's COALESCE rather
-            # than widening the filter to rows that named a different taxon.
-            for name in cache_names or []:
-                _branch(f"LOWER({column}) = ? AND taxa_id IS NULL", name)
+
+        # The cache only identifies a row that has no taxon of its own, and
+        # then only through the column the join would have used.
+        terms = cache_terms or {}
+        for name in terms.get("scientific") or []:
+            _branch("LOWER(scientific_name) = ? AND taxa_id IS NULL", name)
+        for name in terms.get("display") or []:
+            _branch("LOWER(display_name) = ? AND taxa_id IS NULL AND scientific_name IS NULL", name)
 
         union = " UNION ".join(branches)
         query = (
@@ -2022,12 +2032,12 @@ class DetectionRepository:
             audio_confirmed_only=audio_confirmed_only,
             frigate_event=frigate_event,
         ):
-            taxa_ids, names, cache_names = await self._collect_species_filter_terms(species, species_any, taxa_id)
+            taxa_ids, names, cache_terms = await self._collect_species_filter_terms(species, species_any, taxa_id)
             if taxa_ids or names:
                 query, params = self._build_species_fast_path_query(
                     taxa_ids=taxa_ids,
                     names=names,
-                    cache_names=cache_names,
+                    cache_terms=cache_terms,
                     limit=limit,
                     offset=offset,
                     sort=sort,
@@ -2440,8 +2450,14 @@ class DetectionRepository:
         audio_confirmed: bool,
         audio_species: str | None,
         audio_score: float | None,
+        species_id: int | None = None,
     ) -> None:
-        """Persist the database fields owned by a manual species correction."""
+        """Persist the database fields owned by a manual species correction.
+
+        `species_id` is the catalogue identity of the species being corrected
+        to; None means the catalogue could not identify it, which is recorded
+        honestly rather than left pointing at the previous species.
+        """
         await self.db.execute(
             """
             UPDATE detections
@@ -2453,7 +2469,7 @@ class DetectionRepository:
                 -- back to its names until the identity backfill resolves it.
                 species_id = CASE
                     WHEN LOWER(TRIM(?)) = LOWER(TRIM(category_name)) THEN species_id
-                    ELSE NULL
+                    ELSE ?
                 END,
                 audio_confirmed = ?, audio_species = ?, audio_score = ?,
                 manual_tagged = 1
@@ -2466,6 +2482,7 @@ class DetectionRepository:
                 common_name,
                 taxa_id,
                 category_name,
+                species_id,
                 int(audio_confirmed),
                 audio_species,
                 audio_score,

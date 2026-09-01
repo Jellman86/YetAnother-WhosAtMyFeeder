@@ -68,12 +68,12 @@ async def test_the_cache_branches_are_still_seeks():
 
     async with get_db() as db:
         repo = DetectionRepository(db)
-        taxa_ids, names, cache_names = await repo._collect_species_filter_terms(None, None, TAXON)
-        assert cache_names, "expected the cache to contribute names for this taxon"
+        taxa_ids, names, cache_terms = await repo._collect_species_filter_terms(None, None, TAXON)
+        assert cache_terms["scientific"], "expected the cache to contribute names for this taxon"
         query, params = repo._build_species_fast_path_query(
             taxa_ids=taxa_ids,
             names=names,
-            cache_names=cache_names,
+            cache_terms=cache_terms,
             limit=50,
             offset=0,
             sort="newest",
@@ -83,3 +83,28 @@ async def test_the_cache_branches_are_still_seeks():
         async with db.execute("EXPLAIN QUERY PLAN " + query, params) as cursor:
             plan = [str(row[3]) for row in await cursor.fetchall()]
         assert [line for line in plan if line.startswith("SCAN detections")] == [], plan
+
+
+@pytest.mark.asyncio
+async def test_the_seek_matches_exactly_what_the_general_query_matches():
+    """The list and the count run different queries; if the seek is broader
+    than the join, a page shows rows the count never counted."""
+    from app.repositories.detection_repository import DetectionRepository
+
+    async with get_db() as db:
+        # This row names a different species outright, but its display name
+        # collides with the filtered taxon's common name. The general query
+        # will not claim it: a row with its own scientific name is matched on
+        # that name alone.
+        await db.execute(
+            """INSERT INTO detections (frigate_event, camera_name, detection_time, detection_index,
+               score, display_name, category_name, scientific_name, taxa_id, is_hidden)
+               VALUES ('name_collision', 'cam1', '2026-08-30 10:00:00', 1, 0.9,
+                       'Dunnock', 'Robin', 'Erithacus rubecula', NULL, 0)"""
+        )
+        await db.commit()
+
+        repo = DetectionRepository(db)
+        listed = [d.frigate_event for d in await repo.get_all(taxa_id=TAXON)]
+        counted = await repo.get_count(taxa_id=TAXON)
+        assert len(listed) == counted, f"listed {listed} but counted {counted}"
