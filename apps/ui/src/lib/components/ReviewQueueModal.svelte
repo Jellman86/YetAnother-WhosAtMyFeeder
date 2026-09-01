@@ -22,11 +22,13 @@
         onhide: (detection: Detection) => Promise<void> | void;
         /** Add the detection's species to the blocked list (#310). */
         onblock?: (detection: Detection) => Promise<void> | void;
+        /** Delete outright, for when Frigate caught a rock rather than a bird (#375). */
+        ondelete?: (detection: Detection) => Promise<void> | void;
         onopen?: (detection: Detection) => void;
         onclose: () => void;
     }
 
-    let { queue, labels = [], suggestions = [], reasons, onidentify, onhide, onblock, onopen, onclose }: Props = $props();
+    let { queue, labels = [], suggestions = [], reasons, onidentify, onhide, onblock, ondelete, onopen, onclose }: Props = $props();
 
     let session = $state<ReviewSession>(untrack(() => createReviewSession(queue)));
     // A wide feeder shot does not settle what a 56% blur is; the crop the classifier
@@ -150,6 +152,21 @@
         busy = true;
         try {
             await onblock(current);
+            session = advance(session, 'resolved');
+        } finally {
+            busy = false;
+        }
+    }
+
+    async function remove(): Promise<void> {
+        const current = session.current;
+        if (!current || busy || !ondelete) return;
+        // The record and its media go for good, so it is confirmed with the copy that says so
+        // and names hiding as the alternative sitting next to it.
+        if (!confirm($_('actions.confirm_delete', { values: { species: current.display_name } }))) return;
+        busy = true;
+        try {
+            await ondelete(current);
             session = advance(session, 'resolved');
         } finally {
             busy = false;
@@ -401,6 +418,15 @@
                         <button class="btn btn-ghost min-h-11 px-3 py-2 text-xs" disabled={busy} onclick={hide}>
                             {$_('dashboard.review_session.not_a_bird', { default: 'Not a bird, hide it' })}
                         </button>
+                        {#if ondelete}
+                            <button
+                                class="btn btn-ghost min-h-11 px-3 py-2 text-xs text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                                disabled={busy}
+                                onclick={remove}
+                            >
+                                {$_('dashboard.review_session.delete', { default: 'Delete permanently' })}
+                            </button>
+                        {/if}
                         <button
                             class="btn btn-ghost ml-auto min-h-11 px-3 py-2 text-xs"
                             onclick={() => onopen?.(current)}

@@ -361,6 +361,7 @@
       "no_matches": "Aucune espèce ne correspond. Essayez moins de lettres.",
       "skip": "Ignorer pour l'instant",
       "not_a_bird": "Pas un oiseau, masquer",
+      "delete": "Supprimer définitivement",
       "full_record": "Ouvrir la fiche complète",
       "remaining": "{count} encore à examiner",
       "image_alt": "Détection non identifiée sur {camera}",

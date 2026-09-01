@@ -158,6 +158,18 @@
         }
     }
 
+    async function deleteFromQueue(detection: Detection): Promise<void> {
+        try {
+            await deleteDetection(detection.frigate_event);
+            detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
+            void refreshNewSpecies();
+            await loadSummary(true);
+        } catch (e) {
+            toastStore.show(getErrorMessage(e), 'error');
+            throw e;
+        }
+    }
+
     async function blockFromQueue(detection: Detection): Promise<void> {
         try {
             const existing = settingsStore.settings?.blocked_species ?? [];
@@ -604,6 +616,7 @@
         onidentify={identifyFromQueue}
         onhide={hideFromQueue}
         onblock={blockFromQueue}
+        ondelete={deleteFromQueue}
         onopen={(detection) => { reviewSessionOpen = false; selectedEvent = detection; }}
         onclose={() => (reviewSessionOpen = false)}
     />

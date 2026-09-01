@@ -361,6 +361,7 @@
       "no_matches": "Nessuna specie corrisponde. Prova con meno lettere.",
       "skip": "Salta per ora",
       "not_a_bird": "Non è un uccello, nascondi",
+      "delete": "Elimina definitivamente",
       "full_record": "Apri la scheda completa",
       "remaining": "Ne restano {count} da vedere",
       "image_alt": "Rilevamento non identificato su {camera}",

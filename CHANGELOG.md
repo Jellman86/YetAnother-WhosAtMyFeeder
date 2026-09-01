@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **Delete a detection while working the "needs your call" queue**
+  ([#375](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/375)). The queue offered a
+  species, a block, or hiding, and hiding is right for a real bird the classifier scored badly. It
+  is not right for a rock. Deleting one meant leaving the queue for Explorer and losing your place.
+  There is now a Delete permanently action beside the others, confirmed with the same wording used
+  everywhere else: it says the record and its media leave the history for good, and that hiding
+  keeps the record instead.
+
 ### Changed
 
 - **Background work is now shown once, on the Notifications page.** The separate jobs view listed

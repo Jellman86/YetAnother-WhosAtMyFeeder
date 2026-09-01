@@ -361,6 +361,7 @@
       "no_matches": "No species matches that. Try fewer letters.",
       "skip": "Skip for now",
       "not_a_bird": "Not a bird, hide it",
+      "delete": "Delete permanently",
       "full_record": "Open full record",
       "remaining": "{count} still to look at",
       "image_alt": "Unidentified detection on {camera}",

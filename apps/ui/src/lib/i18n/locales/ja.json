@@ -361,6 +361,7 @@
       "no_matches": "一致する種がありません。文字数を減らしてください。",
       "skip": "後で確認する",
       "not_a_bird": "鳥ではない、非表示にする",
+      "delete": "完全に削除",
       "full_record": "完全な記録を開く",
       "remaining": "残り {count} 件",
       "image_alt": "{camera} の未識別の検出",

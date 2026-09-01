@@ -361,6 +361,7 @@
       "no_matches": "Keine Art passt dazu. Versuchen Sie weniger Buchstaben.",
       "skip": "Vorerst überspringen",
       "not_a_bird": "Kein Vogel, ausblenden",
+      "delete": "Endgültig löschen",
       "full_record": "Vollständigen Eintrag öffnen",
       "remaining": "{count} noch anzusehen",
       "image_alt": "Unbestimmte Erkennung auf {camera}",
