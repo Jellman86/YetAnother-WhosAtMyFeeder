@@ -446,6 +446,44 @@ def test_the_committed_assets_build_a_fully_mapped_catalogue(tmp_path):
     assert orphans == [(0,)]
 
 
+def test_a_hyphen_and_an_american_spelling_do_not_hide_a_bird_from_the_catalogue():
+    """Measured against the shipped mappings: 35 of the 180 unresolved labels on the
+    bird models are ordinary species the catalogue holds under a different hyphen or
+    the British spelling. `Western Screech-Owl` is IOC's `Western Screech Owl` and
+    `Gray Catbird` is its `Grey Catbird`; neither is a different bird.
+    """
+    from app.services.model_taxon_map import normalize_common_name
+
+    assert normalize_common_name("Western Screech-Owl") == normalize_common_name("Western Screech Owl")
+    assert normalize_common_name("Black-crowned Night-Heron") == normalize_common_name("Black-crowned Night Heron")
+    assert normalize_common_name("Gray Catbird") == normalize_common_name("Grey Catbird")
+    assert normalize_common_name("Blue-gray Gnatcatcher") == normalize_common_name("Blue-grey Gnatcatcher")
+    assert normalize_common_name("Gray-crowned Rosy-Finch") == normalize_common_name("Grey-crowned Rosy Finch")
+
+
+def test_a_label_that_lost_its_accents_still_finds_the_bird():
+    """Model label files are frequently written in plain ASCII. `Ruppells vulture`
+    is IOC's `R\u00fcppell\u2019s Vulture` and `Krupers nuthatch` its `Kr\u00fcper\u2019s Nuthatch`.
+    """
+    from app.services.model_taxon_map import normalize_common_name
+
+    assert normalize_common_name("Ruppells vulture") == normalize_common_name("R\u00fcppell\u2019s Vulture")
+    assert normalize_common_name("Krupers nuthatch") == normalize_common_name("Kr\u00fcper\u2019s Nuthatch")
+
+
+def test_normalising_still_refuses_to_make_two_birds_one():
+    """The folding is spelling only. It must not reorder or drop words, and it must
+    not fold a word that merely contains a colour name, or `Grayson` and `Greyson`
+    style collisions would start merging real species.
+    """
+    from app.services.model_taxon_map import normalize_common_name
+
+    assert normalize_common_name("Great Grey Owl") != normalize_common_name("Grey Great Owl")
+    assert normalize_common_name("Grey Heron") != normalize_common_name("Heron")
+    # `gray` inside a longer word is not the colour and must survive untouched.
+    assert normalize_common_name("Grayling") == "grayling"
+
+
 def test_the_mapping_build_and_the_compatibility_importer_normalise_alike():
     """One normaliser, two callers. The published mappings and a locally
     derived one have to agree on when two spellings are the same name; two

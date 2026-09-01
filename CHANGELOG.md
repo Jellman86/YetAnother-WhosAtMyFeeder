@@ -6,6 +6,20 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **A hyphen or an American spelling no longer hides a bird from the species catalogue.** Measured
+  against the shipped mappings: of the 180 model output labels the bird models could not match to a
+  catalogue identity, 38 were ordinary species the catalogue already holds, written with a
+  different hyphen or the British spelling. `Western Screech-Owl` is IOC's `Western Screech Owl`,
+  and `Gray Catbird` is its `Grey Catbird`; neither is a different bird. Name matching now treats a
+  hyphen as a space and folds the American spelling of a colour to the British one, as whole words
+  only, so `Grayling` stays a fish. Checked against all 11,276 English names in the catalogue: the
+  change merges no two species together. Accents fold the same way, so a label file written in
+  plain ASCII still finds `Krüper's Nuthatch` and `Rüppell's Vulture`. Owner-supplied models gain
+  this as soon as they upgrade; the shipped registry mappings gain it when the catalogue is next
+  rebuilt.
+
 ### Added
 
 - **Delete a detection while working the "needs your call" queue**
