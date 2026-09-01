@@ -218,8 +218,8 @@ until saved configuration loads successfully, authenticated MQTT is supported in
 and the final review is localized from structured readiness codes.
 
 #### UI simplification & polish ✨
-**Priority:** P1 | **Effort:** L | **Status:** 🔄 In progress — Settings simplification complete;
-primary owner and guest journeys next
+**Priority:** P1 | **Effort:** L | **Status:** 🔄 In progress — Settings simplification and the
+background-work surface complete; the remaining primary owner and guest journeys next
 ([design](docs/plans/2026-07-16-settings-navigation-simplification-design.md))
 
 Make the whole UI clean, coherent, and calm — **especially Settings**, which is currently
@@ -234,6 +234,16 @@ now cover every Settings tab. Optional services are toggle-first, inactive crede
 hidden, maintenance/analytics/destructive tools no longer compete with routine policy, nested card
 noise and structural emoji are reduced, and the Settings type floor is 12px. The remaining work is
 the primary owner/guest journey review, including their loading, empty, error, and destructive states.
+
+✅ **Background work pass:** the separate jobs view is gone. It showed the same work three times
+over, as four counters, a "Work Lanes" list and an "Active Work" list, with two lanes sharing the
+title "Analyze Unknowns" and rows named after raw Frigate event ids. The notifications timeline
+already carried every job with its live progress, so the second view mostly disagreed with the
+first. Notifications is now the single surface for background work, and the one control the jobs
+view held alone, resuming a queue the circuit breaker paused, sits at the top of it where work
+needing a person belongs. Jobs are named by the work rather than the event, with the event kept as
+detail so two clips analysed at once are still told apart. Remaining on this surface: the empty
+state still describes only bird visits and does not yet mention the background work it now owns.
 
 #### A public projection of the settings a viewer needs 👥
 **Priority:** P1 | **Effort:** S
