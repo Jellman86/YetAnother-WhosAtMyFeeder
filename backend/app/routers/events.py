@@ -705,13 +705,19 @@ async def get_events(
             frigate_event=event_id,
         )
 
-        # Batch fetch clip availability from Frigate (eliminates N individual HEAD requests)
         event_ids = [e.frigate_event for e in events]
-        clip_availability = await batch_check_clips(event_ids)
         from app.repositories.manual_observation_repository import ManualObservationRepository
 
         manual_observation_metadata = await ManualObservationRepository(db).metadata_by_event_ids(event_ids)
 
+    # Asking Frigate about every event on the page is a network round trip per
+    # event, and the pool has five connections. Holding one across that made a
+    # busy page block everything else needing the database, which is what an
+    # owner experienced as the whole interface being slow (#300). The rows are
+    # already read, so the connection is given back first.
+    clip_availability = await batch_check_clips(event_ids)
+
+    async with get_db() as db:
         # Get labels that should be displayed as "Unknown Bird"
         unknown_labels = settings.classification.unknown_bird_labels
 
