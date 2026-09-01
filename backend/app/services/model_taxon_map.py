@@ -136,6 +136,15 @@ def _hierarchy_scientific(text: str) -> Optional[str]:
 #: plumage note the NABirds files append to one.
 _TRAILING_PARENTHETICAL = re.compile(r"\s*\([^()]*\)\s*$")
 _APOSTROPHES = str.maketrans("", "", "'\u2019")
+_HYPHENS = re.compile(r"[-\u2010-\u2015]")
+# American spellings the bird models are trained on, against the British ones IOC
+# publishes. Whole words only: `Grayling` is a fish, not a grey anything.
+_SPELLINGS = (
+    (re.compile(r"\bgray\b"), "grey"),
+    (re.compile(r"\bgrayish\b"), "greyish"),
+    (re.compile(r"\bmustached\b"), "moustached"),
+    (re.compile(r"\bcolored\b"), "coloured"),
+)
 
 
 def paired_common_name(label: Optional[str]) -> Optional[str]:
@@ -157,12 +166,18 @@ def normalize_common_name(name: str) -> str:
     """Fold a common name to the form two sources can be compared in.
 
     Drops a trailing qualifier, apostrophes, and case, and collapses runs of
-    whitespace, so `Cassin\u2019s Finch` and `Cassins finch` meet. Deliberately
-    conservative: it never reorders or drops words, because `Great Grey Owl`
-    and `Grey Great Owl` are not the same claim.
+    whitespace, so `Cassin\u2019s Finch` and `Cassins finch` meet. A hyphen counts
+    as a space and the American spelling of a colour counts as the British one, so
+    `Western Screech-Owl` meets IOC's `Western Screech Owl` and `Gray Catbird` meets
+    its `Grey Catbird`. Deliberately conservative: it never reorders or drops words,
+    because `Great Grey Owl` and `Grey Great Owl` are not the same claim, and it
+    folds spellings only as whole words, because `Grayling` is a fish.
     """
     stripped = _TRAILING_PARENTHETICAL.sub("", name)
-    return " ".join(stripped.translate(_APOSTROPHES).casefold().split())
+    folded = _HYPHENS.sub(" ", stripped.translate(_APOSTROPHES).casefold())
+    for pattern, replacement in _SPELLINGS:
+        folded = pattern.sub(replacement, folded)
+    return " ".join(folded.split())
 
 
 def default_map_path() -> Path:
