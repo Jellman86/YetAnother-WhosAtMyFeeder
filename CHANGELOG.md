@@ -8,6 +8,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A slow first boot is no longer mistaken for a broken container.** The image declared itself
+  unhealthy about seventy five seconds after starting, and a first boot on a Raspberry Pi, or on an
+  emulated arm64 build, spends longer than that running migrations and seeding the species
+  catalogue before it can answer at all. The container was called unhealthy while it was starting
+  normally, which failed a release build and, on a real Pi, invites whatever is supervising the
+  container to kill it. The health check now allows a first boot the time it actually needs, and
+  the steady-state check that follows is unchanged.
+
+### Fixed
+
 - **Asking Frigate about a page of visits no longer blocks everything else
   ([#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)).** Loading the events
   list asks Frigate about every event on the page, one network round trip each, and it did that

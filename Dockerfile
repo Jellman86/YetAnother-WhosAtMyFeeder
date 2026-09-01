@@ -225,7 +225,17 @@ USER appuser
 
 EXPOSE 8080
 
-HEALTHCHECK --interval=10s --timeout=10s --start-period=15s --retries=6 \
+# The start period covers a first boot, not a steady-state check. A slow host
+# (a Raspberry Pi, or an emulated arm64 build) has to run every migration and
+# seed the species catalogue before it can answer, which was measured at over
+# a minute on emulated arm64. With a 15s start period and six retries the
+# container was declared unhealthy at around 75 seconds while it was still
+# starting normally, which fails a build and, on a real Pi, invites an
+# orchestrator to kill a container that was doing nothing wrong. Failures
+# inside the start period do not count against the retries, so a generous
+# value costs a slow first boot nothing and does not weaken the steady-state
+# check that follows it.
+HEALTHCHECK --interval=10s --timeout=10s --start-period=300s --retries=6 \
     CMD /usr/local/bin/yawamf-healthcheck.sh || exit 1
 
 ENTRYPOINT ["tini", "--", "/usr/local/bin/yawamf-entrypoint.sh"]
