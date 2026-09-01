@@ -16,6 +16,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   a guest and an owner, as a named allowlist rather than a filtered copy, so a new preference is
   public or owner-only by decision.
 
+### Changed
+
+- **Model Evaluation looks like the rest of the app.** It was the only page on a different grey,
+  used a blue the app does not use anywhere else, styled its buttons as one-off utility classes
+  instead of the shared kit, and had no control large enough to hit comfortably on a phone. Same
+  palette, same controls, same touch-target floor as every other page now.
+
 ### Fixed
 
 - **A guest sees the interface the owner configured, not the built-in defaults.** Three settings
