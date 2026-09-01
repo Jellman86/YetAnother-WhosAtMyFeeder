@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.2] - 2026-09-01
+
 ### Fixed
 
 - **A slow first boot is no longer mistaken for a broken container.** The image declared itself
