@@ -19,8 +19,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   wait.
 
 
-### Fixed
-
 - **The frame picker names pictures instead of subsystems
   ([#256](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/256)).** Choosing the
   photograph for a visit offered "Frigate hint crop", "Model crop" and "Full snapshot" - which part
@@ -45,10 +43,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   seek now reaches those rows too, on the same terms the older query used: a cached name identifies
   a row only where the row carries no taxon of its own. The filter is still scan-free.
 
-## [2.19.1] - 2026-08-31
-
-### Fixed
-
 - **A bird's identity is no longer lost or left stale by a later write
   ([#360](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/360)).** Catalogue identity
   decides whether two detections are the same bird, and two writes were careless with it. A
@@ -58,6 +52,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   identity in place, filing the corrected bird under the species it used to be. An identity is now
   kept when the species is unchanged and the new result has none, and dropped when the species
   actually changes, so a row is either right or honestly unidentified.
+
+## [2.19.1] - 2026-08-31
+
+### Fixed
 
 - **The review queue shows the right time
   ([#363](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/363)).** The new-species
