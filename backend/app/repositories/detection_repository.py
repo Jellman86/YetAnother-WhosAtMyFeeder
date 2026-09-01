@@ -1713,7 +1713,11 @@ class DetectionRepository:
                     THEN COALESCE(:taxa_id, taxa_id)
                     ELSE :taxa_id
                 END,
-                species_id = :species_id,
+                species_id = CASE
+                    WHEN LOWER(TRIM(:category_name)) = LOWER(TRIM(category_name))
+                    THEN COALESCE(:species_id, species_id)
+                    ELSE :species_id
+                END,
                 model_artifact_id = :model_artifact_id,
                 model_output_index = :model_output_index,
                 manual_tagged = manual_tagged,
@@ -1890,9 +1894,14 @@ class DetectionRepository:
         species: str | None,
         species_any: list[str] | None,
         taxa_id: int | None,
-    ) -> tuple[list[int], list[str]]:
+    ) -> tuple[list[int], list[str], dict[str, list[str]]]:
         taxa_ids: list[int] = []
         names: list[str] = []
+        # The general query's join is not symmetric: a row carrying its own
+        # scientific name is matched on that name alone, and only a row with
+        # no scientific name is matched on its display name. Keeping the two
+        # roles apart is what stops the seek claiming rows the count will not.
+        cache_terms: dict[str, list[str]] = {"scientific": [], "display": []}
 
         def _add_taxa(value: int | None) -> None:
             if value is not None and value not in taxa_ids:
@@ -1912,13 +1921,33 @@ class DetectionRepository:
             _add_name(alias_info.get("scientific_name"))
             for name in alias_info.get("match_names") or []:
                 _add_name(name)
-        return taxa_ids, names
+
+        # The general query reaches a row whose own taxon id was never filled
+        # by joining the taxonomy cache; these names let the fast path reach
+        # the same rows by seek, and they are applied only where the row has
+        # no taxon of its own, which is exactly what that COALESCE means.
+        if taxa_ids and await self._table_exists("taxonomy_cache"):
+            placeholders = ",".join("?" for _ in taxa_ids)
+            async with self.db.execute(
+                f"SELECT scientific_name, common_name FROM taxonomy_cache WHERE taxa_id IN ({placeholders})",
+                taxa_ids,
+            ) as cursor:
+                for row in await cursor.fetchall():
+                    scientific = str(row[0] or "").strip().lower()
+                    common = str(row[1] or "").strip().lower()
+                    if scientific and scientific not in cache_terms["scientific"]:
+                        cache_terms["scientific"].append(scientific)
+                    for value in (scientific, common):
+                        if value and value not in cache_terms["display"]:
+                            cache_terms["display"].append(value)
+        return taxa_ids, names, cache_terms
 
     def _build_species_fast_path_query(
         self,
         *,
         taxa_ids: list[int],
         names: list[str],
+        cache_terms: dict[str, list[str]] | None = None,
         limit: int,
         offset: int,
         sort: str,
@@ -1956,6 +1985,14 @@ class DetectionRepository:
         for column in ("display_name", "scientific_name", "common_name"):
             for name in names:
                 _branch(f"LOWER({column}) = ?", name)
+
+        # The cache only identifies a row that has no taxon of its own, and
+        # then only through the column the join would have used.
+        terms = cache_terms or {}
+        for name in terms.get("scientific") or []:
+            _branch("LOWER(scientific_name) = ? AND taxa_id IS NULL", name)
+        for name in terms.get("display") or []:
+            _branch("LOWER(display_name) = ? AND taxa_id IS NULL AND scientific_name IS NULL", name)
 
         union = " UNION ".join(branches)
         query = (
@@ -1995,11 +2032,12 @@ class DetectionRepository:
             audio_confirmed_only=audio_confirmed_only,
             frigate_event=frigate_event,
         ):
-            taxa_ids, names = await self._collect_species_filter_terms(species, species_any, taxa_id)
+            taxa_ids, names, cache_terms = await self._collect_species_filter_terms(species, species_any, taxa_id)
             if taxa_ids or names:
                 query, params = self._build_species_fast_path_query(
                     taxa_ids=taxa_ids,
                     names=names,
+                    cache_terms=cache_terms,
                     limit=limit,
                     offset=offset,
                     sort=sort,
@@ -2412,13 +2450,27 @@ class DetectionRepository:
         audio_confirmed: bool,
         audio_species: str | None,
         audio_score: float | None,
+        species_id: int | None = None,
     ) -> None:
-        """Persist the database fields owned by a manual species correction."""
+        """Persist the database fields owned by a manual species correction.
+
+        `species_id` is the catalogue identity of the species being corrected
+        to; None means the catalogue could not identify it, which is recorded
+        honestly rather than left pointing at the previous species.
+        """
         await self.db.execute(
             """
             UPDATE detections
             SET display_name = ?, category_name = ?,
                 scientific_name = ?, common_name = ?, taxa_id = ?,
+                -- A corrected bird must not keep the identity of the species
+                -- it used to be: that files it with the wrong bird wherever
+                -- catalogue identity decides grouping. Cleared, the row falls
+                -- back to its names until the identity backfill resolves it.
+                species_id = CASE
+                    WHEN LOWER(TRIM(?)) = LOWER(TRIM(category_name)) THEN species_id
+                    ELSE ?
+                END,
                 audio_confirmed = ?, audio_species = ?, audio_score = ?,
                 manual_tagged = 1
             WHERE frigate_event = ?
@@ -2429,6 +2481,8 @@ class DetectionRepository:
                 scientific_name,
                 common_name,
                 taxa_id,
+                category_name,
+                species_id,
                 int(audio_confirmed),
                 audio_species,
                 audio_score,

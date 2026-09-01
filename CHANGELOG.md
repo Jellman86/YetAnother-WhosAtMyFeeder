@@ -6,6 +6,55 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.2] - 2026-09-01
+
+### Fixed
+
+- **Asking Frigate about a page of visits no longer blocks everything else
+  ([#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)).** Loading the events
+  list asks Frigate about every event on the page, one network round trip each, and it did that
+  while holding one of the five pooled database connections. On a real install that hold reached 27
+  seconds, and every other request needing the database queued behind it, which is what an owner
+  experienced as the whole interface being slow. Resetting the database appeared to fix it only
+  because a smaller history asks about fewer events. The rows are read first and the connection
+  given back before Frigate is asked, and a test now fails if a connection is ever held across that
+  wait.
+
+
+- **The frame picker names pictures instead of subsystems
+  ([#256](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/256)).** Choosing the
+  photograph for a visit offered "Frigate hint crop", "Model crop" and "Full snapshot" - which part
+  of the app produced a frame, which the person choosing it has no reason to care about. Frames are
+  now described the way someone picking one would: the whole frame, close on the bird, or as
+  Frigate recorded it, with the species a frame was read as still shown where one exists.
+
+- **A species filter's list and its count agree, and a correction records the right identity.**
+  Two refinements found by reviewing the fixes above before they reached anyone. The seek that
+  reaches cache-identified rows was broader than the query it stands in for, so a page could show
+  a row the count never counted; it now mirrors that query exactly, matching a row on its own
+  scientific name and falling back to the display name only where the row has none. And a manual
+  correction now records the corrected species' catalogue identity rather than only dropping the
+  previous one, so the row is right immediately instead of waiting for the next startup.
+
+- **A species filter finds every visit again
+  ([#365](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/365)).** 2.19.0 made a bare
+  species filter answer by index seek, and that seek checked only the taxon id stored on the
+  detection itself. Where those ids are patchy the filter reported "no visits match these filters"
+  for a species with plenty of visits - and adding a date range appeared to fix it, because a date
+  range routes back to the older query, which resolves the taxon through the taxonomy cache. The
+  seek now reaches those rows too, on the same terms the older query used: a cached name identifies
+  a row only where the row carries no taxon of its own. The filter is still scan-free.
+
+- **A bird's identity is no longer lost or left stale by a later write
+  ([#360](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/360)).** Catalogue identity
+  decides whether two detections are the same bird, and two writes were careless with it. A
+  higher-scoring result for the same species replaced the identity unconditionally, so one that
+  carried none erased what the startup backfill had already resolved - which is how a single
+  Dunnock came to be grouped as two. And a manual correction rewrote every name but left the old
+  identity in place, filing the corrected bird under the species it used to be. An identity is now
+  kept when the species is unchanged and the new result has none, and dropped when the species
+  actually changes, so a row is either right or honestly unidentified.
+
 ## [2.19.1] - 2026-08-31
 
 ### Fixed
