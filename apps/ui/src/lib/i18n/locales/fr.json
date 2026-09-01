@@ -1687,7 +1687,7 @@
     "count_unread": "non lus",
     "owner_only": "propriétaire",
     "empty_title": "Rien ne s'est encore produit",
-    "empty_body": "Les visites apparaissent ici dès que le classifieur les nomme, la plus récente en premier.",
+    "empty_body": "Les visites apparaissent ici dès que le classifieur les nomme, et les tâches en arrière-plan pendant leur exécution. La plus récente en premier.",
     "empty_action": "Ouvrir le journal de terrain",
     "empty_filtered": "Rien ne correspond à ce filtre.",
     "clear_notifications": "Effacer les notifications"

@@ -33,6 +33,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   `strepera`. Both halves of the label then agree and nothing is authored by hand. 9 outputs gain
   an identity. `Caracara cheriway` is deliberately not one of them, because IOC's bird is
   `Caracara plancus` and a changed epithet is a lump, not a move; it stays unresolved for a person.
+- **An action that fails now says so.** Tagging a species, hiding a detection, running an AI
+  analysis, and deleting a visit all logged their failure to the browser console and told the
+  person nothing. The worst of those was the delete: the confirmation says the record and its media
+  leave the history permanently, so when the request failed there was no way to tell that apart
+  from it having worked, and the obvious next move was to try again. Six owner actions across the
+  dashboard and the explorer now report the failure, and a test fails if a new one is added that
+  does not.
+- **The notifications empty state says what the page actually holds.** It described only bird
+  visits, on the surface that is now the only place background work appears.
 
 - **A subspecies now resolves to the species IOC actually recognises.** A trinomial like
   `Anas crecca carolinensis` is not automatically its first two words: IOC treats it as the

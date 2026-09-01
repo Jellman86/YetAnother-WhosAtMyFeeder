@@ -617,6 +617,7 @@
             const result = await analyzeDetection(selectedEvent.frigate_event);
             aiAnalysis = result.analysis;
         } catch (e) {
+            toastStore.show(getErrorMessage(e), 'error');
             console.error('AI Analysis failed', e);
         } finally {
             analyzingAI = false;
@@ -668,6 +669,7 @@
             }
             showTagDropdown = false;
         } catch (e) {
+            toastStore.show(getErrorMessage(e), 'error');
             console.error('Failed to update species', e);
         } finally {
             updatingTag = false;
