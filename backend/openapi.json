@@ -15290,7 +15290,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.19.1"
+    "version": "2.19.2"
   },
   "openapi": "3.1.0",
   "paths": {

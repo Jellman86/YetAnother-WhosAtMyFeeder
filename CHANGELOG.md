@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.2] - 2026-09-01
+
 ### Fixed
 
 - **Asking Frigate about a page of visits no longer blocks everything else
