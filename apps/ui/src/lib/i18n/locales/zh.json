@@ -361,6 +361,7 @@
       "no_matches": "没有匹配的物种，试试更少的字母。",
       "skip": "暂时跳过",
       "not_a_bird": "不是鸟，隐藏",
+      "delete": "永久删除",
       "full_record": "打开完整记录",
       "remaining": "还有 {count} 项待查看",
       "image_alt": "{camera} 上未识别的检测",

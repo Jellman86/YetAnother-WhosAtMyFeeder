@@ -55,6 +55,25 @@ describe('review queue walk-through', () => {
         expect(modalSource).toContain('dashboard.review_session.full_record');
     });
 
+    it('can delete a detection that was never a bird, and says it is permanent (#375)', () => {
+        // Frigate fires on rocks. Hiding keeps the record, which is right for a real bird
+        // mis-scored, but wrong for a rock, and reaching Explorer to delete broke the queue flow.
+        expect(modalSource).toContain('ondelete');
+        expect(modalSource).toContain('dashboard.review_session.delete');
+        // The one copy already used for this, which names the loss and offers hiding instead.
+        expect(modalSource).toContain('actions.confirm_delete');
+        // Destructive work is not styled like the neutral way out beside it.
+        expect(modalSource).toContain('text-red-600');
+        expect(dashboardSource).toContain('ondelete={deleteFromQueue}');
+        expect(dashboardSource).toContain('async function deleteFromQueue');
+    });
+
+    it('keeps hiding as the non-destructive option beside deleting', () => {
+        // Deleting must not replace hiding: a real bird scored badly should still be hideable.
+        expect(modalSource).toContain('dashboard.review_session.not_a_bird');
+        expect(modalSource).toContain('onhide(current)');
+    });
+
     it('ends with an honest summary rather than silently closing', () => {
         expect(modalSource).toContain('dashboard.review_session.done');
         expect(modalSource).toContain('dashboard.review_session.skipped_note');
