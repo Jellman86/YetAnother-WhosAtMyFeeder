@@ -228,6 +228,29 @@ def corroborates(catalogue_name: str, label_common_name: Optional[str]) -> bool:
     return bool(left & right)
 
 
+_GENUS_EPITHET = re.compile(r"^([A-Z][a-z]+) ([a-z]+)\b")
+
+
+def shares_specific_epithet(label: str, catalogue_scientific_name: Optional[str]) -> bool:
+    """Whether a label's scientific name and the catalogue's differ only by genus.
+
+    IOC moves species between genera, so `Anas strepera` is now `Mareca strepera`
+    and the label's scientific name resolves to nothing while its common name is
+    still current. The epithet surviving the move is what separates a reassignment
+    from two unrelated birds that happen to share an English name, so a label with
+    no scientific half corroborates nothing.
+    """
+    if not isinstance(label, str) or not catalogue_scientific_name:
+        return False
+    if paired_common_name(label) is None:
+        return False
+    left = _GENUS_EPITHET.match(label.strip())
+    right = _GENUS_EPITHET.match(catalogue_scientific_name.strip())
+    if not left or not right:
+        return False
+    return left.group(2) == right.group(2) and left.group(1) != right.group(1)
+
+
 def default_map_path() -> Path:
     configured = os.environ.get("DB_PATH")
     if configured:

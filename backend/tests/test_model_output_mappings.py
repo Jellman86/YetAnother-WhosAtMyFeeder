@@ -446,6 +446,23 @@ def test_the_committed_assets_build_a_fully_mapped_catalogue(tmp_path):
     assert orphans == [(0,)]
 
 
+def test_a_moved_genus_resolves_through_the_name_the_label_pairs_with_it():
+    """`Anas strepera (Gadwall)` fails on its scientific name because IOC now calls
+    it `Mareca strepera`. The label's own common name is current, and the specific
+    epithet survives the move, so the two halves of the label corroborate each other
+    and the reassignment resolves without anyone authoring an alias.
+    """
+    from app.services.model_taxon_map import shares_specific_epithet
+
+    assert shares_specific_epithet("Anas strepera (Gadwall)", "Mareca strepera")
+    assert shares_specific_epithet("Charadrius nivosus (Snowy Plover)", "Anarhynchus nivosus")
+    # A different bird that merely shares a common name must not pass.
+    assert not shares_specific_epithet("Anas strepera (Gadwall)", "Mareca penelope")
+    # Nothing to compare is not corroboration.
+    assert not shares_specific_epithet("Gadwall", "Mareca strepera")
+    assert not shares_specific_epithet("Anas strepera (Gadwall)", None)
+
+
 def test_a_subspecies_resolves_to_the_species_ioc_actually_recognises():
     """A trinomial is not automatically its first two words. IOC treats
     `Anas crecca carolinensis` as the separate species `Anas carolinensis`, so

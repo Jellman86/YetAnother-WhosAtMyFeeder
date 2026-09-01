@@ -8,6 +8,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A species IOC has moved to another genus now resolves.** `Anas strepera (Gadwall)` failed on
+  its scientific name because IOC calls the bird `Mareca strepera`, while the common name the same
+  label carries is current. Taking that common name on its own would trust an English name two
+  birds can share, so the specific epithet has to survive the move as well: `strepera` stays
+  `strepera`. Both halves of the label then agree and nothing is authored by hand. 9 outputs gain
+  an identity. `Caracara cheriway` is deliberately not one of them, because IOC's bird is
+  `Caracara plancus` and a changed epithet is a lump, not a move; it stays unresolved for a person.
+
 - **A subspecies now resolves to the species IOC actually recognises.** A trinomial like
   `Anas crecca carolinensis` is not automatically its first two words: IOC treats it as the
   separate species `Anas carolinensis`, so dropping the third epithet would have filed an American

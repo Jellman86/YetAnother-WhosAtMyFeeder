@@ -41,6 +41,7 @@ from app.services.model_registry_inventory import registry_artifacts  # noqa: E4
 from app.services.model_taxon_map import normalize_common_name as _normalize_common  # noqa: E402
 from app.services.model_taxon_map import paired_common_name  # noqa: E402
 from app.services.model_taxon_map import corroborates, subspecies_candidates  # noqa: E402
+from app.services.model_taxon_map import shares_specific_epithet  # noqa: E402
 from app.services.model_taxon_map import scientific_name_from_label  # noqa: E402
 
 DEFAULT_OUTPUT = _BACKEND_DIR / "app" / "assets" / "model_output_mappings.json"
@@ -152,6 +153,33 @@ def resolve_subspecies(results: dict[str, LabelFileResult], resolver: "CatalogRe
     return recovered
 
 
+def resolve_moved_genus(results: dict[str, LabelFileResult], resolver: "CatalogResolver") -> int:
+    """Resolve a paired label whose genus IOC has since changed.
+
+    `Anas strepera (Gadwall)` fails on its scientific name because IOC now calls the
+    bird `Mareca strepera`, while the common name the same label carries is current.
+    Taking the common name alone would trust an English name two birds can share, so
+    the specific epithet has to survive the move as well. Both halves of the label
+    then agree, and neither had to be authored by hand.
+    """
+    recovered = 0
+    for result in results.values():
+        for position, row in enumerate(result.rows):
+            if row.unresolved is None or row.kind != "species":
+                continue
+            common = paired_common_name(row.label)
+            if not common:
+                continue
+            reference, ambiguous = resolver.resolve_common(common)
+            if not reference or ambiguous:
+                continue
+            if not shares_specific_epithet(row.label, resolver.scientific_name_for(reference)):
+                continue
+            result.rows[position] = replace(row, provider=reference[0], taxon=reference[1], unresolved=None)
+            recovered += 1
+    return recovered
+
+
 class CatalogResolver:
     """Lookup tables built once from a seed catalogue.
 
@@ -164,6 +192,7 @@ class CatalogResolver:
         connection = sqlite3.connect(f"file:{seed_path}?mode=ro", uri=True)
         try:
             concept_ref: dict[int, tuple[str, str]] = {}
+            self._scientific_by_reference: dict[tuple[str, str], str] = {}
             self._by_scientific: dict[str, object] = {}
             for species_id, provider, taxon_id, scientific in connection.execute(
                 "SELECT species_id, provider, provider_taxon_id, scientific_name FROM species_concepts"
@@ -171,6 +200,7 @@ class CatalogResolver:
             ):
                 concept_ref.setdefault(species_id, (provider, taxon_id))
                 self._put(self._by_scientific, scientific.casefold(), concept_ref[species_id])
+                self._scientific_by_reference.setdefault(concept_ref[species_id], scientific)
 
             self._by_alias: dict[str, object] = {}
             for alias, species_id in connection.execute(
@@ -200,6 +230,10 @@ class CatalogResolver:
     def common_name_for(self, reference: Optional[tuple[str, str]]) -> Optional[str]:
         """The catalogue's English name for a resolved concept, if it has one."""
         return self._common_by_reference.get(reference) if reference else None
+
+    def scientific_name_for(self, reference: Optional[tuple[str, str]]) -> Optional[str]:
+        """The catalogue's scientific name for a resolved concept, if it has one."""
+        return self._scientific_by_reference.get(reference) if reference else None
 
     @staticmethod
     def _put(table: dict[str, object], key: str, reference: tuple[str, str]) -> None:
@@ -324,6 +358,7 @@ def compile_mappings(labels_dir: Path, seed_path: Path) -> dict[str, object]:
     # A trinomial is last: the two passes above may already have named it, and this
     # one deliberately settles for the parent species when nothing better fits.
     subspecies = resolve_subspecies(compiled, resolver)
+    moved_genus = resolve_moved_genus(compiled, resolver)
 
     for labels_sha256, result in compiled.items():
         label_files[labels_sha256] = {
@@ -335,6 +370,7 @@ def compile_mappings(labels_dir: Path, seed_path: Path) -> dict[str, object]:
     return {
         "bridged_common_names": bridged,
         "resolved_subspecies": subspecies,
+        "resolved_moved_genus": moved_genus,
         "schema_version": 1,
         "label_files": label_files,
         "artifacts": [
