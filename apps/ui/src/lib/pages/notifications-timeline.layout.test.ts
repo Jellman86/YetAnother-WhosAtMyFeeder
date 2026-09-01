@@ -60,7 +60,9 @@ describe('Notifications timeline layout', () => {
     it('states what the empty page will hold instead of that it is empty', () => {
         expect(source).toContain('notifications.empty_title');
         expect(source).toContain('notifications.empty_action');
-        expect(en.notifications.empty_body).toContain('newest first');
+        expect(en.notifications.empty_body).toContain('Newest first');
+        // The page owns background work now, so the empty state has to say so.
+        expect(en.notifications.empty_body).toContain('background work');
     });
 
     it('centres the rail and its markers in one column instead of offsetting by hand', () => {

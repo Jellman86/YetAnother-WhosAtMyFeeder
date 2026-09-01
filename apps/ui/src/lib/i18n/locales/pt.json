@@ -1696,7 +1696,7 @@
     "count_unread": "por ler",
     "owner_only": "proprietário",
     "empty_title": "Ainda não aconteceu nada",
-    "empty_body": "As visitas aparecem aqui assim que o classificador as nomeia, a mais recente primeiro.",
+    "empty_body": "As visitas aparecem aqui assim que o classificador as nomeia, e as tarefas em segundo plano enquanto decorrem. A mais recente primeiro.",
     "empty_action": "Abrir o diário de campo",
     "empty_filtered": "Nada corresponde a este filtro.",
     "clear_notifications": "Limpar notificações"

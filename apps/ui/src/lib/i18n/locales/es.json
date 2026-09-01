@@ -1687,7 +1687,7 @@
     "count_unread": "sin leer",
     "owner_only": "propietario",
     "empty_title": "Todavía no ha pasado nada",
-    "empty_body": "Las visitas aparecen aquí en cuanto el clasificador las nombra, la más reciente primero.",
+    "empty_body": "Las visitas aparecen aquí en cuanto el clasificador las nombra, y las tareas en segundo plano mientras se ejecutan. La más reciente primero.",
     "empty_action": "Abrir el registro de campo",
     "empty_filtered": "Nada coincide con este filtro.",
     "clear_notifications": "Borrar notificaciones"

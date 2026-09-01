@@ -1696,7 +1696,7 @@
     "count_unread": "non letti",
     "owner_only": "proprietario",
     "empty_title": "Non è ancora successo nulla",
-    "empty_body": "Le visite compaiono qui appena il classificatore le nomina, prima le più recenti.",
+    "empty_body": "Le visite compaiono qui appena il classificatore le nomina, e le attività in background mentre sono in corso. Prima le più recenti.",
     "empty_action": "Apri il diario di campo",
     "empty_filtered": "Nessun risultato per questo filtro.",
     "clear_notifications": "Cancella notifiche"

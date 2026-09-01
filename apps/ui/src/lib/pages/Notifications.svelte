@@ -184,7 +184,8 @@
                 </h3>
                 <p class="mx-auto mt-1 max-w-sm text-sm text-slate-500 dark:text-slate-400">
                     {$_('notifications.empty_body', {
-                        default: 'Visits appear here as the classifier names them, newest first.'
+                        default:
+                            'Visits appear here as the classifier names them, and background work as it runs. Newest first.'
                     })}
                 </p>
                 <button type="button" class="btn btn-secondary mt-4 min-h-11 px-3 py-2 text-xs" onclick={() => navigate('/')}>

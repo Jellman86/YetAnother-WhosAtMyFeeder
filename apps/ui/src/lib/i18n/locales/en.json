@@ -1696,7 +1696,7 @@
     "count_unread": "unread",
     "owner_only": "owner",
     "empty_title": "Nothing has happened yet",
-    "empty_body": "Visits appear here as the classifier names them, newest first.",
+    "empty_body": "Visits appear here as the classifier names them, and background work as it runs. Newest first.",
     "empty_action": "Open the field log",
     "empty_filtered": "Nothing matches this filter.",
     "clear_notifications": "Clear notifications"

@@ -1687,7 +1687,7 @@
     "count_unread": "ungelesen",
     "owner_only": "Betreiber",
     "empty_title": "Bisher ist nichts passiert",
-    "empty_body": "Besuche erscheinen hier, sobald der Klassifikator sie benennt, neueste zuerst.",
+    "empty_body": "Besuche erscheinen hier, sobald der Klassifikator sie benennt, und Hintergrundarbeiten während sie laufen. Neueste zuerst.",
     "empty_action": "Feldprotokoll öffnen",
     "empty_filtered": "Nichts entspricht diesem Filter.",
     "clear_notifications": "Benachrichtigungen löschen"
