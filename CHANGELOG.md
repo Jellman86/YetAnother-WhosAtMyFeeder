@@ -8,6 +8,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A subspecies now resolves to the species IOC actually recognises.** A trinomial like
+  `Anas crecca carolinensis` is not automatically its first two words: IOC treats it as the
+  separate species `Anas carolinensis`, so dropping the third epithet would have filed an American
+  Green-winged Teal as a Eurasian Teal. The build now tries the elevated species first and accepts
+  it only when the catalogue's own name for it backs up the name the label carries, falls back to
+  the parent species where that is the honest answer (a Domestic Duck is an `Anas platyrhynchos`,
+  a Feral Pigeon is a Rock Dove), and leaves the label unresolved rather than guessing when a
+  distinct species exists under the subspecies name but nothing corroborates it. 42 outputs gain an
+  identity, including six that a simpler rule would have attributed to the wrong bird.
+
 - **A common name IOC has renamed or split now resolves through a model that already named it.**
   One model writes `Tyto alba (Barn Owl)` and resolves through the scientific name. Another writes
   only `Barn Owl`, which IOC no longer uses, having split it into Western, American and Eastern

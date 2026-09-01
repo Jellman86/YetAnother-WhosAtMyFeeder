@@ -184,6 +184,50 @@ def normalize_common_name(name: str) -> str:
     return " ".join(folded.split())
 
 
+# Words too common to count as agreement between two bird names on their own.
+_FILLER_WORDS = frozenset(
+    {"common", "northern", "southern", "eastern", "western", "great", "greater", "lesser", "american", "european"}
+)
+_TRINOMIAL = re.compile(r"^([A-Z][a-z]+) ([a-z]+) ([a-z]+)\b\s*(?:\((.*)\))?\s*$")
+
+
+def subspecies_candidates(label: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """The two readings of a trinomial, and the common name the label carries.
+
+    Returns `(elevated, parent, common)`. A trinomial can mean either the species
+    IOC now recognises in its own right, `Anas crecca carolinensis` being IOC's
+    `Anas carolinensis`, or a subspecies of its parent. Dropping the third epithet
+    without checking would file an American Green-winged Teal as a Eurasian Teal.
+    `elevated` is None when the third epithet repeats the second, which names no
+    distinct species. The common name is taken to the end of the label, because
+    `Circus cyaneus hudsonius (Northern Harrier (American))` nests its brackets and
+    a non-greedy read would return nothing and silently lose the corroboration.
+    """
+    if not isinstance(label, str):
+        return (None, None, None)
+    match = _TRINOMIAL.match(label.strip())
+    if not match:
+        return (None, None, None)
+    genus, species, subspecies, common = match.groups()
+    elevated = f"{genus} {subspecies}" if subspecies != species else None
+    return (elevated, f"{genus} {species}", (common or "").strip() or None)
+
+
+def corroborates(catalogue_name: str, label_common_name: Optional[str]) -> bool:
+    """Whether the catalogue's name for a species backs up the label's own name.
+
+    Genus plus a subspecies epithet can land on an unrelated species, so the
+    elevated reading is only taken when both names share a word that carries
+    meaning. `Common` and `Northern` are shared by hundreds of birds and settle
+    nothing on their own.
+    """
+    if not label_common_name:
+        return False
+    left = {w for w in normalize_common_name(catalogue_name).split() if w not in _FILLER_WORDS}
+    right = {w for w in normalize_common_name(label_common_name).split() if w not in _FILLER_WORDS}
+    return bool(left & right)
+
+
 def default_map_path() -> Path:
     configured = os.environ.get("DB_PATH")
     if configured:

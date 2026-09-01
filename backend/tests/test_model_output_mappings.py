@@ -446,6 +446,43 @@ def test_the_committed_assets_build_a_fully_mapped_catalogue(tmp_path):
     assert orphans == [(0,)]
 
 
+def test_a_subspecies_resolves_to_the_species_ioc_actually_recognises():
+    """A trinomial is not automatically its first two words. IOC treats
+    `Anas crecca carolinensis` as the separate species `Anas carolinensis`, so
+    dropping the third epithet would file an American Green-winged Teal as a
+    Eurasian Teal. The elevated binomial is tried first, and only accepted when the
+    catalogue's name for it corroborates the label's own common name.
+    """
+    from app.services.model_taxon_map import subspecies_candidates
+
+    assert subspecies_candidates("Anas crecca carolinensis (American Green-winged Teal)") == (
+        "Anas carolinensis",
+        "Anas crecca",
+        "American Green-winged Teal",
+    )
+    # A subspecies repeating the species epithet has no distinct elevated form.
+    assert subspecies_candidates("Anthus novaeseelandiae novaeseelandiae (New Zealand Pipit)") == (
+        None,
+        "Anthus novaeseelandiae",
+        "New Zealand Pipit",
+    )
+    assert subspecies_candidates("Barn Owl") == (None, None, None)
+
+
+def test_an_elevated_species_is_refused_when_its_name_corroborates_nothing():
+    """Genus plus a subspecies epithet can collide with an unrelated species. The
+    elevated reading is only taken when the catalogue's common name for it shares a
+    word with the common name the label itself carries.
+    """
+    from app.services.model_taxon_map import corroborates
+
+    assert corroborates("Green-winged Teal", "American Green-winged Teal")
+    assert corroborates("Northern Harrier", "Northern Harrier (American)")
+    assert not corroborates("Mexican Duck", "Sooty Albatross")
+    # A shared filler word is not corroboration.
+    assert not corroborates("Common Tern", "Common Chaffinch")
+
+
 def test_a_common_name_resolves_through_a_paired_label_that_already_named_it():
     """One model writes `Tyto alba (Barn Owl)` and resolves through the scientific
     name. Another writes only `Barn Owl`, which IOC no longer uses, having split it

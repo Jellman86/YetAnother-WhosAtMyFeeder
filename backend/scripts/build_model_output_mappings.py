@@ -40,6 +40,7 @@ if str(_BACKEND_DIR) not in sys.path:
 from app.services.model_registry_inventory import registry_artifacts  # noqa: E402
 from app.services.model_taxon_map import normalize_common_name as _normalize_common  # noqa: E402
 from app.services.model_taxon_map import paired_common_name  # noqa: E402
+from app.services.model_taxon_map import corroborates, subspecies_candidates  # noqa: E402
 from app.services.model_taxon_map import scientific_name_from_label  # noqa: E402
 
 DEFAULT_OUTPUT = _BACKEND_DIR / "app" / "assets" / "model_output_mappings.json"
@@ -109,6 +110,48 @@ def bridge_common_names(results: dict[str, LabelFileResult]) -> int:
     return recovered
 
 
+def resolve_subspecies(results: dict[str, LabelFileResult], resolver: "CatalogResolver") -> int:
+    """Give a trinomial the identity IOC actually recognises.
+
+    A subspecies is either a species in its own right now, or a form of its parent.
+    The elevated binomial is tried first and taken only when the catalogue's common
+    name for it corroborates the one the label carries, because genus plus a
+    subspecies epithet can land on an unrelated bird. Otherwise the parent species
+    is the honest identity: a Domestic Duck is an `Anas platyrhynchos`.
+    """
+    recovered = 0
+    for result in results.values():
+        for position, row in enumerate(result.rows):
+            if row.unresolved is None or row.kind != "species":
+                continue
+            elevated, parent, common = subspecies_candidates(row.label)
+            if not parent:
+                continue
+
+            reference = None
+            if elevated:
+                candidate, ambiguous = resolver.resolve_scientific(elevated)
+                if candidate and not ambiguous:
+                    if corroborates(resolver.common_name_for(candidate) or "", common):
+                        reference = candidate
+                    else:
+                        # A distinct species exists under the subspecies epithet, so the
+                        # parent is not safe to assume, and nothing corroborates the
+                        # elevated reading either. Unresolved is the honest answer:
+                        # collapsing here once filed a Northern Harrier as a Hen Harrier.
+                        continue
+            if reference is None:
+                candidate, ambiguous = resolver.resolve_scientific(parent)
+                if candidate and not ambiguous:
+                    reference = candidate
+            if reference is None:
+                continue
+
+            result.rows[position] = replace(row, provider=reference[0], taxon=reference[1], unresolved=None)
+            recovered += 1
+    return recovered
+
+
 class CatalogResolver:
     """Lookup tables built once from a seed catalogue.
 
@@ -137,6 +180,7 @@ class CatalogResolver:
                 if reference:
                     self._put(self._by_alias, alias.casefold(), reference)
 
+            self._common_by_reference: dict[tuple[str, str], str] = {}
             self._by_common_exact: dict[str, object] = {}
             self._by_common_normalized: dict[str, object] = {}
             for species_id, name in connection.execute(
@@ -147,8 +191,15 @@ class CatalogResolver:
                     continue
                 self._put(self._by_common_exact, name.casefold(), reference)
                 self._put(self._by_common_normalized, _normalize_common(name), reference)
+                # The reverse direction, so a resolved concept can state the name the
+                # catalogue holds for it and corroborate a label's own reading.
+                self._common_by_reference.setdefault(reference, name)
         finally:
             connection.close()
+
+    def common_name_for(self, reference: Optional[tuple[str, str]]) -> Optional[str]:
+        """The catalogue's English name for a resolved concept, if it has one."""
+        return self._common_by_reference.get(reference) if reference else None
 
     @staticmethod
     def _put(table: dict[str, object], key: str, reference: tuple[str, str]) -> None:
@@ -270,6 +321,9 @@ def compile_mappings(labels_dir: Path, seed_path: Path) -> dict[str, object]:
     # but another model's paired label may already have named the same bird through
     # the scientific path. That is a second pass because it needs every file first.
     bridged = bridge_common_names(compiled)
+    # A trinomial is last: the two passes above may already have named it, and this
+    # one deliberately settles for the parent species when nothing better fits.
+    subspecies = resolve_subspecies(compiled, resolver)
 
     for labels_sha256, result in compiled.items():
         label_files[labels_sha256] = {
@@ -280,6 +334,7 @@ def compile_mappings(labels_dir: Path, seed_path: Path) -> dict[str, object]:
 
     return {
         "bridged_common_names": bridged,
+        "resolved_subspecies": subspecies,
         "schema_version": 1,
         "label_files": label_files,
         "artifacts": [
