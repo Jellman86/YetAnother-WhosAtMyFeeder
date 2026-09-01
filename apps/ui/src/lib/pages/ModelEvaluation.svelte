@@ -39,12 +39,12 @@
     }
 
     function deviceCell(row: MatrixRow | undefined, dev: string): { label: string; cls: string } {
-        if (!row || row.error) return { label: '—', cls: 'text-gray-400' };
+        if (!row || row.error) return { label: '—', cls: 'text-slate-400' };
         const e = row.providers?.[dev] ?? row.devices?.[dev];
-        if (!e) return { label: '—', cls: 'text-gray-400' };
+        if (!e) return { label: '—', cls: 'text-slate-400' };
         if (!e.compiles) return { label: '✗ fails', cls: 'text-red-600 dark:text-red-400' };
         if (e.finite === false) return { label: '⚠ NaN', cls: 'text-red-600 dark:text-red-400' };
-        if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { label: `✓ baseline (${e.images_evaluated ?? 0})`, cls: 'text-gray-600 dark:text-gray-400' };
+        if (e.baseline || dev === row.baseline_provider || dev === 'CPU') return { label: `✓ baseline (${e.images_evaluated ?? 0})`, cls: 'text-slate-600 dark:text-slate-400' };
         const n = e.images_compared;
         if (row.comparison_kind === 'crop_box' && e.matches_cpu && n) {
             const iou = e.mean_box_iou;
@@ -79,7 +79,7 @@
     function severityColor(severity: ModelEvalWarning['severity']): string {
         if (severity === 'critical') return 'text-red-600 dark:text-red-400';
         if (severity === 'warning') return 'text-amber-600 dark:text-amber-400';
-        return 'text-blue-600 dark:text-blue-400';
+        return 'text-brand-600 dark:text-brand-400';
     }
 
     async function refresh() {
@@ -185,20 +185,20 @@
         </div>
     {/if}
 
-    <section class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Model Evaluation</h2>
-        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+    <section class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">Model Evaluation</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
             Run every installed classifier against auto-fetched, taxonomy-verified bird images
             from iNaturalist (with Wikimedia Commons fallback). Progress is reported live; full
-            artifacts persist under <code class="px-1 rounded bg-gray-100 dark:bg-gray-900">/config/yawamf-eval/&lt;run_id&gt;/</code>.
+            artifacts persist under <code class="px-1 rounded bg-slate-100 dark:bg-slate-900">/config/yawamf-eval/&lt;run_id&gt;/</code>.
         </p>
 
         <div class="mt-4 flex flex-wrap items-center gap-3">
-            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <label class="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                 <input type="checkbox" bind:checked={includePerImage} class="rounded" />
                 Include per-image details (results.jsonl)
             </label>
-            <label class="inline-flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300" title="Downloads every registry model, then validates each provider owned by this image against the CPU baseline. Slower.">
+            <label class="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300" title="Downloads every registry model, then validates each provider owned by this image against the CPU baseline. Slower.">
                 <input type="checkbox" bind:checked={sweepDevices} class="rounded" />
                 Sweep image providers (auto-downloads all models)
             </label>
@@ -206,7 +206,7 @@
                 type="button"
                 disabled={!!active || loading}
                 onclick={startRun}
-                class="px-4 py-2 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed text-sm font-medium"
+                class="btn btn-primary min-h-11 px-4 py-2 text-sm"
             >
                 {active ? 'Run in progress…' : 'Run Evaluation'}
             </button>
@@ -214,7 +214,7 @@
                 <button
                     type="button"
                     onclick={cancelRun}
-                    class="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 text-sm font-medium"
+                    class="btn btn-secondary min-h-11 px-4 py-2 text-sm text-red-600 dark:text-red-400"
                 >
                     Cancel
                 </button>
@@ -223,25 +223,25 @@
 
         {#if active}
             <div class="mt-4">
-                <div class="flex justify-between text-xs text-gray-600 dark:text-gray-400">
+                <div class="flex justify-between text-xs text-slate-600 dark:text-slate-400">
                     <span>{active.phase} · {active.progress.label}</span>
                     <span>{active.progress.done} / {active.progress.total} ({progressPct}%)</span>
                 </div>
-                <div class="mt-1 h-2 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                    <div class="h-full bg-blue-500 transition-all" style="width: {progressPct}%"></div>
+                <div class="mt-1 h-2 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                    <div class="h-full bg-brand-500 transition-all" style="width: {progressPct}%"></div>
                 </div>
             </div>
         {/if}
     </section>
 
     {#if selectedRun}
-        <section class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5">
+        <section class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5">
             <header class="flex items-start justify-between flex-wrap gap-2">
                 <div>
-                    <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">
+                    <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
                         Run {selectedRun.run_id}
                     </h3>
-                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                    <p class="text-xs text-slate-500 dark:text-slate-400">
                         {#if selectedRun.test_set}
                             {selectedRun.test_set.total_species} species · {selectedRun.test_set.total_images} images · region {selectedRun.test_set.region ?? '—'}
                         {/if}
@@ -251,11 +251,11 @@
                     </p>
                 </div>
                 <div class="flex flex-wrap gap-1 text-xs">
-                    <a class="text-blue-600 dark:text-blue-400 hover:underline" href={modelEvalArtifactUrl(selectedRun.run_id, 'summary.json')} target="_blank" rel="noopener">summary.json</a>
-                    <span class="text-gray-400">·</span>
-                    <a class="text-blue-600 dark:text-blue-400 hover:underline" href={modelEvalArtifactUrl(selectedRun.run_id, 'runtime.json')} target="_blank" rel="noopener">runtime.json</a>
-                    <span class="text-gray-400">·</span>
-                    <a class="text-blue-600 dark:text-blue-400 hover:underline" href={modelEvalArtifactUrl(selectedRun.run_id, 'confusions.csv')} target="_blank" rel="noopener">confusions.csv</a>
+                    <a class="text-brand-600 dark:text-brand-400 hover:underline" href={modelEvalArtifactUrl(selectedRun.run_id, 'summary.json')} target="_blank" rel="noopener">summary.json</a>
+                    <span class="text-slate-400">·</span>
+                    <a class="text-brand-600 dark:text-brand-400 hover:underline" href={modelEvalArtifactUrl(selectedRun.run_id, 'runtime.json')} target="_blank" rel="noopener">runtime.json</a>
+                    <span class="text-slate-400">·</span>
+                    <a class="text-brand-600 dark:text-brand-400 hover:underline" href={modelEvalArtifactUrl(selectedRun.run_id, 'confusions.csv')} target="_blank" rel="noopener">confusions.csv</a>
                 </div>
             </header>
 
@@ -268,7 +268,7 @@
             {#if selectedRun.models && selectedRun.models.length > 0}
                 <div class="mt-4 overflow-x-auto">
                     <table class="min-w-full text-sm">
-                        <thead class="text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                        <thead class="text-xs uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                             <tr>
                                 <th class="text-left py-2 pr-4">Model</th>
                                 <th class="text-right px-2">Top-1</th>
@@ -282,8 +282,8 @@
                         </thead>
                         <tbody>
                             {#each selectedRun.models as model (model.model_id)}
-                                <tr class="border-b border-gray-100 dark:border-gray-700">
-                                    <td class="py-2 pr-4 font-mono text-xs text-gray-900 dark:text-gray-100">
+                                <tr class="border-b border-slate-100 dark:border-slate-700">
+                                    <td class="py-2 pr-4 font-mono text-xs text-slate-900 dark:text-slate-100">
                                         {model.model_id}
                                         {#if model.warnings && model.warnings.length > 0}
                                             <span class="ml-1 inline-flex items-center text-xs">
@@ -293,16 +293,16 @@
                                             </span>
                                         {/if}
                                     </td>
-                                    <td class="text-right px-2 text-gray-700 dark:text-gray-300">{pct(model.top1_accuracy)}</td>
-                                    <td class="text-right px-2 text-gray-700 dark:text-gray-300">{pct(model.top3_accuracy)}</td>
-                                    <td class="text-right px-2 text-gray-700 dark:text-gray-300">{pct(model.shared_core_top1)}</td>
-                                    <td class="text-right px-2 text-gray-700 dark:text-gray-300">{pct(model.regional_top1)}</td>
-                                    <td class="text-right px-2 text-gray-700 dark:text-gray-300">{ms(model.mean_latency_ms)}</td>
-                                    <td class="text-right px-2 text-gray-700 dark:text-gray-300">{ms(model.p95_latency_ms)}</td>
-                                    <td class="pl-4 text-xs text-gray-600 dark:text-gray-400">{model.active_provider ?? '—'}</td>
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(model.top1_accuracy)}</td>
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(model.top3_accuracy)}</td>
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(model.shared_core_top1)}</td>
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{pct(model.regional_top1)}</td>
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{ms(model.mean_latency_ms)}</td>
+                                    <td class="text-right px-2 text-slate-700 dark:text-slate-300">{ms(model.p95_latency_ms)}</td>
+                                    <td class="pl-4 text-xs text-slate-600 dark:text-slate-400">{model.active_provider ?? '—'}</td>
                                 </tr>
                                 {#if model.warnings && model.warnings.length > 0}
-                                    <tr class="border-b border-gray-100 dark:border-gray-700">
+                                    <tr class="border-b border-slate-100 dark:border-slate-700">
                                         <td colspan="8" class="py-1 pr-4 pl-4 text-xs">
                                             {#each model.warnings as w}
                                                 <div class={severityColor(w.severity)}>
@@ -335,9 +335,9 @@
     {/if}
 
     {#if deviceMatrix}
-        <section class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5">
-            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Provider compatibility matrix</h3>
-            <p class="mt-1 text-xs text-gray-600 dark:text-gray-400">
+        <section class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Provider compatibility matrix</h3>
+            <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
                 Image {deviceMatrix.image_flavor ?? 'unknown'} tested each packaged, detected, and
                 model-compatible provider in an isolated subprocess. Accelerators are compared with
                 the CPU baseline on {deviceMatrix.image_count ?? 0} varied real bird images. Classifiers
@@ -346,7 +346,7 @@
             </p>
             <div class="mt-3 overflow-x-auto">
                 <table class="w-full text-sm">
-                    <thead class="text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                    <thead class="text-xs uppercase text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700">
                         <tr>
                             <th class="text-left py-2 pr-4">Model</th>
                             {#each matrixProviders(deviceMatrix) as dev}
@@ -356,9 +356,9 @@
                     </thead>
                     <tbody>
                         {#each matrixRows(deviceMatrix) as [modelId, row]}
-                            <tr class="border-b border-gray-100 dark:border-gray-800">
-                                <td class="py-2 pr-4 font-medium text-gray-800 dark:text-gray-200">
-                                    {modelId}{#if row.comparison_kind === 'crop_box'} <span class="text-gray-400">· crop detector</span>{/if}
+                            <tr class="border-b border-slate-100 dark:border-slate-800">
+                                <td class="py-2 pr-4 font-medium text-slate-800 dark:text-slate-200">
+                                    {modelId}{#if row.comparison_kind === 'crop_box'} <span class="text-slate-400">· crop detector</span>{/if}
                                 </td>
                                 {#each matrixProviders(deviceMatrix) as dev}
                                     {@const c = deviceCell(row, dev)}
@@ -372,21 +372,21 @@
         </section>
     {/if}
 
-    <section class="rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5">
-        <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">Run history</h3>
+    <section class="rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-5">
+        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">Run history</h3>
         {#if runs.length === 0}
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">No runs yet.</p>
+            <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">No runs yet.</p>
         {:else}
-            <ul class="mt-2 divide-y divide-gray-200 dark:divide-gray-700">
+            <ul class="mt-2 divide-y divide-slate-200 dark:divide-slate-700">
                 {#each runs as row (row.run_id)}
                     <li class="py-2 flex items-center justify-between text-sm">
                         <button
                             type="button"
                             onclick={() => { selectedRunId = row.run_id; refresh(); }}
-                            class="text-left flex-1 hover:text-blue-600 dark:hover:text-blue-400"
+                            class="btn btn-ghost min-h-11 flex-1 justify-start px-2 py-1 text-left hover:text-brand-600 dark:hover:text-brand-400"
                         >
                             <span class="font-mono">{row.run_id}</span>
-                            <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                            <span class="ml-2 text-xs text-slate-500 dark:text-slate-400">
                                 {#if row.duration_seconds}{Math.round(row.duration_seconds / 60)} min · {/if}
                                 {row.model_count ?? 0} models · {row.total_species ?? 0} species
                                 {#if row.region} · {row.region}{/if}
@@ -396,7 +396,7 @@
                         <button
                             type="button"
                             onclick={() => deleteRun(row.run_id)}
-                            class="ml-4 text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
+                            class="btn btn-ghost ml-4 min-h-11 px-2 py-1 text-xs text-slate-500 hover:text-red-600 dark:text-slate-400 dark:hover:text-red-400"
                             disabled={row.run_id === active?.run_id}
                         >
                             Delete
