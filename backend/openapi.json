@@ -8411,6 +8411,39 @@
         "title": "OAuthAuthorizeResponse",
         "type": "object"
       },
+      "PublicSettings": {
+        "description": "Display preferences served identically to a guest and to an owner.",
+        "properties": {
+          "classification_threshold": {
+            "description": "Score below which a detection is flagged as needing review",
+            "title": "Classification Threshold",
+            "type": "number"
+          },
+          "clips_enabled": {
+            "description": "Whether Frigate clip capture is enabled",
+            "title": "Clips Enabled",
+            "type": "boolean"
+          },
+          "ebird_default_days_back": {
+            "description": "Days back used for nearby eBird sightings",
+            "title": "Ebird Default Days Back",
+            "type": "integer"
+          },
+          "recording_clip_enabled": {
+            "description": "Whether recording-backed clips are enabled",
+            "title": "Recording Clip Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "classification_threshold",
+          "ebird_default_days_back",
+          "clips_enabled",
+          "recording_clip_enabled"
+        ],
+        "title": "PublicSettings",
+        "type": "object"
+      },
       "PurgeMissingMediaResponse": {
         "properties": {
           "checked": {
@@ -23285,6 +23318,36 @@
           }
         ],
         "summary": "Test Notification"
+      }
+    },
+    "/api/settings/public": {
+      "get": {
+        "description": "The display preferences a viewer needs, served to guest and owner alike.\n\nDeliberately unauthenticated. `/api/settings` is owner-only, so a guest could\nread no display preference at all and every one that shaped their view had to\nbe copied onto the auth status payload by hand. The projection names its\nfields, so what is public is a decision rather than an oversight.",
+        "operationId": "get_public_settings_api_settings_public_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicSettings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Public Settings"
       }
     },
     "/api/setup/state": {

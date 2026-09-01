@@ -41,6 +41,7 @@
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { toastStore } from '../stores/toast.svelte';
     import { getBirdNames } from '../naming';
@@ -844,7 +845,9 @@
     const ebirdRadius = $derived(
         settingsStore.settings?.ebird_default_radius_km ?? authStore.ebirdDefaultRadiusKm ?? 25
     );
-    const ebirdDaysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
+    const ebirdDaysBack = $derived(
+        settingsStore.settings?.ebird_default_days_back ?? publicSettingsStore.settings?.ebird_default_days_back ?? 14
+    );
     const showEbirdNearby = $derived(
         enrichmentSightingsProvider === 'ebird' || enrichmentSeasonalityProvider === 'ebird'
     );

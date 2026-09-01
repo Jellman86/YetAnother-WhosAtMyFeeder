@@ -18,6 +18,7 @@
     import { needsReview } from '../utils/visit-grouping';
     import DetectionPreview from './DetectionPreview.svelte';
     import { settingsStore } from '../stores/settings.svelte';
+    import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
 
     interface Props {
@@ -75,7 +76,11 @@
      * dashboard's review queue and field log already apply. Inventing a number
      * here would flag a different set of rows to the rest of the app.
      */
-    const reviewThreshold = $derived(settingsStore.settings?.classification_threshold ?? null);
+    // Read from the public projection: the owner-only settings gave a guest null, and
+    // needsReview() answers false on null, so no visitor ever saw a row needing a person.
+    const reviewThreshold = $derived(
+        settingsStore.settings?.classification_threshold ?? publicSettingsStore.settings?.classification_threshold ?? null
+    );
     const needsAttention = $derived(needsReview(detection, reviewThreshold));
 
     /** The bands the visual standard sets: under 60 amber, under 85 brand, above green. */

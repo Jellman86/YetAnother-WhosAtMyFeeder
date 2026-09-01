@@ -6,7 +6,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **One public projection of the settings a viewer needs.** `/api/settings` is owner-only, so the
+  interface had no way to read a display preference as a guest, and every setting that shapes what
+  a visitor sees had been copied onto the auth status payload one field at a time as somebody
+  noticed it was missing. That pattern only ever finds a defect after a visitor has already been
+  given the wrong interface. `GET /api/settings/public` now serves those preferences identically to
+  a guest and an owner, as a named allowlist rather than a filtered copy, so a new preference is
+  public or owner-only by decision.
+
 ### Fixed
+
+- **A guest sees the interface the owner configured, not the built-in defaults.** Three settings
+  never reached a visitor. Detections needing a person were never flagged, because the review check
+  answers "no" when it has no threshold and a guest had none, while the layout standard names that
+  flag as one of the three signals a visit carries: the guest view was making a claim it could not
+  support. Nearby sightings always read "last 14 days" whatever the owner set, beside a radius that
+  did travel publicly. And clip playback was withheld whatever the owner configured, independently
+  of the setting that is supposed to decide it.
 
 - **A species IOC has moved to another genus now resolves.** `Anas strepera (Gadwall)` failed on
   its scientific name because IOC calls the bird `Mareca strepera`, while the common name the same

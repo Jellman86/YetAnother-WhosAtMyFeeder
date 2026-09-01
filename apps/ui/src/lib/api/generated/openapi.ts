@@ -1215,6 +1215,12 @@ export interface components {
     authorization_url: string;
     state?: string | null;
 };
+    PublicSettings: {
+    classification_threshold: number;
+    clips_enabled: boolean;
+    ebird_default_days_back: number;
+    recording_clip_enabled: boolean;
+};
     PurgeMissingMediaResponse: {
     checked: number;
     cleared_missing_count: number;
@@ -3547,6 +3553,15 @@ export interface paths {
       query: never;
       requestBody: components['schemas']['NotificationTestRequest'];
       response: components['schemas']['ActionStatusResponse'];
+    };
+  };
+  "/api/settings/public": {
+    get: {
+      operationId: "get_public_settings_api_settings_public_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['PublicSettings'];
     };
   };
   "/api/setup/state": {

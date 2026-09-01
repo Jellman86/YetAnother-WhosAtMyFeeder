@@ -254,3 +254,16 @@ export async function importConfigBackup(payload: unknown): Promise<ConfigBackup
     });
     return handleResponse<ConfigBackupImportResult>(response);
 }
+
+/** The display preferences a viewer needs, served to guest and owner alike. */
+export interface PublicSettings {
+    classification_threshold: number;
+    ebird_default_days_back: number;
+    clips_enabled: boolean;
+    recording_clip_enabled: boolean;
+}
+
+export async function fetchPublicSettings(): Promise<PublicSettings> {
+    const response = await apiFetch(`${API_BASE}/settings/public`);
+    return handleResponse<PublicSettings>(response);
+}
