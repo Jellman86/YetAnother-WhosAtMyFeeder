@@ -121,6 +121,40 @@ def check_stale_terms() -> list[str]:
     return errors
 
 
+def check_changelog_headings(changelog: Path = ROOT / "CHANGELOG.md") -> list[str]:
+    """One heading per kind inside a release section.
+
+    Parallel branches each append their own `### Fixed` to `## [Unreleased]`, and a
+    rebase keeps both, so the section grows a second copy of a heading every few
+    merges. Nothing breaks, but the reader has to scan two places for the same kind
+    of change, and it has been resolved by hand twice.
+    """
+    errors: list[str] = []
+    if not changelog.exists():
+        return errors
+
+    # Only the Unreleased section. Released sections carry the same duplication from
+    # older merges, but those are notes people have already read; tidying them would
+    # be rewriting a published record to satisfy a linter.
+    in_unreleased = False
+    seen: dict[str, int] = {}
+    for number, line in enumerate(changelog.read_text(encoding="utf-8").splitlines(), start=1):
+        if line.startswith("## "):
+            in_unreleased = line.strip().startswith("## [Unreleased]")
+            seen = {}
+            continue
+        if line.startswith("### ") and in_unreleased:
+            heading = line.strip()
+            if heading in seen:
+                errors.append(
+                    f"CHANGELOG.md line {number}: Unreleased lists {heading} twice"
+                    f" (first at line {seen[heading]}); fold them into one."
+                )
+            else:
+                seen[heading] = number
+    return errors
+
+
 def main() -> int:
     errors: list[str] = []
 
@@ -128,6 +162,7 @@ def main() -> int:
     actual_routes = collect_actual_routes()
     errors.extend(check_documented_endpoints(actual_routes))
     errors.extend(check_stale_terms())
+    errors.extend(check_changelog_headings())
 
     if errors:
         print("Documentation consistency check failed:")
