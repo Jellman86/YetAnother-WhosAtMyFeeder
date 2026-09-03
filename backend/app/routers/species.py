@@ -44,6 +44,16 @@ log = structlog.get_logger()
 _wiki_cache: dict[str, tuple[SpeciesInfo, datetime]] = {}
 CACHE_TTL_SUCCESS = timedelta(hours=24)
 CACHE_TTL_FAILURE = timedelta(minutes=1)  # Short TTL for failures to allow retries
+# A search that ran every strategy and found nothing is a different thing from a
+# request that failed. The first does not change in the next minute; on a live
+# install it was re-run on nearly every visit and took up to twelve seconds.
+CACHE_TTL_NOT_FOUND = timedelta(hours=24)
+_definitive_misses: dict[str, datetime] = {}
+
+
+def _remember_definitive_miss(cache_key: str) -> None:
+    _definitive_misses[cache_key] = datetime.now()
+
 
 # User-Agent is required by Wikipedia API - they block requests without it
 WIKIPEDIA_USER_AGENT = "YA-WAMF/2.0 (Bird Watching App; https://github.com/Jellman86/YetAnother-WhosAtMyFeeder)"
@@ -96,11 +106,16 @@ def _parse_cached_at(value: object) -> datetime | None:
     return None
 
 
-def _is_cache_valid(info: SpeciesInfo, cached_at: datetime | None) -> bool:
+def _is_cache_valid(info: SpeciesInfo, cached_at: datetime | None, cache_key: str | None = None) -> bool:
     if not cached_at:
         return False
     is_success = bool(info.thumbnail_url or info.extract)
-    cache_ttl = CACHE_TTL_SUCCESS if is_success else CACHE_TTL_FAILURE
+    if is_success:
+        cache_ttl = CACHE_TTL_SUCCESS
+    elif cache_key is not None and cache_key in _definitive_misses:
+        cache_ttl = CACHE_TTL_NOT_FOUND
+    else:
+        cache_ttl = CACHE_TTL_FAILURE
     return datetime.now() - cached_at < cache_ttl
 
 
@@ -401,7 +416,7 @@ async def _get_cached_species_info(
     cache_key = f"{species_name}:{language}"
     if cache_key in _wiki_cache:
         info, cached_at = _wiki_cache[cache_key]
-        if _is_cache_valid(info, cached_at):
+        if _is_cache_valid(info, cached_at, cache_key):
             log.debug("Returning cached species info (memory)", species=species_name)
             return info
 
@@ -428,7 +443,7 @@ async def _get_cached_species_info(
         taxa_id=row[12],
     )
 
-    if _is_cache_valid(info, cached_at):
+    if _is_cache_valid(info, cached_at, cache_key):
         _wiki_cache[cache_key] = (info, cached_at or datetime.now())
         log.debug("Returning cached species info (db)", species=species_name)
         return info
@@ -1670,7 +1685,7 @@ async def _fetch_wikipedia_info(
     try:
         async with httpx.AsyncClient(timeout=15.0, follow_redirects=True, headers=headers) as client:
             # Try multiple strategies to find the Wikipedia article
-            article_title = await _find_wikipedia_article(
+            article_title, definitive = await _find_wikipedia_article(
                 client,
                 species_name,
                 lang,
@@ -1680,8 +1695,11 @@ async def _fetch_wikipedia_info(
             if article_title:
                 log.info("Found Wikipedia article", species=species_name, article=article_title)
                 return await _get_wikipedia_summary(client, article_title, species_name, lang)
-            else:
-                log.warning("No Wikipedia article found after all strategies", species=species_name)
+
+            log.warning("No Wikipedia article found after all strategies", species=species_name, definitive=definitive)
+
+            if definitive:
+                _remember_definitive_miss(f"{species_name}:{lang}")
 
     except httpx.TimeoutException:
         log.error("Wikipedia API timeout", species=species_name)
@@ -1923,8 +1941,13 @@ async def _find_wikipedia_article(
     species_name: str,
     lang: str,
     expected_scientific_name: str | None = None,
-) -> str | None:
-    """Try multiple strategies and select the best matching bird article."""
+) -> tuple[str | None, bool]:
+    """Try multiple strategies and select the best matching bird article.
+
+    Returns the title and whether a miss was definitive: every strategy ran and
+    found nothing, as opposed to one of them failing along the way.
+    """
+    errored = [False]  # a list, so nested helpers can mark it without nonlocal
     base_url = f"https://{lang}.wikipedia.org/api/rest_v1/page/summary"
 
     titles_to_try: list[str] = [species_name]
@@ -1995,6 +2018,7 @@ async def _find_wikipedia_article(
         try:
             response = await client.get(url)
         except Exception as e:
+            errored[0] = True
             log.warning("Error checking Wikipedia title", title=title, strategy=strategy, error=str(e))
             return
 
@@ -2054,7 +2078,7 @@ async def _find_wikipedia_article(
             article=best_title,
             score=best_score,
         )
-        return best_title
+        return best_title, True
 
     log.debug("Falling back to Wikipedia search API", species=species_name, language=lang)
     search_url = f"https://{lang}.wikipedia.org/w/api.php"
@@ -2098,6 +2122,7 @@ async def _find_wikipedia_article(
         try:
             response = await client.get(search_url, params=search_params)
         except Exception as e:
+            errored[0] = True
             log.warning("Wikipedia search failed", error=str(e), species=species_name, query=search_query)
             continue
 
@@ -2131,10 +2156,12 @@ async def _find_wikipedia_article(
             article=best_title,
             score=best_score,
         )
-        return best_title
+        return best_title, True
 
-    log.warning("All Wikipedia search strategies exhausted", species=species_name, language=lang)
-    return None
+    log.warning(
+        "All Wikipedia search strategies exhausted", species=species_name, language=lang, definitive=not errored[0]
+    )
+    return None, not errored[0]
 
 
 async def _get_wikipedia_summary(
