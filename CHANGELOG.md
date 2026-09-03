@@ -51,6 +51,13 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Opening a page no longer fires a request per row all at once.** The dashboard probed every
+  visit on screen for a clip in the same second, and species pages asked for every row's photo and
+  summary at once: on a live install one dashboard open was twenty-nine clip probes in one second,
+  then twenty species lookups the next, against a server pool of five database connections, and
+  every one of those became a 300 to 650 ms queue. Both kinds of request are now bounded to three in
+  flight at the API client, so the rest wait their turn and every page that asks, now or later,
+  gets the same restraint.
 - **Naming a species no longer opens a second database connection beside the one a page already
   holds.** Keeping name lookups off the network inside a hold also stopped the audio helpers lending
   the caller's connection to the cache read, so a cache-only lookup took a second pooled connection

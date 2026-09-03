@@ -1,5 +1,6 @@
 import { toLocalYMD } from '../utils/date-only';
 import { API_BASE, apiFetch, handleResponse } from './core';
+import { createSlotGate } from '../utils/concurrency';
 import type { Detection, SpeciesCount } from './types';
 import type { paths } from './generated/openapi';
 
@@ -56,12 +57,19 @@ export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesSta
     return handleResponse<SpeciesStats>(response);
 }
 
+// A page of species rows each asks for its info. Bounded here so a leaderboard of
+// twenty does not fire twenty requests in one second at a five-connection pool;
+// on a live install that burst alone produced a dozen 300 to 650 ms waits.
+const speciesInfoGate = createSlotGate(3);
+
 export async function fetchSpeciesInfo(speciesName: string, signal?: AbortSignal): Promise<SpeciesInfo> {
-    const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`, {
-        signal,
-        timeoutMs: 15_000
+    return speciesInfoGate.run(async () => {
+        const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/info`, {
+            signal,
+            timeoutMs: 15_000
+        });
+        return handleResponse<SpeciesInfo>(response);
     });
-    return handleResponse<SpeciesInfo>(response);
 }
 
 export type CommonNameOverride = paths['/api/species/common-name-override']['get']['response'];
