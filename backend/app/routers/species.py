@@ -902,11 +902,11 @@ async def get_species_list(request: Request):
                 common_name = catalogue_name
             elif taxa_id:
                 if lang != "en":
-                    localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
+                    localized = await taxonomy_service.get_localized_common_name(taxa_id, lang)
                     if localized:
                         common_name = localized
                 else:
-                    canonical = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
+                    canonical = await taxonomy_service.get_canonical_english_name(taxa_id)
                     if canonical:
                         common_name = canonical
 
@@ -1002,6 +1002,10 @@ async def get_leaderboard_species(
 
     unknown_labels = settings.classification.unknown_bird_labels
 
+    # Read everything the database has to say first and give the connection back.
+    # Naming each species below can ask iNaturalist over the network with a ten
+    # second timeout, and doing that while holding one of five pooled connections
+    # is what an owner's diagnostics showed as this route holding one for 5.1 s.
     async with get_db() as db:
         repo = DetectionRepository(db)
         rows = await repo.get_species_leaderboard_window(
@@ -1010,53 +1014,6 @@ async def get_leaderboard_species(
             prev_start=prev_start,
             prev_end=prev_end,
         )
-
-        # Filter to species present in the selected window only.
-        filtered = []
-        for r in rows:
-            if r["species"] in unknown_labels or should_hide_species_label(r["species"]):
-                continue
-            if r["window_count"] <= 0:
-                continue
-
-            common_name = r.get("common_name")
-            taxa_id = r.get("taxa_id")
-            if taxa_id:
-                if lang != "en":
-                    localized = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
-                    if localized:
-                        common_name = localized
-                else:
-                    canonical = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
-                    if canonical:
-                        common_name = canonical
-
-            delta = r["window_count"] - r["prev_count"]
-            pct = 0.0
-            if r["prev_count"] > 0:
-                pct = (delta / r["prev_count"]) * 100.0
-
-            filtered.append(
-                {
-                    "species": _canonical_species_response_name(
-                        r["species"],
-                        common_name,
-                        r.get("scientific_name"),
-                    ),
-                    "scientific_name": r.get("scientific_name"),
-                    "common_name": common_name,
-                    "taxa_id": taxa_id,
-                    "window_count": r["window_count"],
-                    "window_prev_count": r["prev_count"],
-                    "window_delta": delta,
-                    "window_percent": pct,
-                    "window_first_seen": serialize_api_datetime(r.get("window_first_seen")),
-                    "window_last_seen": serialize_api_datetime(r.get("window_last_seen")),
-                    "window_avg_confidence": r.get("window_avg_confidence", 0.0),
-                    "window_camera_count": r.get("window_camera_count", 0),
-                }
-            )
-
         unknown = await repo.get_species_leaderboard_window_for_name(
             species_name="Unknown Bird",
             window_start=window_start,
@@ -1064,37 +1021,84 @@ async def get_leaderboard_species(
             prev_start=prev_start,
             prev_end=prev_end,
         )
-        if unknown and unknown.get("window_count", 0) > 0:
-            delta = unknown["window_count"] - unknown["prev_count"]
-            pct = 0.0
-            if unknown["prev_count"] > 0:
-                pct = (delta / unknown["prev_count"]) * 100.0
-            filtered.append(
-                {
-                    "species": "Unknown Bird",
-                    "scientific_name": None,
-                    "common_name": None,
-                    "taxa_id": None,
-                    "window_count": unknown["window_count"],
-                    "window_prev_count": unknown["prev_count"],
-                    "window_delta": delta,
-                    "window_percent": pct,
-                    "window_first_seen": serialize_api_datetime(unknown.get("window_first_seen")),
-                    "window_last_seen": serialize_api_datetime(unknown.get("window_last_seen")),
-                    "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
-                    "window_camera_count": unknown.get("window_camera_count", 0),
-                }
-            )
 
-        # Sort by selected window count desc.
-        filtered.sort(key=lambda x: int(x.get("window_count") or 0), reverse=True)
+    # Filter to species present in the selected window only.
+    filtered = []
+    for r in rows:
+        if r["species"] in unknown_labels or should_hide_species_label(r["species"]):
+            continue
+        if r["window_count"] <= 0:
+            continue
 
-        return {
-            "span": span,
-            "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
-            "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
-            "species": filtered,
-        }
+        common_name = r.get("common_name")
+        taxa_id = r.get("taxa_id")
+        if taxa_id:
+            if lang != "en":
+                localized = await taxonomy_service.get_localized_common_name(taxa_id, lang)
+                if localized:
+                    common_name = localized
+            else:
+                canonical = await taxonomy_service.get_canonical_english_name(taxa_id)
+                if canonical:
+                    common_name = canonical
+
+        delta = r["window_count"] - r["prev_count"]
+        pct = 0.0
+        if r["prev_count"] > 0:
+            pct = (delta / r["prev_count"]) * 100.0
+
+        filtered.append(
+            {
+                "species": _canonical_species_response_name(
+                    r["species"],
+                    common_name,
+                    r.get("scientific_name"),
+                ),
+                "scientific_name": r.get("scientific_name"),
+                "common_name": common_name,
+                "taxa_id": taxa_id,
+                "window_count": r["window_count"],
+                "window_prev_count": r["prev_count"],
+                "window_delta": delta,
+                "window_percent": pct,
+                "window_first_seen": serialize_api_datetime(r.get("window_first_seen")),
+                "window_last_seen": serialize_api_datetime(r.get("window_last_seen")),
+                "window_avg_confidence": r.get("window_avg_confidence", 0.0),
+                "window_camera_count": r.get("window_camera_count", 0),
+            }
+        )
+
+    if unknown and unknown.get("window_count", 0) > 0:
+        delta = unknown["window_count"] - unknown["prev_count"]
+        pct = 0.0
+        if unknown["prev_count"] > 0:
+            pct = (delta / unknown["prev_count"]) * 100.0
+        filtered.append(
+            {
+                "species": "Unknown Bird",
+                "scientific_name": None,
+                "common_name": None,
+                "taxa_id": None,
+                "window_count": unknown["window_count"],
+                "window_prev_count": unknown["prev_count"],
+                "window_delta": delta,
+                "window_percent": pct,
+                "window_first_seen": serialize_api_datetime(unknown.get("window_first_seen")),
+                "window_last_seen": serialize_api_datetime(unknown.get("window_last_seen")),
+                "window_avg_confidence": unknown.get("window_avg_confidence", 0.0),
+                "window_camera_count": unknown.get("window_camera_count", 0),
+            }
+        )
+
+    # Sort by selected window count desc.
+    filtered.sort(key=lambda x: int(x.get("window_count") or 0), reverse=True)
+
+    return {
+        "span": span,
+        "window_start": window_start.replace(tzinfo=timezone.utc).isoformat(),
+        "window_end": window_end.replace(tzinfo=timezone.utc).isoformat(),
+        "species": filtered,
+    }
 
 
 @router.get("/species/{species_name}/stats", response_model=SpeciesStats)
