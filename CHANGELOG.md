@@ -51,6 +51,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **No page waits on iNaturalist while holding a database connection
+  ([#392](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/392)).** Eleven places
+  named a species for a non-English reader by checking the cache and then asking iNaturalist over
+  the network, with a ten second timeout, while holding one of the five pooled connections. One
+  uncached species could stall everything else needing the database. Rather than rewrite every
+  caller, the lookup itself now knows whether the calling task holds a connection: if it does, it
+  answers with what is cached and fetches the name off the request, so the next render has it. A
+  first render of a brand-new species in a non-English language may show the stored name for a
+  moment; nothing waits on the network any more. The six audio routes that could simply be moved
+  out of their holds were, and a test walks every affected route with a slow provider and proves no
+  connection was held across it.
 - **The leaderboard no longer holds a database connection while it names each species
   ([#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)).** For a reader whose
   language is not English, naming a species checks a cache and then asks iNaturalist over the
