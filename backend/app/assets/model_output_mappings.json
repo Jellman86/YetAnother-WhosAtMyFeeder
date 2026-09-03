@@ -61,6 +61,7 @@
    "runtime": "onnx"
   }
  ],
+ "bridged_common_names": 94,
  "label_files": {
   "040ef98617b146efe34fa8db4276d191226de69332a1219749dde991472beb11": {
    "label_format": "common_name",
@@ -105,13 +106,15 @@
      "index": 5,
      "kind": "species",
      "label": "European Starling (Juvenile)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Sturnus vulgaris"
     },
     {
      "index": 6,
      "kind": "species",
      "label": "Fox Sparrow (Thick-billed/Slate-colored)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Passerella iliaca"
     },
     {
      "index": 7,
@@ -131,7 +134,8 @@
      "index": 9,
      "kind": "species",
      "label": "Yellow-rumped Warbler (Winter/juvenile Audubon's)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga coronata"
     },
     {
      "index": 10,
@@ -368,7 +372,8 @@
      "index": 43,
      "kind": "species",
      "label": "Ring-necked Pheasant (Male)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Phasianus colchicus"
     },
     {
      "index": 44,
@@ -409,7 +414,8 @@
      "index": 49,
      "kind": "species",
      "label": "Eared Grebe (Breeding)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Podiceps nigricollis"
     },
     {
      "index": 50,
@@ -450,19 +456,22 @@
      "index": 55,
      "kind": "species",
      "label": "Black-crowned Night-Heron (Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nycticorax nycticorax"
     },
     {
      "index": 56,
      "kind": "species",
      "label": "Yellow-crowned Night-Heron (Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nyctanassa violacea"
     },
     {
      "index": 57,
      "kind": "species",
      "label": "White Ibis (Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Eudocimus albus"
     },
     {
      "index": 58,
@@ -510,7 +519,8 @@
      "index": 64,
      "kind": "species",
      "label": "Rough-legged Hawk (Dark morph)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Buteo lagopus"
     },
     {
      "index": 65,
@@ -551,7 +561,8 @@
      "index": 70,
      "kind": "species",
      "label": "Black-bellied Plover (Breeding)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Pluvialis squatarola"
     },
     {
      "index": 71,
@@ -718,7 +729,8 @@
      "index": 94,
      "kind": "species",
      "label": "Herring Gull (Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Larus argentatus"
     },
     {
      "index": 95,
@@ -745,7 +757,8 @@
      "index": 98,
      "kind": "species",
      "label": "Mew Gull",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Larus canus"
     },
     {
      "index": 99,
@@ -800,7 +813,8 @@
      "index": 106,
      "kind": "species",
      "label": "Brant",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Branta bernicla"
     },
     {
      "index": 107,
@@ -1002,7 +1016,8 @@
      "index": 135,
      "kind": "species",
      "label": "Cattle Egret",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ardea ibis"
     },
     {
      "index": 136,
@@ -1204,7 +1219,8 @@
      "index": 164,
      "kind": "species",
      "label": "Whimbrel",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Numenius phaeopus"
     },
     {
      "index": 165,
@@ -1287,7 +1303,8 @@
      "index": 176,
      "kind": "species",
      "label": "Rock Pigeon",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Columba livia"
     },
     {
      "index": 177,
@@ -1300,7 +1317,8 @@
      "index": 178,
      "kind": "species",
      "label": "Eurasian Collared-Dove",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Streptopelia decaocto"
     },
     {
      "index": 179,
@@ -1327,7 +1345,8 @@
      "index": 182,
      "kind": "species",
      "label": "Common Ground-Dove",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Columbina passerina"
     },
     {
      "index": 183,
@@ -1361,19 +1380,22 @@
      "index": 187,
      "kind": "species",
      "label": "Barn Owl",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Tyto alba"
     },
     {
      "index": 188,
      "kind": "species",
      "label": "Western Screech-Owl",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Megascops kennicottii"
     },
     {
      "index": 189,
      "kind": "species",
      "label": "Eastern Screech-Owl",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Megascops asio"
     },
     {
      "index": 190,
@@ -1393,7 +1415,8 @@
      "index": 192,
      "kind": "species",
      "label": "Northern Pygmy-Owl",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Glaucidium californicum"
     },
     {
      "index": 193,
@@ -1595,7 +1618,8 @@
      "index": 221,
      "kind": "species",
      "label": "Herring Gull (Immature)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Larus argentatus"
     },
     {
      "index": 222,
@@ -1615,7 +1639,8 @@
      "index": 224,
      "kind": "species",
      "label": "Black-bellied Whistling-Duck",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Dendrocygna autumnalis"
     },
     {
      "index": 225,
@@ -1817,7 +1842,8 @@
      "index": 253,
      "kind": "species",
      "label": "Ring-necked Pheasant (Female/juvenile)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Phasianus colchicus"
     },
     {
      "index": 254,
@@ -1858,7 +1884,8 @@
      "index": 259,
      "kind": "species",
      "label": "Eared Grebe (Nonbreeding/juvenile)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Podiceps nigricollis"
     },
     {
      "index": 260,
@@ -1899,19 +1926,22 @@
      "index": 265,
      "kind": "species",
      "label": "Black-crowned Night-Heron (Immature)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nycticorax nycticorax"
     },
     {
      "index": 266,
      "kind": "species",
      "label": "Yellow-crowned Night-Heron (Immature)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nyctanassa violacea"
     },
     {
      "index": 267,
      "kind": "species",
      "label": "White Ibis (Immature)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Eudocimus albus"
     },
     {
      "index": 268,
@@ -1959,7 +1989,8 @@
      "index": 274,
      "kind": "species",
      "label": "Rough-legged Hawk (Light morph)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Buteo lagopus"
     },
     {
      "index": 275,
@@ -2000,7 +2031,8 @@
      "index": 280,
      "kind": "species",
      "label": "Black-bellied Plover (Nonbreeding/juvenile)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Pluvialis squatarola"
     },
     {
      "index": 281,
@@ -2153,19 +2185,22 @@
      "index": 302,
      "kind": "species",
      "label": "Yellow-rumped Warbler (Breeding Myrtle)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga coronata"
     },
     {
      "index": 303,
      "kind": "species",
      "label": "European Starling (Breeding Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Sturnus vulgaris"
     },
     {
      "index": 304,
      "kind": "species",
      "label": "Fox Sparrow (Red)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Passerella iliaca"
     },
     {
      "index": 305,
@@ -2465,7 +2500,8 @@
      "index": 347,
      "kind": "species",
      "label": "White-winged Crossbill (Adult Male)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Loxia leucoptera"
     },
     {
      "index": 348,
@@ -2506,7 +2542,8 @@
      "index": 353,
      "kind": "species",
      "label": "Yellow-rumped Warbler (Winter/juvenile Myrtle)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga coronata"
     },
     {
      "index": 354,
@@ -2532,7 +2569,8 @@
      "index": 357,
      "kind": "species",
      "label": "Common Raven",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Corvus corax"
     },
     {
      "index": 358,
@@ -2566,13 +2604,15 @@
      "index": 362,
      "kind": "species",
      "label": "Bank Swallow",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Riparia riparia"
     },
     {
      "index": 363,
      "kind": "species",
      "label": "Cliff Swallow",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Petrochelidon pyrrhonota"
     },
     {
      "index": 364,
@@ -2669,7 +2709,8 @@
      "index": 377,
      "kind": "species",
      "label": "Bushtit",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Psaltriparus minimus"
     },
     {
      "index": 378,
@@ -2738,7 +2779,8 @@
      "index": 387,
      "kind": "species",
      "label": "House Wren",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Troglodytes aedon"
     },
     {
      "index": 388,
@@ -2765,7 +2807,8 @@
      "index": 391,
      "kind": "species",
      "label": "Blue-gray Gnatcatcher",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Polioptila caerulea"
     },
     {
      "index": 392,
@@ -2869,7 +2912,8 @@
      "index": 406,
      "kind": "species",
      "label": "Gray Catbird",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Dumetella carolinensis"
     },
     {
      "index": 407,
@@ -2903,7 +2947,8 @@
      "index": 411,
      "kind": "species",
      "label": "European Starling (Nonbreeding Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Sturnus vulgaris"
     },
     {
      "index": 412,
@@ -3035,7 +3080,8 @@
      "index": 430,
      "kind": "species",
      "label": "Yellow Warbler",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga petechia"
     },
     {
      "index": 431,
@@ -3069,7 +3115,8 @@
      "index": 435,
      "kind": "species",
      "label": "Black-throated Gray Warbler",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga nigrescens"
     },
     {
      "index": 436,
@@ -3215,7 +3262,8 @@
      "index": 456,
      "kind": "species",
      "label": "Fox Sparrow (Sooty)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Passerella iliaca"
     },
     {
      "index": 457,
@@ -3326,25 +3374,29 @@
      "index": 472,
      "kind": "species",
      "label": "Gray-crowned Rosy-Finch",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leucosticte tephrocotis"
     },
     {
      "index": 473,
      "kind": "species",
      "label": "Black Rosy-Finch",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leucosticte atrata"
     },
     {
      "index": 474,
      "kind": "species",
      "label": "Brown-capped Rosy-Finch",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leucosticte australis"
     },
     {
      "index": 475,
      "kind": "species",
      "label": "Common Redpoll",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Acanthis flammea"
     },
     {
      "index": 476,
@@ -3363,13 +3415,15 @@
      "index": 478,
      "kind": "species",
      "label": "Western Wood-Pewee",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Contopus sordidulus"
     },
     {
      "index": 479,
      "kind": "species",
      "label": "Eastern Wood-Pewee",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Contopus virens"
     },
     {
      "index": 480,
@@ -3382,7 +3436,8 @@
      "index": 481,
      "kind": "species",
      "label": "Pacific-slope Flycatcher",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Empidonax difficilis"
     },
     {
      "index": 482,
@@ -3534,7 +3589,8 @@
      "index": 503,
      "kind": "species",
      "label": "Gray Jay",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Perisoreus canadensis"
     },
     {
      "index": 504,
@@ -3554,7 +3610,8 @@
      "index": 506,
      "kind": "species",
      "label": "Florida Scrub-Jay",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Aphelocoma coerulescens"
     },
     {
      "index": 507,
@@ -3601,7 +3658,8 @@
      "index": 513,
      "kind": "species",
      "label": "Yellow-rumped Warbler (Breeding Audubon's)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga coronata"
     },
     {
      "index": 514,
@@ -3887,7 +3945,8 @@
      "index": 554,
      "kind": "species",
      "label": "White-winged Crossbill (Female/juvenile)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Loxia leucoptera"
     }
    ]
   },
@@ -4171,7 +4230,8 @@
      "index": 39,
      "kind": "species",
      "label": "Barn owl",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Tyto alba"
     },
     {
      "index": 40,
@@ -4555,7 +4615,8 @@
      "index": 94,
      "kind": "species",
      "label": "Brant",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Branta bernicla"
     },
     {
      "index": 95,
@@ -4714,7 +4775,8 @@
      "index": 117,
      "kind": "species",
      "label": "Cattle egret",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ardea ibis"
     },
     {
      "index": 118,
@@ -4846,7 +4908,8 @@
      "index": 136,
      "kind": "species",
      "label": "Common chaffinch",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Fringilla coelebs"
     },
     {
      "index": 137,
@@ -4915,7 +4978,8 @@
      "index": 146,
      "kind": "species",
      "label": "Common house martin",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Delichon urbicum"
     },
     {
      "index": 147,
@@ -5005,13 +5069,15 @@
      "index": 159,
      "kind": "species",
      "label": "Common raven",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Corvus corax"
     },
     {
      "index": 160,
      "kind": "species",
      "label": "Common redpoll",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Acanthis flammea"
     },
     {
      "index": 161,
@@ -5905,7 +5971,8 @@
      "index": 288,
      "kind": "species",
      "label": "Gray-cheeked thrush",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Catharus minimus"
     },
     {
      "index": 289,
@@ -6399,7 +6466,8 @@
      "index": 359,
      "kind": "species",
      "label": "Krupers nuthatch",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Sitta krueperi"
     },
     {
      "index": 360,
@@ -6950,7 +7018,8 @@
      "index": 438,
      "kind": "species",
      "label": "Northern goshawk",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Astur gentilis"
     },
     {
      "index": 439,
@@ -7556,7 +7625,8 @@
      "index": 525,
      "kind": "species",
      "label": "Rock pigeon",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Columba livia"
     },
     {
      "index": 526,
@@ -7659,13 +7729,15 @@
      "index": 540,
      "kind": "species",
      "label": "Ruppells vulture",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Gyps rueppelli"
     },
     {
      "index": 541,
      "kind": "species",
      "label": "Ruppells warbler",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Curruca ruppeli"
     },
     {
      "index": 542,
@@ -78262,7 +78334,8 @@
      "index": 13,
      "kind": "species",
      "label": "Ardea herodias occidentalis (Great White Heron)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ardea herodias"
     },
     {
      "index": 14,
@@ -78275,7 +78348,8 @@
      "index": 15,
      "kind": "species",
      "label": "Anas platyrhynchos diazi (Mexican Duck)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Anas diazi"
     },
     {
      "index": 16,
@@ -78406,7 +78480,8 @@
      "index": 34,
      "kind": "species",
      "label": "Gallus gallus domesticus (Domestic Chicken)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Gallus gallus"
     },
     {
      "index": 35,
@@ -78419,7 +78494,8 @@
      "index": 36,
      "kind": "species",
      "label": "Junco hyemalis caniceps (Gray-headed Junco)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Junco hyemalis"
     },
     {
      "index": 37,
@@ -78544,7 +78620,8 @@
      "index": 54,
      "kind": "species",
      "label": "Anthus novaeseelandiae novaeseelandiae (New Zealand Pipit)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Anthus novaeseelandiae"
     },
     {
      "index": 55,
@@ -78599,7 +78676,8 @@
      "index": 62,
      "kind": "species",
      "label": "Anas crecca carolinensis (American Green-winged Teal)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Anas carolinensis"
     },
     {
      "index": 63,
@@ -78864,7 +78942,8 @@
      "index": 100,
      "kind": "species",
      "label": "Euphonia elegantissima (Elegant Euphonia)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Chlorophonia elegantissima"
     },
     {
      "index": 101,
@@ -78988,7 +79067,8 @@
      "index": 118,
      "kind": "species",
      "label": "Nestor meridionalis septentrionalis (North Island Kaka)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nestor meridionalis"
     },
     {
      "index": 119,
@@ -79015,7 +79095,8 @@
      "index": 122,
      "kind": "species",
      "label": "Cairina moschata domestica (Domestic Muscovy Duck)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Cairina moschata"
     },
     {
      "index": 123,
@@ -79287,7 +79368,8 @@
      "index": 161,
      "kind": "species",
      "label": "Setophaga coronata coronata (Myrtle Warbler)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga coronata"
     },
     {
      "index": 162,
@@ -79328,7 +79410,8 @@
      "index": 167,
      "kind": "species",
      "label": "Junco hyemalis hyemalis (Slate-colored Junco)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Junco hyemalis"
     },
     {
      "index": 168,
@@ -79530,7 +79613,8 @@
      "index": 196,
      "kind": "species",
      "label": "Ammodramus nelsoni (Nelson's Sparrow)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ammospiza nelsoni"
     },
     {
      "index": 197,
@@ -79690,7 +79774,8 @@
      "index": 219,
      "kind": "species",
      "label": "Microcarbo melanoleucos brevirostris (Little Shag)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Microcarbo melanoleucos"
     },
     {
      "index": 220,
@@ -79794,7 +79879,8 @@
      "index": 234,
      "kind": "species",
      "label": "Junco hyemalis oreganus (Oregon Junco)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Junco hyemalis"
     },
     {
      "index": 235,
@@ -79933,7 +80019,8 @@
      "index": 254,
      "kind": "species",
      "label": "Circus cyaneus hudsonius (Northern Harrier (American))",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Circus hudsonius"
     },
     {
      "index": 255,
@@ -80604,7 +80691,8 @@
      "index": 350,
      "kind": "species",
      "label": "Setophaga coronata auduboni (Audubon's Warbler)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga auduboni"
     },
     {
      "index": 351,
@@ -80778,7 +80866,8 @@
      "index": 375,
      "kind": "species",
      "label": "Meleagris gallopavo intermedia (Rio Grande Wild Turkey)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Meleagris gallopavo"
     },
     {
      "index": 376,
@@ -80840,7 +80929,8 @@
      "index": 384,
      "kind": "species",
      "label": "Todiramphus sanctus vagans (New Zealand Kingfisher)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Todiramphus sanctus"
     },
     {
      "index": 385,
@@ -80888,25 +80978,29 @@
      "index": 391,
      "kind": "species",
      "label": "Phalacrocorax carbo novaehollandiae (Australasian Great Cormorant)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Phalacrocorax carbo"
     },
     {
      "index": 392,
      "kind": "species",
      "label": "Petroica macrocephala macrocephala (South Island Tomtit)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Petroica macrocephala"
     },
     {
      "index": 393,
      "kind": "species",
      "label": "Petroica australis longipes (North Island Robin)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Petroica longipes"
     },
     {
      "index": 394,
      "kind": "species",
      "label": "Prosthemadera novaeseelandiae novaeseelandiae (Mainland Tui)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Prosthemadera novaeseelandiae"
     },
     {
      "index": 395,
@@ -80919,7 +81013,8 @@
      "index": 396,
      "kind": "species",
      "label": "Rhipidura fuliginosa fuliginosa (South Island Fantail)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Rhipidura fuliginosa"
     },
     {
      "index": 397,
@@ -80946,7 +81041,8 @@
      "index": 400,
      "kind": "species",
      "label": "Rhipidura fuliginosa placabilis (North Island Fantail)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Rhipidura fuliginosa"
     },
     {
      "index": 401,
@@ -81085,7 +81181,8 @@
      "index": 420,
      "kind": "species",
      "label": "Anser cygnoides domesticus (Domestic Swan Goose)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Anser cygnoides"
     },
     {
      "index": 421,
@@ -81182,7 +81279,8 @@
      "index": 434,
      "kind": "species",
      "label": "Charadrius montanus (Mountain Plover)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Anarhynchus montanus"
     },
     {
      "index": 435,
@@ -81885,7 +81983,8 @@
      "index": 535,
      "kind": "species",
      "label": "Charadrius wilsonia (Wilson's Plover)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Anarhynchus wilsonia"
     },
     {
      "index": 536,
@@ -82402,7 +82501,8 @@
      "index": 609,
      "kind": "species",
      "label": "Charadrius nivosus (Snowy Plover)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Anarhynchus nivosus"
     },
     {
      "index": 610,
@@ -82870,7 +82970,8 @@
      "index": 676,
      "kind": "species",
      "label": "Amazilia violiceps (Violet-crowned Hummingbird)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ramosomyia violiceps"
     },
     {
      "index": 677,
@@ -82890,7 +82991,8 @@
      "index": 679,
      "kind": "species",
      "label": "Porphyrio melanotus melanotus (Pukeko)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Porphyrio melanotus"
     },
     {
      "index": 680,
@@ -83274,13 +83376,15 @@
      "index": 734,
      "kind": "species",
      "label": "Larus dominicanus dominicanus (Southern Black-backed Gull)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Larus dominicanus"
     },
     {
      "index": 735,
      "kind": "species",
      "label": "Lonchura oryzivora (Java Sparrow)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Padda oryzivora"
     },
     {
      "index": 736,
@@ -83369,7 +83473,8 @@
      "index": 748,
      "kind": "species",
      "label": "Hirundo rustica erythrogaster (American Barn Swallow)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Hirundo rustica"
     },
     {
      "index": 749,
@@ -83389,7 +83494,8 @@
      "index": 751,
      "kind": "species",
      "label": "Colaptes auratus cafer (Red-shafted Flicker)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Colaptes auratus"
     },
     {
      "index": 752,
@@ -83485,7 +83591,8 @@
      "index": 765,
      "kind": "species",
      "label": "Ardea alba modesta (Eastern Great Egret)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ardea alba"
     },
     {
      "index": 766,
@@ -83736,7 +83843,8 @@
      "index": 801,
      "kind": "species",
      "label": "Colaptes auratus auratus (Yellow-shafted Flicker)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Colaptes auratus"
     },
     {
      "index": 802,
@@ -83882,7 +83990,8 @@
      "index": 822,
      "kind": "species",
      "label": "Anas cyanoptera (Cinnamon Teal)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Spatula cyanoptera"
     },
     {
      "index": 823,
@@ -83902,7 +84011,8 @@
      "index": 825,
      "kind": "species",
      "label": "Anas strepera (Gadwall)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Mareca strepera"
     },
     {
      "index": 826,
@@ -84013,7 +84123,8 @@
      "index": 841,
      "kind": "species",
      "label": "Ninox novaeseelandiae novaeseelandiae (Morepork)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ninox novaeseelandiae"
     },
     {
      "index": 842,
@@ -84235,7 +84346,8 @@
      "index": 873,
      "kind": "species",
      "label": "Meleagris gallopavo silvestris (Eastern Wild Turkey)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Meleagris gallopavo"
     },
     {
      "index": 874,
@@ -84290,7 +84402,8 @@
      "index": 881,
      "kind": "species",
      "label": "Zosterops lateralis lateralis (Silvereye (ssp. lateralis))",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Zosterops lateralis"
     },
     {
      "index": 882,
@@ -84310,7 +84423,8 @@
      "index": 884,
      "kind": "species",
      "label": "Tringa semipalmata inornatus (Western Willet)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Tringa semipalmata"
     },
     {
      "index": 885,
@@ -84400,7 +84514,8 @@
      "index": 897,
      "kind": "species",
      "label": "Petroica australis australis (South Island Robin)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Petroica australis"
     },
     {
      "index": 898,
@@ -84462,7 +84577,8 @@
      "index": 906,
      "kind": "species",
      "label": "Pelecanus occidentalis carolinensis (Eastern Brown Pelican)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Pelecanus occidentalis"
     },
     {
      "index": 907,
@@ -84496,7 +84612,8 @@
      "index": 911,
      "kind": "species",
      "label": "Anas platyrhynchos domesticus (Domestic Duck)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Anas platyrhynchos"
     },
     {
      "index": 912,
@@ -84509,7 +84626,8 @@
      "index": 913,
      "kind": "species",
      "label": "Buteo lineatus elegans (California Red-shouldered Hawk)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Buteo lineatus"
     },
     {
      "index": 914,
@@ -84543,7 +84661,8 @@
      "index": 918,
      "kind": "species",
      "label": "Phalacrocorax varius varius (New Zealand Pied Shag)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Phalacrocorax varius"
     },
     {
      "index": 919,
@@ -84556,7 +84675,8 @@
      "index": 920,
      "kind": "species",
      "label": "Larus argentatus smithsonianus (American Herring Gull)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Larus smithsonianus"
     },
     {
      "index": 921,
@@ -84611,7 +84731,8 @@
      "index": 928,
      "kind": "species",
      "label": "Pelecanus occidentalis californicus (California Brown Pelican)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Pelecanus occidentalis"
     },
     {
      "index": 929,
@@ -84820,7 +84941,8 @@
      "index": 958,
      "kind": "species",
      "label": "Columba livia domestica (Feral Pigeon)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Columba livia"
     },
     {
      "index": 959,
@@ -84833,7 +84955,8 @@
      "index": 960,
      "kind": "species",
      "label": "Anser anser domesticus (Domestic Goose)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Anser anser"
     },
     {
      "index": 961,
@@ -84906,13 +85029,15 @@
      "index": 5,
      "kind": "species",
      "label": "European Starling (Juvenile)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Sturnus vulgaris"
     },
     {
      "index": 6,
      "kind": "species",
      "label": "Fox Sparrow (Thick-billed/Slate-colored)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Passerella iliaca"
     },
     {
      "index": 7,
@@ -84932,7 +85057,8 @@
      "index": 9,
      "kind": "species",
      "label": "Yellow-rumped Warbler (Winter/juvenile Audubon's)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga coronata"
     },
     {
      "index": 10,
@@ -85169,7 +85295,8 @@
      "index": 43,
      "kind": "species",
      "label": "Ring-necked Pheasant (Male)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Phasianus colchicus"
     },
     {
      "index": 44,
@@ -85210,7 +85337,8 @@
      "index": 49,
      "kind": "species",
      "label": "Eared Grebe (Breeding)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Podiceps nigricollis"
     },
     {
      "index": 50,
@@ -85251,19 +85379,22 @@
      "index": 55,
      "kind": "species",
      "label": "Black-crowned Night-Heron (Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nycticorax nycticorax"
     },
     {
      "index": 56,
      "kind": "species",
      "label": "Yellow-crowned Night-Heron (Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nyctanassa violacea"
     },
     {
      "index": 57,
      "kind": "species",
      "label": "White Ibis (Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Eudocimus albus"
     },
     {
      "index": 58,
@@ -85311,7 +85442,8 @@
      "index": 64,
      "kind": "species",
      "label": "Rough-legged Hawk (Dark morph)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Buteo lagopus"
     },
     {
      "index": 65,
@@ -85352,7 +85484,8 @@
      "index": 70,
      "kind": "species",
      "label": "Black-bellied Plover (Breeding)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Pluvialis squatarola"
     },
     {
      "index": 71,
@@ -85519,7 +85652,8 @@
      "index": 94,
      "kind": "species",
      "label": "Herring Gull (Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Larus argentatus"
     },
     {
      "index": 95,
@@ -85546,7 +85680,8 @@
      "index": 98,
      "kind": "species",
      "label": "Mew Gull (ID: 447)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Larus canus"
     },
     {
      "index": 99,
@@ -85601,7 +85736,8 @@
      "index": 106,
      "kind": "species",
      "label": "Brant (ID: 455)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Branta bernicla"
     },
     {
      "index": 107,
@@ -85803,7 +85939,8 @@
      "index": 135,
      "kind": "species",
      "label": "Cattle Egret (ID: 484)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ardea ibis"
     },
     {
      "index": 136,
@@ -86005,7 +86142,8 @@
      "index": 164,
      "kind": "species",
      "label": "Whimbrel (ID: 513)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Numenius phaeopus"
     },
     {
      "index": 165,
@@ -86088,7 +86226,8 @@
      "index": 176,
      "kind": "species",
      "label": "Rock Pigeon (ID: 525)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Columba livia"
     },
     {
      "index": 177,
@@ -86101,7 +86240,8 @@
      "index": 178,
      "kind": "species",
      "label": "Eurasian Collared-Dove (ID: 527)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Streptopelia decaocto"
     },
     {
      "index": 179,
@@ -86128,7 +86268,8 @@
      "index": 182,
      "kind": "species",
      "label": "Common Ground-Dove (ID: 531)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Columbina passerina"
     },
     {
      "index": 183,
@@ -86162,19 +86303,22 @@
      "index": 187,
      "kind": "species",
      "label": "Barn Owl (ID: 536)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Tyto alba"
     },
     {
      "index": 188,
      "kind": "species",
      "label": "Western Screech-Owl (ID: 537)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Megascops kennicottii"
     },
     {
      "index": 189,
      "kind": "species",
      "label": "Eastern Screech-Owl (ID: 538)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Megascops asio"
     },
     {
      "index": 190,
@@ -86194,7 +86338,8 @@
      "index": 192,
      "kind": "species",
      "label": "Northern Pygmy-Owl (ID: 541)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Glaucidium californicum"
     },
     {
      "index": 193,
@@ -86396,7 +86541,8 @@
      "index": 221,
      "kind": "species",
      "label": "Herring Gull (Immature)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Larus argentatus"
     },
     {
      "index": 222,
@@ -86416,7 +86562,8 @@
      "index": 224,
      "kind": "species",
      "label": "Black-bellied Whistling-Duck (ID: 610)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Dendrocygna autumnalis"
     },
     {
      "index": 225,
@@ -86618,7 +86765,8 @@
      "index": 253,
      "kind": "species",
      "label": "Ring-necked Pheasant (Female/juvenile)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Phasianus colchicus"
     },
     {
      "index": 254,
@@ -86659,7 +86807,8 @@
      "index": 259,
      "kind": "species",
      "label": "Eared Grebe (Nonbreeding/juvenile)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Podiceps nigricollis"
     },
     {
      "index": 260,
@@ -86700,19 +86849,22 @@
      "index": 265,
      "kind": "species",
      "label": "Black-crowned Night-Heron (Immature)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nycticorax nycticorax"
     },
     {
      "index": 266,
      "kind": "species",
      "label": "Yellow-crowned Night-Heron (Immature)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Nyctanassa violacea"
     },
     {
      "index": 267,
      "kind": "species",
      "label": "White Ibis (Immature)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Eudocimus albus"
     },
     {
      "index": 268,
@@ -86760,7 +86912,8 @@
      "index": 274,
      "kind": "species",
      "label": "Rough-legged Hawk (Light morph)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Buteo lagopus"
     },
     {
      "index": 275,
@@ -86801,7 +86954,8 @@
      "index": 280,
      "kind": "species",
      "label": "Black-bellied Plover (Nonbreeding/juvenile)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Pluvialis squatarola"
     },
     {
      "index": 281,
@@ -86954,19 +87108,22 @@
      "index": 302,
      "kind": "species",
      "label": "Yellow-rumped Warbler (Breeding Myrtle)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga coronata"
     },
     {
      "index": 303,
      "kind": "species",
      "label": "European Starling (Breeding Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Sturnus vulgaris"
     },
     {
      "index": 304,
      "kind": "species",
      "label": "Fox Sparrow (Red)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Passerella iliaca"
     },
     {
      "index": 305,
@@ -87266,7 +87423,8 @@
      "index": 347,
      "kind": "species",
      "label": "White-winged Crossbill (Adult Male)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Loxia leucoptera"
     },
     {
      "index": 348,
@@ -87307,7 +87465,8 @@
      "index": 353,
      "kind": "species",
      "label": "Yellow-rumped Warbler (Winter/juvenile Myrtle)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga coronata"
     },
     {
      "index": 354,
@@ -87333,7 +87492,8 @@
      "index": 357,
      "kind": "species",
      "label": "Common Raven (ID: 802)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Corvus corax"
     },
     {
      "index": 358,
@@ -87367,13 +87527,15 @@
      "index": 362,
      "kind": "species",
      "label": "Bank Swallow (ID: 807)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Riparia riparia"
     },
     {
      "index": 363,
      "kind": "species",
      "label": "Cliff Swallow (ID: 808)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Petrochelidon pyrrhonota"
     },
     {
      "index": 364,
@@ -87470,7 +87632,8 @@
      "index": 377,
      "kind": "species",
      "label": "Bushtit (ID: 822)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Psaltriparus minimus"
     },
     {
      "index": 378,
@@ -87539,7 +87702,8 @@
      "index": 387,
      "kind": "species",
      "label": "House Wren (ID: 832)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Troglodytes aedon"
     },
     {
      "index": 388,
@@ -87566,7 +87730,8 @@
      "index": 391,
      "kind": "species",
      "label": "Blue-gray Gnatcatcher (ID: 836)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Polioptila caerulea"
     },
     {
      "index": 392,
@@ -87670,7 +87835,8 @@
      "index": 406,
      "kind": "species",
      "label": "Gray Catbird (ID: 851)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Dumetella carolinensis"
     },
     {
      "index": 407,
@@ -87704,7 +87870,8 @@
      "index": 411,
      "kind": "species",
      "label": "European Starling (Nonbreeding Adult)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Sturnus vulgaris"
     },
     {
      "index": 412,
@@ -87836,7 +88003,8 @@
      "index": 430,
      "kind": "species",
      "label": "Yellow Warbler (ID: 875)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga petechia"
     },
     {
      "index": 431,
@@ -87870,7 +88038,8 @@
      "index": 435,
      "kind": "species",
      "label": "Black-throated Gray Warbler (ID: 880)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga nigrescens"
     },
     {
      "index": 436,
@@ -88016,7 +88185,8 @@
      "index": 456,
      "kind": "species",
      "label": "Fox Sparrow (Sooty)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Passerella iliaca"
     },
     {
      "index": 457,
@@ -88127,25 +88297,29 @@
      "index": 472,
      "kind": "species",
      "label": "Gray-crowned Rosy-Finch (ID: 917)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leucosticte tephrocotis"
     },
     {
      "index": 473,
      "kind": "species",
      "label": "Black Rosy-Finch (ID: 918)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leucosticte atrata"
     },
     {
      "index": 474,
      "kind": "species",
      "label": "Brown-capped Rosy-Finch (ID: 919)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Leucosticte australis"
     },
     {
      "index": 475,
      "kind": "species",
      "label": "Common Redpoll (ID: 920)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Acanthis flammea"
     },
     {
      "index": 476,
@@ -88164,13 +88338,15 @@
      "index": 478,
      "kind": "species",
      "label": "Western Wood-Pewee (ID: 923)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Contopus sordidulus"
     },
     {
      "index": 479,
      "kind": "species",
      "label": "Eastern Wood-Pewee (ID: 924)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Contopus virens"
     },
     {
      "index": 480,
@@ -88183,7 +88359,8 @@
      "index": 481,
      "kind": "species",
      "label": "Pacific-slope Flycatcher (ID: 926)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Empidonax difficilis"
     },
     {
      "index": 482,
@@ -88335,7 +88512,8 @@
      "index": 503,
      "kind": "species",
      "label": "Gray Jay (ID: 948)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Perisoreus canadensis"
     },
     {
      "index": 504,
@@ -88355,7 +88533,8 @@
      "index": 506,
      "kind": "species",
      "label": "Florida Scrub-Jay (ID: 951)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Aphelocoma coerulescens"
     },
     {
      "index": 507,
@@ -88402,7 +88581,8 @@
      "index": 513,
      "kind": "species",
      "label": "Yellow-rumped Warbler (Breeding Audubon's)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Setophaga coronata"
     },
     {
      "index": 514,
@@ -88688,7 +88868,8 @@
      "index": 554,
      "kind": "species",
      "label": "White-winged Crossbill (Female/juvenile)",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Loxia leucoptera"
     }
    ]
   },
@@ -158232,7 +158413,8 @@
      "index": 27,
      "kind": "species",
      "label": "Barn owl",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Tyto alba"
     },
     {
      "index": 28,
@@ -158629,7 +158811,8 @@
      "index": 84,
      "kind": "species",
      "label": "Cattle egret",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Ardea ibis"
     },
     {
      "index": 85,
@@ -158733,7 +158916,8 @@
      "index": 99,
      "kind": "species",
      "label": "Common chaffinch",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Fringilla coelebs"
     },
     {
      "index": 100,
@@ -158802,7 +158986,8 @@
      "index": 109,
      "kind": "species",
      "label": "Common house martin",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Delichon urbicum"
     },
     {
      "index": 110,
@@ -158878,7 +159063,8 @@
      "index": 120,
      "kind": "species",
      "label": "Common raven",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Corvus corax"
     },
     {
      "index": 121,
@@ -160449,7 +160635,8 @@
      "index": 345,
      "kind": "species",
      "label": "Northern goshawk",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Astur gentilis"
     },
     {
      "index": 346,
@@ -160971,7 +161158,8 @@
      "index": 420,
      "kind": "species",
      "label": "Rock pigeon",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Columba livia"
     },
     {
      "index": 421,
@@ -161047,13 +161235,15 @@
      "index": 431,
      "kind": "species",
      "label": "Ruppells vulture",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Gyps rueppelli"
     },
     {
      "index": 432,
      "kind": "species",
      "label": "Ruppells warbler",
-     "unresolved": "no catalogue identity"
+     "provider": "ioc-world-bird-list",
+     "taxon": "Curruca ruppeli"
     },
     {
      "index": 433,
@@ -161875,5 +162065,7 @@
    ]
   }
  },
+ "resolved_moved_genus": 9,
+ "resolved_subspecies": 42,
  "schema_version": 1
 }
