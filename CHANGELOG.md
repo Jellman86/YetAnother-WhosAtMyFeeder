@@ -51,6 +51,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The leaderboard no longer holds a database connection while it names each species
+  ([#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)).** For a reader whose
+  language is not English, naming a species checks a cache and then asks iNaturalist over the
+  network, with a ten second timeout, and the leaderboard did that for every species while holding
+  one of the five pooled connections. One uncached species could stall everything else needing the
+  database for ten seconds; an owner's diagnostics showed the route holding a connection for five.
+  The rows are read first and the connection given back before any name is looked up, and the same
+  test that guards the events list now guards the leaderboard.
 - **The leaderboard no longer lists one species twice while its older detections wait for an
   identity ([#386](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/386)).** A
   detection carrying a catalogue identity grouped as one line and a detection still waiting for the
