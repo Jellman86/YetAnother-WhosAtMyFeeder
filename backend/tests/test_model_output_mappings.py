@@ -403,6 +403,11 @@ def test_the_committed_mapping_coverage_is_what_was_measured():
     Recompiled once the seed the mappings are built against started carrying
     the Catalogue of Life bird synonyms: 131 outputs naming a superseded genus
     gained the identity they always had at runtime, and none changed.
+
+    Recompiled again with the hyphen, spelling and accent folding, the
+    vernacular bridge, the subspecies pass and the moved-genus pass: 189 more
+    outputs resolve, the North American models fall from 62 unresolved labels
+    each to 4, and again none that already resolved changed identity.
     """
     mappings = json.loads((ASSETS / "model_output_mappings.json").read_text(encoding="utf-8"))
 
@@ -418,9 +423,9 @@ def test_the_committed_mapping_coverage_is_what_was_measured():
                 declared += 1
 
     assert total == 23332
-    assert mapped == 21781
+    assert mapped == 21970
     assert declared == 3  # two Unknown classes and one background class
-    assert unresolved == 1548
+    assert unresolved == 1359
 
 
 def test_the_committed_assets_build_a_fully_mapped_catalogue(tmp_path):

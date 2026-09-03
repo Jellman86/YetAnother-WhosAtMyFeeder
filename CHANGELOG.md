@@ -26,6 +26,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The shipped model mappings are rebuilt with this release's matching rules.** The four naming
+  fixes below each said the registry's compiled mappings would gain them when the catalogue was next
+  rebuilt. It has been: every registered classifier's label file was fetched and checksum-verified
+  against the registry, and the mappings recompiled against the shipped catalogue. 189 more outputs
+  resolve, taking unresolved from 1,548 to 1,359, and not one output that already resolved changed
+  identity. The North American models go from 62 unresolved labels each to 4: `Northwestern Crow`,
+  `Hoary Redpoll`, `Cordilleran Flycatcher` and `Western Scrub-Jay`, which are IOC lumps a rule
+  cannot decide and a person must. The two all-of-nature models keep their 663 gaps each, which are
+  beetles, lichens and an orchid, not birds.
 - **Model Evaluation looks like the rest of the app.** It was the only page on a different grey,
   used a blue the app does not use anywhere else, styled its buttons as one-off utility classes
   instead of the shared kit, and had no control large enough to hit comfortably on a phone. Same
