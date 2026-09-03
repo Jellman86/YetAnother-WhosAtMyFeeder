@@ -6,6 +6,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **Notable nearby shows each species once.** eBird returns one report per checklist, so a rarity
+  seen by four people at the same reserve arrived as four identical cards. One card now carries the
+  species, the most recent report, how many reports there were, and how many places it was seen at.
 ### Added
 
 - **One public projection of the settings a viewer needs.** `/api/settings` is owner-only, so the
