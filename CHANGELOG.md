@@ -6,19 +6,6 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
-### Fixed
-
-- **A species corrected by hand no longer appears twice on the leaderboard
-  ([#386](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/386)).** Before
-  corrections carried catalogue identity, retagging a detection wrote the new name but kept the old
-  bird's `species_id`, so a Tree Sparrow you corrected to a Dunnock counted as a Dunnock with a Tree
-  Sparrow's identity and the leaderboard listed Dunnock twice, in every window and both feeds. The
-  code has written the right identity since 2.19.2, but rows corrected before then still carried the
-  wrong one. The startup identity backfill now repairs any row whose identity names a different bird
-  than the row's own scientific name, under the same rule it already trusts: the name must resolve to
-  exactly one catalogue identity, or the row is left alone. Runs once on the upgrade, is idempotent
-  after, and touches only `species_id`.
-
 ### Added
 
 - **One public projection of the settings a viewer needs.** `/api/settings` is owner-only, so the
@@ -54,6 +41,26 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   where work that needs a person belongs. Old jobs links still work and land on the timeline.
 
 ### Fixed
+
+- **The leaderboard no longer lists one species twice while its older detections wait for an
+  identity ([#386](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/386)).** A
+  detection carrying a catalogue identity grouped as one line and a detection still waiting for the
+  startup backfill grouped as another, so the moment new detections began resolving on an install
+  whose history had not yet caught up, every species split in two and the split grew with each
+  detection. The dashboard's count list was folded for exactly this in 2.19.1; the leaderboard
+  never was. Both now fold rows that share a taxon, or a name when no taxon is known, summing the
+  counts, taking the earliest first-seen and latest last-seen, weighting confidence by count, and
+  keeping the larger camera count rather than a sum that could claim more than was measured.
+- **A species corrected by hand no longer appears twice on the leaderboard
+  ([#386](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/386)).** Before
+  corrections carried catalogue identity, retagging a detection wrote the new name but kept the old
+  bird's `species_id`, so a Tree Sparrow you corrected to a Dunnock counted as a Dunnock with a Tree
+  Sparrow's identity and the leaderboard listed Dunnock twice, in every window and both feeds. The
+  code has written the right identity since 2.19.2, but rows corrected before then still carried the
+  wrong one. The startup identity backfill now repairs any row whose identity names a different bird
+  than the row's own scientific name, under the same rule it already trusts: the name must resolve to
+  exactly one catalogue identity, or the row is left alone. Runs once on the upgrade, is idempotent
+  after, and touches only `species_id`.
 
 - **A guest sees the interface the owner configured, not the built-in defaults.** Three settings
   never reached a visitor. Detections needing a person were never flagged, because the review check
