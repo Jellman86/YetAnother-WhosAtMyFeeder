@@ -1795,6 +1795,34 @@ class DetectionRepository:
         await self.db.commit()
         return changed
 
+    async def distinct_scientific_names_with_identity(self) -> list[str]:
+        """Every distinct scientific name on rows that already carry an identity."""
+        cursor = await self.db.execute(
+            "SELECT DISTINCT scientific_name FROM detections"
+            " WHERE species_id IS NOT NULL AND scientific_name IS NOT NULL AND TRIM(scientific_name) != ''"
+        )
+        rows = await cursor.fetchall()
+        return [str(row[0]) for row in rows]
+
+    async def repair_species_id_by_scientific_name(self, scientific_name: str, species_id: int) -> int:
+        """Correct rows whose identity names a different bird than their own name.
+
+        Before manual corrections carried identity, a hand-retagged detection
+        kept the old bird's `species_id` under the new name, so the leaderboard
+        showed one species twice (#386). The row's scientific name is what the
+        owner asserted, so identity is re-derived from it. Only `species_id` is
+        written and only where it disagrees; agreeing rows are untouched.
+        """
+        await self.db.execute(
+            "UPDATE detections SET species_id = ?"
+            " WHERE species_id IS NOT NULL AND species_id != ?"
+            " AND LOWER(TRIM(scientific_name)) = LOWER(TRIM(?))",
+            (species_id, species_id, scientific_name),
+        )
+        changed = await self._last_statement_changes()
+        await self.db.commit()
+        return changed
+
     async def insert_if_not_exists(self, detection: Detection) -> bool:
         """Atomically insert a detection only if it doesn't already exist.
 

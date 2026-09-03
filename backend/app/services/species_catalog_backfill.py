@@ -4,8 +4,14 @@ Phase 3's conservative backfill: a detection whose `scientific_name` resolves
 to exactly one catalogue identity — through a concept or a recorded resolved
 synonym — gains a `species_id`. Everything else stays exactly as it is and is
 counted, never guessed. Name snapshots and artifact provenance are never
-touched, an identity already present is never replaced, and re-running is a
-no-op, so the backfill is safe to schedule on every startup.
+touched, and re-running is a no-op, so the backfill is safe to schedule on
+every startup.
+
+An identity already present is replaced in exactly one case: when it names a
+different bird than the row's own scientific name. Manual corrections made
+before they carried identity left the old bird's `species_id` under the new
+name (#386), and the name is what the owner asserted, so the identity is
+re-derived from it under the same "exactly one match" rule.
 """
 
 from __future__ import annotations
@@ -47,6 +53,8 @@ async def backfill_catalog_identity(db, resolver: Optional[SpeciesCatalogResolve
         "names_ambiguous": 0,
         "names_unresolved": 0,
         "rows_identified": 0,
+        "names_repaired": 0,
+        "rows_repaired": 0,
     }
 
     names = await repository.distinct_scientific_names_without_identity()
@@ -63,6 +71,22 @@ async def backfill_catalog_identity(db, resolver: Optional[SpeciesCatalogResolve
             summary["names_ambiguous"] += 1
         else:
             summary["names_unresolved"] += 1
+
+    # A row whose identity contradicts its own scientific name is a manual
+    # correction from before corrections carried identity. The name is the
+    # owner's word; the stale id is not, and it splits the leaderboard.
+    for name in await repository.distinct_scientific_names_with_identity():
+        species_id, reason = await asyncio.to_thread(active_resolver.resolve_scientific_name, name)
+        if reason == "unavailable":
+            summary["status"] = "unavailable"
+            _record_summary(summary)
+            return summary
+        if species_id is None:
+            continue
+        repaired = await repository.repair_species_id_by_scientific_name(name, species_id)
+        if repaired:
+            summary["names_repaired"] += 1
+            summary["rows_repaired"] += repaired
 
     # Audio detections carry the same identity, for the same reason: grouping
     # audio by identity while older rows have none would split a species at the

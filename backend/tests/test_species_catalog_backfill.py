@@ -153,6 +153,17 @@ async def _seed_detections(db, rows):
     await db.commit()
 
 
+async def _seed_detections_more(db, rows):
+    for event, scientific, species_id in rows:
+        await db.execute(
+            "INSERT INTO detections (detection_time, detection_index, score, display_name, category_name,"
+            " frigate_event, camera_name, scientific_name, species_id)"
+            " VALUES (?, 0, 0.9, ?, ?, ?, 'feeder', ?, ?)",
+            (datetime(2026, 1, 1, 12, 0, 0), scientific, scientific, event, scientific, species_id),
+        )
+    await db.commit()
+
+
 async def _species_ids(db):
     cursor = await db.execute("SELECT frigate_event, species_id, scientific_name FROM detections ORDER BY id")
     return {row[0]: (row[1], row[2]) for row in await cursor.fetchall()}
@@ -187,14 +198,36 @@ async def test_exact_and_synonym_names_gain_identity_and_the_rest_stay_untouched
 
 
 @pytest.mark.asyncio
-async def test_the_backfill_is_idempotent_and_never_overwrites(catalog):
+async def test_an_identity_that_agrees_with_its_name_is_never_rewritten(catalog):
+    resolver = SpeciesCatalogResolver(catalog)
+    async with aiosqlite.connect(":memory:") as db:
+        await _seed_detections(db, [("evt-tit", "Cyanistes caeruleus", None)])
+        await backfill_catalog_identity(db, resolver=resolver)
+        tit_id = (await _species_ids(db))["evt-tit"][0]
+        assert tit_id is not None
+
+        await _seed_detections_more(db, [("evt-already", "Cyanistes caeruleus", tit_id)])
+        first = await backfill_catalog_identity(db, resolver=resolver)
+        second = await backfill_catalog_identity(db, resolver=resolver)
+
+        results = await _species_ids(db)
+        assert results["evt-already"][0] == tit_id
+        assert first["rows_identified"] == 0 and first["rows_repaired"] == 0
+        assert second["rows_identified"] == 0 and second["rows_repaired"] == 0
+
+
+@pytest.mark.asyncio
+async def test_an_identity_that_names_a_different_bird_is_repaired_from_the_rows_own_name(catalog):
+    """The #386 shape: a Dunnock retagged by hand before corrections carried
+    identity kept the Tree Sparrow's `species_id` under the Dunnock name, and the
+    leaderboard listed Dunnock twice. The name is what the owner asserted."""
     resolver = SpeciesCatalogResolver(catalog)
     async with aiosqlite.connect(":memory:") as db:
         await _seed_detections(
             db,
             [
                 ("evt-tit", "Cyanistes caeruleus", None),
-                ("evt-already", "Cyanistes caeruleus", 9999),
+                ("evt-stale", "Cyanistes caeruleus", 9999),
             ],
         )
 
@@ -202,9 +235,34 @@ async def test_the_backfill_is_idempotent_and_never_overwrites(catalog):
         second = await backfill_catalog_identity(db, resolver=resolver)
 
         results = await _species_ids(db)
-        assert results["evt-already"][0] == 9999, "an existing identity is never rewritten"
+        assert results["evt-stale"][0] == results["evt-tit"][0], "the stale id is re-derived from the name"
         assert first["rows_identified"] == 1
-        assert second["rows_identified"] == 0
+        assert first["rows_repaired"] == 1 and first["names_repaired"] == 1
+        assert second["rows_repaired"] == 0, "re-running repairs nothing twice"
+
+
+@pytest.mark.asyncio
+async def test_a_disputed_identity_under_an_ambiguous_name_is_left_alone(catalog):
+    """Repair uses the same rule as the fill: exactly one match, or nothing."""
+    connection = sqlite3.connect(catalog)
+    try:
+        connection.execute("INSERT INTO species (species_id, rank, status) VALUES (99, 'species', 'accepted')")
+        connection.execute(
+            "INSERT INTO species_concepts (species_id, provider, provider_taxon_id, source_release, scientific_name)"
+            " VALUES (99, 'catalogue-of-life', 'HOMONYM', 'COL26.7-test', 'Cyanistes caeruleus')"
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    resolver = SpeciesCatalogResolver(catalog)
+
+    async with aiosqlite.connect(":memory:") as db:
+        await _seed_detections(db, [("evt-stale", "Cyanistes caeruleus", 9999)])
+
+        summary = await backfill_catalog_identity(db, resolver=resolver)
+
+        assert (await _species_ids(db))["evt-stale"][0] == 9999
+        assert summary["rows_repaired"] == 0
 
 
 @pytest.mark.asyncio
