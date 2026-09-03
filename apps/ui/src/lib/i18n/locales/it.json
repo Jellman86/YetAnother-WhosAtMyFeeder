@@ -318,7 +318,9 @@
       "retry": "Riprova",
       "empty": "Non sono state trovate segnalazioni rare o insolite entro {distance} negli ultimi {days} giorni.",
       "empty_hint": "È un risultato eBird valido; gli avvistamenti comuni nelle vicinanze possono comunque essere numerosi.",
-      "open_species": "{species} — apri la scheda della specie"
+      "open_species": "{species} — apri la scheda della specie",
+      "reports": "{count} segnalazioni",
+      "places": "{count} luoghi"
     },
     "day_bar": {
       "today": "Oggi",
