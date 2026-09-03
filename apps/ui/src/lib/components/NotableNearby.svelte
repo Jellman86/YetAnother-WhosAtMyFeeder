@@ -3,6 +3,7 @@
     import { onDestroy } from 'svelte';
     import { fetchEbirdNotable, type EbirdNotableResult } from '../api';
     import { formatDateTime } from '../utils/datetime';
+    import { groupNotableObservations } from '../utils/notable-grouping';
     import { getErrorMessage } from '../utils/error-handling';
     import { authStore } from '../stores/auth.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -19,6 +20,7 @@
     let { canConfigure = false, refreshKey = 0, onconfigure, onselectspecies }: Props = $props();
 
     let result = $state<EbirdNotableResult | null>(null);
+    let groups = $derived(result ? groupNotableObservations(result.results) : []);
     let loading = $state(false);
     let loaded = $state(false);
     let error = $state<string | null>(null);
@@ -159,8 +161,9 @@
         <!-- One sighting in a two-column grid leaves half a row empty, which
              reads as something that failed to load rather than as the answer.
              Two or more still pair up. -->
-        <ul class="grid gap-2 {result.results.length > 1 ? 'sm:grid-cols-2' : ''}">
-            {#each result.results.slice(0, 4) as observation}
+        <ul class="grid gap-2 {groups.length > 1 ? 'sm:grid-cols-2' : ''}">
+            {#each groups.slice(0, 4) as group (group.key)}
+                {@const observation = group.latest}
                 {@const observationName = observation.common_name || observation.scientific_name || ''}
                 <li class="min-w-0">
                     <!-- The whole sighting is the control: it opens the same
@@ -172,9 +175,9 @@
                         aria-label={$_('dashboard.notable_nearby.open_species', { values: { species: observationName || $_('common.unknown_species') } })}
                         class="flex w-full min-w-0 cursor-pointer items-center gap-3 rounded-xl border border-amber-100 bg-amber-50/45 p-3 text-left transition-colors hover:border-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-default disabled:hover:border-amber-100 dark:border-amber-900/40 dark:bg-amber-950/10 dark:hover:border-amber-700/60 dark:focus-visible:ring-offset-slate-950 dark:disabled:hover:border-amber-900/40"
                     >
-                    {#if observation.thumbnail_url}
+                    {#if group.thumbnail_url}
                         <img
-                            src={observation.thumbnail_url}
+                            src={group.thumbnail_url}
                             alt=""
                             width="48"
                             height="48"
@@ -189,14 +192,22 @@
                         </span>
                     {/if}
                     <div class="min-w-0">
-                        <p class="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                            {observation.common_name || observation.scientific_name || $_('common.unknown_species')}
+                        <p class="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
+                            <span class="truncate">{observation.common_name || observation.scientific_name || $_('common.unknown_species')}</span>
+                            {#if group.reports > 1}
+                                <!-- Four people saw it is the news; one card says so instead of four saying nothing. -->
+                                <span class="shrink-0 rounded-full border border-amber-300 bg-amber-100 px-1.5 py-px text-[10px] font-bold tabular-nums text-amber-800 dark:border-amber-700/60 dark:bg-amber-900/40 dark:text-amber-200">
+                                    {$_('dashboard.notable_nearby.reports', { values: { count: group.reports }, default: '{count} reports' })}
+                                </span>
+                            {/if}
                         </p>
                         {#if observation.common_name && observation.scientific_name}
                             <p class="truncate text-xs italic text-slate-500 dark:text-slate-400">{observation.scientific_name}</p>
                         {/if}
                         <p class="truncate text-xs text-slate-500 dark:text-slate-400">
-                            {observation.location_name || '—'} · {observation.observed_at ? formatDateTime(observation.observed_at) : '—'}
+                            {group.locations.length > 1
+                                ? $_('dashboard.notable_nearby.places', { values: { count: group.locations.length }, default: '{count} places' })
+                                : observation.location_name || '—'} · {observation.observed_at ? formatDateTime(observation.observed_at) : '—'}
                         </p>
                     </div>
                     </button>

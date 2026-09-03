@@ -318,7 +318,9 @@
       "retry": "重试",
       "empty": "过去 {days} 天内，{distance} 范围内没有发现稀有或异常报告。",
       "empty_hint": "这是有效的 eBird 结果；附近仍可能有许多普通观鸟记录。",
-      "open_species": "{species} — 打开物种卡片"
+      "open_species": "{species} — 打开物种卡片",
+      "reports": "{count}条报告",
+      "places": "{count}个地点"
     },
     "day_bar": {
       "today": "今天",

@@ -318,7 +318,9 @@
       "retry": "再試行",
       "empty": "過去 {days} 日間、半径 {distance} 以内に希少または珍しい報告はありませんでした。",
       "empty_hint": "これは有効な eBird の結果です。通常の周辺観察は多数ある場合があります。",
-      "open_species": "{species} — 種のカードを開く"
+      "open_species": "{species} — 種のカードを開く",
+      "reports": "{count}件の報告",
+      "places": "{count}か所"
     },
     "day_bar": {
       "today": "今日",

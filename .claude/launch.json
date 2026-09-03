@@ -1,0 +1,31 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ui-dev-quark-proxy",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_BACKEND_PROXY_TARGET=https://yetanotherwhosatmyfeeder.pownet.uk",
+        "npm",
+        "--prefix",
+        "apps/ui",
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "ui-dev-local",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "VITE_BACKEND_PROXY_TARGET=http://127.0.0.1:8000",
+        "npm",
+        "--prefix",
+        "apps/ui",
+        "run",
+        "dev"
+      ],
+      "port": 3000
+    }
+  ]
+}

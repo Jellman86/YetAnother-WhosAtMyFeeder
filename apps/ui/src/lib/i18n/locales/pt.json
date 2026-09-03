@@ -318,7 +318,9 @@
       "retry": "Tentar novamente",
       "empty": "Nenhum relato raro ou incomum foi encontrado em um raio de {distance} nos últimos {days} dias.",
       "empty_hint": "Este é um resultado válido do eBird; ainda pode haver muitos avistamentos comuns nas proximidades.",
-      "open_species": "{species} — abrir a ficha da espécie"
+      "open_species": "{species} — abrir a ficha da espécie",
+      "reports": "{count} registos",
+      "places": "{count} locais"
     },
     "day_bar": {
       "today": "Hoje",

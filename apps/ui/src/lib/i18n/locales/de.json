@@ -318,7 +318,9 @@
       "retry": "Erneut versuchen",
       "empty": "Im Umkreis von {distance} wurden in den letzten {days} Tagen keine seltenen oder ungewöhnlichen Meldungen gefunden.",
       "empty_hint": "Dies ist ein gültiges eBird-Ergebnis; gewöhnliche Beobachtungen in der Nähe können trotzdem zahlreich sein.",
-      "open_species": "{species} — Artenkarte öffnen"
+      "open_species": "{species} — Artenkarte öffnen",
+      "reports": "{count} Meldungen",
+      "places": "{count} Orte"
     },
     "day_bar": {
       "today": "Heute",
