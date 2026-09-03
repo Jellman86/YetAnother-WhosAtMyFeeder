@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Callable, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, timedelta, date, timezone
 import aiosqlite
@@ -30,14 +30,14 @@ def clear_species_alias_cache() -> None:
     _SPECIES_ALIAS_CACHE.clear()
 
 
-def merge_species_count_rows(rows: list[dict]) -> list[dict]:
-    """Fold count rows that are the same bird under different identity keys.
+def _fold_same_bird(rows: list[dict], combine: Callable[[dict, dict], None]) -> list[dict]:
+    """Group summary rows that are the same bird under different identity keys.
 
-    The canonical key prefers catalogue identity, but a row written between
-    ingest and the next identity backfill can lack `species_id` while its
-    neighbours carry it - and one Dunnock then arrives as two rows, which the
-    dashboard's keyed list cannot survive. Same taxon, or same name when a
-    taxon is missing, means the same bird here.
+    The canonical key prefers catalogue identity, so a row carrying `species_id`
+    groups as `species:N` while one still waiting for the identity backfill
+    groups as `taxon:N`. Those are different strings, and one bird then arrives
+    as two rows. Same taxon, or same name when a taxon is missing, means the
+    same bird here; `combine(target, row)` folds the second into the first.
     """
     by_taxa: dict[int, dict] = {}
     by_name: dict[str, dict] = {}
@@ -58,19 +58,69 @@ def merge_species_count_rows(rows: list[dict]) -> list[dict]:
             if name:
                 by_name[name] = entry
             continue
-        target["count"] = int(target.get("count") or 0) + int(row.get("count") or 0)
-        row_time = row.get("latest_detection_time")
-        target_time = target.get("latest_detection_time")
-        if row_time is not None and (target_time is None or row_time > target_time):
-            target["latest_detection_time"] = row_time
-            target["latest_event"] = row.get("latest_event")
+        combine(target, row)
         if target.get("taxa_id") is None and taxa_id is not None:
             target["taxa_id"] = taxa_id
             by_taxa[taxa_id] = target
         for field in ("scientific_name", "common_name"):
             if not target.get(field) and row.get(field):
                 target[field] = row.get(field)
+    return merged
+
+
+def merge_species_count_rows(rows: list[dict]) -> list[dict]:
+    """Fold count rows that are the same bird under different identity keys.
+
+    The dashboard's keyed species list cannot survive one Dunnock arriving as
+    two rows (#359). See `_fold_same_bird` for why that happens.
+    """
+
+    def combine(target: dict, row: dict) -> None:
+        target["count"] = int(target.get("count") or 0) + int(row.get("count") or 0)
+        row_time = row.get("latest_detection_time")
+        target_time = target.get("latest_detection_time")
+        if row_time is not None and (target_time is None or row_time > target_time):
+            target["latest_detection_time"] = row_time
+            target["latest_event"] = row.get("latest_event")
+
+    merged = _fold_same_bird(rows, combine)
     merged.sort(key=lambda entry: int(entry.get("count") or 0), reverse=True)
+    return merged
+
+
+def merge_species_leaderboard_rows(rows: list[dict]) -> list[dict]:
+    """Fold leaderboard rows that are the same bird under different identity keys.
+
+    The count path was folded for this in #359; the leaderboard was not, and an
+    owner watched the duplicates multiply as each new detection resolved its
+    identity while the older ones had not yet been backfilled (#386).
+    """
+
+    def combine(target: dict, row: dict) -> None:
+        target_n = int(target.get("window_count") or 0)
+        row_n = int(row.get("window_count") or 0)
+        total = target_n + row_n
+        if total:
+            target["window_avg_confidence"] = (
+                float(target.get("window_avg_confidence") or 0.0) * target_n
+                + float(row.get("window_avg_confidence") or 0.0) * row_n
+            ) / total
+        target["window_count"] = total
+        target["prev_count"] = int(target.get("prev_count") or 0) + int(row.get("prev_count") or 0)
+        for field, pick in (("window_first_seen", min), ("window_last_seen", max)):
+            left, right = target.get(field), row.get(field)
+            if left is None or right is None:
+                target[field] = left if right is None else right
+            else:
+                target[field] = pick(left, right)
+        # Two groups' distinct-camera counts cannot be unioned after the fact. The
+        # larger is the only figure that cannot claim more than was measured.
+        target["window_camera_count"] = max(
+            int(target.get("window_camera_count") or 0), int(row.get("window_camera_count") or 0)
+        )
+
+    merged = _fold_same_bird(rows, combine)
+    merged.sort(key=lambda entry: int(entry.get("window_count") or 0), reverse=True)
     return merged
 
 
@@ -3649,21 +3699,23 @@ class DetectionRepository:
         async with self.db.execute(query, params) as cursor:
             rows = await cursor.fetchall()
 
-        return [
-            {
-                "species": row[3],
-                "scientific_name": row[1],
-                "common_name": row[2],
-                "taxa_id": row[4],
-                "window_count": int(row[5] or 0),
-                "prev_count": int(row[6] or 0),
-                "window_first_seen": _parse_datetime(row[7]) if row[7] else None,
-                "window_last_seen": _parse_datetime(row[8]) if row[8] else None,
-                "window_avg_confidence": float(row[9] or 0.0),
-                "window_camera_count": int(row[10] or 0),
-            }
-            for row in rows
-        ]
+        return merge_species_leaderboard_rows(
+            [
+                {
+                    "species": row[3],
+                    "scientific_name": row[1],
+                    "common_name": row[2],
+                    "taxa_id": row[4],
+                    "window_count": int(row[5] or 0),
+                    "prev_count": int(row[6] or 0),
+                    "window_first_seen": _parse_datetime(row[7]) if row[7] else None,
+                    "window_last_seen": _parse_datetime(row[8]) if row[8] else None,
+                    "window_avg_confidence": float(row[9] or 0.0),
+                    "window_camera_count": int(row[10] or 0),
+                }
+                for row in rows
+            ]
+        )
 
     async def get_species_leaderboard_window_for_labels(
         self,

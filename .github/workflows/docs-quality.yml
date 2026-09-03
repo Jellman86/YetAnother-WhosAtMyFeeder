@@ -6,6 +6,7 @@ on:
     branches: [dev, main]
     paths:
       - "README.md"
+      - "CHANGELOG.md"
       - "MIGRATION.md"
       - "docs/**"
       - "backend/app/main.py"
@@ -15,6 +16,7 @@ on:
   pull_request:
     paths:
       - "README.md"
+      - "CHANGELOG.md"
       - "MIGRATION.md"
       - "docs/**"
       - "backend/app/main.py"
