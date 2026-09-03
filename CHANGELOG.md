@@ -51,6 +51,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Naming a species no longer opens a second database connection beside the one a page already
+  holds.** Keeping name lookups off the network inside a hold also stopped the audio helpers lending
+  the caller's connection to the cache read, so a cache-only lookup took a second pooled connection
+  for the duration. With five connections and a dashboard open fanning out a dozen requests at once,
+  each such request took two. The caller's connection is lent again for the cache read; the lookup
+  still refuses to go to the network while it is held.
 - **A species with no Wikipedia article is no longer searched for again on nearly every visit.**
   A lookup that ran every search strategy and found nothing was remembered for one minute, the same
   as a lookup that had failed, so the species page for such a bird re-ran the whole serial search

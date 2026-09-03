@@ -123,11 +123,14 @@ async def localize_audio_detections(
         if not taxa_id:
             continue
 
+        # A caller that still holds a connection lends it for the cache read, so the
+        # lookup does not open a second one beside it. The lookup itself refuses to
+        # go to the network while that connection is held, so lending it is safe.
         try:
             if lang != "en":
-                resolved = await taxonomy_service.get_localized_common_name(taxa_id, lang)
+                resolved = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
             else:
-                resolved = await taxonomy_service.get_canonical_english_name(taxa_id)
+                resolved = await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
         except Exception as exc:
             log.warning(
                 "Audio name localization failed", scientific=scientific, species=species, lang=lang, error=str(exc)
@@ -160,9 +163,9 @@ async def localize_audio_species_name(
     if confirmed_taxa_id is not None:
         try:
             if lang != "en":
-                return await taxonomy_service.get_localized_common_name(confirmed_taxa_id, lang)
+                return await taxonomy_service.get_localized_common_name(confirmed_taxa_id, lang, db=db)
             else:
-                return await taxonomy_service.get_canonical_english_name(confirmed_taxa_id)
+                return await taxonomy_service.get_canonical_english_name(confirmed_taxa_id, db=db)
         except Exception as exc:
             log.warning("Audio confirmed name localization failed", taxa_id=confirmed_taxa_id, error=str(exc))
             return None
@@ -193,9 +196,9 @@ async def localize_audio_species_name(
 
     try:
         if lang != "en":
-            return await taxonomy_service.get_localized_common_name(taxa_id, lang)
+            return await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
         else:
-            return await taxonomy_service.get_canonical_english_name(taxa_id)
+            return await taxonomy_service.get_canonical_english_name(taxa_id, db=db)
     except Exception as exc:
         log.warning("Audio unconfirmed name localization failed", species=comname, error=str(exc))
         return None
