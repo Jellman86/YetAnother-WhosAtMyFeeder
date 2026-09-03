@@ -1,3 +1,4 @@
+import { createSlotGate } from '../utils/concurrency';
 import { API_BASE, apiFetch, getHeaders, handleResponse, withAuthParams } from './core';
 import type { paths } from './generated/openapi';
 
@@ -153,26 +154,33 @@ export async function checkClipAvailable(frigateEvent: string): Promise<boolean>
     }
 }
 
+// The dashboard and the explorer probe every visit on the page for a clip. Bounded here so
+// thirty cards do not become thirty probes in one second; each probe takes a pooled
+// database connection on the server for its access check.
+const clipProbeGate = createSlotGate(3);
+
 export async function checkRecordingClipAvailable(frigateEvent: string): Promise<RecordingClipAvailabilityResponse> {
-    try {
-        const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/recording-clip.mp4`, {
-            method: 'HEAD',
-            timeoutMs: 10_000
-        });
-        const rawState = response.headers.get(RECORDING_CLIP_STATE_HEADER)?.toLowerCase();
-        const state: RecordingClipState | null = rawState === 'complete' || rawState === 'partial' ? rawState : null;
-        const rawDuration = Number.parseFloat(response.headers.get(RECORDING_CLIP_DURATION_HEADER) ?? '');
-        return {
-            available: response.ok,
-            fetched: state === 'complete' || (
-                state === null && response.headers.get(RECORDING_CLIP_READY_HEADER)?.toLowerCase() === 'cached'
-            ),
-            state,
-            durationSeconds: Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : null
-        };
-    } catch {
-        return { available: false, fetched: false, state: null, durationSeconds: null };
-    }
+    return clipProbeGate.run(async () => {
+        try {
+            const response = await apiFetch(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/recording-clip.mp4`, {
+                method: 'HEAD',
+                timeoutMs: 10_000
+            });
+            const rawState = response.headers.get(RECORDING_CLIP_STATE_HEADER)?.toLowerCase();
+            const state: RecordingClipState | null = rawState === 'complete' || rawState === 'partial' ? rawState : null;
+            const rawDuration = Number.parseFloat(response.headers.get(RECORDING_CLIP_DURATION_HEADER) ?? '');
+            return {
+                available: response.ok,
+                fetched: state === 'complete' || (
+                    state === null && response.headers.get(RECORDING_CLIP_READY_HEADER)?.toLowerCase() === 'cached'
+                ),
+                state,
+                durationSeconds: Number.isFinite(rawDuration) && rawDuration > 0 ? rawDuration : null
+            };
+        } catch {
+            return { available: false, fetched: false, state: null, durationSeconds: null };
+        }
+    });
 }
 
 export async function fetchRecordingClip(frigateEvent: string): Promise<RecordingClipFetchResponse> {
