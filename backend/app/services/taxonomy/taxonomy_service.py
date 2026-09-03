@@ -9,7 +9,7 @@ from app.services.localized_names import localized_names
 from app.services.species_reference import species_reference
 from typing import Any, Optional, Dict
 from datetime import datetime
-from app.database import get_db
+from app.database import pooled_connection_held, get_db
 from app.config import settings
 from app.services.ebird_service import ebird_service
 from app.utils.enrichment import get_effective_enrichment_settings
@@ -122,6 +122,8 @@ class TaxonomyService:
     def __init__(self):
         self._client: Optional[httpx.AsyncClient] = None
         self._client_lock = asyncio.Lock()
+        # Cache fills scheduled off a request, keyed so a page of rows asks once.
+        self._background_fills: dict[tuple[int, str], asyncio.Task] = {}
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get HTTP client with thread-safe lazy initialization."""
@@ -533,16 +535,50 @@ class TaxonomyService:
         if cached:
             return cached
 
-        # 2. Lookup from iNaturalist
+        # 2. Never wait on the network while the caller holds a pooled connection.
+        # The pool has five, the provider timeout is ten seconds, and one uncached
+        # species stalled everything else needing the database (#392). Answer with
+        # what is cached, which is nothing, and fill the cache off the request so
+        # the next render has the name.
+        if pooled_connection_held():
+            self._schedule_background_fill(taxa_id, lang)
+            return None
+
+        # 3. Lookup from iNaturalist
         log.info("Localized taxonomy lookup (iNaturalist)", taxa_id=taxa_id, lang=lang)
         result = await self._lookup_localized_inaturalist(taxa_id, lang)
 
         if result:
-            # 3. Save to Cache
+            # 4. Save to Cache
             await self._save_translation_to_cache(taxa_id, lang, result, db=db)
             return result
 
         return None
+
+    def _schedule_background_fill(self, taxa_id: int, lang: str) -> None:
+        """Fetch and cache one name off the request, once per name at a time."""
+        key = (taxa_id, lang)
+        existing = self._background_fills.get(key)
+        if existing is not None and not existing.done():
+            return
+
+        async def fill() -> None:
+            try:
+                result = await self._lookup_localized_inaturalist(taxa_id, lang)
+                if result:
+                    await self._save_translation_to_cache(taxa_id, lang, result)
+            except Exception as error:  # pragma: no cover - the request already answered
+                log.warning("Background name fill failed", taxa_id=taxa_id, lang=lang, error=str(error))
+            finally:
+                self._background_fills.pop(key, None)
+
+        self._background_fills[key] = asyncio.create_task(fill())
+
+    async def wait_for_background_fills(self) -> None:
+        """Let every scheduled fill finish. Tests and shutdown use this."""
+        pending = [task for task in self._background_fills.values() if not task.done()]
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
 
     async def _get_translation_from_cache(
         self, taxa_id: int, lang: str, db: Optional[aiosqlite.Connection] = None

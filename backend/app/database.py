@@ -851,6 +851,16 @@ def _caller_label() -> str:
     return "unlabelled"
 
 
+def pooled_connection_held() -> bool:
+    """Whether the calling task is currently holding a pooled connection.
+
+    Work that can wait on the network, a taxonomy provider or an LLM, asks this
+    before doing so, because carrying one of five connections through that wait
+    starves every other caller (#300, #392).
+    """
+    return _acquire_depth.get() > 0
+
+
 @asynccontextmanager
 async def get_db():
     """Get a database connection from the pool.
