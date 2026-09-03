@@ -51,6 +51,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A species with no Wikipedia article is no longer searched for again on nearly every visit.**
+  A lookup that ran every search strategy and found nothing was remembered for one minute, the same
+  as a lookup that had failed, so the species page for such a bird re-ran the whole serial search
+  on the next visit and took up to twelve seconds on a live install, with the same birds recurring
+  in the log. A definitive miss is now remembered for a day; a request that timed out or errored is
+  still retried after a minute, because that can change.
 - **No page waits on iNaturalist while holding a database connection
   ([#392](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/392)).** Eleven places
   named a species for a non-English reader by checking the cache and then asking iNaturalist over
