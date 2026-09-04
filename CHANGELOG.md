@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.3] - 2026-09-04
+
 ### Added
 
 - **One public projection of the settings a viewer needs.** `/api/settings` is owner-only, so the
