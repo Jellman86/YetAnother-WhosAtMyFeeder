@@ -202,8 +202,7 @@ async def get_recent_audio(request: Request, limit: int = 10, auth: AuthContext 
     """Get the most recent audio detections from the memory buffer."""
     detections = await audio_service.get_recent_detections(limit=limit)
     lang = get_user_language(request) or "en"
-    async with get_db() as db:
-        await localize_audio_detections(detections, lang, db)
+    await localize_audio_detections(detections, lang)
     # Drop scientific_name from the response — it is an internal hook for localization
     # and is not part of the public Recent Audio contract.
     for detection in detections:
@@ -275,7 +274,7 @@ async def get_audio_history(
             )
             for item in result["items"]:
                 item["matched_visual_event_id"] = matches.get(item["id"])
-        await localize_audio_detections(result["items"], lang, db)
+    await localize_audio_detections(result["items"], lang)
 
     for detection in result["items"]:
         detection.pop("scientific_name", None)
@@ -313,7 +312,7 @@ async def get_audio_summary(
             source=source,
             min_confidence=min_confidence,
         )
-        await localize_audio_detections(result["top_species"], lang, db)
+    await localize_audio_detections(result["top_species"], lang)
 
     for item in result["top_species"]:
         item.pop("scientific_name", None)
@@ -369,7 +368,7 @@ async def get_audio_species_leaderboard(
             prev_start=prev_start,
             prev_end=prev_end,
         )
-        await localize_audio_detections(rows, lang, db)
+    await localize_audio_detections(rows, lang)
 
     species: list[dict] = []
     for row in rows:
@@ -518,7 +517,7 @@ async def get_audio_context(
         detections, suppressed_by_mapping = await repo.get_audio_context(
             target_time=target_time, window_seconds=window_seconds, mapping_value=mapping_value, limit=limit
         )
-        await localize_audio_detections(detections, lang, db)
+    await localize_audio_detections(detections, lang)
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     if hide_sensor:
         for detection in detections:
@@ -582,7 +581,7 @@ async def get_event_audio_context(
                 detection.get("scientific_name"),
             )
             detection["matches_visual"] = bool(visual_aliases.intersection(audio_aliases))
-        await localize_audio_detections(detections, lang, db)
+    await localize_audio_detections(detections, lang)
 
     hide_sensor = not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
     if hide_sensor:

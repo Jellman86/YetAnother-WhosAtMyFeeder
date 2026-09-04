@@ -1,38 +1,12 @@
-export type NotificationsTab = 'notifications' | 'jobs';
-
 function matchesPathSegment(path: string, segment: string): boolean {
     return path === segment || path.startsWith(`${segment}/`);
 }
 
-export function getNotificationsTabPath(tab: NotificationsTab): string {
-    if (tab === 'jobs') return '/notifications/jobs';
-    return '/notifications';
-}
-
-export function isOwnerOnlyNotificationsTab(tab: NotificationsTab): boolean {
-    return tab === 'jobs';
-}
-
-export function getNotificationsTabPathForAccess(tab: NotificationsTab, canAccessOwnerTabs: boolean): string {
-    if (!canAccessOwnerTabs && isOwnerOnlyNotificationsTab(tab)) {
-        return '/notifications';
-    }
-    return getNotificationsTabPath(tab);
-}
-
-export function getNotificationsTabFromPath(path: string): NotificationsTab {
-    if (matchesPathSegment(path, '/jobs') || matchesPathSegment(path, '/notifications/jobs')) {
-        return 'jobs';
-    }
-    return 'notifications';
-}
-
 export function getCanonicalNotificationRoute(path: string): string | null {
+    // The jobs view was folded into the notifications timeline, which already carried every
+    // job it listed. Its links stay valid and land on the surface that replaced it.
     if (matchesPathSegment(path, '/jobs')) {
-        return '/notifications/jobs';
-    }
-    if (matchesPathSegment(path, '/notifications/jobs')) {
-        return '/notifications/jobs';
+        return '/notifications';
     }
     if (matchesPathSegment(path, '/notifications/errors')) {
         return '/settings/health';
@@ -45,9 +19,6 @@ export function getCanonicalNotificationRoute(path: string): string | null {
 
 export function canonicalizeNotificationRouteForAccess(path: string, canAccessOwnerTabs: boolean): string {
     const canonical = getCanonicalNotificationRoute(path) ?? path;
-    if (!canAccessOwnerTabs && matchesPathSegment(canonical, '/notifications/jobs')) {
-        return '/notifications';
-    }
     if (!canAccessOwnerTabs && matchesPathSegment(canonical, '/settings/health')) {
         return '/notifications';
     }

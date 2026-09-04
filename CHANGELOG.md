@@ -6,7 +6,193 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.3] - 2026-09-04
+
+### Added
+
+- **One public projection of the settings a viewer needs.** `/api/settings` is owner-only, so the
+  interface had no way to read a display preference as a guest, and every setting that shapes what
+  a visitor sees had been copied onto the auth status payload one field at a time as somebody
+  noticed it was missing. That pattern only ever finds a defect after a visitor has already been
+  given the wrong interface. `GET /api/settings/public` now serves those preferences identically to
+  a guest and an owner, as a named allowlist rather than a filtered copy, so a new preference is
+  public or owner-only by decision.
+
+- **Delete a detection while working the "needs your call" queue**
+  ([#375](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/375)). The queue offered a
+  species, a block, or hiding, and hiding is right for a real bird the classifier scored badly. It
+  is not right for a rock. Deleting one meant leaving the queue for Explorer and losing your place.
+  There is now a Delete permanently action beside the others, confirmed with the same wording used
+  everywhere else: it says the record and its media leave the history for good, and that hiding
+  keeps the record instead.
+
+### Changed
+
+- **Notable nearby shows each species once.** eBird returns one report per checklist, so a rarity
+  seen by four people at the same reserve arrived as four identical cards. One card now carries the
+  species, the most recent report, how many reports there were, and how many places it was seen at.
+
+- **The shipped model mappings are rebuilt with this release's matching rules.** The four naming
+  fixes below each said the registry's compiled mappings would gain them when the catalogue was next
+  rebuilt. It has been: every registered classifier's label file was fetched and checksum-verified
+  against the registry, and the mappings recompiled against the shipped catalogue. 189 more outputs
+  resolve, taking unresolved from 1,548 to 1,359, and not one output that already resolved changed
+  identity. The North American models go from 62 unresolved labels each to 4: `Northwestern Crow`,
+  `Hoary Redpoll`, `Cordilleran Flycatcher` and `Western Scrub-Jay`, which are IOC lumps a rule
+  cannot decide and a person must. The two all-of-nature models keep their 663 gaps each, which are
+  beetles, lichens and an orchid, not birds.
+- **Model Evaluation looks like the rest of the app.** It was the only page on a different grey,
+  used a blue the app does not use anywhere else, styled its buttons as one-off utility classes
+  instead of the shared kit, and had no control large enough to hit comfortably on a phone. Same
+  palette, same controls, same touch-target floor as every other page now.
+
+- **Background work is now shown once, on the Notifications page.** The separate jobs view listed
+  the same work three times over: four counters at the top, a "Work Lanes" list, and an "Active
+  Work" list below it, with two lanes both titled "Analyze Unknowns" and rows named after raw
+  Frigate event ids like `1788274081.133679-ycxd6p`. Nothing there was missing from the
+  notifications timeline, which already carried every job with its live progress, so the second
+  view existed mainly to disagree with the first. The jobs view is gone and its one irreplaceable
+  control, resuming a queue the circuit breaker has paused, now sits at the top of Notifications
+  where work that needs a person belongs. Old jobs links still work and land on the timeline.
+
+### Fixed
+
+- **Opening a page no longer fires a request per row all at once.** The dashboard probed every
+  visit on screen for a clip in the same second, and species pages asked for every row's photo and
+  summary at once: on a live install one dashboard open was twenty-nine clip probes in one second,
+  then twenty species lookups the next, against a server pool of five database connections, and
+  every one of those became a 300 to 650 ms queue. Both kinds of request are now bounded to three in
+  flight at the API client, so the rest wait their turn and every page that asks, now or later,
+  gets the same restraint.
+- **Naming a species no longer opens a second database connection beside the one a page already
+  holds.** Keeping name lookups off the network inside a hold also stopped the audio helpers lending
+  the caller's connection to the cache read, so a cache-only lookup took a second pooled connection
+  for the duration. With five connections and a dashboard open fanning out a dozen requests at once,
+  each such request took two. The caller's connection is lent again for the cache read; the lookup
+  still refuses to go to the network while it is held.
+- **A species with no Wikipedia article is no longer searched for again on nearly every visit.**
+  A lookup that ran every search strategy and found nothing was remembered for one minute, the same
+  as a lookup that had failed, so the species page for such a bird re-ran the whole serial search
+  on the next visit and took up to twelve seconds on a live install, with the same birds recurring
+  in the log. A definitive miss is now remembered for a day; a request that timed out or errored is
+  still retried after a minute, because that can change.
+- **No page waits on iNaturalist while holding a database connection
+  ([#392](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/392)).** Eleven places
+  named a species for a non-English reader by checking the cache and then asking iNaturalist over
+  the network, with a ten second timeout, while holding one of the five pooled connections. One
+  uncached species could stall everything else needing the database. Rather than rewrite every
+  caller, the lookup itself now knows whether the calling task holds a connection: if it does, it
+  answers with what is cached and fetches the name off the request, so the next render has it. A
+  first render of a brand-new species in a non-English language may show the stored name for a
+  moment; nothing waits on the network any more. The six audio routes that could simply be moved
+  out of their holds were, and a test walks every affected route with a slow provider and proves no
+  connection was held across it.
+- **The leaderboard no longer holds a database connection while it names each species
+  ([#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)).** For a reader whose
+  language is not English, naming a species checks a cache and then asks iNaturalist over the
+  network, with a ten second timeout, and the leaderboard did that for every species while holding
+  one of the five pooled connections. One uncached species could stall everything else needing the
+  database for ten seconds; an owner's diagnostics showed the route holding a connection for five.
+  The rows are read first and the connection given back before any name is looked up, and the same
+  test that guards the events list now guards the leaderboard.
+- **The leaderboard no longer lists one species twice while its older detections wait for an
+  identity ([#386](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/386)).** A
+  detection carrying a catalogue identity grouped as one line and a detection still waiting for the
+  startup backfill grouped as another, so the moment new detections began resolving on an install
+  whose history had not yet caught up, every species split in two and the split grew with each
+  detection. The dashboard's count list was folded for exactly this in 2.19.1; the leaderboard
+  never was. Both now fold rows that share a taxon, or a name when no taxon is known, summing the
+  counts, taking the earliest first-seen and latest last-seen, weighting confidence by count, and
+  keeping the larger camera count rather than a sum that could claim more than was measured.
+- **A species corrected by hand no longer appears twice on the leaderboard
+  ([#386](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/386)).** Before
+  corrections carried catalogue identity, retagging a detection wrote the new name but kept the old
+  bird's `species_id`, so a Tree Sparrow you corrected to a Dunnock counted as a Dunnock with a Tree
+  Sparrow's identity and the leaderboard listed Dunnock twice, in every window and both feeds. The
+  code has written the right identity since 2.19.2, but rows corrected before then still carried the
+  wrong one. The startup identity backfill now repairs any row whose identity names a different bird
+  than the row's own scientific name, under the same rule it already trusts: the name must resolve to
+  exactly one catalogue identity, or the row is left alone. Runs once on the upgrade, is idempotent
+  after, and touches only `species_id`.
+
+- **A guest sees the interface the owner configured, not the built-in defaults.** Three settings
+  never reached a visitor. Detections needing a person were never flagged, because the review check
+  answers "no" when it has no threshold and a guest had none, while the layout standard names that
+  flag as one of the three signals a visit carries: the guest view was making a claim it could not
+  support. Nearby sightings always read "last 14 days" whatever the owner set, beside a radius that
+  did travel publicly. And clip playback was withheld whatever the owner configured, independently
+  of the setting that is supposed to decide it.
+
+- **A species IOC has moved to another genus now resolves.** `Anas strepera (Gadwall)` failed on
+  its scientific name because IOC calls the bird `Mareca strepera`, while the common name the same
+  label carries is current. Taking that common name on its own would trust an English name two
+  birds can share, so the specific epithet has to survive the move as well: `strepera` stays
+  `strepera`. Both halves of the label then agree and nothing is authored by hand. 9 outputs gain
+  an identity. `Caracara cheriway` is deliberately not one of them, because IOC's bird is
+  `Caracara plancus` and a changed epithet is a lump, not a move; it stays unresolved for a person.
+- **An action that fails now says so.** Tagging a species, hiding a detection, running an AI
+  analysis, and deleting a visit all logged their failure to the browser console and told the
+  person nothing. The worst of those was the delete: the confirmation says the record and its media
+  leave the history permanently, so when the request failed there was no way to tell that apart
+  from it having worked, and the obvious next move was to try again. Six owner actions across the
+  dashboard and the explorer now report the failure, and a test fails if a new one is added that
+  does not.
+- **The notifications empty state says what the page actually holds.** It described only bird
+  visits, on the surface that is now the only place background work appears.
+
+- **A subspecies now resolves to the species IOC actually recognises.** A trinomial like
+  `Anas crecca carolinensis` is not automatically its first two words: IOC treats it as the
+  separate species `Anas carolinensis`, so dropping the third epithet would have filed an American
+  Green-winged Teal as a Eurasian Teal. The build now tries the elevated species first and accepts
+  it only when the catalogue's own name for it backs up the name the label carries, falls back to
+  the parent species where that is the honest answer (a Domestic Duck is an `Anas platyrhynchos`,
+  a Feral Pigeon is a Rock Dove), and leaves the label unresolved rather than guessing when a
+  distinct species exists under the subspecies name but nothing corroborates it. 42 outputs gain an
+  identity, including six that a simpler rule would have attributed to the wrong bird.
+
+- **A common name IOC has renamed or split now resolves through a model that already named it.**
+  One model writes `Tyto alba (Barn Owl)` and resolves through the scientific name. Another writes
+  only `Barn Owl`, which IOC no longer uses, having split it into Western, American and Eastern
+  Barn Owl, so it resolved to nothing and the detection kept its label text instead of a catalogue
+  identity. The first model had already said which bird that name means, and the catalogue had
+  already accepted it. The mapping build now makes that second pass. Measured against the shipped
+  mappings: 127 outputs recover, taking unresolved from 1,548 to 1,421. Nothing is guessed. A
+  common name that two paired labels disagree about is refused rather than resolved to the first,
+  and a name no paired label claims stays unresolved.
+
+- **A hyphen or an American spelling no longer hides a bird from the species catalogue.** Measured
+  against the shipped mappings: of the 180 model output labels the bird models could not match to a
+  catalogue identity, 38 were ordinary species the catalogue already holds, written with a
+  different hyphen or the British spelling. `Western Screech-Owl` is IOC's `Western Screech Owl`,
+  and `Gray Catbird` is its `Grey Catbird`; neither is a different bird. Name matching now treats a
+  hyphen as a space and folds the American spelling of a colour to the British one, as whole words
+  only, so `Grayling` stays a fish. Checked against all 11,276 English names in the catalogue: the
+  change merges no two species together. Accents fold the same way, so a label file written in
+  plain ASCII still finds `Krüper's Nuthatch` and `Rüppell's Vulture`. Owner-supplied models gain
+  this as soon as they upgrade; the shipped registry mappings gain it when the catalogue is next
+  rebuilt.
+
+- **Background work is named by what it is, not by an event id.** Jobs were titled with the Frigate
+  event they belonged to, which told an owner nothing about whether the row mattered to them. They
+  now read as "Automatic video analysis", "Full visit clips", and so on, with the event kept
+  alongside the phase underneath so two clips analysed at once are still told apart.
+- **The `g j` shortcut says where it goes.** The keyboard help listed it as "Go to Jobs tab", which
+  no longer exists; it goes to Notifications and now says so.
+- **Batch analysis no longer appears as a second "Analyze Unknowns".** Both reclassify job kinds
+  share queue telemetry, and the shared name made one piece of work look like two unrelated jobs.
+
+
 ## [2.19.2] - 2026-09-01
+
+### Fixed
+
+- **A slow first boot is no longer mistaken for a broken container.** The image declared itself
+  unhealthy about seventy five seconds after starting, and a first boot on a Raspberry Pi, or on an
+  emulated arm64 build, spends longer than that running migrations and seeding the species
+  catalogue before it can answer at all. The container was called unhealthy while it was starting
+  normally, which failed a release build and, on a real Pi, invites whatever is supervising the
+  container to kill it. The health check now allows a first boot the time it actually needs, and
+  the steady-state check that follows is unchanged.
 
 ### Fixed
 

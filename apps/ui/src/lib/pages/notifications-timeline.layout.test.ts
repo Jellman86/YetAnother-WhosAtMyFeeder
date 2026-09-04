@@ -25,13 +25,6 @@ describe('Notifications timeline layout', () => {
         expect(source).toContain('onPageSizeChange={changePageSize}');
     });
 
-    it('routes the job manager to the dedicated bounded jobs view', () => {
-        expect(source).toContain("import Jobs from './Jobs.svelte'");
-        expect(source).toContain("currentRoute.startsWith('/notifications/jobs') && isOwner");
-        expect(source).toContain('<Jobs {onNavigate} embedded />');
-        expect(source).toContain('data-jobs-page');
-    });
-
     it('hides owner-only filters rather than showing them empty', () => {
         expect(source).toContain('isOwner || !isOwnerOnlyFilter(name)');
         // Leaving an owner filter selected as access drops must not strand a guest on it.
@@ -67,7 +60,9 @@ describe('Notifications timeline layout', () => {
     it('states what the empty page will hold instead of that it is empty', () => {
         expect(source).toContain('notifications.empty_title');
         expect(source).toContain('notifications.empty_action');
-        expect(en.notifications.empty_body).toContain('newest first');
+        expect(en.notifications.empty_body).toContain('Newest first');
+        // The page owns background work now, so the empty state has to say so.
+        expect(en.notifications.empty_body).toContain('background work');
     });
 
     it('centres the rail and its markers in one column instead of offsetting by hand', () => {

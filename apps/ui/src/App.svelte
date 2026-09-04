@@ -23,6 +23,7 @@
   import { layoutStore } from './lib/stores/layout.svelte';
 import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte';
   import { settingsStore } from './lib/stores/settings.svelte';
+  import { publicSettingsStore } from './lib/stores/public_settings.svelte';
   import { detectionsStore } from './lib/stores/detections.svelte';
   import { authStore } from './lib/stores/auth.svelte';
   import { notificationCenter } from './lib/stores/notification_center.svelte';
@@ -43,8 +44,6 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
   import {
       canonicalizeNotificationRouteForAccess,
       getCanonicalNotificationRoute,
-      getNotificationsTabPathForAccess,
-      getNotificationsTabPath,
       isNotificationRoute
   } from './lib/app/notifications_route';
   import { createReclassifyRecovery } from './lib/app/reclassify_recovery';
@@ -479,7 +478,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               'g d': () => navigate('/'),
               'g e': () => navigate('/events'),
               'g l': () => navigate('/species'),
-              'g j': () => navigate(getNotificationsTabPathForAccess('jobs', authStore.showSettings)),
+              'g j': () => navigate('/notifications'),
               'g t': () => navigate('/settings'),
               'Escape': () => {
                   // Close keyboard shortcuts modal
@@ -535,6 +534,9 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               } else {
                   settingsStore.clear();
               }
+              // Everyone reads the public projection, so a guest sees the interface the
+              // owner configured rather than the built-in defaults.
+              void publicSettingsStore.load();
               detectionsStore.loadInitial();
               connectSSE();
               if (authStore.showSettings) {
@@ -793,7 +795,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               {:else if currentRoute.startsWith('/notifications')}
                   <LazyRoute
                       loader={loadNotificationsPage}
-                      props={{ onNavigate: navigate, currentRoute }}
+                      props={{ onNavigate: navigate }}
                       label={pageTitle}
                       onLoadError={handleRouteLoadError}
                   />

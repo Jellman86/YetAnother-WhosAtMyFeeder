@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import os
 import re
+import unicodedata
 import sqlite3
 import threading
 from pathlib import Path
@@ -136,6 +137,15 @@ def _hierarchy_scientific(text: str) -> Optional[str]:
 #: plumage note the NABirds files append to one.
 _TRAILING_PARENTHETICAL = re.compile(r"\s*\([^()]*\)\s*$")
 _APOSTROPHES = str.maketrans("", "", "'\u2019")
+_HYPHENS = re.compile(r"[-\u2010-\u2015]")
+# American spellings the bird models are trained on, against the British ones IOC
+# publishes. Whole words only: `Grayling` is a fish, not a grey anything.
+_SPELLINGS = (
+    (re.compile(r"\bgray\b"), "grey"),
+    (re.compile(r"\bgrayish\b"), "greyish"),
+    (re.compile(r"\bmustached\b"), "moustached"),
+    (re.compile(r"\bcolored\b"), "coloured"),
+)
 
 
 def paired_common_name(label: Optional[str]) -> Optional[str]:
@@ -157,12 +167,88 @@ def normalize_common_name(name: str) -> str:
     """Fold a common name to the form two sources can be compared in.
 
     Drops a trailing qualifier, apostrophes, and case, and collapses runs of
-    whitespace, so `Cassin\u2019s Finch` and `Cassins finch` meet. Deliberately
-    conservative: it never reorders or drops words, because `Great Grey Owl`
-    and `Grey Great Owl` are not the same claim.
+    whitespace, so `Cassin\u2019s Finch` and `Cassins finch` meet. A hyphen counts
+    as a space and the American spelling of a colour counts as the British one, so
+    `Western Screech-Owl` meets IOC's `Western Screech Owl` and `Gray Catbird` meets
+    its `Grey Catbird`. Deliberately conservative: it never reorders or drops words,
+    because `Great Grey Owl` and `Grey Great Owl` are not the same claim, and it
+    folds spellings only as whole words, because `Grayling` is a fish. Accents fold
+    too, so a label that lost them still finds `Kr\u00fcper\u2019s Nuthatch`.
     """
     stripped = _TRAILING_PARENTHETICAL.sub("", name)
-    return " ".join(stripped.translate(_APOSTROPHES).casefold().split())
+    decomposed = unicodedata.normalize("NFKD", stripped.translate(_APOSTROPHES).casefold())
+    unaccented = "".join(ch for ch in decomposed if not unicodedata.combining(ch))
+    folded = _HYPHENS.sub(" ", unaccented)
+    for pattern, replacement in _SPELLINGS:
+        folded = pattern.sub(replacement, folded)
+    return " ".join(folded.split())
+
+
+# Words too common to count as agreement between two bird names on their own.
+_FILLER_WORDS = frozenset(
+    {"common", "northern", "southern", "eastern", "western", "great", "greater", "lesser", "american", "european"}
+)
+_TRINOMIAL = re.compile(r"^([A-Z][a-z]+) ([a-z]+) ([a-z]+)\b\s*(?:\((.*)\))?\s*$")
+
+
+def subspecies_candidates(label: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    """The two readings of a trinomial, and the common name the label carries.
+
+    Returns `(elevated, parent, common)`. A trinomial can mean either the species
+    IOC now recognises in its own right, `Anas crecca carolinensis` being IOC's
+    `Anas carolinensis`, or a subspecies of its parent. Dropping the third epithet
+    without checking would file an American Green-winged Teal as a Eurasian Teal.
+    `elevated` is None when the third epithet repeats the second, which names no
+    distinct species. The common name is taken to the end of the label, because
+    `Circus cyaneus hudsonius (Northern Harrier (American))` nests its brackets and
+    a non-greedy read would return nothing and silently lose the corroboration.
+    """
+    if not isinstance(label, str):
+        return (None, None, None)
+    match = _TRINOMIAL.match(label.strip())
+    if not match:
+        return (None, None, None)
+    genus, species, subspecies, common = match.groups()
+    elevated = f"{genus} {subspecies}" if subspecies != species else None
+    return (elevated, f"{genus} {species}", (common or "").strip() or None)
+
+
+def corroborates(catalogue_name: str, label_common_name: Optional[str]) -> bool:
+    """Whether the catalogue's name for a species backs up the label's own name.
+
+    Genus plus a subspecies epithet can land on an unrelated species, so the
+    elevated reading is only taken when both names share a word that carries
+    meaning. `Common` and `Northern` are shared by hundreds of birds and settle
+    nothing on their own.
+    """
+    if not label_common_name:
+        return False
+    left = {w for w in normalize_common_name(catalogue_name).split() if w not in _FILLER_WORDS}
+    right = {w for w in normalize_common_name(label_common_name).split() if w not in _FILLER_WORDS}
+    return bool(left & right)
+
+
+_GENUS_EPITHET = re.compile(r"^([A-Z][a-z]+) ([a-z]+)\b")
+
+
+def shares_specific_epithet(label: str, catalogue_scientific_name: Optional[str]) -> bool:
+    """Whether a label's scientific name and the catalogue's differ only by genus.
+
+    IOC moves species between genera, so `Anas strepera` is now `Mareca strepera`
+    and the label's scientific name resolves to nothing while its common name is
+    still current. The epithet surviving the move is what separates a reassignment
+    from two unrelated birds that happen to share an English name, so a label with
+    no scientific half corroborates nothing.
+    """
+    if not isinstance(label, str) or not catalogue_scientific_name:
+        return False
+    if paired_common_name(label) is None:
+        return False
+    left = _GENUS_EPITHET.match(label.strip())
+    right = _GENUS_EPITHET.match(catalogue_scientific_name.strip())
+    if not left or not right:
+        return False
+    return left.group(2) == right.group(2) and left.group(1) != right.group(1)
 
 
 def default_map_path() -> Path:

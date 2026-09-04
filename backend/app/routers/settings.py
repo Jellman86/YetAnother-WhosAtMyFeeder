@@ -18,6 +18,7 @@ from app.auth import (
     validate_bcrypt_password_length,
 )
 from app.database import get_db
+from app.models.public_settings import PublicSettings, build_public_settings
 from app.repositories.detection_repository import DetectionRepository
 
 from app.services.canonical_identity_repair_service import canonical_identity_repair_service
@@ -1306,6 +1307,18 @@ async def import_settings(
         changed_fields=changed_fields,
     )
     return SettingsImportResponse(status="imported", changed_fields=changed_fields)
+
+
+@router.get("/settings/public", response_model=PublicSettings)
+async def get_public_settings() -> PublicSettings:
+    """The display preferences a viewer needs, served to guest and owner alike.
+
+    Deliberately unauthenticated. `/api/settings` is owner-only, so a guest could
+    read no display preference at all and every one that shaped their view had to
+    be copied onto the auth status payload by hand. The projection names its
+    fields, so what is public is a decision rather than an oversight.
+    """
+    return build_public_settings()
 
 
 @router.get("/settings", response_model=SettingsResponse)

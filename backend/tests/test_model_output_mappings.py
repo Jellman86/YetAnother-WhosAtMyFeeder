@@ -403,6 +403,11 @@ def test_the_committed_mapping_coverage_is_what_was_measured():
     Recompiled once the seed the mappings are built against started carrying
     the Catalogue of Life bird synonyms: 131 outputs naming a superseded genus
     gained the identity they always had at runtime, and none changed.
+
+    Recompiled again with the hyphen, spelling and accent folding, the
+    vernacular bridge, the subspecies pass and the moved-genus pass: 189 more
+    outputs resolve, the North American models fall from 62 unresolved labels
+    each to 4, and again none that already resolved changed identity.
     """
     mappings = json.loads((ASSETS / "model_output_mappings.json").read_text(encoding="utf-8"))
 
@@ -418,9 +423,9 @@ def test_the_committed_mapping_coverage_is_what_was_measured():
                 declared += 1
 
     assert total == 23332
-    assert mapped == 21781
+    assert mapped == 21970
     assert declared == 3  # two Unknown classes and one background class
-    assert unresolved == 1548
+    assert unresolved == 1359
 
 
 def test_the_committed_assets_build_a_fully_mapped_catalogue(tmp_path):
@@ -444,6 +449,160 @@ def test_the_committed_assets_build_a_fully_mapped_catalogue(tmp_path):
         " AND NOT EXISTS (SELECT 1 FROM species s WHERE s.species_id = t.species_id)",
     )
     assert orphans == [(0,)]
+
+
+def test_a_moved_genus_resolves_through_the_name_the_label_pairs_with_it():
+    """`Anas strepera (Gadwall)` fails on its scientific name because IOC now calls
+    it `Mareca strepera`. The label's own common name is current, and the specific
+    epithet survives the move, so the two halves of the label corroborate each other
+    and the reassignment resolves without anyone authoring an alias.
+    """
+    from app.services.model_taxon_map import shares_specific_epithet
+
+    assert shares_specific_epithet("Anas strepera (Gadwall)", "Mareca strepera")
+    assert shares_specific_epithet("Charadrius nivosus (Snowy Plover)", "Anarhynchus nivosus")
+    # A different bird that merely shares a common name must not pass.
+    assert not shares_specific_epithet("Anas strepera (Gadwall)", "Mareca penelope")
+    # Nothing to compare is not corroboration.
+    assert not shares_specific_epithet("Gadwall", "Mareca strepera")
+    assert not shares_specific_epithet("Anas strepera (Gadwall)", None)
+
+
+def test_a_subspecies_resolves_to_the_species_ioc_actually_recognises():
+    """A trinomial is not automatically its first two words. IOC treats
+    `Anas crecca carolinensis` as the separate species `Anas carolinensis`, so
+    dropping the third epithet would file an American Green-winged Teal as a
+    Eurasian Teal. The elevated binomial is tried first, and only accepted when the
+    catalogue's name for it corroborates the label's own common name.
+    """
+    from app.services.model_taxon_map import subspecies_candidates
+
+    assert subspecies_candidates("Anas crecca carolinensis (American Green-winged Teal)") == (
+        "Anas carolinensis",
+        "Anas crecca",
+        "American Green-winged Teal",
+    )
+    # A subspecies repeating the species epithet has no distinct elevated form.
+    assert subspecies_candidates("Anthus novaeseelandiae novaeseelandiae (New Zealand Pipit)") == (
+        None,
+        "Anthus novaeseelandiae",
+        "New Zealand Pipit",
+    )
+    assert subspecies_candidates("Barn Owl") == (None, None, None)
+
+
+def test_an_elevated_species_is_refused_when_its_name_corroborates_nothing():
+    """Genus plus a subspecies epithet can collide with an unrelated species. The
+    elevated reading is only taken when the catalogue's common name for it shares a
+    word with the common name the label itself carries.
+    """
+    from app.services.model_taxon_map import corroborates
+
+    assert corroborates("Green-winged Teal", "American Green-winged Teal")
+    assert corroborates("Northern Harrier", "Northern Harrier (American)")
+    assert not corroborates("Mexican Duck", "Sooty Albatross")
+    # A shared filler word is not corroboration.
+    assert not corroborates("Common Tern", "Common Chaffinch")
+
+
+def test_a_common_name_resolves_through_a_paired_label_that_already_named_it():
+    """One model writes `Tyto alba (Barn Owl)` and resolves through the scientific
+    name. Another writes only `Barn Owl`, which IOC no longer uses, having split it
+    into Western, American and Eastern Barn Owl, so it resolves to nothing. The
+    first model already said which bird that name means, and the catalogue already
+    accepted it, so the second does not need a person to say it again.
+    """
+    import build_model_output_mappings as build_module
+
+    resolved = {
+        "paired": build_module.LabelFileResult(
+            label_format="scientific_paired_common",
+            rows=[
+                build_module.OutputRow(0, "species", "Tyto alba (Barn Owl)", provider="ioc", taxon="3001"),
+                build_module.OutputRow(1, "species", "Corvus corax (Common Raven)", provider="ioc", taxon="7103"),
+            ],
+        ),
+        "common": build_module.LabelFileResult(
+            label_format="common_name",
+            rows=[
+                build_module.OutputRow(0, "species", "Barn Owl", unresolved="no catalogue identity"),
+                build_module.OutputRow(1, "species", "Nothing Named This", unresolved="no catalogue identity"),
+            ],
+        ),
+    }
+
+    recovered = build_module.bridge_common_names(resolved)
+
+    assert recovered == 1
+    barn_owl = resolved["common"].rows[0]
+    assert barn_owl.provider == "ioc"
+    assert barn_owl.taxon == "3001"
+    assert barn_owl.unresolved is None
+    # A name the paired labels never claimed stays honestly unresolved.
+    assert resolved["common"].rows[1].unresolved == "no catalogue identity"
+
+
+def test_the_bridge_refuses_a_common_name_two_models_disagree_about():
+    """The bridge is only usable because the pairing is unambiguous. If two paired
+    labels claim the same common name for different taxa, neither reading is
+    trustworthy and the label stays unresolved rather than taking the first.
+    """
+    import build_model_output_mappings as build_module
+
+    resolved = {
+        "paired": build_module.LabelFileResult(
+            label_format="scientific_paired_common",
+            rows=[
+                build_module.OutputRow(0, "species", "Aaa bbb (Disputed Bird)", provider="ioc", taxon="111"),
+                build_module.OutputRow(1, "species", "Ccc ddd (Disputed Bird)", provider="ioc", taxon="222"),
+            ],
+        ),
+        "common": build_module.LabelFileResult(
+            label_format="common_name",
+            rows=[build_module.OutputRow(0, "species", "Disputed Bird", unresolved="no catalogue identity")],
+        ),
+    }
+
+    assert build_module.bridge_common_names(resolved) == 0
+    assert resolved["common"].rows[0].unresolved == "no catalogue identity"
+
+
+def test_a_hyphen_and_an_american_spelling_do_not_hide_a_bird_from_the_catalogue():
+    """Measured against the shipped mappings: 35 of the 180 unresolved labels on the
+    bird models are ordinary species the catalogue holds under a different hyphen or
+    the British spelling. `Western Screech-Owl` is IOC's `Western Screech Owl` and
+    `Gray Catbird` is its `Grey Catbird`; neither is a different bird.
+    """
+    from app.services.model_taxon_map import normalize_common_name
+
+    assert normalize_common_name("Western Screech-Owl") == normalize_common_name("Western Screech Owl")
+    assert normalize_common_name("Black-crowned Night-Heron") == normalize_common_name("Black-crowned Night Heron")
+    assert normalize_common_name("Gray Catbird") == normalize_common_name("Grey Catbird")
+    assert normalize_common_name("Blue-gray Gnatcatcher") == normalize_common_name("Blue-grey Gnatcatcher")
+    assert normalize_common_name("Gray-crowned Rosy-Finch") == normalize_common_name("Grey-crowned Rosy Finch")
+
+
+def test_a_label_that_lost_its_accents_still_finds_the_bird():
+    """Model label files are frequently written in plain ASCII. `Ruppells vulture`
+    is IOC's `R\u00fcppell\u2019s Vulture` and `Krupers nuthatch` its `Kr\u00fcper\u2019s Nuthatch`.
+    """
+    from app.services.model_taxon_map import normalize_common_name
+
+    assert normalize_common_name("Ruppells vulture") == normalize_common_name("R\u00fcppell\u2019s Vulture")
+    assert normalize_common_name("Krupers nuthatch") == normalize_common_name("Kr\u00fcper\u2019s Nuthatch")
+
+
+def test_normalising_still_refuses_to_make_two_birds_one():
+    """The folding is spelling only. It must not reorder or drop words, and it must
+    not fold a word that merely contains a colour name, or `Grayson` and `Greyson`
+    style collisions would start merging real species.
+    """
+    from app.services.model_taxon_map import normalize_common_name
+
+    assert normalize_common_name("Great Grey Owl") != normalize_common_name("Grey Great Owl")
+    assert normalize_common_name("Grey Heron") != normalize_common_name("Heron")
+    # `gray` inside a longer word is not the colour and must survive untouched.
+    assert normalize_common_name("Grayling") == "grayling"
 
 
 def test_the_mapping_build_and_the_compatibility_importer_normalise_alike():

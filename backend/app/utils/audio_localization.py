@@ -7,6 +7,7 @@ via `taxonomy_cache` — the same transform applied to visual detections.
 
 import structlog
 import aiosqlite
+from app.database import get_db
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 
 log = structlog.get_logger()
@@ -78,32 +79,53 @@ async def _resolve_taxa_id(
     return None
 
 
+async def _taxa_ids_for(
+    detections: list[dict],
+    db: aiosqlite.Connection | None,
+) -> dict[tuple[str, str], int | None]:
+    """Resolve every distinct (scientific, species) pair to a taxa_id.
+
+    This is the only part that needs a connection, and it is all database
+    reads, so when the caller has none it borrows one only for this.
+    """
+    keys = {((d.get("scientific_name") or "").strip(), (d.get("species") or "").strip()) for d in detections}
+
+    async def resolve_all(conn: aiosqlite.Connection) -> dict[tuple[str, str], int | None]:
+        return {key: await _resolve_taxa_id(conn, key[0], key[1]) for key in keys}
+
+    if db is not None:
+        return await resolve_all(db)
+    async with get_db() as conn:
+        return await resolve_all(conn)
+
+
 async def localize_audio_detections(
     detections: list[dict],
     lang: str,
-    db: aiosqlite.Connection,
+    db: aiosqlite.Connection | None = None,
 ) -> None:
     """In-place: replace locale-dependent `species` in a list of audio detection dicts.
 
     Each dict should have a `scientific_name` key (may be None/empty) and a
     `species` key. Dicts that yield no resolvable taxa_id by either path
     are left unchanged — graceful degradation.
+
+    Call it after giving any pooled connection back. Naming a species can ask
+    a provider over the network, and the lookups open their own short-lived
+    connection for the cache; they are never handed the caller's (#392).
     """
-    taxa_id_cache: dict[tuple[str, str], int | None] = {}
+    taxa_id_cache = await _taxa_ids_for(detections, db)
     for d in detections:
         scientific = (d.get("scientific_name") or "").strip()
         species = (d.get("species") or "").strip()
-        cache_key = (scientific, species)
-
-        if cache_key in taxa_id_cache:
-            taxa_id = taxa_id_cache[cache_key]
-        else:
-            taxa_id = await _resolve_taxa_id(db, scientific, species)
-            taxa_id_cache[cache_key] = taxa_id
+        taxa_id = taxa_id_cache.get((scientific, species))
 
         if not taxa_id:
             continue
 
+        # A caller that still holds a connection lends it for the cache read, so the
+        # lookup does not open a second one beside it. The lookup itself refuses to
+        # go to the network while that connection is held, so lending it is safe.
         try:
             if lang != "en":
                 resolved = await taxonomy_service.get_localized_common_name(taxa_id, lang, db=db)
@@ -122,7 +144,7 @@ async def localize_audio_detections(
 async def localize_audio_species_name(
     comname: str | None,
     lang: str,
-    db: aiosqlite.Connection,
+    db: aiosqlite.Connection | None = None,
     confirmed_taxa_id: int | None = None,
 ) -> str | None:
     """Return the canonical/localized name for a single BirdNET-Go `comName` string.
@@ -151,18 +173,24 @@ async def localize_audio_species_name(
     # Unconfirmed: look up scientific_name from audio_detections, then go
     # through the same shared resolver so we benefit from common_name and
     # translation fallbacks.
-    try:
-        async with db.execute(
-            "SELECT scientific_name FROM audio_detections WHERE species = ? AND scientific_name IS NOT NULL LIMIT 1",
-            (comname.strip(),),
-        ) as cursor:
-            row = await cursor.fetchone()
-    except Exception as exc:
-        log.warning("Audio scientific_name lookup failed", species=comname, error=str(exc))
-        row = None
+    async def read_scientific_and_resolve(conn: aiosqlite.Connection) -> int | None:
+        try:
+            async with conn.execute(
+                "SELECT scientific_name FROM audio_detections WHERE species = ? AND scientific_name IS NOT NULL LIMIT 1",
+                (comname.strip(),),
+            ) as cursor:
+                row = await cursor.fetchone()
+        except Exception as exc:
+            log.warning("Audio scientific_name lookup failed", species=comname, error=str(exc))
+            row = None
+        scientific = row[0].strip() if row and row[0] else None
+        return await _resolve_taxa_id(conn, scientific, comname)
 
-    scientific = row[0].strip() if row and row[0] else None
-    taxa_id = await _resolve_taxa_id(db, scientific, comname)
+    if db is not None:
+        taxa_id = await read_scientific_and_resolve(db)
+    else:
+        async with get_db() as conn:
+            taxa_id = await read_scientific_and_resolve(conn)
     if not taxa_id:
         return None
 

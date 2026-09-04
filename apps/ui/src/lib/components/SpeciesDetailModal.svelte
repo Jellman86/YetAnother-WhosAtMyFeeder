@@ -17,6 +17,7 @@
     } from '../api';
     import { getBirdNames } from '../naming';
     import { settingsStore } from '../stores/settings.svelte';
+    import { publicSettingsStore } from '../stores/public_settings.svelte';
     import { authStore } from '../stores/auth.svelte';
     import { detectionsStore } from '../stores/detections.svelte';
     import { toastStore } from '../stores/toast.svelte';
@@ -123,7 +124,9 @@
     const ebirdRadius = $derived(
         settingsStore.settings?.ebird_default_radius_km ?? authStore.ebirdDefaultRadiusKm ?? 25
     );
-    const ebirdDaysBack = $derived(settingsStore.settings?.ebird_default_days_back ?? 14);
+    const ebirdDaysBack = $derived(
+        settingsStore.settings?.ebird_default_days_back ?? publicSettingsStore.settings?.ebird_default_days_back ?? 14
+    );
     const ebirdWeatherUnitSystem = $derived(
         resolveWeatherUnitSystem(
             settingsStore.settings?.location_weather_unit_system ?? authStore.locationWeatherUnitSystem,

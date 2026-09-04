@@ -158,6 +158,18 @@
         }
     }
 
+    async function deleteFromQueue(detection: Detection): Promise<void> {
+        try {
+            await deleteDetection(detection.frigate_event);
+            detectionsStore.removeDetection(detection.frigate_event, detection.detection_time);
+            void refreshNewSpecies();
+            await loadSummary(true);
+        } catch (e) {
+            toastStore.show(getErrorMessage(e), 'error');
+            throw e;
+        }
+    }
+
     async function blockFromQueue(detection: Detection): Promise<void> {
         try {
             const existing = settingsStore.settings?.blocked_species ?? [];
@@ -455,6 +467,7 @@
             showTagDropdown = false;
             await loadSummary(true);
         } catch (e) {
+            toastStore.show(getErrorMessage(e), 'error');
             console.error('Failed to update species', e);
         } finally {
             updatingTag = false;
@@ -471,6 +484,9 @@
             selectedEvent = null;
             await loadSummary(true);
         } catch (e) {
+            // The confirm promised this leaves history for good. Saying nothing when it
+            // fails leaves no way to tell that apart from it having worked.
+            toastStore.show(getErrorMessage(e), 'error');
             console.error('Failed to delete detection', e);
         } finally {
             deleting = false;
@@ -488,6 +504,7 @@
                 await loadSummary(true);
             }
         } catch (e) {
+            toastStore.show(getErrorMessage(e), 'error');
             console.error('Failed to hide detection', e);
         } finally {
             hiding = false;
@@ -508,6 +525,7 @@
             const result = await analyzeDetection(selectedEvent.frigate_event);
             aiAnalysis = result.analysis;
         } catch (e) {
+            toastStore.show(getErrorMessage(e), 'error');
             console.error('AI Analysis failed', e);
         } finally {
             analyzingAI = false;
@@ -604,6 +622,7 @@
         onidentify={identifyFromQueue}
         onhide={hideFromQueue}
         onblock={blockFromQueue}
+        ondelete={deleteFromQueue}
         onopen={(detection) => { reviewSessionOpen = false; selectedEvent = detection; }}
         onclose={() => (reviewSessionOpen = false)}
     />
