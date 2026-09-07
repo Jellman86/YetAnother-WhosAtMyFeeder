@@ -36,6 +36,14 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 - **Reported cache sizes undercount.** `get_cache_stats` counts `*.jpg` and `*.mp4` only, so the
   `.meta.json` sidecars beside every snapshot are not in the total. On the reference install that
   is 14,712 uncounted files.
+- **The owner's SSE token reaches nginx's error log.** The live stream authenticates with a query
+  parameter because `EventSource` cannot set headers, and nginx writes the full request line when
+  the upstream refuses a connection, which it does for a few seconds on every container start while
+  uvicorn boots. Three such lines appeared on the reference install on September 7, 2026, each
+  carrying a valid owner token. The access log already uses a redacting format; the error log does
+  not. The durable fix is a short-lived, single-use stream ticket exchanged for the session token so
+  what is logged is worthless a minute later. That touches the stream route and the client and is a
+  small design decision rather than a mechanical one.
 - **API process memory is being watched again.** #314 closed at about 340 MB resident after the
   `MALLOC_ARENA_MAX=2` fix. On the reference install the API process measured 1.49 GB resident
   fourteen hours after a start in subprocess mode, where it holds no model. The RSS sampler is

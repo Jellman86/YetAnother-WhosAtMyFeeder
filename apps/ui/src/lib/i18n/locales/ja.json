@@ -1509,6 +1509,7 @@
       "band_species_count": "{count}種",
       "band_verified": "検証済み",
       "band_unverified": "この環境では未検証",
+      "band_runtime_planned": "初回検出時に読み込み",
       "band_fallback_active": "フォールバック動作中",
       "band_worker_split": "ライブ{live}・バックグラウンド{background}",
       "band_ram_per_copy": "コピーあたり約{mb} MB",

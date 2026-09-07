@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Before the first visit of the day, the Detection tab names the runtime that will load.** Worker
+  pools start on the first classification, so between a restart and the first bird nothing has
+  loaded anywhere and the band fell back to the API process's idle default, "tflite, not yet
+  verified here". The status now resolves the provider the way a worker will, from the active model,
+  the host capabilities and the provider preference, reports it with a source of `planned`, and the
+  band says "loads on first detection" in place of a verified mark it cannot yet earn. Once a worker
+  loads, its own report takes over; if this process has loaded a fallback model, that wins, because
+  it is the one classifying.
+
 - **A model that takes longer than twenty seconds to load can now start in subprocess mode.** A
   worker says it is ready only after it has loaded and compiled its model, and the supervisor gave
   that handshake twenty seconds. The three-minute first-load window added for

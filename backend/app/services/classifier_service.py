@@ -3494,10 +3494,8 @@ class ClassifierService:
         backend, provider = self._inference_backend, self._active_inference_provider
         if self._image_execution_mode == "subprocess" and not self._worker_process_mode:
             # The parent records health for work its workers did; key it on
-            # what they loaded, not on this process's never-used defaults.
-            backend, provider = self._effective_subprocess_runtime_fields(
-                None, self._latest_worker_reported_runtime(self._get_supervisor_metrics())
-            )
+            # what they loaded, or will load, not on its never-used defaults.
+            backend, provider, _source = self._subprocess_runtime_identity(self._get_supervisor_metrics())
         return RuntimeKey.from_values(backend, provider, self._resolve_active_model_id())
 
     def _gpu_unhealthy_signal_outcome(self, source: str) -> Outcome:
@@ -4394,6 +4392,57 @@ class ClassifierService:
             return dict(runtime)
         return None
 
+    def _planned_subprocess_runtime(self) -> dict[str, Any] | None:
+        """What a worker will load, resolved the way the worker resolves it.
+
+        Pools start on the first classification, so between startup and the
+        first visit nothing has loaded anywhere. The parent still knows the
+        active model, the host capabilities and the provider preference, which
+        is everything the loader uses to choose a backend, so it can say what
+        is coming rather than print its own idle default.
+        """
+        try:
+            spec = self._resolve_active_bird_model_spec()
+        except Exception:  # noqa: BLE001 - a status read must never fail over a missing spec
+            return None
+        model_id = spec.get("model_id")
+        if str(spec.get("runtime") or "tflite") != "onnx":
+            return {"inference_backend": "tflite", "active_provider": "tflite", "model_id": model_id}
+        try:
+            selection = _resolve_inference_selection(
+                self._selected_inference_provider,
+                self._accel_caps_for_read(),
+                supported_providers=list(spec.get("supported_inference_providers") or []),
+                preferred_providers=list(spec.get("host_provider_preference_order") or []),
+            )
+        except Exception:  # noqa: BLE001
+            return None
+        return {
+            "inference_backend": str(selection.get("backend") or "unavailable"),
+            "active_provider": str(selection.get("active_provider") or "unavailable"),
+            "model_id": model_id,
+        }
+
+    def _subprocess_runtime_identity(self, supervisor_metrics: dict[str, Any] | None) -> tuple[str, str, str]:
+        """(backend, provider, source) for a parent that runs workers.
+
+        Source is ``in_process_fallback`` when this process has loaded its own
+        model to cover for the workers, ``worker`` when a worker has reported
+        what it loaded, ``planned`` when nothing has loaded yet, and
+        ``default`` when even the plan cannot be resolved.
+        """
+        if self.model_loaded:
+            return self._inference_backend, self._active_inference_provider, "in_process_fallback"
+        reported = self._latest_worker_reported_runtime(supervisor_metrics)
+        if reported is not None:
+            backend, provider = self._effective_subprocess_runtime_fields(None, reported)
+            return backend, provider, "worker"
+        planned = self._planned_subprocess_runtime()
+        if planned is not None:
+            backend, provider = self._effective_subprocess_runtime_fields(None, planned)
+            return backend, provider, "planned"
+        return self._inference_backend, self._active_inference_provider, "default"
+
     def _effective_subprocess_runtime_fields(
         self,
         runtime_recovery: dict[str, Any] | None,
@@ -4662,14 +4711,15 @@ class ClassifierService:
             if self._image_execution_mode == "subprocess"
             else None
         ) or self._inference_health.most_recent_recovery()
-        effective_backend, effective_provider = (
-            self._effective_subprocess_runtime_fields(
+        if self._image_execution_mode == "subprocess":
+            base_backend, base_provider, runtime_source = self._subprocess_runtime_identity(supervisor_metrics)
+            effective_backend, effective_provider = self._effective_subprocess_runtime_fields(
                 effective_runtime_recovery,
-                self._latest_worker_reported_runtime(supervisor_metrics),
+                {"inference_backend": base_backend, "active_provider": base_provider},
             )
-            if self._image_execution_mode == "subprocess"
-            else (self._inference_backend, self._active_inference_provider)
-        )
+        else:
+            effective_backend, effective_provider = self._inference_backend, self._active_inference_provider
+            runtime_source = "in_process"
         active_model_id = None
         effective_model_id = None
         try:
@@ -4723,6 +4773,10 @@ class ClassifierService:
             # Honest degradation: when the worker circuit opens, classification
             # continues in-process and this says so instead of hiding it.
             "worker_in_process_fallback": self.get_worker_fallback_status(),
+            # Where the provider and backend above come from: a worker's ready
+            # message, this process's own fallback model, the plan for a pool
+            # that has not started yet, or a bare default.
+            "runtime_source": runtime_source,
             # The worker count is derived from concurrency and provider now, so
             # Settings must be able to show what it resolved to and what each
             # worker costs — the price is stated, not implied (#312).
