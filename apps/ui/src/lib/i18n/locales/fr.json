@@ -1509,6 +1509,7 @@
       "band_species_count": "{count} espèces",
       "band_verified": "vérifié",
       "band_unverified": "pas encore vérifié ici",
+      "band_runtime_planned": "se charge à la première détection",
       "band_fallback_active": "solution de repli active",
       "band_worker_split": "{live} en direct · {background} en arrière-plan",
       "band_ram_per_copy": "~{mb} Mo par copie",

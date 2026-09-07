@@ -31,6 +31,10 @@
                 )
         )
     );
+    // Pools start on the first visit; until a worker has loaded, the runtime
+    // shown is the one that will load, so "verified" would be a claim about
+    // something that has not happened yet.
+    const runtimePlanned = $derived(classifierStatus?.runtime_source === 'planned');
     const liveWorkers = $derived(classifierStatus?.resolved_live_workers ?? 1);
     const backgroundWorkers = $derived(classifierStatus?.resolved_background_workers ?? 1);
     const ramPerCopy = $derived(classifierStatus?.active_model_estimated_ram_mb ?? null);
@@ -71,6 +75,8 @@
         <span class="text-sm font-bold text-slate-900 dark:text-white">{activeProviderLabel}</span>
         {#if classifierStatus?.fallback_reason}
             <span class="text-xs font-semibold text-amber-700 dark:text-amber-300">{$_('settings.detection.band_fallback_active')}</span>
+        {:else if runtimePlanned}
+            <span class="text-xs font-semibold text-slate-500 dark:text-slate-400">{$_('settings.detection.band_runtime_planned', { default: 'loads on first detection' })}</span>
         {:else if providerVerified}
             <span class="inline-flex items-center gap-1 text-xs font-semibold text-accent-700 dark:text-accent-300">
                 {$_('settings.detection.band_verified')}

@@ -17,6 +17,10 @@ export interface ClassifierStatus {
     openvino_gpu_probe_error?: string | null;
     resolved_live_workers?: number;
     resolved_background_workers?: number;
+    /** Where active_provider and inference_backend come from in subprocess mode:
+     *  a worker's ready message, this process's own fallback model, the plan
+     *  for a pool that has not started yet, or a bare default. */
+    runtime_source?: 'worker' | 'planned' | 'in_process' | 'in_process_fallback' | 'default' | null;
     worker_in_process_fallback?: {
         active: boolean;
         reason: string | null;

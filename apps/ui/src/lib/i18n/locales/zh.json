@@ -1509,6 +1509,7 @@
       "band_species_count": "{count} 个物种",
       "band_verified": "已验证",
       "band_unverified": "尚未在此验证",
+      "band_runtime_planned": "首次检测时加载",
       "band_fallback_active": "正在使用备用方案",
       "band_worker_split": "{live} 个实时 · {background} 个后台",
       "band_ram_per_copy": "每份约 {mb} MB",

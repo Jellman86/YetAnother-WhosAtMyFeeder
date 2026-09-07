@@ -1518,6 +1518,7 @@
       "band_species_count": "{count} видов",
       "band_verified": "проверено",
       "band_unverified": "здесь ещё не проверено",
+      "band_runtime_planned": "загрузится при первом обнаружении",
       "band_fallback_active": "работает запасной вариант",
       "band_worker_split": "{live} онлайн · {background} в фоне",
       "band_ram_per_copy": "~{mb} МБ на копию",

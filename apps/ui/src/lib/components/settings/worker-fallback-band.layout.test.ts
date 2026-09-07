@@ -20,3 +20,24 @@ describe('the status band states the in-process fallback in words', () => {
         expect(fallbackBlock).toContain('text-amber-700');
     });
 });
+
+describe('the status band does not claim a runtime that has not loaded yet', () => {
+    // Workers load on the first visit. Before that, the runtime cell shows the
+    // plan, and "verified" would be a claim about something that has not
+    // happened; the band says the model loads on first detection instead.
+
+    it('the API type carries where the runtime figure comes from', () => {
+        expect(classifierApiSource).toContain('runtime_source?:');
+        expect(classifierApiSource).toContain("'planned'");
+    });
+
+    it('a planned runtime is labelled as such, ahead of the verified mark', () => {
+        expect(bandSource).toContain("runtime_source === 'planned'");
+        const runtimeCell = bandSource.slice(bandSource.indexOf("band_runtime')"));
+        const plannedAt = runtimeCell.indexOf('runtimePlanned}');
+        const verifiedAt = runtimeCell.indexOf('providerVerified}');
+        expect(plannedAt).toBeGreaterThan(-1);
+        expect(plannedAt).toBeLessThan(verifiedAt);
+        expect(bandSource).toContain("settings.detection.band_runtime_planned'");
+    });
+});

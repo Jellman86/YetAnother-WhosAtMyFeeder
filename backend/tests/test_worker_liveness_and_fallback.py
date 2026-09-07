@@ -435,3 +435,101 @@ def test_a_recovery_after_load_still_overrides_the_ready_report():
     recovery = {"recovered_backend": "openvino", "recovered_provider": "intel_cpu"}
 
     assert service._effective_subprocess_runtime_fields(recovery, worker_runtime) == ("openvino", "intel_cpu")
+
+
+def _subprocess_service(monkeypatch, *, planned_backend="openvino", planned_provider="intel_npu"):
+    from app.services import classifier_service as module
+    from app.services.classifier_service import ClassifierService
+
+    service = ClassifierService()
+    service._image_execution_mode = "subprocess"
+    service._resolve_active_model_id = lambda: "rope_vit_b14_inat21"
+    service._resolve_active_bird_model_spec = lambda: {
+        "model_id": "rope_vit_b14_inat21",
+        "runtime": "onnx",
+        "supported_inference_providers": ["cpu", "intel_cpu", "intel_npu"],
+        "host_provider_preference_order": ["intel_npu", "cpu"],
+    }
+    monkeypatch.setattr(
+        module,
+        "_resolve_inference_selection",
+        lambda *_a, **_k: {"backend": planned_backend, "active_provider": planned_provider, "fallback_reason": None},
+    )
+    return service
+
+
+def test_before_any_worker_has_loaded_status_names_the_planned_runtime(monkeypatch):
+    """Pools start on the first visit. Until then the parent must say what a
+    worker will load, resolved the way the worker resolves it, not "tflite"."""
+    service = _subprocess_service(monkeypatch)
+    empty_pools = {"live": {"workers": 0, "runtime": None}, "background": {"workers": 0, "runtime": None}}
+
+    assert service._subprocess_runtime_identity(empty_pools) == ("openvino", "intel_npu", "planned")
+
+
+def test_a_workers_report_outranks_the_plan(monkeypatch):
+    service = _subprocess_service(monkeypatch, planned_provider="intel_npu")
+    pools = {
+        "live": {
+            "workers": 1,
+            "runtime": {
+                "inference_backend": "openvino",
+                "active_provider": "intel_cpu",
+                "model_id": "rope_vit_b14_inat21",
+            },
+        }
+    }
+
+    assert service._subprocess_runtime_identity(pools) == ("openvino", "intel_cpu", "worker")
+
+
+def test_the_parents_own_fallback_model_outranks_everything(monkeypatch):
+    """When this process has loaded a model to cover for the workers, it is the
+    one classifying, so status and health must name what it loaded."""
+    service = _subprocess_service(monkeypatch)
+
+    class _LoadedModel:
+        loaded = True
+
+    service._models["bird"] = _LoadedModel()
+    service._inference_backend = "onnxruntime"
+    service._active_inference_provider = "cpu"
+    pools = {
+        "live": {
+            "workers": 1,
+            "runtime": {
+                "inference_backend": "openvino",
+                "active_provider": "intel_npu",
+                "model_id": "rope_vit_b14_inat21",
+            },
+        }
+    }
+
+    assert service._subprocess_runtime_identity(pools) == ("onnxruntime", "cpu", "in_process_fallback")
+
+
+def test_a_tflite_model_is_planned_as_tflite(monkeypatch):
+    service = _subprocess_service(monkeypatch)
+    service._resolve_active_bird_model_spec = lambda: {"model_id": "legacy", "runtime": "tflite"}
+
+    assert service._subprocess_runtime_identity({}) == ("tflite", "tflite", "planned")
+
+
+def test_an_unresolvable_plan_falls_back_to_the_bare_default(monkeypatch):
+    service = _subprocess_service(monkeypatch)
+
+    def _no_spec():
+        raise RuntimeError("model manager not ready")
+
+    service._resolve_active_bird_model_spec = _no_spec
+
+    assert service._subprocess_runtime_identity({}) == ("tflite", "tflite", "default")
+
+
+def test_health_keys_use_the_planned_runtime_before_first_load(monkeypatch):
+    service = _subprocess_service(monkeypatch)
+    service._get_supervisor_metrics = lambda: {"live": {"workers": 0, "runtime": None}}
+
+    key = service._active_inference_runtime_key()
+
+    assert (key.backend, key.provider) == ("openvino", "intel_npu")
