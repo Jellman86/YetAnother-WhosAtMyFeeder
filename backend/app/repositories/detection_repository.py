@@ -4924,19 +4924,8 @@ class DetectionRepository:
             "sources": sources,
         }
 
-    async def backfill_audio_species_ids(self, *, resolver: Any = None, batch_size: int = 500) -> dict[str, int]:
-        """Give existing audio detections the identity new ones will carry.
-
-        Required rather than optional: grouping audio by identity while older
-        rows have none would split a species at the upgrade boundary, which is
-        the exact failure this phase removes.
-
-        Conservative and idempotent. Only rows with no identity are considered,
-        a name is resolved once rather than per row, and anything the catalogue
-        cannot pin to exactly one species is counted and left alone.
-        """
-        from app.services.audio_identity import resolve_audio_identity
-
+    async def pending_audio_scientific_names(self) -> list[tuple[str, int]]:
+        """Distinct names on audio rows that carry no identity yet, with row counts."""
         async with self.db.execute(
             """
             SELECT scientific_name, COUNT(*) FROM audio_detections
@@ -4944,12 +4933,17 @@ class DetectionRepository:
             GROUP BY scientific_name
             """
         ) as cursor:
-            pending = await cursor.fetchall()
+            rows = await cursor.fetchall()
+        return [(str(name), int(count or 0)) for name, count in rows]
 
+    async def assign_audio_species_ids(
+        self, pending: list[tuple[str, int]], identities: dict[str, Optional[int]]
+    ) -> dict[str, int]:
+        """Write resolved identities onto audio rows; names with no identity are counted and left."""
         identified = 0
         unresolved = 0
         for scientific_name, row_count in pending:
-            species_id = resolve_audio_identity(scientific_name, resolver=resolver)
+            species_id = identities.get(scientific_name)
             if species_id is None:
                 unresolved += int(row_count or 0)
                 continue
@@ -4965,6 +4959,25 @@ class DetectionRepository:
         if identified:
             await self.db.commit()
         return {"identified": identified, "unresolved": unresolved, "names_seen": len(pending)}
+
+    async def backfill_audio_species_ids(self, *, resolver: Any = None, batch_size: int = 500) -> dict[str, int]:
+        """Give existing audio detections the identity new ones will carry.
+
+        Required rather than optional: grouping audio by identity while older
+        rows have none would split a species at the upgrade boundary, which is
+        the exact failure this phase removes.
+
+        Conservative and idempotent. Only rows with no identity are considered,
+        a name is resolved once rather than per row, and anything the catalogue
+        cannot pin to exactly one species is counted and left alone. Resolves
+        on the caller's connection; the startup backfill resolves first and
+        calls :meth:`assign_audio_species_ids` so the pool is not held meanwhile.
+        """
+        from app.services.audio_identity import resolve_audio_identity
+
+        pending = await self.pending_audio_scientific_names()
+        identities = {name: resolve_audio_identity(name, resolver=resolver) for name, _count in pending}
+        return await self.assign_audio_species_ids(pending, identities)
 
     async def get_audio_species_counts(
         self,

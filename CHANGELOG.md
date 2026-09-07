@@ -8,6 +8,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The startup identity backfill no longer holds a database connection while it consults the
+  catalogue.** On every container start it took one of the five pooled connections and kept it for
+  the whole pass, resolving each distinct scientific name through the species catalogue, which is a
+  different database, before writing anything. On the reference install that was a 1.2 second hold
+  and a "Slow DB connection hold" warning on every boot; on an older install with hundreds of names
+  it would have sat in front of the dashboard's first load after each restart. The pass now reads
+  the names, gives the connection back, resolves them all, and takes a connection again only to
+  write. An unavailable catalogue now writes nothing rather than half a pass.
+
 - **Before the first visit of the day, the Detection tab names the runtime that will load.** Worker
   pools start on the first classification, so between a restart and the first bird nothing has
   loaded anywhere and the band fell back to the API process's idle default, "tflite, not yet

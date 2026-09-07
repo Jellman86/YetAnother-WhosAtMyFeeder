@@ -301,3 +301,106 @@ async def test_a_missing_catalogue_reports_and_changes_nothing(tmp_path):
         results = await _species_ids(db)
         assert results["evt-tit"][0] is None
         assert summary["status"] == "unavailable"
+
+
+# ---------------------------------------------------------------------------
+# The startup task holds a pooled connection only to read and to write
+# ---------------------------------------------------------------------------
+
+
+class _RecordingResolver:
+    """Answers like an empty catalogue and notes whether a pooled connection
+    was held by the calling task at the moment it was consulted."""
+
+    def __init__(self, reason: str = "unresolved"):
+        self.reason = reason
+        self.held_labels: list = []
+
+    def resolve_scientific_name(self, _name):
+        from app.database import _acquire_label
+
+        self.held_labels.append(_acquire_label.get())
+        return None, self.reason
+
+
+async def _seed_pool_detection(event_id: str, scientific_name: str) -> None:
+    from datetime import datetime, timezone
+
+    from app.database import get_db
+
+    async with get_db() as db:
+        await db.execute(
+            """INSERT INTO detections (detection_time, detection_index, score, display_name, category_name,
+                                       frigate_event, camera_name, scientific_name, is_hidden)
+               VALUES (?, 1, 0.9, ?, 'bird', ?, 'garden', ?, 0)""",
+            (datetime.now(timezone.utc).isoformat(sep=" "), scientific_name, event_id, scientific_name),
+        )
+        await db.commit()
+
+
+async def _delete_pool_detection(event_id: str) -> None:
+    from app.database import get_db
+
+    async with get_db() as db:
+        await db.execute("DELETE FROM detections WHERE frigate_event = ?", (event_id,))
+        await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_the_startup_backfill_never_consults_the_catalogue_under_a_held_connection():
+    from app.database import init_db
+    from app.services.species_catalog_backfill import backfill_catalog_identity_in_short_holds
+
+    await init_db()
+    resolver = _RecordingResolver()
+    await _seed_pool_detection("evt-short-hold", "Nonexistus shorthold")
+    try:
+        summary = await backfill_catalog_identity_in_short_holds(resolver=resolver)
+    finally:
+        await _delete_pool_detection("evt-short-hold")
+
+    assert summary["status"] == "complete"
+    assert summary["names_unresolved"] >= 1
+    assert resolver.held_labels, "the catalogue was never consulted"
+    assert all(label is None for label in resolver.held_labels), (
+        f"the catalogue was consulted while a pooled connection was held: {resolver.held_labels}"
+    )
+
+
+@pytest.mark.asyncio
+async def test_the_startup_backfill_writes_nothing_when_the_catalogue_is_unavailable():
+    from app.database import get_db, init_db
+    from app.services.species_catalog_backfill import backfill_catalog_identity_in_short_holds
+
+    await init_db()
+    await _seed_pool_detection("evt-unavailable", "Cyanistes caeruleus")
+    try:
+        summary = await backfill_catalog_identity_in_short_holds(resolver=_RecordingResolver("unavailable"))
+        async with get_db() as db:
+            async with db.execute(
+                "SELECT species_id FROM detections WHERE frigate_event = ?", ("evt-unavailable",)
+            ) as cursor:
+                row = await cursor.fetchone()
+    finally:
+        await _delete_pool_detection("evt-unavailable")
+
+    assert summary["status"] == "unavailable"
+    assert row is not None and row[0] is None
+
+
+@pytest.mark.asyncio
+async def test_the_held_connection_variant_still_resolves_and_writes_in_one_pass(catalog):
+    """The signature callers already use keeps its behaviour; only the startup
+    task changed how it holds the pool."""
+    resolver = SpeciesCatalogResolver(catalog)
+    async with aiosqlite.connect(":memory:") as db:
+        await _seed_detections(
+            db, [("evt-tit", "Cyanistes caeruleus", None), ("evt-unknown", "Nonexistus maximus", None)]
+        )
+
+        summary = await backfill_catalog_identity(db, resolver=resolver)
+
+        results = await _species_ids(db)
+        assert results["evt-tit"][0] is not None
+        assert results["evt-unknown"][0] is None
+        assert (summary["names_resolved"], summary["names_unresolved"]) == (1, 1)
