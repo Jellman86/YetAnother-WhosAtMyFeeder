@@ -437,6 +437,25 @@ day-bucket timeline strip with keyboard nav. Remaining:
 - Fuller grouped-browsing timeline UI + advanced keyboard UX.
 - Highlight scoring (confidence, rarity, activity) and clip stitching/preview thumbnails.
 
+#### One flow for choosing the frame and the identification 🖼️
+**Priority:** P2 | **Effort:** M | **Status:** ☐ Needs a design decision
+
+Tracked in [#256](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/256). A person
+choosing the most representative photograph of a visit does not care whether it came from Frigate's
+preview or from footage extraction, and does not expect the identification shown beside a candidate
+frame to be advisory. Today frame choice and reclassification are two surfaces with two vocabularies,
+and the split by source is the app showing its own plumbing. The bug halves of the report have
+shipped: the delete control names its effect, and species information is stated once.
+
+Remaining: one flow in which the owner picks the frame and confirms or corrects the identification
+together, with the source of each frame demoted to a detail, and the technical identifiers behind
+progressive disclosure as they are elsewhere. This is a layout-standard decision before it is code;
+the page shape must be recorded in `docs/standards/layout-patterns.md` first.
+
+**Acceptance:** a first-time owner can choose the frame and settle the species from one place without
+reading the docs; no control on that surface names a subsystem; the existing tests for frame
+replacement and reclassification still pass unchanged.
+
 #### Durable media archive and retention floors 📚
 **Priority:** P2 | **Effort:** M | **Status:** ☐ Proposed
 ([#178](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/178))
