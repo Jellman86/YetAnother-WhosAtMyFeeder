@@ -24,6 +24,10 @@ SNAPSHOTS_DIR = CACHE_BASE_DIR / "snapshots"
 CLIPS_DIR = CACHE_BASE_DIR / "clips"
 PREVIEWS_DIR = CACHE_BASE_DIR / "previews"
 
+# A cache walk that takes longer than this is worth a log line, because on a
+# slow filesystem it is the difference between a stat per file and a stall.
+SLOW_CACHE_WALK_WARN_MS = float(os.getenv("MEDIA_CACHE_SLOW_WALK_WARN_MS", "1000"))
+
 # Frigate returns a ~78-byte stub body for clips whose recordings were not
 # retained (expired or never saved).  Any cached file smaller than this
 # threshold is treated as a corrupt placeholder and is rejected at every
@@ -1207,6 +1211,26 @@ class MediaCacheService:
             "oldest_file": oldest_file.isoformat() if oldest_file else None,
             "newest_file": newest_file.isoformat() if newest_file else None,
         }
+
+    async def get_cache_stats_off_loop(self) -> dict:
+        """Walk the cache on a worker thread so the event loop keeps serving.
+
+        The walk stats every cached file. On a local disk that is milliseconds;
+        on a FUSE or network mount with tens of thousands of files it can be
+        tens of seconds, and it runs once a minute from the owner system checks.
+        Run inline, that stalled every other request for the duration.
+        """
+        started = time.perf_counter()
+        stats = await asyncio.to_thread(self.get_cache_stats)
+        duration_ms = (time.perf_counter() - started) * 1000.0
+        if duration_ms >= SLOW_CACHE_WALK_WARN_MS:
+            log.warning(
+                "Slow media cache walk",
+                duration_ms=round(duration_ms, 1),
+                files=stats["snapshot_count"] + stats["clip_count"] + stats["preview_count"],
+                cache_dir=str(CACHE_BASE_DIR),
+            )
+        return stats
 
     def get_status(self) -> dict:
         """Return cache availability and path diagnostics for startup logging."""

@@ -2796,7 +2796,7 @@ async def get_analysis_status(response: Response, auth: AuthContext = Depends(re
 @router.get("/cache/stats", response_model=CacheStatsResponse)
 async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
     """Get media cache statistics. Owner only."""
-    stats = media_cache.get_cache_stats()
+    stats = await media_cache.get_cache_stats_off_loop()
 
     # Add retention info
     retention = settings.media_cache.retention_days
