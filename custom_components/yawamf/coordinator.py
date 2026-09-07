@@ -10,7 +10,10 @@ from typing import Any
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
 
 
 class YAWAMFDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -63,8 +66,13 @@ class YAWAMFDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return True
         return datetime.now(timezone.utc) < (self._access_token_expires_at - timedelta(minutes=5))
 
-    async def _ensure_logged_in(self) -> None:
-        """Best-effort login if username/password provided."""
+    async def async_ensure_logged_in(self) -> None:
+        """Log in with the stored username and password when the token is missing or near expiry.
+
+        The sidebar proxy calls this before each upstream request, so a token
+        that expires between polls is refreshed on demand rather than waiting
+        for the next poll.
+        """
         if not self.username or not self.password:
             return
         if self._token_valid():
@@ -78,10 +86,10 @@ class YAWAMFDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 async with self.session.post(
                     f"{self.url}/api/auth/login",
                     json={"username": self.username, "password": self.password},
-                    timeout=aiohttp.ClientTimeout(total=10),
+                    timeout=REQUEST_TIMEOUT,
                 ) as resp:
                     if resp.status in (401, 403):
-                        raise UpdateFailed("Invalid YA-WAMF credentials")
+                        raise ConfigEntryAuthFailed("YA-WAMF rejected the stored username and password")
                     resp.raise_for_status()
                     data = await resp.json()
 
@@ -95,7 +103,7 @@ class YAWAMFDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self._access_token_expires_at = datetime.now(timezone.utc) + timedelta(hours=expires_in_hours)
                 else:
                     self._access_token_expires_at = None
-            except UpdateFailed:
+            except (UpdateFailed, ConfigEntryAuthFailed):
                 raise
             except Exception as err:
                 raise UpdateFailed(f"Error logging in to YA-WAMF: {err}") from err
@@ -103,20 +111,20 @@ class YAWAMFDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API."""
         try:
-            await self._ensure_logged_in()
+            await self.async_ensure_logged_in()
             headers = self._headers()
 
             async with self.session.get(
                 f"{self.url}/api/stats/daily-summary",
                 headers=headers,
-                timeout=aiohttp.ClientTimeout(total=10),
+                timeout=REQUEST_TIMEOUT,
             ) as resp:
                 if resp.status in (401, 403):
-                    # Clear cached token so we can re-login next cycle.
+                    # Forget the token so a reauth with new credentials starts clean.
                     self._access_token = None
                     self._access_token_expires_at = None
-                    raise UpdateFailed(
-                        "Authentication required for YA-WAMF API (check HA integration credentials/public access)"
+                    raise ConfigEntryAuthFailed(
+                        "YA-WAMF requires authentication: provide credentials or enable public access"
                     )
                 resp.raise_for_status()
                 summary_data = await resp.json()
@@ -134,5 +142,7 @@ class YAWAMFDataUpdateCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 "count_24h": count_24h if isinstance(count_24h, int) else 0,
                 "top_species": top_species if isinstance(top_species, list) else [],
             }
+        except ConfigEntryAuthFailed:
+            raise
         except Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err

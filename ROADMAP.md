@@ -501,6 +501,47 @@ Ollama is unavailable.
 CSV export (eBird format) is shipped. Add a first-class, safe full-database backup and restore
 flow so users can snapshot and recover their detection history and config.
 
+#### Home Assistant integration: survive a reload 🔁
+**Priority:** P1 | **Effort:** S | **Status:** ✅ Shipped in `dev`; move to Delivered at the next release
+
+A review of `custom_components/yawamf` on 2026-09-07 (verified against Home Assistant core `dev`)
+found that the sidebar proxy does not survive an integration reload, which is what every options
+change triggers:
+
+- `async_unregister_ingress_panel` awaits `frontend.async_remove_panel`, but that is a synchronous
+  `@callback` returning `None`. The `await` raises `TypeError`, the bare `except` swallows it at
+  debug level, and the panel is never removed. The next setup then logs "Overwriting panel yawamf"
+  as an exception and the panel keeps the **old** ingress token URL.
+- `async_register_ingress` calls `hass.http.register_view` on every setup. Views cannot be
+  unregistered and aiohttp answers with the first-registered route, so after a reload the old
+  `YAWAMFIngressView` (old token, old URL, old credentials) keeps serving until Home Assistant
+  restarts. Changing the URL or credentials in the options flow silently does nothing for the
+  sidebar. Worse, the old view holds the unloaded coordinator, which has stopped polling and so
+  stops refreshing its login token; the sidebar keeps working only until that token expires, then
+  answers with 401s until Home Assistant restarts.
+- `YAWAMFIngressAssetView` registers unauthenticated views at Home Assistant's root
+  (`/favicon.ico`, `/manifest.json`, …). The files are public on YA-WAMF anyway, so nothing secret
+  leaks; the cost is that the integration squats root paths on the Home Assistant origin, and
+  `/manifest.json` is already owned by HA's frontend so that one is dead. The SPA resolves assets
+  through `window.__YAWAMF_APP_BASE_PATH`, so they are not needed.
+
+Smaller gaps found in the same pass: the Last Bird sensor skips the state write when the event id
+is unchanged, so it never becomes `unavailable` when the coordinator fails; the camera entity
+re-downloads and re-scales the full snapshot on every image request with no per-event cache and no
+timeout; the config flow validates with no request timeout; a 401/403 raises `UpdateFailed` instead
+of `ConfigEntryAuthFailed` (no reauth flow); `manifest.json` lacks `dependencies: ["http",
+"frontend"]` and an `integration_type`; and `docs/integrations/home-assistant.md` still describes
+the count sensor as "since midnight" when it is a rolling 24-hour window.
+
+**Acceptance (met):** the ingress view is registered once per HA run and reads the live coordinator
+and token from `hass.data`; the panel is removed with a plain call and re-registered with
+`update=True`; an options change to URL or credentials takes effect in the sidebar without
+restarting HA and logs no exception; the root asset views are gone; the proxy refreshes the login
+before forwarding; the sensor writes state on availability changes; the camera caches per
+`frigate_event` and times out; the config flow times out; auth failures start reauth; the manifest
+declares its dependencies; the doc matches the sensor; and
+`backend/tests/test_home_assistant_sensor.py` covers the reload path, reauth, and the camera cache.
+
 #### Home Assistant OS add-on 🏠
 **Priority:** P3 | **Effort:** M | **Status:** ☐ Proposed ([#49](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/49))
 

@@ -22,11 +22,12 @@ from .const import (
     DEFAULT_ENABLE_INGRESS,
 )
 from .coordinator import YAWAMFDataUpdateCoordinator
-from .ingress import async_register_ingress, async_unregister_ingress_panel
+from .ingress import async_register_ingress, async_unregister_ingress
 
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.CAMERA]
+_INGRESS_ENTRIES_KEY = "_ingress_entries"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -57,12 +58,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await coordinator.async_config_entry_first_refresh()
 
-    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coordinator
-    hass.data[DOMAIN].setdefault("_ingress_entries", set())
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    domain_data[entry.entry_id] = coordinator
+    ingress_entries: set[str] = domain_data.setdefault(_INGRESS_ENTRIES_KEY, set())
 
     if enable_ingress:
         await async_register_ingress(hass, coordinator)
-        hass.data[DOMAIN]["_ingress_entries"].add(entry.entry_id)
+        ingress_entries.add(entry.entry_id)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -74,12 +76,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        ingress_entries = hass.data.get(DOMAIN, {}).get("_ingress_entries", set())
+        domain_data = hass.data.get(DOMAIN, {})
+        ingress_entries: set[str] = domain_data.get(_INGRESS_ENTRIES_KEY, set())
+        domain_data.pop(entry.entry_id, None)
         if entry.entry_id in ingress_entries:
             ingress_entries.discard(entry.entry_id)
-            if not ingress_entries:
-                await async_unregister_ingress_panel(hass)
-        hass.data[DOMAIN].pop(entry.entry_id)
+            survivor = next((domain_data[other] for other in ingress_entries if other in domain_data), None)
+            if survivor is not None:
+                # Another entry still wants the sidebar; point the proxy at it.
+                await async_register_ingress(hass, survivor)
+            else:
+                async_unregister_ingress(hass)
 
     return unload_ok
 

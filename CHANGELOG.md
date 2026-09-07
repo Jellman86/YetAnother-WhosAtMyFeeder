@@ -8,6 +8,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The Home Assistant sidebar survives a settings change.** Every change to the integration's
+  options reloads it, and the reload left the sidebar pointing at the old YA-WAMF address with the
+  old credentials: the panel could not be removed because the removal was awaited when Home
+  Assistant expects a plain call, the proxy view could not be replaced because views cannot be
+  unregistered, and the stale proxy kept using a login token that nothing was refreshing any more,
+  so the sidebar worked for a while and then answered with sign-in errors until Home Assistant was
+  restarted. The view is now registered once per run and reads the live connection on every
+  request, the panel is replaced rather than re-added, the proxy refreshes its login before
+  forwarding, and the seven unauthenticated root paths the integration used to claim on the Home
+  Assistant origin are gone. In the same pass: a rejected credential now opens Home Assistant's
+  reconfigure prompt instead of failing silently every poll; the Last Bird sensor goes unavailable
+  when YA-WAMF cannot be reached instead of holding its last value; the snapshot camera keeps one
+  frame per detection instead of downloading and scaling the same image on every dashboard refresh;
+  every request the integration makes carries a timeout; and the manifest declares the frontend and
+  http dependencies it always relied on. The integration version is 1.1.0.
+
 - **Counting the media cache no longer stalls every other request
   ([#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)).** The cache
   statistics behind Settings, and behind the owner system checks that run once a minute on every
