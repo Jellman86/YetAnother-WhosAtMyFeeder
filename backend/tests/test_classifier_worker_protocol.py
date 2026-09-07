@@ -207,3 +207,18 @@ def test_oversized_request_fails_cleanly_instead_of_poisoning_the_pipe():
     huge = {"type": "classify", "image_b64": "x" * (WORKER_PROTOCOL_STREAM_LIMIT_BYTES + 1)}
     with pytest.raises(ValueError, match="exceeds the protocol stream limit"):
         encode_protocol_message(huge)
+
+
+def test_ready_event_carries_the_runtime_the_worker_loaded():
+    from app.services.classifier_worker_protocol import decode_protocol_message, encode_protocol_message
+
+    runtime = {"inference_backend": "openvino", "active_provider": "intel_npu", "model_id": "rope_vit_b14_inat21"}
+    decoded = decode_protocol_message(encode_protocol_message(build_ready_event(worker_generation=3, runtime=runtime)))
+
+    assert decoded["type"] == "ready"
+    assert decoded["runtime"] == runtime
+
+
+def test_ready_event_without_a_runtime_stays_as_it_was():
+    assert "runtime" not in build_ready_event(worker_generation=1)
+    assert "runtime" not in build_ready_event(worker_generation=1, runtime={})

@@ -394,3 +394,49 @@ async def test_classifier_worker_client_real_worker_accepts_large_classify_reque
     assert event["results"][0]["label"] == "WorkerTest"
 
     await client.terminate()
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_client_records_the_runtime_from_the_ready_message():
+    process = _FakeProcess()
+
+    async def _factory(**_kwargs):
+        return process
+
+    client = ClassifierWorkerClient(
+        worker_name="live-0",
+        worker_generation=1,
+        heartbeat_timeout_seconds=5.0,
+        process_factory=_factory,
+    )
+    await client.start()
+    runtime = {"inference_backend": "openvino", "active_provider": "intel_npu", "model_id": "rope_vit_b14_inat21"}
+    process.feed(build_ready_event(worker_generation=1, runtime=runtime))
+
+    await asyncio.wait_for(client.wait_until_ready(), timeout=0.2)
+
+    assert client.get_status()["runtime"] == runtime
+    process.finish()
+    await client.wait_closed()
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_client_reports_no_runtime_for_a_bare_ready_message():
+    process = _FakeProcess()
+
+    async def _factory(**_kwargs):
+        return process
+
+    client = ClassifierWorkerClient(
+        worker_name="live-0",
+        worker_generation=1,
+        heartbeat_timeout_seconds=5.0,
+        process_factory=_factory,
+    )
+    await client.start()
+    process.feed(build_ready_event(worker_generation=1))
+    await asyncio.wait_for(client.wait_until_ready(), timeout=0.2)
+
+    assert client.get_status()["runtime"] is None
+    process.finish()
+    await client.wait_closed()

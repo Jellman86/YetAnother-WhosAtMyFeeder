@@ -83,6 +83,7 @@ class ClassifierWorkerClient:
         self._exit_code: int | None = None
         self._stderr_tail = bytearray()
         self._stderr_truncated_bytes = 0
+        self._runtime: dict[str, Any] | None = None
 
     async def start(self) -> None:
         if self._process is not None:
@@ -160,6 +161,7 @@ class ClassifierWorkerClient:
             "exit_code": self._exit_code,
             "recent_stderr_excerpt": self._stderr_excerpt(),
             "stderr_truncated_bytes": self._stderr_truncated_bytes,
+            "runtime": dict(self._runtime) if self._runtime else None,
         }
 
     async def _reader_loop(self) -> None:
@@ -178,6 +180,9 @@ class ClassifierWorkerClient:
                 self._last_activity_monotonic = time.monotonic()
                 message_type = message["type"]
                 if message_type == "ready":
+                    runtime = message.get("runtime")
+                    if isinstance(runtime, dict) and runtime:
+                        self._runtime = dict(runtime)
                     self._ready.set()
                 elif message_type == "heartbeat":
                     self._last_heartbeat_monotonic = time.monotonic()
