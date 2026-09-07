@@ -8,6 +8,27 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A model that takes longer than twenty seconds to load can now start in subprocess mode.** A
+  worker says it is ready only after it has loaded and compiled its model, and the supervisor gave
+  that handshake twenty seconds. The three-minute first-load window added for
+  [#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300) only covered heartbeats
+  after the handshake, so a large model compiling for the NPU was killed at the twenty-second mark,
+  respawned, killed again, and the pool never started; the reference install dropped detections as
+  "worker unavailable" with no worker process left in the container. The handshake now gets the same
+  first-load window.
+- **Detections are classified in-process when the workers cannot start, not only when they keep
+  dying.** The in-process fallback engaged when the worker circuit opened, but a pool that never
+  became ready, or one with no worker left, dropped the detection instead. Both now fall back the
+  same way and the Detection tab says why. A worker dying mid-request while others remain still does
+  not fall back, because the supervisor is already replacing it.
+- **The Detection tab names the runtime the workers actually loaded.** In subprocess mode the API
+  process never loads a model, so its provider and backend stayed at the literal default "tflite",
+  the band printed that as the runtime, marked it "not yet verified here" because no host check can
+  verify a runtime that does not exist, and inference health was keyed on it too. A worker now
+  reports what it loaded in its ready message, the supervisor records it per pool, and status and
+  health use it. A report for a model that is no longer active is ignored, so the band does not name
+  the previous model's runtime after a switch.
+
 - **The Home Assistant sidebar survives a settings change.** Every change to the integration's
   options reloads it, and the reload left the sidebar pointing at the old YA-WAMF address with the
   old credentials: the panel could not be removed because the removal was awaited when Home

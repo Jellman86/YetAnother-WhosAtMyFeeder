@@ -50,12 +50,14 @@ class ClassifierWorkerProcess:
         heartbeat_interval_seconds: float = 1.0,
         progress_emit_timeout_seconds: float = 1.0,
         runtime_recovery_getter: Callable[[], dict[str, Any] | None] | None = None,
+        runtime_identity_getter: Callable[[], dict[str, Any] | None] | None = None,
     ) -> None:
         self.reader = reader
         self.writer = writer
         self.classify_fn = classify_fn
         self.classify_video_fn = classify_video_fn
         self.worker_generation = int(worker_generation)
+        self.runtime_identity_getter = runtime_identity_getter
         self.heartbeat_interval_seconds = max(0.01, float(heartbeat_interval_seconds))
         # How long a progress emit may block before the classification thread gives
         # up waiting for it. Progress delivery is best-effort, so a slow parent must
@@ -71,10 +73,21 @@ class ClassifierWorkerProcess:
     def encode_message(message: dict[str, Any]) -> bytes:
         return encode_protocol_message(message)
 
+    def _runtime_identity(self) -> dict[str, Any] | None:
+        if self.runtime_identity_getter is None:
+            return None
+        try:
+            identity = self.runtime_identity_getter()
+        except Exception:  # noqa: BLE001 - a missing identity must not stop the worker reporting ready
+            return None
+        return dict(identity) if isinstance(identity, dict) else None
+
     async def run(self) -> None:
         heartbeat_task = asyncio.create_task(self._heartbeat_loop())
         try:
-            await self._emit(build_ready_event(worker_generation=self.worker_generation))
+            await self._emit(
+                build_ready_event(worker_generation=self.worker_generation, runtime=self._runtime_identity())
+            )
             while not self._closed:
                 raw = await self.reader.readline()
                 if not raw:
@@ -358,6 +371,7 @@ async def run_worker_main(
     heartbeat_interval_seconds: float = 1.0,
     writer: Any | None = None,
     runtime_recovery_getter: Callable[[], dict[str, Any] | None] | None = None,
+    runtime_identity_getter: Callable[[], dict[str, Any] | None] | None = None,
 ) -> None:
     loop = asyncio.get_running_loop()
     reader = asyncio.StreamReader(limit=WORKER_PROTOCOL_STREAM_LIMIT_BYTES)
@@ -374,6 +388,7 @@ async def run_worker_main(
         worker_generation=worker_generation,
         heartbeat_interval_seconds=heartbeat_interval_seconds,
         runtime_recovery_getter=runtime_recovery_getter,
+        runtime_identity_getter=runtime_identity_getter,
     )
     await worker.run()
 
@@ -401,6 +416,7 @@ def _build_default_classify_fn() -> Callable[..., list[dict[str, Any]]]:
         return service.classify(image, camera_name=camera_name, model_id=model_id, input_context=input_context)
 
     _classify_fn._runtime_recovery_getter = service.latest_runtime_recovery  # type: ignore[attr-defined]
+    _classify_fn._runtime_identity_getter = service.runtime_identity  # type: ignore[attr-defined]
     _classify_fn._video_classify_fn = service.classify_video  # type: ignore[attr-defined]
     return _classify_fn
 
@@ -418,6 +434,7 @@ def main() -> None:
             heartbeat_interval_seconds=heartbeat_interval_seconds,
             writer=_StdoutWriter(protocol_stdout),
             runtime_recovery_getter=getattr(classify_fn, "_runtime_recovery_getter", None),
+            runtime_identity_getter=getattr(classify_fn, "_runtime_identity_getter", None),
         )
     )
 

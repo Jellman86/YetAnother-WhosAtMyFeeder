@@ -467,3 +467,59 @@ async def test_classifier_worker_process_does_not_fail_video_classification_when
     assert any(message["type"] == "progress" for message in writer.messages)
     assert any(message["type"] == "result" and message["results"][0]["label"] == "Robin" for message in writer.messages)
     assert not any(message["type"] == "error" for message in writer.messages)
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_process_reports_what_it_loaded_in_the_ready_event():
+    reader = asyncio.StreamReader()
+    writer = _MemoryWriter()
+    process = ClassifierWorkerProcess(
+        reader=reader,
+        writer=writer,
+        classify_fn=lambda **_: [],
+        worker_generation=4,
+        heartbeat_interval_seconds=0.01,
+        runtime_identity_getter=lambda: {
+            "inference_backend": "openvino",
+            "active_provider": "intel_npu",
+            "model_id": "rope_vit_b14_inat21",
+        },
+    )
+
+    task = asyncio.create_task(process.run())
+    await asyncio.sleep(0.02)
+    reader.feed_eof()
+    await task
+
+    assert writer.messages[0]["type"] == "ready"
+    assert writer.messages[0]["runtime"] == {
+        "inference_backend": "openvino",
+        "active_provider": "intel_npu",
+        "model_id": "rope_vit_b14_inat21",
+    }
+
+
+@pytest.mark.asyncio
+async def test_classifier_worker_process_still_reports_ready_when_the_identity_getter_fails():
+    reader = asyncio.StreamReader()
+    writer = _MemoryWriter()
+
+    def _broken() -> dict:
+        raise RuntimeError("no model manager here")
+
+    process = ClassifierWorkerProcess(
+        reader=reader,
+        writer=writer,
+        classify_fn=lambda **_: [],
+        worker_generation=1,
+        heartbeat_interval_seconds=0.01,
+        runtime_identity_getter=_broken,
+    )
+
+    task = asyncio.create_task(process.run())
+    await asyncio.sleep(0.02)
+    reader.feed_eof()
+    await task
+
+    assert writer.messages[0]["type"] == "ready"
+    assert "runtime" not in writer.messages[0]

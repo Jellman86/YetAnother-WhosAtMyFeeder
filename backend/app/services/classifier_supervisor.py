@@ -134,6 +134,7 @@ class ClassifierSupervisor:
                 "last_stderr_excerpt": "",
                 "last_stderr_truncated_bytes": 0,
                 "last_runtime_recovery": None,
+                "runtime": None,
                 "circuit_open": False,
                 "circuit_open_until_monotonic": None,
             },
@@ -144,6 +145,7 @@ class ClassifierSupervisor:
                 "last_stderr_excerpt": "",
                 "last_stderr_truncated_bytes": 0,
                 "last_runtime_recovery": None,
+                "runtime": None,
                 "circuit_open": False,
                 "circuit_open_until_monotonic": None,
             },
@@ -154,6 +156,7 @@ class ClassifierSupervisor:
                 "last_stderr_excerpt": "",
                 "last_stderr_truncated_bytes": 0,
                 "last_runtime_recovery": None,
+                "runtime": None,
                 "circuit_open": False,
                 "circuit_open_until_monotonic": None,
             },
@@ -524,14 +527,16 @@ class ClassifierSupervisor:
                 )
 
             # Serialize model loading across all pools to prevent RAM/GPU spikes
+            ready_timeout_seconds = self._ready_timeout_seconds(priority)
             async with self._global_init_lock:
                 await worker.start()
-                await worker.wait_until_ready(timeout_seconds=self._worker_ready_timeout_seconds[priority])
+                await worker.wait_until_ready(timeout_seconds=ready_timeout_seconds)
+            self._record_worker_runtime(priority, worker)
         except TimeoutError as exc:
             await self._close_failed_worker(worker)
             self._record_start_failure(priority, worker, reason="startup_timeout")
             raise ClassifierWorkerStartupTimeoutError(
-                f"worker startup timed out worker={worker_name} generation={generation} timeout={self._worker_ready_timeout_seconds[priority]}"
+                f"worker startup timed out worker={worker_name} generation={generation} timeout={ready_timeout_seconds}"
             ) from exc
         except Exception as exc:
             await self._close_failed_worker(worker)
@@ -560,6 +565,26 @@ class ClassifierSupervisor:
             await worker.wait_closed()
         except Exception:
             pass
+
+    def _ready_timeout_seconds(self, priority: WorkPriority) -> float:
+        """How long a worker may take to say it is ready.
+
+        A worker builds its classifier before it reports ready, so this is the
+        model-load budget. The warm-up window exists precisely because a cold
+        load (native imports, NPU and GPU kernel compiles) can take minutes on
+        slow hardware; a shorter handshake budget killed every such worker at
+        the twenty-second mark and the pool never started.
+        """
+        timeout = self._worker_ready_timeout_seconds[priority]
+        if self._warmup_liveness_timeout_seconds is not None:
+            timeout = max(timeout, self._warmup_liveness_timeout_seconds)
+        return timeout
+
+    def _record_worker_runtime(self, priority: WorkPriority, worker: Any) -> None:
+        status = worker.get_status() if worker is not None and hasattr(worker, "get_status") else {}
+        runtime = status.get("runtime") if isinstance(status, dict) else None
+        if isinstance(runtime, dict) and runtime:
+            self._metrics[priority]["runtime"] = dict(runtime)
 
     def _record_start_failure(self, priority: WorkPriority, worker: Any, *, reason: str) -> None:
         status = worker.get_status() if worker is not None and hasattr(worker, "get_status") else {}
