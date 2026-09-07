@@ -1,11 +1,18 @@
 {
   "domain": "yawamf",
   "name": "Yet Another WhosAtMyFeeder",
-  "documentation": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder",
-  "requirements": [],
-  "codeowners": ["@Jellman86"],
+  "codeowners": [
+    "@Jellman86"
+  ],
   "config_flow": true,
+  "dependencies": [
+    "frontend",
+    "http"
+  ],
+  "documentation": "https://github.com/Jellman86/YetAnother-WhosAtMyFeeder",
+  "integration_type": "service",
   "iot_class": "local_polling",
-  "version": "1.0.1",
+  "requirements": [],
+  "version": "1.1.0",
   "icon": "mdi:bird"
 }

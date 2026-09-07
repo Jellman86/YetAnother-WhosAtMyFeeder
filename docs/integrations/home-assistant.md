@@ -41,6 +41,11 @@ The same YA-WAMF frontend bundle works for both standalone access and the Home
 Assistant sidebar. The app detects the Home Assistant ingress path at runtime,
 and the integration rewrites root asset links while proxying the page.
 
+Changing the URL or credentials in the integration options takes effect in the
+sidebar straight away; no Home Assistant restart is needed. If YA-WAMF starts
+rejecting the stored credentials, Home Assistant shows a **Reconfigure** prompt
+on the integration asking for new ones.
+
 ### Reverse Proxy Notes
 - Use the **public hostname** you configured on the proxy (not the internal container IP).
 - Ensure the proxy forwards the `/health` and `/api/stats/daily-summary` endpoints.
@@ -53,7 +58,7 @@ and the integration rewrites root asset links while proxying the page.
 | **Last Bird Detected** | The name of the most recent visitor. This sensor now only emits a Home Assistant state update when a new detection event arrives, so repeated visits from the same species can still drive automations reliably. Attributes include camera, confidence, temperature, and weather. |
 | **Last Detection Event** | The raw YA-WAMF/Frigate event ID for the most recent detection. Use this as the safest trigger when you want an automation to fire for every new detection, regardless of species. |
 | **Last Detection Time** | A proper Home Assistant timestamp entity for the most recent detection time. |
-| **Daily Count** | A counter for how many birds have visited since midnight. |
+| **Bird Count (24h)** | How many detections there were in the last 24 hours. It is a rolling window, not a count since midnight, so it can go down as old visits age out. |
 | **Latest Snapshot** | (Optional) A camera entity showing the last detected bird. |
 
 ## Automation Example

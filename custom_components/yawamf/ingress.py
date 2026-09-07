@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import logging
 import secrets
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode
 
 from aiohttp import ClientTimeout, web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 
-from .const import INGRESS_URL, PANEL_URL_PATH
+from .const import DOMAIN, INGRESS_URL, PANEL_URL_PATH
 from .coordinator import YAWAMFDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,15 +35,34 @@ _INGRESS_BLOCKED_RESPONSE_HEADERS = {
 
 _INGRESS_TOKEN_PARAM = "auth"
 _INGRESS_TOKEN_COOKIE = "yawamf_ingress_token"
-_PUBLIC_ASSET_PATHS = (
-    "favicon.ico",
-    "favicon.png",
-    "apple-touch-icon.png",
-    "manifest.json",
-    "pwa-192x192.png",
-    "pwa-512x512.png",
-    "frigate-logo.png",
-)
+_RUNTIME_KEY = "_ingress_runtime"
+
+
+@dataclass
+class IngressRuntime:
+    """What the proxy needs at request time, held in ``hass.data`` for the life of the run.
+
+    Home Assistant views cannot be unregistered, so the view is registered once
+    and looks here on every request. A reload replaces the coordinator (new URL,
+    new credentials) without touching the view; an unload with no entries left
+    sets the coordinator to ``None`` and the view answers 404 until the next
+    setup. The token lives for the whole run so a browser that already holds
+    the cookie survives a reload.
+    """
+
+    token: str
+    coordinator: YAWAMFDataUpdateCoordinator | None = None
+    views_registered: bool = False
+    panel_registered: bool = False
+
+
+def _runtime(hass: HomeAssistant) -> IngressRuntime:
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    runtime = domain_data.get(_RUNTIME_KEY)
+    if runtime is None:
+        runtime = IngressRuntime(token=secrets.token_urlsafe(32))
+        domain_data[_RUNTIME_KEY] = runtime
+    return runtime
 
 
 class YAWAMFIngressView(HomeAssistantView):
@@ -51,9 +72,12 @@ class YAWAMFIngressView(HomeAssistantView):
     name = "api:yawamf:ingress"
     requires_auth = False
 
-    def __init__(self, coordinator: YAWAMFDataUpdateCoordinator, ingress_token: str) -> None:
-        self.coordinator = coordinator
-        self.ingress_token = ingress_token
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    @property
+    def runtime(self) -> IngressRuntime:
+        return _runtime(self.hass)
 
     async def get(self, request: web.Request, path: str = "") -> web.StreamResponse:
         return await self._proxy(request, path)
@@ -74,16 +98,30 @@ class YAWAMFIngressView(HomeAssistantView):
         return await self._proxy(request, path)
 
     async def _proxy(self, request: web.Request, path: str) -> web.StreamResponse:
-        if not _is_authorized_ingress_request(request, self.ingress_token):
+        runtime = self.runtime
+        coordinator = runtime.coordinator
+        if coordinator is None:
+            raise web.HTTPNotFound(text="YA-WAMF sidebar is not enabled.")
+        if not _is_authorized_ingress_request(request, runtime.token):
             raise web.HTTPUnauthorized()
 
-        target_url = _build_target_url(self.coordinator.url, path, _upstream_query_string(request))
-        headers = _build_forward_headers(request.headers, self.coordinator.headers)
+        try:
+            await coordinator.async_ensure_logged_in()
+        except ConfigEntryAuthFailed as err:
+            raise web.HTTPBadGateway(
+                text="YA-WAMF rejected the stored credentials; reconfigure the integration."
+            ) from err
+        except Exception as err:  # noqa: BLE001 - an unreachable YA-WAMF is a gateway failure, not a crash
+            _LOGGER.debug("YA-WAMF ingress login refresh failed", exc_info=True)
+            raise web.HTTPBadGateway(text="YA-WAMF ingress could not sign in; see Home Assistant logs.") from err
+
+        target_url = _build_target_url(coordinator.url, path, _upstream_query_string(request))
+        headers = _build_forward_headers(request.headers, coordinator.headers)
         body = None if request.method in {"GET", "HEAD"} else await request.read()
-        should_set_cookie = request.query.get(_INGRESS_TOKEN_PARAM) == self.ingress_token
+        should_set_cookie = request.query.get(_INGRESS_TOKEN_PARAM) == runtime.token
 
         try:
-            async with self.coordinator.session.request(
+            async with coordinator.session.request(
                 request.method,
                 target_url,
                 headers=headers,
@@ -96,7 +134,7 @@ class YAWAMFIngressView(HomeAssistantView):
                     reason=upstream.reason,
                     headers=_response_headers(upstream.headers),
                 )
-                _set_ingress_cookie(response, self.ingress_token, should_set_cookie)
+                _set_ingress_cookie(response, runtime.token, should_set_cookie)
 
                 if request.method != "HEAD" and _should_rewrite_response(upstream.headers):
                     body = await upstream.text()
@@ -111,7 +149,7 @@ class YAWAMFIngressView(HomeAssistantView):
                         content_type=upstream.content_type,
                         charset=upstream.charset,
                     )
-                    _set_ingress_cookie(text_response, self.ingress_token, should_set_cookie)
+                    _set_ingress_cookie(text_response, runtime.token, should_set_cookie)
                     return text_response
 
                 # Preserve exact byte-length framing for unencoded bodies (e.g. media
@@ -142,64 +180,6 @@ class YAWAMFIngressView(HomeAssistantView):
         except Exception as err:  # noqa: BLE001 - HA should return a proxy failure, not crash the view
             _LOGGER.exception("YA-WAMF ingress proxy request failed")
             raise web.HTTPBadGateway(text="YA-WAMF ingress proxy failed; see Home Assistant logs.") from err
-
-
-class YAWAMFIngressAssetView(HomeAssistantView):
-    """Serve known YA-WAMF public assets at HA root for iframe compatibility."""
-
-    requires_auth = False
-
-    def __init__(self, coordinator: YAWAMFDataUpdateCoordinator, asset_path: str) -> None:
-        self.coordinator = coordinator
-        self.asset_path = asset_path
-        self.url = f"/{asset_path}"
-        self.name = f"api:yawamf:asset:{asset_path}"
-
-    async def get(self, request: web.Request) -> web.StreamResponse:
-        target_url = _build_target_url(self.coordinator.url, self.asset_path, _upstream_query_string(request))
-
-        try:
-            async with self.coordinator.session.request(
-                "GET",
-                target_url,
-                headers=_build_forward_headers(request.headers, self.coordinator.headers),
-                allow_redirects=False,
-                timeout=ClientTimeout(total=None),
-            ) as upstream:
-                if _should_rewrite_response(upstream.headers):
-                    body = await upstream.text()
-                    response_headers = _response_headers(upstream.headers)
-                    response_headers.pop("Content-Type", None)
-                    return web.Response(
-                        status=upstream.status,
-                        reason=upstream.reason,
-                        headers=response_headers,
-                        text=_rewrite_root_paths(body),
-                        content_type=upstream.content_type,
-                        charset=upstream.charset,
-                    )
-
-                response = web.StreamResponse(
-                    status=upstream.status,
-                    reason=upstream.reason,
-                    headers=_response_headers(upstream.headers),
-                )
-                _preserve_content_length(response, upstream.headers)
-                await response.prepare(request)
-                try:
-                    async for chunk in upstream.content.iter_chunked(64 * 1024):
-                        await response.write(chunk)
-                except ConnectionResetError:
-                    _LOGGER.debug("YA-WAMF ingress asset client disconnected mid-stream", exc_info=True)
-                    return response
-                await response.write_eof()
-                return response
-        except ConnectionResetError:
-            _LOGGER.debug("YA-WAMF ingress asset client disconnected", exc_info=True)
-            raise
-        except Exception as err:  # noqa: BLE001
-            _LOGGER.exception("YA-WAMF ingress asset request failed")
-            raise web.HTTPBadGateway(text="YA-WAMF ingress asset request failed; see Home Assistant logs.") from err
 
 
 def _build_target_url(base_url: str, path: str, query_string: str) -> str:
@@ -341,11 +321,19 @@ def _rewrite_root_paths(body: str) -> str:
 
 
 async def async_register_ingress(hass: HomeAssistant, coordinator: YAWAMFDataUpdateCoordinator) -> None:
-    """Register the HA proxy view and sidebar panel."""
-    ingress_token = secrets.token_urlsafe(32)
-    hass.http.register_view(YAWAMFIngressView(coordinator, ingress_token))
-    for asset_path in _PUBLIC_ASSET_PATHS:
-        hass.http.register_view(YAWAMFIngressAssetView(coordinator, asset_path))
+    """Point the sidebar proxy at ``coordinator`` and show the panel.
+
+    Safe to call on every setup, including the reload that follows an options
+    change: the view is registered once per run, the panel is re-registered
+    with ``update=True`` so a second registration replaces rather than raises,
+    and the proxy reads the coordinator from ``hass.data`` on each request.
+    """
+    runtime = _runtime(hass)
+    runtime.coordinator = coordinator
+
+    if not runtime.views_registered:
+        hass.http.register_view(YAWAMFIngressView(hass))
+        runtime.views_registered = True
 
     try:
         from homeassistant.components import frontend
@@ -356,20 +344,30 @@ async def async_register_ingress(hass: HomeAssistant, coordinator: YAWAMFDataUpd
             sidebar_title="YA-WAMF",
             sidebar_icon="mdi:bird",
             frontend_url_path=PANEL_URL_PATH,
-            config={"url": f"{INGRESS_URL}/?{_INGRESS_TOKEN_PARAM}={ingress_token}"},
+            config={"url": f"{INGRESS_URL}/?{_INGRESS_TOKEN_PARAM}={runtime.token}"},
             require_admin=False,
+            update=True,
         )
+        runtime.panel_registered = True
     except Exception:  # noqa: BLE001 - proxy remains usable even if panel registration API differs
         _LOGGER.exception("Failed to register YA-WAMF Home Assistant sidebar panel")
 
 
-async def async_unregister_ingress_panel(hass: HomeAssistant) -> None:
-    """Best-effort removal of the sidebar panel on unload/reload."""
+def async_unregister_ingress(hass: HomeAssistant) -> None:
+    """Hide the panel and make the proxy answer 404 until the next setup.
+
+    ``frontend.async_remove_panel`` is a plain callback, not a coroutine; it
+    must be called, not awaited.
+    """
+    runtime = _runtime(hass)
+    runtime.coordinator = None
+    if not runtime.panel_registered:
+        return
+
     try:
         from homeassistant.components import frontend
 
-        remove_panel = getattr(frontend, "async_remove_panel", None)
-        if remove_panel is not None:
-            await remove_panel(hass, PANEL_URL_PATH)
+        frontend.async_remove_panel(hass, PANEL_URL_PATH)
+        runtime.panel_registered = False
     except Exception:  # noqa: BLE001
-        _LOGGER.debug("Failed to unregister YA-WAMF sidebar panel", exc_info=True)
+        _LOGGER.warning("Failed to remove the YA-WAMF sidebar panel", exc_info=True)
