@@ -2,7 +2,9 @@
 
 `GET /api/cache/stats` stats every cached file. The owner system checks call it
 once a minute from every owner page, so on a slow filesystem an inline walk
-stalled the whole API for as long as the walk took (#300).
+stalled the whole API for as long as the walk took (#300). Off the loop, the
+walks must not multiply either: every open owner page and every client retry
+would otherwise start its own walk against the same slow disk.
 """
 
 import asyncio
@@ -38,19 +40,26 @@ def _service_with_cache(tmp_path, monkeypatch, *, snapshots: int = 0, clips: int
     return media_cache_module.MediaCacheService()
 
 
+def _slow_walk_counting_calls(service, seconds: float):
+    """Replace the sync walk with one that sleeps first and counts how often it ran."""
+    calls: list[int] = []
+    real_walk = service._get_cache_stats_sync
+
+    def slow_walk():
+        calls.append(threading.get_ident())
+        time.sleep(seconds)
+        return real_walk()
+
+    service._get_cache_stats_sync = slow_walk
+    return calls
+
+
 @pytest.mark.asyncio
 async def test_the_walk_runs_on_a_worker_thread_not_the_loop(tmp_path, monkeypatch):
     service = _service_with_cache(tmp_path, monkeypatch, snapshots=3, clips=1)
-    walk_threads: list[int] = []
-    original_walk = service.get_cache_stats
+    walk_threads = _slow_walk_counting_calls(service, 0.0)
 
-    def recording_walk():
-        walk_threads.append(threading.get_ident())
-        return original_walk()
-
-    monkeypatch.setattr(service, "get_cache_stats", recording_walk)
-
-    stats = await service.get_cache_stats_off_loop()
+    stats = await service.get_cache_stats()
 
     assert walk_threads, "the walk never ran"
     assert walk_threads[0] != threading.get_ident(), "the walk ran on the event loop thread"
@@ -61,12 +70,7 @@ async def test_the_walk_runs_on_a_worker_thread_not_the_loop(tmp_path, monkeypat
 @pytest.mark.asyncio
 async def test_the_loop_keeps_serving_while_a_slow_filesystem_is_walked(tmp_path, monkeypatch):
     service = _service_with_cache(tmp_path, monkeypatch)
-
-    def slow_walk():
-        time.sleep(0.3)
-        return service.__class__.get_cache_stats(service)
-
-    monkeypatch.setattr(service, "get_cache_stats", slow_walk)
+    _slow_walk_counting_calls(service, 0.3)
 
     ticks = 0
 
@@ -78,11 +82,53 @@ async def test_the_loop_keeps_serving_while_a_slow_filesystem_is_walked(tmp_path
 
     ticker = asyncio.create_task(tick_while_walking())
     try:
-        await service.get_cache_stats_off_loop()
+        await service.get_cache_stats()
     finally:
         ticker.cancel()
 
     assert ticks >= 5, f"the loop only ran {ticks} times during a 300ms walk; it was blocked"
+
+
+@pytest.mark.asyncio
+async def test_concurrent_callers_share_one_walk(tmp_path, monkeypatch):
+    service = _service_with_cache(tmp_path, monkeypatch, snapshots=2)
+    calls = _slow_walk_counting_calls(service, 0.2)
+
+    results = await asyncio.gather(*(service.get_cache_stats() for _ in range(6)))
+
+    assert len(calls) == 1, f"six concurrent requests started {len(calls)} walks"
+    assert all(r["snapshot_count"] == 2 for r in results)
+
+
+@pytest.mark.asyncio
+async def test_a_later_caller_gets_a_fresh_walk_once_the_first_has_finished(tmp_path, monkeypatch):
+    service = _service_with_cache(tmp_path, monkeypatch, snapshots=1)
+    calls = _slow_walk_counting_calls(service, 0.0)
+
+    await service.get_cache_stats()
+    (media_cache_module.SNAPSHOTS_DIR / "evt_new.jpg").write_bytes(b"z")
+    later = await service.get_cache_stats()
+
+    assert len(calls) == 2, "a finished walk must not be served as if it were still current"
+    assert later["snapshot_count"] == 2
+
+
+@pytest.mark.asyncio
+async def test_a_caller_that_gives_up_does_not_cancel_the_walk_for_others(tmp_path, monkeypatch):
+    service = _service_with_cache(tmp_path, monkeypatch, snapshots=1)
+    calls = _slow_walk_counting_calls(service, 0.3)
+
+    impatient = asyncio.create_task(service.get_cache_stats())
+    patient = asyncio.create_task(service.get_cache_stats())
+    await asyncio.sleep(0.05)
+    impatient.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await impatient
+
+    stats = await patient
+
+    assert stats["snapshot_count"] == 1
+    assert len(calls) == 1, "the patient caller should have finished on the shared walk, not started another"
 
 
 @pytest.mark.asyncio
@@ -91,7 +137,7 @@ async def test_a_slow_walk_is_logged_with_its_size_and_location(tmp_path, monkey
     monkeypatch.setattr(media_cache_module, "SLOW_CACHE_WALK_WARN_MS", 0.0)
 
     with structlog.testing.capture_logs() as captured:
-        await service.get_cache_stats_off_loop()
+        await service.get_cache_stats()
 
     slow = [entry for entry in captured if entry["event"] == "Slow media cache walk"]
     assert len(slow) == 1
@@ -106,7 +152,7 @@ async def test_a_fast_walk_is_not_logged(tmp_path, monkeypatch):
     monkeypatch.setattr(media_cache_module, "SLOW_CACHE_WALK_WARN_MS", 60_000.0)
 
     with structlog.testing.capture_logs() as captured:
-        await service.get_cache_stats_off_loop()
+        await service.get_cache_stats()
 
     assert not [entry for entry in captured if entry["event"] == "Slow media cache walk"]
 
@@ -147,7 +193,7 @@ async def test_the_cache_stats_route_walks_off_the_loop(owner_client, monkeypatc
             "newest_file": None,
         }
 
-    monkeypatch.setattr(settings_router.media_cache, "get_cache_stats", recording_walk)
+    monkeypatch.setattr(settings_router.media_cache, "_get_cache_stats_sync", recording_walk)
 
     response = await owner_client.get("/api/cache/stats")
 

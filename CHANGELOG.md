@@ -16,9 +16,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   filesystem with tens of thousands of cached files it is seconds to tens of seconds, once a minute,
   during which the API answered nothing at all: not the dashboard, not Settings, not even the fixed
   version string. It also explains why clearing the cache made the interface fast again and why it
-  slowed down as the cache refilled. The walk now runs on a worker thread, and one that takes more
-  than a second is logged with its duration, file count, and location so the next diagnostics
-  bundle carries the evidence.
+  slowed down as the cache refilled. The walk now runs on a worker thread, every request that
+  arrives while one is in progress shares it rather than starting another against the same disk,
+  and a walk that takes more than a second is logged with its duration, file count, and location so
+  the next diagnostics bundle carries the evidence.
 
 ## [2.19.3] - 2026-09-04
 
