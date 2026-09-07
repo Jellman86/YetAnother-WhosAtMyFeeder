@@ -6,6 +6,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **Counting the media cache no longer stalls every other request
+  ([#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)).** The cache
+  statistics behind Settings, and behind the owner system checks that run once a minute on every
+  owner page, were gathered by reading the size and date of every cached file on the same thread
+  that answers requests. On a local disk that is milliseconds. On a slow or network-backed
+  filesystem with tens of thousands of cached files it is seconds to tens of seconds, once a minute,
+  during which the API answered nothing at all: not the dashboard, not Settings, not even the fixed
+  version string. It also explains why clearing the cache made the interface fast again and why it
+  slowed down as the cache refilled. The walk now runs on a worker thread, every request that
+  arrives while one is in progress shares it rather than starting another against the same disk,
+  and a walk that takes more than a second is logged with its duration, file count, and location so
+  the next diagnostics bundle carries the evidence.
+
 ## [2.19.3] - 2026-09-04
 
 ### Added

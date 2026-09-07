@@ -24,6 +24,10 @@ SNAPSHOTS_DIR = CACHE_BASE_DIR / "snapshots"
 CLIPS_DIR = CACHE_BASE_DIR / "clips"
 PREVIEWS_DIR = CACHE_BASE_DIR / "previews"
 
+# A cache walk that takes longer than this is worth a log line, because on a
+# slow filesystem it is the difference between a stat per file and a stall.
+SLOW_CACHE_WALK_WARN_MS = 1000.0
+
 # Frigate returns a ~78-byte stub body for clips whose recordings were not
 # retained (expired or never saved).  Any cached file smaller than this
 # threshold is treated as a corrupt placeholder and is rejected at every
@@ -77,6 +81,7 @@ class MediaCacheService:
         self._init_error: Optional[str] = None
         self._recording_clip_duration_cache: dict[str, tuple[int, int, Optional[float]]] = {}
         self._recording_clip_listeners: list[RecordingClipListener] = []
+        self._cache_stats_walk: Optional[tuple[asyncio.AbstractEventLoop, asyncio.Task[dict]]] = None
         self._recording_clip_commit_locks: weakref.WeakValueDictionary[str, asyncio.Lock] = (
             weakref.WeakValueDictionary()
         )
@@ -1136,7 +1141,7 @@ class MediaCacheService:
         log.info("Cleared all media cache", **stats)
         return stats
 
-    def get_cache_stats(self) -> dict:
+    def _get_cache_stats_sync(self) -> dict:
         """Get cache statistics.
 
         Returns:
@@ -1207,6 +1212,40 @@ class MediaCacheService:
             "oldest_file": oldest_file.isoformat() if oldest_file else None,
             "newest_file": newest_file.isoformat() if newest_file else None,
         }
+
+    async def get_cache_stats(self) -> dict:
+        """Walk the cache on a worker thread, one walk at a time.
+
+        The walk stats every cached file. On a local disk that is milliseconds;
+        on a FUSE or network mount with tens of thousands of files it can be
+        tens of seconds, and the owner system checks ask for it once a minute
+        from every open owner page. Run inline it stalled every other request
+        for the duration. Run per request it would start one walk per tab and
+        per client retry against the same slow disk, so concurrent callers
+        share the walk already in flight, and a caller that gives up does not
+        cancel it for the others.
+        """
+        loop = asyncio.get_running_loop()
+        in_flight = self._cache_stats_walk
+        if in_flight is None or in_flight[0] is not loop or in_flight[1].done():
+            walk = loop.create_task(self._walk_cache_stats_off_loop())
+            self._cache_stats_walk = (loop, walk)
+        else:
+            walk = in_flight[1]
+        return await asyncio.shield(walk)
+
+    async def _walk_cache_stats_off_loop(self) -> dict:
+        started = time.perf_counter()
+        stats = await asyncio.to_thread(self._get_cache_stats_sync)
+        duration_ms = (time.perf_counter() - started) * 1000.0
+        if duration_ms >= SLOW_CACHE_WALK_WARN_MS:
+            log.warning(
+                "Slow media cache walk",
+                duration_ms=round(duration_ms, 1),
+                files=stats["snapshot_count"] + stats["clip_count"] + stats["preview_count"],
+                cache_dir=str(CACHE_BASE_DIR),
+            )
+        return stats
 
     def get_status(self) -> dict:
         """Return cache availability and path diagnostics for startup logging."""
