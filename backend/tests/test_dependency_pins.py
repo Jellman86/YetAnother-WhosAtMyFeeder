@@ -47,9 +47,9 @@ def test_cpu_onnxruntime_floor_is_consistent_across_runtime_flavors():
         for flavor in ("cpu", "intel", "full")
     }
 
-    assert "onnxruntime>=1.28.0" in requirements["cpu"]
-    assert "onnxruntime>=1.28.0" in requirements["intel"]
-    assert 'onnxruntime>=1.28.0 ; platform_machine == "aarch64"' in requirements["full"]
+    assert "onnxruntime>=1.29.0" in requirements["cpu"]
+    assert "onnxruntime>=1.29.0" in requirements["intel"]
+    assert 'onnxruntime>=1.29.0 ; platform_machine == "aarch64"' in requirements["full"]
     assert "onnxruntime-gpu[cuda,cudnn]>=1.24.0,<1.27.0" in requirements["full"]
 
 
