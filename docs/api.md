@@ -60,6 +60,26 @@ curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
 # curl -H "Authorization: Bearer <token>" http://localhost:8946/api/events
 ```
 
+### Stream ticket
+
+`EventSource` cannot send an `Authorization` header, so the live stream needs a credential in
+its URL — and nginx writes the full request line to its error log whenever the upstream refuses
+a connection, which it does for a few seconds on every container start. A session token in that
+line is a week of owner access. So the stream never takes the session token; it takes a ticket:
+
+```bash
+TICKET=$(curl -fsS -X POST -H "Authorization: Bearer <token>" \
+  http://localhost:9852/api/auth/stream-ticket | python3 -c 'import sys,json; print(json.load(sys.stdin)["ticket"])')
+curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
+```
+
+- A ticket is **single-use** and expires **60 seconds** after issue; a logged copy is worthless.
+- It inherits the session's expiry, so the stream still ends when the session would have.
+- Only a signed-in session is issued one (`403` for a guest, `401` with no session). A guest does
+  not need one: with public access on, the bare `/api/sse` already opens as a guest.
+- The server keeps only a hash of each outstanding ticket, bounded to 256 at a time.
+- Clients that *can* send headers (`curl -N -H "Authorization: Bearer …"`) may skip the exchange.
+
 ### Auth status
 
 - `GET /api/auth/status`: returns auth/public-access capability flags used by the frontend.
@@ -74,8 +94,9 @@ curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
   YA-WAMF never updates itself, and the check honours the `system.update_check_enabled` opt-out.
 - `GET /api/system-telemetry`: one live host-utilization sample (the sidebar's rolling CPU/NPU
   graph). Guest rate limits apply; the response is not cacheable.
-- `GET /api/sse`: Server-Sent Events stream.
-  - Supports bearer token or `?token=<jwt>` for EventSource compatibility.
+- `GET /api/sse`: Server-Sent Events stream. Opens with a Bearer header, with a single-use
+  `?ticket=` from `POST /api/auth/stream-ticket`, or as a guest when public access is on. The
+  session token is **not** accepted in the query string; see [Stream ticket](#stream-ticket).
 
 ## Endpoint Map
 
@@ -93,6 +114,7 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
   succeeds, later calls are rejected and authentication changes use the owner-only
   Settings API.
 - `POST /api/auth/logout`
+- `POST /api/auth/stream-ticket` (owner) — single-use, 60-second ticket that opens `GET /api/sse`; see [Stream ticket](#stream-ticket).
 
 ### Guided setup
 

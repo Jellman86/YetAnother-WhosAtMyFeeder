@@ -7,6 +7,7 @@ Supports both owner (full access) and guest (public read-only) auth levels.
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import secrets
+from dataclasses import dataclass
 from fastapi import HTTPException, Request, status, Depends, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader, APIKeyQuery
 import jwt
@@ -247,6 +248,77 @@ async def get_auth_context_with_legacy(
         if await verify_api_key_legacy(header_key, query_key):
             return AuthContext(auth_level=AuthLevel.OWNER, username="legacy_api_key")
         raise exc
+
+
+@dataclass(frozen=True)
+class StreamAuth:
+    """Who opened the live stream, and when their session would have ended."""
+
+    context: AuthContext
+    session_exp: Optional[datetime]
+
+
+async def get_stream_auth_context(
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
+    header_key: Optional[str] = Security(api_key_header),
+    query_key: Optional[str] = Security(api_key_query),
+) -> StreamAuth:
+    """Resolve who may open the live stream.
+
+    Accepted, in order: a Bearer header (for clients that can send one), a
+    single-use ``?ticket=`` from ``POST /api/auth/stream-ticket``, then the
+    same fallbacks as every other route (auth disabled, public access, the
+    deprecated API key). The session token is deliberately *not* read from the
+    query string: nginx logs the full request line to its error log while the
+    upstream is starting, and a token logged there is a week of owner access.
+    """
+    from app.config import settings
+    from app.services.stream_tickets import stream_tickets
+
+    token = None
+    if credentials:
+        token = credentials.credentials
+    else:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+    if token:
+        try:
+            token_data = verify_token(token)
+            return StreamAuth(
+                context=AuthContext(auth_level=token_data.auth_level, username=token_data.username),
+                session_exp=token_data.exp,
+            )
+        except HTTPException:
+            log.debug("Invalid bearer token on stream, checking ticket and public access")
+
+    ticket = request.query_params.get("ticket")
+    if ticket:
+        grant = stream_tickets.redeem(ticket)
+        if grant is not None:
+            log.debug("Stream opened with ticket", username=grant.username, level=grant.auth_level)
+            return StreamAuth(
+                context=AuthContext(auth_level=grant.auth_level, username=grant.username),
+                session_exp=grant.session_exp,
+            )
+        log.debug("Stream ticket rejected: unknown, spent, or expired")
+
+    if not settings.auth.enabled:
+        return StreamAuth(context=AuthContext(auth_level=AuthLevel.OWNER, username="unauthenticated"), session_exp=None)
+
+    if settings.public_access.enabled:
+        log.debug("Stream opened as public guest")
+        return StreamAuth(context=AuthContext(auth_level=AuthLevel.GUEST), session_exp=None)
+
+    if await verify_api_key_legacy(header_key, query_key):
+        return StreamAuth(context=AuthContext(auth_level=AuthLevel.OWNER, username="legacy_api_key"), session_exp=None)
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication required. Please log in.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 def require_owner(auth: AuthContext = Depends(get_auth_context)) -> AuthContext:

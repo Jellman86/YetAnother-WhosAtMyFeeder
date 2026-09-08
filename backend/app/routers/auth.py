@@ -19,9 +19,11 @@ from app.auth import (
     AuthLevel,
     verify_token,
     require_owner,
+    get_auth_context,
     validate_bcrypt_password_length,
 )
 from app.config import settings
+from app.services.stream_tickets import STREAM_TICKET_TTL_SECONDS, stream_tickets
 from app.database import get_db
 from app.models import MessageResponse
 from app.repositories.oauth_token_repository import OAuthTokenRepository
@@ -56,6 +58,13 @@ class LoginResponse(BaseModel):
     token_type: str = "bearer"
     username: str
     expires_in_hours: int
+
+
+class StreamTicketResponse(BaseModel):
+    """A single-use credential that opens the live stream once, briefly."""
+
+    ticket: str
+    expires_in_seconds: int
 
 
 class AuthStatusResponse(BaseModel):
@@ -205,6 +214,32 @@ async def login(request: Request, login_data: LoginRequest):
     return LoginResponse(
         access_token=token, username=login_data.username, expires_in_hours=settings.auth.session_expiry_hours
     )
+
+
+@router.post("/auth/stream-ticket", response_model=StreamTicketResponse)
+async def create_stream_ticket(request: Request, auth: AuthContext = Depends(get_auth_context)):
+    """Exchange a signed-in session for a single-use ticket that opens the live stream.
+
+    ``EventSource`` cannot send a header, and the session token must never ride in
+    a URL that nginx may log. The ticket carries the session's own expiry so the
+    stream still ends when the session would have. Guests do not need one: with
+    public access on, the bare stream URL already opens as a guest.
+    """
+    if not auth.is_owner:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Stream tickets are issued to signed-in sessions"
+        )
+
+    session_exp = None
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        try:
+            session_exp = verify_token(auth_header[7:]).exp
+        except HTTPException:
+            session_exp = None
+
+    ticket = stream_tickets.issue(auth.auth_level, auth.username, session_exp)
+    return StreamTicketResponse(ticket=ticket, expires_in_seconds=STREAM_TICKET_TTL_SECONDS)
 
 
 @router.get("/auth/status", response_model=AuthStatusResponse)

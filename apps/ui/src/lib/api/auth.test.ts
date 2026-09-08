@@ -13,7 +13,7 @@ vi.mock('./core', () => ({
     setAuthToken: setAuthTokenMock,
 }));
 
-import { setInitialPassword } from './auth';
+import { createStreamTicket, setInitialPassword } from './auth';
 
 describe('setInitialPassword', () => {
     beforeEach(() => {
@@ -88,5 +88,31 @@ describe('setInitialPassword', () => {
                 enableAuth: true
             })
         ).rejects.toThrow('Password must contain at least one letter and one number');
+    });
+});
+
+describe('createStreamTicket', () => {
+    beforeEach(() => {
+        apiFetchMock.mockReset();
+    });
+
+    it('asks the server for a single-use stream ticket and hands it back untouched', async () => {
+        apiFetchMock.mockResolvedValue(
+            new Response(JSON.stringify({ ticket: 'ticket-123', expires_in_seconds: 60 }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+            })
+        );
+
+        const ticket = await createStreamTicket();
+
+        expect(apiFetchMock).toHaveBeenCalledWith('/api/auth/stream-ticket', expect.objectContaining({ method: 'POST' }));
+        expect(ticket).toEqual({ ticket: 'ticket-123', expires_in_seconds: 60 });
+    });
+
+    it('throws when the session cannot be exchanged, so the stream is not opened with a stale credential', async () => {
+        apiFetchMock.mockResolvedValue(new Response('{"detail":"Authentication required"}', { status: 401 }));
+
+        await expect(createStreamTicket()).rejects.toThrow();
     });
 });

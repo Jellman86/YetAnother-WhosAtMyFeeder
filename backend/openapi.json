@@ -14123,6 +14123,25 @@
         "title": "StartRunResponse",
         "type": "object"
       },
+      "StreamTicketResponse": {
+        "description": "A single-use credential that opens the live stream once, briefly.",
+        "properties": {
+          "expires_in_seconds": {
+            "title": "Expires In Seconds",
+            "type": "integer"
+          },
+          "ticket": {
+            "title": "Ticket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket",
+          "expires_in_seconds"
+        ],
+        "title": "StreamTicketResponse",
+        "type": "object"
+      },
       "SystemAcceleratorTelemetry": {
         "properties": {
           "kind": {
@@ -16241,6 +16260,33 @@
           }
         },
         "summary": "Get Auth Status",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/stream-ticket": {
+      "post": {
+        "description": "Exchange a signed-in session for a single-use ticket that opens the live stream.\n\n``EventSource`` cannot send a header, and the session token must never ride in\na URL that nginx may log. The ticket carries the session's own expiry so the\nstream still ends when the session would have. Guests do not need one: with\npublic access on, the bare stream URL already opens as a guest.",
+        "operationId": "create_stream_ticket_api_auth_stream_ticket_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StreamTicketResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Stream Ticket",
         "tags": [
           "auth"
         ]
@@ -23873,19 +23919,8 @@
     },
     "/api/sse": {
       "get": {
-        "description": "Server-Sent Events endpoint for real-time updates.\n\nSupports authentication via:\n- Bearer token in Authorization header\n- Token in query parameter (?token=...)\n- Public access if enabled",
+        "description": "Server-Sent Events endpoint for real-time updates.\n\nOpens with a Bearer header, a single-use ``?ticket=`` from\n``POST /api/auth/stream-ticket``, or as a guest when public access is on.\nThe session token is deliberately not accepted in the query string: nginx\nwrites the full request line to its error log while the upstream is\nstarting, and a ticket logged there is worthless a minute later.",
         "operationId": "sse_endpoint_api_sse_get",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "token",
-            "required": false,
-            "schema": {
-              "title": "Token",
-              "type": "string"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "content": {
@@ -23894,18 +23929,19 @@
               }
             },
             "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
           }
         },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
         "summary": "Sse Endpoint"
       }
     },

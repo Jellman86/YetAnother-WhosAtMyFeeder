@@ -1826,6 +1826,10 @@ export interface components {
     StartRunResponse: {
     run_id: string;
 };
+    StreamTicketResponse: {
+    expires_in_seconds: number;
+    ticket: string;
+};
     SystemAcceleratorTelemetry: {
     kind: "npu" | "gpu";
     label: string;
@@ -2177,6 +2181,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['AuthStatusResponse'];
+    };
+  };
+  "/api/auth/stream-ticket": {
+    post: {
+      operationId: "create_stream_ticket_api_auth_stream_ticket_post";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['StreamTicketResponse'];
     };
   };
   "/api/backfill": {
@@ -3674,9 +3687,7 @@ export interface paths {
     get: {
       operationId: "sse_endpoint_api_sse_get";
       path: never;
-      query: {
-    token?: string;
-};
+      query: never;
       requestBody: unknown;
       response: unknown;
     };

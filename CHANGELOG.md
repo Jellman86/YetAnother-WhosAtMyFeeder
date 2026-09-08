@@ -98,6 +98,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   and a walk that takes more than a second is logged with its duration, file count, and location so
   the next diagnostics bundle carries the evidence.
 
+### Security
+
+- **The live stream no longer puts the owner's session token in a URL.** `EventSource` cannot
+  send headers, so the stream authenticated with `?token=<session>`, and nginx writes the full
+  request line to its error log whenever the upstream refuses a connection, which it does for a
+  few seconds on every container start while uvicorn boots. Each restart of the reference install
+  logged three lines carrying a week-long owner token. The browser now exchanges its session for a
+  single-use ticket (`POST /api/auth/stream-ticket`) that opens the stream once and expires after
+  60 seconds, and `/api/sse` refuses the session token in its query string outright. A ticket that
+  reaches a log is worthless by the time anyone reads it. Bearer headers, guest access, and the
+  deprecated API key behave as before; the unmounted duplicate stream router is removed.
+
 ## [2.19.3] - 2026-09-04
 
 ### Added
