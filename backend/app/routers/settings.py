@@ -24,7 +24,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.services.canonical_identity_repair_service import canonical_identity_repair_service
 from app.services.telemetry_service import collect_runtime_telemetry_payload, telemetry_service
 from app.services.notification_service import notification_service
-from app.services.notification_links import instance_base, notification_link
+from app.services.notification_links import instance_base, notification_link, public_base
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
 from app.services.inaturalist_service import inaturalist_service
@@ -2106,6 +2106,11 @@ async def update_settings(
         # The email-only dashboard link is the older name for the same address; keep them equal so a
         # clear in the UI clears both and nothing falls back to a stale value.
         instance_url = update.notifications_instance_url.strip().rstrip("/") or None
+        if instance_url and not public_base(instance_url):
+            raise HTTPException(
+                status_code=400,
+                detail="Instance address must start with http:// or https://, for example https://feeder.example.com",
+            )
         settings.notifications.instance_url = instance_url
         settings.notifications.email.dashboard_url = instance_url
     if "notifications_link_target" in fields_set and update.notifications_link_target is not None:

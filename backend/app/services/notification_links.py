@@ -5,6 +5,21 @@ from urllib.parse import quote
 
 from app.config_models import NotificationSettings
 
+_SCHEMES = ("http://", "https://")
+
+
+def public_base(url: Optional[str]) -> Optional[str]:
+    """A usable public address, or None.
+
+    Discord rejects an embed whose `url` has no scheme and Telegram rejects a button URL that is
+    not http(s); either way the whole notification is dropped, not just the link. So an address
+    without a scheme is treated as no address at all, and the settings API refuses to save one.
+    """
+    base = (url or "").strip().rstrip("/")
+    if not base or not base.lower().startswith(_SCHEMES):
+        return None
+    return base
+
 
 def instance_base(notifications: NotificationSettings) -> Optional[str]:
     """The public address of this install, or None when the owner never set one.
@@ -13,7 +28,7 @@ def instance_base(notifications: NotificationSettings) -> Optional[str]:
     install that only ever configured email links keeps them on every channel.
     """
     for candidate in (notifications.instance_url, notifications.email.dashboard_url):
-        base = (candidate or "").strip().rstrip("/")
+        base = public_base(candidate)
         if base:
             return base
     return None
@@ -35,7 +50,7 @@ def frigate_link(frigate_external_url: str, frigate_event: Optional[str]) -> Opt
     route is the one that works from an event id. No public Frigate address means no link, never
     a fallback to the internal one, which a phone could not reach anyway.
     """
-    base = (frigate_external_url or "").strip().rstrip("/")
+    base = public_base(frigate_external_url)
     if not base:
         return None
     if not frigate_event:
