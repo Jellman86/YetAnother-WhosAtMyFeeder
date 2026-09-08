@@ -1426,6 +1426,7 @@ export interface components {
     notifications_filter_species_whitelist?: Array<string> | null;
     notifications_filter_species_whitelist_structured: Array<components['schemas']['BlockedSpeciesEntry']>;
     notifications_instance_url?: string | null;
+    notifications_link_target?: "yawamf" | "frigate" | null;
     notifications_mode?: string | null;
     notifications_notification_cooldown_minutes?: number | null;
     notifications_notify_on_insert?: boolean | null;
@@ -1623,6 +1624,7 @@ export interface components {
     notifications_filter_species_whitelist?: Array<string> | null;
     notifications_filter_species_whitelist_structured?: Array<components['schemas']['BlockedSpeciesEntry']>;
     notifications_instance_url?: string | null;
+    notifications_link_target?: "yawamf" | "frigate" | null;
     notifications_mode?: string | null;
     notifications_notification_cooldown_minutes?: number | null;
     notifications_notify_on_insert?: boolean | null;

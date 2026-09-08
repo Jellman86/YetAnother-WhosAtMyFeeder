@@ -1,5 +1,6 @@
 <script lang="ts">
     import { _ } from 'svelte-i18n';
+    import { notificationLinkPreview, type NotificationLinkTarget } from '../../settings/notification-link';
     import {
         searchSpecies,
         type SearchResult,
@@ -105,6 +106,9 @@
         emailToEmail = $bindable(''),
         emailIncludeSnapshot = $bindable(true),
         instanceUrl = $bindable(''),
+        linkTarget = $bindable<NotificationLinkTarget>('yawamf'),
+        frigateExternalUrl = '',
+        onOpenIntegrations = () => {},
 
         // Functions
         sendTestEmail,
@@ -162,12 +166,18 @@
         emailToEmail: string;
         emailIncludeSnapshot: boolean;
         instanceUrl: string;
+        linkTarget: NotificationLinkTarget;
+        frigateExternalUrl?: string;
+        onOpenIntegrations?: () => void;
         sendTestEmail: (request?: TestEmailRequest) => Promise<TestEmailResponse>;
         initiateGmailOAuth: () => Promise<OAuthAuthorizeResponse>;
         initiateOutlookOAuth: () => Promise<OAuthAuthorizeResponse>;
         disconnectEmailOAuth: (provider: 'gmail' | 'outlook') => Promise<{ message: string }>;
         onActionFeedback: (type: 'success' | 'error', text: string) => void;
     } = $props();
+
+    const linkPreview = $derived(notificationLinkPreview(linkTarget, instanceUrl, frigateExternalUrl));
+    const frigateUrlMissing = $derived(linkTarget === 'frigate' && frigateExternalUrl.trim() === '');
 
     // Channel tests use the shared DiagnosticDialog (see
     // docs/standards/diagnostics-and-dialogs.md). Each is a single real delivery
@@ -470,6 +480,42 @@
                     aria-describedby="notification-instance-url-hint"
                     class="input-base w-full"
                 />
+            </div>
+
+            <!-- Where the notification link opens -->
+            <div class="pt-4 border-t border-amber-200/50 dark:border-amber-700/30">
+                <h4 class="text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-4">{$_('settings.notifications.link_opens')}</h4>
+                <div class="grid gap-3 md:grid-cols-2" role="radiogroup" aria-label={$_('settings.notifications.link_opens')}>
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {linkTarget === 'yawamf' ? 'border-amber-400 bg-amber-100/70 dark:bg-amber-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                        <input class="sr-only" type="radio" name="notification-link-target" value="yawamf" bind:group={linkTarget} />
+                        <span class="block text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_yawamf')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.link_opens_yawamf_desc')}</span>
+                        <span class="mt-1 block text-xs leading-tight text-slate-500">{$_('settings.notifications.link_opens_yawamf_req')}</span>
+                    </label>
+                    <label class="cursor-pointer text-left rounded-2xl border px-4 py-3 transition {linkTarget === 'frigate' ? 'border-amber-400 bg-amber-100/70 dark:bg-amber-900/30' : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/40'}">
+                        <input class="sr-only" type="radio" name="notification-link-target" value="frigate" bind:group={linkTarget} />
+                        <span class="block text-xs font-black uppercase tracking-widest text-slate-900 dark:text-white">{$_('settings.notifications.link_opens_frigate')}</span>
+                        <span class="mt-1 block text-xs font-bold leading-tight text-slate-500">{$_('settings.notifications.link_opens_frigate_desc')}</span>
+                        <span class="mt-1 block text-xs leading-tight text-slate-500">{$_('settings.notifications.link_opens_frigate_req')}</span>
+                    </label>
+                </div>
+                {#if frigateUrlMissing}
+                    <div class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-amber-400/70 bg-amber-50/60 px-4 py-3 text-sm text-slate-700 dark:bg-amber-900/20 dark:text-slate-200" role="status">
+                        <span>{$_('settings.notifications.link_frigate_url_missing')}</span>
+                        <button type="button" class="btn btn-ghost text-xs" onclick={onOpenIntegrations}>{$_('settings.notifications.link_open_integrations')}</button>
+                    </div>
+                {/if}
+                <div class="mt-4 grid gap-1 text-xs">
+                    <div class="flex flex-wrap gap-x-3 gap-y-1">
+                        <span class="font-bold text-slate-500">{$_('settings.notifications.link_preview_telegram')}</span>
+                        {#if linkPreview}
+                            <span class="font-mono break-all text-slate-900 dark:text-white">{linkPreview}</span>
+                        {:else}
+                            <span class="italic text-slate-500">{$_('settings.notifications.link_preview_none')}</span>
+                        {/if}
+                    </div>
+                    <span class="text-slate-500">{$_('settings.notifications.link_preview_others')}</span>
+                </div>
             </div>
 
             <!-- Species Filter -->

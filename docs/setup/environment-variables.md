@@ -197,6 +197,7 @@ Global:
 | `NOTIFICATIONS__NOTIFICATION_COOLDOWN_MINUTES` | `0` | Global cooldown between notifications. |
 | `NOTIFICATIONS__NOTIFICATION_LANGUAGE` | `en` | Notification language. |
 | `NOTIFICATIONS__INSTANCE_URL` | _(unset)_ | Public address of this install. When set, every notification links to the detection at `<address>/events?event=<id>`. |
+| `NOTIFICATIONS__LINK_TARGET` | `yawamf` | `yawamf` links to the detection here; `frigate` links to `<FRIGATE__FRIGATE_EXTERNAL_URL>/explore?event_id=<id>` (Frigate 0.15+). |
 
 Discord / Pushover / Telegram / Email:
 

@@ -8,7 +8,7 @@ import json
 
 from app.config import settings
 from app.services.i18n_service import i18n_service
-from app.services.notification_links import detection_link, instance_base
+from app.services.notification_links import notification_link
 from app.utils.blocked_species import matches_species_filter
 
 log = structlog.get_logger()
@@ -143,7 +143,7 @@ class NotificationService:
 
         lang = settings.notifications.notification_language
         display_name = common_name or species
-        detection_url = detection_link(instance_base(settings.notifications), frigate_event)
+        detection_url = notification_link(settings.notifications, settings.frigate.frigate_external_url, frigate_event)
         tasks: list[tuple[str, asyncio.Future]] = []
         channel_filter = set(channels) if channels else None
 

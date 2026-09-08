@@ -10322,6 +10322,21 @@
             ],
             "title": "Notifications Instance Url"
           },
+          "notifications_link_target": {
+            "anyOf": [
+              {
+                "enum": [
+                  "yawamf",
+                  "frigate"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notifications Link Target"
+          },
           "notifications_mode": {
             "anyOf": [
               {
@@ -12477,6 +12492,21 @@
               }
             ],
             "title": "Notifications Instance Url"
+          },
+          "notifications_link_target": {
+            "anyOf": [
+              {
+                "enum": [
+                  "yawamf",
+                  "frigate"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notifications Link Target"
           },
           "notifications_mode": {
             "anyOf": [
