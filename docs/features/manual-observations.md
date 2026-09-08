@@ -4,6 +4,8 @@ The owner-only **Add observation** page turns a photo or short video into a norm
 observation without requiring a Frigate event. Use it for phone photographs, exported camera
 clips, and older wildlife media that you want in the same searchable history as live detections.
 
+![The Add observation page: a four-step strip reading Upload, Analyse, Review, Save, above a drop zone that accepts JPEG, PNG and WebP up to 25 MB or MP4, MOV and WebM up to 250 MB and three minutes, with the reassurance that nothing is added until you review it](../images/add-observation.png)
+
 ## Add an observation
 
 1. Open **Observe → Add observation**.

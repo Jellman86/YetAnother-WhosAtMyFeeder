@@ -19,7 +19,7 @@ still in place.
 
 ## Check how your clips are packaged
 
-Capture a diagnostics bundle from **Settings > Health > Diagnostics export**. It
+Capture a diagnostics bundle from **Settings → Health → Diagnostics export**. It
 includes a `media_sample` section describing a recent clip:
 
 ```json

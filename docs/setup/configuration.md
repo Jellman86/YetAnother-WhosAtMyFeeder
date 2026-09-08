@@ -1,125 +1,315 @@
 # Configuration
 
-Most settings in YA-WAMF can be managed directly through the web UI. These settings are stored in `/config/config.json`.
+Almost everything about YA-WAMF is configured in the web UI, under **Settings**. Your
+choices are written to `/config/config.json` and survive container updates.
 
 > Every UI setting that can be pre-set at deploy time also has an environment
 > variable. For the **complete list of environment variables** (names, defaults,
 > and what's UI/file-only), see
 > [Environment variables](environment-variables.md).
 
-## Connection Settings
-Settings for communicating with your NVR and messaging broker.
+## How Settings is laid out
+
+Settings has twelve sections in four groups. The same grid appears at the top of every
+Settings page, so you can jump between sections without going back:
+
+![The Settings navigation grid: Feeder pipeline holds Connection and Detection; Intelligence and sharing holds Integrations, Enrichment, AI and Notifications; Operations holds Health, Security, Data and Setup wizard; Interface holds Appearance and Accessibility](../images/settings-map.png)
+
+| Group | Sections | What lives there |
+|---|---|---|
+| **Feeder pipeline** | Connection, Detection | Where events come from, and how they are identified. |
+| **Intelligence & sharing** | Integrations, Enrichment, AI, Notifications | Other services YA-WAMF talks to, and what it sends out. |
+| **Operations** | Health, Security, Data, Setup wizard | Running it: diagnostics, access, retention, and re-running setup. |
+| **Interface** | Appearance, Accessibility | How the app looks and reads for you. |
+
+A **Debug** section appears alongside them when debug UI is enabled (see
+[Debug section](#debug-section)).
+
+Edits are staged. An **Unsaved Changes** bar appears at the bottom of the page until you
+select **Apply settings**; nothing reaches `config.json` before then.
+
+---
+
+## Connection
+
+Where bird events come from.
+
+![Settings → Connection: a Frigate NVR card with Server URL, the Frigate labels to act on, and the public Frigate URL, beside an Active Cameras card](../images/settings-connection.png)
 
 | Setting | Description |
 |---------|-------------|
-| **Server URL** | The URL of your Frigate instance. Used to fetch snapshots and video clips. |
-| **MQTT Broker** | The hostname of your MQTT broker. |
-| **Port** | MQTT port (default 1883). |
-| **Authentication** | Toggle if your broker requires a username and password. |
-| **Active Cameras** | Select which Frigate cameras YA-WAMF should monitor for bird events. Hover the play icon to preview a live snapshot (via the Frigate proxy). |
+| **Server URL** | The address YA-WAMF uses to reach Frigate for snapshots and clips, for example `http://frigate:5000`. |
+| **Frigate labels to act on** | Comma-separated Frigate labels that should enter the bird pipeline. Defaults to `bird`. |
+| **Public Frigate URL** | The address *your browser* uses to open Frigate, when it differs from the server address above. Used for the "open in Frigate" link on a detection. |
+| **Active Cameras** | Which Frigate cameras YA-WAMF monitors. **Sync Cameras** pulls the list from Frigate; **Preview** shows a live snapshot through the Frigate proxy. |
+| **Camera role** | Mark each camera as a **feeder** or a **nest** camera. Nest cameras use their own de-duplication window. |
+| **MQTT Broker** / **Port** / **Use Authentication** | Under **MQTT Settings (Frigate Events)**: your broker's hostname, its port (default `1883`), and optional user and pass. |
+| **Fetch video clips** | Whether YA-WAMF caches Frigate's short event clip. Turn it off on a metered link. |
+| **Full-visit clips** | Ask Frigate for a wider window of recording around each detection. The default window is `30` seconds before and `90` seconds after. |
+| **Telemetry** | Optional anonymous usage metrics and health diagnostics, both off by default. See [Telemetry](../features/telemetry.md). |
+| **Test Connection** | One staged diagnostic with two checks: **Frigate API**, then **MQTT broker publish**. It tests the values currently in the form, so you can prove a change before saving it. |
 
-## Detection Settings
-Fine-tune how AI identifications are handled. This is the most important section for balancing accuracy and noise.
+> **Full-visit clips need continuous recording.** Every selected camera needs an enabled
+> FFmpeg `record` role and positive `record.continuous.days` retention. Alert or detection
+> retention alone can leave the start or end of the requested window missing. Settings
+> checks this coverage and names any camera that needs attention.
 
-| Setting | Description |
-|---------|-------------|
-| **Confidence Threshold** | The "Species Gatekeeper". If the AI score is higher than this (e.g., 0.7), the bird is saved with its specific species name. |
-| **Min Confidence Floor** | The "Existence Gatekeeper". Anything below this score (e.g., 0.2) is discarded as a false positive (shadows, bugs, etc.). |
-| **Trust Frigate Sublabels** | The "Fast Path". If enabled and Frigate provides an identification, YA-WAMF trusts it instantly, bypassing both the local AI and the Confidence Floor. |
-| **Write Frigate Sublabel** | Controls whether YA-WAMF pushes its own species identification back to Frigate as a sublabel. Disable if you do not want YA-WAMF writing back to Frigate events. |
-| **Bird Model Region** | Override automatic regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
-| **Inference Provider** | Select `Auto`, ONNX CPU, NVIDIA CUDA, or an Intel OpenVINO device. The container image must package the selected family; `Auto` is recommended. |
-| **Model Manager** | Download, validate, and activate classifier and cropped-thumbnail detector models. Classifier crop preparation is model-owned and automatic. |
-| **Runtime diagnostics** | Shows **Image**, **Packaged**, **Selected**, **Active**, device probes, backend, and fallback state. Image packaging and working hardware are separate. |
-| **Execution Mode** | `In-Process` (default, lower RAM — shares one model instance) or `Subprocess` (isolated workers with independent restart/circuit-breaker logic). |
-| **Personalized Re-ranking** | Optional learning layer that uses your manual species corrections to re-rank future predictions for the same camera and active model. Activates after at least 20 manual tags for that camera/model pair. |
+## Detection
 
-### 🛠 How Thresholds Work Together
-The logic follows a three-tier system:
+How a snapshot becomes a species. This is the section that balances accuracy against noise.
 
-1.  **High Confidence (Score > Threshold):**
-    *   *Result:* Saved as the detected species (e.g., "Northern Cardinal").
-    *   *Action:* Reported to BirdWeather and Home Assistant.
-2.  **Medium Confidence (Floor < Score < Threshold):**
-    *   *Result:* Saved as **"Unknown Bird"**.
-    *   *Why?* The system is sure there is a bird, but not sure enough to bet on the species. This keeps your stats clean while still recording the visit.
-3.  **Low Confidence (Score < Floor):**
-    *   *Result:* **Discarded**.
-    *   *Why?* Likely a false positive or an extremely blurry image that isn't useful.
+![Settings → Detection: a Classification Engine card showing the active model, runtime, worker plan and health, with a Confidence Threshold slider and an Inference Provider selector](../images/settings-detection.png)
 
-### 💡 Pro-Tip: The "Bypass"
-If you have **"Trust Frigate Sublabels"** enabled, and Frigate identifies a "Blue Jay", YA-WAMF will save it as a "Blue Jay" even if its own local model only got a 0.1 score. This is useful because Frigate has access to the full motion stream, whereas YA-WAMF's real-time pass only sees a single snapshot.
+| Setting | Default | Description |
+|---------|---------|-------------|
+| **Confidence Threshold** | `0.7` | The species gatekeeper. At or above this score the detection is saved with its species name. |
+| **Minimum Confidence Floor** | `0.4` | The existence gatekeeper. Below this score the event is ignored completely. |
+| **Trust Frigate Sublabels** | Enabled | Accept a species Frigate has already identified when local inference has nothing usable. |
+| **Write Frigate Sublabel** | Enabled | Push YA-WAMF's own identification back to the Frigate event as a sublabel. |
+| **Bird Model Region** | `Auto` | Override regional model selection (`Auto`, `Europe`, `North America`) for birds-only model families. |
+| **Inference Provider** | `Auto` | `Auto`, `CPU`, `NVIDIA CUDA`, `Intel GPU (OpenVINO)`, `Intel CPU (OpenVINO)`, or `Intel NPU (OpenVINO)`. Only providers your image packages, your host exposes, and the active model supports are listed. |
+| **Execution Mode** | `Subprocess` | `Subprocess` runs inference in isolated workers the app can restart, so a stalled or crashed classification cannot take the interface with it. `In-process` shares one model copy with the app: less memory, but heavy inference competes with the UI. |
+| **Model Manager** | — | Download, validate, and activate classifier models, and the separate cropped-thumbnail detectors. |
+| **Runtime diagnostics** | — | **Image**, **Packaged**, **Selected**, **Active**, device probes, backend, and any fallback reason. |
+| **Auto Video Analysis** | Disabled | Analyse the clip across multiple frames after the event ends. Frame count defaults to `15`. |
+| **Personalized Re-ranking** | Disabled | Use your manual corrections to re-rank future predictions for the same camera and model. |
 
-### 🎯 Personalized Re-ranking Details
-- Scope: Feedback is isolated by **camera + active model ID**. Corrections from one camera/model do not affect others.
-- Activation threshold: Re-ranking remains inactive until there are at least **20** manual correction tags for that camera/model pair.
-- Time decay: Newer corrections are weighted more heavily than older ones, so stale patterns fade over time.
-- Safety: Score adjustments are bounded and fail-open; if feedback is unavailable or lookup fails, YA-WAMF uses the base classifier scores.
+### 🛠 How the two thresholds work together
 
-## Integration Settings
-Configure third-party services.
+1. **Score at or above the Threshold**
+   *Saved as the identified species, and reported onward to BirdWeather and Home Assistant.*
+2. **Score between the Floor and the Threshold**
+   *Saved as **Unknown Bird**.* YA-WAMF is confident something was there, but not confident
+   enough to name it. The visit is kept; your species statistics stay clean.
+3. **Score below the Floor**
+   *Discarded.* Almost always a shadow, an insect, or an unusable frame.
 
-- **BirdNET-Go:** Configure the MQTT topic and map Frigate cameras to audio sensor IDs. Multiple source names per camera are supported (comma-separated).
-- **BirdWeather:** Enter your Station Token to contribute detections to the BirdWeather community.
-- **iNaturalist:** Owner-reviewed submissions via OAuth. Requires App Owner approval (currently untested).
-- **AI Insights:** Connect Google Gemini, OpenAI, or Claude to get behavioral analysis of your visitors. The Settings UI surfaces current recommended models per provider.
-- **Location:** Set your latitude/longitude for weather enrichment. Also configure **Weather Units** (`Metric`, `Imperial`, or `British` for °C + mph + mm) and optional `state`/`country` values for eBird export.
-- **eBird Export:** Download detections as a standard eBird CSV record file from **Settings > Data**. Supports full export or a filtered date range. `Unknown Bird` entries are excluded. Requires English species names in the taxonomy cache.
+### 🎯 Personalized re-ranking details
 
-## Notification Settings
-Configure how and where alerts are sent.
+- **Scope:** feedback is isolated by **camera + active model ID**. Corrections on one camera or
+  model never affect another.
+- **Activation:** re-ranking stays inactive until at least **20** manual corrections exist for
+  that camera/model pair.
+- **Time decay:** newer corrections outweigh older ones, so stale patterns fade.
+- **Safety:** adjustments are bounded and fail open. If feedback is unavailable, YA-WAMF uses
+  the base classifier scores.
 
-- **Discord / Pushover / Telegram:** Provide platform tokens and enable snapshots.
-- **Email (OAuth/SMTP):** Use Gmail/Outlook OAuth or traditional SMTP with optional auth.
-- **Mode:** Choose Final-only, Standard, Realtime, or Silent delivery (Advanced allows custom triggers).
-- **Filters:** Minimum confidence, audio-confirmed only, and species whitelist.
-- **Language:** Choose the language used in notifications.
+> **A downloaded model is not yet a proven one.** A model that has never been validated on
+> this host shows **Validate to enable** instead of **Use this model**, and the API refuses to
+> activate it. See [AI Models & Performance](../features/ai-models.md).
 
-## Accessibility & Language
-Customize the UI experience for comfort and assistive technologies.
+## Integrations
 
-- **High Contrast / Dyslexia Font / Reduced Motion:** Adjust UI readability.
-- **Live Announcements:** Toggle screen reader announcements for new detections.
-- **UI Language:** Set the interface language (also used for notifications).
+Other services YA-WAMF talks to. Credentials are redacted as `***REDACTED***` once saved, and
+a saved credential can be re-tested without typing it again.
 
-## Debug UI
-Optional debug tools for testing and diagnostics.
+![Settings → Integrations: a BirdNET-Go card with the integration toggled on, its backend-only internal URL and the public browser URL used by dashboard links, beside an iNaturalist card that is switched off](../images/settings-integrations.png)
 
-- Enable via env: `SYSTEM__DEBUG_UI_ENABLED=true`
-- Or in config: `"system": { "debug_ui_enabled": true }`
-- Or via compose: `DEBUG_UI_ENABLED=true`
+- **BirdNET-Go** — the audio **MQTT Topic** (default `birdnet/text`), two URLs, the audio buffer
+  and match window, and **BirdNET Source Mapping (Optional)**, which ties each audio source to a
+  Frigate camera. **BirdNET-Go internal URL** is the address the backend uses to fetch
+  spectrograms (usually the Docker network name); **BirdNET-Go browser URL** is the public
+  address dashboard links open, and falls back to the internal one when empty. **Test Audio
+  detection** runs the broker publish and a mock detection through the real pipeline. See
+  [BirdNET-Go](../integrations/birdnet-go.md).
+- **BirdWeather** — enter your Station Token to contribute identified detections to the
+  community project. **Test connection** sends a mock House Sparrow to your station.
+- **eBird** — an API key unlocks nearby and notable sightings, plus the CSV export. The export
+  button lives here, under **eBird**, not under Data.
+- **iNaturalist** — owner-reviewed submissions over OAuth. Needs App Owner approval from
+  iNaturalist first.
+- **Home Assistant weather** — take each visit's weather from your own HA instance instead of a
+  regional forecast.
+- **Location** — your latitude and longitude for weather enrichment, optional `state` and
+  `country` values for the eBird export, and **Display Units** (`Metric`, `Imperial`, or
+  `British` for °C with mph and mm). Distances elsewhere in the UI follow this choice.
 
-This reveals a **Debug** tab in Settings (e.g., iNaturalist preview toggle).
+## Enrichment
 
-## Security & Access
-Configure authentication and public access controls.
+A read-only summary of which source currently answers each question about a species. It exists
+so you can see, in one place, where the description on a species card came from.
 
-- **Authentication:** Enable login, set username/password, and configure session expiry.
-- **Trusted Proxy Hosts:** If you run behind a reverse proxy, list its IPs, CIDR ranges, or container/DNS names so client IPs are trusted correctly.
-- **Public Access:** Enable a guest view and set rate limits plus whether camera names are visible.
+| Question | Default source |
+|---|---|
+| **Summary** | Wikipedia |
+| **Taxonomy and common names** | iNaturalist |
+| **Nearby sightings** | Disabled |
+| **Seasonality** | Disabled |
+| **Rarity** | Disabled |
+| **External links** | Wikipedia and iNaturalist |
 
-### Recommended Reverse Proxy Routing
+Each source is `wikipedia`, `inaturalist`, `ebird`, or `disabled`. There are no controls on
+this page: the choices are made with the `ENRICHMENT__*` environment variables or the
+`enrichment` block in `config.json`. `ENRICHMENT__MODE` is `per_enrichment` (the default, one
+source per question) or `single` (one source, named by `ENRICHMENT__SINGLE_PROVIDER`, for
+everything). See [Environment variables](environment-variables.md).
 
-For the monolithic deployment (recommended), route all traffic through a single upstream:
+## AI
+
+Connect a Large Language Model for the naturalist notes on a detection and the chart analysis
+on the leaderboard.
+
+- **Provider:** Google Gemini (default), OpenAI, Claude, or OpenRouter.
+- **Model:** the UI lists current presets per provider and shows the recommended one.
+  OpenRouter also accepts any model ID you type.
+- **Test AI Connection:** a staged panel that checks configuration, provider availability,
+  vision support, multi-frame admission, and response generation. It sends five generated
+  1280×720 frames — the same shape as a real analysis request — so a pass proves the model
+  accepts production traffic.
+- **Usage:** calls, tokens, and estimated cost per feature, with the reference pricing the
+  estimate used.
+
+## Notifications
+
+Where alerts go, and which detections earn one.
+
+![Settings → Notifications: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on nowhere yet", with the notification cooldown, language, and the three species filter modes beneath](../images/settings-notifications.png)
+
+The filter reads as a sentence — *Tell me about **new visits** that are at least **70% sure**
+of **any species** on **Discord*** — and each highlighted part is a control.
+
+| Control | Default | Description |
+|---|---|---|
+| **Notification mode** | Standard | `Final-only`, `Standard`, `Realtime`, `Silent`, or `Advanced (custom)` triggers. |
+| **Minimum confidence** | `0.7` | Only notify at or above this score. Set it higher than your detection threshold to hear about sure things only. |
+| **Audio confirmed only** | Off | Notify only when BirdNET-Go heard the same species at the same time. |
+| **Species filter** | No species filter | `No species filter`, `Block selected species`, or `Only selected species`. |
+| **Notification cooldown** | `0` minutes | Minimum gap between notifications. `0` disables the cooldown. |
+| **Notification language** | English | The language used in message text, independent of the UI language. |
+
+Destinations are Discord, Pushover, Telegram, and Email (Gmail/Outlook OAuth or plain SMTP).
+See [Notifications](../features/notifications.md) for per-platform setup.
+
+## Health
+
+Live diagnostics for the whole pipeline: system status, what happened to recent frames and why,
+inference health, the naming sources behind your species names, and a downloadable diagnostics
+bundle.
+
+![Settings → Health: a System Status card reporting all monitored services healthy, and a "What happened" timeline showing visits recorded and frames filtered out with the reason for each](../images/settings-health.png)
+
+This is the first place to look when detections stop arriving or the interface feels slow. See
+[Diagnostics & Logs](../troubleshooting/diagnostics.md).
+
+## Security
+
+Who can reach YA-WAMF, and what a visitor can see.
+
+![Settings → Security: an Authentication card with the enable switch, admin username and a redacted saved password, beside a Public Access card with separate switches for camera names, audio, photographs and video](../images/settings-security.png)
+
+- **Authentication** — enable login, set the owner username and password, and choose the
+  session lifetime. Saved passwords display as `***REDACTED***` and are preserved when you
+  save other settings.
+- **Public Access** — a read-only, rate-limited guest view. **Show camera names**, **Share
+  audio**, **Share photographs**, and **Share video** are separate switches, all enforced at
+  the server. You also choose how far back the public history reaches.
+- **Trusted Proxy Hosts** — if you run behind a reverse proxy, list its IPs, CIDR ranges, or
+  container/DNS names so client IP addresses are trusted correctly.
+
+> **Enable authentication before you expose YA-WAMF beyond your own network.** The UI and API
+> are administrative surfaces. See [Authentication & Access](../features/authentication.md).
+
+### Recommended reverse proxy routing
+
+For the monolithic deployment, route all traffic through a single upstream:
 
 - All YA-WAMF traffic → `yawamf-monalithic:8080`
 
-See the [Reverse Proxy Guide](../setup/reverse-proxy.md) for SSE and video clip proxy requirements.
+See the [Reverse Proxy Guide](reverse-proxy.md) for SSE and video clip proxy requirements.
 
-> **Legacy split deployment:** If you are still running the older two-container stack, route `/api/*` to `yawamf-backend:8000` and `/` to `yawamf-frontend:80` to avoid a multi-hop proxy chain that can cause HTTPS detection warnings.
+> **Legacy split deployment:** if you still run the older two-container stack, route `/api/*`
+> to `yawamf-backend:8000` and `/` to `yawamf-frontend:80`, to avoid a multi-hop proxy chain
+> that can break HTTPS detection.
 
-The image choice is a deployment setting rather than an application setting.
-Use the full compatibility image or a smaller CPU, Intel, or CUDA image as
-described in [Hardware Acceleration](hardware-acceleration.md). Switching image
-does not rewrite **Inference Provider**, `/config`, or `/data`.
+The image flavour is a deployment choice, not an application setting. Use the full
+compatibility image or a smaller CPU, Intel, or CUDA image as described in
+[Hardware Acceleration](hardware-acceleration.md). Switching image does not rewrite
+**Inference Provider**, `/config`, or `/data`.
 
-## Data Management
-- **Retention Policy:** Choose how long to keep sightings in your history (`maintenance.retention_days`; `0` keeps everything). Scheduled cleanup permanently deletes both visual detections and BirdNET-Go audio detections older than this window — purged history cannot be recovered. Favourited detections are preserved.
-- **Migration backups:** Before applying database migrations, YA-WAMF creates a timestamped restore point beside `speciesid.db`. It keeps the newest 10 automatic backups by default and removes older automatic backups only after a new backup succeeds. Set `DB_PRE_MIGRATION_BACKUP_RETENTION` to retain more; at least one restore point is always kept, and manual backups are never matched or removed.
-- **Media Cache:** Toggle local caching of snapshots and video clips to reduce load on Frigate and speed up the UI.
-- **Best available event snapshots:** When enabled under **Settings → Data → Snapshot quality**, YA-WAMF starts with Frigate's completed-event clean best frame and tracked-object crop, then samples high-quality clip frames. A clip frame replaces that protected baseline only after a compatible species result improves classifier confidence by at least two points. JPEG quality remains configurable; crop source selection is automatic.
-- **Taxonomy Repair:** Manually trigger a sync to normalize all species names using iNaturalist data.
-- **Timezone Repair:** Owner-only tool to fix legacy detections affected by a UTC timestamp shift. Only visible when affected rows are detected.
+## Data
 
-## Maintenance Concurrency
-- **`maintenance_max_concurrent`** (default: `1`): Controls how many maintenance jobs (backfill, taxonomy repair, timezone repair, analyze-unknowns) can run in parallel. The recommended value is `1` — this keeps maintenance serialized so it does not compete with live event processing. Raising `video_classification_max_concurrent` for clip analysis throughput will not affect maintenance concurrency unless this setting is also changed.
+Retention, caching, imports, and the destructive tools.
+
+![Settings → Data: total records, oldest seen, retention and pending-cleanup counters across the top, then a Retention Policy card set to Keep Everything with a History Duration selector and a Purge Old Records button, beside a Media Cache card with separate switches for snapshots and video clips](../images/settings-data.png)
+
+- **Retention Policy** — **History Duration** sets how long sightings are kept
+  (`maintenance.retention_days`; **Keep Everything (∞)** is the default). Cleanup runs once at
+  startup and then every 24 hours from that point, so the time of day it lands on follows when the
+  container last started. **Purge Old Records** runs it now. Cleanup **permanently deletes** both
+  visual detections and BirdNET-Go audio older than the window. Purged history cannot be
+  recovered. Favourited detections are kept.
+  The **Advanced → Maintenance & media integrity** disclosure holds the periodic re-check against
+  Frigate and what to do when upstream media has gone.
+- **Media Cache** — cache snapshots and clips locally to reduce load on Frigate and speed up
+  the UI.
+- **Best available event snapshots** — start from Frigate's completed clean best frame and
+  tracked-object crop, then sample high-quality clip frames. A clip frame replaces the baseline
+  only when a compatible species result improves confidence by at least two points. JPEG quality
+  is configurable; crop source selection is automatic.
+- **Missed Detections** — import bird events Frigate still retains, over a day, week, month, or a
+  custom range. Import is idempotent by Frigate event ID, so running it twice is safe.
+- **Batch Analysis** — re-run classification over detections currently saved as Unknown Bird,
+  either on demand or automatically each day.
+- **Taxonomy Repair** — normalise species names across your whole history against iNaturalist.
+  It rewrites names only.
+- **Timezone Repair** — owner-only fix for legacy detections affected by a UTC timestamp shift.
+  It previews the change first and needs explicit confirmation, and it is only offered when
+  affected rows exist.
+- **Migration backups** — before applying database migrations YA-WAMF writes a timestamped
+  restore point beside `speciesid.db`, keeping the newest 10 by default. Set
+  `DB_PRE_MIGRATION_BACKUP_RETENTION` to keep more. At least one restore point is always kept,
+  and manual backups are never removed.
+
+> **The Danger Zone is genuinely dangerous.** **Reset Database & Cache** permanently deletes
+> *every* detection and clears the media cache; **Clear Personalization Data** deletes every
+> manual correction the re-ranker learned from. Both ask first, and neither can be undone. There
+> is no automatic backup of your detection history — take your own copy of `/data` before you use
+> either.
+
+### Maintenance concurrency
+
+`maintenance_max_concurrent` (default `1`) controls how many jobs of the *same* maintenance
+kind may overlap — backfill, weather backfill, video classification, taxonomy repair, timezone
+repair, and analyse-unknowns each get that many slots. Different kinds already run
+independently. `1` is the recommendation: it keeps maintenance from competing with live event
+processing.
+
+Video-analysis concurrency is separate, and no longer has its own setting. It follows the
+background worker count (`CLASSIFICATION__BACKGROUND_WORKER_COUNT`) — one clip per worker.
+`video_classification_max_concurrent` remains readable and writable for compatibility, but is
+ignored.
+
+## Appearance
+
+How the interface reads.
+
+| Setting | Options |
+|---|---|
+| **Bird Naming Style** | **Standard** (common name primary, scientific subtitle), **Hobbyist** (scientific primary, common subtitle), or **Strictly Scientific** (scientific only). |
+| **Explorer view** | **Cards** shows a snapshot per detection; **List** shows one compact row each, with times aligned for scanning. |
+| **Theme** | Light or dark, plus the colour and font themes. |
+| **Language** | The interface language. Notifications have their own language setting. |
+| **Date format** | United Kingdom (DD/MM/YYYY), United States (MM/DD/YYYY), or Japan/China (YYYY-MM-DD). |
+| **Time format** | 12 hour, 24 hour, or **Follow browser language**. |
+
+## Accessibility
+
+- **High contrast**, **Dyslexia-friendly font**, and **Reduced motion** for readability and
+  motion sensitivity.
+- **Live announcements** — screen reader announcements when new detections arrive.
+
+## Setup wizard
+
+Re-runs the guided setup as a non-destructive section map. Completing, skipping, or backing out
+of a section returns you to that map rather than marching through unrelated steps.
+
+## Debug section
+
+Optional developer tools, hidden unless you enable them:
+
+- Environment variable: `SYSTEM__DEBUG_UI_ENABLED=true`
+- Config file: `"system": { "debug_ui_enabled": true }`
+- Compose: `DEBUG_UI_ENABLED=true`
+
+This reveals a **Debug** section in the Settings navigation, holding things like the
+iNaturalist preview toggle and the LLM prompt editors.

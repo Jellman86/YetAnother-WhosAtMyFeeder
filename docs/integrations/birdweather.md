@@ -8,7 +8,7 @@ Every time a bird is identified with a specific species (i.e., not "Unknown Bird
 ## Setup
 1. Log in to your BirdWeather account.
 2. Find your **Station Token** in your station settings.
-3. In YA-WAMF, go to **Settings > Integrations**.
+3. In YA-WAMF, go to **Settings → Integrations → BirdWeather**.
 4. Enable **BirdWeather** and paste your token.
 5. Click **Apply Settings**.
 

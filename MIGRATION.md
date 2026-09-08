@@ -37,7 +37,7 @@ If you previously ran YA-WAMF without any authentication:
 2. Recreate the container (`docker compose up -d`).
 3. The system will automatically migrate your `config.json` to include the new authentication settings (disabled by default).
 4. You will see a banner in the UI prompting you to secure your installation.
-5. Go to **Settings > Security** to enable authentication and set a password.
+5. Go to **Settings → Security** to enable authentication and set a password.
 
 ---
 
@@ -49,7 +49,7 @@ If you were using `YA_WAMF_API_KEY` in your `.env` file:
 2. The system will detect your existing API key and continue to honor it.
 3. You will see a warning in the Settings page: **"Legacy API Key Detected"**.
 4. **To Migrate:**
-   - Go to **Settings > Security**.
+   - Go to **Settings → Security**.
    - Enable "Authentication".
    - Set a username and password.
    - Save settings.
