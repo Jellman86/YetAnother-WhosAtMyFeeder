@@ -2428,7 +2428,6 @@
   },
   "shortcuts": {
     "title": "Atalhos de Teclado",
-    "hint": "Atalhos de teclado (?)",
     "navigation": "Navegacao",
     "actions": "Acoes",
     "open_panel": "Abrir painel de atalhos",

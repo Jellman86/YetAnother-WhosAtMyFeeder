@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Dead files fail CI.** A router nobody mounted, three components nothing rendered, and two
+  packages nothing imported had all outlived their replacements while still compiling. They are
+  gone, and two gates now catch the class: a backend module reachable from nothing that runs
+  fails the test suite, and `knip` fails the frontend build on unused files or packages.
 - **Every published image names its commit.** Each image now carries the OCI
   `org.opencontainers.image.revision`, `version`, and `source` labels, so `docker inspect` and
   Dockhand can tie a running container to the exact build without opening the app. The update

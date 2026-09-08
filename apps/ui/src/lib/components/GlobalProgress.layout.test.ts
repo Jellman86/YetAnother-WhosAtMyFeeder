@@ -3,7 +3,6 @@ import appSource from '../../App.svelte?raw';
 import settingsPageSource from '../pages/Settings.svelte?raw';
 import appearanceSettingsSource from './settings/AppearanceSettings.svelte?raw';
 import bannerSource from './GlobalProgress.svelte?raw';
-import headerSource from './Header.svelte?raw';
 import mobileTopBarSource from './MobileTopBar.svelte?raw';
 
 describe('Global progress layout', () => {
@@ -44,9 +43,7 @@ describe('Global progress layout', () => {
         expect(bannerSource).toContain('return backfillStatusStore.retain();');
     });
 
-    it('removes desktop header route tabs and the appearance layout picker', () => {
-        expect(headerSource).not.toContain('<!-- Desktop Navigation -->');
-        expect(headerSource).not.toContain('class="hidden md:flex items-center gap-1"');
+    it('removes the appearance layout picker', () => {
         expect(appearanceSettingsSource).not.toContain("{$_('theme.layout')}");
         expect(appearanceSettingsSource).not.toContain("setLayout(");
         expect(settingsPageSource).not.toContain('let currentLayout');

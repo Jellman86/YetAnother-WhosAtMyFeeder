@@ -2428,7 +2428,6 @@
   },
   "shortcuts": {
     "title": "Keyboard Shortcuts",
-    "hint": "Keyboard shortcuts (?)",
     "navigation": "Navigation",
     "actions": "Actions",
     "open_panel": "Open shortcuts panel",

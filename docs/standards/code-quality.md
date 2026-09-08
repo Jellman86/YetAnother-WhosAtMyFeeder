@@ -87,3 +87,19 @@ drift fails CI. All network access goes through `apps/ui/src/lib/api/` — never
 - [FastAPI documentation](https://fastapi.tiangolo.com/) · [zhanymkanov/fastapi-best-practices](https://github.com/zhanymkanov/fastapi-best-practices)
 - [TypeScript `strict` compiler option](https://www.typescriptlang.org/tsconfig/strict.html)
 - [Svelte — Best practices](https://svelte.dev/docs/svelte/best-practices) · [Svelte 5 runes](https://svelte.dev/docs/svelte/what-are-runes)
+
+## Dead code is a CI failure
+
+`ruff` finds unused names; two further gates find unused *files* and *packages*, the rot that
+survives review because it still compiles:
+
+- **Backend** — [`backend/scripts/dead_modules_check.py`](../../backend/scripts/dead_modules_check.py)
+  walks imports from everything that runs (`app.main`, `backend/scripts`, the repository-root
+  `scripts/`, both Alembic environments, and any module named in a string literal, which is how
+  the classifier worker is launched). A
+  module reachable from none of them fails `test_dead_modules.py`. Tests are not roots: a module
+  only a test imports is dead production code with a test keeping it warm.
+- **Frontend** — `npm run lint:dead` runs [knip](https://knip.dev) for unused files and unused or
+  unlisted packages. Unused *exports* are reported but not yet gated.
+
+Delete the file, or wire it in. Do not allowlist it.
