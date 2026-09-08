@@ -13,7 +13,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   Pushover **View detection** button, a Telegram button under the message, and the email **View in
   Dashboard** button all open that detection on the Detections page. Leave it blank and
   notifications carry no link, exactly as before. The email-only **Dashboard URL** field has become
-  this shared setting; an address already saved there keeps working on every channel. (#414)
+  this shared setting; an address already saved there keeps working on every channel. A second
+  choice, **Notification link opens**, points the link at Frigate instead: the same tracked object
+  in Frigate's Explore page, through the public URL already saved under Integrations (Frigate 0.15
+  or newer). A preview line shows the exact address the next notification will carry, and choosing
+  Frigate without a public URL says plainly that no link is sent until there is one. (#414)
 
 ### Changed
 

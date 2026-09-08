@@ -1646,3 +1646,26 @@ async def test_settings_reports_the_older_email_address_as_the_instance_address(
         assert payload["notifications_instance_url"] == "https://old.example.com"
     finally:
         settings.notifications.instance_url, settings.notifications.email.dashboard_url = original
+
+
+@pytest.mark.asyncio
+async def test_settings_roundtrip_notification_link_target(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    original = settings.notifications.link_target
+    try:
+        before = (await client.get("/api/settings")).json()
+        assert before["notifications_link_target"] == "yawamf"
+        base_payload = {
+            "frigate_url": before["frigate_url"],
+            "mqtt_server": before["mqtt_server"],
+            "classification_threshold": before["classification_threshold"],
+        }
+        post_resp = await client.post("/api/settings", json={**base_payload, "notifications_link_target": "frigate"})
+        assert post_resp.status_code == 200, post_resp.text
+        assert (await client.get("/api/settings")).json()["notifications_link_target"] == "frigate"
+
+        rejected = await client.post("/api/settings", json={**base_payload, "notifications_link_target": "elsewhere"})
+        assert rejected.status_code == 422
+    finally:
+        settings.notifications.link_target = original

@@ -592,3 +592,11 @@ def test_notification_instance_url_env_override(monkeypatch):
     loaded = Settings.load()
 
     assert loaded.notifications.instance_url == "https://feeder.example.com"
+
+
+def test_notification_link_target_env_override(monkeypatch):
+    monkeypatch.setenv("NOTIFICATIONS__LINK_TARGET", "frigate")
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.link_target == "frigate"

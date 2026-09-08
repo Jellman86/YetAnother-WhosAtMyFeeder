@@ -24,7 +24,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.services.canonical_identity_repair_service import canonical_identity_repair_service
 from app.services.telemetry_service import collect_runtime_telemetry_payload, telemetry_service
 from app.services.notification_service import notification_service
-from app.services.notification_links import detection_link, instance_base
+from app.services.notification_links import instance_base, notification_link
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
 from app.services.inaturalist_service import inaturalist_service
@@ -499,7 +499,7 @@ async def test_notification(
     camera = "test_camera"
     timestamp = datetime.now(timezone.utc)
     snapshot_url = "https://placehold.co/600x400.jpg"
-    detection_url = detection_link(instance_base(settings.notifications), None)
+    detection_url = notification_link(settings.notifications, settings.frigate.frigate_external_url, None)
 
     try:
         if request.platform == "discord":
@@ -1011,6 +1011,7 @@ class SettingsUpdate(BaseModel):
     notifications_email_include_snapshot: Optional[bool] = True
     notifications_email_dashboard_url: Optional[str] = None
     notifications_instance_url: Optional[str] = None
+    notifications_link_target: Optional[Literal["yawamf", "frigate"]] = None
 
     notifications_filter_species_mode: Optional[Literal["none", "blacklist", "whitelist"]] = "none"
     notifications_filter_species_whitelist: Optional[List[str]] = []
@@ -1519,6 +1520,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "notifications_email_include_snapshot": settings.notifications.email.include_snapshot,
         "notifications_email_dashboard_url": settings.notifications.email.dashboard_url,
         "notifications_instance_url": instance_base(settings.notifications),
+        "notifications_link_target": settings.notifications.link_target,
         "notifications_filter_species_whitelist": settings.notifications.filters.species_whitelist,
         "notifications_filter_species_mode": settings.notifications.filters.species_mode,
         "notifications_filter_species_whitelist_structured": settings.notifications.filters.species_whitelist_structured,
@@ -2106,6 +2108,8 @@ async def update_settings(
         instance_url = update.notifications_instance_url.strip().rstrip("/") or None
         settings.notifications.instance_url = instance_url
         settings.notifications.email.dashboard_url = instance_url
+    if "notifications_link_target" in fields_set and update.notifications_link_target is not None:
+        settings.notifications.link_target = update.notifications_link_target
 
     # Notifications - Filters
     if "notifications_filter_species_mode" in fields_set and update.notifications_filter_species_mode is not None:

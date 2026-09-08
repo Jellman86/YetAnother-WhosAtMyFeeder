@@ -869,6 +869,10 @@ class NotificationSettings(BaseModel):
         default=None,
         description="Public address of this install; notifications link back to the detection here",
     )
+    link_target: Literal["yawamf", "frigate"] = Field(
+        default="yawamf",
+        description="Where a notification link opens: this install's Detections page, or the tracked object in Frigate",
+    )
     mode: str = Field(default="standard", description="Notification mode: silent, final, standard, realtime, custom")
     notify_on_insert: bool = Field(default=True, description="Notify on new detection insert")
     notify_on_update: bool = Field(default=False, description="Notify on detection updates")

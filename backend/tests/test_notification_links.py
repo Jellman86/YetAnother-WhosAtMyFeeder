@@ -40,3 +40,39 @@ def test_the_shared_address_wins_over_the_email_one():
     notifications = NotificationSettings(instance_url="https://new.example.com")
     notifications.email.dashboard_url = "https://old.example.com"
     assert instance_base(notifications) == "https://new.example.com"
+
+
+# --- the owner may point the link at Frigate instead (#414, second half) ----------------------
+
+from app.services.notification_links import frigate_link, notification_link  # noqa: E402
+
+
+def test_frigate_link_opens_the_tracked_object_in_explore():
+    assert frigate_link("https://frigate.example.com/", "1788874165.969381-ym7r9s") == (
+        "https://frigate.example.com/explore?event_id=1788874165.969381-ym7r9s"
+    )
+
+
+def test_frigate_link_without_an_event_opens_explore():
+    assert frigate_link("https://frigate.example.com", None) == "https://frigate.example.com/explore"
+
+
+def test_no_public_frigate_address_means_no_link_not_the_internal_one():
+    assert frigate_link("", "abc") is None
+    assert frigate_link("   ", "abc") is None
+
+
+def test_the_target_choice_decides_which_link_a_notification_carries():
+    notifications = NotificationSettings(instance_url="https://feeder.example.com", link_target="frigate")
+    assert notification_link(notifications, "https://frigate.example.com", "abc") == (
+        "https://frigate.example.com/explore?event_id=abc"
+    )
+    notifications.link_target = "yawamf"
+    assert notification_link(notifications, "https://frigate.example.com", "abc") == (
+        "https://feeder.example.com/events?event=abc"
+    )
+
+
+def test_frigate_target_with_no_public_address_sends_no_link_at_all():
+    notifications = NotificationSettings(instance_url="https://feeder.example.com", link_target="frigate")
+    assert notification_link(notifications, "", "abc") is None
