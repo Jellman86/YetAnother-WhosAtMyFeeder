@@ -2419,7 +2419,6 @@
   },
   "shortcuts": {
     "title": "键盘快捷键",
-    "hint": "键盘快捷键 (?)",
     "navigation": "导航",
     "actions": "操作",
     "open_panel": "打开快捷键面板",

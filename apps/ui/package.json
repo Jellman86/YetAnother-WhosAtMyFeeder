@@ -1,36 +1,36 @@
 {
-    "name": "wamf-ui",
-    "private": true,
-    "version": "2.9.15",
-    "type": "module",
-    "scripts": {
-        "dev": "vite",
-        "build": "vite build",
-        "preview": "vite preview",
-        "api:types": "python3 ../../backend/scripts/export_openapi_types.py",
-        "api:types:check": "python3 ../../backend/scripts/export_openapi_types.py --check",
-        "check": "svelte-check --tsconfig ./tsconfig.json",
-        "test": "vitest run"
-    },
-    "devDependencies": {
-        "@sveltejs/vite-plugin-svelte": "^7.3.0",
-        "@tsconfig/svelte": "^5.0.4",
-        "@types/leaflet": "^1.9.22",
-        "autoprefixer": "^10.5.4",
-        "postcss": "^8.5.28",
-        "svelte": "^5.57.0",
-        "svelte-check": "^4.7.6",
-        "tailwindcss": "^3.4.1",
-        "tslib": "^2.6.2",
-        "typescript": "^5.9.0",
-        "vite": "^8.2.2",
-        "vitest": "^4.1.10"
-    },
-    "dependencies": {
-        "apexcharts": "^6.8.0",
-        "flatpickr": "^4.6.13",
-        "leaflet": "^1.9.4",
-        "markdown-it": "^15.0.1",
-        "svelte-i18n": "^4.0.1"
-    }
+  "name": "wamf-ui",
+  "private": true,
+  "version": "2.9.15",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "api:types": "python3 ../../backend/scripts/export_openapi_types.py",
+    "api:types:check": "python3 ../../backend/scripts/export_openapi_types.py --check",
+    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "test": "vitest run",
+    "lint:dead": "knip --no-progress --include files,dependencies,devDependencies,unlisted,unresolved"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@tsconfig/svelte": "^5.0.4",
+    "@types/leaflet": "^1.9.22",
+    "autoprefixer": "^10.5.4",
+    "knip": "^6.34.0",
+    "postcss": "^8.5.28",
+    "svelte": "^5.57.0",
+    "svelte-check": "^4.7.6",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.9.0",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "apexcharts": "^6.8.0",
+    "leaflet": "^1.9.4",
+    "markdown-it": "^15.0.1",
+    "svelte-i18n": "^4.0.1"
+  }
 }

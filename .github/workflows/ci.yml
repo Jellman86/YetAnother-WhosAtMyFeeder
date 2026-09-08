@@ -121,6 +121,12 @@ jobs:
         run: npm run check
         working-directory: apps/ui
 
+      # Dead files and dead packages, the class of rot that survives review (a router
+      # nobody mounts, a component nothing renders). Unused exports are not gated yet.
+      - name: Dead code (knip)
+        run: npm run lint:dead
+        working-directory: apps/ui
+
       - name: Frontend unit tests
         run: npm test
         working-directory: apps/ui

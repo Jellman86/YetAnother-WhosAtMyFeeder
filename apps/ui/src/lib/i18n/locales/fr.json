@@ -2419,7 +2419,6 @@
   },
   "shortcuts": {
     "title": "Raccourcis Clavier",
-    "hint": "Raccourcis clavier (?)",
     "navigation": "Navigation",
     "actions": "Actions",
     "open_panel": "Ouvrir le panneau des raccourcis",
