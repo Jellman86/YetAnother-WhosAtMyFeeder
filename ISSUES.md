@@ -19,12 +19,10 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
   file on the event loop, and the owner system checks call it once a minute from every owner page,
   so on a slow or network-backed filesystem the whole API stalled for the length of the walk. The
   reporter's bundles carry 168 client-side timeouts on that request. The walk now runs on a worker
-  thread and logs itself when it exceeds a second (PR #401). Waiting on a fresh bundle from a
-  release that contains both.
-- **#167 Video will not play in Safari:** the likely cause is HEVC packaged as `hev1`, which Safari's
-  video element refuses while QuickTime plays it, so "the download opens fine" does not clear it.
-  Diagnostics bundles now report the sample format of a recent clip, and there is a troubleshooting
-  page at `docs/troubleshooting/safari-video-playback.md`. Waiting on a bundle from the reporter.
+  thread and logs itself when it exceeds a second (PR #401). The reporter wrote on August 31 that a
+  database and cache reset brought Settings from over 40 seconds down to 3 to 10 seconds. PR #401
+  merged on September 7 and is not in 2.19.3, so the issue can close on the reporter's word with a
+  note that the last fix ships in the next release.
 
 ## Known Remaining Exposure
 
@@ -49,6 +47,9 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 ## Open on the Tracker
 
 - **#300** Slowing interface. See Pending Verification above.
+- **#414** Clickable link in notifications. Fixed in dev (#417): an instance address under
+  Settings → Notifications makes every channel link to the detection it announces. Closes with the
+  release that carries it.
 - **#256** Snapshot selection and classification overhaul. The two bug halves shipped (the delete
   control names its effect; species information is stated once). What remains is unifying frame
   choice and identification into one flow, which is a design decision and now has a roadmap entry.
@@ -68,6 +69,9 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
   single-use, 60-second ticket from `POST /api/auth/stream-ticket`, and `/api/sse` refuses the
   session token in its query string. The three lines nginx wrote on the September 8 restart carried
   a valid owner token; the same lines now carry a spent ticket.
+- **#167** Video would not play in Safari; closed August 31 after the reporter confirmed playback.
+  Diagnostics bundles report a recent clip's sample format, and
+  `docs/troubleshooting/safari-video-playback.md` stays for the next report.
 - **#392** Audio routes held a pooled connection while naming species over the network; closed
   September 3, 2026, with the lookup itself now refusing the network while a connection is held.
 - **#386** Leaderboard duplicates from split identities and hand corrections; closed September 4.
