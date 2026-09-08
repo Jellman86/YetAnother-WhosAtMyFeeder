@@ -19,7 +19,7 @@ export interface ReviewQueue {
     newSpeciesSightings: Map<string, number>;
 }
 
-export const REVIEW_QUEUE_PREVIEW_LIMIT = 4;
+const REVIEW_QUEUE_PREVIEW_LIMIT = 4;
 
 export interface NewSpeciesEntry {
     detection: Detection;

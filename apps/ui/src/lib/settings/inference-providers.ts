@@ -1,6 +1,6 @@
 import type { ClassifierStatus } from '../api/classifier';
 
-export const INFERENCE_PROVIDERS = [
+const INFERENCE_PROVIDERS = [
     'auto',
     'cpu',
     'cuda',

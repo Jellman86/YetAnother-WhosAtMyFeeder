@@ -10,7 +10,6 @@ import { notificationPolicy } from '../notifications/policy';
 const STALE_PROCESS_MAX_AGE_MS = 45 * 60 * 1000;
 const ORPHAN_PROCESS_GRACE_MS = 2 * 60 * 1000;
 const RECLASSIFY_PROGRESS_ID = 'reclassify:progress';
-const LEGACY_RECLASSIFY_PROGRESS_PREFIX = 'reclassify:progress:';
 const RECLASSIFY_STATE_MAX_IDLE_MS = 5 * 60 * 1000;
 // Long-running batch kinds can legitimately go several minutes between SSE
 // updates (frigate clip downloads, large backfill batch boundaries). A short
@@ -1214,7 +1213,6 @@ export class LiveUpdateCoordinator {
             : 0;
         const skipped = Number.isFinite(Number(data.skipped)) ? Math.max(0, Math.floor(Number(data.skipped))) : 0;
         const errors = Number.isFinite(Number(data.errors)) ? Math.max(0, Math.floor(Number(data.errors))) : 0;
-        const hasOngoingState = payload.type === 'backfill_progress' || payload.type === 'backfill_started';
         const normalizedTotal = total > 0 ? total : 0;
 
         let title = isWeather ? this.deps.t('notifications.event_weather_backfill') : this.deps.t('notifications.event_backfill');

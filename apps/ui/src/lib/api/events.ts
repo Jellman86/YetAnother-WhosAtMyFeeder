@@ -174,7 +174,6 @@ export async function fetchHiddenCount(): Promise<paths['/api/events/hidden-coun
 }
 
 export type NewSpeciesQueueResponse = paths['/api/events/new-species']['get']['response'];
-export type NewSpeciesSighting = NewSpeciesQueueResponse['items'][number];
 
 /** Species that appeared recently and no person has confirmed (#310). Owner only. */
 export async function fetchNewSpeciesQueue(): Promise<NewSpeciesQueueResponse> {

@@ -1,4 +1,4 @@
-export interface StreamTicket {
+interface StreamTicket {
     ticket: string;
     expires_in_seconds: number;
 }

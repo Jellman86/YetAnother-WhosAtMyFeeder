@@ -1,6 +1,6 @@
 import type { JobProgressItem } from '../stores/job_progress.svelte';
 
-export interface QueueTelemetrySnapshot {
+interface QueueTelemetrySnapshot {
     queued: number;
     running?: number;
     queueDepthKnown: boolean;

@@ -99,7 +99,10 @@ survives review because it still compiles:
   the classifier worker is launched). A
   module reachable from none of them fails `test_dead_modules.py`. Tests are not roots: a module
   only a test imports is dead production code with a test keeping it warm.
-- **Frontend** — `npm run lint:dead` runs [knip](https://knip.dev) for unused files and unused or
-  unlisted packages. Unused *exports* are reported but not yet gated.
+- **Frontend** — `npm run lint:dead` runs [knip](https://knip.dev) for unused files, unused or
+  unlisted packages, and unused exports and exported types. An export nothing imports is dead
+  code with an `export` keyword keeping it warm: remove the keyword if the file still uses the
+  symbol, and delete the symbol if it does not. Test files count as importers, so a helper only a
+  test uses is still flagged once that test goes.
 
 Delete the file, or wire it in. Do not allowlist it.

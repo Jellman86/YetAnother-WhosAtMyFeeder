@@ -25,7 +25,7 @@ export interface DetectionVisit {
 export const VISIT_GAP_MS = 10 * 60 * 1000;
 
 /** The dashboard is a "today" surface; Explorer holds the longer history. */
-export const DESK_WINDOW_MS = 24 * 60 * 60 * 1000;
+const DESK_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 const UNRESOLVED_LABEL = 'unknown bird';
 

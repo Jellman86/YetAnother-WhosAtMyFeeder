@@ -180,7 +180,7 @@ const MODEL_TIER_PRIORITY: Record<string, number> = {
     advanced: 4,
 };
 
-export function compareTieredModelMetadata(a: ModelMetadata, b: ModelMetadata): number {
+function compareTieredModelMetadata(a: ModelMetadata, b: ModelMetadata): number {
     return (
         (MODEL_TIER_PRIORITY[a.tier] ?? 99) - (MODEL_TIER_PRIORITY[b.tier] ?? 99) ||
         (a.sort_order ?? 0) - (b.sort_order ?? 0) ||

@@ -1,7 +1,7 @@
 export type DeployRecoveryAction = 'ignore' | 'reload' | 'warn';
 export type DeployRecoveryReason = 'runtime_failure' | 'version_mismatch';
 
-export interface DeployRecoveryEvent {
+interface DeployRecoveryEvent {
     action: Exclude<DeployRecoveryAction, 'ignore'>;
     reason: DeployRecoveryReason;
     frontendVersion: string;

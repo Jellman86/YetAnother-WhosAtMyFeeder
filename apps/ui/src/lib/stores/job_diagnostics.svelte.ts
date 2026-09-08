@@ -1,9 +1,9 @@
 import type { DiagnosticsWorkspacePayload } from '../api/diagnostics';
 
-export type JobDiagnosticSeverity = 'warning' | 'error' | 'critical';
-export type JobDiagnosticSource = 'health' | 'sse' | 'runtime' | 'job' | 'system';
+type JobDiagnosticSeverity = 'warning' | 'error' | 'critical';
+type JobDiagnosticSource = 'health' | 'sse' | 'runtime' | 'job' | 'system';
 
-export interface JobDiagnosticRecordInput {
+interface JobDiagnosticRecordInput {
     source: JobDiagnosticSource;
     component: string;
     stage?: string;
@@ -17,7 +17,7 @@ export interface JobDiagnosticRecordInput {
     healthSnapshot?: unknown;
 }
 
-export interface JobDiagnosticGroup {
+interface JobDiagnosticGroup {
     fingerprint: string;
     source: JobDiagnosticSource;
     component: string;
@@ -33,7 +33,7 @@ export interface JobDiagnosticGroup {
     latestHealthSnapshotId?: string;
 }
 
-export interface JobDiagnosticHealthSnapshot {
+interface JobDiagnosticHealthSnapshot {
     id: string;
     timestamp: number;
     status: string;

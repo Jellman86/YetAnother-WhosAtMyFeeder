@@ -9,7 +9,7 @@ export async function fetchSpecies(signal?: AbortSignal): Promise<SpeciesCount[]
     return handleResponse<SpeciesCount[]>(response);
 }
 
-export interface CameraStats {
+interface CameraStats {
     camera_name: string;
     count: number;
     percentage: number;
@@ -47,10 +47,6 @@ export interface SpeciesInfo {
     taxa_id?: number | null;
     cached_at: string | null;
 }
-
-export type DetectionsTimeline = paths['/api/stats/detections/daily']['get']['response'];
-export type DailyDetectionCount = DetectionsTimeline['daily'][number];
-export type DailyWeatherSummary = NonNullable<DetectionsTimeline['weather']>[number];
 
 export async function fetchSpeciesStats(speciesName: string): Promise<SpeciesStats> {
     const response = await apiFetch(`${API_BASE}/species/${encodeURIComponent(speciesName)}/stats`);
@@ -102,7 +98,6 @@ export async function clearCommonNameOverride(scientificName: string): Promise<C
 
 export type EbirdNearbyResult = paths['/api/ebird/nearby']['get']['response'];
 export type EbirdNotableResult = paths['/api/ebird/notable']['get']['response'];
-export type EbirdObservation = EbirdNearbyResult['results'][number];
 
 export async function fetchEbirdNearby(speciesName?: string, scientificName?: string): Promise<EbirdNearbyResult> {
     const params = new URLSearchParams();
@@ -153,11 +148,6 @@ export async function exportEbirdCsv(range?: EbirdExportRange): Promise<void> {
     a.click();
     window.URL.revokeObjectURL(url);
     document.body.removeChild(a);
-}
-
-export async function fetchDetectionsTimeline(days = 30): Promise<DetectionsTimeline> {
-    const response = await apiFetch(`${API_BASE}/stats/detections/daily?days=${days}`);
-    return handleResponse<DetectionsTimeline>(response);
 }
 
 export type SearchResult = paths['/api/species/search']['get']['response'][number];

@@ -3,8 +3,8 @@ import { _ } from 'svelte-i18n';
 import type { DownloadProgress, ModelMetadata } from '../../api/classifier';
 import type { JobProgressTerminalInput, JobProgressUpdateInput } from '../../stores/job_progress.svelte';
 
-export const MODEL_DOWNLOAD_JOB_KIND = 'model_download';
-export const MODEL_DOWNLOAD_ROUTE = '/settings';
+const MODEL_DOWNLOAD_JOB_KIND = 'model_download';
+const MODEL_DOWNLOAD_ROUTE = '/settings';
 
 interface JobProgressWriter {
     upsertRunning(input: JobProgressUpdateInput): void;

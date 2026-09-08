@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { addMessages, init, locale } from 'svelte-i18n';
 import en from '../i18n/locales/en.json';
 import { ServerJobsStore } from './server_jobs.svelte';

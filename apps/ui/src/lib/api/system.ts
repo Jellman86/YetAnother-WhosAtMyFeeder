@@ -21,7 +21,7 @@ export interface HealthStatus {
     };
 }
 
-export type StartupState = 'starting' | 'ready' | 'failed';
+type StartupState = 'starting' | 'ready' | 'failed';
 
 export type StartupPhase =
     | 'launching'
@@ -123,7 +123,6 @@ export async function checkHealth(): Promise<HealthStatus> {
 }
 
 export type SystemTelemetry = paths['/api/system-telemetry']['get']['response'];
-export type SystemAcceleratorTelemetry = NonNullable<SystemTelemetry['accelerator']>;
 
 export async function fetchSystemTelemetry(): Promise<SystemTelemetry> {
     const response = await apiFetch(`${API_BASE}/system-telemetry`, {

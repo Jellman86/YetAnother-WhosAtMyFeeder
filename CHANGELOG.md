@@ -21,6 +21,12 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   packages nothing imported had all outlived their replacements while still compiling. They are
   gone, and two gates now catch the class: a backend module reachable from nothing that runs
   fails the test suite, and `knip` fails the frontend build on unused files or packages.
+- **Unused exports fail CI as well.** Forty-seven exported values and sixty-one exported types had
+  no importer anywhere, and behind them sat API helpers, store getters, and utilities nothing
+  called. They are gone, `npm run lint:dead` now includes exports and types, and the frontend
+  gate runs it. `tests/e2e` lost forty-two files nothing ran: page dumps and screenshots from
+  January to April, and a Playwright suite written for a `playwright-service` container and an
+  "Explorer" page that no longer exist. The shell smoke scripts the image workflow runs stay.
 - **Every published image names its commit.** Each image now carries the OCI
   `org.opencontainers.image.revision`, `version`, and `source` labels, so `docker inspect` and
   Dockhand can tie a running container to the exact build without opening the app. The update

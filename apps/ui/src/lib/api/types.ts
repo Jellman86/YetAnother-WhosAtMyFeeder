@@ -55,7 +55,7 @@ export interface Detection {
     ai_analysis_timestamp?: string | null;
 }
 
-export interface VideoClassificationCandidateEvidence {
+interface VideoClassificationCandidateEvidence {
     label: string;
     supporting_frames: number;
     support_ratio: number;

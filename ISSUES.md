@@ -144,4 +144,3 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 
 - Resolved/closed investigation notes live in `CHANGELOG.md`.
 - Open GitHub issues are the source of truth for active bug state; this file is a maintainer triage summary.
-- Verification evidence: `tests/e2e/test_video_player.py` passes in the current dev workspace.

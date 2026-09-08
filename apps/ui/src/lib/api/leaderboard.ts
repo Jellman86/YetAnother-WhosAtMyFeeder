@@ -3,8 +3,6 @@ import type { paths } from './generated/openapi';
 
 export type LeaderboardSpan = 'all' | paths['/api/leaderboard/species']['get']['query']['span'];
 
-export type LeaderboardSpeciesItem = paths['/api/leaderboard/species']['get']['response']['species'][number];
-
 export type LeaderboardSpeciesResponse = paths['/api/leaderboard/species']['get']['response'];
 
 export async function fetchLeaderboardSpecies(
@@ -18,21 +16,7 @@ export async function fetchLeaderboardSpecies(
     return handleResponse<LeaderboardSpeciesResponse>(response);
 }
 
-export type DetectionsTimelinePoint =
-    paths['/api/stats/detections/timeline']['get']['response']['points'][number];
-
-export type DetectionsTimelineComparePoint = NonNullable<
-    paths['/api/stats/detections/timeline']['get']['response']['compare_series']
->[number]['points'][number];
-
-export type DetectionsTimelineCompareSeries = NonNullable<
-    paths['/api/stats/detections/timeline']['get']['response']['compare_series']
->[number];
-
 export type DetectionsTimelineSpanResponse = paths['/api/stats/detections/timeline']['get']['response'];
-
-export type DetectionsActivityHeatmapCell =
-    paths['/api/stats/detections/activity-heatmap']['get']['response']['cells'][number];
 
 export type DetectionsActivityHeatmapResponse = paths['/api/stats/detections/activity-heatmap']['get']['response'];
 

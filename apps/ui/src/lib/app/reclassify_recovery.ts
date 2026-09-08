@@ -1,4 +1,4 @@
-export interface ReclassifyStatusResponse {
+interface ReclassifyStatusResponse {
     video_classification_status?: string | null;
     video_classification_error?: string | null;
 }
