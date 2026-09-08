@@ -6,6 +6,15 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **Notifications link back to the detection.** A new **Instance address** under Settings →
+  Notifications is the address you use to open YA-WAMF. With it set, the Discord embed title, a
+  Pushover **View detection** button, a Telegram button under the message, and the email **View in
+  Dashboard** button all open that detection on the Detections page. Leave it blank and
+  notifications carry no link, exactly as before. The email-only **Dashboard URL** field has become
+  this shared setting; an address already saved there keeps working on every channel. (#414)
+
 ### Changed
 
 - **Dead files fail CI.** A router nobody mounted, three components nothing rendered, and two

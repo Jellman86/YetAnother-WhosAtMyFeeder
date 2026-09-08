@@ -8,6 +8,7 @@ import json
 
 from app.config import settings
 from app.services.i18n_service import i18n_service
+from app.services.notification_links import detection_link, instance_base
 from app.utils.blocked_species import matches_species_filter
 
 log = structlog.get_logger()
@@ -142,6 +143,7 @@ class NotificationService:
 
         lang = settings.notifications.notification_language
         display_name = common_name or species
+        detection_url = detection_link(instance_base(settings.notifications), frigate_event)
         tasks: list[tuple[str, asyncio.Future]] = []
         channel_filter = set(channels) if channels else None
 
@@ -154,7 +156,15 @@ class NotificationService:
                 (
                     "discord",
                     self._send_discord(
-                        display_name, confidence, camera, timestamp, snapshot_url, audio_confirmed, lang, snapshot_data
+                        display_name,
+                        confidence,
+                        camera,
+                        timestamp,
+                        snapshot_url,
+                        audio_confirmed,
+                        lang,
+                        snapshot_data,
+                        detection_url=detection_url,
                     ),
                 )
             )
@@ -164,7 +174,16 @@ class NotificationService:
             tasks.append(
                 (
                     "pushover",
-                    self._send_pushover(display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang),
+                    self._send_pushover(
+                        display_name,
+                        confidence,
+                        camera,
+                        timestamp,
+                        snapshot_url,
+                        snapshot_data,
+                        lang,
+                        detection_url=detection_url,
+                    ),
                 )
             )
 
@@ -173,7 +192,16 @@ class NotificationService:
             tasks.append(
                 (
                     "telegram",
-                    self._send_telegram(display_name, confidence, camera, timestamp, snapshot_url, snapshot_data, lang),
+                    self._send_telegram(
+                        display_name,
+                        confidence,
+                        camera,
+                        timestamp,
+                        snapshot_url,
+                        snapshot_data,
+                        lang,
+                        detection_url=detection_url,
+                    ),
                 )
             )
 
@@ -195,6 +223,7 @@ class NotificationService:
                         audio_confirmed,
                         lang,
                         weather,
+                        detection_url=detection_url,
                     ),
                 )
             )
@@ -241,6 +270,7 @@ class NotificationService:
         audio_confirmed: bool,
         lang: str,
         snapshot_data: Optional[bytes],
+        detection_url: Optional[str] = None,
     ) -> bool:
         """Send Discord webhook notification."""
         if not settings.notifications.discord.webhook_url:
@@ -268,6 +298,8 @@ class NotificationService:
             "timestamp": timestamp.isoformat(),
             "footer": {"text": "YA-WAMF"},
         }
+        if detection_url:
+            embed["url"] = detection_url
 
         if settings.notifications.discord.include_snapshot:
             if snapshot_data:
@@ -310,6 +342,7 @@ class NotificationService:
         snapshot_url: str,
         snapshot_data: Optional[bytes],
         lang: str,
+        detection_url: Optional[str] = None,
     ) -> bool:
         """Send Pushover notification."""
         cfg = settings.notifications.pushover
@@ -331,6 +364,9 @@ class NotificationService:
             "url": snapshot_url,
             "url_title": "View Snapshot",
         }
+        if detection_url:
+            data["url"] = detection_url
+            data["url_title"] = i18n_service.translate("notification.view_detection", lang=lang)
         if cfg.device:
             data["device"] = cfg.device
 
@@ -358,6 +394,7 @@ class NotificationService:
         snapshot_url: str,
         snapshot_data: Optional[bytes],
         lang: str,
+        detection_url: Optional[str] = None,
     ) -> bool:
         """Send Telegram notification."""
         cfg = settings.notifications.telegram
@@ -375,6 +412,17 @@ class NotificationService:
             "notification.detection_body", lang=lang, species=species, camera=camera, confidence=int(confidence * 100)
         )
         base_url = f"https://api.telegram.org/bot{cfg.bot_token}"
+        # A URL button under the message is Telegram's own deep link: one tap on any client,
+        # with the caption left to the detection itself.
+        detection_button = (
+            {
+                "inline_keyboard": [
+                    [{"text": i18n_service.translate("notification.view_detection", lang=lang), "url": detection_url}]
+                ]
+            }
+            if detection_url
+            else None
+        )
 
         try:
             if cfg.include_snapshot and snapshot_data:
@@ -385,6 +433,8 @@ class NotificationService:
                 safe_body = escape_html(clipped_body)
                 caption = f"🐦 <b>{safe_body}</b>"
                 data = {"chat_id": cfg.chat_id, "caption": caption, "parse_mode": "HTML"}
+                if detection_button:
+                    data["reply_markup"] = json.dumps(detection_button)
                 files = {"photo": ("snapshot.jpg", snapshot_data, "image/jpeg")}
                 resp = await self.client.post(url, data=data, files=files)
             else:
@@ -394,8 +444,12 @@ class NotificationService:
                 safe_url = escape_html(snapshot_url)
                 clipped_body = truncate(body, 3600)
                 safe_body = escape_html(clipped_body)
-                caption = f'🐦 <b>{safe_body}</b>\n<a href="{safe_url}">View Snapshot</a>'
+                caption = f"🐦 <b>{safe_body}</b>"
+                if not detection_button:
+                    caption += f'\n<a href="{safe_url}">View Snapshot</a>'
                 data = {"chat_id": cfg.chat_id, "text": caption, "parse_mode": "HTML", "disable_web_page_preview": True}
+                if detection_button:
+                    data["reply_markup"] = detection_button
                 resp = await self.client.post(url, json=data)
 
             resp.raise_for_status()
@@ -416,6 +470,7 @@ class NotificationService:
         audio_confirmed: bool,
         lang: str,
         weather: Optional[str] = None,
+        detection_url: Optional[str] = None,
     ) -> bool:
         """Send email notification"""
         try:
@@ -456,7 +511,7 @@ class NotificationService:
                 "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                 "audio_confirmed": audio_confirmed,
                 "has_image": snapshot_data is not None and cfg.include_snapshot,
-                "dashboard_url": cfg.dashboard_url,
+                "dashboard_url": detection_url or cfg.dashboard_url,
                 "font_family": font_family,
                 "weather": weather,
             }

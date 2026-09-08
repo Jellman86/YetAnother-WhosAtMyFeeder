@@ -176,6 +176,7 @@ of **any species** on **Discord*** — and each highlighted part is a control.
 | **Species filter** | No species filter | `No species filter`, `Block selected species`, or `Only selected species`. |
 | **Notification cooldown** | `0` minutes | Minimum gap between notifications. `0` disables the cooldown. |
 | **Notification language** | English | The language used in message text, independent of the UI language. |
+| **Instance address** | _(blank)_ | The address you use to open YA-WAMF. When set, every notification links to the detection it announces; blank means no link. |
 
 Destinations are Discord, Pushover, Telegram, and Email (Gmail/Outlook OAuth or plain SMTP).
 See [Notifications](../features/notifications.md) for per-platform setup.

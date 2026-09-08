@@ -196,6 +196,7 @@ Global:
 | `NOTIFICATIONS__VIDEO_FALLBACK_TIMEOUT` | `45` | Seconds to wait for video before sending anyway. |
 | `NOTIFICATIONS__NOTIFICATION_COOLDOWN_MINUTES` | `0` | Global cooldown between notifications. |
 | `NOTIFICATIONS__NOTIFICATION_LANGUAGE` | `en` | Notification language. |
+| `NOTIFICATIONS__INSTANCE_URL` | _(unset)_ | Public address of this install. When set, every notification links to the detection at `<address>/events?event=<id>`. |
 
 Discord / Pushover / Telegram / Email:
 
@@ -230,7 +231,7 @@ Discord / Pushover / Telegram / Email:
 | `NOTIFICATIONS__EMAIL__FROM_EMAIL` | _(unset)_ | From address. |
 | `NOTIFICATIONS__EMAIL__TO_EMAIL` | _(unset)_ | To address. |
 | `NOTIFICATIONS__EMAIL__INCLUDE_SNAPSHOT` | `true` | Attach a snapshot. |
-| `NOTIFICATIONS__EMAIL__DASHBOARD_URL` | _(unset)_ | Dashboard link included in emails. |
+| `NOTIFICATIONS__EMAIL__DASHBOARD_URL` | _(unset)_ | Older name for `NOTIFICATIONS__INSTANCE_URL`; still honoured when the newer one is unset. |
 
 ## Security — Authentication & Public access
 

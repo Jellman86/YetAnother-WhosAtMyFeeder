@@ -24,6 +24,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.services.canonical_identity_repair_service import canonical_identity_repair_service
 from app.services.telemetry_service import collect_runtime_telemetry_payload, telemetry_service
 from app.services.notification_service import notification_service
+from app.services.notification_links import detection_link, instance_base
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.birdweather_service import birdweather_service
 from app.services.inaturalist_service import inaturalist_service
@@ -498,6 +499,7 @@ async def test_notification(
     camera = "test_camera"
     timestamp = datetime.now(timezone.utc)
     snapshot_url = "https://placehold.co/600x400.jpg"
+    detection_url = detection_link(instance_base(settings.notifications), None)
 
     try:
         if request.platform == "discord":
@@ -516,6 +518,7 @@ async def test_notification(
                     True,
                     settings.notifications.notification_language,
                     None,
+                    detection_url=detection_url,
                 )
             finally:
                 if request.webhook_url and request.webhook_url != "***REDACTED***":
@@ -539,6 +542,7 @@ async def test_notification(
                     snapshot_url,
                     None,
                     settings.notifications.notification_language,
+                    detection_url=detection_url,
                 )
             finally:
                 if request.user_key and request.user_key != "***REDACTED***":
@@ -564,6 +568,7 @@ async def test_notification(
                     snapshot_url,
                     None,
                     settings.notifications.notification_language,
+                    detection_url=detection_url,
                 )
             finally:
                 if request.bot_token and request.bot_token != "***REDACTED***":
@@ -1005,6 +1010,7 @@ class SettingsUpdate(BaseModel):
     notifications_email_to_email: Optional[str] = None
     notifications_email_include_snapshot: Optional[bool] = True
     notifications_email_dashboard_url: Optional[str] = None
+    notifications_instance_url: Optional[str] = None
 
     notifications_filter_species_mode: Optional[Literal["none", "blacklist", "whitelist"]] = "none"
     notifications_filter_species_whitelist: Optional[List[str]] = []
@@ -1512,6 +1518,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "notifications_email_to_email": settings.notifications.email.to_email,
         "notifications_email_include_snapshot": settings.notifications.email.include_snapshot,
         "notifications_email_dashboard_url": settings.notifications.email.dashboard_url,
+        "notifications_instance_url": instance_base(settings.notifications),
         "notifications_filter_species_whitelist": settings.notifications.filters.species_whitelist,
         "notifications_filter_species_mode": settings.notifications.filters.species_mode,
         "notifications_filter_species_whitelist_structured": settings.notifications.filters.species_whitelist_structured,
@@ -2093,6 +2100,12 @@ async def update_settings(
         settings.notifications.email.include_snapshot = update.notifications_email_include_snapshot
     if "notifications_email_dashboard_url" in fields_set and update.notifications_email_dashboard_url is not None:
         settings.notifications.email.dashboard_url = update.notifications_email_dashboard_url
+    if "notifications_instance_url" in fields_set and update.notifications_instance_url is not None:
+        # The email-only dashboard link is the older name for the same address; keep them equal so a
+        # clear in the UI clears both and nothing falls back to a stale value.
+        instance_url = update.notifications_instance_url.strip().rstrip("/") or None
+        settings.notifications.instance_url = instance_url
+        settings.notifications.email.dashboard_url = instance_url
 
     # Notifications - Filters
     if "notifications_filter_species_mode" in fields_set and update.notifications_filter_species_mode is not None:

@@ -1,3 +1,4 @@
+import json
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from datetime import datetime, timezone
@@ -604,3 +605,140 @@ async def test_send_email_falls_back_to_http_get_snapshot(notification_service, 
         mock_get.assert_awaited_once()
         assert mock_send.await_count == 1
         assert mock_send.await_args.kwargs["image_data"] == b"fake-image"
+
+
+# --- every channel links back to the detection when the owner set an instance address (#414) ----
+
+
+def _posted(mock_post):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.raise_for_status = MagicMock()
+    mock_post.return_value = mock_response
+
+
+@pytest.mark.asyncio
+async def test_discord_title_links_to_the_detection(notification_service):
+    with patch("app.services.notification_service.settings") as mock_settings:
+        mock_settings.notifications.discord.webhook_url = "https://discord.com/api/webhooks/test"
+        mock_settings.notifications.discord.username = "YA-WAMF"
+        mock_settings.notifications.discord.include_snapshot = False
+        with patch.object(notification_service.client, "post", new_callable=AsyncMock) as mock_post:
+            _posted(mock_post)
+            await notification_service._send_discord(
+                species="Blue Jay",
+                confidence=0.95,
+                camera="front_feeder",
+                timestamp=datetime.now(timezone.utc),
+                snapshot_url="http://frigate/snapshot.jpg",
+                audio_confirmed=False,
+                lang="en",
+                snapshot_data=None,
+                detection_url="https://feeder.example.com/events?event=abc",
+            )
+            embed = mock_post.call_args.kwargs["json"]["embeds"][0]
+            assert embed["url"] == "https://feeder.example.com/events?event=abc"
+
+
+@pytest.mark.asyncio
+async def test_discord_embed_has_no_link_without_an_address(notification_service):
+    with patch("app.services.notification_service.settings") as mock_settings:
+        mock_settings.notifications.discord.webhook_url = "https://discord.com/api/webhooks/test"
+        mock_settings.notifications.discord.username = "YA-WAMF"
+        mock_settings.notifications.discord.include_snapshot = False
+        with patch.object(notification_service.client, "post", new_callable=AsyncMock) as mock_post:
+            _posted(mock_post)
+            await notification_service._send_discord(
+                species="Blue Jay",
+                confidence=0.95,
+                camera="front_feeder",
+                timestamp=datetime.now(timezone.utc),
+                snapshot_url="http://frigate/snapshot.jpg",
+                audio_confirmed=False,
+                lang="en",
+                snapshot_data=None,
+            )
+            assert "url" not in mock_post.call_args.kwargs["json"]["embeds"][0]
+
+
+@pytest.mark.asyncio
+async def test_pushover_button_opens_the_detection(notification_service):
+    with patch("app.services.notification_service.settings") as mock_settings:
+        cfg = mock_settings.notifications.pushover
+        cfg.user_key, cfg.api_token, cfg.priority, cfg.device, cfg.include_snapshot = "u", "t", 0, None, False
+        with patch.object(notification_service.client, "post", new_callable=AsyncMock) as mock_post:
+            _posted(mock_post)
+            await notification_service._send_pushover(
+                "Blue Jay",
+                0.95,
+                "front_feeder",
+                datetime.now(timezone.utc),
+                "http://frigate/snapshot.jpg",
+                None,
+                "en",
+                detection_url="https://feeder.example.com/events?event=abc",
+            )
+            data = mock_post.call_args.kwargs["data"]
+            assert data["url"] == "https://feeder.example.com/events?event=abc"
+            assert data["url_title"] == "View detection"
+
+
+@pytest.mark.asyncio
+async def test_pushover_keeps_the_snapshot_link_without_an_address(notification_service):
+    with patch("app.services.notification_service.settings") as mock_settings:
+        cfg = mock_settings.notifications.pushover
+        cfg.user_key, cfg.api_token, cfg.priority, cfg.device, cfg.include_snapshot = "u", "t", 0, None, False
+        with patch.object(notification_service.client, "post", new_callable=AsyncMock) as mock_post:
+            _posted(mock_post)
+            await notification_service._send_pushover(
+                "Blue Jay", 0.95, "front_feeder", datetime.now(timezone.utc), "http://frigate/snapshot.jpg", None, "en"
+            )
+            assert mock_post.call_args.kwargs["data"]["url"] == "http://frigate/snapshot.jpg"
+
+
+@pytest.mark.asyncio
+async def test_telegram_photo_carries_a_view_detection_button(notification_service):
+    with patch("app.services.notification_service.settings") as mock_settings:
+        cfg = mock_settings.notifications.telegram
+        cfg.bot_token, cfg.chat_id, cfg.include_snapshot = "token", "42", True
+        with patch.object(notification_service.client, "post", new_callable=AsyncMock) as mock_post:
+            _posted(mock_post)
+            await notification_service._send_telegram(
+                "Blue Jay",
+                0.95,
+                "front_feeder",
+                datetime.now(timezone.utc),
+                "http://frigate/snapshot.jpg",
+                b"jpeg",
+                "en",
+                detection_url="https://feeder.example.com/events?event=a&b",
+            )
+            data = mock_post.call_args.kwargs["data"]
+            assert "<a " not in data["caption"], "the button carries the link, not the caption"
+            button = json.loads(data["reply_markup"])["inline_keyboard"][0][0]
+            assert button == {"text": "View detection", "url": "https://feeder.example.com/events?event=a&b"}
+
+
+@pytest.mark.asyncio
+async def test_telegram_text_message_carries_the_button_instead_of_the_snapshot_link(notification_service):
+    with patch("app.services.notification_service.settings") as mock_settings:
+        cfg = mock_settings.notifications.telegram
+        cfg.bot_token, cfg.chat_id, cfg.include_snapshot = "token", "42", False
+        with patch.object(notification_service.client, "post", new_callable=AsyncMock) as mock_post:
+            _posted(mock_post)
+            await notification_service._send_telegram(
+                "Blue Jay",
+                0.95,
+                "front_feeder",
+                datetime.now(timezone.utc),
+                "http://frigate/snapshot.jpg",
+                None,
+                "de",
+                detection_url="https://feeder.example.com/events?event=abc",
+            )
+            payload = mock_post.call_args.kwargs["json"]
+            assert "View Snapshot" not in payload["text"]
+            assert payload["reply_markup"]["inline_keyboard"][0][0] == {
+                "text": "Erkennung ansehen",
+                "url": "https://feeder.example.com/events?event=abc",
+            }
