@@ -17,7 +17,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   choice, **Notification link opens**, points the link at Frigate instead: the same tracked object
   in Frigate's Explore page, through the public URL already saved under Integrations (Frigate 0.15
   or newer). A preview line shows the exact address the next notification will carry, and choosing
-  Frigate without a public URL says plainly that no link is sent until there is one. (#414)
+  Frigate without a public URL says plainly that no link is sent until there is one. An address
+  without `http://` or `https://` is refused when saved, since Discord and Telegram would reject
+  the link and drop the whole notification with it. (#414)
 
 ### Changed
 

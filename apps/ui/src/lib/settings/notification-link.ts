@@ -1,7 +1,7 @@
 export type NotificationLinkTarget = 'yawamf' | 'frigate';
 
 /** A representative event id so the preview reads like a real link. */
-export const PREVIEW_EVENT_ID = '1788874165.969381-ym7r9s';
+const PREVIEW_EVENT_ID = '1788874165.969381-ym7r9s';
 
 const trimBase = (url: string): string => url.trim().replace(/\/+$/, '');
 

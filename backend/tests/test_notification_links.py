@@ -76,3 +76,19 @@ def test_the_target_choice_decides_which_link_a_notification_carries():
 def test_frigate_target_with_no_public_address_sends_no_link_at_all():
     notifications = NotificationSettings(instance_url="https://feeder.example.com", link_target="frigate")
     assert notification_link(notifications, "", "abc") is None
+
+
+# --- an address without a scheme would sink the whole notification, so it counts as none --------
+
+from app.services.notification_links import public_base  # noqa: E402
+
+
+def test_an_address_without_a_scheme_is_no_address():
+    assert public_base("feeder.local:9852") is None
+    assert public_base("//feeder.example.com") is None
+    assert instance_base(NotificationSettings(instance_url="feeder.local:9852")) is None
+    assert frigate_link("frigate.local:8971", "abc") is None
+
+
+def test_scheme_matching_is_case_insensitive_and_keeps_the_host_as_typed():
+    assert public_base(" HTTPS://Feeder.Example.com/ ") == "HTTPS://Feeder.Example.com"

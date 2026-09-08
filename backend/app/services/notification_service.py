@@ -511,7 +511,8 @@ class NotificationService:
                 "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"),
                 "audio_confirmed": audio_confirmed,
                 "has_image": snapshot_data is not None and cfg.include_snapshot,
-                "dashboard_url": detection_url or cfg.dashboard_url,
+                # The link the owner chose, or none: never a dashboard link the other channels lack.
+                "dashboard_url": detection_url,
                 "font_family": font_family,
                 "weather": weather,
             }

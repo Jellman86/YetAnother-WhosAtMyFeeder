@@ -72,6 +72,10 @@ as above. **Frigate** opens the same tracked object in Frigate's Explore page in
 saved, notifications carry no link and the settings card says so, with a shortcut to Integrations.
 A preview line under the choice shows the exact address the next notification will carry.
 
+Either address must start with `http://` or `https://`; saving one without a scheme is refused
+with a message, because Discord and Telegram reject such a link and would drop the whole
+notification with it.
+
 Leave the field blank and notifications carry no link, as before. The link is only as reachable as
 the address you enter: a LAN address works on your network only, and a public address works from
 anywhere. Opening a detection needs the owner sign-in unless public access is enabled, so a link

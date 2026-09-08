@@ -1669,3 +1669,24 @@ async def test_settings_roundtrip_notification_link_target(client: httpx.AsyncCl
         assert rejected.status_code == 422
     finally:
         settings.notifications.link_target = original
+
+
+@pytest.mark.asyncio
+async def test_settings_refuses_an_instance_address_without_a_scheme(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    original = (settings.notifications.instance_url, settings.notifications.email.dashboard_url)
+    try:
+        before = (await client.get("/api/settings")).json()
+        payload = {
+            "frigate_url": before["frigate_url"],
+            "mqtt_server": before["mqtt_server"],
+            "classification_threshold": before["classification_threshold"],
+            "notifications_instance_url": "feeder.local:9852",
+        }
+        resp = await client.post("/api/settings", json=payload)
+        assert resp.status_code == 400, resp.text
+        assert "http://" in resp.json()["detail"]
+        assert settings.notifications.instance_url == original[0]
+    finally:
+        settings.notifications.instance_url, settings.notifications.email.dashboard_url = original
