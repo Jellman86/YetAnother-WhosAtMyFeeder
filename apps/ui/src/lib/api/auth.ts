@@ -82,3 +82,18 @@ export async function createStreamTicket(): Promise<StreamTicketResponse> {
 
     return response.json();
 }
+
+/**
+ * Attach this browser's existing session to the media cookie.
+ *
+ * Login and first-run setup set the cookie themselves; this covers a browser that
+ * signed in before the cookie existed and still holds only a bearer token, so its
+ * images keep loading after the upgrade without a fresh login.
+ */
+export async function createSessionCookie(): Promise<void> {
+    const response = await apiFetch(`${API_BASE}/auth/session-cookie`, { method: 'POST', timeoutMs: 10_000 });
+
+    if (!response.ok) {
+        throw new Error(await readApiErrorMessage(response, 'Could not attach the session to media requests'));
+    }
+}

@@ -382,12 +382,12 @@ def _build_sprite_url(request: Request, event_id: str) -> str:
     # reverse-proxy Host header rewriting.
     sprite_url = request.url_for("proxy_clip_thumbnails_sprite", event_id=event_id).path
     params: list[str] = []
+    # A share link is the guest's only credential for this event, so it must be
+    # carried into the sprite URL. The owner's session is not: the browser sends
+    # it as a cookie, and a token in a cue URL would land in every proxy log.
     share_token = request.query_params.get("share")
     if share_token:
         params.append(f"share={quote_plus(share_token)}")
-    token = request.query_params.get("token")
-    if token:
-        params.append(f"token={quote_plus(token)}")
     if params:
         sprite_url = f"{sprite_url}?{'&'.join(params)}"
     return sprite_url

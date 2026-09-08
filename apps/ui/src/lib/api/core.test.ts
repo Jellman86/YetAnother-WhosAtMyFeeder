@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { ApiRequestError, apiFetch, fetchWithAbort, handleResponse } from './core';
+import { ApiRequestError, apiFetch, fetchWithAbort, handleResponse, setApiKey, setAuthToken, withAuthParams } from './core';
 
 afterEach(() => {
     vi.restoreAllMocks();
@@ -91,5 +91,27 @@ describe('ApiRequestError', () => {
         expect(outcome).toBeInstanceOf(ApiRequestError);
         expect((outcome as ApiRequestError).status).toBe(404);
         expect((outcome as ApiRequestError).message).toBe('Detection not found');
+    });
+});
+
+describe('withAuthParams', () => {
+    afterEach(() => {
+        setAuthToken(null);
+        setApiKey(null);
+    });
+
+    it('never puts the session token in a media URL: the browser sends the session cookie instead', () => {
+        setAuthToken('owner-session-jwt', 168);
+
+        const url = withAuthParams('/api/frigate/evt-1/thumbnail.jpg');
+
+        expect(url).toBe('/api/frigate/evt-1/thumbnail.jpg');
+        expect(url).not.toContain('owner-session-jwt');
+    });
+
+    it('still carries the deprecated API key, which has no cookie equivalent', () => {
+        setApiKey('legacy-key');
+
+        expect(withAuthParams('/api/frigate/evt-1/clip.mp4')).toBe('/api/frigate/evt-1/clip.mp4?api_key=legacy-key');
     });
 });

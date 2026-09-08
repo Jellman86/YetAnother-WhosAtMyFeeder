@@ -16243,6 +16243,33 @@
         ]
       }
     },
+    "/api/auth/session-cookie": {
+      "post": {
+        "description": "Attach the caller's existing session to the browser as the media cookie.\n\nBrowsers that signed in before the cookie existed still hold a bearer token;\nthe app calls this once on load so their images keep working without a new\nlogin. Only a Bearer session qualifies: the cookie is not accepted here, so\na media-scoped cookie can never widen its own reach.",
+        "operationId": "create_session_cookie_api_auth_session_cookie_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Create Session Cookie",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/auth/status": {
       "get": {
         "description": "Get current authentication status and public access settings.\n\nUsed by frontend to determine if login is required.",
