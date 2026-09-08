@@ -784,6 +784,13 @@ in-app and in docs; the release makes them final.
   RegNet-Y-8G EU, and UniFormer-S EU are already absent from the current application catalogue.
   Their release assets remain temporarily available so pre-3.0 applications can still download
   them; the 3.0 release retires those legacy assets after the compatibility window.
+- **CUDA image moves to CUDA 13.** The `cuda` and amd64 `full` images pin `onnxruntime-gpu`
+  below 1.27 because 1.27 and later ship CUDA 13 userspace, which needs the NVIDIA 580 driver
+  series or newer on the host (1.27 and 1.28 also name CUDA 13 packages PyPI does not carry).
+  Lifting the pin raises a host requirement, so it lands with 3.0 and is announced as such.
+  Until then those two images stay on ONNX Runtime 1.26 and miss the input-validation
+  hardening 1.29 added to several CUDA kernels; exposure is limited because the runtime only
+  loads models the owner installed.
 - **Migration must be lossless.** Existing split-deployment installs must be able to move to
   the monolith with unchanged `/config` and `/data` volumes (DB, models, `config.json`), and
   the [split-to-monolith guide](docs/setup/migrate-split-to-monolith.md) stays the supported

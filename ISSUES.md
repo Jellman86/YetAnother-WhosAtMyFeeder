@@ -36,6 +36,11 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 - **Reported cache sizes undercount.** `get_cache_stats` counts `*.jpg` and `*.mp4` only, so the
   `.meta.json` sidecars beside every snapshot are not in the total. On the reference install that
   is 14,712 uncounted files.
+- **The CUDA and amd64 `full` images stay on ONNX Runtime 1.26.** 1.27 and later ship CUDA 13
+  userspace, which needs the NVIDIA 580 driver series on the host, so the bump Dependabot proposed
+  in #284 was closed and the window is held until 3.0 (`ROADMAP.md`, 1.7). Those images therefore
+  lack the input-validation hardening 1.29 added to several CUDA kernels. Exposure is limited: the
+  runtime only loads models the owner installed, never user-supplied files.
 - **API process memory is being watched again.** #314 closed at about 340 MB resident after the
   `MALLOC_ARENA_MAX=2` fix. On the reference install the API process measured 1.49 GB resident
   fourteen hours after a start in subprocess mode, where it holds no model. The RSS sampler is

@@ -9,6 +9,12 @@ updates:
       python-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # onnxruntime-gpu 1.27+ ships CUDA 13 userspace, which needs the NVIDIA 580 driver
+      # series on every CUDA host. Lifting the window is a 3.0 breaking change (ROADMAP
+      # 1.7), not a dependency bump; the pin lives in requirements-provider-{cuda,full}.txt.
+      - dependency-name: "onnxruntime-gpu"
+        versions: [">=1.27.0"]
 
   - package-ecosystem: npm
     directory: "/apps/ui"

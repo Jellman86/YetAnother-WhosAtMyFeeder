@@ -98,7 +98,7 @@ also settable via the `CLASSIFICATION__INFERENCE_PROVIDER` environment variable)
 |---|---|---|---|---|
 | Auto | `auto` | any | — | Uses this model/install's measured passing order; without a sweep it stays within the registry's globally safe paths. |
 | CPU (ONNX Runtime) | `cpu` | any | none | Always packaged; the safe fallback. |
-| NVIDIA CUDA | `cuda` | `full` or `cuda` | NVIDIA GPU | Needs the NVIDIA Container Toolkit on the host. |
+| NVIDIA CUDA | `cuda` | `full` or `cuda` | NVIDIA GPU | Needs the NVIDIA Container Toolkit on the host. The image ships CUDA 12.9 userspace, so any driver that supports CUDA 12 (the 525 series or newer) works; CUDA 13 is planned for 3.0. |
 | Intel GPU (OpenVINO) | `intel_gpu` | `full` or `intel` | `/dev/dri` | Integrated Arc/UHD graphics. |
 | Intel CPU (OpenVINO) | `intel_cpu` | `full` or `intel` | none | OpenVINO on the CPU. |
 | Intel NPU (OpenVINO) | `intel_npu` | `full` or `intel` | `/dev/accel/accel0` | Core Ultra "AI Boost" NPU. |
