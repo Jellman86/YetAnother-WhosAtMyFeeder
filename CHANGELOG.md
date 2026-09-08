@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **The ONNX Runtime floor is 1.29 on every CPU-capable image.** The `cpu`, `intel`, and ARM64 `full`
+  requirement files asked for `onnxruntime>=1.28.0`, so pip has been resolving 1.29.0 for weeks anyway;
+  the reference install has run it since it was published. Stating the floor the images actually
+  get lets the dependency-pin test and Dependabot agree with reality. The CUDA build keeps its own
+  `onnxruntime-gpu` window unchanged.
+
 ### Fixed
 
 - **The retention card no longer promises a 3 AM cleanup.** Settings → Data said "Automatic
