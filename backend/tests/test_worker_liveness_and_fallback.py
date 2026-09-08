@@ -533,3 +533,39 @@ def test_health_keys_use_the_planned_runtime_before_first_load(monkeypatch):
     key = service._active_inference_runtime_key()
 
     assert (key.backend, key.provider) == ("openvino", "intel_npu")
+
+
+def test_admission_samples_are_keyed_on_the_runtime_that_classified(monkeypatch):
+    """The dashboard's health entry was "tflite/tflite/<model>" on an NPU install
+    because the admission context copied the parent's idle defaults."""
+    service = _subprocess_service(monkeypatch)
+    service._get_supervisor_metrics = lambda: {
+        "live": {
+            "workers": 1,
+            "runtime": {
+                "inference_backend": "openvino",
+                "active_provider": "intel_npu",
+                "model_id": "rope_vit_b14_inat21",
+            },
+        }
+    }
+
+    context = service._classification_admission_context()
+    key = service._inference_runtime_key_from_context(context)
+
+    assert (context["backend"], context["provider"]) == ("openvino", "intel_npu")
+    assert (key.backend, key.provider, key.model_id) == ("openvino", "intel_npu", "rope_vit_b14_inat21")
+
+
+def test_admission_context_in_process_mode_still_names_the_parents_own_runtime(monkeypatch):
+    from app.services.classifier_service import ClassifierService
+
+    service = ClassifierService()
+    service._image_execution_mode = "in_process"
+    service._inference_backend = "onnxruntime"
+    service._active_inference_provider = "cpu"
+    service._resolve_active_model_id = lambda: "m"
+
+    context = service._classification_admission_context()
+
+    assert (context["backend"], context["provider"]) == ("onnxruntime", "cpu")
