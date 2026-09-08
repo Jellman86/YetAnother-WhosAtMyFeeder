@@ -57,7 +57,7 @@ export function convertWindSpeed(speedKmh: number | null | undefined, system: We
     return system === 'metric' ? speedKmh : speedKmh / 1.609344;
 }
 
-export function convertPrecipitation(valueMm: number | null | undefined, system: WeatherUnitSystem): number | null {
+function convertPrecipitation(valueMm: number | null | undefined, system: WeatherUnitSystem): number | null {
     if (valueMm === null || valueMm === undefined || Number.isNaN(valueMm)) {
         return null;
     }
@@ -100,7 +100,7 @@ export function formatPrecipitation(
     return `${converted.toFixed(0)}${label}`;
 }
 
-export function convertDistance(valueKm: number | null | undefined, system: WeatherUnitSystem): number | null {
+function convertDistance(valueKm: number | null | undefined, system: WeatherUnitSystem): number | null {
     if (valueKm === null || valueKm === undefined || Number.isNaN(valueKm)) {
         return null;
     }

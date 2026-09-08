@@ -21,10 +21,6 @@ export function setApiKey(key: string | null) {
     }
 }
 
-export function getApiKey(): string | null {
-    return apiKey;
-}
-
 function appendQueryParam(url: string, key: string, value: string): string {
     const separator = url.includes('?') ? '&' : '?';
     return `${url}${separator}${key}=${encodeURIComponent(value)}`;
@@ -195,13 +191,6 @@ export async function fetchWithAbort<T>(
             console.debug(`Request cancelled: ${key || url}`);
         }
         throw error;
-    }
-}
-
-export function cancelRequest(key: string) {
-    if (abortControllers.has(key)) {
-        abortControllers.get(key)!.abort();
-        abortControllers.delete(key);
     }
 }
 

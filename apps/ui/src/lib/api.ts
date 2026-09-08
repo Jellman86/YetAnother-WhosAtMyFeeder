@@ -1,4 +1,4 @@
-export { setApiKey, getApiKey, setAuthToken, getAuthToken, setAuthErrorCallback, cancelRequest, ApiRequestError } from './api/core';
+export {   setAuthToken, getAuthToken, setAuthErrorCallback,  ApiRequestError } from './api/core';
 
 export * from './api/types';
 export * from './api/auth';

@@ -61,7 +61,6 @@ class AuthStore {
     // is the only route by which the owner's choice reaches a public visitor.
     explorerView = $state<'cards' | 'list'>('cards');
     private readonly staleTracker = new StaleTracker(300_000); // 5 minutes
-    private readonly unregister: () => void;
     private _isRefreshing = false;
 
     // Owner-only UI must stay locked until auth status has loaded successfully.
@@ -76,7 +75,7 @@ class AuthStore {
 
     constructor() {
         // Status is loaded via loadStatus()
-        this.unregister = refreshCoordinator.register(() => this.refreshIfStale());
+        refreshCoordinator.register(() => this.refreshIfStale());
     }
 
     requestLogin() {

@@ -10,14 +10,6 @@ export type AudioHistoryParams = paths['/api/audio/history']['get']['query'];
 
 export type AudioHistoryResponse = paths['/api/audio/history']['get']['response'];
 
-export type AudioSpeciesSummary = paths['/api/audio/summary']['get']['response']['top_species'][number];
-
-export type AudioDailyCount = paths['/api/audio/summary']['get']['response']['daily_counts'][number];
-
-export type AudioHourlyCount = paths['/api/audio/summary']['get']['response']['hourly_counts'][number];
-
-export type AudioSourceSummary = paths['/api/audio/summary']['get']['response']['sources'][number];
-
 export type AudioSummaryResponse = paths['/api/audio/summary']['get']['response'];
 
 export async function fetchRecentAudio(limit: number = 10, signal?: AbortSignal): Promise<AudioDetection[]> {

@@ -210,8 +210,6 @@ export interface Settings {
     time_format?: string;
 }
 
-export type UpdateSettings = Partial<Settings>;
-
 export type SettingsUpdate = paths['/api/settings']['post']['requestBody'];
 
 export async function fetchSettings(): Promise<Settings> {

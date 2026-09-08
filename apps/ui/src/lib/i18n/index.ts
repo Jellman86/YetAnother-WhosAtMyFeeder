@@ -98,4 +98,4 @@ export async function setAppLocale(value: string): Promise<boolean> {
     return true;
 }
 
-export { _, locale };
+;

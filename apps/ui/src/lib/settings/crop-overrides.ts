@@ -14,7 +14,7 @@ export interface CropVariantOverrideEntry {
 
 type CropGeneratorDefaults = NonNullable<ModelMetadata['crop_generator']>;
 
-export interface CropVariantMetadata {
+interface CropVariantMetadata {
     name?: string;
     region_scope?: string;
     crop_generator?: CropGeneratorDefaults;
@@ -50,7 +50,7 @@ export function normalizeCropOverrideMap<TValue extends string>(
     );
 }
 
-export function resolveCropOverridesFromSettings(
+function resolveCropOverridesFromSettings(
     cropModelOverrides: Record<string, string> | null | undefined,
     cropSourceOverrides: Record<string, string> | null | undefined
 ): {
@@ -72,7 +72,7 @@ function stripDefaultEntries<TValue extends string>(
     );
 }
 
-export function buildCropOverrideSettings(
+function buildCropOverrideSettings(
     cropModelOverrides: Record<string, CropModelOverride>,
     cropSourceOverrides: Record<string, CropSourceOverride>
 ): {
@@ -125,7 +125,7 @@ function cropGeneratorFromUnknown(value: unknown): CropGeneratorDefaults | undef
     };
 }
 
-export function getCropVariantMetadata(
+function getCropVariantMetadata(
     model: Pick<ModelMetadata, 'region_variants'>,
     region: string
 ): CropVariantMetadata | undefined {

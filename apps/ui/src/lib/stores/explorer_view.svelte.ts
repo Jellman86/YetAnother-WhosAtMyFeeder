@@ -11,7 +11,7 @@
  * not data, and a viewer without owner access can still use it.
  */
 
-export type ExplorerView = 'cards' | 'list';
+type ExplorerView = 'cards' | 'list';
 
 const STORAGE_KEY = 'yawamf:explorer-view';
 

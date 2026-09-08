@@ -2,7 +2,7 @@ import type { AnalysisStatus } from '../api/maintenance';
 import type { JobProgressItem } from '../stores/job_progress.svelte';
 import type { JobPipelineKindRow } from './pipeline';
 
-export type JobsTranslationValues = Record<string, string | number | boolean | Date | null | undefined>;
+type JobsTranslationValues = Record<string, string | number | boolean | Date | null | undefined>;
 export type JobsTranslateFn = (key: string, values?: JobsTranslationValues, fallback?: string) => string;
 
 export interface PresentedPipelineKindRow {

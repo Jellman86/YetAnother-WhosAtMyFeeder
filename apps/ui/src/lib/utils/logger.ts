@@ -1,11 +1,4 @@
-/**
- * Structured logging utility for frontend
- *
- * Provides a consistent logging interface that can be easily
- * swapped out for production error tracking services.
- */
 
-export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 interface LogContext {
     [key: string]: unknown;
@@ -77,9 +70,6 @@ class Logger {
         };
 
         console.error(`[ERROR] ${message}`, errorContext);
-
-        // In production, send to error tracking service (Sentry, LogRocket, etc.)
-        // this.sendToErrorTracking(message, errorContext);
     }
 
     /**
@@ -108,16 +98,6 @@ class Logger {
             const level = status >= 400 ? 'error' : status >= 300 ? 'warn' : 'log';
             console[level](`[API] ${method} ${url} → ${status}`, context || '');
         }
-    }
-
-    /**
-     * Future: Send to production error tracking
-     */
-    private sendToErrorTracking(message: string, context: LogContext): void {
-        // Example integration points:
-        // - Sentry.captureException()
-        // - LogRocket.captureException()
-        // - Custom backend endpoint
     }
 }
 

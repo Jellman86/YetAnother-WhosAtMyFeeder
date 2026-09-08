@@ -22,10 +22,10 @@ export function getRecordingClipUrl(frigateEvent: string): string {
     return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/recording-clip.mp4`);
 }
 
-export const RECORDING_CLIP_READY_HEADER = 'X-YAWAMF-Recording-Clip-Ready';
+const RECORDING_CLIP_READY_HEADER = 'X-YAWAMF-Recording-Clip-Ready';
 export const RECORDING_CLIP_STATE_HEADER = 'X-YAWAMF-Recording-Clip-State';
-export const RECORDING_CLIP_DURATION_HEADER = 'X-YAWAMF-Recording-Clip-Duration';
-export type RecordingClipState = 'complete' | 'partial';
+const RECORDING_CLIP_DURATION_HEADER = 'X-YAWAMF-Recording-Clip-Duration';
+type RecordingClipState = 'complete' | 'partial';
 
 export type RecordingClipFetchResponse =
     paths['/api/frigate/{event_id}/recording-clip/fetch']['post']['response'];
@@ -47,10 +47,6 @@ export type SnapshotCandidate =
 export type SnapshotCandidateListResponse = paths['/api/frigate/{event_id}/snapshot/candidates']['get']['response'];
 
 export type SnapshotApplyResponse = paths['/api/frigate/{event_id}/snapshot/apply']['post']['response'];
-
-export function getClipPreviewTrackUrl(frigateEvent: string): string {
-    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip-thumbnails.vtt`);
-}
 
 export async function fetchLatestCameraSnapshot(camera: string, signal?: AbortSignal): Promise<Blob> {
     const response = await apiFetch(`${API_BASE}/frigate/camera/${encodeURIComponent(camera)}/latest.jpg`, {
@@ -141,17 +137,6 @@ export async function revokeVideoShareLink(
         method: 'POST',
     });
     return handleResponse<paths['/api/video-share/{event_id}/links/{link_id}/revoke']['post']['response']>(response);
-}
-
-export async function checkClipAvailable(frigateEvent: string): Promise<boolean> {
-    try {
-        const response = await apiFetch(`${API_BASE}/frigate/${frigateEvent}/clip.mp4`, {
-            method: 'HEAD'
-        });
-        return response.ok;
-    } catch {
-        return false;
-    }
 }
 
 // The dashboard and the explorer probe every visit on the page for a clip. Bounded here so

@@ -16,7 +16,6 @@ export class SettingsStore {
     error = $state<string | null>(null);
     private _loadPromise: Promise<void> | null = null;
     private readonly staleTracker = new StaleTracker(300_000); // 5 minutes
-    private readonly unregister: () => void;
     private readonly fetchSettings: () => Promise<Settings>;
     private readonly canReadSettings: () => boolean;
 
@@ -25,7 +24,7 @@ export class SettingsStore {
         this.canReadSettings =
             options.canReadSettings ??
             (() => authStore.isAuthenticated || !authStore.authRequired);
-        this.unregister = refreshCoordinator.register(() => this.refreshIfStale());
+        refreshCoordinator.register(() => this.refreshIfStale());
     }
 
     async load() {

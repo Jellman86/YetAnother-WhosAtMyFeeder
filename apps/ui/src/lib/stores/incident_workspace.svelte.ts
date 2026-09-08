@@ -1,17 +1,17 @@
 import type { BackendDiagnosticEvent, DiagnosticsWorkspacePayload } from '../api/diagnostics';
 import { clearDiagnosticsWorkspace, fetchDiagnosticsWorkspace } from '../api/diagnostics';
 
-export type IncidentStatus = 'open' | 'recovering' | 'resolved';
-export type IncidentSeverity = 'warning' | 'error' | 'critical';
+type IncidentStatus = 'open' | 'recovering' | 'resolved';
+type IncidentSeverity = 'warning' | 'error' | 'critical';
 
-export interface IncidentJobState {
+interface IncidentJobState {
     id: string;
     kind?: string;
     status?: string;
     message?: string;
 }
 
-export interface IncidentRecord {
+interface IncidentRecord {
     id: string;
     status: IncidentStatus;
     severity: IncidentSeverity;
@@ -24,13 +24,13 @@ export interface IncidentRecord {
     primaryReasonCode: string;
 }
 
-export interface IncidentIssueDraft {
+interface IncidentIssueDraft {
     title: string;
     body: string;
     bundleSchemaVersion: number | null;
 }
 
-export interface LocalDiagnosticGroup {
+interface LocalDiagnosticGroup {
     fingerprint: string;
     source?: string;
     component: string;
@@ -41,7 +41,7 @@ export interface LocalDiagnosticGroup {
     lastSeen: number;
 }
 
-export interface IncidentDiagnosticGroup {
+interface IncidentDiagnosticGroup {
     fingerprint: string;
     source: 'backend' | 'local';
     component: string;

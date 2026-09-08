@@ -1,8 +1,8 @@
 import { settingsStore } from '../stores/settings.svelte';
 import { authStore } from '../stores/auth.svelte';
 
-export type DateFormat = 'locale' | 'mdy' | 'dmy' | 'ymd';
-export type TimeFormat = 'locale' | '12h' | '24h';
+type DateFormat = 'locale' | 'mdy' | 'dmy' | 'ymd';
+type TimeFormat = 'locale' | '12h' | '24h';
 
 type DateInput = string | number | Date | null | undefined;
 

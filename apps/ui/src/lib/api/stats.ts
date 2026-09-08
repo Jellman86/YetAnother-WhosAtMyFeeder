@@ -8,9 +8,6 @@ export async function fetchDailySummary(): Promise<DailySummary> {
     const response = await apiFetch(`${API_BASE}/stats/daily-summary`);
     return handleResponse<DailySummary>(response);
 }
-
-export type AIUsageBreakdown = paths['/api/stats/ai/usage']['get']['response']['breakdown'][number];
-export type AIUsageDaily = paths['/api/stats/ai/usage']['get']['response']['daily'][number];
 export type AIUsageResponse = paths['/api/stats/ai/usage']['get']['response'];
 
 export async function fetchAiUsage(span: string = '30d'): Promise<AIUsageResponse> {
