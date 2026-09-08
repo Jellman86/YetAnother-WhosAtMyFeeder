@@ -36,12 +36,6 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 - **Reported cache sizes undercount.** `get_cache_stats` counts `*.jpg` and `*.mp4` only, so the
   `.meta.json` sidecars beside every snapshot are not in the total. On the reference install that
   is 14,712 uncounted files.
-- **Owner media URLs still carry the session token.** `<img>` and `<video>` cannot send headers,
-  so snapshot, thumbnail, clip and spectrogram URLs append `?token=` for an owner. The access log
-  uses a redacting format (`$uri`, no query), so these only reach a log when nginx has to write an
-  *error* line for one — an upstream refused mid-page-load, say — which is rare, unlike the stream
-  that reconnected on every boot. Closing it fully means a media ticket or cookie session; that is
-  a design decision rather than a mechanical one.
 - **API process memory is being watched again.** #314 closed at about 340 MB resident after the
   `MALLOC_ARENA_MAX=2` fix. On the reference install the API process measured 1.49 GB resident
   fourteen hours after a start in subprocess mode, where it holds no model. The RSS sampler is
@@ -58,6 +52,11 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 
 ## Recently Closed (Context)
 
+- **Owner media URLs no longer carry the session token.** NPM in front of the reference install logs
+  full request URIs; its access log held 482 owner thumbnail and clip URLs with `?token=` on
+  September 8. Media now authenticates with an `HttpOnly`, `SameSite=Lax` session cookie that only
+  read-only media routes and the stream honour. The tokens already in that log stay valid until they
+  expire or the session secret is rotated; the proxy's log format is being changed to drop the query.
 - **The owner's SSE token no longer reaches nginx's error log.** The live stream opens with a
   single-use, 60-second ticket from `POST /api/auth/stream-ticket`, and `/api/sse` refuses the
   session token in its query string. The three lines nginx wrote on the September 8 restart carried

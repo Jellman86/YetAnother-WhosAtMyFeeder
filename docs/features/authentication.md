@@ -218,6 +218,10 @@ ingress:
 ## Technical Details
 
 - **Token Storage:** Authentication uses JWT (JSON Web Tokens) stored in your browser's Local Storage.
+- **Media and the live stream:** images, clips and the `EventSource` stream cannot send headers,
+  so the session also lives in an `HttpOnly` cookie that only those read-only routes accept. Media
+  URLs carry no token, so a proxy or container log that records request lines records nothing
+  useful. Everything that changes state still needs the Bearer header the browser holds in memory.
 - **Live stream:** the browser's `EventSource` cannot send headers, so the live-update stream is
   opened with a single-use ticket exchanged from the session (`POST /api/auth/stream-ticket`),
   never with the session token itself. A ticket is spent on first use and expires after 60

@@ -104,6 +104,17 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Security
 
+- **Media URLs no longer carry the owner's session token.** `<img>` and `<video>` cannot send
+  headers, so every snapshot, thumbnail and clip an owner viewed put the seven-day session in its
+  URL, and any proxy in front of YA-WAMF that logs request lines kept a copy; the reference
+  install's Nginx Proxy Manager log held 482 of them. The browser now holds the session as an
+  `HttpOnly`, `SameSite=Lax` cookie scoped to `/api`, and only read-only media routes and the live
+  stream accept it — settings, deletes and every other write still need the Bearer header, so the
+  cookie adds no cross-site surface. Login and first-run setup set it, logout clears it, and a
+  browser that signed in before the upgrade attaches it once on load through
+  `POST /api/auth/session-cookie`, so nothing needs a fresh login. Clip-thumbnail VTT cues no
+  longer embed the token either. Plain-HTTP installs on a home network still get the cookie; it
+  is marked `Secure` only when the request came over HTTPS.
 - **The live stream no longer puts the owner's session token in a URL.** `EventSource` cannot
   send headers, so the stream authenticated with `?token=<session>`, and nginx writes the full
   request line to its error log whenever the upstream refuses a connection, which it does for a

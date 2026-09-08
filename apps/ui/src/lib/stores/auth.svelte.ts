@@ -1,4 +1,5 @@
 import {
+    createSessionCookie,
     fetchAuthStatus,
     getAuthToken,
     login as apiLogin,
@@ -100,6 +101,11 @@ class AuthStore {
             this.publicAccessAllowClipDownloads = status.public_access_allow_clip_downloads ?? false;
             this.needsInitialSetup = status.needs_initial_setup ?? false;
             this.isAuthenticated = status.is_authenticated;
+            if (this.token && status.is_authenticated) {
+                // Media loads with the session cookie, not a token in the URL. A browser
+                // that signed in before the cookie existed still needs one attached.
+                void createSessionCookie().catch(() => undefined);
+            }
             this.username = status.username ?? null;
             this.httpsWarning = status.https_warning ?? false;
             this.birdnetEnabled = status.birdnet_enabled ?? false;

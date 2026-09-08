@@ -2174,6 +2174,15 @@ export interface paths {
       response: components['schemas']['MessageResponse'];
     };
   };
+  "/api/auth/session-cookie": {
+    post: {
+      operationId: "create_session_cookie_api_auth_session_cookie_post";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['MessageResponse'];
+    };
+  };
   "/api/auth/status": {
     get: {
       operationId: "get_auth_status_api_auth_status_get";

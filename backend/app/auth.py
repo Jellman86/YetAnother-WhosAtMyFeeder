@@ -6,8 +6,11 @@ Supports both owner (full access) and guest (public read-only) auth levels.
 
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+import re
 import secrets
 from dataclasses import dataclass
+
+from fastapi import Response
 from fastapi import HTTPException, Request, status, Depends, Security
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyHeader, APIKeyQuery
 import jwt
@@ -145,6 +148,66 @@ def verify_token(token: str) -> TokenData:
         )
 
 
+SESSION_COOKIE = "yawamf_session"
+
+# The only routes a cookie may authorise. `<img>`, `<video>` and `EventSource`
+# cannot send headers, so these carry the session in a cookie the browser adds
+# by itself. Everything else keeps requiring a Bearer header, which a cross-site
+# page cannot forge, so the cookie adds no CSRF surface. Read-only methods only.
+_COOKIE_METHODS = frozenset({"GET", "HEAD"})
+_COOKIE_ROUTES = (
+    re.compile(
+        r"^/api/frigate/[^/]+/(snapshot\.jpg|thumbnail\.jpg|clip\.mp4|recording-clip\.mp4|clip-thumbnails\.(vtt|jpg))$"
+    ),
+    re.compile(r"^/api/frigate/[^/]+/snapshot/(original\.jpg|candidates/[^/]+/(image|thumbnail)\.jpg)$"),
+    re.compile(r"^/api/frigate/camera/[^/]+/latest\.jpg$"),
+    re.compile(r"^/api/audio/(spectrogram|clip)/[^/]+$"),
+    re.compile(r"^/api/sse$"),
+)
+
+
+def session_cookie_allowed(request: Request) -> bool:
+    """Whether this request is one the session cookie is permitted to authorise."""
+    if request.method not in _COOKIE_METHODS:
+        return False
+    path = request.url.path
+    return any(route.match(path) for route in _COOKIE_ROUTES)
+
+
+def session_cookie_token(request: Request) -> Optional[TokenData]:
+    """The session carried in the cookie, or None when absent, expired or forged."""
+    raw = request.cookies.get(SESSION_COOKIE)
+    if not raw:
+        return None
+    try:
+        return verify_token(raw)
+    except HTTPException:
+        return None
+
+
+def set_session_cookie(response: Response, token: str, request: Request) -> None:
+    """Attach the session to the browser as an HttpOnly cookie scoped to /api.
+
+    ``Secure`` follows the request scheme (behind a trusted proxy that is the
+    forwarded one), so a plain-HTTP LAN install still receives the cookie.
+    """
+    from app.config import settings
+
+    response.set_cookie(
+        SESSION_COOKIE,
+        token,
+        max_age=int(settings.auth.session_expiry_hours) * 3600,
+        path="/api",
+        httponly=True,
+        secure=request.url.scheme == "https",
+        samesite="lax",
+    )
+
+
+def clear_session_cookie(response: Response) -> None:
+    response.delete_cookie(SESSION_COOKIE, path="/api")
+
+
 async def get_auth_context(
     request: Request, credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)
 ) -> AuthContext:
@@ -190,6 +253,13 @@ async def get_auth_context(
             # Invalid token - fall through to public access check
             log.debug("Invalid token provided, checking public access")
             pass
+
+    # A session cookie may authorise read-only media and the stream, and nothing else.
+    if session_cookie_allowed(request):
+        cookie_session = session_cookie_token(request)
+        if cookie_session is not None:
+            log.debug("Authenticated media request via session cookie", username=cookie_session.username)
+            return AuthContext(auth_level=cookie_session.auth_level, username=cookie_session.username)
 
     # Check if auth is disabled completely (backward compatibility).
     # Auth-disabled mode must remain owner-equivalent even when public access
@@ -292,6 +362,13 @@ async def get_stream_auth_context(
             )
         except HTTPException:
             log.debug("Invalid bearer token on stream, checking ticket and public access")
+
+    cookie_session = session_cookie_token(request)
+    if cookie_session is not None:
+        return StreamAuth(
+            context=AuthContext(auth_level=cookie_session.auth_level, username=cookie_session.username),
+            session_exp=cookie_session.exp,
+        )
 
     ticket = request.query_params.get("ticket")
     if ticket:

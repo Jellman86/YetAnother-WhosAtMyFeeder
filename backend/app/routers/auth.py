@@ -2,7 +2,7 @@
 
 import aiosqlite
 import asyncio
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Response, status, Request
 from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Optional
 from datetime import datetime
@@ -21,6 +21,8 @@ from app.auth import (
     require_owner,
     get_auth_context,
     validate_bcrypt_password_length,
+    set_session_cookie,
+    clear_session_cookie,
 )
 from app.config import settings
 from app.services.stream_tickets import STREAM_TICKET_TTL_SECONDS, stream_tickets
@@ -166,7 +168,7 @@ class InitialSetupResponse(BaseModel):
 
 @router.post("/auth/login", response_model=LoginResponse)
 @login_rate_limit()
-async def login(request: Request, login_data: LoginRequest):
+async def login(request: Request, login_data: LoginRequest, response: Response):
     """Authenticate user and return JWT token.
 
     Rate limited to 5 attempts per minute, 20 per hour per IP.
@@ -210,10 +212,27 @@ async def login(request: Request, login_data: LoginRequest):
     token = create_access_token(login_data.username, AuthLevel.OWNER)
 
     log.info("AUTH_AUDIT: Login successful", username=login_data.username, event_type="login_success")
+    set_session_cookie(response, token, request)
 
     return LoginResponse(
         access_token=token, username=login_data.username, expires_in_hours=settings.auth.session_expiry_hours
     )
+
+
+@router.post("/auth/session-cookie", response_model=MessageResponse)
+async def create_session_cookie(request: Request, response: Response, auth: AuthContext = Depends(get_auth_context)):
+    """Attach the caller's existing session to the browser as the media cookie.
+
+    Browsers that signed in before the cookie existed still hold a bearer token;
+    the app calls this once on load so their images keep working without a new
+    login. Only a Bearer session qualifies: the cookie is not accepted here, so
+    a media-scoped cookie can never widen its own reach.
+    """
+    auth_header = request.headers.get("Authorization", "")
+    if not auth.is_owner or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="A signed-in session is required")
+    set_session_cookie(response, auth_header[7:], request)
+    return MessageResponse(message="Session cookie set")
 
 
 @router.post("/auth/stream-ticket", response_model=StreamTicketResponse)
@@ -355,7 +374,9 @@ async def get_auth_status(request: Request):
 
 
 @router.post("/auth/initial-setup", response_model=InitialSetupResponse)
-async def set_initial_password(request: InitialPasswordRequest) -> InitialSetupResponse:
+async def set_initial_password(
+    request_obj: Request, request: InitialPasswordRequest, response: Response
+) -> InitialSetupResponse:
     """Set initial password for first-run setup.
 
     Can only be called before initial setup is complete and while no password is
@@ -420,6 +441,7 @@ async def set_initial_password(request: InitialPasswordRequest) -> InitialSetupR
         return InitialSetupResponse(message="Setup completed successfully")
 
     token = create_access_token(settings.auth.username, AuthLevel.OWNER)
+    set_session_cookie(response, token, request_obj)
     return InitialSetupResponse(
         message="Setup completed successfully",
         access_token=token,
@@ -430,12 +452,13 @@ async def set_initial_password(request: InitialPasswordRequest) -> InitialSetupR
 
 
 @router.post("/auth/logout", response_model=MessageResponse)
-async def logout(_auth: AuthContext = Depends(require_owner)) -> MessageResponse:
+async def logout(response: Response, _auth: AuthContext = Depends(require_owner)) -> MessageResponse:
     """Logout endpoint (client-side token deletion).
 
     Note: JWT tokens cannot be invalidated server-side without a blacklist.
     Client should delete token from storage.
     """
+    clear_session_cookie(response)
     try:
         async with get_db() as db:
             await OAuthTokenRepository(db).delete_all()

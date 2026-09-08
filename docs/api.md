@@ -60,6 +60,26 @@ curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
 # curl -H "Authorization: Bearer <token>" http://localhost:8946/api/events
 ```
 
+### Session cookie for media
+
+`<img>`, `<video>` and `<audio>` cannot send an `Authorization` header, and a session token in a
+media URL is copied into the access log of every proxy in front of YA-WAMF — hundreds of times a
+day for an owner browsing thumbnails. So media never carries the session in the URL.
+
+Instead, `POST /api/auth/login` (and first-run setup) also sets an `HttpOnly`, `SameSite=Lax`
+cookie named `yawamf_session`, scoped to `/api`, `Secure` when the request arrived over HTTPS,
+with the session's own lifetime. **Only read-only media routes and the live stream honour it**:
+snapshots, thumbnails, clips, recording clips, clip-thumbnail sprites and VTT, snapshot
+candidates, the camera live frame, audio spectrograms and clips, and `GET /api/sse`. Every other
+route still requires a Bearer header, which a cross-site page cannot forge, so the cookie adds no
+CSRF surface. `POST /api/auth/logout` clears it.
+
+- `POST /api/auth/session-cookie` (owner, **Bearer only**) — attaches the caller's existing session
+  as the cookie. The app calls it once on load for a browser that signed in before the cookie
+  existed. The cookie itself is not accepted here, so a media-scoped cookie can never widen its
+  own reach.
+- The deprecated `api_key` query parameter still works on media routes until it is removed in 3.0.
+
 ### Stream ticket
 
 `EventSource` cannot send an `Authorization` header, so the live stream needs a credential in
@@ -115,6 +135,7 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
   Settings API.
 - `POST /api/auth/logout`
 - `POST /api/auth/stream-ticket` (owner) — single-use, 60-second ticket that opens `GET /api/sse`; see [Stream ticket](#stream-ticket).
+- `POST /api/auth/session-cookie` (owner, Bearer only) — sets the media session cookie for an already-signed-in browser; see [Session cookie for media](#session-cookie-for-media).
 
 ### Guided setup
 

@@ -13,7 +13,7 @@ vi.mock('./core', () => ({
     setAuthToken: setAuthTokenMock,
 }));
 
-import { createStreamTicket, setInitialPassword } from './auth';
+import { createSessionCookie, createStreamTicket, setInitialPassword } from './auth';
 
 describe('setInitialPassword', () => {
     beforeEach(() => {
@@ -114,5 +114,25 @@ describe('createStreamTicket', () => {
         apiFetchMock.mockResolvedValue(new Response('{"detail":"Authentication required"}', { status: 401 }));
 
         await expect(createStreamTicket()).rejects.toThrow();
+    });
+});
+
+describe('createSessionCookie', () => {
+    beforeEach(() => {
+        apiFetchMock.mockReset();
+    });
+
+    it('asks the server to set the media cookie for the session this browser already holds', async () => {
+        apiFetchMock.mockResolvedValue(new Response('{"message":"ok"}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+        await createSessionCookie();
+
+        expect(apiFetchMock).toHaveBeenCalledWith('/api/auth/session-cookie', expect.objectContaining({ method: 'POST' }));
+    });
+
+    it('throws when the session cannot be exchanged, so callers can decide what to do', async () => {
+        apiFetchMock.mockResolvedValue(new Response('{"detail":"Authentication required"}', { status: 401 }));
+
+        await expect(createSessionCookie()).rejects.toThrow();
     });
 });
