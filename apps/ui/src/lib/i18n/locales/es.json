@@ -487,7 +487,7 @@
       "keep_everything": "Conservar todo (∞)",
       "purge_button": "Eliminar registros antiguos",
       "cleaning": "Limpiando…",
-      "auto_cleanup_note": "La limpieza automática se ejecuta todos los días a las 3:00",
+      "auto_cleanup_note": "La limpieza automática se ejecuta al iniciar y, después, cada 24 horas",
       "cache_title": "Caché de medios",
       "cache_snapshots": "Instantáneas",
       "cache_clips": "Clips de vídeo",

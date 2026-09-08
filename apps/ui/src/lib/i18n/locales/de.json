@@ -487,7 +487,7 @@
       "keep_everything": "Alles behalten (∞)",
       "purge_button": "Alte Datensätze löschen",
       "cleaning": "Wird bereinigt…",
-      "auto_cleanup_note": "Die automatische Bereinigung läuft täglich um 3:00 Uhr",
+      "auto_cleanup_note": "Die automatische Bereinigung läuft beim Start und danach alle 24 Stunden",
       "cache_title": "Medien-Cache",
       "cache_snapshots": "Schnappschüsse",
       "cache_clips": "Videoclips",

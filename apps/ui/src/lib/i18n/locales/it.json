@@ -496,7 +496,7 @@
       "keep_everything": "Conserva tutto (∞)",
       "purge_button": "Elimina record vecchi",
       "cleaning": "Pulizia in corso…",
-      "auto_cleanup_note": "La pulizia automatica viene eseguita ogni giorno alle 3:00",
+      "auto_cleanup_note": "La pulizia automatica viene eseguita all'avvio e poi ogni 24 ore",
       "cache_title": "Cache multimediale",
       "cache_snapshots": "Istantanee",
       "cache_clips": "Clip video",

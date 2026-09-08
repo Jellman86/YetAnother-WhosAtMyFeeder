@@ -8,6 +8,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **The retention card no longer promises a 3 AM cleanup.** Settings → Data said "Automatic
+  cleanup runs daily at 3 AM". The scheduler runs cleanup once when the container starts and then
+  every 24 hours from that moment, so the time of day follows the last restart and was never
+  three in the morning. The note now says what happens, in every language the app ships.
 - **Inference health is keyed on the runtime that did the work.** The entry the Detection tab reads
   was named "tflite/tflite/<model>" on an install classifying through OpenVINO on the NPU, because
   the admission context that stamps each sample copied the API process's idle defaults rather than
