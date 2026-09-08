@@ -19,6 +19,8 @@
   import WizardShell from './lib/components/setup/WizardShell.svelte';
   import { setupWizardStore } from './lib/stores/setup_wizard.svelte';
   import { checkHealth, fetchAnalysisStatus, fetchCacheStats, fetchEventClassificationStatus, setAuthErrorCallback } from './lib/api';
+  import { createStreamTicket } from './lib/api/auth';
+  import { resolveStreamUrl } from './lib/app/stream-url';
   import { themeStore } from './lib/stores/theme.svelte';
   import { layoutStore } from './lib/stores/layout.svelte';
 import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte';
@@ -538,7 +540,7 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
               // owner configured rather than the built-in defaults.
               void publicSettingsStore.load();
               detectionsStore.loadInitial();
-              connectSSE();
+              void connectSSE();
               if (authStore.showSettings) {
                   void syncAnalysisQueueStatusOnce();
                   void runOwnerSystemChecksOnce();
@@ -590,21 +592,39 @@ import { accessibilityPreview } from './lib/stores/accessibility_preview.svelte'
           reconnectTimeout = null;
           isReconnecting = false;
           reconnectAttempts++;
-          connectSSE();
+          void connectSSE();
       }, delay);
   }
 
-  function connectSSE() {
+  // Each connect attempt is numbered so a slow ticket exchange cannot open a stream
+  // that a later attempt has already superseded.
+  let sseGeneration = 0;
+
+  async function connectSSE() {
       // Close existing connection if any
       if (evtSource) {
           evtSource.close();
           evtSource = null;
       }
+      const generation = ++sseGeneration;
+
+      // The session token never rides in the stream URL: nginx logs the request line
+      // whenever the upstream is down, so a signed-in session opens the stream with a
+      // single-use ticket instead, minted fresh for every attempt.
+      let sseUrl: string;
+      try {
+          sseUrl = await resolveStreamUrl(appApiPath('/api/sse'), Boolean(authStore.token), createStreamTicket);
+      } catch (error) {
+          logger.warn("SSE ticket exchange failed", {
+              message: error instanceof Error ? error.message : String(error),
+              attempt: reconnectAttempts + 1
+          });
+          scheduleReconnect();
+          return;
+      }
+      if (generation !== sseGeneration) return;
 
       try {
-          const token = authStore.token;
-          const sseBase = appApiPath('/api/sse');
-          const sseUrl = token ? `${sseBase}?token=${encodeURIComponent(token)}` : sseBase;
           const source = new EventSource(sseUrl);
           evtSource = source;
 

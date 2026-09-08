@@ -218,6 +218,10 @@ ingress:
 ## Technical Details
 
 - **Token Storage:** Authentication uses JWT (JSON Web Tokens) stored in your browser's Local Storage.
+- **Live stream:** the browser's `EventSource` cannot send headers, so the live-update stream is
+  opened with a single-use ticket exchanged from the session (`POST /api/auth/stream-ticket`),
+  never with the session token itself. A ticket is spent on first use and expires after 60
+  seconds, so one caught in a proxy or container log is worthless by the time anyone reads it.
 - **Session Expiry:** Sessions are valid for 7 days by default (configurable).
 - **Rate Limiting:** Login attempts are strictly rate-limited (5 per minute) to prevent brute-force attacks.
 - **Legacy API Key:** Older `YA_WAMF_API_KEY` authentication still works but is deprecated.

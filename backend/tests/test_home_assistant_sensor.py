@@ -799,9 +799,11 @@ def _hass_stub():
 
 
 @pytest.mark.asyncio
-async def test_ingress_registers_the_view_once_and_follows_the_live_coordinator_across_a_reload():
+async def test_ingress_registers_the_view_once_and_follows_the_live_coordinator_across_a_reload(monkeypatch):
     ingress_module = _load_ingress_module()
-    ingress_module.secrets.token_urlsafe = lambda _length: "test-token"
+    # `ingress_module.secrets` is the stdlib module itself; patch it so the
+    # stand-in is restored afterwards rather than leaking into every later test.
+    monkeypatch.setattr(ingress_module.secrets, "token_urlsafe", lambda _length: "test-token")
     frontend = _frontend_stub()
     hass, views = _hass_stub()
 

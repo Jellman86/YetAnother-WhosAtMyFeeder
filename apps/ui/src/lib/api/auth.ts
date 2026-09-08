@@ -6,6 +6,7 @@ export type AuthStatusResponse = paths['/api/auth/status']['get']['response'];
 
 export type LoginResponse = paths['/api/auth/login']['post']['response'];
 export type InitialSetupResponse = paths['/api/auth/initial-setup']['post']['response'];
+export type StreamTicketResponse = paths['/api/auth/stream-ticket']['post']['response'];
 
 export async function fetchAuthStatus(): Promise<AuthStatusResponse> {
     const response = await apiFetch(`${API_BASE}/auth/status`, { timeoutMs: 10_000 });
@@ -66,4 +67,18 @@ export async function setInitialPassword(options: {
         setAuthToken(data.access_token, data.expires_in_hours ?? undefined);
     }
     return data;
+}
+
+/**
+ * Exchange the current session for a single-use ticket that opens the live stream.
+ * The stream cannot carry the session token itself (see `app/stream-url.ts`).
+ */
+export async function createStreamTicket(): Promise<StreamTicketResponse> {
+    const response = await apiFetch(`${API_BASE}/auth/stream-ticket`, { method: 'POST', timeoutMs: 10_000 });
+
+    if (!response.ok) {
+        throw new Error(await readApiErrorMessage(response, 'Could not open the live stream'));
+    }
+
+    return response.json();
 }
