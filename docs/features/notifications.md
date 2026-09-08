@@ -1,14 +1,14 @@
 # Notifications
 
-YA-WAMF includes a flexible multi-platform notification system that alerts you when birds are detected.
+YA-WAMF sends detection alerts through Discord, Pushover, Telegram, and email.
 
-## The Notifications surface
+## Notification history
 
 The bell icon in the header opens the notification centre; **Notifications** in the sidebar opens
-the full page. Both show one history, filtered by facet: **Everything**, **Birds**, **Updates**,
-**Jobs**, and **Errors**. The **Jobs** and **Errors** facets are owner-only.
+the full page. Both show one history, filtered by category: **Everything**, **Birds**, **Updates**,
+**Jobs**, and **Errors**. The **Jobs** and **Errors** categories are owner-only.
 
-The **Jobs** facet separates queued, running, and recent work. Video analysis, best-quality
+The **Jobs** category separates queued, running, and recent work. Video analysis, best-quality
 snapshots, full-visit clips, and backfills stay distinct, so a queued item is never presented as a
 running worker.
 
@@ -18,7 +18,7 @@ started, such as a backfill or a manual analysis. Routine per-detection media wo
 to browser live updates, so opening a second tab does not create a second job or invent a separate
 queue.
 
-If live job status cannot be read, the page keeps the last known progress, shows a calm warning,
+If live job status cannot be read, the page keeps the last known progress, shows a warning,
 and retries automatically. **Try again** on a paused video-analysis lane reopens the circuit
 breaker; it does not discard queued detections.
 
@@ -82,14 +82,14 @@ a control:
 ![Settings → Notifications: the Global Notification Filters card reading "Tell me about new visits that are at least 70% sure of any species on nowhere yet", with the notification cooldown, notification language, and the three species filter modes beneath](../images/settings-notifications.png)
 
 ### Minimum confidence
-Only alert at or above this score (default `0.7`). Set it higher than your detection threshold so
-you hear about sure things only, and leave the borderline visits to the Explorer.
+Only alert at or above this score (default `0.7`). Raise it to reduce alerts for lower-confidence
+identifications. A high score does not guarantee that the identification is correct.
 
 ### Audio confirmed only
-Alert only when the visual model identified a bird **and** BirdNET-Go heard the *same species* at
-the same time. Two independent sensors agreeing is a strong signal, so this all but eliminates
-false alerts — at the cost of missing every silent visitor. The sentence changes to
-**"70% sure and heard"** when it is on.
+Alert only when the visual model identified a bird **and** BirdNET-Go heard the *same species*
+within the configured correlation window. This requires supporting audio
+evidence, but both models can still make mistakes. Visits without matching audio do not trigger
+an alert. The sentence changes to **"70% sure and heard"** when it is on.
 
 ### Species filter
 Three modes, chosen with the tiles under **Species filter**:
@@ -97,16 +97,15 @@ Three modes, chosen with the tiles under **Species filter**:
 | Mode | Effect |
 |---|---|
 | **No species filter** | Notify for every species that passes the other filters. This is the default. |
-| **Block selected species** | Notify for everything *except* the species you list. Good for a Wood Pigeon that visits four hundred times a day. |
-| **Only selected species** | Notify *only* for the species you list. Good for waiting on one rarity. |
+| **Block selected species** | Notify for everything *except* the species you list. Use this to exclude frequent visitors. |
+| **Only selected species** | Notify *only* for the species you list. Use this to watch for particular species. |
 
 Species are matched on taxonomic identity rather than on display text, so a name change or a
 different UI language does not quietly break your filter.
 
 ### Notification cooldown
-A minimum gap in minutes between notifications, across all channels (default `0`, disabled). This
-is the blunt instrument for a busy feeder: it caps how often you are interrupted regardless of how
-many birds arrive.
+A minimum gap in minutes between notifications, across all channels (default `0`, disabled).
+Use it to reduce notification frequency when the feeder is busy.
 
 ## Notification Modes
 
@@ -121,7 +120,7 @@ Choose a delivery mode in **Settings → Notifications**:
 ## How it Works
 
 1. **Event Trigger:** A detection is processed and saved to the database.
-2. **Filter Check:** The system checks your confidence, audio, and whitelist settings.
+2. **Filter Check:** The system checks your confidence, audio, and species filters.
 3. **Dispatch:** If passed, the notification service dispatches async requests to all enabled platforms simultaneously.
 4. **Rich Media:** If enabled, the system fetches the high-quality crop from Frigate to attach to the message.
 

@@ -1,6 +1,7 @@
 # Taxonomy & Naming
 
-YA-WAMF uses a professional taxonomy engine to ensure every bird sighting is recorded with both its common and scientific identity.
+YA-WAMF resolves common and scientific names for detections and uses a species catalogue to
+keep identities consistent when names change.
 
 ## iNaturalist Integration
 The system is connected to the [iNaturalist API](https://www.inaturalist.org/). Every time a new species is detected, YA-WAMF:
@@ -90,5 +91,5 @@ recorded, rewrite a model's label, or withdraw an identity is refused outright: 
 correction, and a correction needs a deliberate decision rather than arriving in an update.
 
 **The catalogue is a separate file from your detection history.** Rolling a release back changes
-names, never your recorded sightings. Both live under `/data`, so a backup of that directory covers
-the catalogue, the detections database, and your configuration together.
+names, never your recorded sightings. Both databases live under `/data`. Back up that directory
+and `/config` to preserve the catalogue, detection history, and configuration.

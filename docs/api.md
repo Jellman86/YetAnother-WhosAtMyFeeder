@@ -62,17 +62,16 @@ curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
 
 ### Session cookie for media
 
-`<img>`, `<video>` and `<audio>` cannot send an `Authorization` header, and a session token in a
-media URL is copied into the access log of every proxy in front of YA-WAMF — hundreds of times a
-day for an owner browsing thumbnails. So media never carries the session in the URL.
+`<img>`, `<video>` and `<audio>` cannot set an `Authorization` header. The app uses a session
+cookie for media requests to keep the session token out of URLs and proxy request logs.
 
 Instead, `POST /api/auth/login` (and first-run setup) also sets an `HttpOnly`, `SameSite=Lax`
 cookie named `yawamf_session`, scoped to `/api`, `Secure` when the request arrived over HTTPS,
 with the session's own lifetime. **Only read-only media routes and the live stream honour it**:
 snapshots, thumbnails, clips, recording clips, clip-thumbnail sprites and VTT, snapshot
-candidates, the camera live frame, audio spectrograms and clips, and `GET /api/sse`. Every other
-route still requires a Bearer header, which a cross-site page cannot forge, so the cookie adds no
-CSRF surface. `POST /api/auth/logout` clears it.
+candidates, the camera live frame, audio spectrograms and clips, and `GET /api/sse`. The cookie
+cannot authorise other routes or state-changing requests. Use a Bearer header for authenticated
+API calls. `POST /api/auth/logout` clears the cookie.
 
 - `POST /api/auth/session-cookie` (owner, **Bearer only**) — attaches the caller's existing session
   as the cookie. The app calls it once on load for a browser that signed in before the cookie
@@ -82,10 +81,9 @@ CSRF surface. `POST /api/auth/logout` clears it.
 
 ### Stream ticket
 
-`EventSource` cannot send an `Authorization` header, so the live stream needs a credential in
-its URL — and nginx writes the full request line to its error log whenever the upstream refuses
-a connection, which it does for a few seconds on every container start. A session token in that
-line is a week of owner access. So the stream never takes the session token; it takes a ticket:
+`EventSource` cannot set an `Authorization` header. The app exchanges its session for a
+single-use stream ticket, keeping the session token out of the URL. A client can open the
+stream with a ticket as follows:
 
 ```bash
 TICKET=$(curl -fsS -X POST -H "Authorization: Bearer <token>" \
@@ -93,12 +91,14 @@ TICKET=$(curl -fsS -X POST -H "Authorization: Bearer <token>" \
 curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
 ```
 
-- A ticket is **single-use** and expires **60 seconds** after issue; a logged copy is worthless.
+- A ticket is **single-use** and expires **60 seconds** after issue. An unredeemed ticket
+  exposed in a log remains usable until it expires.
 - It inherits the session's expiry, so the stream still ends when the session would have.
 - Only a signed-in session is issued one (`403` for a guest, `401` with no session). A guest does
   not need one: with public access on, the bare `/api/sse` already opens as a guest.
 - The server keeps only a hash of each outstanding ticket, bounded to 256 at a time.
-- Clients that *can* send headers (`curl -N -H "Authorization: Bearer …"`) may skip the exchange.
+- Clients that can send a Bearer header may skip the exchange. The stream also accepts the
+  session cookie described above.
 
 ### Auth status
 
