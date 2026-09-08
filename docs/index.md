@@ -39,7 +39,7 @@ The sidebar splits into **Observe** (what the feeder saw) and **Manage** (how it
 </div>
 
 ### Mobile Ready
-YA-WAMF is fully responsive and works great on phones and tablets.
+The layout adapts to phones and tablets, with the dashboard counts above the field log.
 
 <div align="center">
   <img src="images/dashboard-mobile.png" width="300" alt="The dashboard on a phone: today's counts stacked above the field log, with nearby eBird rarities below" />

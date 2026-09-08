@@ -82,7 +82,8 @@ How a snapshot becomes a species. This is the section that balances accuracy aga
    *Saved as **Unknown Bird**.* YA-WAMF is confident something was there, but not confident
    enough to name it. The visit is kept; your species statistics stay clean.
 3. **Score below the Floor**
-   *Discarded.* Almost always a shadow, an insect, or an unusable frame.
+   *Discarded.* The score is too low to keep the event; this can also exclude a real bird
+   in an unclear image.
 
 ### 🎯 Personalized re-ranking details
 
@@ -114,8 +115,8 @@ a saved credential can be re-tested without typing it again.
   [BirdNET-Go](../integrations/birdnet-go.md).
 - **BirdWeather** — enter your Station Token to contribute identified detections to the
   community project. **Test connection** sends a mock House Sparrow to your station.
-- **eBird** — an API key unlocks nearby and notable sightings, plus the CSV export. The export
-  button lives here, under **eBird**, not under Data.
+- **eBird** — an API key enables nearby and notable sightings. Enable the integration to show
+  the CSV export controls here; exporting your detections does not require an API key.
 - **iNaturalist** — owner-reviewed submissions over OAuth. Needs App Owner approval from
   iNaturalist first.
 - **Home Assistant weather** — take each visit's weather from your own HA instance instead of a
@@ -154,8 +155,8 @@ on the leaderboard.
   OpenRouter also accepts any model ID you type.
 - **Test AI Connection:** a staged panel that checks configuration, provider availability,
   vision support, multi-frame admission, and response generation. It sends five generated
-  1280×720 frames — the same shape as a real analysis request — so a pass proves the model
-  accepts production traffic.
+  1280×720 frames to check that the provider accepts a multi-frame image request. A pass
+  confirms this test request succeeded; it does not guarantee every later analysis will succeed.
 - **Usage:** calls, tokens, and estimated cost per feature, with the reference pricing the
   estimate used.
 
@@ -171,8 +172,8 @@ of **any species** on **Discord*** — and each highlighted part is a control.
 | Control | Default | Description |
 |---|---|---|
 | **Notification mode** | Standard | `Final-only`, `Standard`, `Realtime`, `Silent`, or `Advanced (custom)` triggers. |
-| **Minimum confidence** | `0.7` | Only notify at or above this score. Set it higher than your detection threshold to hear about sure things only. |
-| **Audio confirmed only** | Off | Notify only when BirdNET-Go heard the same species at the same time. |
+| **Minimum confidence** | `0.7` | Only notify at or above this score. Raise it to reduce alerts for lower-confidence identifications. |
+| **Audio confirmed only** | Off | Notify only when BirdNET-Go heard the same species within the configured correlation window. |
 | **Species filter** | No species filter | `No species filter`, `Block selected species`, or `Only selected species`. |
 | **Notification cooldown** | `0` minutes | Minimum gap between notifications. `0` disables the cooldown. |
 | **Notification language** | English | The language used in message text, independent of the UI language. |
@@ -261,19 +262,20 @@ Retention, caching, imports, and the destructive tools.
   `DB_PRE_MIGRATION_BACKUP_RETENTION` to keep more. At least one restore point is always kept,
   and manual backups are never removed.
 
-> **The Danger Zone is genuinely dangerous.** **Reset Database & Cache** permanently deletes
+> **These actions permanently delete data.** **Reset Database & Cache** permanently deletes
 > *every* detection and clears the media cache; **Clear Personalization Data** deletes every
 > manual correction the re-ranker learned from. Both ask first, and neither can be undone. There
-> is no automatic backup of your detection history — take your own copy of `/data` before you use
-> either.
+> is no automatic backup tied to these actions. Take a backup of `/data` and `/config` before
+> using them; migration restore points may not contain your latest history.
 
 ### Maintenance concurrency
 
 `maintenance_max_concurrent` (default `1`) controls how many jobs of the *same* maintenance
 kind may overlap — backfill, weather backfill, video classification, taxonomy repair, timezone
 repair, and analyse-unknowns each get that many slots. Different kinds already run
-independently. `1` is the recommendation: it keeps maintenance from competing with live event
-processing.
+independently, subject to `maintenance.total_max_concurrent` (default `3`) across all kinds.
+`maintenance.per_kind_capacity` can override the limit for an individual kind. Keep the per-kind
+default at `1` to limit competition with live event processing.
 
 Video-analysis concurrency is separate, and no longer has its own setting. It follows the
 background worker count (`CLASSIFICATION__BACKGROUND_WORKER_COUNT`) — one clip per worker.

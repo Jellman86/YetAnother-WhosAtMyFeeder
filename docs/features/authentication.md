@@ -1,6 +1,7 @@
 # Authentication & Access Control
 
-YA-WAMF protects your settings and your history behind an owner login, and can separately offer a read-only public view to anyone you share the link with.
+Enable authentication to protect your settings and history with an owner login. You can also
+turn on a separate read-only public view to share your detections.
 
 ## Overview
 
@@ -92,13 +93,16 @@ medium is not shared rather than shown a broken image or an error.
 | **Share video with visitors** | On | Clip playback. |
 | **Allow clip downloads** | **Off** | Whether a guest can save a clip file, rather than only stream it. |
 | **Show AI conversation threads** | **Off** | Whether guests can read the AI Naturalist conversation, not just the summary. |
-| **History window** | 7 days | How far back the public detection list reaches (`0` = live only). |
-| **Media window** | 7 days | How far back snapshots and clips are served (`0` = live only). |
+| **History window** | Follow retention | How far back the public detection list reaches, capped at 365 days. In custom mode, `0` means today only. |
+| **Media window** | Follow retention | How far back snapshots and clips are served, capped at 365 days. In custom mode, `0` means today only. |
 | **Location precision** | **Approximate** | How precisely guest-facing features may use your configured location. |
 
-> **Location precision defaults to approximate on purpose.** The person doxxed by an exact
-> location is the person who never found this setting. Change it only if you are content for
-> visitors to know where your feeder is.
+**With the default Keep Everything retention policy, both public windows cover 365 days.**
+The stored seven-day values apply only when you select custom windows. Check both windows
+before sharing your URL.
+
+Location precision defaults to **Approximate**. Choose **Exact** only if you want
+guest-facing features to use your precise feeder location.
 
 Guests can never request the current live frame from a camera. Header camera previews and
 `/api/frigate/camera/{camera}/latest.jpg` always require owner access, even when camera names and
@@ -121,7 +125,8 @@ a glance which view you are looking at.
 
 ### Guest view: troubleshooting
 
-- **Guests see nothing:** confirm **Enable public access** is on and the history window is not `0`.
+- **Guests see nothing:** confirm **Enable public access** is on and there are detections within
+  the history window. A custom window of `0` shows only today’s detections.
 - **Guests see settings:** authentication is disabled. Enable it and set a password.
 - **Guests see grey placeholders instead of birds:** **Share photographs with visitors** is off, or
   the detection is older than the media window.
@@ -218,14 +223,15 @@ ingress:
 ## Technical Details
 
 - **Token Storage:** Authentication uses JWT (JSON Web Tokens) stored in your browser's Local Storage.
-- **Media and the live stream:** images, clips and the `EventSource` stream cannot send headers,
-  so the session also lives in an `HttpOnly` cookie that only those read-only routes accept. Media
-  URLs carry no token, so a proxy or container log that records request lines records nothing
-  useful. Everything that changes state still needs the Bearer header the browser holds in memory.
+- **Media:** the browser sends the session in an `HttpOnly` cookie for images, clips, and audio.
+  The app keeps the session token out of media URLs so it is not copied into URL logs. Only
+  read-only media routes and the live stream accept this cookie; it cannot authorise settings
+  changes or other writes. The app uses a Bearer header for those requests.
 - **Live stream:** the browser's `EventSource` cannot send headers, so the live-update stream is
   opened with a single-use ticket exchanged from the session (`POST /api/auth/stream-ticket`),
-  never with the session token itself. A ticket is spent on first use and expires after 60
-  seconds, so one caught in a proxy or container log is worthless by the time anyone reads it.
+  never with the session token in the URL. A ticket expires after 60 seconds and can be redeemed
+  once. An unredeemed ticket exposed in a log remains usable until it expires. The stream also
+  accepts the session cookie or a Bearer header.
 - **Session Expiry:** Sessions are valid for 7 days by default (configurable).
 - **Rate Limiting:** Login attempts are strictly rate-limited (5 per minute) to prevent brute-force attacks.
 - **Legacy API Key:** Older `YA_WAMF_API_KEY` authentication still works but is deprecated.

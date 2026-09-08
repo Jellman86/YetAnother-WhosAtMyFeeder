@@ -1,6 +1,9 @@
 # Deep Video Analysis
 
-While real-time detection uses a single snapshot, YA-WAMF provides a **Deep Video Analysis** mode for the most accurate identification possible. By sampling many frames from the full clip and combining their predictions, it significantly reduces errors from motion blur, partial occlusion, or a bad angle in a single frame.
+**Deep Video Analysis** samples multiple frames from a clip and checks whether their
+identifications agree. It can provide clearer evidence when a snapshot is blurred or the bird
+is partly hidden. If neither the video nor the snapshot fallback provides sufficient evidence,
+YA-WAMF keeps the existing identification.
 
 ## How It Works
 
@@ -82,8 +85,11 @@ be traced back to the media position that produced it.
 
 | Setting | Location | Description |
 |---------|----------|-------------|
-| **Frame count** | Settings → Detection | Number of frames sampled per clip (default: 15). Higher values improve accuracy on long clips but take longer. |
-| **Max concurrent jobs** | Settings → Detection | How many video analysis jobs can run in parallel (default: 1). Raise this if you have spare CPU/GPU headroom. |
+| **Frame count** | Settings → Detection | Number of frames sampled per clip (default: 15). Higher values sample more of the clip but take longer and do not guarantee a better identification. |
+
+Video-job concurrency follows `CLASSIFICATION__BACKGROUND_WORKER_COUNT` (one worker when
+unset), with one clip per worker. The legacy `video_classification_max_concurrent` setting is
+ignored. See [Maintenance concurrency](../setup/configuration.md#maintenance-concurrency).
 
 ## Requirements
 

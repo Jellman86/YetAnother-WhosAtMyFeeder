@@ -249,9 +249,9 @@ Discord / Pushover / Telegram / Email:
 | `PUBLIC_ACCESS__SHOW_AI_CONVERSATION` | `false` | Expose the AI chat to guests. |
 | `PUBLIC_ACCESS__ALLOW_CLIP_DOWNLOADS` | `false` | Let guests download clips. |
 | `PUBLIC_ACCESS__HISTORICAL_DAYS_MODE` | `retention` | `retention` (follow `MAINTENANCE__RETENTION_DAYS`) or `custom` history window for guests. |
-| `PUBLIC_ACCESS__SHOW_HISTORICAL_DAYS` | `7` | Guest history window in days (when the mode is `custom`). `0` means live only. |
+| `PUBLIC_ACCESS__SHOW_HISTORICAL_DAYS` | `7` | Guest history window in days (when the mode is `custom`). `0` means today only. |
 | `PUBLIC_ACCESS__MEDIA_DAYS_MODE` | `retention` | `retention` or `custom` media window for guests. |
-| `PUBLIC_ACCESS__MEDIA_HISTORICAL_DAYS` | `7` | Guest media window in days (when the mode is `custom`). `0` means live only. |
+| `PUBLIC_ACCESS__MEDIA_HISTORICAL_DAYS` | `7` | Guest media window in days (when the mode is `custom`). `0` means today only. |
 | `PUBLIC_ACCESS__RATE_LIMIT_PER_MINUTE` | `30` | Per-IP guest request limit. |
 | `PUBLIC_ACCESS__EXTERNAL_BASE_URL` | _(unset)_ | Public base URL for guest links. |
 
