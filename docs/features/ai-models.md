@@ -242,7 +242,7 @@ Frigate: a complete full-visit recording, a decodable partial recording, or the 
 An unreadable cache entry is discarded and the next source is tried; a snapshot is the final
 fallback, not a shortcut around usable video.
 
-![Deep Video Analysis](../images/event_details_modal.png)
+![A detection opened in detail: the best crop on the left with a Best crop / Full frame toggle and the other snapshot options beneath, and on the right the identified species with 99% confidence, a Deep Video Analysis panel reporting a 72% match from cropped video frames using RoPE ViT-B14, the weather and camera for the visit, and the nearby audio spectrogram](../images/detection-detail.png)
 
 This provides significantly higher confidence by seeing the bird from multiple angles and in motion.
 See [Deep Video Analysis](video-analysis.md) for source selection, consensus, fallback, and runtime

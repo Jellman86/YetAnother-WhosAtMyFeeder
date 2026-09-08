@@ -3,7 +3,7 @@
 Welcome to the documentation for **Yet Another WhosAtMyFeeder (YA-WAMF)**. This guide covers everything from basic setup to advanced AI tuning.
 
 > 🦜 **New to YA-WAMF?** Start with the [Getting Started](setup/getting-started.md) guide to have your feeder online in minutes.
-> 🔓 **Sharing your dashboard?** See [Authentication & Access](features/authentication.md) for guest mode, rate limits, and privacy controls.
+> 🔓 **Sharing your dashboard?** See [Authentication & Access](features/authentication.md) for public access, rate limits, and what a guest can see.
 
 ---
 
@@ -21,17 +21,34 @@ Everything you need to get the containers running and configured correctly.
 - **[🌱 Environment Variables](setup/environment-variables.md)** - Complete reference for every env override, with defaults.
 - **[⚡ Hardware Acceleration](setup/hardware-acceleration.md)** - Choose the full, CPU, Intel, or CUDA image; configure device passthrough; and verify packaged, available, and active providers.
 
-## 🔌 API & Development
-Build integrations and custom tools with YA-WAMF.
-- **[🔌 API Reference](api.md)** - Complete REST API documentation with examples
-- **OpenAPI/Swagger** - Interactive API docs. Accessible at `http://localhost:8000/docs` when running the backend directly. In the monolithic container the FastAPI process is internal — see the [API Reference](api.md) for access options. In the legacy split deployment the backend is exposed at `http://localhost:8946/docs`.
+## 🖥 The interface, screen by screen
+
+The sidebar splits into **Observe** (what the feeder saw) and **Manage** (how it behaves).
+
+| Screen | What it is for | Read next |
+|---|---|---|
+| **Dashboard** | Today at a glance: a field log of visits, anything waiting on your call, camera and audio totals, weather, and a 24-hour activity histogram. | [Getting Started](setup/getting-started.md) |
+| **Explorer** | Every classified visit, as cards or a compact list, filtered by time window, species, camera, favourites, and audio matches. | [Getting Started](setup/getting-started.md) |
+| **Add observation** | Classify a photo or clip you took yourself and file it in the same history. Owner only. | [Manual Observations](features/manual-observations.md) |
+| **Leaderboard** | Who visits most, over a day, week, month, or all time, with seen/heard/both breakdowns and audio history. | [Taxonomy & Naming](features/taxonomy.md) |
+| **Notifications** | Alerts and background jobs on one surface, filtered by Birds, Updates, Jobs, or Errors. | [Notifications](features/notifications.md) |
+| **Settings** | Twelve sections grouped as Feeder pipeline, Intelligence & sharing, Operations, and Interface. | [Configuration Guide](setup/configuration.md) |
+
+<div align="center">
+  <img src="images/settings-map.png" width="720" alt="The Settings navigation grid: Feeder pipeline holds Connection and Detection; Intelligence and sharing holds Integrations, Enrichment, AI, and Notifications; Operations holds Health, Security, Data, and Setup wizard; Interface holds Appearance and Accessibility" />
+</div>
 
 ### Mobile Ready
 YA-WAMF is fully responsive and works great on phones and tablets.
 
 <div align="center">
-  <img src="images/dashboard-mobile.png" width="300" alt="YA-WAMF dashboard on a phone showing recent detections" />
+  <img src="images/dashboard-mobile.png" width="300" alt="The dashboard on a phone: today's counts stacked above the field log, with nearby eBird rarities below" />
 </div>
+
+## 🔌 API & Development
+Build integrations and custom tools with YA-WAMF.
+- **[🔌 API Reference](api.md)** - Complete REST API documentation with examples
+- **OpenAPI/Swagger** - Interactive API docs. Accessible at `http://localhost:8000/docs` when running the backend directly. In the monolithic container the FastAPI process is internal — see the [API Reference](api.md) for access options. In the legacy split deployment the backend is exposed at `http://localhost:8946/docs`.
 
 ## 🔗 Integrations
 Connect YA-WAMF to the rest of your smart home and community projects.
@@ -44,15 +61,15 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 
 ## Feature Deep Dives
 
-- [🔐 Authentication & Access](features/authentication.md) - Admin passwords, guest mode, and security
+- [🔐 Authentication & Access](features/authentication.md) - Owner password, public access, and what a guest can see
 - [🛡️ Security Policy](../SECURITY.md) - Supported versions, reporting, and security overview
 - [🧠 AI Models & Performance](features/ai-models.md) - Understanding the model tiers, plus CPU/CUDA/OpenVINO provider behavior
 - [📊 Model Accuracy & Benchmarks](features/model-accuracy.md) - Benchmark results, GPU support matrix, and how to run accuracy tests
 - [🧪 Model Evaluation](features/model-evaluation.md) - Compare installed models against labelled feeder images
 - [🎞 Deep Video Analysis](features/video-analysis.md) - Multi-frame clip analysis, sampling behavior, and UI feedback
 - [📤 Manual Observations](features/manual-observations.md) - Classify an uploaded photo or video, review the evidence, and add it to history
-- [🗂 Taxonomy & Naming](features/taxonomy.md) - How scientific naming works
-- [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, Email + Notification Center
+- [🗂 Taxonomy & Naming](features/taxonomy.md) - Where a bird's name comes from, and the species catalogue behind it
+- [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, and Email, plus filters and the Notifications surface
 - [📊 Telemetry](features/telemetry.md) - Transparency on anonymous usage metrics
 
 ## Troubleshooting
@@ -69,8 +86,9 @@ How the project is built and held to standard.
 - **[🧑‍💻 Code-Quality Standard](standards/code-quality.md)** - The researched code-craft bar for Python/FastAPI + Svelte 5/TypeScript, with authoritative sources.
 - **[🎨 UI/UX Standard](standards/ui-ux.md)** - Usability (Nielsen's heuristics), accessibility (WCAG 2.2 AA), and visual craft (Refactoring UI).
 - **[📣 Writing a Release](development/releasing.md)** - The human-first GitHub Release standard, template, and checklist.
-- **[🎁 YA-WAMF 2.18.1 Release Notes](releases/v2.18.1.md)** - The slowdowns fixed at their root, settings pages that read as sentences and status, and one honest concurrency control.
-- **[YA-WAMF 2.18.0 Release Notes](releases/v2.18.0.md)** - Offline bird names in your language, a dashboard built around your day, and an interface that no longer stalls.
+- **[🎁 YA-WAMF 2.19.3 Release Notes](releases/v2.19.3.md)** - A feeder that stays responsive, a leaderboard that tells the truth, and a permanent delete for the rocks in your review queue.
+- **[YA-WAMF 2.19.0 Release Notes](releases/v2.19.0.md)** - Per-medium sharing controls for visitors, a review queue that catches implausible first sightings, and weather from your own Home Assistant.
+- **[Every release](releases/)** - The full set of human-first release notes, newest last.
 - **[🏅 Gold-Standard Review (2026-07-07)](reviews/2026-07-07-project-quality-and-gold-standard-review.md)** - Honest assessment against the standards and the path to close remaining gaps.
 - **[🌍 Translation Editorial Review (2026-07-20)](reviews/2026-07-20-translation-editorial-review.md)** - Locale coverage, editorial findings, permanent regression gates, and the native-review limitation.
 - **[🍓 Raspberry Pi Assessment (2026-07-21)](reviews/2026-07-21-raspberry-pi-assessment.md)** - What the ARM64 image and QEMU inference gate prove, plus the physical-hardware exit criteria.

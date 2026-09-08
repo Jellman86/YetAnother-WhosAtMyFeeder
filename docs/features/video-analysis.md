@@ -12,7 +12,7 @@ While real-time detection uses a single snapshot, YA-WAMF provides a **Deep Vide
    boundaries and place the remaining samples through the central half, where the tracked subject is
    most likely to be useful. Longer recording clips keep roughly 70% uniform coverage and spend the
    remaining samples in that central region. The default is **15 frames**, configurable in
-   **Settings > Detection**.
+   **Settings → Detection**.
 3. Each frame is evaluated as a full frame and, when valid, with independent Frigate-hint and
    detector-crop representations that match the active model's input contract.
 4. Each representation must form its own temporal consensus across multiple frames. At least two
@@ -35,8 +35,10 @@ when tracked coordinates are absent.
 
 ## Running an Analysis
 
-Click **Reclassify** on any detection card. When an event clip or fetched full-visit clip is
-available, YA-WAMF performs temporal video analysis; it does not replace that explicit video run
+Open a detection and select **Reclassify**. The same detail view also carries **Confirm
+<species>**, **Pick a different species**, and **Edit name** for correcting an identification by
+hand, and **Ask AI Naturalist** for the behavioural note. When an event clip or fetched full-visit
+clip is available, YA-WAMF performs temporal video analysis; it does not replace that explicit video run
 with a faster snapshot-only result. If the video is unavailable, cannot form a safe consensus, or
 only produces a below-threshold candidate, it explains the downgrade and uses the best cached or
 Frigate snapshot as a fallback.
@@ -80,8 +82,8 @@ be traced back to the media position that produced it.
 
 | Setting | Location | Description |
 |---------|----------|-------------|
-| **Frame count** | Settings > Detection | Number of frames sampled per clip (default: 15). Higher values improve accuracy on long clips but take longer. |
-| **Max concurrent jobs** | Settings > Detection | How many video analysis jobs can run in parallel (default: 1). Raise this if you have spare CPU/GPU headroom. |
+| **Frame count** | Settings → Detection | Number of frames sampled per clip (default: 15). Higher values improve accuracy on long clips but take longer. |
+| **Max concurrent jobs** | Settings → Detection | How many video analysis jobs can run in parallel (default: 1). Raise this if you have spare CPU/GPU headroom. |
 
 ## Requirements
 

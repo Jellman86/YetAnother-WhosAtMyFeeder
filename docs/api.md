@@ -70,6 +70,10 @@ curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
 - `GET /ready`: startup readiness (returns `503` until ready). This exact public path is proxied
   through both monolithic and split frontend deployments and is not cacheable.
 - `GET /api/version`: app version metadata.
+- `GET /api/update-status`: whether a newer YA-WAMF release exists. A notification only —
+  YA-WAMF never updates itself, and the check honours the `system.update_check_enabled` opt-out.
+- `GET /api/system-telemetry`: one live host-utilization sample (the sidebar's rolling CPU/NPU
+  graph). Guest rate limits apply; the response is not cacheable.
 - `GET /api/sse`: Server-Sent Events stream.
   - Supports bearer token or `?token=<jwt>` for EventSource compatibility.
 
@@ -166,6 +170,12 @@ the final evidence route when video is unavailable, temporal sources abstain, or
 candidate does not clear the configured promotion threshold. The SSE stream emits
 `reclassification_strategy_changed` before that fallback.
 
+- `POST /api/events/bulk/delete` (owner) — **irreversibly** deletes several detections by Frigate
+  event ID in one request. Duplicate and empty IDs are dropped, and an empty list is a `400`. The
+  response separates the IDs actually deleted from those that did not exist. This is a hard delete:
+  the rows and their cached media are gone. Use `POST /api/events/{event_id}/hide` when you want a
+  recoverable soft delete instead.
+
 ### Manual observations
 
 - `POST /api/manual-observations` (owner; multipart `media`; images up to 25 MiB, videos up to
@@ -200,7 +210,10 @@ per-file limits above.
   - Candidate rows include optional `crop_strategy` provenance (`native`, `frigate_guided`,
     `sliced_2x2`, or `fast_native`) for model-generated crops, and `frigate_final_box` for the
     completed-track clean-snapshot baseline.
-- `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner)
+- `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner) — the
+  small chooser thumbnail for one candidate.
+- `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg` (owner) — the retained
+  full-resolution candidate, for the large preview.
 - `POST /api/frigate/{event_id}/snapshot/apply` (owner)
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
@@ -367,6 +380,13 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/settings/llm/test` (owner) — returns structured AI diagnostic metadata (`provider`,
   `model`, `frame_count`, `failure_stage`, `retryable`, and optional `retry_after_seconds`) for the
   Settings multi-stage test panel. Provider 429 and 503 statuses are preserved.
+- `GET /api/settings/export` (owner) — downloads the whole persisted configuration as one JSON
+  file. **This export contains your secrets in the clear** (API keys, tokens, MQTT and SMTP
+  passwords) because it has to restore them. Treat the file like a password.
+- `POST /api/settings/import` (owner) — restores a configuration backup. The payload is validated
+  before anything is written (`422` on a bad shape), and enabling authentication without a password
+  hash is refused. A successful import replaces the current configuration and broadcasts the
+  changed fields.
 - `GET /api/maintenance/taxonomy/status` (owner)
 - `POST /api/maintenance/taxonomy/sync` (owner)
 - `GET /api/maintenance/stats` (owner)
@@ -374,6 +394,17 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/maintenance/favorites/clear` (owner)
 - `POST /api/maintenance/purge-missing-clips` (owner)
 - `POST /api/maintenance/purge-missing-snapshots` (owner)
+- `POST /api/maintenance/purge-missing-media` (owner) — applies your configured missing-media
+  policy to every detection whose Frigate event or media has gone. With the policy set to `delete`
+  this **permanently removes** those detections; `mark_missing` and `keep` do not.
+- `GET /api/maintenance/timezone-repair/preview` (owner) — reports which legacy detections have a
+  timestamp shift, validated against Frigate, and changes nothing.
+- `POST /api/maintenance/timezone-repair/apply` (owner) — applies those repairs. Requires
+  `{"confirm": true}`; anything else is a `400`. Returns `409` while another maintenance job holds
+  the lane.
+- `POST /api/maintenance/video-classification/reset-circuit` (owner) — reopens the live and
+  maintenance video-analysis circuit breakers after a transient Frigate outage. Queued and running
+  jobs are preserved, not discarded.
 - `POST /api/maintenance/analyze-unknowns` (owner)
 - `GET /api/maintenance/analysis/status` (owner)
 - `DELETE /api/maintenance/feedback/clear` (owner)
@@ -441,6 +472,12 @@ snapshot, not a destructive queue-control API.
     `matches_visual`; the latter is true when the row independently confirms the persisted visual
     species, including audio that arrived after initial event processing.
   - `GET /api/audio/sources`
+  - `GET /api/audio/spectrogram/{birdnet_id}` — proxies the BirdNET-Go spectrogram PNG so no
+    BirdNET-Go host or token reaches the browser. `width` is `64`–`1600` (default `400`).
+  - `GET /api/audio/clip/{birdnet_id}` — proxies the matched audio clip, forwarding the client's
+    `Range` header so `<audio controls>` can seek.
+
+  Both honour **Share audio with visitors**: with it off, a guest gets no audio at all.
 
 `GET /api/events` accepts `event_id` for an exact Frigate event lookup. It retains the same guest
 history, hidden-event, and camera-privacy restrictions as the paginated event list.
@@ -456,6 +493,10 @@ history, hidden-event, and camera-privacy restrictions as the paginated event li
   - `POST /api/inaturalist/draft`
   - `POST /api/inaturalist/submit`
   - `GET /api/inaturalist/seasonality`
+- Location:
+  - `GET /api/location/reverse-geocode` — resolves `lat` and `lon` to a state, country, and place
+    guess, used to fill the location fields the eBird export needs. Returns `502` when the upstream
+    geocoder cannot be reached.
 - Email OAuth and testing:
   - `GET /api/email/oauth/gmail/authorize`
   - `GET /api/email/oauth/gmail/callback`
@@ -473,7 +514,22 @@ history, hidden-event, and camera-privacy restrictions as the paginated event li
 - `GET /api/debug/system`
 - `GET /api/diagnostics/errors`
 - `GET /api/diagnostics/workspace`
+- `GET /api/diagnostics/bundle` — the whole owner diagnostics bundle as one exportable JSON
+  payload; this is what **Settings → Health → Diagnostics export** downloads. `limit` is `1`–`1000`
+  (default `200`).
 - `POST /api/diagnostics/clear`
+
+### Model evaluation (owner)
+
+Benchmarks every installed classifier against labelled feeder images. See
+[Model evaluation](features/model-evaluation.md).
+
+- `POST /api/diagnostics/model-eval/runs` — start a run.
+- `GET /api/diagnostics/model-eval/runs` — list runs.
+- `GET /api/diagnostics/model-eval/runs/{run_id}` — one run's status and results.
+- `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` — download a run artifact.
+- `POST /api/diagnostics/model-eval/runs/{run_id}/cancel` — stop a run in progress.
+- `DELETE /api/diagnostics/model-eval/runs/{run_id}` — delete a run and its artifacts.
 
 ### AI Usage Stats (owner)
 

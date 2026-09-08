@@ -119,8 +119,8 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CLASSIFICATION__LIVE_EVENT_COALESCING_ENABLED` | `true` | Coalesce rapid live events. |
 | `CLASSIFICATION__LIVE_EVENT_STALE_DROP_SECONDS` | `30.0` | Drop live events older than this. |
 | `CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS` | `5.0` | Worker heartbeat timeout. |
-| `CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS` | `35.0` | Live worker hard deadline. |
-| `CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS` | `120.0` | Background worker hard deadline. |
+| `CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS` | `60.0` | Live worker hard deadline, in seconds (`1.0`–`300.0`). |
+| `CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS` | `120.0` | Background worker hard deadline, in seconds (`1.0`–`600.0`). |
 | `CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS` | `60.0` | Worker start-up readiness timeout. Start-up includes hardware probes and, on an accelerator, a model compile. |
 | `CLASSIFICATION__WORKER_RESTART_WINDOW_SECONDS` | `60.0` | Window for counting worker restarts. |
 | `CLASSIFICATION__WORKER_RESTART_THRESHOLD` | `3` | Restarts before the worker breaker trips. |
@@ -141,7 +141,7 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `MAINTENANCE__CLEANUP_ENABLED` | `true` | Run the periodic cleanup job. |
 | `MAINTENANCE__MAX_CONCURRENT` | `1` | Concurrent maintenance operations. |
 | `MAINTENANCE__AUTO_DELETE_MISSING_CLIPS` | `false` | Prune records whose Frigate clip is gone. |
-| `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR` | _(unset)_ | How to treat detections missing in Frigate (`mark`/`keep`). |
+| `MAINTENANCE__FRIGATE_MISSING_BEHAVIOR` | `mark_missing` | How to treat a detection whose Frigate event or media has gone: `mark_missing` (flag it, keep the row), `keep` (do nothing), or `delete` (**permanently remove** the detection). |
 
 ## Integrations
 
@@ -155,10 +155,14 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `EBIRD__DEFAULT_DAYS_BACK` | `14` | Default hotspot look-back window. |
 | `EBIRD__MAX_RESULTS` | `25` | Max hotspot results. |
 | `EBIRD__LOCALE` | `en` | eBird common-name locale. |
+| `HA_WEATHER__ENABLED` | `false` | Take each visit's weather from your own Home Assistant instead of the forecast provider. |
+| `HA_WEATHER__BASE_URL` | _(unset)_ | Home Assistant base URL, e.g. `http://homeassistant:8123`. |
+| `HA_WEATHER__ACCESS_TOKEN` | _(unset)_ | Home Assistant long-lived access token. Redacted in the API and never logged. |
+| `HA_WEATHER__WEATHER_ENTITY` | _(unset)_ | The `weather.*` entity to read. The individual temperature/wind/cloud/precipitation entity overrides are UI/file-only. |
 | `INATURALIST__ENABLED` | `false` | Enable iNaturalist integration. |
 | `INATURALIST__CLIENT_ID` | _(unset)_ | iNaturalist OAuth client ID. |
 | `INATURALIST__CLIENT_SECRET` | _(unset)_ | iNaturalist OAuth client secret. |
-| `ENRICHMENT__MODE` | `per_enrichment` | `per_enrichment` or `single_provider`. |
+| `ENRICHMENT__MODE` | `per_enrichment` | `per_enrichment` (one source per question) or `single` (one source for everything, named by `ENRICHMENT__SINGLE_PROVIDER`). |
 | `ENRICHMENT__SINGLE_PROVIDER` | `wikipedia` | Provider when in single-provider mode. |
 | `ENRICHMENT__SUMMARY_SOURCE` | `wikipedia` | Source for species summaries. |
 | `ENRICHMENT__TAXONOMY_SOURCE` | `inaturalist` | Source for taxonomy. |
@@ -243,10 +247,10 @@ Discord / Pushover / Telegram / Email:
 | `PUBLIC_ACCESS__SHOW_CAMERA_NAMES` | `true` | Show camera names to guests. |
 | `PUBLIC_ACCESS__SHOW_AI_CONVERSATION` | `false` | Expose the AI chat to guests. |
 | `PUBLIC_ACCESS__ALLOW_CLIP_DOWNLOADS` | `false` | Let guests download clips. |
-| `PUBLIC_ACCESS__HISTORICAL_DAYS_MODE` | `retention` | `retention` or `fixed` history window for guests. |
-| `PUBLIC_ACCESS__SHOW_HISTORICAL_DAYS` | `7` | Guest history window (when `fixed`). |
-| `PUBLIC_ACCESS__MEDIA_DAYS_MODE` | `retention` | `retention` or `fixed` media window for guests. |
-| `PUBLIC_ACCESS__MEDIA_HISTORICAL_DAYS` | `7` | Guest media window (when `fixed`). |
+| `PUBLIC_ACCESS__HISTORICAL_DAYS_MODE` | `retention` | `retention` (follow `MAINTENANCE__RETENTION_DAYS`) or `custom` history window for guests. |
+| `PUBLIC_ACCESS__SHOW_HISTORICAL_DAYS` | `7` | Guest history window in days (when the mode is `custom`). `0` means live only. |
+| `PUBLIC_ACCESS__MEDIA_DAYS_MODE` | `retention` | `retention` or `custom` media window for guests. |
+| `PUBLIC_ACCESS__MEDIA_HISTORICAL_DAYS` | `7` | Guest media window in days (when the mode is `custom`). `0` means live only. |
 | `PUBLIC_ACCESS__RATE_LIMIT_PER_MINUTE` | `30` | Per-IP guest request limit. |
 | `PUBLIC_ACCESS__EXTERNAL_BASE_URL` | _(unset)_ | Public base URL for guest links. |
 
@@ -289,6 +293,14 @@ override** — they're per-install data rather than deployment config:
 - **Notification filters:** species allow/block lists, per-camera filters,
   minimum confidence, audio-confirmed-only.
 - **Bird model region override** and the **active model** selection.
+- **Per-medium guest sharing:** `show_audio`, `show_snapshots`, `show_clips`, and
+  `location_precision` under `public_access`. The other `PUBLIC_ACCESS__*` values
+  above do have env overrides; these four do not.
+- **Home Assistant weather entity overrides:** the individual temperature, wind
+  speed, wind direction, cloud cover, precipitation, rain, and snowfall entities
+  under `ha_weather`. `ENABLED`, `BASE_URL`, `ACCESS_TOKEN`, and `WEATHER_ENTITY`
+  are env-configurable; the per-measurement overrides are not.
+- **Selected cameras**, their feeder/nest roles, and the audio source mapping.
 
 If you need one of these fixed at deploy time, set it once in the UI (it persists
 to `config.json`) or open an issue — the env surface above is what the loader

@@ -19,12 +19,23 @@
 A bird classification system that integrates with [Frigate NVR](https://frigate.video/) to automatically identify birds visiting your feeder using advanced AI models.
 
 <p align="center">
-  <img src="dashboard-preview.png" alt="YA-WAMF Dashboard" width="100%">
+  <img src="docs/images/dashboard.png" alt="YA-WAMF dashboard: today's visit and species counts, a field log of the day's visits with confidence and camera, rare eBird reports nearby, and a side rail with camera activity, audio-versus-camera totals, weather, and an activity histogram" width="100%">
 </p>
 
 <p align="center">
   <sub>If you share your guest dashboard publicly, I would love to see it. Please open an issue or discussion and drop a link so I can take a look.</sub>
 </p>
+
+<table>
+  <tr>
+    <td width="50%"><a href="docs/setup/getting-started.md"><img src="docs/images/explorer.png" alt="The Explorer listing every classified visit as cards, with a filter rail for time window, favourites, audio matches, and species, and a row of day chips across the top"></a></td>
+    <td width="50%"><a href="docs/features/video-analysis.md"><img src="docs/images/detection-detail.png" alt="A detection opened in detail: the best crop beside the identified species and confidence, a Deep Video Analysis panel naming the model and match, weather and camera facts, and the nearby audio spectrogram"></a></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Explorer</b> — every classified visit, filtered your way</sub></td>
+    <td align="center"><sub><b>A detection in detail</b> — the evidence behind the identification</sub></td>
+  </tr>
+</table>
 
 > [!WARNING]
 > **Legacy Split Deployment — End of Updates in v3.0**
@@ -38,7 +49,7 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 - **Hardware Acceleration Selector** - Choose Auto/CPU/NVIDIA CUDA/Intel OpenVINO, with a full compatibility image or smaller provider-family images and safe CPU fallback
 - **Multi-Sensor Verification** - Correlates visual detections with BirdNET-Go audio
 - **Personalized Re-ranking (Optional)** - Learns from manual corrections per camera/model to improve ranking over time
-- **Smart Notifications** - Discord, Telegram, Pushover, Email with customizable filters + Notification Center
+- **Smart Notifications** - Discord, Telegram, Pushover, and Email, with confidence, species, and audio-confirmation filters
 - **Video Analysis** - Automatic scanning of 15+ frames (temporal ensemble) for improved accuracy
 - **Best-Available Event Snapshots** - Optionally replace Frigate's detect-stream image with the clearest recorded main-stream frame and strongest valid crop, falling back safely to the full frame
 - **LLM Insights** - AI-powered behavioral analysis (Gemini/OpenAI/Claude/OpenRouter)
@@ -46,8 +57,10 @@ A bird classification system that integrates with [Frigate NVR](https://frigate.
 - **Home Assistant Integration** - Sensors, automation, and dashboard cards
 - **BirdWeather Reporting** - Contribute to community science
 - **Real-time Dashboard** - A chronological field log of the day with repeat frames folded into visits, a review queue for anything the classifier could not name, live updates, video playback, and species statistics
-- **Notification Center** - Pinned progress for long-running jobs and a full notifications view
-- **Public View (Guest Mode)** - Share a read-only dashboard with rate limits and optional camera name hiding
+- **Explorer** - Every classified visit as cards or a compact list, filtered by day, species, camera, favourites, and audio matches
+- **Add observation** - Classify a photo or clip you took yourself and file it in the same history
+- **Notifications & Jobs** - One surface for alerts and background work, with pinned progress for long-running jobs
+- **Public View (Guest Mode)** - Share a read-only, rate-limited dashboard, choosing separately whether visitors see camera names, photographs, video, and audio
 
 ## About This Project
 
@@ -240,11 +253,11 @@ Open `http://localhost:9852` (or `http://YOUR_SERVER_IP:9852`)
 
 **6. Download (or re-download) AI models:**
 
-In the web UI, go to **Settings -> Detection -> Model Manager** and download a model. Re-download is also supported with progress tracking and safe staged replace/rollback behavior. Models are saved to `data/models/` and persist across updates.
+In the web UI, go to **Settings → Detection → Model Manager** and download a model. Setting one up runs a single guided dialog: download, validate on your hardware, then enable. A model that has never been validated on this host shows **Validate to enable** rather than **Use this model** — validation proves the model actually runs on your CPU, GPU, or NPU before YA-WAMF depends on it. Re-download is supported too, with progress tracking and a staged replace that rolls back on failure. Models are saved to `data/models/` and persist across updates.
 
-### Public View (Guest Mode) at a Glance
+### Public Access (guest view) at a Glance
 
-Guest mode is read-only and rate-limited. Guests can view detections and any existing AI Naturalist analysis, but cannot change settings, delete items, or run new AI analysis. You can hide camera names and limit the public history window in **Settings > Security**.
+The public view is read-only and rate-limited. Guests can browse detections and any AI Naturalist analysis you have already run, but cannot change settings, delete anything, or start new AI analysis. **Settings → Security** decides whether guests see camera names, snapshots, clips, and audio, and how far back the public history reaches.
 
 ### Verification
 
@@ -281,7 +294,7 @@ Lower the `Min Confidence Floor` (e.g., from 0.4 to 0.2), or lower the `Confiden
 When enabled, if Frigate has already identified a bird species (via its own classifier or Frigate+), YA-WAMF will trust that label instantly and skip local AI inference. This saves CPU and is useful if you've already tuned Frigate's detection. Disable it to always run YA-WAMF's own AI independently.
 
 **Q: How do I share my dashboard publicly?**
-Enable **Guest Mode** in **Settings > Security**. Guests get a read-only view with rate limiting. You can optionally hide camera names and restrict how far back the public history goes. See [Authentication & Access](docs/features/authentication.md).
+Enable **Public Access** in **Settings → Security**. Guests get a read-only view with rate limiting. You can optionally hide camera names and restrict how far back the public history goes. See [Authentication & Access](docs/features/authentication.md).
 
 **Q: What Frigate version is required?**
 YA-WAMF works best with **Frigate 0.17+**. The recommended Frigate config in this project uses Frigate 0.17's tiered recording retention format. See the [Frigate Configuration Guide](docs/setup/frigate-config.md).
@@ -321,9 +334,9 @@ All settings are managed through the web UI under **Settings**. Configuration is
 ## Security & Authentication
 
 ### 🔐 Built-in Authentication
-- **Authentication:** Disabled by default for backward compatibility. Enable it in **Settings > Security** and set an admin password before exposing YA-WAMF outside your trusted network.
+- **Authentication:** Disabled by default for backward compatibility. Enable it in **Settings → Security** and set an admin password before exposing YA-WAMF outside your trusted network.
 - **Initial Setup Wizard:** A fresh installation opens the guided setup automatically. The account step lets you set an owner password (and signs that browser in immediately) or explicitly continue without authentication on a trusted network. Later steps validate the selected model on the running hardware and can optionally import bird events Frigate still retains. You can reopen the non-destructive section map later from **Settings → Setup wizard** in the Settings navigation.
-- **Guest Mode:** Optionally enable a "Public View" to share your bird detections with friends (read-only) while keeping settings and admin tools secure.
+- **Public Access:** Optionally share your bird detections with friends read-only, while keeping settings and admin tools behind the login. Snapshots, clips, audio, and camera names are each individually shareable.
 - **Security:** Includes login rate limiting, session management, and security headers.
 
 👉 **[Read the Full Authentication & Access Control Guide](docs/features/authentication.md)**

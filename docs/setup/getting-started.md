@@ -134,18 +134,22 @@ and [Diagnostics & Logs](../troubleshooting/diagnostics.md) for troubleshooting 
 - To update later: use "Pull and redeploy" (or redeploy the stack) after bumping image tags (`:latest`, `:dev`, a provider-suffixed variant, or a pinned release tag).
 
 ### 4. Verify
-Open your browser to `http://<your-ip>:9852`. You should see the dashboard! Once detections start flowing, they will appear in the Events list:
+Open your browser to `http://<your-ip>:9852`.
 
-![Events List](../images/frontend_events.png)
+A fresh installation opens the guided setup wizard automatically:
 
-A fresh installation opens the guided setup wizard automatically. In its
-**Admin account & access** step, set an owner password before exposing YA-WAMF
-outside your trusted network. You may explicitly choose to run without a
-password on a trusted network. When you create a password, the same response
-also signs the browser in, so the newly protected Settings API remains available
-for the rest of setup. Completing this account decision permanently closes the
-unauthenticated first-run endpoint; later authentication changes require owner
-access through **Settings → Security**.
+![The first step of the YA-WAMF setup wizard, headed "Welcome to YA-WAMF", listing what setup will cover: connect Frigate and MQTT, pick your cameras, validate the model on your hardware, and turn on integrations, with a language selector and a Get started button](../images/setup-wizard.png)
+
+In its **Admin account & access** step, set an owner password before exposing YA-WAMF
+outside your trusted network.
+
+![The wizard's Admin account and access step, with Admin Username, Password and Confirm Password fields, the password rules stated beneath, and a "Skip authentication (not recommended)" checkbox](../images/setup-wizard-account.png)
+
+You may explicitly choose to run without a password on a trusted network. When you
+create a password, the same response also signs the browser in, so the newly
+protected Settings API remains available for the rest of setup. Completing this
+account decision permanently closes the unauthenticated first-run endpoint; later
+authentication changes require owner access through **Settings → Security**.
 
 The remaining steps configure Frigate/MQTT, cameras, the classifier and its
 verified provider, best-available snapshots, optional integrations, an optional retained-history
@@ -159,12 +163,43 @@ currently online. The wizard can be reopened later from **Settings → Setup wiz
 in the Settings navigation. In re-run mode, completing, skipping, or backing out
 of a section returns to that review map instead of advancing through unrelated steps.
 
-### 5. (Optional) Enable Guest Mode
-If you want to share a read‑only public view:
+**You should see:** the **Dashboard**, with today's counts across the top and the
+field log beneath. Until Frigate sends its first bird event the field log is empty
+and says so.
 
-1. Go to **Settings > Security**, set a password, and enable authentication.
+![The YA-WAMF dashboard: today's visit, species, unresolved and calls-heard counts across the top; a field log listing the day's visits with confidence and camera; rare eBird reports nearby; and a side rail with camera activity, audio-versus-camera totals, weather, and a 24-hour activity histogram](../images/dashboard.png)
+
+#### A word on visits
+
+Frigate can send many frames of one bird standing at one feeder. YA-WAMF folds
+those repeats into a single **visit**, which is what the field log, the counts
+across the top, and the leaderboard all count:
+
+![A field log entry: a time range of 05:08 PM to 05:09 PM, two snapshot thumbnails, the species Dunnock marked ×2 with its scientific name, the camera it was seen on, 99% confidence, and an Open link](../images/dashboard-field-log.png)
+
+The `×2` is the number of frames folded into that one visit, and **Open** shows
+every frame behind it. Frames of the same species on the same camera more than
+ten minutes apart count as separate visits, so a bird that leaves and comes back
+is two visits rather than one long one.
+
+Once detections start flowing, every classified visit also appears under
+**Explorer** (the page itself is headed **Events**), where you can filter by time
+window, species, camera, favourites, and audio matches:
+
+![The Explorer showing 943 visits as snapshot cards, each with time, confidence and camera; a filter rail on the left for time window, favourites, audio matches and species; and day chips across the top](../images/explorer.png)
+
+**If nothing appears:** check the MQTT connection in the container logs and confirm
+Frigate is publishing to `frigate/events`. See
+[Diagnostics & Logs](../troubleshooting/diagnostics.md).
+
+### 5. (Optional) Share a read-only public view
+If you want friends to see your feeder without giving them the controls:
+
+1. Go to **Settings → Security**, set a password, and enable **Authentication**.
 2. Enable **Public Access**.
-3. Configure rate limits and whether camera names are visible.
+3. Choose what a guest can see — camera names, snapshots, clips, and audio are
+   separate switches — and set the rate limit and how far back the public history
+   reaches.
 
 See [Authentication & Access](../features/authentication.md) for the full guest mode checklist and proxy guidance.
 
