@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **Inference health is keyed on the runtime that did the work.** The entry the Detection tab reads
+  was named "tflite/tflite/<model>" on an install classifying through OpenVINO on the NPU, because
+  the admission context that stamps each sample copied the API process's idle defaults rather than
+  what the worker loaded. It now uses the same identity the status band uses.
+
 - **The startup identity backfill no longer holds a database connection while it consults the
   catalogue.** On every container start it took one of the five pooled connections and kept it for
   the whole pass, resolving each distinct scientific name through the species catalogue, which is a

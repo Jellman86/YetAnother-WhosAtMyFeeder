@@ -6028,9 +6028,14 @@ class ClassifierService:
                 resolved_model_id = self._resolve_active_model_id()
             except Exception:
                 resolved_model_id = "unknown"
+        backend, provider = self._inference_backend, self._active_inference_provider
+        if self._image_execution_mode == "subprocess" and not self._worker_process_mode:
+            # Samples recorded here describe work a worker did, or the plan
+            # for one; the parent's own idle defaults name neither.
+            backend, provider, _source = self._subprocess_runtime_identity(self._get_supervisor_metrics())
         return {
-            "backend": self._inference_backend,
-            "provider": self._active_inference_provider,
+            "backend": backend,
+            "provider": provider,
             "model_id": resolved_model_id,
             "execution_mode": self._image_execution_mode,
         }
