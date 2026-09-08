@@ -55,8 +55,10 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 - **Owner media URLs no longer carry the session token.** NPM in front of the reference install logs
   full request URIs; its access log held 482 owner thumbnail and clip URLs with `?token=` on
   September 8. Media now authenticates with an `HttpOnly`, `SameSite=Lax` session cookie that only
-  read-only media routes and the stream honour. The tokens already in that log stay valid until they
-  expire or the session secret is rotated; the proxy's log format is being changed to drop the query.
+  read-only media routes and the stream honour. The session secret on the reference install was
+  rotated on September 8, so every token that log holds is dead. Dropping the query from the proxy's
+  log format was tried the same day and reverted: NPM only reads its bundled format from its vendor
+  config tree, and mounting over that file broke its startup. The access log keeps its normal rotation.
 - **The owner's SSE token no longer reaches nginx's error log.** The live stream opens with a
   single-use, 60-second ticket from `POST /api/auth/stream-ticket`, and `/api/sse` refuses the
   session token in its query string. The three lines nginx wrote on the September 8 restart carried
