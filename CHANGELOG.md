@@ -21,7 +21,9 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
   requirement files asked for `onnxruntime>=1.28.0`, so pip has been resolving 1.29.0 for weeks anyway;
   the reference install has run it since it was published. Stating the floor the images actually
   get lets the dependency-pin test and Dependabot agree with reality. The CUDA build keeps its own
-  `onnxruntime-gpu` window unchanged.
+  `onnxruntime-gpu` window below 1.27 on purpose: 1.27 and later ship CUDA 13 userspace, which
+  needs the NVIDIA 580 driver series on the host, so lifting it is a 3.0 change (`ROADMAP.md`,
+  1.7) and Dependabot is now told not to propose it.
 
 ### Fixed
 
