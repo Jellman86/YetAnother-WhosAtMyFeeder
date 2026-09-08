@@ -104,7 +104,7 @@
         emailFromEmail = $bindable(''),
         emailToEmail = $bindable(''),
         emailIncludeSnapshot = $bindable(true),
-        emailDashboardUrl = $bindable(''),
+        instanceUrl = $bindable(''),
 
         // Functions
         sendTestEmail,
@@ -161,7 +161,7 @@
         emailFromEmail: string;
         emailToEmail: string;
         emailIncludeSnapshot: boolean;
-        emailDashboardUrl: string;
+        instanceUrl: string;
         sendTestEmail: (request?: TestEmailRequest) => Promise<TestEmailResponse>;
         initiateGmailOAuth: () => Promise<OAuthAuthorizeResponse>;
         initiateOutlookOAuth: () => Promise<OAuthAuthorizeResponse>;
@@ -456,6 +456,20 @@
                         <option value="it">Italiano</option>
                     </select>
                 </div>
+            </div>
+
+            <!-- Instance address: where notifications link back to -->
+            <div class="pt-4 border-t border-amber-200/50 dark:border-amber-700/30">
+                <label for="notification-instance-url" class="block text-xs font-black uppercase tracking-[0.2em] text-slate-500 mb-1">{$_('settings.notifications.instance_url')}</label>
+                <p id="notification-instance-url-hint" class="text-xs text-slate-500 font-medium mb-2">{$_('settings.notifications.instance_url_desc')}</p>
+                <input
+                    id="notification-instance-url"
+                    type="url"
+                    bind:value={instanceUrl}
+                    placeholder={$_('settings.notifications.instance_url_placeholder')}
+                    aria-describedby="notification-instance-url-hint"
+                    class="input-base w-full"
+                />
             </div>
 
             <!-- Species Filter -->
@@ -1045,19 +1059,6 @@
                             <span class="text-sm font-bold text-slate-700 dark:text-slate-300">{$_('settings.email.only_on_end')}</span>
                         </label>
                         <p class="mt-1 text-xs text-slate-500">{$_('settings.email.only_on_end_desc')}</p>
-                    </div>
-                    <div>
-                        <label for="email-dashboard-url" class="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">{$_('settings.email.dashboard_url')}</label>
-                        <input
-                            id="email-dashboard-url"
-                            type="url"
-                            bind:value={emailDashboardUrl}
-                            placeholder={$_('settings.email.dashboard_url_placeholder')}
-                            aria-label={$_('settings.email.dashboard_url')}
-                            aria-describedby="dashboard-url-hint"
-                            class="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white font-bold text-sm"
-                        />
-                        <p id="dashboard-url-hint" class="mt-1 text-xs text-slate-500">{$_('settings.email.dashboard_url_desc')}</p>
                     </div>
                 </AdvancedSection>
 

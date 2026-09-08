@@ -2,7 +2,8 @@
   "notification": {
     "new_detection": "Обнаружена птица: {species}",
     "detection_body": "{species} обнаружена на камере {camera} с уверенностью {confidence}%",
-    "audio_confirmed": "🎤 Аудио подтверждено через BirdNET-Go"
+    "audio_confirmed": "🎤 Аудио подтверждено через BirdNET-Go",
+    "view_detection": "Открыть обнаружение"
   },
   "errors": {
     "detection_not_found": "Обнаружение не найдено",

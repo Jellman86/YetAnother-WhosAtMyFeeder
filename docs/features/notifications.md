@@ -54,6 +54,24 @@ Send rich HTML emails with optional snapshots.
 - **From/To:** Set sender and recipient addresses.
 - **Snapshots:** Attach the detection image in the email.
 
+## Linking back to the detection
+
+Set **Instance address** under **Settings → Notifications** to the address you use to open
+YA-WAMF, for example `https://feeder.example.com`. Every notification then links to the detection
+it announces, at `<address>/events?event=<id>`:
+
+- **Discord:** the embed title opens the detection.
+- **Pushover:** a **View detection** button.
+- **Telegram:** a **View detection** button under the photo or message.
+- **Email:** the **View in Dashboard** button opens the detection rather than the dashboard.
+
+Leave the field blank and notifications carry no link, as before. The link is only as reachable as
+the address you enter: a LAN address works on your network only, and a public address works from
+anywhere. Opening a detection needs the owner sign-in unless public access is enabled, so a link
+opened on a phone that is not signed in shows the sign-in page first. The environment variable is
+`NOTIFICATIONS__INSTANCE_URL`; the older email-only `NOTIFICATIONS__EMAIL__DASHBOARD_URL` is still
+honoured when the newer one is unset.
+
 ## Filtering
 
 **Settings → Notifications** states your filter as a sentence, and every highlighted part of it is

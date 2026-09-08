@@ -10311,6 +10311,17 @@
             "title": "Notifications Filter Species Whitelist Structured",
             "type": "array"
           },
+          "notifications_instance_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notifications Instance Url"
+          },
           "notifications_mode": {
             "anyOf": [
               {
@@ -12455,6 +12466,17 @@
             },
             "title": "Notifications Filter Species Whitelist Structured",
             "type": "array"
+          },
+          "notifications_instance_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notifications Instance Url"
           },
           "notifications_mode": {
             "anyOf": [

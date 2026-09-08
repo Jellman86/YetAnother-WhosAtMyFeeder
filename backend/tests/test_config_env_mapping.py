@@ -584,3 +584,11 @@ def test_home_assistant_weather_env_overrides_the_file(monkeypatch, tmp_path):
 
     assert loaded.ha_weather.enabled is True
     assert loaded.ha_weather.base_url == "https://from-env.example.com"
+
+
+def test_notification_instance_url_env_override(monkeypatch):
+    monkeypatch.setenv("NOTIFICATIONS__INSTANCE_URL", "https://feeder.example.com")
+
+    loaded = Settings.load()
+
+    assert loaded.notifications.instance_url == "https://feeder.example.com"

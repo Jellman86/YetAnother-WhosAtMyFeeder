@@ -63,3 +63,20 @@ async def test_notification_test_endpoint_pushover_argument_order(monkeypatch):
     assert isinstance(args[6], str) and args[6]
 
     app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_notification_test_endpoint_links_to_the_detections_page(monkeypatch):
+    from app.config import settings
+
+    app.dependency_overrides[require_owner] = lambda: AuthContext(auth_level=AuthLevel.OWNER, username="test")
+    monkeypatch.setattr(settings.notifications, "instance_url", "https://feeder.example.com/")
+    send = AsyncMock()
+    monkeypatch.setattr(notification_service, "_send_discord", send)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/api/settings/notifications/test", json={"platform": "discord"})
+    app.dependency_overrides.pop(require_owner, None)
+    assert resp.status_code == 200
+    send.assert_awaited_once()
+    assert send.call_args.kwargs["detection_url"] == "https://feeder.example.com/events"

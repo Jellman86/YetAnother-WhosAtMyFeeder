@@ -2,7 +2,8 @@
   "notification": {
     "new_detection": "检测到新鸟类：{species}",
     "detection_body": "在 {camera} 检测到 {species}，置信度 {confidence}%",
-    "audio_confirmed": "🎤 已通过 BirdNET-Go 音频确认"
+    "audio_confirmed": "🎤 已通过 BirdNET-Go 音频确认",
+    "view_detection": "查看检测"
   },
   "errors": {
     "detection_not_found": "未找到检测记录",
