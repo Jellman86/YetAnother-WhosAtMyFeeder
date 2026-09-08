@@ -239,7 +239,7 @@ Discord / Pushover / Telegram / Email:
 | `AUTH__ENABLED` | `false` | Require login for owner access. |
 | `AUTH__USERNAME` | `admin` | Owner username. |
 | `AUTH__PASSWORD_HASH` | _(unset)_ | Pre-hashed owner password. |
-| `AUTH__SESSION_SECRET` | _(auto-generated)_ | Session signing secret; set to keep it stable across restarts. |
+| `AUTH__SESSION_SECRET` | _(auto-generated)_ | Session signing secret; set to keep it stable across restarts. Changing it signs everyone out and invalidates every previously issued token. |
 | `AUTH__OAUTH_TOKEN_SECRET` | _(auto-generated)_ | Encryption key for stored OAuth tokens. |
 | `AUTH__SESSION_EXPIRY_HOURS` | `168` | Session lifetime in hours. |
 | `AUTH__INITIAL_SETUP_COMPLETE` | `false` | Marks first-run setup as done. |
