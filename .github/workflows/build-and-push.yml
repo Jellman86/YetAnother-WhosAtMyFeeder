@@ -428,6 +428,13 @@ jobs:
             GIT_HASH=${{ env.SHORT_SHA }}
             APP_VERSION_BASE=${{ env.APP_VERSION_BASE }}
             APP_BRANCH=${{ env.APP_BRANCH }}
+          # OCI labels tie a pulled image to its commit for `docker inspect` and Dockhand.
+          # The in-app update prompt ignores them: it compares the GIT_HASH build-arg
+          # with the commit published to D1, so adding a label cannot trigger a prompt.
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ env.APP_VERSION_BASE }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ env.IMAGE_TAG }}
             ghcr.io/${{ env.OWNER_LC }}/wamf-backend:${{ github.sha }}
@@ -501,6 +508,13 @@ jobs:
             GIT_HASH=${{ env.SHORT_SHA }}
             APP_VERSION_BASE=${{ env.APP_VERSION_BASE }}
             APP_BRANCH=${{ env.APP_BRANCH }}
+          # OCI labels tie a pulled image to its commit for `docker inspect` and Dockhand.
+          # The in-app update prompt ignores them: it compares the GIT_HASH build-arg
+          # with the commit published to D1, so adding a label cannot trigger a prompt.
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ env.APP_VERSION_BASE }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ env.IMAGE_TAG }}
             ghcr.io/${{ env.OWNER_LC }}/wamf-frontend:${{ github.sha }}
@@ -593,6 +607,13 @@ jobs:
             APP_VERSION_BASE=${{ env.APP_VERSION_BASE }}
             APP_BRANCH=${{ env.APP_BRANCH }}
             RUNTIME_FLAVOR=${{ matrix.flavor }}
+          # OCI labels tie a pulled image to its commit for `docker inspect` and Dockhand.
+          # The in-app update prompt ignores them: it compares the GIT_HASH build-arg
+          # with the commit published to D1, so adding a label cannot trigger a prompt.
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ env.APP_VERSION_BASE }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}${{ matrix.suffix }}
           cache-from: type=gha,scope=monolith-${{ matrix.flavor }}
@@ -673,6 +694,13 @@ jobs:
             APP_VERSION_BASE=${{ env.APP_VERSION_BASE }}
             APP_BRANCH=${{ env.APP_BRANCH }}
             RUNTIME_FLAVOR=rpi
+          # OCI labels tie a pulled image to its commit for `docker inspect` and Dockhand.
+          # The in-app update prompt ignores them: it compares the GIT_HASH build-arg
+          # with the commit published to D1, so adding a label cannot trigger a prompt.
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.version=${{ env.APP_VERSION_BASE }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
           tags: |
             ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ github.sha }}
 

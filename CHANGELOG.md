@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **Every published image names its commit.** Each image now carries the OCI
+  `org.opencontainers.image.revision`, `version`, and `source` labels, so `docker inspect` and
+  Dockhand can tie a running container to the exact build without opening the app. The update
+  prompt is unaffected: it still compares the commit baked in at build time with the one
+  published for your channel, and never reads image labels.
 - **The ONNX Runtime floor is 1.29 on every CPU-capable image.** The `cpu`, `intel`, and ARM64 `full`
   requirement files asked for `onnxruntime>=1.28.0`, so pip has been resolving 1.29.0 for weeks anyway;
   the reference install has run it since it was published. Stating the floor the images actually

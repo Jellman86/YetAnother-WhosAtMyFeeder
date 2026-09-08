@@ -286,3 +286,22 @@ def test_legacy_intel_gpu_assets_are_pinned_verified_and_do_not_downgrade_gmmlib
     assert "intel-level-zero-gpu-legacy1_${LEGACY_LEVEL_ZERO_VER}_amd64.deb" in dockerfile
     assert "libigdgmm12_22.5.0_amd64.deb" not in dockerfile
     assert "./*.deb" not in dockerfile
+
+
+def test_every_published_image_names_its_git_revision() -> None:
+    """A running container can be tied to its commit with `docker inspect` alone.
+
+    Every image the workflow pushes carries the OCI revision, version, and source
+    labels. The in-app update prompt does not read them: it compares the GIT_HASH
+    build argument with the published commit, so the labels are metadata for
+    operators and Dockhand, never an input to "is there an update?".
+    """
+    workflow = (REPO_ROOT / ".github/workflows/build-and-push.yml").read_text(encoding="utf-8")
+    steps = workflow.split("uses: docker/build-push-action@")[1:]
+    assert len(steps) >= 4, "expected the backend, frontend, monolith and rpi image builds"
+    for step in steps:
+        with_block = step.split("\n      - name:", 1)[0]
+        assert "labels: |" in with_block
+        assert "org.opencontainers.image.revision=${{ github.sha }}" in with_block
+        assert "org.opencontainers.image.version=${{ env.APP_VERSION_BASE }}" in with_block
+        assert "org.opencontainers.image.source=https://github.com/${{ github.repository }}" in with_block

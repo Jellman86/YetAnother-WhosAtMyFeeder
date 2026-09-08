@@ -37,6 +37,23 @@ not mean a missing classifier was reported as ready. Published images are gated 
 inference smoke test, so seeing this phase on a clean image should be treated as a model/storage
 problem and included in a diagnostic bundle.
 
+## Which build is this container?
+
+Every published image carries its commit in an OCI label, so you can name the exact build
+without opening the app:
+
+```bash
+docker inspect yawamf-monalithic \
+  --format '{{index .Config.Labels "org.opencontainers.image.revision"}} {{index .Config.Labels "org.opencontainers.image.version"}} {{index .Config.Labels "io.yawamf.image.flavor"}}'
+```
+
+You should see the full git SHA, the base version, and the image flavour (`full`, `cpu`,
+`intel`, `cuda`, or `rpi`). `GET /api/version` reports the same commit in short form. Quote the
+SHA in a bug report alongside the diagnostics bundle.
+
+The in-app update prompt does not read these labels: it compares the commit baked in at build
+time with the newest published commit for your channel.
+
 ## MQTT pipeline
 If detections are not appearing, prove the path from Frigate to the broker:
 
