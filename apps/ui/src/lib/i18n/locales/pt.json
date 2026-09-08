@@ -496,7 +496,7 @@
       "keep_everything": "Manter tudo (∞)",
       "purge_button": "Limpar registos antigos",
       "cleaning": "A limpar…",
-      "auto_cleanup_note": "A limpeza automática é executada diariamente às 3:00",
+      "auto_cleanup_note": "A limpeza automática é executada no arranque e, depois, a cada 24 horas",
       "cache_title": "Cache de média",
       "cache_snapshots": "Capturas",
       "cache_clips": "Clipes de vídeo",

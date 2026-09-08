@@ -503,7 +503,7 @@
       "maintenance_max_concurrent_help": "Best practice is 1. Increase this only if you intentionally want backfill, taxonomy repair, timezone repair, or analyze-unknowns to overlap.",
       "purge_button": "Purge Old Records",
       "cleaning": "Cleaning…",
-      "auto_cleanup_note": "Automatic cleanup runs daily at 3 AM",
+      "auto_cleanup_note": "Automatic cleanup runs at startup, then every 24 hours",
       "cache_title": "Media Cache",
       "cache_snapshots": "Snapshots",
       "cache_clips": "Video Clips",

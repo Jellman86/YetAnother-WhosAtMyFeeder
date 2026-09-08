@@ -487,7 +487,7 @@
       "keep_everything": "全部保留 (∞)",
       "purge_button": "清理旧记录",
       "cleaning": "清理中…",
-      "auto_cleanup_note": "自动清理每天凌晨 3 点运行",
+      "auto_cleanup_note": "自动清理在启动时运行，之后每 24 小时运行一次",
       "cache_title": "媒体缓存",
       "cache_snapshots": "快照",
       "cache_clips": "视频片段",

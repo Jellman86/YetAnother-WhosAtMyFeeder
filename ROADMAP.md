@@ -251,8 +251,8 @@ already carried every job with its live progress, so the second view mostly disa
 first. Notifications is now the single surface for background work, and the one control the jobs
 view held alone, resuming a queue the circuit breaker paused, sits at the top of it where work
 needing a person belongs. Jobs are named by the work rather than the event, with the event kept as
-detail so two clips analysed at once are still told apart. Remaining on this surface: the empty
-state still describes only bird visits and does not yet mention the background work it now owns.
+detail so two clips analysed at once are still told apart. The empty state names both things the
+surface now owns, visits and background work, so nothing remains on it.
 
 #### A public projection of the settings a viewer needs 👥
 **Priority:** P1 | **Effort:** S
