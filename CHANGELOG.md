@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.4] - 2026-09-09
+
 ### Added
 
 - **Notifications link back to the detection.** A new **Instance address** under Settings →

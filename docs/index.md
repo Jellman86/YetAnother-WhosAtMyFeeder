@@ -86,7 +86,7 @@ How the project is built and held to standard.
 - **[🧑‍💻 Code-Quality Standard](standards/code-quality.md)** - The researched code-craft bar for Python/FastAPI + Svelte 5/TypeScript, with authoritative sources.
 - **[🎨 UI/UX Standard](standards/ui-ux.md)** - Usability (Nielsen's heuristics), accessibility (WCAG 2.2 AA), and visual craft (Refactoring UI).
 - **[📣 Writing a Release](development/releasing.md)** - The human-first GitHub Release standard, template, and checklist.
-- **[🎁 YA-WAMF 2.19.3 Release Notes](releases/v2.19.3.md)** - A feeder that stays responsive, a leaderboard that tells the truth, and a permanent delete for the rocks in your review queue.
+- **[🎁 YA-WAMF 2.19.4 Release Notes](releases/v2.19.4.md)** - Notifications that open the detection, a feeder that keeps classifying when a model is slow to start, and a session token that stays out of proxy logs.
 - **[YA-WAMF 2.19.0 Release Notes](releases/v2.19.0.md)** - Per-medium sharing controls for visitors, a review queue that catches implausible first sightings, and weather from your own Home Assistant.
 - **[Every release](releases/)** - The full set of human-first release notes, newest last.
 - **[🏅 Gold-Standard Review (2026-07-07)](reviews/2026-07-07-project-quality-and-gold-standard-review.md)** - Honest assessment against the standards and the path to close remaining gaps.
