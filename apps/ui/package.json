@@ -17,7 +17,7 @@
     "@sveltejs/vite-plugin-svelte": "^7.3.0",
     "@tsconfig/svelte": "^5.0.4",
     "@types/leaflet": "^1.9.22",
-    "autoprefixer": "^10.5.4",
+    "autoprefixer": "^10.5.5",
     "knip": "^6.34.0",
     "postcss": "^8.5.28",
     "svelte": "^5.57.0",
