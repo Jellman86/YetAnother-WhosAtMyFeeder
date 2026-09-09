@@ -14,12 +14,12 @@
     "db:migrate:health": "wrangler d1 migrations apply yawamf-health-issues --remote"
   },
   "dependencies": {
-    "hono": "4.13.5"
+    "hono": "4.13.7"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "5.20260903.1",
+    "@cloudflare/workers-types": "5.20260906.1",
     "miniflare": "4.20260730.0",
-    "wrangler": "4.128.0"
+    "wrangler": "4.129.0"
   },
   "overrides": {
     "undici": "7.29.0"
