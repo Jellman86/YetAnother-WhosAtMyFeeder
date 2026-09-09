@@ -157,6 +157,8 @@ export interface Settings {
     notifications_email_to_email?: string | null;
     notifications_email_include_snapshot: boolean;
     notifications_email_dashboard_url?: string | null;
+    notifications_instance_url?: string | null;
+    notifications_link_target?: 'yawamf' | 'frigate';
     notifications_filter_species_mode?: NotificationSpeciesFilterMode;
     notifications_filter_species_whitelist: string[];
     notifications_filter_species_whitelist_structured: BlockedSpeciesEntry[];
@@ -208,8 +210,6 @@ export interface Settings {
     date_format?: string;
     time_format?: string;
 }
-
-export type UpdateSettings = Partial<Settings>;
 
 export type SettingsUpdate = paths['/api/settings']['post']['requestBody'];
 

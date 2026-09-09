@@ -1,4 +1,4 @@
-export type Layout = 'vertical';
+type Layout = 'vertical';
 
 class LayoutStore {
     currentLayout = $state<Layout>('vertical');
@@ -61,30 +61,3 @@ class LayoutStore {
 
 // Singleton instance
 export const layoutStore = new LayoutStore();
-
-// For backward compatibility with existing code
-export const layout = {
-    subscribe: (fn: (value: Layout) => void) => {
-        return $effect.root(() => {
-            $effect(() => {
-                fn(layoutStore.layout);
-            });
-            return () => {};
-        });
-    },
-    set: (value: Layout) => layoutStore.setLayout(value),
-    toggle: () => layoutStore.toggleLayout()
-};
-
-export const sidebarCollapsed = {
-    subscribe: (fn: (value: boolean) => void) => {
-        return $effect.root(() => {
-            $effect(() => {
-                fn(layoutStore.sidebarCollapsed);
-            });
-            return () => {};
-        });
-    },
-    set: (value: boolean) => layoutStore.setSidebarCollapsed(value),
-    toggle: () => layoutStore.toggleSidebar()
-};

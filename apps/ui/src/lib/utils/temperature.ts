@@ -10,7 +10,7 @@ export type TemperatureUnit = 'celsius' | 'fahrenheit';
 /**
  * Convert Celsius to Fahrenheit
  */
-export function celsiusToFahrenheit(celsius: number): number {
+function celsiusToFahrenheit(celsius: number): number {
     return (celsius * 9/5) + 32;
 }
 
@@ -35,11 +35,4 @@ export function formatTemperature(
     }
 
     return `${tempCelsius.toFixed(1)}°C`;
-}
-
-/**
- * Get temperature unit symbol
- */
-export function getTemperatureSymbol(unit: TemperatureUnit): string {
-    return unit === 'fahrenheit' ? '°F' : '°C';
 }

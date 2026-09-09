@@ -12,12 +12,26 @@
           "api_key": "Legacy API key (optional)",
           "enable_ingress": "Show YA-WAMF in the Home Assistant sidebar"
         }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect to YA-WAMF",
+        "description": "YA-WAMF rejected the stored credentials. Enter a username and password, or a legacy API key, or leave all three empty if you have enabled Public Access in YA-WAMF.",
+        "data": {
+          "username": "Username (optional)",
+          "password": "Password (optional)",
+          "api_key": "Legacy API key (optional)"
+        }
       }
     },
     "error": {
       "cannot_connect": "Failed to connect to YA-WAMF.",
       "invalid_auth": "Authentication failed. Provide credentials or enable Public Access in YA-WAMF.",
       "unknown": "Unexpected error."
+    },
+    "abort": {
+      "reauth_successful": "Credentials updated.",
+      "reauth_failed": "The YA-WAMF entry no longer exists.",
+      "already_configured": "This YA-WAMF instance is already configured."
     }
   },
   "options": {

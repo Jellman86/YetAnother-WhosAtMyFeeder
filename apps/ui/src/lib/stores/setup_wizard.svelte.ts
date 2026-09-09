@@ -26,7 +26,7 @@ export const WIZARD_STEPS: readonly WizardStep[] = [
     { id: 'review', section: null, optional: false }
 ];
 
-export type WizardMode = 'first_run' | 'rerun';
+type WizardMode = 'first_run' | 'rerun';
 
 /**
  * Shared wizard navigation + section readiness. The store holds no config itself — each step

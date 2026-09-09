@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Request
+from fastapi import FastAPI, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, Response, JSONResponse
 from slowapi import _rate_limit_exceeded_handler
@@ -83,7 +83,7 @@ from app.services.label_enrichment import start_background_map_refresh
 from app.services.localized_names import start_background_refresh
 from app.services.startup_status import startup_status
 from app.ratelimit import limiter
-from app.auth import AuthContext
+from app.auth import StreamAuth, get_stream_auth_context
 from app.auth import get_auth_context_with_legacy
 
 
@@ -1133,39 +1133,17 @@ async def readiness_check(response: Response) -> ReadinessResponse | JSONRespons
 
 
 @app.get("/api/sse")
-async def sse_endpoint(
-    request: Request,
-    token: str = None,  # Optional token via query param for EventSource
-):
+async def sse_endpoint(request: Request, stream_auth: StreamAuth = Depends(get_stream_auth_context)):
     """Server-Sent Events endpoint for real-time updates.
 
-    Supports authentication via:
-    - Bearer token in Authorization header
-    - Token in query parameter (?token=...)
-    - Public access if enabled
+    Opens with a Bearer header, a single-use ``?ticket=`` from
+    ``POST /api/auth/stream-ticket``, or as a guest when public access is on.
+    The session token is deliberately not accepted in the query string: nginx
+    writes the full request line to its error log while the upstream is
+    starting, and a ticket logged there is worthless a minute later.
     """
-    from app.auth import verify_token
-
-    # Get auth context with token support
-    auth: AuthContext = None
-
-    # Try query parameter token first (for EventSource compatibility)
-    token_data = None
-    if token:
-        try:
-            token_data = verify_token(token)
-            auth = AuthContext(auth_level=token_data.auth_level, username=token_data.username)
-        except HTTPException:
-            # Invalid token - fall through to other methods
-            pass
-
-    # If no valid token from query param, try normal auth
-    if not auth:
-        try:
-            auth = await get_auth_context_with_legacy(request, None)
-        except HTTPException as e:
-            # If auth required and none provided, reject connection
-            raise e
+    auth = stream_auth.context
+    session_exp = stream_auth.session_exp
 
     hide_camera_names = (
         not auth.is_owner and settings.public_access.enabled and not settings.public_access.show_camera_names
@@ -1226,8 +1204,8 @@ async def sse_endpoint(
 
                 message_count += 1
                 # Re-validate token expiry periodically (active traffic and idle both covered)
-                if token_data is not None and message_count % _EXPIRY_CHECK_INTERVAL == 0:
-                    if datetime.now(timezone.utc) >= token_data.exp:
+                if session_exp is not None and message_count % _EXPIRY_CHECK_INTERVAL == 0:
+                    if datetime.now(timezone.utc) >= session_exp:
                         yield f"data: {json.dumps({'type': 'session_expired', 'message': 'Session token has expired'})}\n\n"
                         return
         finally:

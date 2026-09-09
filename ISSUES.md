@@ -4,7 +4,7 @@ This document tracks known issues and testing gaps that have not been verified e
 
 If you find a bug, please open a GitHub issue with the steps to reproduce and any redacted logs.
 
-Last reviewed against the GitHub issue tracker on **August 19, 2026**.
+Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 
 ## P0: Active Regressions
 
@@ -12,38 +12,77 @@ Last reviewed against the GitHub issue tracker on **August 19, 2026**.
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
 
-- **#167 Video will not play in Safari:** the likely cause is HEVC packaged as `hev1`, which Safari's
-  video element refuses while QuickTime plays it, so "the download opens fine" does not clear it.
-  Diagnostics bundles now report the sample format of a recent clip, and there is a troubleshooting
-  page at `docs/troubleshooting/safari-video-playback.md`. Waiting on a bundle from the reporter.
+- **#300 Slowing interface:** reopened after the reporter found Settings still slow on a build
+  that predates every 2.19.3 pool fix. Two causes have been found and fixed. The name lookups and
+  Frigate calls that held a pooled connection shipped in 2.19.3 (#391, #392, #393, #395, #396).
+  The remaining one is the media cache statistics walk: `GET /api/cache/stats` stat'ed every cached
+  file on the event loop, and the owner system checks call it once a minute from every owner page,
+  so on a slow or network-backed filesystem the whole API stalled for the length of the walk. The
+  reporter's bundles carry 168 client-side timeouts on that request. The walk now runs on a worker
+  thread and logs itself when it exceeds a second (PR #401). The reporter wrote on August 31 that a
+  database and cache reset brought Settings from over 40 seconds down to 3 to 10 seconds. PR #401
+  merged on September 7 and is not in 2.19.3, so the issue can close on the reporter's word with a
+  note that the last fix ships in the next release.
 
 ## Known Remaining Exposure
 
-- **Six read paths still resolve species names under a held database connection.** The fix for
-  #300/#301 removed the connection holds around Frigate, weather, AI and inference work, and around
-  the species filter's name resolution. These six remain, and each resolves a localized common name
-  inside a loop that also reads from the database, so the split is a refactor rather than a
-  rearrangement:
-  `events.py` events list (680-902), `species.py` (859-970, 1002-1093, 1108-1320), `stats.py`
-  (291-424), `ebird.py` (265-478), and `detection_service.py` (631-908).
-
-  The cost only lands on a cache miss: a species not yet in `taxonomy_translations` for the
-  requested language costs one iNaturalist request with a ten-second timeout. A steady-state install
-  is unaffected; a fresh install, or the first load after switching language, is not. When it
-  happens the pool now logs `Slow DB connection hold` naming the handler, `db_pool.hold_ms_max`
-  rises, and health reports `degraded`, so it is visible rather than silent.
-
-  The durable fix is for a render path never to block on a third-party API: resolve names from
-  cache only and enrich in the background. That is a behaviour change (a new species' localized name
-  would appear on the next load) and is a maintainer decision, not a mechanical one.
+- **The owner system checks walk the media cache once a minute.** With PR #401 the walk no longer
+  blocks the API, but it still runs every sixty seconds on every owner page, and on a large cache
+  over a slow mount that is sustained disk work for a number nobody is looking at. Caching the
+  result for a few minutes, or updating counts as files are written and removed, is the durable
+  fix and a design decision rather than a mechanical one.
+- **Reported cache sizes undercount.** `get_cache_stats` counts `*.jpg` and `*.mp4` only, so the
+  `.meta.json` sidecars beside every snapshot are not in the total. On the reference install that
+  is 14,712 uncounted files.
+- **The CUDA and amd64 `full` images stay on ONNX Runtime 1.26.** 1.27 and later ship CUDA 13
+  userspace, which needs the NVIDIA 580 driver series on the host, so the bump Dependabot proposed
+  in #284 was closed and the window is held until 3.0 (`ROADMAP.md`, 1.7). Those images therefore
+  lack the input-validation hardening 1.29 added to several CUDA kernels. Exposure is limited: the
+  runtime only loads models the owner installed, never user-supplied files.
+- **API process memory is being watched again.** #314 closed at about 340 MB resident after the
+  `MALLOC_ARENA_MAX=2` fix. On the reference install the API process measured 1.49 GB resident
+  fourteen hours after a start in subprocess mode, where it holds no model. The RSS sampler is
+  running again; if the growth continues, #314 reopens with the numbers.
 
 ## Open on the Tracker
 
+- **#300** Slowing interface. See Pending Verification above.
+- **#414** Clickable link in notifications. Fixed in dev (#417): an instance address under
+  Settings → Notifications makes every channel link to the detection it announces. Closes with the
+  release that carries it.
+- **#256** Snapshot selection and classification overhaul. The two bug halves shipped (the delete
+  control names its effect; species information is stated once). What remains is unifying frame
+  choice and identification into one flow, which is a design decision and now has a roadmap entry.
 - **#178** Dedicated media retention rotation and favourite protection. Accepted; the durability
   contract is recorded in `ROADMAP.md` and the stronger behaviour is planned, not shipped.
 
 ## Recently Closed (Context)
 
+- **Owner media URLs no longer carry the session token.** NPM in front of the reference install logs
+  full request URIs; its access log held 482 owner thumbnail and clip URLs with `?token=` on
+  September 8. Media now authenticates with an `HttpOnly`, `SameSite=Lax` session cookie that only
+  read-only media routes and the stream honour. The session secret on the reference install was
+  rotated on September 8, so every token that log holds is dead. Dropping the query from the proxy's
+  log format was tried the same day and reverted: NPM only reads its bundled format from its vendor
+  config tree, and mounting over that file broke its startup. The access log keeps its normal rotation.
+- **The owner's SSE token no longer reaches nginx's error log.** The live stream opens with a
+  single-use, 60-second ticket from `POST /api/auth/stream-ticket`, and `/api/sse` refuses the
+  session token in its query string. The three lines nginx wrote on the September 8 restart carried
+  a valid owner token; the same lines now carry a spent ticket.
+- **#167** Video would not play in Safari; closed August 31 after the reporter confirmed playback.
+  Diagnostics bundles report a recent clip's sample format, and
+  `docs/troubleshooting/safari-video-playback.md` stays for the next report.
+- **#392** Audio routes held a pooled connection while naming species over the network; closed
+  September 3, 2026, with the lookup itself now refusing the network while a connection is held.
+- **#386** Leaderboard duplicates from split identities and hand corrections; closed September 4.
+- **#375** Delete a detection from the "needs your call" queue; closed September 4.
+- **#365** Explorer not filtering; **#360** a post-classification write clobbered a healed
+  `species_id`; both closed September 1.
+- **#314** Resident memory grew to 4.8 GiB; closed August 31 with `MALLOC_ARENA_MAX=2` and clips
+  streamed to disk (#341). Being watched, see above.
+- **#313** Hardware probes ran on the event loop and stalled every request; **#312** inference no
+  longer shares a process with the web service by default; both closed August 31.
+- **#305** The 49 open CodeQL alerts triaged; closed August 31.
 - **#207** eBird localization - distances now follow the chosen unit system; closed August 17, 2026.
 - **#189** Mobile UI overlap on manual tagging - fixed and confirmed by the reporter; closed
   August 15, 2026.
@@ -105,4 +144,3 @@ For a step-by-step checklist, see `INTEGRATION_TESTING.md`.
 
 - Resolved/closed investigation notes live in `CHANGELOG.md`.
 - Open GitHub issues are the source of truth for active bug state; this file is a maintainer triage summary.
-- Verification evidence: `tests/e2e/test_video_player.py` passes in the current dev workspace.

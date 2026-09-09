@@ -6,6 +6,150 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.4] - 2026-09-09
+
+### Added
+
+- **Notifications link back to the detection.** A new **Instance address** under Settings →
+  Notifications is the address you use to open YA-WAMF. With it set, the Discord embed title, a
+  Pushover **View detection** button, a Telegram button under the message, and the email **View in
+  Dashboard** button all open that detection on the Detections page. Leave it blank and
+  notifications carry no link, exactly as before. The email-only **Dashboard URL** field has become
+  this shared setting; an address already saved there keeps working on every channel. A second
+  choice, **Notification link opens**, points the link at Frigate instead: the same tracked object
+  in Frigate's Explore page, through the public URL already saved under Integrations (Frigate 0.15
+  or newer). A preview line shows the exact address the next notification will carry, and choosing
+  Frigate without a public URL says plainly that no link is sent until there is one. An address
+  without `http://` or `https://` is refused when saved, since Discord and Telegram would reject
+  the link and drop the whole notification with it. (#414)
+
+### Changed
+
+- **Dead files fail CI.** A router nobody mounted, three components nothing rendered, and two
+  packages nothing imported had all outlived their replacements while still compiling. They are
+  gone, and two gates now catch the class: a backend module reachable from nothing that runs
+  fails the test suite, and `knip` fails the frontend build on unused files or packages.
+- **Unused exports fail CI as well.** Forty-seven exported values and sixty-one exported types had
+  no importer anywhere, and behind them sat API helpers, store getters, and utilities nothing
+  called. They are gone, `npm run lint:dead` now includes exports and types, and the frontend
+  gate runs it. `tests/e2e` lost forty-two files nothing ran: page dumps and screenshots from
+  January to April, and a Playwright suite written for a `playwright-service` container and an
+  "Explorer" page that no longer exist. The shell smoke scripts the image workflow runs stay.
+- **Every published image names its commit.** Each image now carries the OCI
+  `org.opencontainers.image.revision`, `version`, and `source` labels, so `docker inspect` and
+  Dockhand can tie a running container to the exact build without opening the app. The update
+  prompt is unaffected: it still compares the commit baked in at build time with the one
+  published for your channel, and never reads image labels.
+- **The ONNX Runtime floor is 1.29 on every CPU-capable image.** The `cpu`, `intel`, and ARM64 `full`
+  requirement files asked for `onnxruntime>=1.28.0`, so pip has been resolving 1.29.0 for weeks anyway;
+  the reference install has run it since it was published. Stating the floor the images actually
+  get lets the dependency-pin test and Dependabot agree with reality. The CUDA build keeps its own
+  `onnxruntime-gpu` window below 1.27 on purpose: 1.27 and later ship CUDA 13 userspace, which
+  needs the NVIDIA 580 driver series on the host, so lifting it is a 3.0 change (`ROADMAP.md`,
+  1.7) and Dependabot is now told not to propose it.
+
+### Fixed
+
+- **The retention card no longer promises a 3 AM cleanup.** Settings → Data said "Automatic
+  cleanup runs daily at 3 AM". The scheduler runs cleanup once when the container starts and then
+  every 24 hours from that moment, so the time of day follows the last restart and was never
+  three in the morning. The note now says what happens, in every language the app ships.
+- **Inference health is keyed on the runtime that did the work.** The entry the Detection tab reads
+  was named "tflite/tflite/<model>" on an install classifying through OpenVINO on the NPU, because
+  the admission context that stamps each sample copied the API process's idle defaults rather than
+  what the worker loaded. It now uses the same identity the status band uses.
+
+- **The startup identity backfill no longer holds a database connection while it consults the
+  catalogue.** On every container start it took one of the five pooled connections and kept it for
+  the whole pass, resolving each distinct scientific name through the species catalogue, which is a
+  different database, before writing anything. On the reference install that was a 1.2 second hold
+  and a "Slow DB connection hold" warning on every boot; on an older install with hundreds of names
+  it would have sat in front of the dashboard's first load after each restart. The pass now reads
+  the names, gives the connection back, resolves them all, and takes a connection again only to
+  write. An unavailable catalogue now writes nothing rather than half a pass.
+
+- **Before the first visit of the day, the Detection tab names the runtime that will load.** Worker
+  pools start on the first classification, so between a restart and the first bird nothing has
+  loaded anywhere and the band fell back to the API process's idle default, "tflite, not yet
+  verified here". The status now resolves the provider the way a worker will, from the active model,
+  the host capabilities and the provider preference, reports it with a source of `planned`, and the
+  band says "loads on first detection" in place of a verified mark it cannot yet earn. Once a worker
+  loads, its own report takes over; if this process has loaded a fallback model, that wins, because
+  it is the one classifying.
+
+- **A model that takes longer than twenty seconds to load can now start in subprocess mode.** A
+  worker says it is ready only after it has loaded and compiled its model, and the supervisor gave
+  that handshake twenty seconds. The three-minute first-load window added for
+  [#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300) only covered heartbeats
+  after the handshake, so a large model compiling for the NPU was killed at the twenty-second mark,
+  respawned, killed again, and the pool never started; the reference install dropped detections as
+  "worker unavailable" with no worker process left in the container. The handshake now gets the same
+  first-load window.
+- **Detections are classified in-process when the workers cannot start, not only when they keep
+  dying.** The in-process fallback engaged when the worker circuit opened, but a pool that never
+  became ready, or one with no worker left, dropped the detection instead. Both now fall back the
+  same way and the Detection tab says why. A worker dying mid-request while others remain still does
+  not fall back, because the supervisor is already replacing it.
+- **The Detection tab names the runtime the workers actually loaded.** In subprocess mode the API
+  process never loads a model, so its provider and backend stayed at the literal default "tflite",
+  the band printed that as the runtime, marked it "not yet verified here" because no host check can
+  verify a runtime that does not exist, and inference health was keyed on it too. A worker now
+  reports what it loaded in its ready message, the supervisor records it per pool, and status and
+  health use it. A report for a model that is no longer active is ignored, so the band does not name
+  the previous model's runtime after a switch.
+
+- **The Home Assistant sidebar survives a settings change.** Every change to the integration's
+  options reloads it, and the reload left the sidebar pointing at the old YA-WAMF address with the
+  old credentials: the panel could not be removed because the removal was awaited when Home
+  Assistant expects a plain call, the proxy view could not be replaced because views cannot be
+  unregistered, and the stale proxy kept using a login token that nothing was refreshing any more,
+  so the sidebar worked for a while and then answered with sign-in errors until Home Assistant was
+  restarted. The view is now registered once per run and reads the live connection on every
+  request, the panel is replaced rather than re-added, the proxy refreshes its login before
+  forwarding, and the seven unauthenticated root paths the integration used to claim on the Home
+  Assistant origin are gone. In the same pass: a rejected credential now opens Home Assistant's
+  reconfigure prompt instead of failing silently every poll; the Last Bird sensor goes unavailable
+  when YA-WAMF cannot be reached instead of holding its last value; the snapshot camera keeps one
+  frame per detection instead of downloading and scaling the same image on every dashboard refresh;
+  every request the integration makes carries a timeout; and the manifest declares the frontend and
+  http dependencies it always relied on. The integration version is 1.1.0.
+
+- **Counting the media cache no longer stalls every other request
+  ([#300](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/300)).** The cache
+  statistics behind Settings, and behind the owner system checks that run once a minute on every
+  owner page, were gathered by reading the size and date of every cached file on the same thread
+  that answers requests. On a local disk that is milliseconds. On a slow or network-backed
+  filesystem with tens of thousands of cached files it is seconds to tens of seconds, once a minute,
+  during which the API answered nothing at all: not the dashboard, not Settings, not even the fixed
+  version string. It also explains why clearing the cache made the interface fast again and why it
+  slowed down as the cache refilled. The walk now runs on a worker thread, every request that
+  arrives while one is in progress shares it rather than starting another against the same disk,
+  and a walk that takes more than a second is logged with its duration, file count, and location so
+  the next diagnostics bundle carries the evidence.
+
+### Security
+
+- **Media URLs no longer carry the owner's session token.** `<img>` and `<video>` cannot send
+  headers, so every snapshot, thumbnail and clip an owner viewed put the seven-day session in its
+  URL, and any proxy in front of YA-WAMF that logs request lines kept a copy; the reference
+  install's Nginx Proxy Manager log held 482 of them. The browser now holds the session as an
+  `HttpOnly`, `SameSite=Lax` cookie scoped to `/api`, and only read-only media routes and the live
+  stream accept it — settings, deletes and every other write still need the Bearer header, so the
+  cookie adds no cross-site surface. Login and first-run setup set it, logout clears it, and a
+  browser that signed in before the upgrade attaches it once on load through
+  `POST /api/auth/session-cookie`, so nothing needs a fresh login. Clip-thumbnail VTT cues no
+  longer embed the token either. Plain-HTTP installs on a home network still get the cookie; it
+  is marked `Secure` only when the request came over HTTPS.
+- **The live stream no longer puts the owner's session token in a URL.** `EventSource` cannot
+  send headers, so the stream authenticated with `?token=<session>`, and nginx writes the full
+  request line to its error log whenever the upstream refuses a connection, which it does for a
+  few seconds on every container start while uvicorn boots. Each restart of the reference install
+  logged three lines carrying a week-long owner token. The browser now exchanges its session for a
+  single-use ticket (`POST /api/auth/stream-ticket`) that opens the stream once and expires after
+  60 seconds, and `/api/sse` refuses the session token in its query string outright. A ticket that
+  reaches a log is worthless by the time anyone reads it. Bearer headers, guest access, and the
+  deprecated API key behave as before; the unmounted duplicate stream router is removed.
+
 ## [2.19.3] - 2026-09-04
 
 ### Added

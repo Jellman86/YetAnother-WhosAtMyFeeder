@@ -1,6 +1,11 @@
 # Troubleshooting & Diagnostics
 
-If you are experiencing issues with detections or integrations, use the built-in diagnostic tools.
+If detections or integrations are misbehaving, start at **Settings → Health**. It reports live
+system status, what happened to every recent frame and why it was or was not recorded, inference
+health, where your species names come from, and it is where you capture a diagnostics bundle to
+attach to a bug report.
+
+![Settings → Health: a System Status card reporting all monitored services healthy with the time of the latest health check, and a "What happened" timeline listing visits recorded and frames filtered out, each with its species, confidence, and the reason it was not recorded](../images/settings-health.png)
 
 ## Container startup takes time
 
@@ -32,15 +37,38 @@ not mean a missing classifier was reported as ready. Published images are gated 
 inference smoke test, so seeing this phase on a clean image should be treated as a model/storage
 problem and included in a diagnostic bundle.
 
-## MQTT Pipeline
-If detections aren't appearing, verify the MQTT connection:
-1. Go to **Settings > Integrations**.
-2. Click **Test MQTT Pipeline**.
+## Which build is this container?
+
+Every published image carries its commit in an OCI label, so you can name the exact build
+without opening the app:
+
+```bash
+docker inspect yawamf-monalithic \
+  --format '{{index .Config.Labels "org.opencontainers.image.revision"}} {{index .Config.Labels "org.opencontainers.image.version"}} {{index .Config.Labels "io.yawamf.image.flavor"}}'
+```
+
+You should see the full git SHA, the base version, and the image flavour (`full`, `cpu`,
+`intel`, `cuda`, or `rpi`). `GET /api/version` reports the same commit in short form. Quote the
+SHA in a bug report alongside the diagnostics bundle.
+
+The in-app update prompt does not read these labels: it compares the commit baked in at build
+time with the newest published commit for your channel.
+
+## MQTT pipeline
+If detections are not appearing, prove the path from Frigate to the broker:
+
+1. Go to **Settings → Connection**.
+2. Select **Test Connection**. It runs two stages: **Frigate API**, then **MQTT broker publish**.
+   The probe uses the values currently in the form, so you can test an edit before saving it.
 3. Check the backend logs. You should see "Published MQTT message".
-4. Use an external tool like `mosquitto_sub` to verify the message reached the broker:
+4. Use an external tool like `mosquitto_sub` to confirm the message reached the broker:
    ```bash
    mosquitto_sub -h localhost -t "yawamf/test" -v
    ```
+
+**If it fails at the MQTT stage:** the broker hostname, port, or credentials are wrong, or the
+container cannot reach the broker on the Docker network. See
+[MQTT Broker Setup](../setup/mqtt-broker.md).
 
 ## 🔊 Audio Correlation Issues
 If Birds are appearing on the dashboard but never have the **"Verified"** audio badge:

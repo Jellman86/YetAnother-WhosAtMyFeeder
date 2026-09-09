@@ -10,7 +10,7 @@ import { toLocalYMD } from '../utils/date-only';
 import { StaleTracker } from '../utils/stale_tracker';
 import { refreshCoordinator } from './refresh_coordinator.svelte';
 
-export interface FrameResult {
+interface FrameResult {
     score: number;
     label: string;
     thumb?: string | null;
@@ -59,10 +59,9 @@ export class DetectionsStore {
     private loadPromise: Promise<void> | null = null;
 
     private readonly staleTracker = new StaleTracker(30_000); // 30 seconds
-    private readonly unregister: () => void;
 
     constructor() {
-        this.unregister = refreshCoordinator.register(() => this.refreshIfStale());
+        refreshCoordinator.register(() => this.refreshIfStale());
     }
 
     private markMutated() {

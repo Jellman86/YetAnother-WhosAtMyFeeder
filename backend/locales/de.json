@@ -2,7 +2,8 @@
   "notification": {
     "new_detection": "Neuer Vogel erkannt: {species}",
     "detection_body": "{species} auf {camera} mit {confidence}% Wahrscheinlichkeit erkannt",
-    "audio_confirmed": "🎤 Audio bestätigt durch BirdNET-Go"
+    "audio_confirmed": "🎤 Audio bestätigt durch BirdNET-Go",
+    "view_detection": "Erkennung ansehen"
   },
   "errors": {
     "detection_not_found": "Erkennung nicht gefunden",

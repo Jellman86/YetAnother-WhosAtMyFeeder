@@ -16,7 +16,7 @@ Requests queue, the browser times out, and the live-updates stream drops with th
 
 ## Confirming it
 
-Open **Settings → Diagnostics** and generate a bundle, or read the health endpoint directly:
+Open **Settings → Health** and generate a diagnostics bundle, or read the health endpoint directly:
 
 ```bash
 curl -fsS http://localhost:8000/health | jq .db_pool

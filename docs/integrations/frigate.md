@@ -69,7 +69,7 @@ stored.
 
 When YA-WAMF identifies a species with high confidence, it pushes the label back to Frigate as a **sublabel**. This lets you see the species name directly in the Frigate UI and use it in Frigate's own notification rules and filters.
 
-This can be disabled in **Settings > Detection** if you do not want YA-WAMF writing back to Frigate events.
+This can be disabled in **Settings → Detection** if you do not want YA-WAMF writing back to Frigate events.
 
 ## Camera Selection
 

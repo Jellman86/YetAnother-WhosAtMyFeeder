@@ -1115,7 +1115,10 @@ async def test_proxy_clip_thumbnails_vtt_success(client: httpx.AsyncClient):
             assert response.status_code == 200
             assert response.headers["content-type"].startswith("text/vtt")
             assert "WEBVTT" in response.text
-            assert "clip-thumbnails.jpg?token=abc123#xywh=0,0,160,90" in response.text
+            # The sprite is fetched with the session cookie; a session token in a
+            # cue URL would be copied into every proxy log that sees it.
+            assert "clip-thumbnails.jpg#xywh=0,0,160,90" in response.text
+            assert "token=" not in response.text
             assert "http://" not in response.text
             assert "https://" not in response.text
         finally:

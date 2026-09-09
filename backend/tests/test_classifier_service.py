@@ -1169,7 +1169,11 @@ async def test_classifier_service_maps_supervisor_heartbeat_timeout_to_live_leas
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_maps_supervisor_startup_timeout_to_live_overload(mock_tflite, mock_os_path_exists):
+async def test_classifier_service_classifies_in_process_when_live_workers_never_become_ready(
+    mock_tflite, mock_os_path_exists
+):
+    """A pool killed mid-model-load used to drop every live detection as
+    worker-unavailable. It now classifies in this process and says why."""
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
 
@@ -1177,21 +1181,29 @@ async def test_classifier_service_maps_supervisor_startup_timeout_to_live_overlo
         async def classify(self, **_kwargs):
             raise ClassifierWorkerStartupTimeoutError("worker startup timed out")
 
+    def _load_fallback_model(self):
+        self._models["bird"] = _FallbackReadyModel([{"label": "Robin", "score": 0.9, "index": 0}])
+
     try:
-        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        with patch.object(ClassifierService, "_init_bird_model", new=_load_fallback_model):
             service = ClassifierService(supervisor=_FakeSupervisor())
             img = Image.new("RGB", (16, 16), color="orange")
-            with pytest.raises(LiveImageClassificationOverloadedError, match="classify_snapshot_worker_unavailable"):
-                await service.classify_async_live(img, camera_name="front")
+            results = await service.classify_async_live(img, camera_name="front")
+            assert results and results[0]["label"] == "Robin"
+            fallback = service.get_worker_fallback_status()
+            assert fallback["active"] is True
+            assert fallback["reason"] == "worker_startup_timeout"
             await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode
 
 
 @pytest.mark.asyncio
-async def test_classifier_service_maps_supervisor_startup_timeout_to_empty_background_results(
+async def test_classifier_service_keeps_the_startup_timeout_error_when_no_fallback_model_can_load(
     mock_tflite, mock_os_path_exists
 ):
+    """When the workers never start and this process cannot load a model either,
+    the caller still gets the specific startup-timeout code, not a generic one."""
     original_mode = settings.classification.image_execution_mode
     settings.classification.image_execution_mode = "subprocess"
 
@@ -1199,14 +1211,18 @@ async def test_classifier_service_maps_supervisor_startup_timeout_to_empty_backg
         async def classify(self, **_kwargs):
             raise ClassifierWorkerStartupTimeoutError("worker startup timed out")
 
+    def _cannot_load(self):
+        raise RuntimeError("no model files on this host")
+
     try:
-        with patch.object(ClassifierService, "_init_bird_model", new=_stub_init_bird_model):
+        with patch.object(ClassifierService, "_init_bird_model", new=_cannot_load):
             service = ClassifierService(supervisor=_FakeSupervisor())
             img = Image.new("RGB", (16, 16), color="purple")
             with pytest.raises(
                 BackgroundImageClassificationUnavailableError, match="background_image_worker_startup_timeout"
             ):
                 await service.classify_async_background(img, camera_name="garden")
+            assert service.get_worker_fallback_status()["active"] is False
             await service.shutdown()
     finally:
         settings.classification.image_execution_mode = original_mode

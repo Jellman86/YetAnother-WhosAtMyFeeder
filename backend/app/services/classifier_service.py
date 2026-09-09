@@ -3491,11 +3491,12 @@ class ClassifierService:
         self.register_gpu_unhealthy_signal("live_lease_expiry", runtime_key=runtime_key)
 
     def _active_inference_runtime_key(self) -> RuntimeKey:
-        return RuntimeKey.from_values(
-            self._inference_backend,
-            self._active_inference_provider,
-            self._resolve_active_model_id(),
-        )
+        backend, provider = self._inference_backend, self._active_inference_provider
+        if self._image_execution_mode == "subprocess" and not self._worker_process_mode:
+            # The parent records health for work its workers did; key it on
+            # what they loaded, or will load, not on its never-used defaults.
+            backend, provider, _source = self._subprocess_runtime_identity(self._get_supervisor_metrics())
+        return RuntimeKey.from_values(backend, provider, self._resolve_active_model_id())
 
     def _gpu_unhealthy_signal_outcome(self, source: str) -> Outcome:
         normalized_source = str(source or "")
@@ -4348,12 +4349,110 @@ class ClassifierService:
         self._publish_runtime_recovery(latest)
         return latest
 
+    def runtime_identity(self) -> dict[str, Any]:
+        """What this process is classifying with: backend, provider, model.
+
+        A worker sends this in its ready message, because in subprocess mode
+        the parent never loads a model and would otherwise report its idle
+        defaults as if they were the truth.
+        """
+        try:
+            model_id = self._resolve_active_model_id()
+        except Exception:  # noqa: BLE001 - identity is diagnostic; never fail a worker over it
+            model_id = None
+        return {
+            "inference_backend": self._inference_backend,
+            "active_provider": self._active_inference_provider,
+            "model_id": model_id,
+        }
+
+    def _latest_worker_reported_runtime(self, supervisor_metrics: dict[str, Any] | None) -> dict[str, Any] | None:
+        """The runtime a worker said it loaded, if it loaded the model that is active now.
+
+        Live workers answer first because they are the ones the dashboard is
+        waiting on. A report for a different model is ignored: after a switch
+        the old workers' report would otherwise outlive the model it names.
+        """
+        if not isinstance(supervisor_metrics, dict):
+            return None
+        try:
+            active_model_id = self._resolve_active_model_id()
+        except Exception:  # noqa: BLE001
+            active_model_id = None
+        for pool_name in ("live", "background", "video"):
+            pool = supervisor_metrics.get(pool_name)
+            if not isinstance(pool, dict):
+                continue
+            runtime = pool.get("runtime")
+            if not isinstance(runtime, dict):
+                continue
+            reported_model = runtime.get("model_id")
+            if active_model_id and reported_model and str(reported_model) != str(active_model_id):
+                continue
+            return dict(runtime)
+        return None
+
+    def _planned_subprocess_runtime(self) -> dict[str, Any] | None:
+        """What a worker will load, resolved the way the worker resolves it.
+
+        Pools start on the first classification, so between startup and the
+        first visit nothing has loaded anywhere. The parent still knows the
+        active model, the host capabilities and the provider preference, which
+        is everything the loader uses to choose a backend, so it can say what
+        is coming rather than print its own idle default.
+        """
+        try:
+            spec = self._resolve_active_bird_model_spec()
+        except Exception:  # noqa: BLE001 - a status read must never fail over a missing spec
+            return None
+        model_id = spec.get("model_id")
+        if str(spec.get("runtime") or "tflite") != "onnx":
+            return {"inference_backend": "tflite", "active_provider": "tflite", "model_id": model_id}
+        try:
+            selection = _resolve_inference_selection(
+                self._selected_inference_provider,
+                self._accel_caps_for_read(),
+                supported_providers=list(spec.get("supported_inference_providers") or []),
+                preferred_providers=list(spec.get("host_provider_preference_order") or []),
+            )
+        except Exception:  # noqa: BLE001
+            return None
+        return {
+            "inference_backend": str(selection.get("backend") or "unavailable"),
+            "active_provider": str(selection.get("active_provider") or "unavailable"),
+            "model_id": model_id,
+        }
+
+    def _subprocess_runtime_identity(self, supervisor_metrics: dict[str, Any] | None) -> tuple[str, str, str]:
+        """(backend, provider, source) for a parent that runs workers.
+
+        Source is ``in_process_fallback`` when this process has loaded its own
+        model to cover for the workers, ``worker`` when a worker has reported
+        what it loaded, ``planned`` when nothing has loaded yet, and
+        ``default`` when even the plan cannot be resolved.
+        """
+        if self.model_loaded:
+            return self._inference_backend, self._active_inference_provider, "in_process_fallback"
+        reported = self._latest_worker_reported_runtime(supervisor_metrics)
+        if reported is not None:
+            backend, provider = self._effective_subprocess_runtime_fields(None, reported)
+            return backend, provider, "worker"
+        planned = self._planned_subprocess_runtime()
+        if planned is not None:
+            backend, provider = self._effective_subprocess_runtime_fields(None, planned)
+            return backend, provider, "planned"
+        return self._inference_backend, self._active_inference_provider, "default"
+
     def _effective_subprocess_runtime_fields(
         self,
         runtime_recovery: dict[str, Any] | None,
+        worker_runtime: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
         backend = self._inference_backend
         provider = self._active_inference_provider
+        if isinstance(worker_runtime, dict):
+            backend = str(worker_runtime.get("inference_backend") or "").strip() or backend
+            provider = str(worker_runtime.get("active_provider") or "").strip() or provider
         if not isinstance(runtime_recovery, dict):
             return backend, provider
 
@@ -4612,11 +4711,15 @@ class ClassifierService:
             if self._image_execution_mode == "subprocess"
             else None
         ) or self._inference_health.most_recent_recovery()
-        effective_backend, effective_provider = (
-            self._effective_subprocess_runtime_fields(effective_runtime_recovery)
-            if self._image_execution_mode == "subprocess"
-            else (self._inference_backend, self._active_inference_provider)
-        )
+        if self._image_execution_mode == "subprocess":
+            base_backend, base_provider, runtime_source = self._subprocess_runtime_identity(supervisor_metrics)
+            effective_backend, effective_provider = self._effective_subprocess_runtime_fields(
+                effective_runtime_recovery,
+                {"inference_backend": base_backend, "active_provider": base_provider},
+            )
+        else:
+            effective_backend, effective_provider = self._inference_backend, self._active_inference_provider
+            runtime_source = "in_process"
         active_model_id = None
         effective_model_id = None
         try:
@@ -4670,6 +4773,10 @@ class ClassifierService:
             # Honest degradation: when the worker circuit opens, classification
             # continues in-process and this says so instead of hiding it.
             "worker_in_process_fallback": self.get_worker_fallback_status(),
+            # Where the provider and backend above come from: a worker's ready
+            # message, this process's own fallback model, the plan for a pool
+            # that has not started yet, or a bare default.
+            "runtime_source": runtime_source,
             # The worker count is derived from concurrency and provider now, so
             # Settings must be able to show what it resolved to and what each
             # worker costs — the price is stated, not implied (#312).
@@ -5571,7 +5678,32 @@ class ClassifierService:
                 camera_name=camera_name,
                 model_id=model_id,
                 input_context=normalized_input_context,
+                reason="circuit_open",
             )
+        except ClassifierWorkerStartupTimeoutError:
+            return await self._classify_in_process_as_last_resort(
+                priority=priority,
+                image=image,
+                camera_name=camera_name,
+                model_id=model_id,
+                input_context=normalized_input_context,
+                reason="worker_startup_timeout",
+            )
+        except ClassifierWorkerExitedError:
+            if self._supervisor_pool_is_empty(priority):
+                return await self._classify_in_process_as_last_resort(
+                    priority=priority,
+                    image=image,
+                    camera_name=camera_name,
+                    model_id=model_id,
+                    input_context=normalized_input_context,
+                    reason="workers_unavailable",
+                )
+            # A worker died mid-request but others remain; the supervisor is
+            # already replacing it and the next request gets a live worker.
+            if priority == "live":
+                raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable") from None
+            raise BackgroundImageClassificationUnavailableError("background_image_worker_unavailable") from None
         except (ClassifierWorkerHeartbeatTimeoutError, ClassifierWorkerDeadlineExceededError):
             if priority == "live":
                 raise ClassificationLeaseExpiredError(
@@ -5580,14 +5712,19 @@ class ClassifierService:
                     float(getattr(settings.classification, "worker_hard_deadline_seconds", 35.0) or 35.0),
                 ) from None
             raise BackgroundImageClassificationUnavailableError("background_image_worker_timed_out") from None
-        except ClassifierWorkerStartupTimeoutError:
-            if priority == "live":
-                raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable") from None
-            raise BackgroundImageClassificationUnavailableError("background_image_worker_startup_timeout") from None
-        except ClassifierWorkerExitedError:
-            if priority == "live":
-                raise LiveImageClassificationOverloadedError("classify_snapshot_worker_unavailable") from None
-            raise BackgroundImageClassificationUnavailableError("background_image_worker_unavailable") from None
+
+    def _supervisor_pool_is_empty(self, priority: str) -> bool:
+        metrics = self._get_supervisor_metrics() or {}
+        pool = metrics.get(priority) if isinstance(metrics, dict) else None
+        if not isinstance(pool, dict):
+            return False
+        return int(pool.get("workers") or 0) == 0
+
+    _FALLBACK_UNAVAILABLE_ERRORS = {
+        "circuit_open": ("classify_snapshot_circuit_open", "background_image_circuit_open"),
+        "worker_startup_timeout": ("classify_snapshot_worker_unavailable", "background_image_worker_startup_timeout"),
+        "workers_unavailable": ("classify_snapshot_worker_unavailable", "background_image_worker_unavailable"),
+    }
 
     async def _classify_in_process_as_last_resort(
         self,
@@ -5597,34 +5734,39 @@ class ClassifierService:
         camera_name: Optional[str],
         model_id: Optional[str],
         input_context: Any | None,
+        reason: str = "circuit_open",
     ) -> list[dict]:
-        """Classify in this process when the worker circuit is open.
+        """Classify in this process when the isolated workers cannot.
 
-        An open circuit means the isolated workers keep dying — on slow
-        hardware, typically killed mid-model-load. Dropping every detection
-        until someone notices is the worst outcome for a recorder of
-        history, so the main process loads its own copy and keeps
-        classifying, and the status endpoint says so plainly.
+        That is an open circuit (workers keep dying), a pool whose workers
+        never became ready (killed mid-model-load on slow hardware), or a
+        pool with no worker left. Dropping every detection until someone
+        notices is the worst outcome for a recorder of history, so the main
+        process loads its own copy and keeps classifying, and the status
+        endpoint says so plainly.
         """
         async with self._worker_fallback_lock:
             if not self.model_loaded:
                 try:
                     await asyncio.to_thread(self._init_bird_model)
                 except Exception as exc:
-                    log.error("worker_fallback_model_load_failed", error=str(exc))
+                    log.error("worker_fallback_model_load_failed", reason=reason, error=str(exc))
         if not self.model_loaded:
+            live_error, background_error = self._FALLBACK_UNAVAILABLE_ERRORS.get(
+                reason, self._FALLBACK_UNAVAILABLE_ERRORS["workers_unavailable"]
+            )
             if priority == "live":
-                raise LiveImageClassificationOverloadedError("classify_snapshot_circuit_open") from None
-            raise BackgroundImageClassificationUnavailableError("background_image_circuit_open") from None
+                raise LiveImageClassificationOverloadedError(live_error) from None
+            raise BackgroundImageClassificationUnavailableError(background_error) from None
 
         if not self._worker_fallback_state["active"]:
             self._worker_fallback_state["active"] = True
-            self._worker_fallback_state["reason"] = "circuit_open"
+            self._worker_fallback_state["reason"] = reason
             self._worker_fallback_state["since_monotonic"] = time.monotonic()
             log.warning(
                 "classifier_worker_fallback_engaged",
-                reason="circuit_open",
-                detail="isolated workers keep failing; classifying in-process until they recover",
+                reason=reason,
+                detail="isolated workers are not available; classifying in-process until they recover",
             )
         self._worker_fallback_state["classifications"] += 1
 
@@ -5886,9 +6028,14 @@ class ClassifierService:
                 resolved_model_id = self._resolve_active_model_id()
             except Exception:
                 resolved_model_id = "unknown"
+        backend, provider = self._inference_backend, self._active_inference_provider
+        if self._image_execution_mode == "subprocess" and not self._worker_process_mode:
+            # Samples recorded here describe work a worker did, or the plan
+            # for one; the parent's own idle defaults name neither.
+            backend, provider, _source = self._subprocess_runtime_identity(self._get_supervisor_metrics())
         return {
-            "backend": self._inference_backend,
-            "provider": self._active_inference_provider,
+            "backend": backend,
+            "provider": provider,
             "model_id": resolved_model_id,
             "execution_mode": self._image_execution_mode,
         }

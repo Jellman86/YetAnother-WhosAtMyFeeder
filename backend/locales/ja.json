@@ -2,7 +2,8 @@
   "notification": {
     "new_detection": "新しい鳥が検出されました：{species}",
     "detection_body": "{camera}で{confidence}%の信頼度で{species}が検出されました",
-    "audio_confirmed": "🎤 BirdNET-Goによる音声確認済み"
+    "audio_confirmed": "🎤 BirdNET-Goによる音声確認済み",
+    "view_detection": "検出を見る"
   },
   "errors": {
     "detection_not_found": "検出が見つかりません",

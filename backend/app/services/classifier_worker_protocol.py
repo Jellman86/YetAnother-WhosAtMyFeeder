@@ -63,11 +63,20 @@ def decode_protocol_message(raw: bytes | str) -> dict[str, Any]:
     return payload
 
 
-def build_ready_event(*, worker_generation: int) -> dict[str, Any]:
-    return {
+def build_ready_event(*, worker_generation: int, runtime: dict[str, Any] | None = None) -> dict[str, Any]:
+    """The worker's first message: it has loaded its model and can take work.
+
+    ``runtime`` names what the worker actually loaded (backend, provider,
+    model id). The parent never loads a model in subprocess mode, so this is
+    the only truthful source for what is classifying.
+    """
+    message: dict[str, Any] = {
         "type": "ready",
         "worker_generation": int(worker_generation),
     }
+    if isinstance(runtime, dict) and runtime:
+        message["runtime"] = dict(runtime)
+    return message
 
 
 def build_heartbeat_event(

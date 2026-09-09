@@ -1425,6 +1425,8 @@ export interface components {
     notifications_filter_species_mode?: "none" | "blacklist" | "whitelist" | null;
     notifications_filter_species_whitelist?: Array<string> | null;
     notifications_filter_species_whitelist_structured: Array<components['schemas']['BlockedSpeciesEntry']>;
+    notifications_instance_url?: string | null;
+    notifications_link_target?: "yawamf" | "frigate" | null;
     notifications_mode?: string | null;
     notifications_notification_cooldown_minutes?: number | null;
     notifications_notify_on_insert?: boolean | null;
@@ -1621,6 +1623,8 @@ export interface components {
     notifications_filter_species_mode?: "none" | "blacklist" | "whitelist" | null;
     notifications_filter_species_whitelist?: Array<string> | null;
     notifications_filter_species_whitelist_structured?: Array<components['schemas']['BlockedSpeciesEntry']>;
+    notifications_instance_url?: string | null;
+    notifications_link_target?: "yawamf" | "frigate" | null;
     notifications_mode?: string | null;
     notifications_notification_cooldown_minutes?: number | null;
     notifications_notify_on_insert?: boolean | null;
@@ -1825,6 +1829,10 @@ export interface components {
 };
     StartRunResponse: {
     run_id: string;
+};
+    StreamTicketResponse: {
+    expires_in_seconds: number;
+    ticket: string;
 };
     SystemAcceleratorTelemetry: {
     kind: "npu" | "gpu";
@@ -2170,6 +2178,15 @@ export interface paths {
       response: components['schemas']['MessageResponse'];
     };
   };
+  "/api/auth/session-cookie": {
+    post: {
+      operationId: "create_session_cookie_api_auth_session_cookie_post";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['MessageResponse'];
+    };
+  };
   "/api/auth/status": {
     get: {
       operationId: "get_auth_status_api_auth_status_get";
@@ -2177,6 +2194,15 @@ export interface paths {
       query: never;
       requestBody: unknown;
       response: components['schemas']['AuthStatusResponse'];
+    };
+  };
+  "/api/auth/stream-ticket": {
+    post: {
+      operationId: "create_stream_ticket_api_auth_stream_ticket_post";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['StreamTicketResponse'];
     };
   };
   "/api/backfill": {
@@ -3674,9 +3700,7 @@ export interface paths {
     get: {
       operationId: "sse_endpoint_api_sse_get";
       path: never;
-      query: {
-    token?: string;
-};
+      query: never;
       requestBody: unknown;
       response: unknown;
     };

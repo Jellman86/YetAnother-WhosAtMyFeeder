@@ -1601,3 +1601,92 @@ async def test_llm_diagnostic_preserves_retryable_503(client: httpx.AsyncClient,
     assert payload["failure_stage"] == "provider"
     assert payload["retryable"] is True
     assert payload["retry_after_seconds"] == 15
+
+
+@pytest.mark.asyncio
+async def test_settings_roundtrip_notification_instance_url(client: httpx.AsyncClient):
+    """The instance address is normalised, and the older email-only link follows it."""
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    original = (settings.notifications.instance_url, settings.notifications.email.dashboard_url)
+    try:
+        before = (await client.get("/api/settings")).json()
+        base_payload = {
+            "frigate_url": before["frigate_url"],
+            "mqtt_server": before["mqtt_server"],
+            "classification_threshold": before["classification_threshold"],
+        }
+
+        post_resp = await client.post(
+            "/api/settings", json={**base_payload, "notifications_instance_url": " https://feeder.example.com/ "}
+        )
+        assert post_resp.status_code == 200, post_resp.text
+        after = (await client.get("/api/settings")).json()
+        assert after["notifications_instance_url"] == "https://feeder.example.com"
+        assert after["notifications_email_dashboard_url"] == "https://feeder.example.com"
+
+        post_resp = await client.post("/api/settings", json={**base_payload, "notifications_instance_url": ""})
+        assert post_resp.status_code == 200, post_resp.text
+        cleared = (await client.get("/api/settings")).json()
+        assert cleared["notifications_instance_url"] is None
+        assert cleared["notifications_email_dashboard_url"] is None
+    finally:
+        settings.notifications.instance_url, settings.notifications.email.dashboard_url = original
+
+
+@pytest.mark.asyncio
+async def test_settings_reports_the_older_email_address_as_the_instance_address(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    original = (settings.notifications.instance_url, settings.notifications.email.dashboard_url)
+    try:
+        settings.notifications.instance_url = None
+        settings.notifications.email.dashboard_url = "https://old.example.com/"
+        payload = (await client.get("/api/settings")).json()
+        assert payload["notifications_instance_url"] == "https://old.example.com"
+    finally:
+        settings.notifications.instance_url, settings.notifications.email.dashboard_url = original
+
+
+@pytest.mark.asyncio
+async def test_settings_roundtrip_notification_link_target(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    original = settings.notifications.link_target
+    try:
+        before = (await client.get("/api/settings")).json()
+        assert before["notifications_link_target"] == "yawamf"
+        base_payload = {
+            "frigate_url": before["frigate_url"],
+            "mqtt_server": before["mqtt_server"],
+            "classification_threshold": before["classification_threshold"],
+        }
+        post_resp = await client.post("/api/settings", json={**base_payload, "notifications_link_target": "frigate"})
+        assert post_resp.status_code == 200, post_resp.text
+        assert (await client.get("/api/settings")).json()["notifications_link_target"] == "frigate"
+
+        rejected = await client.post("/api/settings", json={**base_payload, "notifications_link_target": "elsewhere"})
+        assert rejected.status_code == 422
+    finally:
+        settings.notifications.link_target = original
+
+
+@pytest.mark.asyncio
+async def test_settings_refuses_an_instance_address_without_a_scheme(client: httpx.AsyncClient):
+    settings.auth.enabled = False
+    settings.public_access.enabled = False
+    original = (settings.notifications.instance_url, settings.notifications.email.dashboard_url)
+    try:
+        before = (await client.get("/api/settings")).json()
+        payload = {
+            "frigate_url": before["frigate_url"],
+            "mqtt_server": before["mqtt_server"],
+            "classification_threshold": before["classification_threshold"],
+            "notifications_instance_url": "feeder.local:9852",
+        }
+        resp = await client.post("/api/settings", json=payload)
+        assert resp.status_code == 400, resp.text
+        assert "http://" in resp.json()["detail"]
+        assert settings.notifications.instance_url == original[0]
+    finally:
+        settings.notifications.instance_url, settings.notifications.email.dashboard_url = original

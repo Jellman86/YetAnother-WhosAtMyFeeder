@@ -2,7 +2,8 @@
   "notification": {
     "new_detection": "Nuovo Uccello Rilevato: {species}",
     "detection_body": "{species} rilevato su {camera} con confidenza del {confidence}%",
-    "audio_confirmed": "🎤 Audio Confermato da BirdNET-Go"
+    "audio_confirmed": "🎤 Audio Confermato da BirdNET-Go",
+    "view_detection": "Vedi il rilevamento"
   },
   "errors": {
     "detection_not_found": "Rilevamento non trovato",

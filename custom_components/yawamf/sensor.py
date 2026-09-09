@@ -89,6 +89,7 @@ class YAWAMFLastBirdSensor(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Senso
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry_id}_last_bird"
         self._last_event_id: str | None = None
+        self._last_available: bool | None = None
 
     @property
     def native_value(self) -> str | None:
@@ -118,11 +119,18 @@ class YAWAMFLastBirdSensor(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Senso
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Only emit HA state updates when a new detection arrives."""
+        """Emit a state update when a new detection arrives or availability changes.
+
+        Suppressing writes for a repeated event keeps automations from firing
+        twice for one visit; it must not also hide the sensor going
+        unavailable when the coordinator stops reaching YA-WAMF.
+        """
         event_id = _latest_event_id(self.coordinator)
-        if event_id == self._last_event_id:
+        available = self.available
+        if event_id == self._last_event_id and available == self._last_available:
             return
         self._last_event_id = event_id
+        self._last_available = available
         self.async_write_ha_state()
 
     @property

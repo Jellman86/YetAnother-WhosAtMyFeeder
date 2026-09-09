@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from typing import Any
 
+import aiohttp
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -26,6 +28,17 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=10)
+CREDENTIAL_KEYS = (CONF_USERNAME, CONF_PASSWORD, CONF_API_KEY)
+
+STEP_REAUTH_DATA_SCHEMA = vol.Schema(
+    {
+        vol.Optional(CONF_USERNAME): str,
+        vol.Optional(CONF_PASSWORD): str,
+        vol.Optional(CONF_API_KEY): str,
+    }
+)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
@@ -50,12 +63,12 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     try:
         session = async_get_clientsession(hass)
-        async with session.get(f"{url}/health") as response:
+        async with session.get(f"{url}/health", timeout=REQUEST_TIMEOUT) as response:
             if response.status != 200:
                 raise CannotConnect
 
         # If auth is enabled and public access is disabled, we need credentials.
-        async with session.get(f"{url}/api/auth/status") as status_resp:
+        async with session.get(f"{url}/api/auth/status", timeout=REQUEST_TIMEOUT) as status_resp:
             status_resp.raise_for_status()
             status = await status_resp.json()
 
@@ -68,6 +81,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
                 async with session.post(
                     f"{url}/api/auth/login",
                     json={"username": username, "password": password},
+                    timeout=REQUEST_TIMEOUT,
                 ) as login_resp:
                     if login_resp.status in (401, 403):
                         raise InvalidAuth
@@ -79,6 +93,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
                 async with session.get(
                     f"{url}/api/stats/daily-summary",
                     headers={"X-API-Key": api_key},
+                    timeout=REQUEST_TIMEOUT,
                 ) as protected_resp:
                     if protected_resp.status in (401, 403):
                         raise InvalidAuth
@@ -123,6 +138,43 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(title=info["title"], data=user_input)
 
         return self.async_show_form(step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors)
+
+    async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> FlowResult:
+        """YA-WAMF rejected the stored credentials; ask for new ones."""
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+        """Validate replacement credentials against the configured URL and apply them."""
+        entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
+        if entry is None:
+            return self.async_abort(reason="reauth_failed")
+
+        if user_input is None:
+            return self.async_show_form(step_id="reauth_confirm", data_schema=STEP_REAUTH_DATA_SCHEMA)
+
+        url = entry.options.get(CONF_URL, entry.data[CONF_URL])
+        errors: dict[str, str] = {}
+        try:
+            await validate_input(self.hass, {CONF_URL: url, **user_input})
+        except CannotConnect:
+            errors["base"] = "cannot_connect"
+        except InvalidAuth:
+            errors["base"] = "invalid_auth"
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Unexpected exception during reauth")
+            errors["base"] = "unknown"
+        else:
+            # Options override data at setup, so stale credentials must leave both.
+            credentials = {key: user_input.get(key) for key in CREDENTIAL_KEYS}
+            self.hass.config_entries.async_update_entry(
+                entry,
+                data={**entry.data, **credentials},
+                options={key: value for key, value in entry.options.items() if key not in CREDENTIAL_KEYS},
+            )
+            await self.hass.config_entries.async_reload(entry.entry_id)
+            return self.async_abort(reason="reauth_successful")
+
+        return self.async_show_form(step_id="reauth_confirm", data_schema=STEP_REAUTH_DATA_SCHEMA, errors=errors)
 
     @staticmethod
     @callback

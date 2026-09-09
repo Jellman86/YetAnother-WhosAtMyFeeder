@@ -1,6 +1,7 @@
 # Taxonomy & Naming
 
-YA-WAMF uses a professional taxonomy engine to ensure every bird sighting is recorded with both its common and scientific identity.
+YA-WAMF resolves common and scientific names for detections and uses a species catalogue to
+keep identities consistent when names change.
 
 ## iNaturalist Integration
 The system is connected to the [iNaturalist API](https://www.inaturalist.org/). Every time a new species is detected, YA-WAMF:
@@ -9,16 +10,27 @@ The system is connected to the [iNaturalist API](https://www.inaturalist.org/). 
 3. Caches the result in a local SQLite table (`taxonomy_cache`) to avoid redundant API calls.
 
 ## Display Modes
-You can customize how birds are named in the UI via **Settings > Detection**:
+**Settings → Appearance → Bird Naming Style** decides how every bird is labelled across the UI:
 
-- **Standard:** Common name is primary, Scientific name is the subtitle.
-- **Hobbyist:** Scientific name is primary, Common name is the subtitle.
-- **Strictly Scientific:** Only the Scientific name is shown.
+- **Standard:** common name primary, scientific name as the subtitle.
+- **Hobbyist:** scientific name primary, common name as the subtitle.
+- **Strictly Scientific:** scientific name only. Common names are hidden.
 
-![Species List](../images/frontend_species.png)
+**Leaderboard** in the sidebar (the page itself is headed **Species**) is where the naming style
+is most visible, because it shows both names together:
+
+![The Species page reached from Leaderboard, with the Month window and the Seen filter selected: a full-bleed card headed "Most detected this month" naming Dunnock, Prunella modularis, 243 visits, a Rising line for House Sparrow beneath it, and the start of the full rankings](../images/leaderboard.png)
+
+The **Day / Week / Month / Total** buttons set the window. **Seen / Heard / Both** decide what the
+ranking counts: **Seen** ranks by camera visits alone, **Heard** by BirdNET-Go detections, and
+**Both** by the two added together — which also brings in species that were only ever heard, never
+photographed. **Both** is a sum, not an intersection: a species does not need evidence from both
+sources to appear.
 
 ## Taxonomy Repair
-If your database has old detections with inconsistent naming, you can run the **Taxonomy Repair** tool in the settings. This tool will scan your entire history and normalize all labels against the iNaturalist database.
+If your history contains old detections with inconsistent naming, run **Taxonomy repair** from
+**Settings → Data**. It scans your whole history and normalises every label against iNaturalist.
+It rewrites names only; it never deletes a detection.
 
 
 ## Where names come from
@@ -49,7 +61,7 @@ alongside the model artifact and output index that produced them.
 
 ### What diagnostics tell you
 
-The **Naming Sources** card under Jobs → Diagnostics reports:
+The **Naming Sources** card under **Settings → Health** reports:
 
 - **Catalogue species** — how many identities the active release holds.
 - **Model output classes with no catalogue identity** — outputs that keep their original label text
@@ -79,5 +91,5 @@ recorded, rewrite a model's label, or withdraw an identity is refused outright: 
 correction, and a correction needs a deliberate decision rather than arriving in an update.
 
 **The catalogue is a separate file from your detection history.** Rolling a release back changes
-names, never your recorded sightings. Both live under `/data`, so a backup of that directory covers
-the catalogue, the detections database, and your configuration together.
+names, never your recorded sightings. Both databases live under `/data`. Back up that directory
+and `/config` to preserve the catalogue, detection history, and configuration.

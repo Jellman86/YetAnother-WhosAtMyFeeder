@@ -1,6 +1,5 @@
 import { getBackfillStatus, type BackfillJobStatus } from '../api/backfill';
 import { authStore } from './auth.svelte';
-import { jobProgressStore } from './job_progress.svelte';
 import { syncBackfillJobProgress, type BackfillKind } from '../backfill/job-progress';
 import type { ScopedBackfillProgress } from '../backfill/progress';
 
@@ -20,7 +19,6 @@ export class BackfillStatusStore {
     private readonly hasOwnerAccess: () => boolean;
     private refCount = 0;
     private pollTimer: ReturnType<typeof setTimeout> | null = null;
-    private currentIntervalMs: number | null = null;
     private lastDetectionsStatus: BackfillJobStatus | null = null;
     private lastWeatherStatus: BackfillJobStatus | null = null;
     private detectionsScoped = $state<ScopedBackfillProgress>({ jobId: null, total: 0 });
@@ -46,7 +44,6 @@ export class BackfillStatusStore {
             if (this.refCount === 0 && this.pollTimer) {
                 clearTimeout(this.pollTimer);
                 this.pollTimer = null;
-                this.currentIntervalMs = null;
             }
         };
     }
@@ -63,7 +60,6 @@ export class BackfillStatusStore {
             if (this.refCount > 0) {
                 const hasActiveJob = this.isRunning(this.lastDetectionsStatus) || this.isRunning(this.lastWeatherStatus);
                 const nextInterval = hasActiveJob ? this.activePollIntervalMs : this.idlePollIntervalMs;
-                this.currentIntervalMs = nextInterval;
                 if (this.pollTimer) clearTimeout(this.pollTimer);
                 this.pollTimer = setTimeout(() => {
                     void this.tick();

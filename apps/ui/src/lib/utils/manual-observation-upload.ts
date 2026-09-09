@@ -4,7 +4,7 @@ export const MAX_MANUAL_VIDEO_BYTES = 250 * 1024 * 1024;
 const MANUAL_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MANUAL_VIDEO_TYPES = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
 
-export type ManualObservationUploadRejection =
+type ManualObservationUploadRejection =
     | 'unsupported_type'
     | 'image_too_large'
     | 'video_too_large';

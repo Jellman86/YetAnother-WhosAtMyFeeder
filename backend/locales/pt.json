@@ -2,7 +2,8 @@
   "notification": {
     "new_detection": "Novo Pássaro Detectado: {species}",
     "detection_body": "{species} detectado na câmera {camera} com {confidence}% de confiança",
-    "audio_confirmed": "🎤 Áudio Confirmado pelo BirdNET-Go"
+    "audio_confirmed": "🎤 Áudio Confirmado pelo BirdNET-Go",
+    "view_detection": "Ver deteção"
   },
   "errors": {
     "detection_not_found": "Detecção não encontrada",

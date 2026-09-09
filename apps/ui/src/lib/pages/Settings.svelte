@@ -4,6 +4,7 @@
 
 <script lang="ts">
     import { onMount, onDestroy, untrack } from 'svelte';
+    import type { NotificationLinkTarget } from '../settings/notification-link';
     import {
         fetchSettings,
         updateSettings,
@@ -1330,7 +1331,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let emailFromEmail = $state('');
     let emailToEmail = $state('');
     let emailIncludeSnapshot = $state(true);
-    let emailDashboardUrl = $state('');
+    let instanceUrl = $state('');
+    let notifyLinkTarget = $state<NotificationLinkTarget>('yawamf');
     let emailGmailClientId = $state('');
     let emailGmailClientSecret = $state('');
     let emailGmailClientSecretSaved = $state(false);
@@ -1896,7 +1898,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'emailFromEmail', val: emailFromEmail, store: s.notifications_email_from_email || '' },
             { key: 'emailToEmail', val: emailToEmail, store: s.notifications_email_to_email || '' },
             { key: 'emailIncludeSnapshot', val: emailIncludeSnapshot, store: s.notifications_email_include_snapshot ?? true },
-            { key: 'emailDashboardUrl', val: emailDashboardUrl, store: s.notifications_email_dashboard_url || '' },
+            { key: 'instanceUrl', val: instanceUrl, store: s.notifications_instance_url || '' },
+            { key: 'notifyLinkTarget', val: notifyLinkTarget, store: s.notifications_link_target ?? 'yawamf' },
 
             { key: 'notificationLanguage', val: notificationLanguage, store: s.notification_language ?? 'en' },
 
@@ -3008,7 +3011,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             emailFromEmail = settings.notifications_email_from_email || '';
             emailToEmail = settings.notifications_email_to_email || '';
             emailIncludeSnapshot = settings.notifications_email_include_snapshot ?? true;
-            emailDashboardUrl = settings.notifications_email_dashboard_url || '';
+            instanceUrl = settings.notifications_instance_url || '';
+            notifyLinkTarget = settings.notifications_link_target ?? 'yawamf';
 
             filterSpeciesMode = inferNotificationSpeciesMode(settings);
             filterSpeciesEntries = mergeBlockedSpeciesEntries(notificationSpeciesEntriesForMode(settings, filterSpeciesMode));
@@ -3244,7 +3248,8 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 notifications_email_from_email: emailFromEmail,
                 notifications_email_to_email: emailToEmail,
                 notifications_email_include_snapshot: emailIncludeSnapshot,
-                notifications_email_dashboard_url: emailDashboardUrl,
+                notifications_instance_url: instanceUrl,
+                notifications_link_target: notifyLinkTarget,
 
                 notification_language: notificationLanguage,
                 notifications_filter_species_mode: filterSpeciesMode,
@@ -3461,7 +3466,10 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:emailFromEmail
                     bind:emailToEmail
                     bind:emailIncludeSnapshot
-                    bind:emailDashboardUrl
+                    bind:instanceUrl
+                    bind:linkTarget={notifyLinkTarget}
+                    {frigateExternalUrl}
+                    onOpenIntegrations={() => handleTabChange('integrations')}
                     {sendTestEmail}
                     {initiateGmailOAuth}
                     {initiateOutlookOAuth}

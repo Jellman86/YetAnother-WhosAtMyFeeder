@@ -26,9 +26,6 @@ export type ClearFeedbackResult = paths['/api/maintenance/feedback/clear']['dele
 
 export type TaxonomySyncStatus = paths['/api/maintenance/taxonomy/status']['get']['response'];
 
-export type TimezoneRepairCandidate =
-    paths['/api/maintenance/timezone-repair/preview']['get']['response']['candidates'][number];
-
 export type TimezoneRepairPreview = paths['/api/maintenance/timezone-repair/preview']['get']['response'];
 
 export type TimezoneRepairApplyResult = paths['/api/maintenance/timezone-repair/apply']['post']['response'];
@@ -46,16 +43,6 @@ export async function runCleanup(): Promise<CleanupResult> {
 export async function clearAllFavorites(): Promise<CleanupResult> {
     const response = await apiFetch(`${API_BASE}/maintenance/favorites/clear`, { method: 'POST' });
     return handleResponse<CleanupResult>(response);
-}
-
-export async function purgeMissingClips(): Promise<PurgeMissingMediaResult> {
-    const response = await apiFetch(`${API_BASE}/maintenance/purge-missing-clips`, { method: 'POST' });
-    return handleResponse<PurgeMissingMediaResult>(response);
-}
-
-export async function purgeMissingSnapshots(): Promise<PurgeMissingMediaResult> {
-    const response = await apiFetch(`${API_BASE}/maintenance/purge-missing-snapshots`, { method: 'POST' });
-    return handleResponse<PurgeMissingMediaResult>(response);
 }
 
 export async function purgeMissingMedia(): Promise<PurgeMissingMediaResult> {
@@ -144,7 +131,7 @@ export async function testBirdWeather(token?: string): Promise<{ status: string;
 }
 
 type LlmTestApiResponse = paths['/api/settings/llm/test']['post']['response'];
-export type LlmTestFailureStage = NonNullable<LlmTestApiResponse['failure_stage']>;
+type LlmTestFailureStage = NonNullable<LlmTestApiResponse['failure_stage']>;
 export type LlmTestResult = LlmTestApiResponse & {
     failure_stage: LlmTestFailureStage | null;
     retryable: boolean;

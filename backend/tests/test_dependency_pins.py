@@ -47,10 +47,29 @@ def test_cpu_onnxruntime_floor_is_consistent_across_runtime_flavors():
         for flavor in ("cpu", "intel", "full")
     }
 
-    assert "onnxruntime>=1.28.0" in requirements["cpu"]
-    assert "onnxruntime>=1.28.0" in requirements["intel"]
-    assert 'onnxruntime>=1.28.0 ; platform_machine == "aarch64"' in requirements["full"]
+    assert "onnxruntime>=1.29.0" in requirements["cpu"]
+    assert "onnxruntime>=1.29.0" in requirements["intel"]
+    assert 'onnxruntime>=1.29.0 ; platform_machine == "aarch64"' in requirements["full"]
     assert "onnxruntime-gpu[cuda,cudnn]>=1.24.0,<1.27.0" in requirements["full"]
+
+
+def test_gpu_onnxruntime_window_is_held_below_cuda_13_everywhere():
+    """1.27+ means CUDA 13 userspace and a newer host driver: a 3.0 decision, not a bump.
+
+    Both amd64 GPU images must carry the same window, and Dependabot must be told not to
+    propose past it, or the next weekly PR re-opens the question with a green tick from a CI
+    job that never installs this file.
+    """
+    backend_root = Path(__file__).resolve().parents[1]
+    window = "onnxruntime-gpu[cuda,cudnn]>=1.24.0,<1.27.0"
+    for flavor in ("cuda", "full"):
+        content = (backend_root / f"requirements-provider-{flavor}.txt").read_text(encoding="utf-8")
+        assert window in content, flavor
+
+    dependabot = (backend_root.parent / ".github" / "dependabot.yml").read_text(encoding="utf-8")
+    pip_block = dependabot.split("- package-ecosystem: pip", 1)[1].split("- package-ecosystem:", 1)[0]
+    assert '- dependency-name: "onnxruntime-gpu"' in pip_block
+    assert 'versions: [">=1.27.0"]' in pip_block
 
 
 def test_openvino_floor_is_consistent_across_intel_capable_flavors():

@@ -3,7 +3,7 @@ import type { NotificationItem } from '../stores/notification_center.svelte';
 const MAX_POLICY_ENTRIES = 500;
 const ENTRY_TTL_MS = 24 * 60 * 60 * 1000;
 
-export class NotificationPolicy {
+class NotificationPolicy {
     private throttle = new Map<string, number>();
     private signature = new Map<string, string>();
 

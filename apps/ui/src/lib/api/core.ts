@@ -21,21 +21,22 @@ export function setApiKey(key: string | null) {
     }
 }
 
-export function getApiKey(): string | null {
-    return apiKey;
-}
-
 function appendQueryParam(url: string, key: string, value: string): string {
     const separator = url.includes('?') ? '&' : '?';
     return `${url}${separator}${key}=${encodeURIComponent(value)}`;
 }
 
+/**
+ * Media URLs for `<img>`, `<video>` and `<audio>`, which cannot send headers.
+ *
+ * The session is never put in the query string: every proxy in front of YA-WAMF
+ * logs request URIs, and a session token there is a week of owner access per
+ * thumbnail. A signed-in browser holds the session as an HttpOnly cookie that the
+ * media routes accept instead (see `createSessionCookie`). Only the deprecated
+ * API key, which has no cookie form, still rides in the URL.
+ */
 export function withAuthParams(url: string): string {
     const normalizedUrl = normalizeBackendPath(url);
-    const token = getAuthToken();
-    if (token) {
-        return appendQueryParam(normalizedUrl, 'token', token);
-    }
     if (apiKey) {
         return appendQueryParam(normalizedUrl, 'api_key', apiKey);
     }
@@ -190,13 +191,6 @@ export async function fetchWithAbort<T>(
             console.debug(`Request cancelled: ${key || url}`);
         }
         throw error;
-    }
-}
-
-export function cancelRequest(key: string) {
-    if (abortControllers.has(key)) {
-        abortControllers.get(key)!.abort();
-        abortControllers.delete(key);
     }
 }
 

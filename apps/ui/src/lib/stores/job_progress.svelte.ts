@@ -1,5 +1,5 @@
-export type JobStatus = 'queued' | 'running' | 'stale' | 'completed' | 'failed';
-export type JobSource = 'sse' | 'poll' | 'ui' | 'system';
+type JobStatus = 'queued' | 'running' | 'stale' | 'completed' | 'failed';
+type JobSource = 'sse' | 'poll' | 'ui' | 'system';
 
 export interface JobProgressItem {
     id: string;

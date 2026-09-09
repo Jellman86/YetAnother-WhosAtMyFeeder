@@ -1,4 +1,5 @@
 import {
+    createSessionCookie,
     fetchAuthStatus,
     getAuthToken,
     login as apiLogin,
@@ -60,7 +61,6 @@ class AuthStore {
     // is the only route by which the owner's choice reaches a public visitor.
     explorerView = $state<'cards' | 'list'>('cards');
     private readonly staleTracker = new StaleTracker(300_000); // 5 minutes
-    private readonly unregister: () => void;
     private _isRefreshing = false;
 
     // Owner-only UI must stay locked until auth status has loaded successfully.
@@ -75,7 +75,7 @@ class AuthStore {
 
     constructor() {
         // Status is loaded via loadStatus()
-        this.unregister = refreshCoordinator.register(() => this.refreshIfStale());
+        refreshCoordinator.register(() => this.refreshIfStale());
     }
 
     requestLogin() {
@@ -100,6 +100,11 @@ class AuthStore {
             this.publicAccessAllowClipDownloads = status.public_access_allow_clip_downloads ?? false;
             this.needsInitialSetup = status.needs_initial_setup ?? false;
             this.isAuthenticated = status.is_authenticated;
+            if (this.token && status.is_authenticated) {
+                // Media loads with the session cookie, not a token in the URL. A browser
+                // that signed in before the cookie existed still needs one attached.
+                void createSessionCookie().catch(() => undefined);
+            }
             this.username = status.username ?? null;
             this.httpsWarning = status.https_warning ?? false;
             this.birdnetEnabled = status.birdnet_enabled ?? false;

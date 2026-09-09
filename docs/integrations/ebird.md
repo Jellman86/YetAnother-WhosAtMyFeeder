@@ -12,12 +12,12 @@ Enable eBird if you want richer taxonomy and sightings context. It provides broa
 - **Export:** Export your detections to a CSV file compatible with eBird's bulk import tool.
 
 ## Configuration
-1. Go to **Settings > Integrations**.
+1. Go to **Settings → Integrations → eBird**.
 2. Enable eBird.
 3. Enter your eBird API Key.
    *   *Note:* You can request an API key from eBird [here](https://ebird.org/api/keygen).
 4. Set your search radius and history limit (days).
-   *   The radius field uses the unit system chosen in **Settings > Location > Display Units**: kilometres for Metric, miles for Imperial and British. eBird accepts 1-50 km (1-31 miles), and YA-WAMF stores the value in kilometres whichever unit you type.
+   *   The radius field uses the unit system chosen in **Settings → Integrations → Location → Display Units**: kilometres for Metric, miles for Imperial and British. eBird accepts 1-50 km (1-31 miles), and YA-WAMF stores the value in kilometres whichever unit you type.
 
 ## Enrichment Behavior
 When eBird is enabled, YA-WAMF will prefer eBird taxonomy and recent sightings for enrichment wherever available. If eBird data is unavailable for a species or you disable eBird, YA-WAMF falls back to iNaturalist and Wikipedia sources where appropriate.
@@ -25,7 +25,7 @@ When eBird is enabled, YA-WAMF will prefer eBird taxonomy and recent sightings f
 ## Exporting to eBird
 Since eBird does not provide a public API for submitting checklists programmatically, YA-WAMF provides a CSV export feature compliant with the "Record Format".
 
-1. Go to **Settings > Integrations > eBird**.
+1. Go to **Settings → Integrations → eBird**.
 2. Optionally choose inclusive `From` / `To` dates if you want a bounded checklist range. Leave both blank to export all detections.
 3. Click **Export All Sightings (CSV)**.
 4. Log in to the [eBird Import Data](https://ebird.org/import) tool.

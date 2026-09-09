@@ -60,6 +60,46 @@ curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
 # curl -H "Authorization: Bearer <token>" http://localhost:8946/api/events
 ```
 
+### Session cookie for media
+
+`<img>`, `<video>` and `<audio>` cannot set an `Authorization` header. The app uses a session
+cookie for media requests to keep the session token out of URLs and proxy request logs.
+
+Instead, `POST /api/auth/login` (and first-run setup) also sets an `HttpOnly`, `SameSite=Lax`
+cookie named `yawamf_session`, scoped to `/api`, `Secure` when the request arrived over HTTPS,
+with the session's own lifetime. **Only read-only media routes and the live stream honour it**:
+snapshots, thumbnails, clips, recording clips, clip-thumbnail sprites and VTT, snapshot
+candidates, the camera live frame, audio spectrograms and clips, and `GET /api/sse`. The cookie
+cannot authorise other routes or state-changing requests. Use a Bearer header for authenticated
+API calls. `POST /api/auth/logout` clears the cookie.
+
+- `POST /api/auth/session-cookie` (owner, **Bearer only**) — attaches the caller's existing session
+  as the cookie. The app calls it once on load for a browser that signed in before the cookie
+  existed. The cookie itself is not accepted here, so a media-scoped cookie can never widen its
+  own reach.
+- The deprecated `api_key` query parameter still works on media routes until it is removed in 3.0.
+
+### Stream ticket
+
+`EventSource` cannot set an `Authorization` header. The app exchanges its session for a
+single-use stream ticket, keeping the session token out of the URL. A client can open the
+stream with a ticket as follows:
+
+```bash
+TICKET=$(curl -fsS -X POST -H "Authorization: Bearer <token>" \
+  http://localhost:9852/api/auth/stream-ticket | python3 -c 'import sys,json; print(json.load(sys.stdin)["ticket"])')
+curl -N "http://localhost:9852/api/sse?ticket=$TICKET"
+```
+
+- A ticket is **single-use** and expires **60 seconds** after issue. An unredeemed ticket
+  exposed in a log remains usable until it expires.
+- It inherits the session's expiry, so the stream still ends when the session would have.
+- Only a signed-in session is issued one (`403` for a guest, `401` with no session). A guest does
+  not need one: with public access on, the bare `/api/sse` already opens as a guest.
+- The server keeps only a hash of each outstanding ticket, bounded to 256 at a time.
+- Clients that can send a Bearer header may skip the exchange. The stream also accepts the
+  session cookie described above.
+
 ### Auth status
 
 - `GET /api/auth/status`: returns auth/public-access capability flags used by the frontend.
@@ -70,8 +110,13 @@ curl -H "Authorization: Bearer <token>" http://localhost:9852/api/events
 - `GET /ready`: startup readiness (returns `503` until ready). This exact public path is proxied
   through both monolithic and split frontend deployments and is not cacheable.
 - `GET /api/version`: app version metadata.
-- `GET /api/sse`: Server-Sent Events stream.
-  - Supports bearer token or `?token=<jwt>` for EventSource compatibility.
+- `GET /api/update-status`: whether a newer YA-WAMF release exists. A notification only —
+  YA-WAMF never updates itself, and the check honours the `system.update_check_enabled` opt-out.
+- `GET /api/system-telemetry`: one live host-utilization sample (the sidebar's rolling CPU/NPU
+  graph). Guest rate limits apply; the response is not cacheable.
+- `GET /api/sse`: Server-Sent Events stream. Opens with a Bearer header, with a single-use
+  `?ticket=` from `POST /api/auth/stream-ticket`, or as a guest when public access is on. The
+  session token is **not** accepted in the query string; see [Stream ticket](#stream-ticket).
 
 ## Endpoint Map
 
@@ -89,6 +134,8 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
   succeeds, later calls are rejected and authentication changes use the owner-only
   Settings API.
 - `POST /api/auth/logout`
+- `POST /api/auth/stream-ticket` (owner) — single-use, 60-second ticket that opens `GET /api/sse`; see [Stream ticket](#stream-ticket).
+- `POST /api/auth/session-cookie` (owner, Bearer only) — sets the media session cookie for an already-signed-in browser; see [Session cookie for media](#session-cookie-for-media).
 
 ### Guided setup
 
@@ -166,6 +213,12 @@ the final evidence route when video is unavailable, temporal sources abstain, or
 candidate does not clear the configured promotion threshold. The SSE stream emits
 `reclassification_strategy_changed` before that fallback.
 
+- `POST /api/events/bulk/delete` (owner) — **irreversibly** deletes several detections by Frigate
+  event ID in one request. Duplicate and empty IDs are dropped, and an empty list is a `400`. The
+  response separates the IDs actually deleted from those that did not exist. This is a hard delete:
+  the rows and their cached media are gone. Use `POST /api/events/{event_id}/hide` when you want a
+  recoverable soft delete instead.
+
 ### Manual observations
 
 - `POST /api/manual-observations` (owner; multipart `media`; images up to 25 MiB, videos up to
@@ -200,7 +253,10 @@ per-file limits above.
   - Candidate rows include optional `crop_strategy` provenance (`native`, `frigate_guided`,
     `sliced_2x2`, or `fast_native`) for model-generated crops, and `frigate_final_box` for the
     completed-track clean-snapshot baseline.
-- `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner)
+- `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/thumbnail.jpg` (owner) — the
+  small chooser thumbnail for one candidate.
+- `GET /api/frigate/{event_id}/snapshot/candidates/{candidate_id}/image.jpg` (owner) — the retained
+  full-resolution candidate, for the large preview.
 - `POST /api/frigate/{event_id}/snapshot/apply` (owner)
 - `GET /api/frigate/{event_id}/snapshot/original.jpg` (owner)
 - `POST /api/frigate/{event_id}/snapshot/hq-bird-crop` (owner; legacy route name, generates the best available HQ image)
@@ -367,6 +423,13 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/settings/llm/test` (owner) — returns structured AI diagnostic metadata (`provider`,
   `model`, `frame_count`, `failure_stage`, `retryable`, and optional `retry_after_seconds`) for the
   Settings multi-stage test panel. Provider 429 and 503 statuses are preserved.
+- `GET /api/settings/export` (owner) — downloads the whole persisted configuration as one JSON
+  file. **This export contains your secrets in the clear** (API keys, tokens, MQTT and SMTP
+  passwords) because it has to restore them. Treat the file like a password.
+- `POST /api/settings/import` (owner) — restores a configuration backup. The payload is validated
+  before anything is written (`422` on a bad shape), and enabling authentication without a password
+  hash is refused. A successful import replaces the current configuration and broadcasts the
+  changed fields.
 - `GET /api/maintenance/taxonomy/status` (owner)
 - `POST /api/maintenance/taxonomy/sync` (owner)
 - `GET /api/maintenance/stats` (owner)
@@ -374,6 +437,17 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/maintenance/favorites/clear` (owner)
 - `POST /api/maintenance/purge-missing-clips` (owner)
 - `POST /api/maintenance/purge-missing-snapshots` (owner)
+- `POST /api/maintenance/purge-missing-media` (owner) — applies your configured missing-media
+  policy to every detection whose Frigate event or media has gone. With the policy set to `delete`
+  this **permanently removes** those detections; `mark_missing` and `keep` do not.
+- `GET /api/maintenance/timezone-repair/preview` (owner) — reports which legacy detections have a
+  timestamp shift, validated against Frigate, and changes nothing.
+- `POST /api/maintenance/timezone-repair/apply` (owner) — applies those repairs. Requires
+  `{"confirm": true}`; anything else is a `400`. Returns `409` while another maintenance job holds
+  the lane.
+- `POST /api/maintenance/video-classification/reset-circuit` (owner) — reopens the live and
+  maintenance video-analysis circuit breakers after a transient Frigate outage. Queued and running
+  jobs are preserved, not discarded.
 - `POST /api/maintenance/analyze-unknowns` (owner)
 - `GET /api/maintenance/analysis/status` (owner)
 - `DELETE /api/maintenance/feedback/clear` (owner)
@@ -441,6 +515,12 @@ snapshot, not a destructive queue-control API.
     `matches_visual`; the latter is true when the row independently confirms the persisted visual
     species, including audio that arrived after initial event processing.
   - `GET /api/audio/sources`
+  - `GET /api/audio/spectrogram/{birdnet_id}` — proxies the BirdNET-Go spectrogram PNG so no
+    BirdNET-Go host or token reaches the browser. `width` is `64`–`1600` (default `400`).
+  - `GET /api/audio/clip/{birdnet_id}` — proxies the matched audio clip, forwarding the client's
+    `Range` header so `<audio controls>` can seek.
+
+  Both honour **Share audio with visitors**: with it off, a guest gets no audio at all.
 
 `GET /api/events` accepts `event_id` for an exact Frigate event lookup. It retains the same guest
 history, hidden-event, and camera-privacy restrictions as the paginated event list.
@@ -456,6 +536,10 @@ history, hidden-event, and camera-privacy restrictions as the paginated event li
   - `POST /api/inaturalist/draft`
   - `POST /api/inaturalist/submit`
   - `GET /api/inaturalist/seasonality`
+- Location:
+  - `GET /api/location/reverse-geocode` — resolves `lat` and `lon` to a state, country, and place
+    guess, used to fill the location fields the eBird export needs. Returns `502` when the upstream
+    geocoder cannot be reached.
 - Email OAuth and testing:
   - `GET /api/email/oauth/gmail/authorize`
   - `GET /api/email/oauth/gmail/callback`
@@ -473,7 +557,22 @@ history, hidden-event, and camera-privacy restrictions as the paginated event li
 - `GET /api/debug/system`
 - `GET /api/diagnostics/errors`
 - `GET /api/diagnostics/workspace`
+- `GET /api/diagnostics/bundle` — the whole owner diagnostics bundle as one exportable JSON
+  payload; this is what **Settings → Health → Diagnostics export** downloads. `limit` is `1`–`1000`
+  (default `200`).
 - `POST /api/diagnostics/clear`
+
+### Model evaluation (owner)
+
+Benchmarks every installed classifier against labelled feeder images. See
+[Model evaluation](features/model-evaluation.md).
+
+- `POST /api/diagnostics/model-eval/runs` — start a run.
+- `GET /api/diagnostics/model-eval/runs` — list runs.
+- `GET /api/diagnostics/model-eval/runs/{run_id}` — one run's status and results.
+- `GET /api/diagnostics/model-eval/runs/{run_id}/{artifact}` — download a run artifact.
+- `POST /api/diagnostics/model-eval/runs/{run_id}/cancel` — stop a run in progress.
+- `DELETE /api/diagnostics/model-eval/runs/{run_id}` — delete a run and its artifacts.
 
 ### AI Usage Stats (owner)
 

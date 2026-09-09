@@ -21,7 +21,7 @@ export interface ModelEvalRunSummary {
     error?: string;
 }
 
-export interface ModelEvalSkippedModel {
+interface ModelEvalSkippedModel {
     model_id: string;
     reason: string;
     detail?: string;
@@ -112,7 +112,7 @@ export async function startModelEvalRun(opts: {
     return handleResponse<{ run_id: string }>(resp);
 }
 
-export interface DeviceSweepEntry {
+interface DeviceSweepEntry {
     provider?: string;
     backend?: string;
     device?: string;

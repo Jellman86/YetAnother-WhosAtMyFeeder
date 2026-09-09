@@ -251,8 +251,8 @@ already carried every job with its live progress, so the second view mostly disa
 first. Notifications is now the single surface for background work, and the one control the jobs
 view held alone, resuming a queue the circuit breaker paused, sits at the top of it where work
 needing a person belongs. Jobs are named by the work rather than the event, with the event kept as
-detail so two clips analysed at once are still told apart. Remaining on this surface: the empty
-state still describes only bird visits and does not yet mention the background work it now owns.
+detail so two clips analysed at once are still told apart. The empty state names both things the
+surface now owns, visits and background work, so nothing remains on it.
 
 #### A public projection of the settings a viewer needs 👥
 **Priority:** P1 | **Effort:** S
@@ -437,6 +437,25 @@ day-bucket timeline strip with keyboard nav. Remaining:
 - Fuller grouped-browsing timeline UI + advanced keyboard UX.
 - Highlight scoring (confidence, rarity, activity) and clip stitching/preview thumbnails.
 
+#### One flow for choosing the frame and the identification 🖼️
+**Priority:** P2 | **Effort:** M | **Status:** ☐ Needs a design decision
+
+Tracked in [#256](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/256). A person
+choosing the most representative photograph of a visit does not care whether it came from Frigate's
+preview or from footage extraction, and does not expect the identification shown beside a candidate
+frame to be advisory. Today frame choice and reclassification are two surfaces with two vocabularies,
+and the split by source is the app showing its own plumbing. The bug halves of the report have
+shipped: the delete control names its effect, and species information is stated once.
+
+Remaining: one flow in which the owner picks the frame and confirms or corrects the identification
+together, with the source of each frame demoted to a detail, and the technical identifiers behind
+progressive disclosure as they are elsewhere. This is a layout-standard decision before it is code;
+the page shape must be recorded in `docs/standards/layout-patterns.md` first.
+
+**Acceptance:** a first-time owner can choose the frame and settle the species from one place without
+reading the docs; no control on that surface names a subsystem; the existing tests for frame
+replacement and reclassification still pass unchanged.
+
 #### Durable media archive and retention floors 📚
 **Priority:** P2 | **Effort:** M | **Status:** ☐ Proposed
 ([#178](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/178))
@@ -481,6 +500,47 @@ Ollama is unavailable.
 
 CSV export (eBird format) is shipped. Add a first-class, safe full-database backup and restore
 flow so users can snapshot and recover their detection history and config.
+
+#### Home Assistant integration: survive a reload 🔁
+**Priority:** P1 | **Effort:** S | **Status:** ✅ Shipped in `dev`; move to Delivered at the next release
+
+A review of `custom_components/yawamf` on 2026-09-07 (verified against Home Assistant core `dev`)
+found that the sidebar proxy does not survive an integration reload, which is what every options
+change triggers:
+
+- `async_unregister_ingress_panel` awaits `frontend.async_remove_panel`, but that is a synchronous
+  `@callback` returning `None`. The `await` raises `TypeError`, the bare `except` swallows it at
+  debug level, and the panel is never removed. The next setup then logs "Overwriting panel yawamf"
+  as an exception and the panel keeps the **old** ingress token URL.
+- `async_register_ingress` calls `hass.http.register_view` on every setup. Views cannot be
+  unregistered and aiohttp answers with the first-registered route, so after a reload the old
+  `YAWAMFIngressView` (old token, old URL, old credentials) keeps serving until Home Assistant
+  restarts. Changing the URL or credentials in the options flow silently does nothing for the
+  sidebar. Worse, the old view holds the unloaded coordinator, which has stopped polling and so
+  stops refreshing its login token; the sidebar keeps working only until that token expires, then
+  answers with 401s until Home Assistant restarts.
+- `YAWAMFIngressAssetView` registers unauthenticated views at Home Assistant's root
+  (`/favicon.ico`, `/manifest.json`, …). The files are public on YA-WAMF anyway, so nothing secret
+  leaks; the cost is that the integration squats root paths on the Home Assistant origin, and
+  `/manifest.json` is already owned by HA's frontend so that one is dead. The SPA resolves assets
+  through `window.__YAWAMF_APP_BASE_PATH`, so they are not needed.
+
+Smaller gaps found in the same pass: the Last Bird sensor skips the state write when the event id
+is unchanged, so it never becomes `unavailable` when the coordinator fails; the camera entity
+re-downloads and re-scales the full snapshot on every image request with no per-event cache and no
+timeout; the config flow validates with no request timeout; a 401/403 raises `UpdateFailed` instead
+of `ConfigEntryAuthFailed` (no reauth flow); `manifest.json` lacks `dependencies: ["http",
+"frontend"]` and an `integration_type`; and `docs/integrations/home-assistant.md` still describes
+the count sensor as "since midnight" when it is a rolling 24-hour window.
+
+**Acceptance (met):** the ingress view is registered once per HA run and reads the live coordinator
+and token from `hass.data`; the panel is removed with a plain call and re-registered with
+`update=True`; an options change to URL or credentials takes effect in the sidebar without
+restarting HA and logs no exception; the root asset views are gone; the proxy refreshes the login
+before forwarding; the sensor writes state on availability changes; the camera caches per
+`frigate_event` and times out; the config flow times out; auth failures start reauth; the manifest
+declares its dependencies; the doc matches the sensor; and
+`backend/tests/test_home_assistant_sensor.py` covers the reload path, reauth, and the camera cache.
 
 #### Home Assistant OS add-on 🏠
 **Priority:** P3 | **Effort:** M | **Status:** ☐ Proposed ([#49](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/49))
@@ -724,6 +784,13 @@ in-app and in docs; the release makes them final.
   RegNet-Y-8G EU, and UniFormer-S EU are already absent from the current application catalogue.
   Their release assets remain temporarily available so pre-3.0 applications can still download
   them; the 3.0 release retires those legacy assets after the compatibility window.
+- **CUDA image moves to CUDA 13.** The `cuda` and amd64 `full` images pin `onnxruntime-gpu`
+  below 1.27 because 1.27 and later ship CUDA 13 userspace, which needs the NVIDIA 580 driver
+  series or newer on the host (1.27 and 1.28 also name CUDA 13 packages PyPI does not carry).
+  Lifting the pin raises a host requirement, so it lands with 3.0 and is announced as such.
+  Until then those two images stay on ONNX Runtime 1.26 and miss the input-validation
+  hardening 1.29 added to several CUDA kernels; exposure is limited because the runtime only
+  loads models the owner installed.
 - **Migration must be lossless.** Existing split-deployment installs must be able to move to
   the monolith with unchanged `/config` and `/data` volumes (DB, models, `config.json`), and
   the [split-to-monolith guide](docs/setup/migrate-split-to-monolith.md) stays the supported

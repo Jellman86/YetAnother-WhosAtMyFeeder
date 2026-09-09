@@ -5,6 +5,7 @@ from __future__ import annotations
 import io
 import logging
 
+import aiohttp
 from homeassistant.components.camera import Camera
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -21,6 +22,7 @@ _LOGGER = logging.getLogger(__name__)
 # scaled dashboard thumbnail, but the more-info / live camera view loops the
 # full image and fails to render when it's this large, so downscale it.
 _MAX_EDGE = 1280
+_SNAPSHOT_TIMEOUT = aiohttp.ClientTimeout(total=15)
 
 
 def _downscale_jpeg(data: bytes) -> bytes:
@@ -65,6 +67,10 @@ class YAWAMFLatestBirdCamera(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Cam
         super().__init__(coordinator)
         Camera.__init__(self)
         self._attr_unique_id = f"{coordinator.entry_id}_latest_snapshot"
+        # The dashboard asks for the image on every refresh, but the snapshot
+        # only changes when the detection does, so remember the last one.
+        self._cached_event_id: str | None = None
+        self._cached_image: bytes | None = None
 
     @property
     def is_on(self) -> bool:
@@ -82,19 +88,30 @@ class YAWAMFLatestBirdCamera(CoordinatorEntity[YAWAMFDataUpdateCoordinator], Cam
 
     async def async_camera_image(self, width: int | None = None, height: int | None = None) -> bytes | None:
         """Return a still image response from the camera."""
-        latest = self.coordinator.data.get("latest")
-        if not latest:
+        latest = (self.coordinator.data or {}).get("latest")
+        if not isinstance(latest, dict):
             return None
 
         event_id = latest.get("frigate_event")
-        url = f"{self.coordinator.url}/api/frigate/{event_id}/snapshot.jpg"
+        if not isinstance(event_id, str) or not event_id:
+            return None
+        if event_id == self._cached_event_id and self._cached_image is not None:
+            return self._cached_image
 
+        url = f"{self.coordinator.url}/api/frigate/{event_id}/snapshot.jpg"
         try:
-            async with self.coordinator.session.get(url, headers=self.coordinator.headers) as resp:
+            await self.coordinator.async_ensure_logged_in()
+            async with self.coordinator.session.get(
+                url, headers=self.coordinator.headers, timeout=_SNAPSHOT_TIMEOUT
+            ) as resp:
                 if resp.status != 200:
                     return None
                 data = await resp.read()
-        except Exception:
+        except Exception:  # noqa: BLE001 - the card shows nothing rather than a frame from another detection
+            _LOGGER.debug("YA-WAMF snapshot fetch failed", exc_info=True)
             return None
 
-        return await self.hass.async_add_executor_job(_downscale_jpeg, data)
+        image = await self.hass.async_add_executor_job(_downscale_jpeg, data)
+        self._cached_event_id = event_id
+        self._cached_image = image
+        return image

@@ -1,6 +1,6 @@
-export type NotificationSource = 'sse' | 'health' | 'cache' | 'system' | 'ui' | 'poll';
+type NotificationSource = 'sse' | 'health' | 'cache' | 'system' | 'ui' | 'poll';
 
-export interface NotificationMeta {
+interface NotificationMeta {
     source?: NotificationSource;
     route?: string;
     event_id?: string;

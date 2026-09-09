@@ -10,22 +10,41 @@ YA-WAMF features deep integration with [BirdNET-Go](https://github.com/tphakala/
    treating a stronger different call as nearby context.
 4. If a match is found, the detection is marked as **"Verified"** in the UI with an audio badge.
 
+Every persisted audio detection is browsable in its own right under **Audio History**, reached from
+the **Leaderboard** or from the dashboard's **Recent Audio** card. Calls heard but never matched to
+a camera visit still live here, which is usually the fastest way to tell "the microphone heard
+nothing" apart from "the correlation window missed it":
+
+![Audio History: counts for detections heard, audio-derived species, peak hour and number of sources, above filters for window, species, source and minimum confidence, and a detection history table pairing each spectrogram with its species, time, source and confidence](../images/audio-history.png)
+
 ## Setup
 
 ### 1. MQTT Topic
-In **Settings > Integrations**, ensure the MQTT topic matches your BirdNET-Go configuration. 
-- **Modern BirdNET-Go:** Use the base topic (e.g., `birdnet`). 
+In **Settings → Integrations → BirdNET-Go**, make sure **MQTT Topic** matches your BirdNET-Go configuration.
+- **Modern BirdNET-Go:** Use the base topic (e.g., `birdnet`).
 - **Legacy / Custom:** Use the specific text topic (e.g., `birdnet/text`).
 
 > ℹ️ **Note:** YA-WAMF automatically reconnects if you change the topic or enable/disable BirdNET
 > in the UI. When disabled, YA-WAMF does not subscribe to the BirdNET topic and does not ingest its
 > messages.
 
-### 2. Sensor Mapping
+### 2. The two URLs
+
+**Settings → Integrations → BirdNET-Go** asks for two addresses, and they do different jobs:
+
+| Field | Who uses it | Example |
+|---|---|---|
+| **BirdNET-Go internal URL** | The YA-WAMF backend, to fetch spectrogram images and audio clips. | `http://birdnet-go:8080` |
+| **BirdNET-Go browser URL** | Your browser, for the dashboard links that open BirdNET-Go itself. Falls back to the internal URL when empty. | `https://birdnet.example.com` |
+
+**If spectrograms do not load** but the links work, the internal URL is wrong or unreachable from
+the container. **If the links go nowhere** but spectrograms are fine, the browser URL is wrong.
+
+### 3. Sensor Mapping
 For correlation to work, YA-WAMF needs to know which audio sensor belongs to which camera.
 1. Observe the **Recent Audio** widget on the dashboard.
 2. Note the **Sensor ID** displayed in the top-right of the audio entries (e.g., `rtsp_42182153`).
-3. Go to **Settings > Integrations > Sensor Mapping**.
+3. Go to **Settings → Integrations → BirdNET-Go → BirdNET Source Mapping (Optional)**.
 4. Type that ID next to the corresponding Frigate camera name.
 
 A named camera without a mapping does not receive audio from another source. Use `*` only when you
@@ -40,18 +59,18 @@ as the runtime `sourceId`. This is easier to maintain than copying a generated h
 camera contribute independent audio context. See BirdNET-Go's
 [RTSP/multiple-source guide](https://github.com/tphakala/birdnet-go/wiki/BirdNET%E2%80%90Go-Guide#live-audio-streaming).
 
-### 3. Dynamic Sensor IDs (Wildcard)
+### 4. Dynamic Sensor IDs (Wildcard)
 If your audio source (like a re-streaming camera) generates a new Sensor ID every time it restarts, you can use a **wildcard** to match *any* audio detection to a specific camera.
 
-- In the **Sensor Mapping** field, simply enter: `*`
+- In the source mapping field for that camera, enter: `*`
 - This tells YA-WAMF: "Any audio detection that happens at the same time as this camera's visual detection is a match, regardless of the sensor name."
 
 > ⚠️ **Important:** For correlation to work, your **Timezone (TZ)** must be synced across all containers. See the [Getting Started](../setup/getting-started.md#🌍-the-importance-of-timezone-tz) guide for more details.
 
-### 4. Test the complete path
+### 5. Test the complete path
 
-Use **Test BirdNET-Go path** in the setup wizard or **Test Audio detection** under
-**Settings > Integrations**. The staged diagnostic checks, in order:
+Use **Test BirdNET-Go path** in the setup wizard, or **Test Audio detection** under
+**Settings → Integrations → BirdNET-Go**. The staged diagnostic checks, in order:
 
 1. the BirdNET-Go URL currently shown in the form, when one is set;
 2. an isolated publish through the configured MQTT broker; and

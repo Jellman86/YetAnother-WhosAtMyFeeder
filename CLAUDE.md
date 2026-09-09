@@ -234,6 +234,7 @@ npm install
 npm run dev        # dev server; proxy target is set in vite.config.ts
 npm run check      # svelte-check: zero errors, zero warnings
 npm test           # vitest unit/layout tests
+npm run lint:dead  # knip: no unused files, exports, or packages
 npm run build      # production build
 ```
 
@@ -272,7 +273,10 @@ looser.
   Alembic migration smoke (`upgrade → downgrade → upgrade`), migration path matrix
   ([`backend/scripts/ci_migration_path_check.py`](backend/scripts/ci_migration_path_check.py)),
   single-Alembic-head check, and `pytest`. **frontend**: `npm ci` → `npm run check`
-  → `npm test` → `npm run build`. **telemetry worker**: dependency check.
+  → `npm run lint:dead` (knip: no unused files, exports, or packages) → `npm test` → `npm run build`.
+  A backend module reachable from nothing that runs fails
+  [`backend/tests/test_dead_modules.py`](backend/tests/test_dead_modules.py) inside `pytest`.
+  **telemetry worker**: dependency check.
 - [`.github/workflows/codeql.yml`](.github/workflows/codeql.yml) — CodeQL scanning
   for Python and TypeScript.
 - [`.github/workflows/docs-quality.yml`](.github/workflows/docs-quality.yml) — runs

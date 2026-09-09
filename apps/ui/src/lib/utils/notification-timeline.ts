@@ -12,17 +12,17 @@ export type NotificationFilter = 'all' | 'birds' | 'updates' | 'jobs' | 'errors'
 /** Amber is reserved for "this needs a person" (layout-patterns 1.3). Nothing else may claim it. */
 export type NotificationTone = 'attention' | 'done' | 'running' | 'info';
 
-export type TimelineGroupKey = 'now' | 'earlier' | 'yesterday' | 'older';
+type TimelineGroupKey = 'now' | 'earlier' | 'yesterday' | 'older';
 
 export interface TimelineGroup {
     key: TimelineGroupKey;
     items: NotificationItem[];
 }
 
-export const NOW_WINDOW_MS = 30 * 60 * 1000;
+const NOW_WINDOW_MS = 30 * 60 * 1000;
 
 /** Owner-only filters are hidden outright rather than shown returning zero. */
-export const OWNER_ONLY_FILTERS: readonly NotificationFilter[] = ['jobs', 'errors'];
+const OWNER_ONLY_FILTERS: readonly NotificationFilter[] = ['jobs', 'errors'];
 
 export function isOwnerOnlyFilter(filter: NotificationFilter): boolean {
     return OWNER_ONLY_FILTERS.includes(filter);
@@ -157,7 +157,7 @@ export function toneOf(item: NotificationItem): NotificationTone {
     return 'info';
 }
 
-export function filterOf(item: NotificationItem): NotificationFilter {
+function filterOf(item: NotificationItem): NotificationFilter {
     if (isFailure(item)) return 'errors';
     if (item.type === 'detection') return 'birds';
     if (item.meta?.status) return 'jobs';
@@ -165,7 +165,7 @@ export function filterOf(item: NotificationItem): NotificationFilter {
     return 'jobs';
 }
 
-export function matchesFilter(item: NotificationItem, filter: NotificationFilter): boolean {
+function matchesFilter(item: NotificationItem, filter: NotificationFilter): boolean {
     if (filter === 'all') return true;
     return filterOf(item) === filter;
 }
@@ -198,7 +198,7 @@ function startOfDay(at: number): number {
     return date.getTime();
 }
 
-export function groupKeyFor(timestamp: number, now: number): TimelineGroupKey {
+function groupKeyFor(timestamp: number, now: number): TimelineGroupKey {
     if (now - timestamp <= NOW_WINDOW_MS) return 'now';
     const today = startOfDay(now);
     if (timestamp >= today) return 'earlier';

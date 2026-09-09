@@ -5,12 +5,6 @@ export type DiagnosticsWorkspacePayload = paths['/api/diagnostics/workspace']['g
 
 export type BackendDiagnosticEvent = DiagnosticsWorkspacePayload['backend_diagnostics']['events'][number];
 
-export type VideoClassifierFocusedDiagnostics = NonNullable<
-    DiagnosticsWorkspacePayload['focused_diagnostics']['video_classifier']
->;
-
-export type DiagnosticsBundlePayload = paths['/api/diagnostics/bundle']['get']['response'];
-
 export async function fetchDiagnosticsWorkspace(limit = 200): Promise<DiagnosticsWorkspacePayload> {
     const response = await apiFetch(`${API_BASE}/diagnostics/workspace?limit=${Math.max(1, Math.floor(limit))}`, {
         timeoutMs: 15_000
@@ -25,9 +19,4 @@ export async function clearDiagnosticsWorkspace(): Promise<ClearDiagnosticsWorks
         method: 'POST'
     });
     return handleResponse<ClearDiagnosticsWorkspaceResponse>(response);
-}
-
-export async function fetchDiagnosticsBundle(limit = 200): Promise<DiagnosticsBundlePayload> {
-    const response = await apiFetch(`${API_BASE}/diagnostics/bundle?limit=${Math.max(1, Math.floor(limit))}`);
-    return handleResponse<DiagnosticsBundlePayload>(response);
 }

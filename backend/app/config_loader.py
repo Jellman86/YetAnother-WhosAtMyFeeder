@@ -427,6 +427,8 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             "camera_filters": {},
         },
         "notification_language": os.environ.get("NOTIFICATIONS__NOTIFICATION_LANGUAGE", "en"),
+        "instance_url": os.environ.get("NOTIFICATIONS__INSTANCE_URL", None),
+        "link_target": os.environ.get("NOTIFICATIONS__LINK_TARGET", "yawamf"),
         "mode": os.environ.get("NOTIFICATIONS__MODE", "standard"),
         "notify_on_insert": os.environ.get("NOTIFICATIONS__NOTIFY_ON_INSERT", "true").lower() == "true",
         "notify_on_update": os.environ.get("NOTIFICATIONS__NOTIFY_ON_UPDATE", "false").lower() == "true",
@@ -645,6 +647,16 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
                     env_key = "NOTIFICATIONS__NOTIFICATION_LANGUAGE"
                     if env_key not in os.environ:
                         notifications_data["notification_language"] = n_file["notification_language"]
+
+                if "instance_url" in n_file:
+                    env_key = "NOTIFICATIONS__INSTANCE_URL"
+                    if env_key not in os.environ:
+                        notifications_data["instance_url"] = n_file["instance_url"]
+
+                if "link_target" in n_file:
+                    env_key = "NOTIFICATIONS__LINK_TARGET"
+                    if env_key not in os.environ:
+                        notifications_data["link_target"] = n_file["link_target"]
 
                 if "mode" in n_file:
                     env_key = "NOTIFICATIONS__MODE"

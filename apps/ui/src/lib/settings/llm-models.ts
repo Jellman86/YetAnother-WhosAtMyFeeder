@@ -1,4 +1,4 @@
-export type LlmProvider = 'gemini' | 'openai' | 'claude' | 'openrouter';
+type LlmProvider = 'gemini' | 'openai' | 'claude' | 'openrouter';
 
 export type LlmModelOption = {
     value: string;

@@ -3,7 +3,6 @@ import detectionRowSource from './DetectionRow.svelte?raw';
 import previewSource from './DetectionPreview.svelte?raw';
 import eventsPageSource from '../pages/Events.svelte?raw';
 import appearanceSource from './settings/AppearanceSettings.svelte?raw';
-import filtersSource from './ExplorerFilters.svelte?raw';
 import storeSource from '../stores/explorer_view.svelte.ts?raw';
 import authStoreSource from '../stores/auth.svelte.ts?raw';
 

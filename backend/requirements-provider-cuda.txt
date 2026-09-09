@@ -1,4 +1,7 @@
 # ONNX Runtime with packaged CUDA 12 / cuDNN 9 userspace libraries. The host
 # still needs an NVIDIA driver and NVIDIA Container Toolkit GPU passthrough.
-# ORT 1.27 uses CUDA 13 extras that are not available from the normal PyPI index.
+# Held below 1.27 on purpose: 1.27 and 1.28 name CUDA 13 packages PyPI does not
+# carry, and 1.29+ installs CUDA 13 userspace, which needs the NVIDIA 580 driver
+# series on the host. Moving is a 3.0 breaking change (ROADMAP 1.7); Dependabot
+# is told not to propose it. test_dependency_pins.py keeps the two in step.
 onnxruntime-gpu[cuda,cudnn]>=1.24.0,<1.27.0
