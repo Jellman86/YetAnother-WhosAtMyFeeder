@@ -28,7 +28,7 @@
     "vitest": "^4.1.10"
   },
   "dependencies": {
-    "apexcharts": "^6.8.0",
+    "apexcharts": "^7.1.0",
     "leaflet": "^1.9.4",
     "markdown-it": "^15.0.1",
     "svelte-i18n": "^4.0.1"
