@@ -59,6 +59,13 @@ class JobsSnapshotResponse(BaseModel):
     lanes: list[JobLaneSnapshot]
 
 
+# The browser keys a backfill it watches over the stream as `backfill:<kind>:<uuid>` with the
+# job kinds the rest of the UI knows. The snapshot has to say the same name, or the same backfill
+# is two jobs: counted twice in the top bar while it runs, and remembered afterwards under a bare
+# "Weather" with the word "completed" for a message.
+_BACKFILL_JOB_KINDS = {"detections": "backfill", "weather": "weather_backfill"}
+
+
 def _backfill_job_snapshots() -> list[dict[str, object]]:
     # Imported lazily to avoid binding the router module's mutable job store at
     # application import time.
@@ -69,14 +76,17 @@ def _backfill_job_snapshots() -> list[dict[str, object]]:
         status = str(job.status or "running").lower()
         if status not in {"running", "completed", "failed", "stale"}:
             status = "running"
+        summary = str(job.message or "").strip()
         snapshots.append(
             {
-                "id": job.id,
+                "id": f"backfill:{job.kind}:{job.id}",
                 "event_id": None,
-                "kind": job.kind,
+                "kind": _BACKFILL_JOB_KINDS.get(str(job.kind), str(job.kind)),
                 "source": "owner",
                 "status": status,
-                "phase": "processing" if status == "running" else status,
+                # While it runs the phase is the phase; once it is over, what it did is the
+                # useful line ("Updated 94 detection(s)"), not the status the tick already shows.
+                "phase": "processing" if status == "running" else (summary or status),
                 "current": max(0, int(job.processed or 0)),
                 "total": max(0, int(job.total or 0)),
                 "unit": "detections",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import appSource from '../../App.svelte?raw';
+import progressSource from './GlobalProgress.svelte?raw';
 import settingsPageSource from '../pages/Settings.svelte?raw';
 import appearanceSettingsSource from './settings/AppearanceSettings.svelte?raw';
 import bannerSource from './GlobalProgress.svelte?raw';
@@ -55,5 +56,14 @@ describe('Global progress layout', () => {
         expect(settingsPageSource).toContain("let currentColorTheme = $state<import('../stores/theme.svelte').ColorTheme>(themeStore.colorTheme);");
         expect(settingsPageSource).toContain('themeStore.setFontTheme(normalizeFontTheme(settings.appearance_font_theme));');
         expect(settingsPageSource).toContain('themeStore.setColorTheme(normalizeColorTheme(settings.appearance_color_theme));');
+    });
+});
+
+describe('global progress colour', () => {
+    it('keeps amber for a blocked lane and runs work in flight on the brand colour', () => {
+        // layout-patterns 1.3: amber says "this needs a person"; a job in flight needs nobody.
+        expect(progressSource).not.toContain('accent-');
+        expect(progressSource).toContain('bg-brand-500');
+        expect(progressSource).toContain('text-amber-600');
     });
 });

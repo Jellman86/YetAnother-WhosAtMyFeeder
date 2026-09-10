@@ -11,6 +11,7 @@
         filterNotifications,
         groupNotifications,
         isOwnerOnlyFilter,
+        isStoppedJob,
         progressOf,
         toneOf
     } from '../utils/notification-timeline';
@@ -79,6 +80,17 @@
         notificationCenter.markRead(item.id);
         const route = item.meta?.route;
         if (typeof route === 'string' && route.length > 0) navigate(route);
+    }
+
+    /** What a stopped job says for itself: how far it got and when it went quiet. */
+    function stoppedMessage(item: NotificationItem, progress: { current: number; total: number } | null): string {
+        const time = formatDateTime(item.timestamp);
+        if (progress) {
+            return $_('notifications.job_stopped', {
+                values: { current: progress.current.toLocaleString(), total: progress.total.toLocaleString(), time }
+            });
+        }
+        return $_('notifications.job_stopped_no_count', { values: { time } });
     }
 
     function canOpen(item: NotificationItem): boolean {
@@ -284,17 +296,19 @@
                                             <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-brand-500" aria-hidden="true"></span>
                                         {/if}
                                     </p>
-                                    {#if item.message}
+                                    {#if isStoppedJob(item)}
+                                        <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{stoppedMessage(item, progress)}</p>
+                                    {:else if item.message}
                                         <p class="mt-0.5 text-xs text-slate-600 dark:text-slate-300">{item.message}</p>
                                     {/if}
                                     {#if progress}
                                         <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
                                             <!-- Brand, not the amber gradient this used to run: a job in flight needs nobody. -->
-                                            <div class="h-full w-full origin-left rounded-full bg-brand-500 transition-transform duration-200 ease-out motion-reduce:transition-none" style={`transform: scaleX(${progress.percent / 100})`}></div>
+                                            <div class="h-full w-full origin-left rounded-full {isStoppedJob(item) ? 'bg-slate-400 dark:bg-slate-500' : 'bg-brand-500 transition-transform duration-200 ease-out motion-reduce:transition-none'}" style={`transform: scaleX(${progress.percent / 100})`}></div>
                                         </div>
                                         <p class="mt-1 flex justify-between font-mono text-[10px] text-slate-400 dark:text-slate-500">
                                             <span>{progress.current.toLocaleString()} / {progress.total.toLocaleString()}</span>
-                                            <span>{progress.percent}%</span>
+                                            <span>{isStoppedJob(item) ? $_('notifications.job_stopped_label') : `${progress.percent}%`}</span>
                                         </p>
                                     {/if}
                                     <p class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] text-slate-400 dark:text-slate-500">
@@ -313,15 +327,29 @@
                                             </span>
                                         {/if}
                                     </p>
-                                    {#if canOpen(item)}
-                                        <!-- Was a paragraph that looked like an action and could not be reached. -->
-                                        <button
-                                            type="button"
-                                            class="btn btn-secondary focus-ring mt-2 min-h-11 px-2.5 py-1 text-xs"
-                                            onclick={() => openItem(item)}
-                                        >
-                                            {item.meta?.open_label ?? $_('notifications.open_action')}
-                                        </button>
+                                    {#if canOpen(item) || isStoppedJob(item)}
+                                        <div class="mt-2 flex flex-wrap gap-2">
+                                            {#if canOpen(item)}
+                                                <!-- Was a paragraph that looked like an action and could not be reached. -->
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-secondary focus-ring min-h-11 px-2.5 py-1 text-xs"
+                                                    onclick={() => openItem(item)}
+                                                >
+                                                    {item.meta?.open_label ?? $_('notifications.open_action')}
+                                                </button>
+                                            {/if}
+                                            {#if isStoppedJob(item)}
+                                                <!-- A stopped job is a record; the owner decides when it has been seen. -->
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-ghost focus-ring min-h-11 px-2.5 py-1 text-xs"
+                                                    onclick={() => notificationCenter.remove(item.id)}
+                                                >
+                                                    {$_('notifications.dismiss_action')}
+                                                </button>
+                                            {/if}
+                                        </div>
                                     {/if}
                                 </div>
                             </div>

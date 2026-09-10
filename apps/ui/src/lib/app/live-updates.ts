@@ -85,6 +85,7 @@ interface NotificationCenterLike {
     add(item: NotificationInput): void;
     upsert(item: NotificationItem): void;
     remove(id: string): void;
+    expireStoppedJobs?(): void;
 }
 
 interface DetectionsStoreLike {
@@ -164,6 +165,7 @@ interface JobProgressLike {
         source?: 'sse' | 'poll' | 'ui' | 'system';
     }): void;
     markStale(maxIdleMs: number, perKindIdleMs?: Record<string, number>): void;
+    expireStale?(maxStaleMs: number): void;
     remove?(id: string): void;
 }
 
@@ -270,6 +272,8 @@ export class LiveUpdateCoordinator {
         }
         this.settleOrphanProcessNotifications();
         this.deps.jobProgress.markStale(RECLASSIFY_STATE_MAX_IDLE_MS, JOB_STALE_OVERRIDES);
+        this.deps.jobProgress.expireStale?.(STALE_PROCESS_MAX_AGE_MS);
+        this.deps.notificationCenter.expireStoppedJobs?.();
         this.pruneStaleReclassifyState();
     }
 

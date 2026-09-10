@@ -5,6 +5,7 @@ import {
     buildTimelineItems,
     countByFilter,
     filterNotifications,
+    isStoppedJob,
     groupNotifications,
     isOwnerOnlyFilter,
     progressOf,
@@ -215,5 +216,16 @@ describe('notification timeline', () => {
         expect(isOwnerOnlyFilter('errors')).toBe(true);
         expect(isOwnerOnlyFilter('birds')).toBe(false);
         expect(isOwnerOnlyFilter('all')).toBe(false);
+    });
+});
+
+describe('a job that stopped reporting', () => {
+    it('needs a person, is a job, and is not a live process', () => {
+        const stopped = item({ id: 's', type: 'process', meta: { status: 'stopped', stopped_at: 1, current: 11, total: 30 } });
+        expect(toneOf(stopped)).toBe('attention');
+        expect(filterNotifications([stopped], 'jobs')).toHaveLength(1);
+        expect(filterNotifications([stopped], 'updates')).toHaveLength(0);
+        expect(isStoppedJob(stopped)).toBe(true);
+        expect(isStoppedJob(item({ id: 'r', type: 'process', meta: { current: 1, total: 2 } }))).toBe(false);
     });
 });

@@ -137,4 +137,40 @@ describe('ServerJobsStore', () => {
         expect(second.current).toBe(4);
         expect(second.updatedAt).toBeGreaterThanOrEqual(first.updatedAt);
     });
+
+    it('folds a backfill the browser already watches into the snapshot row with the same id', () => {
+        const store = new ServerJobsStore();
+        store.snapshot = {
+            captured_at: '2026-09-10T07:10:40Z',
+            items: [{
+                id: 'backfill:weather:da620f73',
+                event_id: null,
+                kind: 'weather_backfill',
+                source: 'owner',
+                status: 'running',
+                phase: 'processing',
+                current: 40,
+                total: 94,
+                unit: 'detections',
+                visibility: 'prominent'
+            }],
+            lanes: []
+        };
+
+        const merged = store.mergeActive([{
+            id: 'backfill:weather:da620f73',
+            kind: 'weather_backfill',
+            title: 'Weather Backfill',
+            message: '52 of 94 detections',
+            status: 'running',
+            current: 52,
+            total: 94,
+            startedAt: 1,
+            updatedAt: 2,
+            source: 'poll'
+        }]);
+
+        expect(merged).toHaveLength(1);
+        expect(merged[0]).toMatchObject({ id: 'backfill:weather:da620f73', current: 52, total: 94, startedAt: 1 });
+    });
 });

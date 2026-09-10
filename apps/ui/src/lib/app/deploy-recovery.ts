@@ -1,3 +1,5 @@
+import { deploymentIdentity } from './app-version';
+
 export type DeployRecoveryAction = 'ignore' | 'reload' | 'warn';
 export type DeployRecoveryReason = 'runtime_failure' | 'version_mismatch';
 
@@ -43,11 +45,6 @@ function normalizeString(value: unknown): string {
     return typeof value === 'string' ? value.trim() : '';
 }
 
-function stripBuildMetadata(version: string): string {
-    const plusIdx = version.indexOf('+');
-    return plusIdx >= 0 ? version.slice(0, plusIdx) : version;
-}
-
 function getBuildMetadata(version: string): string {
     const plusIdx = version.indexOf('+');
     return plusIdx >= 0 ? version.slice(plusIdx + 1).trim().toLowerCase() : '';
@@ -63,13 +60,18 @@ function hasConcreteBuildMetadata(version: string): boolean {
  * suffix identifies the deployed frontend bundle. Two concrete, different
  * suffixes therefore mean an open tab is running stale code. Local/unknown
  * builds fall back to the SemVer identity to avoid reload loops in development.
+ *
+ * The channel label is not part of the identity when it is release-like: a stable
+ * bundle stamped `2.19.4-stable+abc` and a backend reporting `2.19.4+abc` are one
+ * deployment, and treating them as two reloaded every stable tab once and warned
+ * on every load after that (#432).
  */
 function isSameDeployment(appVersion: string, backendVersion: string): boolean {
-    if (stripBuildMetadata(appVersion) !== stripBuildMetadata(backendVersion)) {
+    if (deploymentIdentity(appVersion) !== deploymentIdentity(backendVersion)) {
         return false;
     }
     if (hasConcreteBuildMetadata(appVersion) && hasConcreteBuildMetadata(backendVersion)) {
-        return appVersion === backendVersion;
+        return getBuildMetadata(appVersion) === getBuildMetadata(backendVersion);
     }
     return true;
 }

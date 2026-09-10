@@ -71,3 +71,54 @@ describe('notificationCenter access filtering', () => {
         expect(notificationCenter.items.map((item) => item.id)).toEqual(['newer', 'older']);
     });
 });
+
+describe('stopped jobs in the history', () => {
+    beforeEach(() => {
+        notificationCenter.clear();
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-09-10T08:00:00.000Z'));
+    });
+
+    it('reads a job written off by an older build as a stopped job dated from the write-off', () => {
+        const writtenOffAt = Date.now() - 2 * 60 * 60 * 1000;
+        // Exactly what an older build persisted: a read "update" flagged stale, progress still attached.
+        notificationCenter.add({
+            id: 'reclassify:progress:abc',
+            type: 'update',
+            title: 'Reclassify',
+            message: 'Analyzing 11/30 • stale',
+            timestamp: writtenOffAt,
+            read: true,
+            meta: { source: 'sse', current: 11, total: 30, stale: true }
+        });
+        expect(notificationCenter.items).toHaveLength(1);
+        expect(notificationCenter.items[0].type).toBe('process');
+        expect(notificationCenter.items[0].meta?.status).toBe('stopped');
+        expect(notificationCenter.items[0].meta?.stopped_at).toBe(writtenOffAt);
+    });
+
+    it('lets a stopped job go a day after it stopped, and keeps a fresher one', () => {
+        const now = Date.now();
+        notificationCenter.add({
+            id: 'old',
+            type: 'process',
+            title: 'Reclassify',
+            timestamp: now - 5 * 24 * 60 * 60 * 1000,
+            read: true,
+            meta: { status: 'stopped', stopped_at: now - 5 * 24 * 60 * 60 * 1000 }
+        });
+        notificationCenter.add({
+            id: 'recent',
+            type: 'process',
+            title: 'Reclassify',
+            timestamp: now - 3 * 60 * 60 * 1000,
+            read: true,
+            meta: { status: 'stopped', stopped_at: now - 2 * 60 * 60 * 1000 }
+        });
+        expect(notificationCenter.items.map((item) => item.id)).toEqual(['recent']);
+
+        vi.setSystemTime(new Date(now + 23 * 60 * 60 * 1000));
+        notificationCenter.expireStoppedJobs();
+        expect(notificationCenter.items.map((item) => item.id)).toEqual([]);
+    });
+});

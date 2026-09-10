@@ -1,4 +1,5 @@
 import { defineConfig, type Plugin } from 'vite'
+import { composeAppVersion } from './src/lib/app/app-version.ts';
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { execSync } from 'child_process'
 import { readFileSync } from 'fs'
@@ -87,11 +88,8 @@ const baseVersion = getBaseVersion();
 const gitHash = getGitHash();
 const appBranch = getAppBranch();
 
-// Format: version-branch+hash (omit branch if main or unknown)
-let appVersion = `${baseVersion}+${gitHash}`;
-if (appBranch && appBranch !== 'main' && appBranch !== 'unknown') {
-    appVersion = `${baseVersion}-${appBranch}+${gitHash}`;
-}
+// One rule with the backend: release-like channels (main, stable, a tag) carry no label.
+const appVersion = composeAppVersion(baseVersion, appBranch, gitHash);
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({

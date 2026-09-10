@@ -6,6 +6,52 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.5] - 2026-09-10
+
+### Fixed
+
+- **A backfill is one job, not two.** The browser keys a backfill it watches over the stream as
+  `backfill:weather:<id>` with the job kinds the rest of the interface knows, while the server
+  snapshot reported the same job under its bare id and its internal kind (`weather`,
+  `detections`). While it ran the top bar counted it twice; afterwards the history kept a row
+  titled just "Weather" whose message was the word "completed". The snapshot now uses the
+  browser's name and kind, its finished line is what the job did ("Updated 94 detection(s)"),
+  and the active merge folds a same-id pair into one row.
+- **The top bar no longer calls a job that stopped reporting "running".** Its headline counts
+  only jobs still reporting, and says "{count} not responding" when that is all there is. Its
+  button read "Open Jobs" though the Jobs page went in 2.19.3 and it opens Notifications; it now
+  says "See all work".
+
+- **A background job that stops reporting now says so, and leaves.** After forty-five minutes of
+  silence a job's notification was rewritten into a read "update" with "• stale" appended, keeping
+  its live-looking progress bar and Open button, filed under Updates rather than Jobs, and kept
+  for as long as the browser kept history; the reference feeder's phone still showed a Reclassify
+  from five days earlier at 37%. A quiet job is now written off as **stopped**: it stays a job,
+  sits in the timeline at the moment it went quiet rather than jumping to "now", says how far it
+  got and when ("Stopped at 11 of 30. No progress since 5 September 11:18. Nothing is still
+  running."), draws a grey static bar, counts under Jobs, has its own Dismiss, and leaves the
+  history a day after it stopped. Entries written off by earlier builds are read back the same
+  way, so they expire too. The top progress bar drops a stale job after the same window instead
+  of counting it for the rest of the session, and its "{count} stale" reads "{count} not
+  responding" in every language.
+- **Work in flight is drawn in the brand colour, not amber.** The top progress bar still ran the
+  amber-to-brand gradient the history rows gave up, with an amber spinner and amber lane labels.
+  The layout standard reserves amber for what needs a person, so the bar, spinner and running
+  labels now use the brand colour; a blocked lane keeps its amber note.
+
+- **Stable installs no longer see "YA-WAMF was updated while this tab was open" on every load**
+  ([#432](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/432)). The bundle and the
+  backend disagreed about what a stable build is called: the backend dropped the channel label for
+  `main`, `stable` and `unknown`, while the bundle dropped it only for `main` and `unknown`, so
+  every stable image shipped a bundle stamped `2.19.4-stable+hash` against a backend reporting
+  `2.19.4+hash`. The deploy-recovery check read that as two deployments, reloaded each tab once and
+  warned on every load after that, hard refresh included. Dev builds carry `-dev` on both sides,
+  which is why the reference install never showed it. One rule now lives in `app-version.ts` and
+  `backend/app/version.py`, a contract test keeps the two channel lists identical, and the
+  recovery check ignores a release-like label so bundles already installed stop warning as soon as
+  they load this backend. In passing, the backend's tag-name check was matching a literal
+  backslash and could never recognise `v2.19.4`; it does now.
+
 ## [2.19.4] - 2026-09-09
 
 ### Added

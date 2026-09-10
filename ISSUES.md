@@ -8,6 +8,7 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 
 ## P0: Active Regressions
 
+
 - None currently confirmed as unresolved in current `dev`.
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)
@@ -47,9 +48,6 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 ## Open on the Tracker
 
 - **#300** Slowing interface. See Pending Verification above.
-- **#414** Clickable link in notifications. Fixed in dev (#417): an instance address under
-  Settings → Notifications makes every channel link to the detection it announces. Closes with the
-  release that carries it.
 - **#256** Snapshot selection and classification overhaul. The two bug halves shipped (the delete
   control names its effect; species information is stated once). What remains is unifying frame
   choice and identification into one flow, which is a design decision and now has a roadmap entry.
@@ -58,6 +56,11 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 
 ## Recently Closed (Context)
 
+- **#432** "YA-WAMF was updated while this tab was open" on every load of a stable image; the bundle
+  kept the `-stable` label in its version string and the backend did not, so the deploy-recovery
+  check saw two deployments. Fixed in dev on 10 September (#433) and shipped in 2.19.5.
+- **#414** Clickable link in notifications; shipped in 2.19.4 (#417, #422, #423), closed with the
+  2.19.5 release.
 - **Owner media URLs no longer carry the session token.** NPM in front of the reference install logs
   full request URIs; its access log held 482 owner thumbnail and clip URLs with `?token=` on
   September 8. Media now authenticates with an `HttpOnly`, `SameSite=Lax` session cookie that only

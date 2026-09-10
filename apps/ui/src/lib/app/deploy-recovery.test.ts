@@ -171,6 +171,35 @@ describe('createDeployRecovery', () => {
         expect(reload).toHaveBeenCalledTimes(1);
     });
 
+    it('treats a stable-labelled bundle and an unlabelled backend of the same build as one deployment (#432)', () => {
+        const reload = vi.fn();
+        const warn = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion: '2.19.4-stable+e6f3ea6',
+            storage: createStorage(),
+            reload,
+            warn
+        });
+
+        expect(recovery.observeHealth({ version: '2.19.4+e6f3ea6' })).toBe('ignore');
+        expect(recovery.observeHealth({ version: '2.19.4+e6f3ea6' })).toBe('ignore');
+        expect(reload).not.toHaveBeenCalled();
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('still reloads a stable bundle when the backend moves to a new build', () => {
+        const reload = vi.fn();
+        const recovery = createDeployRecovery({
+            appVersion: '2.19.4-stable+e6f3ea6',
+            storage: createStorage(),
+            reload,
+            warn: vi.fn()
+        });
+
+        expect(recovery.observeHealth({ version: '2.19.5+0badf00' })).toBe('reload');
+        expect(reload).toHaveBeenCalledTimes(1);
+    });
+
     it('reloads when transitioning from dev prerelease to a release build of the same version', () => {
         const storage = createStorage();
         const reload = vi.fn();

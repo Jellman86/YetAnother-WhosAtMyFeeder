@@ -10,7 +10,10 @@ the full page. Both show one history, filtered by category: **Everything**, **Bi
 
 The **Jobs** category separates queued, running, and recent work. Video analysis, best-quality
 snapshots, full-visit clips, and backfills stay distinct, so a queued item is never presented as a
-running worker.
+running worker. A job that stops reporting for three quarters of an hour is shown as **stopped**,
+with how far it got and when it went quiet, a grey bar that no longer moves, and its own
+**Dismiss**; it leaves the history a day after it stopped. The top progress bar counts such a job
+as "not responding" for that window and then drops it.
 
 The compact progress bar across the top of the application is reserved for prominent work you
 started, such as a backfill or a manual analysis. Routine per-detection media work appears under
