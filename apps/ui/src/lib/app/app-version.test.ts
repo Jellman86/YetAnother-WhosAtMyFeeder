@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { RELEASE_LIKE_CHANNELS, composeAppVersion, deploymentIdentity, isReleaseLikeChannel } from './app-version';
+import {
+    RELEASE_LIKE_CHANNELS,
+    composeAppVersion,
+    deploymentIdentity,
+    docsRefForBranch,
+    isReleaseLikeChannel
+} from './app-version';
 
 describe('app version composition', () => {
     it('omits the label for every release-like channel, stable included', () => {
@@ -28,5 +34,18 @@ describe('deployment identity', () => {
     it('keeps a working channel distinct from a release', () => {
         expect(deploymentIdentity('2.19.4-dev+e6f3ea6')).toBe('2.19.4-dev');
         expect(deploymentIdentity('2.19.4')).toBe('2.19.4');
+    });
+});
+
+describe('docs reference branch', () => {
+    it('sends every release-like build to main, stable and tag builds included (#437)', () => {
+        for (const channel of [...RELEASE_LIKE_CHANNELS, 'v2.19.5', '', ' stable ']) {
+            expect(docsRefForBranch(channel)).toBe('main');
+        }
+    });
+
+    it('sends a working channel to its own branch', () => {
+        expect(docsRefForBranch('dev')).toBe('dev');
+        expect(docsRefForBranch(' feature/x ')).toBe('feature/x');
     });
 });

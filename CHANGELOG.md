@@ -6,6 +6,22 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.6] - 2026-09-10
+
+### Fixed
+
+- **A release image is labelled as a release.** A push to `main`, its release tag, and the
+  `dev` fast-forward all build the same commit within minutes of each other, and each pushed
+  its monolith canary to the same `<sha>` tag. The tag run then promoted whichever build had
+  landed last: `latest*` for 2.19.4 carried the `dev` label and 2.19.5 the `main` label, never
+  the `stable` one the release job sets. Canary tags now carry the ref as well as the sha, so
+  each run promotes only the image it built.
+- **The footer's version link opens the changelog for the build you are running.** It pointed
+  every install, releases included, at the `dev` changelog, which read as "this image is the
+  dev branch" (#437). It now uses the same rule as the About page: a release links to `main`,
+  a working channel to its own branch, and a `stable`-labelled build no longer links to a
+  branch that does not exist.
+
 ## [2.19.5] - 2026-09-10
 
 ### Fixed
