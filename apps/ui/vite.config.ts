@@ -1,5 +1,5 @@
 import { defineConfig, type Plugin } from 'vite'
-import { composeAppVersion } from './src/lib/app/app-version';
+import { composeAppVersion } from './src/lib/app/app-version.ts';
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { execSync } from 'child_process'
 import { readFileSync } from 'fs'

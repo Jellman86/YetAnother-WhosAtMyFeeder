@@ -8,8 +8,10 @@ interface NotificationMeta {
     total?: number;
     processed?: number;
     kind?: string;
-    status?: 'queued' | 'running' | 'stale' | 'completed' | 'failed';
+    status?: 'queued' | 'running' | 'stale' | 'stopped' | 'completed' | 'failed';
     stale?: boolean;
+    /** When a quiet job was written off as stopped; it leaves the history a day later. */
+    stopped_at?: number;
     open_label?: string;
 }
 
@@ -25,6 +27,8 @@ export interface NotificationItem {
 
 const STORAGE_KEY = 'yawamf_notification_center';
 const MAX_ITEMS = 50;
+/** A stopped job is a record, not a task: it stays a day so the owner can see what happened, then goes. */
+const STOPPED_JOB_TTL_MS = 24 * 60 * 60 * 1000;
 
 function routeIsOwnerOnly(route: string | undefined): boolean {
     if (!route) return false;
@@ -46,17 +50,43 @@ class NotificationCenterStore {
         return 'system';
     }
 
+    /**
+     * Before the stopped state existed, a quiet job was rewritten into a read "update" flagged
+     * `stale`, which kept its progress bar for as long as the browser kept history. Read those
+     * back as stopped jobs, dated from when they were written off, so the day-long expiry
+     * applies to them too.
+     */
+    private migrateLegacyStale(candidate: Partial<NotificationItem>): Partial<NotificationItem> {
+        const meta = candidate.meta;
+        if (!meta || typeof meta !== 'object' || meta.status || meta.stale !== true || candidate.type !== 'update') {
+            return candidate;
+        }
+        const timestamp = Number(candidate.timestamp);
+        return {
+            ...candidate,
+            type: 'process',
+            meta: { ...meta, status: 'stopped', stopped_at: Number.isFinite(timestamp) ? timestamp : Date.now() }
+        };
+    }
+
+    private isExpiredStoppedJob(item: NotificationItem, now: number): boolean {
+        if (item.meta?.status !== 'stopped') return false;
+        const stoppedAt = Number(item.meta.stopped_at);
+        return Number.isFinite(stoppedAt) && now - stoppedAt > STOPPED_JOB_TTL_MS;
+    }
+
     private normalize(items: unknown[]): NotificationItem[] {
         const seen = new Set<string>();
         const normalized: NotificationItem[] = [];
+        const now = Date.now();
         for (const raw of items) {
             if (!raw || typeof raw !== 'object') continue;
-            const candidate = raw as Partial<NotificationItem>;
+            const candidate = this.migrateLegacyStale(raw as Partial<NotificationItem>);
             const rawId = typeof candidate.id === 'string' ? candidate.id.trim() : '';
             const id = rawId || `notif:fallback:${Date.now()}:${this.fallbackCounter++}`;
             if (seen.has(id)) continue;
             seen.add(id);
-            normalized.push({
+            const entry: NotificationItem = {
                 id,
                 type: this.coerceType(candidate.type),
                 title: typeof candidate.title === 'string' && candidate.title.trim().length > 0
@@ -72,7 +102,9 @@ class NotificationCenterStore {
                 meta: candidate.meta && typeof candidate.meta === 'object'
                     ? candidate.meta
                     : undefined
-            });
+            };
+            if (this.isExpiredStoppedJob(entry, now)) continue;
+            normalized.push(entry);
         }
         return normalized
             .sort((left, right) => {
@@ -153,6 +185,14 @@ class NotificationCenterStore {
 
     remove(id: string) {
         this.items = this.items.filter((item) => item.id !== id);
+        this.persist();
+    }
+
+    /** Drop stopped jobs whose day is up; called from the periodic owner checks. */
+    expireStoppedJobs() {
+        const next = this.normalize(this.items);
+        if (next.length === this.items.length) return;
+        this.items = next;
         this.persist();
     }
 
