@@ -14,6 +14,15 @@ export function isReleaseLikeChannel(branch: string): boolean {
     return name === '' || (RELEASE_LIKE_CHANNELS as readonly string[]).includes(name) || TAG_NAME.test(name);
 }
 
+/**
+ * The branch whose changelog and docs a build should link to. A release-like build (`stable`,
+ * `main`, a tag, or no label at all) reads `main`; a working channel reads its own branch. The
+ * footer once linked every build, releases included, to the dev changelog (#437).
+ */
+export function docsRefForBranch(branch: string): string {
+    return isReleaseLikeChannel(branch) ? 'main' : branch.trim();
+}
+
 /** `base-branch+hash`, with the branch omitted for release-like channels. */
 export function composeAppVersion(base: string, branch: string, hash: string): string {
     return isReleaseLikeChannel(branch) ? `${base}+${hash}` : `${base}-${branch}+${hash}`;

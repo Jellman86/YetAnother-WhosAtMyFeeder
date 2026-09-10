@@ -1,5 +1,6 @@
 <script lang="ts">
     import { fetchVersion, type VersionInfo } from '../api';
+    import { docsRefForBranch } from '../app/app-version';
     import { APP_ICON_192_URL } from '../assets';
     import InstancePipeline from '../components/InstancePipeline.svelte';
     import InstanceSummary from '../components/InstanceSummary.svelte';
@@ -72,9 +73,7 @@
     });
 
     const repoUrl = 'https://github.com/Jellman86/YetAnother-WhosAtMyFeeder';
-    let docsRefBranch = $derived(
-        versionInfo.branch && versionInfo.branch !== 'unknown' ? versionInfo.branch : 'main'
-    );
+    let docsRefBranch = $derived(docsRefForBranch(versionInfo.branch));
 
     const linkToken = '{link}';
     const splitLinkTemplate = (text: string): LinkParts => {
