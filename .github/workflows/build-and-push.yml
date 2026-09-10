@@ -567,6 +567,14 @@ jobs:
       - name: Set lowercase owner name
         run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
 
+      # Three runs can build this commit at once: a push to main, its release tag, and the
+      # dev fast-forward. Each stamps a different APP_BRANCH, and until 2.19.6 they all pushed
+      # the same `<sha>` canary tag, so the tag run promoted whichever build landed last
+      # (v2.19.4 shipped labelled `dev`, v2.19.5 `main`; #437). Keying the canary on the ref
+      # too means each run promotes only what it built.
+      - name: Name this run's canary image
+        run: echo "CANARY=${GITHUB_SHA}-$(printf '%s' "${GITHUB_REF_NAME}" | tr -c 'A-Za-z0-9_.-' '-')" >> $GITHUB_ENV
+
       # The GitHub Actions cache backend is unavailable with Buildx's default
       # Docker driver. Give every flavor job an isolated docker-container
       # builder before enabling the per-flavor GHA cache below.
@@ -615,14 +623,14 @@ jobs:
             org.opencontainers.image.version=${{ env.APP_VERSION_BASE }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
           tags: |
-            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}${{ matrix.suffix }}
+            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ env.CANARY }}${{ matrix.suffix }}
           cache-from: type=gha,scope=monolith-${{ matrix.flavor }}
           cache-to: ${{ matrix.cache_export }}
 
       - name: Smoke-test ${{ matrix.flavor }} image without an accelerator
         run: |
           tests/e2e/monolith_runtime_flavor_smoke.sh \
-            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}${{ matrix.suffix }}" \
+            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ env.CANARY }}${{ matrix.suffix }}" \
             "${{ matrix.flavor }}"
 
   build-monolith-rpi:
@@ -639,6 +647,14 @@ jobs:
 
       - name: Set lowercase owner name
         run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
+      # Three runs can build this commit at once: a push to main, its release tag, and the
+      # dev fast-forward. Each stamps a different APP_BRANCH, and until 2.19.6 they all pushed
+      # the same `<sha>` canary tag, so the tag run promoted whichever build landed last
+      # (v2.19.4 shipped labelled `dev`, v2.19.5 `main`; #437). Keying the canary on the ref
+      # too means each run promotes only what it built.
+      - name: Name this run's canary image
+        run: echo "CANARY=${GITHUB_SHA}-$(printf '%s' "${GITHUB_REF_NAME}" | tr -c 'A-Za-z0-9_.-' '-')" >> $GITHUB_ENV
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
@@ -702,12 +718,12 @@ jobs:
             org.opencontainers.image.version=${{ env.APP_VERSION_BASE }}
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
           tags: |
-            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ env.CANARY }}
 
       - name: Smoke-test Raspberry Pi image
         run: |
           tests/e2e/monolith_runtime_flavor_smoke.sh \
-            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ github.sha }}" \
+            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ env.CANARY }}" \
             "rpi" \
             "linux/arm64"
 
@@ -715,14 +731,14 @@ jobs:
         run: |
           docker buildx imagetools create \
             -t ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ env.IMAGE_TAG }} \
-            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ env.CANARY }}
 
       - name: Tag Raspberry Pi monolithic latest
         if: env.PUBLISH_LATEST == 'true'
         run: |
           docker buildx imagetools create \
             -t ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:latest \
-            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ github.sha }}
+            ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic-rpi:${{ env.CANARY }}
 
   verify-monolith-flavor-switch:
     name: Verify full ↔ CPU persistent-state switching
@@ -738,6 +754,14 @@ jobs:
       - name: Set lowercase owner name
         run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
 
+      # Three runs can build this commit at once: a push to main, its release tag, and the
+      # dev fast-forward. Each stamps a different APP_BRANCH, and until 2.19.6 they all pushed
+      # the same `<sha>` canary tag, so the tag run promoted whichever build landed last
+      # (v2.19.4 shipped labelled `dev`, v2.19.5 `main`; #437). Keying the canary on the ref
+      # too means each run promotes only what it built.
+      - name: Name this run's canary image
+        run: echo "CANARY=${GITHUB_SHA}-$(printf '%s' "${GITHUB_REF_NAME}" | tr -c 'A-Za-z0-9_.-' '-')" >> $GITHUB_ENV
+
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
         with:
@@ -748,8 +772,8 @@ jobs:
       - name: Switch full to CPU and back with shared persistent state
         run: |
           tests/e2e/monolith_runtime_flavor_switch.sh \
-            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}" \
-            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ github.sha }}-cpu" \
+            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ env.CANARY }}" \
+            "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${{ env.CANARY }}-cpu" \
             cpu
 
   promote-monolith-flavors:
@@ -762,6 +786,14 @@ jobs:
     steps:
       - name: Set lowercase owner name
         run: echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+
+      # Three runs can build this commit at once: a push to main, its release tag, and the
+      # dev fast-forward. Each stamps a different APP_BRANCH, and until 2.19.6 they all pushed
+      # the same `<sha>` canary tag, so the tag run promoted whichever build landed last
+      # (v2.19.4 shipped labelled `dev`, v2.19.5 `main`; #437). Keying the canary on the ref
+      # too means each run promotes only what it built.
+      - name: Name this run's canary image
+        run: echo "CANARY=${GITHUB_SHA}-$(printf '%s' "${GITHUB_REF_NAME}" | tr -c 'A-Za-z0-9_.-' '-')" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v4
@@ -788,14 +820,14 @@ jobs:
           set -euo pipefail
           for suffix in "" -cpu -intel -cuda; do
             docker buildx imagetools inspect \
-              "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${GITHUB_SHA}${suffix}" >/dev/null
+              "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${CANARY}${suffix}" >/dev/null
           done
 
       - name: Promote the verified flavor family
         run: |
           set -euo pipefail
           for suffix in "" -cpu -intel -cuda; do
-            source="ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${GITHUB_SHA}${suffix}"
+            source="ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${CANARY}${suffix}"
             docker buildx imagetools create \
               -t "ghcr.io/${{ env.OWNER_LC }}/yawamf-monalithic:${IMAGE_TAG}${suffix}" \
               "$source"

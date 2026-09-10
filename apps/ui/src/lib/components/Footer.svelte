@@ -2,6 +2,7 @@
     import { onMount } from 'svelte';
     import { _, json } from 'svelte-i18n';
     import { fetchVersion, type VersionInfo } from '../api';
+    import { docsRefForBranch } from '../app/app-version';
 
     const appVersion = typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
     const appVersionBase = appVersion.includes('+') ? appVersion.split('+')[0] : appVersion;
@@ -97,7 +98,7 @@
                 </span>
                 <span class="hidden sm:inline text-slate-400 dark:text-slate-500">|</span>
                 <a
-                    href="https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/dev/CHANGELOG.md"
+                    href={`https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/blob/${docsRefForBranch(versionInfo.branch)}/CHANGELOG.md`}
                     target="_blank"
                     rel="noopener noreferrer"
                     class="hover:text-brand-600 dark:hover:text-brand-400 transition-colors"

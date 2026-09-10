@@ -110,7 +110,7 @@ def test_each_published_runtime_flavor_gets_a_no_accelerator_smoke_test() -> Non
     assert smoke_script.exists()
     assert "monolith_runtime_flavor_smoke.sh" in workflow
     assert "${{ matrix.flavor }}" in workflow
-    assert "${{ github.sha }}${{ matrix.suffix }}" in workflow
+    assert "${{ env.CANARY }}${{ matrix.suffix }}" in workflow
 
 
 def test_runtime_flavor_builds_use_a_cache_capable_buildx_driver() -> None:
@@ -137,7 +137,7 @@ def test_publication_is_blocked_until_full_and_cpu_share_persistent_state() -> N
     assert "verify-monolith-flavor-switch:" in workflow
     assert "needs: [build-monolith]" in workflow
     assert "needs: [promote-monolith-flavors]" in workflow
-    assert "${{ github.sha }}-cpu" in workflow
+    assert "${{ env.CANARY }}-cpu" in workflow
     assert "/config/config.json" in switch_contract
     assert "/data/speciesid.db" in switch_contract
     assert "/data/models/runtime-flavor-switch-contract/model.onnx" in switch_contract
@@ -154,7 +154,7 @@ def test_mutable_monolith_tags_are_promoted_only_after_switch_verification() -> 
     assert "promote-monolith-flavors:" in workflow
     assert "needs: [verify-monolith-flavor-switch]" in promotion_job
     assert "${{ env.IMAGE_TAG }}${{ matrix.suffix }}" not in build_job
-    assert "${{ github.sha }}${{ matrix.suffix }}" in build_job
+    assert "${{ env.CANARY }}${{ matrix.suffix }}" in build_job
     assert "docker buildx imagetools inspect" in promotion_job
     assert "docker buildx imagetools create" in promotion_job
     assert "needs: [promote-monolith-flavors]" in workflow
@@ -220,7 +220,7 @@ def test_rpi_image_is_smoked_before_mutable_tags_are_promoted() -> None:
     rpi_job = workflow.split("  build-monolith-rpi:", 1)[1].split("  verify-monolith-flavor-switch:", 1)[0]
     smoke = (REPO_ROOT / "tests/e2e/monolith_runtime_flavor_smoke.sh").read_text(encoding="utf-8")
 
-    immutable_tag = "yawamf-monalithic-rpi:${{ github.sha }}"
+    immutable_tag = "yawamf-monalithic-rpi:${{ env.CANARY }}"
     assert immutable_tag in rpi_job
     assert "monolith_runtime_flavor_smoke.sh" in rpi_job
     assert '"rpi"' in rpi_job
@@ -229,6 +229,34 @@ def test_rpi_image_is_smoked_before_mutable_tags_are_promoted() -> None:
     assert 'docker_args+=(--platform "$platform")' in smoke
     assert "yawamf-monalithic-rpi:${{ env.IMAGE_TAG }}" not in rpi_job.split("Smoke-test Raspberry Pi image", 1)[0]
     assert rpi_job.index("Smoke-test Raspberry Pi image") < rpi_job.index("Promote Raspberry Pi monolithic tag")
+
+
+def test_each_run_promotes_only_the_canary_it_built() -> None:
+    """The canary tag is keyed on the ref as well as the sha (#437).
+
+    A push to main, its release tag, and the dev fast-forward build the same commit
+    within minutes, each stamped with a different APP_BRANCH. When all three pushed
+    the same `<sha>` canary, the tag run promoted whichever build landed last:
+    v2.19.4's `latest*` said `dev`, v2.19.5's said `main`, and neither said `stable`.
+    """
+    workflow = (REPO_ROOT / ".github/workflows/build-and-push.yml").read_text(encoding="utf-8")
+    monolith_jobs = workflow[workflow.index("  build-monolith:") : workflow.index("  publish-version:")]
+    canary_step = "CANARY=${GITHUB_SHA}-$(printf '%s' \"${GITHUB_REF_NAME}\""
+
+    for job in (
+        "build-monolith:",
+        "build-monolith-rpi:",
+        "verify-monolith-flavor-switch:",
+        "promote-monolith-flavors:",
+    ):
+        assert job in monolith_jobs
+    assert monolith_jobs.count(canary_step) == 4, "every monolith job names the canary the same way"
+    assert "yawamf-monalithic:${{ github.sha }}" not in monolith_jobs
+    assert "yawamf-monalithic-rpi:${{ github.sha }}" not in monolith_jobs
+    assert "yawamf-monalithic:${GITHUB_SHA}${suffix}" not in monolith_jobs
+    assert "yawamf-monalithic:${CANARY}${suffix}" in monolith_jobs
+    # The OCI revision label still names the commit; only the tag carries the ref.
+    assert "org.opencontainers.image.revision=${{ github.sha }}" in monolith_jobs
 
 
 def test_images_bundle_a_checksum_verified_cpu_fallback_classifier() -> None:
