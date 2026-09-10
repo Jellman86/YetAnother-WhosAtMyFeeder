@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.5] - 2026-09-10
+
 ### Fixed
 
 - **A backfill is one job, not two.** The browser keys a backfill it watches over the stream as
