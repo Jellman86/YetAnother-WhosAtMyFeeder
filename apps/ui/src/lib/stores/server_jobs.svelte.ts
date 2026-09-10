@@ -147,9 +147,12 @@ export class ServerJobsStore {
                 .map((job) => [correlationEventId(job), job] as const)
                 .filter((entry): entry is [string, JobProgressItem] => Boolean(entry[0]))
         );
+        // A backfill the browser watches over the stream and the same backfill in the server
+        // snapshot share an id; they are one job, whichever side reported last.
+        const localById = new Map(localJobs.map((job) => [job.id, job] as const));
         const reconciledServerJobs = serverJobs.map((serverJob) => {
             const eventId = correlationEventId(serverJob);
-            const localJob = eventId ? localByEventId.get(eventId) : undefined;
+            const localJob = (eventId ? localByEventId.get(eventId) : undefined) ?? localById.get(serverJob.id);
             if (!localJob) return serverJob;
             const current = Math.max(serverJob.current, localJob.current);
             const total = Math.max(serverJob.total, localJob.total, current);
@@ -164,7 +167,9 @@ export class ServerJobsStore {
             };
         });
         const serverEventIds = new Set(reconciledServerJobs.map(correlationEventId).filter((id): id is string => Boolean(id)));
+        const serverIds = new Set(reconciledServerJobs.map((job) => job.id));
         const local = localJobs.filter((job) => {
+            if (serverIds.has(job.id)) return false;
             const eventId = correlationEventId(job);
             return !eventId || !serverEventIds.has(eventId);
         });

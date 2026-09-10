@@ -8,6 +8,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A backfill is one job, not two.** The browser keys a backfill it watches over the stream as
+  `backfill:weather:<id>` with the job kinds the rest of the interface knows, while the server
+  snapshot reported the same job under its bare id and its internal kind (`weather`,
+  `detections`). While it ran the top bar counted it twice; afterwards the history kept a row
+  titled just "Weather" whose message was the word "completed". The snapshot now uses the
+  browser's name and kind, its finished line is what the job did ("Updated 94 detection(s)"),
+  and the active merge folds a same-id pair into one row.
+- **The top bar no longer calls a job that stopped reporting "running".** Its headline counts
+  only jobs still reporting, and says "{count} not responding" when that is all there is. Its
+  button read "Open Jobs" though the Jobs page went in 2.19.3 and it opens Notifications; it now
+  says "See all work".
+
 - **A background job that stops reporting now says so, and leaves.** After forty-five minutes of
   silence a job's notification was rewritten into a read "update" with "• stale" appended, keeping
   its live-looking progress bar and Open button, filed under Updates rather than Jobs, and kept
