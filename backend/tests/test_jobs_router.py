@@ -131,3 +131,30 @@ async def test_jobs_snapshot_limit_keeps_newest_completed_work(monkeypatch):
     response = await get_jobs_snapshot(include_routine=True, limit=1, _auth=object())
 
     assert [item.id for item in response.items] == ["video:newer"]
+
+
+def test_a_backfill_is_named_the_way_the_browser_names_it(monkeypatch):
+    """The stream-driven row and the snapshot row must be one job, not two."""
+    from app.routers.backfill import BackfillJobStatus
+    from app.routers.jobs import _backfill_job_snapshots
+
+    weather = BackfillJobStatus(
+        id="da620f73",
+        kind="weather",
+        status="completed",
+        started_at="2026-09-10T07:10:38+00:00",
+        finished_at="2026-09-10T07:10:39+00:00",
+        processed=94,
+        total=94,
+        message="Updated 94 detection(s)",
+    )
+    detections = BackfillJobStatus(id="b2", kind="detections", status="running", started_at="2026-09-10T07:10:38+00:00")
+    monkeypatch.setattr("app.routers.backfill._JOB_STORE", {weather.id: weather, detections.id: detections})
+
+    by_id = {item["id"]: item for item in _backfill_job_snapshots()}
+
+    assert set(by_id) == {"backfill:weather:da620f73", "backfill:detections:b2"}
+    assert by_id["backfill:weather:da620f73"]["kind"] == "weather_backfill"
+    assert by_id["backfill:weather:da620f73"]["phase"] == "Updated 94 detection(s)"
+    assert by_id["backfill:detections:b2"]["kind"] == "backfill"
+    assert by_id["backfill:detections:b2"]["phase"] == "processing"

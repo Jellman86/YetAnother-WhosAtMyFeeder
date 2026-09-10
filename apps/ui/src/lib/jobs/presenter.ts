@@ -43,6 +43,19 @@ function formatRunningHeadline(count: number, t: JobsTranslateFn): string {
     return t('jobs.global_running_multi', { count: count.toLocaleString() }, '{count} jobs running');
 }
 
+/** A job that has stopped reporting is not running; the headline must not say it is. */
+function formatActiveHeadline(activeJobs: JobProgressItem[], t: JobsTranslateFn): string {
+    const running = activeJobs.filter((job) => job.status !== 'stale').length;
+    if (running === 0 && activeJobs.length > 0) {
+        return t(
+            'jobs.global_not_responding',
+            { count: activeJobs.length.toLocaleString() },
+            '{count} not responding'
+        );
+    }
+    return formatRunningHeadline(running, t);
+}
+
 function supportsReclassifyQueueStatus(kind: string): boolean {
     return kind === 'reclassify' || kind === 'reclassify_batch';
 }
@@ -391,7 +404,7 @@ export function buildGlobalProgressSummary(
     }
 
     return {
-        headline: formatRunningHeadline(activeJobs.length, t),
+        headline: formatActiveHeadline(activeJobs, t),
         subline: dominantRow ? formatLaneSummarySubline(dominantRow, t) : resolveSummarySubline(dominantJob, dominantRow, analysisStatus, t, kindLabel),
         progressLabel,
         determinate: compatible,

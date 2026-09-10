@@ -292,4 +292,19 @@ describe('jobs presenter', () => {
         expect(summary.progressLabel).toBe('8 / 20 frames');
     });
 
+    it('does not call a job that stopped reporting running', () => {
+        const rows = new Map([['reclassify', makeRow({ queued: 0, running: 0, stale: 1 })]]);
+        const onlyStale = buildGlobalProgressSummary([makeJob({ status: 'stale' })], rows, null, 125_000, t, () => 'Reclassification');
+        expect(onlyStale.headline).toBe('1 not responding');
+
+        const mixed = buildGlobalProgressSummary(
+            [makeJob({ id: 'a', status: 'stale' }), makeJob({ id: 'b' }), makeJob({ id: 'c' })],
+            rows,
+            null,
+            125_000,
+            t,
+            () => 'Reclassification'
+        );
+        expect(mixed.headline).toBe('2 jobs running');
+    });
 });
