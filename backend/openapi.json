@@ -15394,7 +15394,7 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.19.5"
+    "version": "2.19.6"
   },
   "openapi": "3.1.0",
   "paths": {

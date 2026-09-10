@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.6] - 2026-09-10
+
 ### Fixed
 
 - **A release image is labelled as a release.** A push to `main`, its release tag, and the
