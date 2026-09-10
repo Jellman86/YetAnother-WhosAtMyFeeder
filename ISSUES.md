@@ -8,6 +8,12 @@ Last reviewed against the GitHub issue tracker on **September 7, 2026**.
 
 ## P0: Active Regressions
 
+- **#432 "YA-WAMF was updated while this tab was open" on every load of the 2.19.4 stable image.**
+  Root cause found and fixed in dev: the bundle kept the `-stable` channel label in its version
+  string and the backend did not, so the deploy-recovery check saw two deployments. Affects every
+  stable install of 2.19.4 (and 2.19.3, which had the same rule); the reference install runs the
+  dev channel and never showed it. Needs a 2.19.5 release to reach stable users.
+
 - None currently confirmed as unresolved in current `dev`.
 
 ## Pending Verification (Fixes in Dev, Awaiting Reporter Confirmation)

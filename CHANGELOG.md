@@ -6,6 +6,21 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **Stable installs no longer see "YA-WAMF was updated while this tab was open" on every load**
+  ([#432](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/432)). The bundle and the
+  backend disagreed about what a stable build is called: the backend dropped the channel label for
+  `main`, `stable` and `unknown`, while the bundle dropped it only for `main` and `unknown`, so
+  every stable image shipped a bundle stamped `2.19.4-stable+hash` against a backend reporting
+  `2.19.4+hash`. The deploy-recovery check read that as two deployments, reloaded each tab once and
+  warned on every load after that, hard refresh included. Dev builds carry `-dev` on both sides,
+  which is why the reference install never showed it. One rule now lives in `app-version.ts` and
+  `backend/app/version.py`, a contract test keeps the two channel lists identical, and the
+  recovery check ignores a release-like label so bundles already installed stop warning as soon as
+  they load this backend. In passing, the backend's tag-name check was matching a literal
+  backslash and could never recognise `v2.19.4`; it does now.
+
 ## [2.19.4] - 2026-09-09
 
 ### Added

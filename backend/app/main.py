@@ -9,7 +9,6 @@ import asyncio
 import ipaddress
 import os
 import json
-import re
 from datetime import datetime, timedelta, timezone
 import sys  # Trigger CI rebuild
 from time import monotonic
@@ -32,6 +31,7 @@ from app.services.media_integrity_scan import (
     get_media_integrity_scan_status,
     run_media_integrity_scan,
 )
+from app.version import compose_app_version, normalize_app_branch
 from app.services.mqtt_service import mqtt_service
 from app.services.classifier_service import (
     CLASSIFIER_ACCEL_PROBE_TTL_SECONDS,
@@ -153,15 +153,8 @@ GIT_HASH = get_git_hash()
 ACCEL_CAPS_REFRESH_SECONDS = min(60.0, CLASSIFIER_ACCEL_PROBE_TTL_SECONDS)
 APP_BRANCH = get_app_branch()
 
-# Treat semver-like tags (e.g. v2.7.9.1) as releases, not branches.
-if re.fullmatch(r"v\\d+\\.\\d+\\.\\d+(?:\\.\\d+)?", APP_BRANCH or ""):
-    APP_BRANCH = "main"
-
-# Format: version-branch+hash (omit branch for release-like channels)
-if APP_BRANCH and APP_BRANCH not in ["main", "stable", "unknown"]:
-    APP_VERSION = f"{BASE_VERSION}-{APP_BRANCH}+{GIT_HASH}"
-else:
-    APP_VERSION = f"{BASE_VERSION}+{GIT_HASH}"
+APP_BRANCH = normalize_app_branch(APP_BRANCH)
+APP_VERSION = compose_app_version(BASE_VERSION, APP_BRANCH, GIT_HASH)
 
 os.environ["APP_VERSION"] = APP_VERSION  # Make available to other services
 os.environ["APP_BRANCH"] = APP_BRANCH
