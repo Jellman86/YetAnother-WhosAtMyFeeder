@@ -284,3 +284,21 @@ describe('jobProgressStore', () => {
         expect(item?.total).toBe(10);
     });
 });
+
+describe('expiring stale jobs', () => {
+    beforeEach(() => {
+        jobProgressStore.clearAll();
+    });
+
+    it('drops a job that has been stale for the whole write-off window and keeps a running one', () => {
+        jobProgressStore.upsertRunning({ id: 'reclassify:quiet', kind: 'reclassify', title: 'Reclassify', current: 11, total: 30, timestamp: 1_000 });
+        jobProgressStore.upsertRunning({ id: 'reclassify:busy', kind: 'reclassify', title: 'Reclassify', current: 3, total: 30, timestamp: 1_000 });
+        jobProgressStore.markStale(1_000);
+        expect(jobProgressStore.activeJobs.map((job) => job.status)).toEqual(['stale', 'stale']);
+
+        // Only the first has been stale for longer than the window (updatedAt is the last progress).
+        jobProgressStore.upsertRunning({ id: 'reclassify:busy', kind: 'reclassify', title: 'Reclassify', current: 4, total: 30, timestamp: 50_000 });
+        jobProgressStore.expireStale(45 * 60 * 1000, 1_000 + 46 * 60 * 1000);
+        expect(jobProgressStore.activeJobs.map((job) => job.id)).toEqual(['reclassify:busy']);
+    });
+});

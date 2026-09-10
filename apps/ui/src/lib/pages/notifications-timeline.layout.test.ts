@@ -98,3 +98,17 @@ describe('Notifications timeline layout', () => {
         expect(source).toContain("group.key === 'older' || group.key === 'yesterday'");
     });
 });
+
+describe('a job that stopped reporting', () => {
+    it('says so in words, stops the bar, and can be dismissed on its own', () => {
+        expect(source).toContain('isStoppedJob(item)');
+        expect(source).toContain("$_('notifications.job_stopped'");
+        expect(source).toContain("$_('notifications.job_stopped_label')");
+        // A stopped job's bar is grey and static, never the brand colour that means work in flight.
+        expect(source).toContain("'bg-slate-400 dark:bg-slate-500'");
+        expect(source).toContain('notificationCenter.remove(item.id)');
+        expect(en.notifications.job_stopped).toContain('Nothing is still running');
+        expect(en.notifications.job_stopped).toContain('{time}');
+        expect(en.notifications.global_progress_stale).not.toContain('stale');
+    });
+});

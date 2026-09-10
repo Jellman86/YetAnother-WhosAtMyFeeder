@@ -99,19 +99,19 @@
         class="w-full bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-hidden relative shrink-0"
         transition:slide={{ duration: 300 }}
     >
-        <div class="absolute inset-0 bg-accent-500/5 pointer-events-none"></div>
+        <div class="absolute inset-0 bg-brand-500/5 pointer-events-none"></div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 relative z-10">
             <div class="flex flex-col gap-2">
                 <div class="flex items-center justify-between gap-3">
                     <button
                         type="button"
-                        class="flex min-h-11 items-center gap-3 min-w-0 flex-1 text-left bg-transparent focus:outline-none focus:ring-2 focus:ring-accent-500 rounded-lg"
+                        class="flex min-h-11 items-center gap-3 min-w-0 flex-1 text-left bg-transparent focus:outline-none focus:ring-2 focus:ring-brand-500 rounded-lg"
                         onclick={() => showDetails = !showDetails}
                         aria-expanded={showDetails}
                         aria-controls="global-progress-details"
                     >
-                        <div class="w-6 h-6 rounded-lg bg-accent-100 dark:bg-accent-900/30 flex items-center justify-center text-accent-600 dark:text-accent-400 flex-shrink-0">
+                        <div class="w-6 h-6 rounded-lg bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center text-brand-600 dark:text-brand-400 flex-shrink-0">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 {pipeline.lanes.running > 0 ? 'motion-safe:animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
@@ -141,7 +141,7 @@
                 <p class="text-xs font-semibold text-slate-500 dark:text-slate-300">{aggregate.progressLabel}</p>
 
                 <div
-                    class="h-2 w-full bg-accent-100 dark:bg-accent-950/60 rounded-full overflow-hidden relative"
+                    class="h-2 w-full bg-brand-100 dark:bg-brand-950/60 rounded-full overflow-hidden relative"
                     role="progressbar"
                     aria-label={aggregate.progressLabel}
                     aria-valuemin={0}
@@ -150,11 +150,11 @@
                 >
                     {#if aggregate.determinate && aggregate.percent !== null}
                         <div
-                            class="h-full w-full origin-left bg-gradient-to-r from-accent-500 via-brand-500 to-sky-500 transition-transform duration-200 ease-out motion-reduce:transition-none"
+                            class="h-full w-full origin-left bg-gradient-to-r from-brand-500 via-brand-500 to-sky-500 transition-transform duration-200 ease-out motion-reduce:transition-none"
                             style="transform: scaleX({aggregate.percent / 100})"
                         ></div>
                     {:else}
-                        <div class="h-full w-2/5 bg-gradient-to-r from-accent-500/70 via-brand-500/70 to-sky-500/70 motion-safe:animate-pulse"></div>
+                        <div class="h-full w-2/5 bg-gradient-to-r from-brand-500/70 via-brand-500/70 to-sky-500/70 motion-safe:animate-pulse"></div>
                     {/if}
                 </div>
 
@@ -165,7 +165,7 @@
                             <div class="rounded-xl border border-slate-200/80 dark:border-slate-700/60 px-3 py-2 bg-white/80 dark:bg-slate-900/60">
                                 <div class="flex items-center justify-between gap-2">
                                     <p class="text-[10px] font-black uppercase tracking-wide text-slate-800 dark:text-slate-100 truncate">{presentation.title}</p>
-                                    <span class="text-[9px] font-bold uppercase tracking-widest {item.row.running > 0 ? 'text-accent-600 dark:text-accent-300' : 'text-slate-500 dark:text-slate-400'}">
+                                    <span class="text-[9px] font-bold uppercase tracking-widest {item.row.running > 0 ? 'text-brand-600 dark:text-brand-300' : 'text-slate-500 dark:text-slate-400'}">
                                         {presentation.stateLabel}
                                     </span>
                                 </div>

@@ -8,6 +8,23 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Fixed
 
+- **A background job that stops reporting now says so, and leaves.** After forty-five minutes of
+  silence a job's notification was rewritten into a read "update" with "• stale" appended, keeping
+  its live-looking progress bar and Open button, filed under Updates rather than Jobs, and kept
+  for as long as the browser kept history; the reference feeder's phone still showed a Reclassify
+  from five days earlier at 37%. A quiet job is now written off as **stopped**: it stays a job,
+  sits in the timeline at the moment it went quiet rather than jumping to "now", says how far it
+  got and when ("Stopped at 11 of 30. No progress since 5 September 11:18. Nothing is still
+  running."), draws a grey static bar, counts under Jobs, has its own Dismiss, and leaves the
+  history a day after it stopped. Entries written off by earlier builds are read back the same
+  way, so they expire too. The top progress bar drops a stale job after the same window instead
+  of counting it for the rest of the session, and its "{count} stale" reads "{count} not
+  responding" in every language.
+- **Work in flight is drawn in the brand colour, not amber.** The top progress bar still ran the
+  amber-to-brand gradient the history rows gave up, with an amber spinner and amber lane labels.
+  The layout standard reserves amber for what needs a person, so the bar, spinner and running
+  labels now use the brand colour; a blocked lane keeps its amber note.
+
 - **Stable installs no longer see "YA-WAMF was updated while this tab was open" on every load**
   ([#432](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/432)). The bundle and the
   backend disagreed about what a stable build is called: the backend dropped the channel label for

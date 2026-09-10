@@ -167,6 +167,17 @@ class JobProgressStore {
         this.items = this.items.filter((item) => item.id !== normalized);
     }
 
+    /**
+     * A job that has been stale for the whole write-off window is not active any more. Dropping
+     * it here is what lets the top progress bar stop counting it; the notification history keeps
+     * the record as a stopped job.
+     */
+    expireStale(maxStaleMs: number, now: number = Date.now()) {
+        const threshold = Number.isFinite(maxStaleMs) ? Math.max(1000, Math.floor(maxStaleMs)) : 90_000;
+        const next = this.items.filter((item) => item.status !== 'stale' || now - item.updatedAt <= threshold);
+        if (next.length !== this.items.length) this.items = next;
+    }
+
     closeActiveByPrefix(prefix: string, status: 'completed' | 'failed' | 'stale' = 'completed') {
         const normalizedPrefix = typeof prefix === 'string' ? prefix.trim() : '';
         if (!normalizedPrefix) return;

@@ -133,6 +133,10 @@ export function buildTimelineItems(
     });
 }
 
+export function isStoppedJob(item: NotificationItem): boolean {
+    return item.meta?.status === 'stopped';
+}
+
 export function progressOf(item: NotificationItem): { percent: number; current: number; total: number } | null {
     const meta = item.meta ?? {};
     const total = Number(meta.total ?? 0);
@@ -145,7 +149,8 @@ export function progressOf(item: NotificationItem): { percent: number; current: 
 
 export function toneOf(item: NotificationItem): NotificationTone {
     if (isFailure(item)) return 'attention';
-    if (item.meta?.status === 'stale') return 'attention';
+    // Stale and stopped both mean a person has to decide what to do with the job.
+    if (item.meta?.status === 'stale' || item.meta?.status === 'stopped') return 'attention';
     if (item.meta?.status === 'completed') return 'done';
     if (item.meta?.status === 'queued' || item.meta?.status === 'running') return 'running';
     if (item.type === 'process') {

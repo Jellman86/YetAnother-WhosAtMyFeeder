@@ -21,21 +21,26 @@ class NotificationPolicy {
         return true;
     }
 
-    settleStale(items: NotificationItem[], staleAgeMs: number): NotificationItem[] {
-        const now = Date.now();
+    /**
+     * A process that has reported nothing for the stale window is written off as stopped. It
+     * stays a process, keeps the time of its last progress (so it sits where it went quiet in the
+     * timeline rather than jumping to "now"), and records when it was written off so the history
+     * can let it go a day later. The page says what happened from `status`; the stored message is
+     * left alone.
+     */
+    settleStale(items: NotificationItem[], staleAgeMs: number, now: number = Date.now()): NotificationItem[] {
         return items
             .filter((item) => item.type === 'process' && !item.read && now - item.timestamp > staleAgeMs)
             .map((item) => ({
                 ...item,
-                type: 'update' as const,
                 read: true,
-                timestamp: now,
-                message: item.message ? `${item.message} • stale` : 'Stale process notification',
                 meta: {
                     ...(item.meta ?? {}),
+                    status: 'stopped' as const,
+                    stopped_at: now,
                     stale: true,
-                    source: item.meta?.source ?? 'system',
-                },
+                    source: item.meta?.source ?? 'system'
+                }
             }));
     }
 
