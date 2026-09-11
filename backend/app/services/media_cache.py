@@ -331,6 +331,14 @@ class MediaCacheService:
         encoded = json.dumps(metadata, sort_keys=True).encode("utf-8")
         await self._write_bytes_atomic(path, encoded)
 
+    async def get_snapshot_path(self, event_id: str) -> Optional[Path]:
+        """Where the stored photograph lives, or None when there is none."""
+        try:
+            path = self._snapshot_path(event_id)
+        except ValueError:
+            return None
+        return path if await aiofiles.os.path.exists(path) else None
+
     async def get_snapshot_metadata(self, event_id: str) -> Optional[dict]:
         """Read cached snapshot metadata, if present and valid."""
         try:

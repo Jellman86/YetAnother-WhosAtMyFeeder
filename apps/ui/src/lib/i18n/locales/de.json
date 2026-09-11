@@ -2375,12 +2375,15 @@
       "llm_desc": "Ihr Schlüssel, Ihr Anbieter",
       "telemetry": "Telemetrie",
       "telemetry_desc": "anonyme Zählwerte",
-      "guest_note": "Zur Transparenz angezeigt. Nur der Betreiber kann das ändern."
+      "guest_note": "Zur Transparenz angezeigt. Nur der Betreiber kann das ändern.",
+      "community": "Installationszahl",
+      "community_desc": "ein anonymer Abruf, aus mit den Update-Prüfungen"
     },
     "stats": {
       "detections": "Erkennungen gespeichert",
       "species": "Arten bestimmt",
-      "week": "Besuche diese Woche"
+      "week": "Besuche diese Woche",
+      "feeders": "Futterhäuser haben es diese Woche genutzt"
     },
     "instance": {
       "title": "Diese Instanz",
@@ -2412,7 +2415,13 @@
       "title": "Daten, Datenschutz und Danksagungen"
     },
     "reference_thanks": "Referenz & Dank",
-    "thanks_to": "Dank an"
+    "thanks_to": "Dank an",
+    "opener": {
+      "caption": "Einige haben sogar für ein Foto stillgehalten.",
+      "reel_label": "Aktuelle Fotos von diesem Futterhaus",
+      "open_visit": "Besuch {name} vom {time} öffnen",
+      "gone": "Dieser Besuch ist nicht mehr in der Historie."
+    }
   },
   "species_detail": {
     "no_wiki": "Keine Wikipedia-Informationen für diese Art verfügbar.",

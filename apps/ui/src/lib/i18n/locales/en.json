@@ -2384,12 +2384,15 @@
       "llm_desc": "your key, your provider",
       "telemetry": "Telemetry",
       "telemetry_desc": "anonymous counts",
-      "guest_note": "Shown for transparency. Only the owner can change these."
+      "guest_note": "Shown for transparency. Only the owner can change these.",
+      "community": "Install count",
+      "community_desc": "one anonymous read, off with update checks"
     },
     "stats": {
       "detections": "detections stored",
       "species": "species identified",
-      "week": "visits this week"
+      "week": "visits this week",
+      "feeders": "feeders ran it this week"
     },
     "instance": {
       "title": "This instance",
@@ -2421,7 +2424,13 @@
       "title": "Data, privacy and credits"
     },
     "reference_thanks": "Reference & thanks",
-    "thanks_to": "Thanks to"
+    "thanks_to": "Thanks to",
+    "opener": {
+      "caption": "Some of them even sat still for a photo.",
+      "reel_label": "Recent photographs from this feeder",
+      "open_visit": "Open the {name} visit from {time}",
+      "gone": "That visit is no longer in the history."
+    }
   },
   "species_detail": {
     "no_wiki": "No Wikipedia information available for this species.",

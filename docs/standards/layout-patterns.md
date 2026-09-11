@@ -124,6 +124,7 @@ own Close, because there is no hover to lose.
 ### Reference (About)
 
 ```
+reel: this install's own photographs, one crop per species, each opening its record
 colophon: what this is, in plain sentences
 live diagram: the standard flow, annotated with this instance's state
 build detail: what to quote in an issue report
@@ -132,6 +133,13 @@ credits
 
 Sections are ordered by reader: visitor, then anyone, then owner. Do not add a feature grid; the
 readme and `docs/` hold the feature list.
+
+The reel (`CaptureReel`) drifts in two rows that run opposite ways, pauses under the pointer or
+focus, and stands still as a scrollable strip under reduced motion. Its loop is a second copy of
+each row, hidden from readers and out of the Tab order. Only stored crops are shown: a whole
+scene at card size is a picture of a feeder, so the backend leaves it out
+(`/api/about/showcase`). The install count beside the stats is a cached read of the telemetry
+worker's public summary, off with update checks, and absent rather than zero when unknown.
 
 ---
 

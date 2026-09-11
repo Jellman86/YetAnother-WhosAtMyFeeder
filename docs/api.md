@@ -452,6 +452,12 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `GET /api/maintenance/analysis/status` (owner)
 - `DELETE /api/maintenance/feedback/clear` (owner)
 - `GET /api/cache/stats` (owner)
+- `GET /api/about/showcase?limit=` (guest-rate-limited). One recent crop per species for the About
+  page's reel; guests see the public media window, and nothing when snapshots are not shared.
+- `GET /api/about/showcase/{event_id}.jpg` (guest-rate-limited). The stored photograph at card
+  size, under the same access rules as `snapshot.jpg`.
+- `GET /api/about/community` (guest-rate-limited). The telemetry service's active install count,
+  cached for an hour; `enabled` is false when update checks are off.
 - `POST /api/cache/cleanup` (owner)
 
 ### Backfill

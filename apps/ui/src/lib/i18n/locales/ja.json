@@ -2375,12 +2375,15 @@
       "llm_desc": "あなたの鍵、あなたのプロバイダー",
       "telemetry": "テレメトリー",
       "telemetry_desc": "匿名の集計値",
-      "guest_note": "透明性のために表示しています。変更できるのは所有者だけです。"
+      "guest_note": "透明性のために表示しています。変更できるのは所有者だけです。",
+      "community": "インストール数",
+      "community_desc": "匿名の読み取り 1 回、更新確認と一緒にオフ"
     },
     "stats": {
       "detections": "件の検出を保存",
       "species": "種を識別",
-      "week": "今週の訪問"
+      "week": "今週の訪問",
+      "feeders": "台の餌台が今週利用"
     },
     "instance": {
       "title": "このインスタンス",
@@ -2412,7 +2415,13 @@
       "title": "データ、プライバシー、クレジット"
     },
     "reference_thanks": "参考資料と謝辞",
-    "thanks_to": "謝辞"
+    "thanks_to": "謝辞",
+    "opener": {
+      "caption": "写真のためにじっとしてくれた鳥もいます。",
+      "reel_label": "この餌台の最近の写真",
+      "open_visit": "{time} の {name} の訪問を開く",
+      "gone": "その訪問はもう履歴にありません。"
+    }
   },
   "species_detail": {
     "no_wiki": "この種に関するウィキペディア情報はありません。",

@@ -6,6 +6,16 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Added
+
+- **The About page opens on this feeder's own photographs.** Two rows of recent captures, one
+  crop per species, drift across the top of the page and pause under the pointer; each card
+  opens the visit's record. Whole-scene photographs are left out, since at card size they are
+  pictures of a feeder. Under reduced motion the rows stand still and scroll by hand. Beside
+  the stats, how many installs reported to the telemetry service this week, read once an hour
+  from its public summary and listed under "What leaves your network"; it follows the
+  update-check opt-out and is absent rather than zero when unknown.
+
 ### Fixed
 
 - **A tap on a frame thumbnail opens the sheet on a phone.** It used to flicker and vanish: the

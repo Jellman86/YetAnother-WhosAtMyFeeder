@@ -2375,12 +2375,15 @@
       "llm_desc": "votre clé, votre fournisseur",
       "telemetry": "Télémétrie",
       "telemetry_desc": "comptages anonymes",
-      "guest_note": "Affiché par transparence. Seul le propriétaire peut le modifier."
+      "guest_note": "Affiché par transparence. Seul le propriétaire peut le modifier.",
+      "community": "Nombre d’installations",
+      "community_desc": "une lecture anonyme, désactivée avec la vérification des mises à jour"
     },
     "stats": {
       "detections": "détections enregistrées",
       "species": "espèces identifiées",
-      "week": "visites cette semaine"
+      "week": "visites cette semaine",
+      "feeders": "mangeoires l’ont utilisé cette semaine"
     },
     "instance": {
       "title": "Cette instance",
@@ -2412,7 +2415,13 @@
       "title": "Données, confidentialité et remerciements"
     },
     "reference_thanks": "Références et remerciements",
-    "thanks_to": "Merci à"
+    "thanks_to": "Merci à",
+    "opener": {
+      "caption": "Certains ont même pris la pose.",
+      "reel_label": "Photos récentes de cette mangeoire",
+      "open_visit": "Ouvrir la visite de {name} du {time}",
+      "gone": "Cette visite n’est plus dans l’historique."
+    }
   },
   "species_detail": {
     "no_wiki": "Aucune information Wikipédia disponible pour cette espèce.",

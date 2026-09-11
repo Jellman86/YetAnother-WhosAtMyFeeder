@@ -12,6 +12,8 @@
         { key: 'taxonomy', table: 'taxonomy_cache' }
     ];
 
+    /** Whether the install-count read is on, as the About page learned from the read itself. */
+    let { communityReadEnabled = null }: { communityReadEnabled?: boolean | null } = $props();
     const ebirdEnabled = $derived(
         Boolean(settingsStore.settings?.ebird_enabled ?? authStore.ebirdEnabled)
     );
@@ -25,7 +27,8 @@
         { key: 'ebird', on: ebirdEnabled },
         { key: 'osm', on: ebirdEnabled },
         { key: 'llm', on: Boolean(settingsStore.llmEnabled) },
-        { key: 'telemetry', on: Boolean(settingsStore.settings?.telemetry_enabled) }
+        { key: 'telemetry', on: Boolean(settingsStore.settings?.telemetry_enabled) },
+        { key: 'community', on: communityReadEnabled ?? Boolean(settingsStore.settings?.update_check_enabled) }
     ]);
 </script>
 

@@ -2375,12 +2375,15 @@
       "llm_desc": "你的密钥，你的服务商",
       "telemetry": "遥测",
       "telemetry_desc": "匿名计数",
-      "guest_note": "出于透明公开。只有所有者可以更改。"
+      "guest_note": "出于透明公开。只有所有者可以更改。",
+      "community": "安装数量",
+      "community_desc": "一次匿名读取，随更新检查一起关闭"
     },
     "stats": {
       "detections": "条检测已保存",
       "species": "个物种已识别",
-      "week": "本周到访"
+      "week": "本周到访",
+      "feeders": "个喂食器本周在使用"
     },
     "instance": {
       "title": "本实例",
@@ -2412,7 +2415,13 @@
       "title": "数据、隐私与致谢"
     },
     "reference_thanks": "参考与致谢",
-    "thanks_to": "感谢"
+    "thanks_to": "感谢",
+    "opener": {
+      "caption": "有些甚至为了拍照坐着不动。",
+      "reel_label": "这个喂食器的最近照片",
+      "open_visit": "打开 {time} 的 {name} 到访记录",
+      "gone": "该到访记录已不在历史中。"
+    }
   },
   "species_detail": {
     "no_wiki": "此物种暂无维基百科信息。",
