@@ -180,7 +180,13 @@ full list only once someone types.
 
 Any preview that opens on hover must satisfy all of this, because hover alone fails WCAG 2.2 AA:
 
-- Opens on `mouseenter` **and** on `focusin`, so keyboards reach it.
+- Opens on hover **and** on focus, so keyboards reach it. Hover means `pointerenter` from a
+  hovering pointer (`event.pointerType !== 'touch'`), focus means keyboard focus
+  (`:focus-visible`). A touch browser replays a tap as mouseenter, then on Chrome a focus (iOS
+  Safari does not focus a button on tap), then click. A pop-out that opened on the replay is
+  either closed by the click (when it has a backdrop) or swallows the click (iOS, when a
+  mouseenter handler changes the DOM), so on touch the click alone opens it. `DetectionPreview`
+  and `FilteredFramePreview` follow the same rule.
 - Stays open while the pointer travels into the panel. `DetectionPreview` and `FrameStrip` use a 120ms close grace
   window for exactly this (SC 1.4.13, "hoverable").
 - Dismisses on `Escape` without moving focus elsewhere unexpectedly.
@@ -191,6 +197,11 @@ Any preview that opens on hover must satisfy all of this, because hover alone fa
 Model any new popover on this and on `CameraStatus.svelte`, which established the pattern.
 A pop-out that holds a control (`FrameStrip`) is a `group` named for its subject, not a `tooltip`, and
 its Escape closes the pop-out before the dialog behind it.
+
+Below 640px `FrameStrip`'s pop-out is a bottom sheet with a backdrop and its own Close. A sheet never
+opens on hover: its backdrop would arrive under the pointer as a `mouseleave` and close it again. It
+opens by tap or keyboard, and it closes by its backdrop, its Close, Escape, or focus moving elsewhere,
+never by the pointer drifting off the strip.
 
 ---
 
