@@ -31,6 +31,14 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
         expect(stripSource).toContain('onfocusout={handleFocusOut}');
     });
 
+    it('becomes a sheet with a backdrop and its own Close on a phone, where there is no hover', () => {
+        expect(stripSource).toContain("const SHEET_QUERY = '(max-width: 639px)';");
+        expect(stripSource).toContain('window.matchMedia(SHEET_QUERY).matches');
+        expect(stripSource).toContain('data-frame-strip-backdrop');
+        expect(stripSource).toContain("'inset-x-0 bottom-0 rounded-t-2xl motion-safe:slide-in-from-bottom-4'");
+        expect(stripSource).toContain("aria-label={$_('common.close', { default: 'Close' })}");
+    });
+
     it('labels what the model read in a frame as a read, with one action that names its effect', () => {
         expect(stripSource).toContain('detection.frame_model_read');
         expect(stripSource).toContain('detection.frame_read_note');
@@ -99,13 +107,13 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
     it('peeks at the whole scene on hover or focus and pins it on click', () => {
         expect(modalSource).toContain('data-detection-whole-scene-peek');
         // A pointer crossing the photograph on its way to Play or Close is not a request.
-        expect(modalSource).toContain('const PEEK_INTENT_MS = 250;');
-        expect(modalSource).toContain('onmouseenter={peekWholeSceneAfterIntent}');
-        expect(modalSource).toContain('onfocus={peekWholeScene}');
-        expect(modalSource).toContain('onmouseleave={unpeekWholeScene}');
-        expect(modalSource).toContain('onblur={unpeekWholeScene}');
-        expect(modalSource).toContain('toggleWholeScenePin()');
-        expect(modalSource).toContain('aria-pressed={wholeScenePinned}');
+        expect(modalSource).toContain("import { WholeScenePeek } from '../utils/whole-scene-peek.svelte'");
+        expect(modalSource).toContain('onmouseenter={wholeScene.enter}');
+        expect(modalSource).toContain('onfocus={wholeScene.show}');
+        expect(modalSource).toContain('onmouseleave={wholeScene.leave}');
+        expect(modalSource).toContain('onblur={wholeScene.leave}');
+        expect(modalSource).toContain('wholeScene.toggle()');
+        expect(modalSource).toContain('aria-pressed={wholeScene.pinned}');
         // The peek only exists when the same moment has an uncropped frame to show, so never
         // over Frigate's own snapshot, whose "matching" frame would be another moment's.
         expect(modalSource).toContain('findMatchingFullFrameCandidate');
@@ -114,19 +122,18 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
     });
 
     it('outlines the crop on the whole scene from a measurement, never a guess', () => {
-        expect(modalSource).toContain('wholeSceneOutline(');
-        expect(modalSource).toContain('element.naturalWidth');
+        expect(modalSource).toContain('wholeScene.measure(heroImageEl, currentCropCandidate?.crop_box)');
         expect(modalSource).toContain('onload={measureWholeScene}');
         expect(modalSource).toContain('data-detection-whole-scene-outline');
-        expect(modalSource).toContain('{#if showingWholeScene && wholeSceneOutlineBox}');
+        expect(modalSource).toContain('{#if wholeScene.showing && wholeScene.outline}');
     });
 
     it('offers the whole-scene rescue only while pinned, and Escape unpins before it closes', () => {
-        expect(modalSource).toContain('{#if wholeScenePinned && showingWholeScene}');
+        expect(modalSource).toContain('{#if wholeScene.pinned && wholeScene.showing}');
         expect(modalSource).toContain('detection.whole_scene_use');
         expect(modalSource).toContain('detection.whole_scene_back');
         expect(modalSource).toContain('useWholeSceneAsPhotograph()');
-        expect(modalSource).toMatch(/if \(e\.key !== 'Escape'\) return;[\s\S]{0,200}?if \(wholeScenePinned\) \{[\s\S]{0,120}?resetMediaView\(\);[\s\S]{0,60}?return;/);
+        expect(modalSource).toMatch(/if \(e\.key !== 'Escape'\) return;[\s\S]{0,200}?if \(wholeScene\.pinned\) \{[\s\S]{0,120}?resetMediaView\(\);[\s\S]{0,60}?return;/);
     });
 
     it('uses a frame straight from the pop-out, with no separate save step', () => {
@@ -147,8 +154,15 @@ describe('the record uses the strip and drops the framing toggle (#256)', () => 
         expect(confirm).toBeGreaterThan(-1);
         expect(pick).toBeGreaterThan(confirm);
         expect(score).toBeGreaterThan(pick);
-        expect(actions).toContain('class="btn btn-primary min-h-11 flex-1 px-4 text-sm"');
-        expect(actions).toContain('class="btn btn-secondary min-h-11 flex-1 px-4 text-sm"');
-        expect(actions).toContain('class="btn btn-ghost min-h-11 px-4 text-sm"');
+        expect(actions).toContain('class="btn btn-primary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"');
+        expect(actions).toContain('class="btn btn-secondary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"');
+        expect(actions).toContain('class="btn btn-ghost min-h-11 w-full px-4 text-sm sm:w-auto"');
+    });
+
+    it('stacks its controls full width on a phone and lets the rail name the bird', () => {
+        expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-detection-identification-actions');
+        expect(modalSource).toContain('class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions');
+        // The hero title repeats the rail's "Identified as" while covering the bird on a phone.
+        expect(modalSource).toContain('class="hidden sm:block" data-detection-media-title');
     });
 });

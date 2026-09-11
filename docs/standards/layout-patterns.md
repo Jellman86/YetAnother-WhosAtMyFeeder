@@ -116,7 +116,10 @@ visit's moments in time order (`FrameStrip`), one thumbnail per moment; where a 
 is not shown, and the framings of one moment fold into it. Each thumbnail opens a pop-out on
 hover or focus with the frame at decision size, what the model read in it (labelled as a read),
 and one action, "Use this frame", which changes the photograph and never the identification.
-There is no Best crop / Full frame switch and no preview-then-save step (#256).
+There is no Best crop / Full frame switch and no preview-then-save step (#256). The peek is
+`WholeScenePeek` in `utils/whole-scene-peek.svelte.ts`, and the review queue uses the same one.
+On a phone the comparison pop-out is a sheet at the foot of the screen with a backdrop and its
+own Close, because there is no hover to lose.
 
 ### Reference (About)
 

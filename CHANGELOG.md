@@ -24,6 +24,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - **The identification's actions read Confirm, Pick a different species, Score again**, in that
   order and in the shared button kit. "Reclassify" is now "Score again" here; the bulk action
   keeps its name.
+- **The review queue peeks at the whole scene the same way.** Its own Best crop / Full frame
+  switch is gone, along with the crop strategy name (`sliced_2x2`) that leaked beside it. On a
+  phone the picture block keeps its own height, so the date line no longer draws over the
+  "What is it?" heading.
+- **The record works on a phone.** The frame comparison opens as a sheet at the foot of the
+  screen with a backdrop and its own Close, since there is no hover to lose; the identification's
+  actions and the whole-scene actions stack full width; and the hero title, which repeated the
+  rail's "Identified as" while covering the bird, is left to the rail on small screens.
 
 ## [2.19.6] - 2026-09-10
 

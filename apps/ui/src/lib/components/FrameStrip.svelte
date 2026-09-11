@@ -61,11 +61,19 @@
     const GAP = 8;
     const VIEWPORT_MARGIN = 8;
 
-    let anchor = $state<{ x: number; y: number; above: boolean } | null>(null);
+    let anchor = $state<{ x: number; y: number; above: boolean; sheet: boolean } | null>(null);
+
+    // On a phone there is no room beside a thumbnail and no hover to lose: the panel becomes
+    // a sheet at the foot of the screen, with a backdrop and its own Close.
+    const SHEET_QUERY = '(max-width: 639px)';
 
     function place(index: number): void {
         const trigger = triggers[index];
         if (!trigger) return;
+        if (typeof window !== 'undefined' && window.matchMedia(SHEET_QUERY).matches) {
+            anchor = { x: 0, y: 0, above: false, sheet: true };
+            return;
+        }
         const rect = trigger.getBoundingClientRect();
         // The strip sits at the foot of the photograph, so the panel normally opens above it
         // and only drops below when the top of the window is too close.
@@ -76,7 +84,7 @@
             Math.max(rect.left + rect.width / 2, half + VIEWPORT_MARGIN),
             window.innerWidth - half - VIEWPORT_MARGIN
         );
-        anchor = { x: centre, y: above ? rect.top - GAP : rect.bottom + GAP, above };
+        anchor = { x: centre, y: above ? rect.top - GAP : rect.bottom + GAP, above, sheet: false };
     }
 
     function show(index: number): void {
@@ -341,13 +349,24 @@
                             {@const image = imageFor(moment)}
                             {@const read = readLine(moment)}
                             {@const applying = applyingKey === moment.key}
+                            {#if anchor.sheet}
+                                <div
+                                    use:portal
+                                    class="fixed inset-0 z-[69] bg-slate-950/50"
+                                    data-frame-strip-backdrop
+                                    onclick={() => hide(true)}
+                                    role="presentation"
+                                ></div>
+                            {/if}
                             <div
                                 bind:this={panelEl}
                                 use:portal
-                                style="left: {anchor.x}px; top: {anchor.y}px;"
-                                class="fixed z-[70] w-72 max-w-[calc(100vw-16px)] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 text-slate-100 shadow-2xl shadow-slate-950/40 motion-safe:animate-in motion-safe:fade-in motion-safe:zoom-in-95 {anchor.above
-                                    ? '-translate-x-1/2 -translate-y-full'
-                                    : '-translate-x-1/2'}"
+                                style={anchor.sheet ? '' : `left: ${anchor.x}px; top: ${anchor.y}px;`}
+                                class="fixed z-[70] overflow-hidden border border-slate-700 bg-slate-900 text-slate-100 shadow-2xl shadow-slate-950/40 motion-safe:animate-in motion-safe:fade-in {anchor.sheet
+                                    ? 'inset-x-0 bottom-0 rounded-t-2xl motion-safe:slide-in-from-bottom-4'
+                                    : anchor.above
+                                      ? 'w-72 max-w-[calc(100vw-16px)] -translate-x-1/2 -translate-y-full rounded-2xl motion-safe:zoom-in-95'
+                                      : 'w-72 max-w-[calc(100vw-16px)] -translate-x-1/2 rounded-2xl motion-safe:zoom-in-95'}"
                                 role="presentation"
                                 data-frame-strip-panel
                                 onmouseenter={cancelScheduledClose}
@@ -356,19 +375,28 @@
                                 onkeydown={handlePanelKeydown}
                             >
                               <div
+                                class="relative"
                                 role="group"
                                 aria-label={$_('detection.frame_position', {
                                     values: { position: moment.position, count: moments.length },
                                     default: 'Frame {position} of {count}'
                                 })}
                               >
+                                <button
+                                    type="button"
+                                    class="absolute right-2 top-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-slate-950/60 text-white backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                    aria-label={$_('common.close', { default: 'Close' })}
+                                    onclick={(event) => { event.stopPropagation(); const current = openIndex; hide(true); if (current !== null) triggers[current]?.focus(); }}
+                                >
+                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" /></svg>
+                                </button>
                                 {#if image && !failed.has(moment.key)}
                                     <img
                                         src={image}
                                         alt={primaryName}
                                         loading="lazy"
                                         decoding="async"
-                                        class="h-40 w-full bg-slate-950 object-contain"
+                                        class="w-full bg-slate-950 object-contain {anchor.sheet ? 'h-56' : 'h-40'}"
                                         onerror={() => markFailed(moment.key)}
                                     />
                                 {:else}
