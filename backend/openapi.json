@@ -2898,6 +2898,63 @@
         "title": "CommonNameOverrideResponse",
         "type": "object"
       },
+      "CommunityStatsResponse": {
+        "properties": {
+          "active_installs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Installs"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "total_installs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Installs"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "CommunityStatsResponse",
+        "type": "object"
+      },
       "ConnectivityResponse": {
         "properties": {
           "frigate": {
@@ -13106,6 +13163,94 @@
         "title": "SetupState",
         "type": "object"
       },
+      "ShowcaseItem": {
+        "properties": {
+          "camera_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Name"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "detection_time": {
+            "title": "Detection Time",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "frigate_event",
+          "display_name",
+          "detection_time",
+          "score"
+        ],
+        "title": "ShowcaseItem",
+        "type": "object"
+      },
+      "ShowcaseResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShowcaseItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ShowcaseResponse",
+        "type": "object"
+      },
       "SnapshotApplyRequest": {
         "properties": {
           "candidate_id": {
@@ -15398,6 +15543,147 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/about/community": {
+      "get": {
+        "description": "How many installs reported to the telemetry service this week. Cached for an hour.",
+        "operationId": "get_about_community_api_about_community_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunityStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get About Community",
+        "tags": [
+          "about"
+        ]
+      }
+    },
+    "/api/about/showcase": {
+      "get": {
+        "description": "One recent crop per species, newest first. Guests see the same window as the Explorer.",
+        "operationId": "get_about_showcase_api_about_showcase_get",
+        "parameters": [
+          {
+            "description": "Photographs to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 12,
+              "description": "Photographs to return",
+              "maximum": 40,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShowcaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get About Showcase",
+        "tags": [
+          "about"
+        ]
+      }
+    },
+    "/api/about/showcase/{event_id}.jpg": {
+      "get": {
+        "description": "The stored photograph at card size, under the same access rules as the photograph.",
+        "operationId": "get_about_reel_image_api_about_showcase__event_id__jpg_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get About Reel Image",
+        "tags": [
+          "about"
+        ]
+      }
+    },
     "/api/audio/clip/{birdnet_id}": {
       "get": {
         "description": "Proxy a BirdNET-Go audio clip so the browser can play the matched\naudio inline in the detection modal.\n\nForwards the client's Range header so HTML5 ``<audio controls>`` can\nscrub. Clips are typically ~250 KB AAC/m4a; buffered in memory rather\nthan streamed because the size is bounded and the existing Frigate\nproxy uses the same shape.",

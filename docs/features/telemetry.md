@@ -43,6 +43,15 @@ Health diagnostics may include:
 
 Health diagnostics are stored separately from aggregate telemetry so recurring failures can be grouped without mixing them into feature-adoption metrics.
 
+## The About page's install count
+
+The About page quotes how many installs reported to the telemetry service in the last week.
+That number comes from the worker's public summary (`/stats/summary`), read by the backend at most
+once an hour with no payload, the same host the update check reads. It follows the
+**Check for updates** opt-out: an install that has turned update checks off never contacts the
+worker for this either, and the count is simply absent. It is listed under "What leaves your
+network" on the About page.
+
 ## What is NEVER Collected?
 - ❌ **Your Images or Videos:** Bird images and camera feeds are never transmitted.
 - ❌ **Detection Data:** No species names, times, or locations.

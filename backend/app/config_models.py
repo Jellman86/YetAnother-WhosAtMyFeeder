@@ -780,6 +780,13 @@ class TelemetrySettings(BaseModel):
         default="https://yawamf-telemetry.ya-wamf.workers.dev/health-issues",
         description="Health issue diagnostics endpoint URL",
     )
+    stats_url: Optional[str] = Field(
+        default="https://yawamf-telemetry.ya-wamf.workers.dev/stats/summary",
+        description=(
+            "Endpoint returning anonymous aggregate install counts for the About page. "
+            "A plain GET with no payload; honours the same opt-out as the update check."
+        ),
+    )
     version_url: Optional[str] = Field(
         default="https://yawamf-telemetry.ya-wamf.workers.dev/version",
         description=(
@@ -933,8 +940,10 @@ class SystemSettings(BaseModel):
     update_check_enabled: bool = Field(
         default=True,
         description=(
-            "Periodically check GitHub for a newer YA-WAMF release and show an in-app update prompt. "
-            "Makes an anonymous request to the GitHub API (cached); disable to stop all update checks."
+            "Periodically check for a newer YA-WAMF release and show an in-app update prompt. "
+            "Makes an anonymous, payload-free request to the project's telemetry service (cached); "
+            "the About page's install count is read from the same service under the same switch. "
+            "Disable to stop both."
         ),
     )
 

@@ -2384,12 +2384,15 @@
       "llm_desc": "a sua chave, o seu fornecedor",
       "telemetry": "Telemetria",
       "telemetry_desc": "contagens anónimas",
-      "guest_note": "Mostrado por transparência. Só o proprietário pode alterar."
+      "guest_note": "Mostrado por transparência. Só o proprietário pode alterar.",
+      "community": "Contagem de instalações",
+      "community_desc": "uma leitura anónima, desligada com a verificação de atualizações"
     },
     "stats": {
       "detections": "deteções guardadas",
       "species": "espécies identificadas",
-      "week": "visitas esta semana"
+      "week": "visitas esta semana",
+      "feeders": "comedouros usaram-no esta semana"
     },
     "instance": {
       "title": "Esta instância",
@@ -2421,7 +2424,13 @@
       "title": "Dados, privacidade e créditos"
     },
     "reference_thanks": "Referências e agradecimentos",
-    "thanks_to": "Obrigado a"
+    "thanks_to": "Obrigado a",
+    "opener": {
+      "caption": "Algumas até ficaram quietas para a fotografia.",
+      "reel_label": "Fotografias recentes deste comedouro",
+      "open_visit": "Abrir a visita de {name} de {time}",
+      "gone": "Essa visita já não está no histórico."
+    }
   },
   "species_detail": {
     "no_wiki": "Nenhuma informação da Wikipedia disponível para esta espécie.",

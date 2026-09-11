@@ -2384,12 +2384,15 @@
       "llm_desc": "la tua chiave, il tuo fornitore",
       "telemetry": "Telemetria",
       "telemetry_desc": "conteggi anonimi",
-      "guest_note": "Mostrato per trasparenza. Solo il proprietario può modificarlo."
+      "guest_note": "Mostrato per trasparenza. Solo il proprietario può modificarlo.",
+      "community": "Conteggio installazioni",
+      "community_desc": "una lettura anonima, disattivata con il controllo aggiornamenti"
     },
     "stats": {
       "detections": "rilevamenti salvati",
       "species": "specie identificate",
-      "week": "visite questa settimana"
+      "week": "visite questa settimana",
+      "feeders": "mangiatoie lo hanno usato questa settimana"
     },
     "instance": {
       "title": "Questa istanza",
@@ -2421,7 +2424,13 @@
       "title": "Dati, privacy e ringraziamenti"
     },
     "reference_thanks": "Riferimenti e ringraziamenti",
-    "thanks_to": "Grazie a"
+    "thanks_to": "Grazie a",
+    "opener": {
+      "caption": "Alcuni sono persino rimasti fermi per la foto.",
+      "reel_label": "Fotografie recenti da questa mangiatoia",
+      "open_visit": "Apri la visita di {name} del {time}",
+      "gone": "Quella visita non è più nella cronologia."
+    }
   },
   "species_detail": {
     "no_wiki": "Nessuna informazione Wikipedia disponibile per questa specie.",

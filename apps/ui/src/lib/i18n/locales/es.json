@@ -2375,12 +2375,15 @@
       "llm_desc": "tu clave, tu proveedor",
       "telemetry": "Telemetría",
       "telemetry_desc": "recuentos anónimos",
-      "guest_note": "Se muestra por transparencia. Solo el propietario puede cambiarlo."
+      "guest_note": "Se muestra por transparencia. Solo el propietario puede cambiarlo.",
+      "community": "Recuento de instalaciones",
+      "community_desc": "una lectura anónima, se apaga con la comprobación de actualizaciones"
     },
     "stats": {
       "detections": "detecciones guardadas",
       "species": "especies identificadas",
-      "week": "visitas esta semana"
+      "week": "visitas esta semana",
+      "feeders": "comederos lo usaron esta semana"
     },
     "instance": {
       "title": "Esta instancia",
@@ -2412,7 +2415,13 @@
       "title": "Datos, privacidad y créditos"
     },
     "reference_thanks": "Referencias y agradecimientos",
-    "thanks_to": "Gracias a"
+    "thanks_to": "Gracias a",
+    "opener": {
+      "caption": "Algunas incluso se quedaron quietas para la foto.",
+      "reel_label": "Fotografías recientes de este comedero",
+      "open_visit": "Abrir la visita de {name} del {time}",
+      "gone": "Esa visita ya no está en el historial."
+    }
   },
   "species_detail": {
     "no_wiki": "No hay información de Wikipedia disponible para esta especie.",

@@ -451,6 +451,13 @@ export interface components {
     provider_common_name?: string | null;
     scientific_name: string;
 };
+    CommunityStatsResponse: {
+    active_installs?: number | null;
+    checked_at?: string | null;
+    enabled: boolean;
+    error?: string | null;
+    total_installs?: number | null;
+};
     ConnectivityResponse: {
     frigate: components['schemas']['ConnectivityResult'];
     inaturalist: components['schemas']['ConnectivityResult'];
@@ -1684,6 +1691,19 @@ export interface components {
     initial_setup_complete: boolean;
     sections: Array<components['schemas']['SetupSectionState']>;
 };
+    ShowcaseItem: {
+    camera_name?: string | null;
+    common_name?: string | null;
+    detection_time: string;
+    display_name: string;
+    frigate_event: string;
+    scientific_name?: string | null;
+    score: number;
+    taxa_id?: number | null;
+};
+    ShowcaseResponse: {
+    items: Array<components['schemas']['ShowcaseItem']>;
+};
     SnapshotApplyRequest: {
     candidate_id?: string | null;
     mode?: "candidate" | "auto_best" | "full_frame" | "frigate_hint_crop" | "model_crop" | "revert_original";
@@ -2035,6 +2055,37 @@ export interface components {
 }
 
 export interface paths {
+  "/api/about/community": {
+    get: {
+      operationId: "get_about_community_api_about_community_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['CommunityStatsResponse'];
+    };
+  };
+  "/api/about/showcase": {
+    get: {
+      operationId: "get_about_showcase_api_about_showcase_get";
+      path: never;
+      query: {
+    limit?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['ShowcaseResponse'];
+    };
+  };
+  "/api/about/showcase/{event_id}.jpg": {
+    get: {
+      operationId: "get_about_reel_image_api_about_showcase__event_id__jpg_get";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
   "/api/audio/clip/{birdnet_id}": {
     get: {
       operationId: "get_audio_clip_api_audio_clip__birdnet_id__get";
