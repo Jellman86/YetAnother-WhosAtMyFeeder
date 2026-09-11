@@ -1590,6 +1590,11 @@ async def apply_snapshot_candidate(
         if not snapshot_bytes:
             raise HTTPException(status_code=404, detail="Original Frigate snapshot unavailable")
         replaced = await media_cache.replace_snapshot(event_id, snapshot_bytes, source="frigate_snapshot")
+        if replaced:
+            # A favourite keeps the photograph as chosen; a new choice is archived again (#178).
+            from app.services.archive_service import archive_service
+
+            await archive_service.refresh_photograph(event_id)
         if not replaced:
             raise HTTPException(status_code=409, detail="Snapshot apply failed")
         async with get_db() as db:
@@ -1615,6 +1620,11 @@ async def apply_snapshot_candidate(
         raise HTTPException(status_code=409, detail="Snapshot candidate image unavailable")
     snapshot_source = str(candidate.get("snapshot_source") or "high_quality_snapshot")
     replaced = await media_cache.replace_snapshot(event_id, image_bytes, source=snapshot_source)
+    if replaced:
+        # A favourite keeps the photograph as chosen; a new choice is archived again (#178).
+        from app.services.archive_service import archive_service
+
+        await archive_service.refresh_photograph(event_id)
     if not replaced:
         raise HTTPException(status_code=409, detail="Snapshot apply failed")
     applied_candidate_id = str(candidate.get("candidate_id") or "")
@@ -1677,6 +1687,14 @@ async def proxy_snapshot(
                 return Response(content=cached, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
             if cache_allowed:
                 await media_cache.delete_snapshot(event_id)
+
+    # The cache is the live photograph; a favourite's archived copy stands in when the cache has
+    # nothing, and outlives Frigate's own rotation (#178).
+    from app.services.archive_service import archive_service
+
+    archived = await archive_service.snapshot_path(event_id)
+    if archived is not None:
+        return FileResponse(archived, media_type="image/jpeg", headers=SNAPSHOT_NO_STORE_HEADERS)
 
     # Fetch from Frigate
     url = f"{settings.frigate.frigate_url}/api/events/{event_id}/snapshot.jpg"
@@ -2117,6 +2135,20 @@ async def proxy_clip(
         # Or better, just fail here to prevent empty downloads
         pass
 
+    # Nothing cached: a favourite's archived clip stands in before Frigate is asked (#178).
+    from app.services.archive_service import archive_service
+
+    archived_clip = await archive_service.clip_path(event_id)
+    if archived_clip is not None:
+        return FileResponse(
+            archived_clip,
+            media_type="video/mp4",
+            filename=f"{event_id}.mp4",
+            headers={
+                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}.mp4"
+            },
+        )
+
     clip_url = f"{settings.frigate.frigate_url}/api/events/{event_id}/clip.mp4"
     headers = frigate_client._get_headers()
 
@@ -2283,6 +2315,20 @@ async def proxy_recording_clip(
     headers = frigate_client._get_headers()
 
     range_header = request.headers.get("range")
+    # A favourite's archived recording, if one was cached when it was favourited, before Frigate (#178).
+    from app.services.archive_service import archive_service
+
+    archived_recording = await archive_service.recording_path(event_id)
+    if archived_recording is not None:
+        return FileResponse(
+            archived_recording,
+            media_type="video/mp4",
+            filename=f"{event_id}_recording.mp4",
+            headers={
+                "Content-Disposition": f"{'attachment' if download_requested else 'inline'}; filename={event_id}_recording.mp4"
+            },
+        )
+
     should_cache = settings.media_cache.enabled
     log.debug(
         "proxy_recording_clip_start",

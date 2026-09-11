@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from app.auth import AuthContext, require_owner
 from app.services.auto_video_classifier_service import auto_video_classifier
+from app.services.archive_service import archive_service
 from app.services.full_visit_clip_service import full_visit_clip_service
 from app.services.high_quality_snapshot_service import high_quality_snapshot_service
 
@@ -208,13 +209,14 @@ async def get_jobs_snapshot(
         *auto_video_classifier.get_jobs_snapshot(),
         *high_quality_snapshot_service.get_jobs_snapshot(),
         *full_visit_clip_service.get_jobs_snapshot(),
+        *archive_service.get_jobs_snapshot(),
         *_backfill_job_snapshots(),
     ]
     items: list[JobSnapshotItem] = []
     for raw in raw_items:
         visibility: JobVisibility = (
             "routine"
-            if str(raw.get("kind") or "") in {"auto_video", "high_quality_snapshot", "full_visit"}
+            if str(raw.get("kind") or "") in {"auto_video", "high_quality_snapshot", "full_visit", "favorite_archive"}
             else "prominent"
         )
         item = JobSnapshotItem.model_validate({**raw, "visibility": visibility})

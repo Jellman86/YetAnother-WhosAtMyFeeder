@@ -596,8 +596,8 @@
       "purge_missing_snapshots_confirm": "Scanner les détections dont les instantanés manquent dans Frigate et appliquer la règle configurée ?",
       "purge_missing_scan_success": "Scan terminé : {checked} vérifiées, {missing} manquantes, {deleted} supprimées, {marked} marquées manquantes, {kept} conservées, {restored} restaurées.",
       "clear_favorites_button": "Supprimer tous les favoris",
-      "clear_favorites_desc": "Supprime tous les marqueurs favoris tout en conservant les détections et les médias.",
-      "clear_favorites_confirm": "Supprimer tous les marqueurs favoris ? Cette action est irréversible.",
+      "clear_favorites_desc": "Retire chaque marqueur de favori avec sa photo et son clip archivés. Les détections et le cache média restent.",
+      "clear_favorites_confirm": "Retirer tous les favoris avec leurs photos et clips archivés ? Les visites restent dans l’historique. Irréversible.",
       "clear_favorites_success": "{count} marqueurs favoris supprimés.",
       "clear_favorites_none": "Aucun favori à supprimer.",
       "clear_favorites_error": "Impossible de supprimer les favoris",
@@ -616,7 +616,12 @@
       "cache_crop_fallback_ready_help": "Les indices de suivi Frigate sont utilisés automatiquement ; les recadrages du détecteur s'ajoutent lorsqu'un modèle est installé.",
       "batch_analysis_complete": "Analyse par lot terminée",
       "advanced_title": "Maintenance et intégrité des médias",
-      "cache_advanced_title": "Qualité des instantanés"
+      "cache_advanced_title": "Qualité des instantanés",
+      "archive_usage": "Favoris archivés",
+      "archive_usage_detail": "{count} conservés, {size}",
+      "archive_failed_count": "{count} n’ont pas pu être archivés. Ouvrez la visite pour réessayer.",
+      "per_species_minimum": "Garder les plus récents par espèce",
+      "per_species_minimum_help": "Les visites les plus récentes de chaque espèce et leurs photos en cache survivent au nettoyage par ancienneté. 0 désactive. Les clips ne sont pas retenus."
     },
     "security": {
       "title": "Sécurité",
@@ -1288,10 +1293,10 @@
     "danger": {
       "title": "Zone de Danger",
       "subtitle": "Actions destructrices",
-      "reset_desc": "La réinitialisation de la base de données supprimera définitivement TOUTES les détections et effacera le cache média. Cette action est irréversible.",
+      "reset_desc": "Réinitialiser la base supprimera définitivement TOUTES les détections, videra le cache média et retirera tous les favoris archivés. Irréversible.",
       "reset_button": "Réinitialiser BDD & Cache",
       "resetting": "Réinitialisation…",
-      "confirm": "DANGER : Cela supprimera TOUTES les détections et effacera le cache média. Cette action est irréversible. Êtes-vous sûr ?",
+      "confirm": "DANGER : cela supprimera TOUTES les détections, videra le cache média et retirera tous les favoris archivés. Irréversible. Confirmer ?",
       "clear_feedback_button": "Effacer les données de personnalisation",
       "clear_feedback_desc": "Effacer les retours de personnalisation supprimera toutes les corrections manuelles d’étiquettes que l’IA utilise pour ajuster les scores de confiance. Cela ramènera le classificateur à sa précision de base.",
       "clear_feedback_hint": "Cela ne supprime ni les détections ni les médias. Le reranking recommencera à apprendre au fur et à mesure de vos nouvelles corrections manuelles.",
@@ -2058,7 +2063,14 @@
     "whole_scene_back": "Revenir au recadrage",
     "score_again": "Réévaluer",
     "frame_strip_empty": "Aucune image de cette visite n'est encore conservée.",
-    "frame_strip_count_one": "1 image de cette visite"
+    "frame_strip_count_one": "1 image de cette visite",
+    "archive_pending": "Archivage de la photo et du clip",
+    "archive_durable": "Archivé, {size}",
+    "archive_photo_only": "Photo archivée, aucun clip à garder",
+    "archive_unavailable": "Plus rien à archiver",
+    "archive_failed": "Échec de l’archivage",
+    "archive_retry": "Réessayer",
+    "unfavorite_confirm": "Retirer le favori ? Sa photo et son clip archivés ({size}) partent avec lui. La visite reste dans l’historique."
   },
   "events": {
     "title": "Événements",
@@ -2834,7 +2846,8 @@
     "errors_updated_minutes": "Mis à jour il y a {count}m",
     "system_ram_usage": "Utilisation RAM système",
     "circuit_open_detail": "{queued} éléments en file d'attente. Échecs récents : {failures}.",
-    "more_lanes": "+{count} files de travail supplémentaires"
+    "more_lanes": "+{count} files de travail supplémentaires",
+    "kind_favorite_archive": "Archive des favoris"
   },
   "errors": {
     "stack_trace": "Trace de pile :"

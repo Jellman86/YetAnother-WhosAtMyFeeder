@@ -98,6 +98,20 @@ export interface components {
     status: string;
     total_candidates?: number | null;
 };
+    ArchiveStatusResponse: {
+    archived_at?: string | null;
+    attempts?: number;
+    bytes?: number;
+    clip_state?: string | null;
+    error?: string | null;
+    event_id: string;
+    has_recording?: boolean;
+    is_favorite: boolean;
+    retry_at?: string | null;
+    snapshot_state?: string | null;
+    state?: string | null;
+    updated_at?: string | null;
+};
     AudioContextDetectionResponse: {
     birdnet_id?: number | null;
     confidence: number;
@@ -363,6 +377,14 @@ export interface components {
     status: string;
 };
     CacheStatsResponse: {
+    archive_count?: number;
+    archive_durable?: number;
+    archive_failed?: number;
+    archive_favorites?: number;
+    archive_pending?: number;
+    archive_size_bytes?: number;
+    archive_size_mb?: number;
+    archive_unavailable?: number;
     cache_clips: boolean;
     cache_enabled: boolean;
     cache_snapshots: boolean;
@@ -537,6 +559,7 @@ export interface components {
     Detection: {
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
+    archive_state?: string | null;
     audio_confirmed?: boolean;
     audio_context_species?: Array<string> | null;
     audio_score?: number | null;
@@ -583,6 +606,7 @@ export interface components {
     weather_wind_speed?: number | null;
 };
     DetectionListItemResponse: {
+    archive_state?: string | null;
     audio_confirmed?: boolean;
     audio_context_species?: Array<string> | null;
     audio_score?: number | null;
@@ -609,6 +633,7 @@ export interface components {
     DetectionResponse: {
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
+    archive_state?: string | null;
     audio_confirmed?: boolean;
     audio_context_species?: Array<string> | null;
     audio_score?: number | null;
@@ -813,6 +838,7 @@ export interface components {
     filtered: boolean;
 };
     FavoriteResponse: {
+    archive_state?: string | null;
     event_id: string;
     is_favorite: boolean;
     status: string;
@@ -1391,6 +1417,7 @@ export interface components {
     media_cache_high_quality_event_snapshot_bird_crop?: boolean;
     media_cache_high_quality_event_snapshot_jpeg_quality?: number;
     media_cache_high_quality_event_snapshots?: boolean;
+    media_cache_per_species_minimum?: number;
     media_cache_retention_days?: number;
     media_cache_snapshots?: boolean;
     media_integrity_scan_batch_size?: number;
@@ -1590,6 +1617,7 @@ export interface components {
     media_cache_high_quality_event_snapshot_bird_crop?: boolean;
     media_cache_high_quality_event_snapshot_jpeg_quality?: number;
     media_cache_high_quality_event_snapshots?: boolean;
+    media_cache_per_species_minimum?: number;
     media_cache_retention_days?: number;
     media_cache_snapshots?: boolean;
     media_integrity_scan_batch_size?: number;
@@ -2833,6 +2861,28 @@ export interface paths {
 };
       requestBody: unknown;
       response: components['schemas']['AIAnalysisResponse'];
+    };
+  };
+  "/api/events/{event_id}/archive": {
+    get: {
+      operationId: "get_event_archive_api_events__event_id__archive_get";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ArchiveStatusResponse'];
+    };
+  };
+  "/api/events/{event_id}/archive/retry": {
+    post: {
+      operationId: "retry_event_archive_api_events__event_id__archive_retry_post";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ArchiveStatusResponse'];
     };
   };
   "/api/events/{event_id}/classification-status": {

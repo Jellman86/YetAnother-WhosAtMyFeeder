@@ -17,6 +17,7 @@ from app.services.frigate_client import frigate_client
 from app.services.frigate_event_absence import frigate_event_absence
 from app.services.auto_video_classifier_service import auto_video_classifier
 from app.services.media_cache import media_cache
+from app.services.archive_service import archive_service, retry_due_at
 from app.services.broadcaster import broadcaster
 from app.services.taxonomy.taxonomy_service import taxonomy_service
 from app.services.audio.audio_service import audio_service
@@ -347,6 +348,7 @@ def _detection_updated_payload(detection, overrides: dict | None = None) -> dict
         "camera": detection.camera_name,
         "is_hidden": detection.is_hidden,
         "is_favorite": detection.is_favorite,
+        "archive_state": getattr(detection, "archive_state", None),
         "frigate_score": detection.frigate_score,
         "sub_label": detection.sub_label,
         "manual_tagged": detection.manual_tagged,
@@ -580,6 +582,7 @@ _LIST_FIELDS = {
     "observation_source",
     "is_hidden",
     "is_favorite",
+    "archive_state",
     "has_clip",
     "has_snapshot",
     "has_frigate_event",
@@ -854,6 +857,7 @@ async def get_events(
                 has_frigate_event=clip_availability.get(event.frigate_event, {}).get("has_frigate_event", False),
                 is_hidden=event.is_hidden,
                 is_favorite=event.is_favorite,
+                archive_state=event.archive_state,
                 frigate_score=event.frigate_score,
                 sub_label=event.sub_label,
                 manual_tagged=event.manual_tagged,
@@ -1071,6 +1075,7 @@ async def delete_event(event_id: str, request: Request, auth: AuthContext = Depe
                 from app.services.manual_observation_service import manual_observation_service
 
                 await manual_observation_service.delete_saved_event_media(event_id)
+            await archive_service.remove(event_id)
             await broadcaster.broadcast(
                 {
                     "type": "detection_deleted",
@@ -1095,6 +1100,7 @@ class FavoriteResponse(BaseModel):
     status: str
     event_id: str
     is_favorite: bool
+    archive_state: str | None = None
 
 
 @router.post("/events/{event_id}/hide", response_model=HideResponse)
@@ -1132,7 +1138,17 @@ async def favorite_event(event_id: str, request: Request, auth: AuthContext = De
         if detection:
             await broadcaster.broadcast({"type": "detection_updated", "data": _detection_updated_payload(detection)})
 
-        return FavoriteResponse(status="updated", event_id=event_id, is_favorite=True)
+    # The star is a promise; the archive worker makes it true (#178). A visit starred twice
+    # keeps whatever its archive already holds.
+    archive_service.enqueue(event_id)
+    async with get_db() as db:
+        favorite = await DetectionRepository(db).get_favorite_archive(event_id)
+    return FavoriteResponse(
+        status="updated",
+        event_id=event_id,
+        is_favorite=True,
+        archive_state=favorite["state"] if favorite else "pending",
+    )
 
 
 @router.delete("/events/{event_id}/favorite", response_model=FavoriteResponse)
@@ -1149,7 +1165,69 @@ async def unfavorite_event(event_id: str, request: Request, auth: AuthContext = 
         if detection:
             await broadcaster.broadcast({"type": "detection_updated", "data": _detection_updated_payload(detection)})
 
-        return FavoriteResponse(status="updated", event_id=event_id, is_favorite=False)
+    # Unfavouriting is the one everyday action that removes an archive; the confirmation says so.
+    await archive_service.remove(event_id)
+    return FavoriteResponse(status="updated", event_id=event_id, is_favorite=False, archive_state=None)
+
+
+class ArchiveStatusResponse(BaseModel):
+    event_id: str
+    is_favorite: bool
+    state: str | None = None
+    snapshot_state: str | None = None
+    clip_state: str | None = None
+    has_recording: bool = False
+    bytes: int = 0
+    attempts: int = 0
+    error: str | None = None
+    archived_at: str | None = None
+    updated_at: str | None = None
+    retry_at: str | None = None
+
+
+async def _archive_status(event_id: str) -> ArchiveStatusResponse:
+    async with get_db() as db:
+        favorite = await DetectionRepository(db).get_favorite_archive(event_id)
+    if favorite is None:
+        return ArchiveStatusResponse(event_id=event_id, is_favorite=False)
+    retry_at = retry_due_at(favorite["attempts"], favorite["updated_at"]) if favorite["state"] == "failed" else None
+    return ArchiveStatusResponse(
+        event_id=event_id,
+        is_favorite=True,
+        state=favorite["state"],
+        snapshot_state=favorite["snapshot_state"],
+        clip_state=favorite["clip_state"],
+        has_recording=(await archive_service.recording_path(event_id)) is not None,
+        bytes=favorite["bytes"],
+        attempts=favorite["attempts"],
+        error=favorite["error"],
+        archived_at=serialize_api_datetime(favorite["archived_at"]),
+        updated_at=serialize_api_datetime(favorite["updated_at"]),
+        retry_at=serialize_api_datetime(retry_at),
+    )
+
+
+@router.get("/events/{event_id}/archive", response_model=ArchiveStatusResponse)
+async def get_event_archive(event_id: str, request: Request, auth: AuthContext = Depends(require_owner)):
+    """What the favourite's archive holds, per asset. Owner only."""
+    lang = get_user_language(request)
+    async with get_db() as db:
+        if await DetectionRepository(db).get_by_frigate_event(event_id) is None:
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
+    return await _archive_status(event_id)
+
+
+@router.post("/events/{event_id}/archive/retry", response_model=ArchiveStatusResponse)
+async def retry_event_archive(event_id: str, request: Request, auth: AuthContext = Depends(require_owner)):
+    """Try a failed archive again now, with a clean attempt count. Owner only."""
+    lang = get_user_language(request)
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        if await repo.get_favorite_archive(event_id) is None:
+            raise HTTPException(status_code=404, detail=i18n_service.translate("errors.detection_not_found", lang=lang))
+        await repo.reset_favorite_archive(event_id)
+    archive_service.enqueue(event_id)
+    return await _archive_status(event_id)
 
 
 class UpdateDetectionRequest(BaseModel):
@@ -1820,6 +1898,8 @@ async def bulk_delete_events(body: BulkDeleteRequest, auth: AuthContext = Depend
                 missing_event_ids.append(event_id)
                 continue
             deleted = await repo.delete_by_frigate_event(event_id)
+            if deleted:
+                await archive_service.remove(event_id)
             if deleted:
                 await broadcaster.broadcast(
                     {

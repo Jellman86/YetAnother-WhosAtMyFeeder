@@ -605,8 +605,8 @@
       "purge_missing_snapshots_confirm": "Verificar deteções cujas capturas estão ausentes no Frigate e aplicar a política configurada?",
       "purge_missing_scan_success": "Verificação concluída: {checked} verificadas, {missing} ausentes, {deleted} excluídas, {marked} marcadas como ausentes, {kept} mantidas, {restored} restauradas.",
       "clear_favorites_button": "Apagar todos os favoritos",
-      "clear_favorites_desc": "Remove todos os marcadores de favoritos mantendo as deteções e os média.",
-      "clear_favorites_confirm": "Remover todos os marcadores de favoritos? Isto não pode ser desfeito.",
+      "clear_favorites_desc": "Remove cada marca de favorito com a sua foto e clipe arquivados. As deteções e a cache de média mantêm-se.",
+      "clear_favorites_confirm": "Remover todas as marcas de favorito com as fotos e clipes arquivados? As visitas ficam no histórico. Não é possível anular.",
       "clear_favorites_success": "Foram removidos {count} marcadores de favoritos.",
       "clear_favorites_none": "Não há favoritos para remover.",
       "clear_favorites_error": "Falha ao remover favoritos",
@@ -625,7 +625,12 @@
       "cache_crop_fallback_ready_help": "As pistas de seguimento Frigate são usadas automaticamente; os recortes do detetor são adicionados quando existe um modelo instalado.",
       "batch_analysis_complete": "Análise em lote concluída",
       "advanced_title": "Manutenção e integridade dos media",
-      "cache_advanced_title": "Qualidade do snapshot"
+      "cache_advanced_title": "Qualidade do snapshot",
+      "archive_usage": "Favoritos arquivados",
+      "archive_usage_detail": "{count} guardados, {size}",
+      "archive_failed_count": "{count} não puderam ser arquivados. Abra a visita para tentar de novo.",
+      "per_species_minimum": "Manter os mais recentes por espécie",
+      "per_species_minimum_help": "As visitas mais recentes de cada espécie e as suas fotos em cache sobrevivem à limpeza por idade. 0 desativa. Os clipes não são mantidos."
     },
     "security": {
       "title": "Segurança",
@@ -1297,10 +1302,10 @@
     "danger": {
       "title": "Zona de Perigo",
       "subtitle": "Ações destrutivas",
-      "reset_desc": "Resetar o banco de dados excluirá PERMANENTEMENTE TODAS as detecções e limpará o cache de mídia. Esta ação não pode ser desfeita.",
+      "reset_desc": "Repor a base de dados elimina permanentemente TODAS as deteções, limpa a cache de média e remove todos os favoritos arquivados. Não é possível anular.",
       "reset_button": "Resetar Banco de Dados e Cache",
       "resetting": "Resetando…",
-      "confirm": "PERIGO: Isso excluirá TODAS as detecções e limpará o cache de mídia. Esta ação não pode ser desfeita. Tem certeza?",
+      "confirm": "PERIGO: isto elimina TODAS as deteções, limpa a cache de média e remove todos os favoritos arquivados. Não é possível anular. Tem a certeza?",
       "clear_feedback_button": "Limpar dados de personalização",
       "clear_feedback_desc": "Limpar o feedback de personalização apagará todas as correções manuais de etiquetas que a IA usa para ajustar os níveis de confiança. Isso fará o classificador voltar à precisão básica.",
       "clear_feedback_hint": "Isso não exclui detecções nem mídia. O reordenamento voltará a aprender à medida que você fizer novas correções manuais.",
@@ -2067,7 +2072,14 @@
     "whole_scene_back": "Voltar ao recorte",
     "score_again": "Pontuar novamente",
     "frame_strip_empty": "Ainda não há quadros guardados desta visita.",
-    "frame_strip_count_one": "1 quadro desta visita"
+    "frame_strip_count_one": "1 quadro desta visita",
+    "archive_pending": "A arquivar foto e clipe",
+    "archive_durable": "Arquivado, {size}",
+    "archive_photo_only": "Foto arquivada, sem clipe para guardar",
+    "archive_unavailable": "Nada mais para arquivar",
+    "archive_failed": "Falha ao arquivar",
+    "archive_retry": "Tentar de novo",
+    "unfavorite_confirm": "Remover o favorito? A foto e o clipe arquivados ({size}) vão com ele. A visita fica no histórico."
   },
   "events": {
     "title": "Eventos",
@@ -2834,7 +2846,8 @@
     "errors_updated_minutes": "Atualizado há {count}m",
     "system_ram_usage": "Uso de RAM do sistema",
     "circuit_open_detail": "{queued} itens em fila estão à espera. Falhas recentes: {failures}.",
-    "more_lanes": "+{count} pistas de trabalho adicionais"
+    "more_lanes": "+{count} pistas de trabalho adicionais",
+    "kind_favorite_archive": "Arquivo de favoritos"
   },
   "errors": {
     "stack_trace": "Rastreamento de pilha:"

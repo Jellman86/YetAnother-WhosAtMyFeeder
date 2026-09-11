@@ -581,6 +581,15 @@ class MediaCacheSettings(BaseModel):
         le=100,
         description="JPEG quality for derived high-quality event snapshots",
     )
+    per_species_minimum: int = Field(
+        default=0,
+        ge=0,
+        le=10000,
+        description=(
+            "Keep the newest N detections of each species, and their cached photographs, out of "
+            "age-based cleanup (0 = off). Clips are not held by this floor."
+        ),
+    )
     retention_days: int = Field(
         default=0, ge=0, description="Days to keep cached media (0 = follow detection retention)"
     )

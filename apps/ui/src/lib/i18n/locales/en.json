@@ -618,14 +618,19 @@
       "purge_missing_snapshots_confirm": "Scan detections whose snapshots are missing in Frigate and apply the configured policy?",
       "purge_missing_scan_success": "Scan complete: checked {checked}, missing {missing}, deleted {deleted}, marked missing {marked}, kept {kept}, restored {restored}.",
       "clear_favorites_button": "Delete All Favorites",
-      "clear_favorites_desc": "Removes every favorite marker while keeping detections and media.",
-      "clear_favorites_confirm": "Remove all favorite markers? This cannot be undone.",
+      "clear_favorites_desc": "Removes every favourite marker and its archived photo and clip. Detections and cached media stay.",
+      "clear_favorites_confirm": "Remove all favourite markers and their archived photos and clips? The visits stay in history. This cannot be undone.",
       "clear_favorites_success": "Removed {count} favorite markers.",
       "clear_favorites_none": "No favorites to remove.",
       "clear_favorites_error": "Failed to remove favorites",
       "batch_analysis_complete": "Batch analysis complete",
       "advanced_title": "Maintenance & media integrity",
-      "cache_advanced_title": "Snapshot quality"
+      "cache_advanced_title": "Snapshot quality",
+      "archive_usage": "Archived favourites",
+      "archive_usage_detail": "{count} kept, {size}",
+      "archive_failed_count": "{count} could not be archived. Open the visit to try again.",
+      "per_species_minimum": "Keep the newest per species",
+      "per_species_minimum_help": "The newest visits of each species, and their cached photographs, stay through age cleanup. 0 turns this off. Clips are not held."
     },
     "security": {
       "title": "Security",
@@ -1297,10 +1302,10 @@
     "danger": {
       "title": "Danger Zone",
       "subtitle": "Destructive actions",
-      "reset_desc": "Resetting the database will permanently delete ALL detections and clear the media cache. This action cannot be undone.",
+      "reset_desc": "Resetting the database will permanently delete ALL detections, clear the media cache and remove every archived favourite. This action cannot be undone.",
       "reset_button": "Reset Database & Cache",
       "resetting": "Resetting…",
-      "confirm": "DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?",
+      "confirm": "DANGER: This will delete ALL detections, clear the media cache and remove every archived favourite. This action cannot be undone. Are you sure?",
       "clear_feedback_button": "Clear Personalization Data",
       "clear_feedback_desc": "Clearing personalization feedback will delete all manual tag corrections the AI uses to adjust confidence scores. This will revert the classifier to its baseline accuracy.",
       "clear_feedback_hint": "This does not delete detections or media. Re-ranking will begin learning again as you make new manual corrections.",
@@ -2067,7 +2072,14 @@
     "whole_scene_back": "Back to the crop",
     "score_again": "Score again",
     "frame_strip_empty": "No frames kept from this visit yet.",
-    "frame_strip_count_one": "1 frame from this visit"
+    "frame_strip_count_one": "1 frame from this visit",
+    "archive_pending": "Archiving photo and clip",
+    "archive_durable": "Archived, {size}",
+    "archive_photo_only": "Photo archived, no clip to keep",
+    "archive_unavailable": "Nothing left to archive",
+    "archive_failed": "Archive failed",
+    "archive_retry": "Try again",
+    "unfavorite_confirm": "Remove the favourite? Its archived photo and clip ({size}) go with it. The visit stays in history."
   },
   "events": {
     "title": "Events",
@@ -2701,7 +2713,8 @@
     "errors_updated_minutes": "Updated {count}m ago",
     "system_ram_usage": "System RAM Usage",
     "circuit_open_detail": "{queued} queued items are waiting. Recent failures: {failures}.",
-    "more_lanes": "+{count} more work lanes"
+    "more_lanes": "+{count} more work lanes",
+    "kind_favorite_archive": "Favourite archive"
   },
   "footer": {
     "did_you_know": "Did you know?",

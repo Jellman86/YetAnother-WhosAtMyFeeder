@@ -45,6 +45,8 @@ class Detection(APIModel):
     camera_name: str
     is_hidden: bool = False
     is_favorite: bool = False
+    # The favourite's archive, derived from per-asset states (#178); None when not a favourite.
+    archive_state: str | None = None
     frigate_score: float | None = None
     sub_label: str | None = None
     manual_tagged: bool = False
@@ -109,6 +111,8 @@ class DetectionListItemResponse(APIModel):
     observation_source: str = "frigate"
     is_hidden: bool = False
     is_favorite: bool = False
+    # The favourite's archive, derived from per-asset states (#178); None when not a favourite.
+    archive_state: str | None = None
     has_clip: bool = False
     has_snapshot: bool = True
     has_frigate_event: bool = True

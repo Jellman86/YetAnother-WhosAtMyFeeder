@@ -605,8 +605,8 @@
       "purge_missing_snapshots_confirm": "Scansionare i rilevamenti le cui istantanee mancano in Frigate e applicare la policy configurata?",
       "purge_missing_scan_success": "Scansione completata: {checked} controllati, {missing} mancanti, {deleted} eliminati, {marked} segnati come mancanti, {kept} conservati, {restored} ripristinati.",
       "clear_favorites_button": "Elimina tutti i preferiti",
-      "clear_favorites_desc": "Rimuove tutti i marcatori preferiti mantenendo rilevamenti e media.",
-      "clear_favorites_confirm": "Rimuovere tutti i marcatori preferiti? Questa operazione non può essere annullata.",
+      "clear_favorites_desc": "Rimuove ogni contrassegno preferito con foto e clip archiviate. Rilevamenti e cache dei media restano.",
+      "clear_favorites_confirm": "Rimuovere tutti i contrassegni preferito con foto e clip archiviate? Le visite restano nella cronologia. Non si può annullare.",
       "clear_favorites_success": "Rimossi {count} marcatori preferiti.",
       "clear_favorites_none": "Nessun preferito da rimuovere.",
       "clear_favorites_error": "Impossibile rimuovere i preferiti",
@@ -625,7 +625,12 @@
       "cache_crop_fallback_ready_help": "Gli indizi di tracciamento Frigate vengono usati automaticamente; i ritagli del rilevatore si aggiungono quando è installato un modello.",
       "batch_analysis_complete": "Analisi batch completata",
       "advanced_title": "Manutenzione e integrità dei media",
-      "cache_advanced_title": "Qualità snapshot"
+      "cache_advanced_title": "Qualità snapshot",
+      "archive_usage": "Preferiti archiviati",
+      "archive_usage_detail": "{count} conservati, {size}",
+      "archive_failed_count": "{count} non archiviati. Apri la visita per riprovare.",
+      "per_species_minimum": "Conserva i più recenti per specie",
+      "per_species_minimum_help": "Le visite più recenti di ogni specie e le loro foto in cache sopravvivono alla pulizia per età. 0 disattiva. Le clip non vengono trattenute."
     },
     "security": {
       "title": "Sicurezza",
@@ -1297,10 +1302,10 @@
     "danger": {
       "title": "Zona Pericolo",
       "subtitle": "Azioni distruttive",
-      "reset_desc": "Il reset del database eliminerà DEFINITIVAMENTE TUTTI i rilevamenti e pulirà la cache media. Questa azione non può essere annullata.",
+      "reset_desc": "Il ripristino del database elimina definitivamente TUTTI i rilevamenti, svuota la cache dei media e rimuove tutti i preferiti archiviati. Non si può annullare.",
       "reset_button": "Reset Database e Cache",
       "resetting": "Reset…",
-      "confirm": "PERICOLO: Questo eliminerà TUTTI i rilevamenti e pulirà la cache media. Questa azione non può essere annullata. Sei sicuro?",
+      "confirm": "PERICOLO: verranno eliminati TUTTI i rilevamenti, svuotata la cache dei media e rimossi tutti i preferiti archiviati. Non si può annullare. Confermi?",
       "clear_feedback_button": "Cancella dati di personalizzazione",
       "clear_feedback_desc": "Cancellare il feedback di personalizzazione eliminerà tutte le correzioni manuali dei tag che l’IA usa per regolare i punteggi di confidenza. Questo riporterà il classificatore alla sua precisione di base.",
       "clear_feedback_hint": "Questo non elimina rilevamenti o media. Il riordino ricomincerà a imparare man mano che esegui nuove correzioni manuali.",
@@ -2067,7 +2072,14 @@
     "whole_scene_back": "Torna al ritaglio",
     "score_again": "Valuta di nuovo",
     "frame_strip_empty": "Nessun fotogramma di questa visita è ancora conservato.",
-    "frame_strip_count_one": "1 fotogramma di questa visita"
+    "frame_strip_count_one": "1 fotogramma di questa visita",
+    "archive_pending": "Archiviazione di foto e clip",
+    "archive_durable": "Archiviato, {size}",
+    "archive_photo_only": "Foto archiviata, nessuna clip da tenere",
+    "archive_unavailable": "Niente più da archiviare",
+    "archive_failed": "Archiviazione non riuscita",
+    "archive_retry": "Riprova",
+    "unfavorite_confirm": "Rimuovere il preferito? La foto e la clip archiviate ({size}) vanno via con esso. La visita resta nella cronologia."
   },
   "events": {
     "title": "Eventi",
@@ -2834,7 +2846,8 @@
     "errors_updated_minutes": "Aggiornato {count}m fa",
     "system_ram_usage": "Utilizzo RAM di sistema",
     "circuit_open_detail": "{queued} elementi in coda sono in attesa. Errori recenti: {failures}.",
-    "more_lanes": "+{count} corsie di lavoro in più"
+    "more_lanes": "+{count} corsie di lavoro in più",
+    "kind_favorite_archive": "Archivio preferiti"
   },
   "errors": {
     "stack_trace": "Traccia dello stack:"

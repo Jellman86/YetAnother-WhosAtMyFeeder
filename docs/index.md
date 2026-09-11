@@ -70,6 +70,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - [📤 Manual Observations](features/manual-observations.md) - Classify an uploaded photo or video, review the evidence, and add it to history
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - Where a bird's name comes from, and the species catalogue behind it
 - [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, and Email, plus filters and the Notifications surface
+- [⭐ Favourites](features/favourites.md) - What the star keeps, where the archive lives, and the per-species floor
 - [📊 Telemetry](features/telemetry.md) - Transparency on anonymous usage metrics
 
 ## Troubleshooting
