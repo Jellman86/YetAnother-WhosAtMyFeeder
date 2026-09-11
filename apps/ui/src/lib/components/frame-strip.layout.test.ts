@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import stripSource from './FrameStrip.svelte?raw';
+import previewSource from './DetectionPreview.svelte?raw';
+import filteredSource from './FilteredFramePreview.svelte?raw';
 import modalSource from './DetectionModal.svelte?raw';
 
 describe('the frame strip is one ordered set of moments (#256)', () => {
@@ -12,8 +14,8 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
     });
 
     it('opens a comparison pop-out by hover and by keyboard, per the layout standard', () => {
-        expect(stripSource).toContain('onmouseenter={() => show(index)}');
-        expect(stripSource).toContain('onfocusin={() => show(index)}');
+        expect(stripSource).toContain('onpointerenter={(event) => hoverOpen(index, event)}');
+        expect(stripSource).toContain('onfocusin={(event) => focusOpen(index, event)}');
         expect(stripSource).toContain('const CLOSE_GRACE_MS = 120;');
         expect(stripSource).toContain("event.key === 'Escape'");
         expect(stripSource).toContain('aria-expanded={openIndex === index}');
@@ -37,6 +39,37 @@ describe('the frame strip is one ordered set of moments (#256)', () => {
         expect(stripSource).toContain('data-frame-strip-backdrop');
         expect(stripSource).toContain("'inset-x-0 bottom-0 rounded-t-2xl motion-safe:slide-in-from-bottom-4'");
         expect(stripSource).toContain("aria-label={$_('common.close', { default: 'Close' })}");
+    });
+
+    it('opens the sheet by the tap itself, never by the hover or focus a touch browser replays first', () => {
+        // A tap arrives as mouseenter, focus, click. Had the first opened the sheet, its backdrop
+        // would sit under the finger when the click landed and close it again: a flicker.
+        expect(stripSource).toContain("if (event.pointerType === 'touch' || isSheet()) return;");
+        expect(stripSource).toContain("return target.matches(':focus-visible');");
+        expect(stripSource).toContain('if (!isKeyboardFocus(event.target)) return;');
+        // The click is what opens it on a phone.
+        expect(stripSource).toContain('onclick={(event) => { event.stopPropagation(); show(index); }}');
+        // With a backdrop, a Close and Escape, the pointer drifting off the strip is not a dismissal,
+        // and a tap on the sheet's own picture (focus going nowhere) is not either.
+        expect(stripSource).toContain('if (anchor?.sheet) return;\n        hide();');
+        expect(stripSource).toContain('onmouseleave={hoverClose}');
+        expect(stripSource).not.toContain('onmouseleave={() => hide()}');
+        // Only the sheet ignores focus going nowhere; a desktop pop-out still closes.
+        expect(stripSource).toContain('if (!(next instanceof Node)) {\n            if (!anchor?.sheet) hide(true);');
+    });
+
+    it('returns focus to the thumbnail before closing, so Escape from the panel closes once', () => {
+        expect(stripSource).toContain("if (index !== null) triggers[index]?.focus();\n            if (event.key === 'Escape') hide(true);");
+        expect(stripSource).toContain('if (current !== null) triggers[current]?.focus(); hide(true); }}');
+    });
+
+    it('gives the other hover pop-outs the same tap rule', () => {
+        for (const source of [previewSource, filteredSource]) {
+            expect(source).toContain("event.pointerType !== 'touch'");
+            expect(source).toContain("target.matches(':focus-visible')");
+            expect(source).not.toContain('onmouseenter={() => show(index)}');
+            expect(source).not.toContain('onmouseenter={show}');
+        }
     });
 
     it('labels what the model read in a frame as a read, with one action that names its effect', () => {

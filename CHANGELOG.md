@@ -6,6 +6,14 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **A tap on a frame thumbnail opens the sheet on a phone.** It used to flicker and vanish: the
+  browser replays a tap as a hover first, the hover opened the sheet with its backdrop under the
+  finger, and the tap's click then landed on that backdrop and closed it. Hover now opens the
+  pop-out for a mouse alone and focus for the keyboard alone; a tap opens it by its click, and the
+  sheet closes by its backdrop, its Close, or Escape, not by the pointer drifting away.
+
 ### Changed
 
 - **One place to choose the frame and settle the species (#256).** The detection record's

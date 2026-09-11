@@ -103,7 +103,7 @@ describe('filtered rows', () => {
 describe('filtered frame preview', () => {
     it('honours the hover pop-out contract', () => {
         // §4: hover alone fails WCAG 2.2 AA.
-        expect(filteredPreviewSource).toContain('onmouseenter');
+        expect(filteredPreviewSource).toContain('onpointerenter');
         expect(filteredPreviewSource).toContain('onfocusin');
         expect(filteredPreviewSource).toContain('CLOSE_GRACE_MS = 120');
         expect(filteredPreviewSource).toContain("event.key === 'Escape'");
