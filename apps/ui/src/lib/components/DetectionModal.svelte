@@ -39,14 +39,8 @@
     import { appApiPath } from '../app/url-base';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
     import FrameStrip from './FrameStrip.svelte';
-    import {
-        currentMoment,
-        groupCandidatesIntoMoments,
-        preferredCandidate,
-        wholeSceneOutline,
-        type FrameMoment,
-        type OutlineBox
-    } from '../utils/frame-moments';
+    import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
+    import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -717,13 +711,10 @@
         };
     });
 
-    // The photograph is always the crop. The whole scene is a look, not a mode (#256): hover
-    // or focus peeks at it with the crop outlined, and a click pins it so the one rescue that
-    // needs the whole scene can be offered. Persisting anything stays a named action.
-    let mediaView = $state<'stored' | 'whole'>('stored');
-    let wholeScenePinned = $state(false);
+    // The photograph is always the crop. The whole scene is a look, not a mode (#256): the shared
+    // controller peeks on hover or focus with the crop outlined and pins on click, so the one
+    // rescue that needs the whole scene can be offered. Persisting anything stays a named action.
     let heroImageEl = $state<HTMLImageElement | null>(null);
-    let wholeSceneOutlineBox = $state<OutlineBox | null>(null);
     // Frigate's own snapshot has no candidate record, so the "matching" whole frame would be
     // another moment's: different evidence, not a safe peek.
     const canPeekWholeScene = $derived(
@@ -731,17 +722,17 @@
         && currentSnapshotSource !== 'frigate_snapshot'
         && !!(fullFrameSnapshotCandidate?.image_url ?? fullFrameSnapshotCandidate?.thumbnail_url)
     );
-    const showingWholeScene = $derived(mediaView === 'whole' && canPeekWholeScene);
+    const wholeScene = new WholeScenePeek(() => canPeekWholeScene);
     const currentCropCandidate = $derived(
         snapshotCandidates.find((candidate) => candidate.candidate_id === currentSnapshotCandidateId)
             ?? snapshotCandidates.find((candidate) => candidate.selected)
             ?? null
     );
     const mediaImageUrl = $derived.by(() => {
-        if (showingWholeScene && fullFrameSnapshotCandidate?.image_url) {
+        if (wholeScene.showing && fullFrameSnapshotCandidate?.image_url) {
             return fullFrameSnapshotCandidate.image_url;
         }
-        if (showingWholeScene && fullFrameSnapshotCandidate?.thumbnail_url) {
+        if (wholeScene.showing && fullFrameSnapshotCandidate?.thumbnail_url) {
             return fullFrameSnapshotCandidate.thumbnail_url;
         }
         return snapshotImageUrl;
@@ -749,32 +740,23 @@
     $effect(() => {
         // A new detection starts on its own stored frame.
         void detection.frigate_event;
-        resetMediaView();
+        wholeScene.reset();
     });
-    // The outline is a DOM measurement: the drawn size of a `contain`ed image is not knowable
-    // from state, so it is read from the element once the whole scene has loaded and again
-    // when the window changes size.
+    // The outline is a DOM measurement, taken once the whole scene has loaded and again when
+    // the window changes size.
+    function measureWholeScene() {
+        wholeScene.measure(heroImageEl, currentCropCandidate?.crop_box);
+    }
     $effect(() => {
-        if (!showingWholeScene) {
-            wholeSceneOutlineBox = null;
+        if (!wholeScene.showing) {
+            wholeScene.outline = null;
             return;
         }
         measureWholeScene();
         window.addEventListener('resize', measureWholeScene);
         return () => window.removeEventListener('resize', measureWholeScene);
     });
-    function measureWholeScene() {
-        const element = heroImageEl;
-        if (!element || mediaView !== 'whole') {
-            wholeSceneOutlineBox = null;
-            return;
-        }
-        wholeSceneOutlineBox = wholeSceneOutline(
-            currentCropCandidate?.crop_box,
-            { width: element.naturalWidth, height: element.naturalHeight },
-            { width: element.clientWidth, height: element.clientHeight }
-        );
-    }
+    onDestroy(wholeScene.destroy);
     const canGenerateSnapshotCandidates = $derived(
         !snapshotApplyPending
         && !snapshotGeneratePending
@@ -1452,54 +1434,7 @@
     }
 
     function resetMediaView() {
-        mediaView = 'stored';
-        wholeScenePinned = false;
-    }
-
-    // A pointer crossing the photograph on its way to Play or Close is not a request to see
-    // the whole scene, and the whole frame is a large fetch. Hover waits for intent; focus and
-    // touch do not.
-    const PEEK_INTENT_MS = 250;
-    let peekTimer: ReturnType<typeof setTimeout> | null = null;
-
-    function peekWholeScene() {
-        if (peekTimer) {
-            clearTimeout(peekTimer);
-            peekTimer = null;
-        }
-        if (!canPeekWholeScene) return;
-        mediaView = 'whole';
-    }
-
-    function peekWholeSceneAfterIntent() {
-        if (!canPeekWholeScene || peekTimer) return;
-        peekTimer = setTimeout(() => {
-            peekTimer = null;
-            peekWholeScene();
-        }, PEEK_INTENT_MS);
-    }
-
-    function unpeekWholeScene() {
-        if (peekTimer) {
-            clearTimeout(peekTimer);
-            peekTimer = null;
-        }
-        if (wholeScenePinned) return;
-        mediaView = 'stored';
-    }
-
-    onDestroy(() => {
-        if (peekTimer) clearTimeout(peekTimer);
-    });
-
-    function toggleWholeScenePin() {
-        if (!canPeekWholeScene) return;
-        if (wholeScenePinned) {
-            resetMediaView();
-            return;
-        }
-        wholeScenePinned = true;
-        mediaView = 'whole';
+        wholeScene.reset();
     }
 
     async function useWholeSceneAsPhotograph() {
@@ -2181,7 +2116,7 @@
     onkeydown={(e) => {
         if (e.key !== 'Escape') return;
         // A pinned whole scene closes first; the record stays open.
-        if (wholeScenePinned) {
+        if (wholeScene.pinned) {
             e.preventDefault();
             resetMediaView();
             return;
@@ -2278,7 +2213,7 @@
                             src={mediaImageUrl}
                             alt={detection.display_name}
                             onload={measureWholeScene}
-                            class="relative h-full w-full {showingWholeScene
+                            class="relative h-full w-full {wholeScene.showing
                                 ? 'object-contain'
                                 : canPeekWholeScene ? 'object-cover' : 'object-contain'}"
                         />
@@ -2288,32 +2223,32 @@
                                  the crop outlined; a click pins it and offers the one rescue that needs it. -->
                             <button
                                 type="button"
-                                class="absolute inset-0 z-10 {wholeScenePinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+                                class="absolute inset-0 z-10 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
                                 data-detection-whole-scene-peek
-                                aria-pressed={wholeScenePinned}
-                                aria-label={wholeScenePinned
+                                aria-pressed={wholeScene.pinned}
+                                aria-label={wholeScene.pinned
                                     ? $_('detection.whole_scene_back', { default: 'Back to the crop' })
                                     : $_('detection.whole_scene_show', { default: 'Show the whole scene' })}
-                                onmouseenter={peekWholeSceneAfterIntent}
-                                onmouseleave={unpeekWholeScene}
-                                onfocus={peekWholeScene}
-                                onblur={unpeekWholeScene}
-                                onclick={(event) => { event.stopPropagation(); toggleWholeScenePin(); }}
+                                onmouseenter={wholeScene.enter}
+                                onmouseleave={wholeScene.leave}
+                                onfocus={wholeScene.show}
+                                onblur={wholeScene.leave}
+                                onclick={(event) => { event.stopPropagation(); wholeScene.toggle(); }}
                             ></button>
-                            {#if showingWholeScene && wholeSceneOutlineBox}
+                            {#if wholeScene.showing && wholeScene.outline}
                                 <div
                                     class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/85 shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]"
-                                    style="left: {wholeSceneOutlineBox.left}px; top: {wholeSceneOutlineBox.top}px; width: {wholeSceneOutlineBox.width}px; height: {wholeSceneOutlineBox.height}px;"
+                                    style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
                                     data-detection-whole-scene-outline
                                     aria-hidden="true"
                                 ></div>
                             {/if}
-                            {#if showingWholeScene}
+                            {#if wholeScene.showing}
                                 <span
                                     class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm"
                                     data-detection-whole-scene-chip
                                 >
-                                    {wholeScenePinned
+                                    {wholeScene.pinned
                                         ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
                                         : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
                                 </span>
@@ -2324,7 +2259,9 @@
                             data-detection-media-footer
                         >
                             <div class="flex flex-col gap-3 px-5 {showInlineFramePicker ? 'pb-2' : 'pb-5'}">
-                                <div data-detection-media-title>
+                                <!-- On a phone the rail's "Identified as" sits right under the picture, so the
+                                     hero title would say it twice while covering the bird. -->
+                                <div class="hidden sm:block" data-detection-media-title>
                                     <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
                                     {#if subName && subName !== primaryName}
                                         <p class="-mt-0.5 mb-0.5 truncate text-sm italic text-white/70 drop-shadow">{subName}</p>
@@ -2334,11 +2271,11 @@
                                     </p>
                                 </div>
 
-                                {#if wholeScenePinned && showingWholeScene}
-                                    <div class="flex flex-wrap items-center gap-2" data-detection-whole-scene-actions>
+                                {#if wholeScene.pinned && wholeScene.showing}
+                                    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions>
                                         <button
                                             type="button"
-                                            class="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                                             disabled={snapshotApplyPending || snapshotGeneratePending}
                                             onclick={(event) => { event.stopPropagation(); void useWholeSceneAsPhotograph(); }}
                                         >
@@ -2349,7 +2286,7 @@
                                         </button>
                                         <button
                                             type="button"
-                                            class="inline-flex min-h-11 items-center rounded-full border border-white/25 bg-black/40 px-4 text-[11px] font-semibold text-white/85 shadow-xl backdrop-blur-sm transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                            class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/40 px-4 text-[11px] font-semibold text-white/85 shadow-xl backdrop-blur-sm transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                                             onclick={(event) => { event.stopPropagation(); resetMediaView(); }}
                                         >
                                             {$_('detection.whole_scene_back', { default: 'Back to the crop' })}
@@ -3608,7 +3545,7 @@
             {#if hasOwnerDetectionActions}
                 <!-- The two decisions an owner makes about an identification, then the retry.
                      Each control names its effect. -->
-                <div class="flex flex-wrap gap-2" data-detection-identification-actions>
+                <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-detection-identification-actions>
                     {#if !detection.manual_tagged && !isUnknownSpecies}
                         <button
                             type="button"
@@ -3619,7 +3556,7 @@
                                 common_name: detection.common_name ?? null
                             } as SearchResult)}
                             disabled={updatingTag}
-                            class="btn btn-primary min-h-11 flex-1 px-4 text-sm"
+                            class="btn btn-primary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"
                             data-detection-confirm
                         >
                             {updatingTag
@@ -3635,7 +3572,7 @@
                         type="button"
                         onclick={() => showTagDropdown = !showTagDropdown}
                         disabled={updatingTag}
-                        class="btn btn-secondary min-h-11 flex-1 px-4 text-sm"
+                        class="btn btn-secondary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"
                     >
                         {updatingTag
                             ? $_('common.saving')
@@ -3646,7 +3583,7 @@
                         <button
                             type="button"
                             onclick={handleReclassifyClick}
-                            class="btn btn-ghost min-h-11 px-4 text-sm"
+                            class="btn btn-ghost min-h-11 w-full px-4 text-sm sm:w-auto"
                             title={$_('actions.reclassify')}
                         >
                             {$_('detection.score_again', { default: 'Score again' })}

@@ -112,7 +112,7 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).not.toContain("absolute bottom-0 left-0 right-0 p-5 {showInlineFramePicker ? 'pb-28' : ''}");
         expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1');
         // Peeking stays non-mutating. Only a named action changes the photograph.
-        expect(detectionModalSource).toContain("mediaView = 'whole';");
+        expect(detectionModalSource).toContain('onfocus={wholeScene.show}');
         expect(detectionModalSource).not.toContain("canShowFullFrame ? 'top-16 left-3' : 'top-4 left-4'");
     });
 

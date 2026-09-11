@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { untrack } from 'svelte';
+    import { onDestroy, untrack } from 'svelte';
     import { fetchSnapshotCandidates, getThumbnailUrl } from '../api';
     import type { Detection, SnapshotCandidate } from '../api';
     import { advance, createReviewSession, remaining, type ReviewSession } from '../utils/review-session';
@@ -7,6 +7,7 @@
     import { trapFocus } from '../utils/focus-trap';
     import { portal } from '../utils/portal';
     import { findMatchingFullFrameCandidate } from '../utils/detection-evidence';
+    import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import type { ReviewReason } from '../utils/review-queue';
     import { _ } from 'svelte-i18n';
 
@@ -37,7 +38,13 @@
     let crop = $state<SnapshotCandidate | null>(null);
     let fullFrame = $state<SnapshotCandidate | null>(null);
     let cropLoading = $state(false);
-    let view = $state<'crop' | 'full'>('crop');
+    let imageEl = $state<HTMLImageElement | null>(null);
+    // The photograph is the crop; the whole scene is a look, not a mode (#256). Same
+    // controller as the detection record, so the two surfaces behave alike.
+    const canPeek = $derived(
+        Boolean(crop?.image_url || crop?.thumbnail_url) && Boolean(fullFrame?.image_url || fullFrame?.thumbnail_url)
+    );
+    const wholeScene = new WholeScenePeek(() => canPeek);
     let search = $state('');
     let busy = $state(false);
     let failedImageUrls = $state<Set<string>>(new Set());
@@ -65,7 +72,7 @@
         const eventId = session.current?.frigate_event;
         crop = null;
         fullFrame = null;
-        view = 'crop';
+        wholeScene.reset();
         if (!eventId) return;
 
         let cancelled = false;
@@ -103,14 +110,29 @@
     });
 
     const imageUrl = $derived(
-        view === 'crop' && (crop?.image_url || crop?.thumbnail_url)
-            ? (crop.image_url ?? crop.thumbnail_url ?? '')
-            : view === 'full' && (fullFrame?.image_url || fullFrame?.thumbnail_url)
-              ? (fullFrame.image_url ?? fullFrame.thumbnail_url ?? '')
+        wholeScene.showing && (fullFrame?.image_url || fullFrame?.thumbnail_url)
+            ? (fullFrame.image_url ?? fullFrame.thumbnail_url ?? '')
+            : crop?.image_url || crop?.thumbnail_url
+              ? (crop.image_url ?? crop.thumbnail_url ?? '')
             : session.current
               ? getThumbnailUrl(session.current.frigate_event)
               : ''
     );
+    // The outline is a DOM measurement, taken once the whole scene has loaded and again when
+    // the window changes size.
+    function measureWholeScene(): void {
+        wholeScene.measure(imageEl, crop?.crop_box);
+    }
+    $effect(() => {
+        if (!wholeScene.showing) {
+            wholeScene.outline = null;
+            return;
+        }
+        measureWholeScene();
+        window.addEventListener('resize', measureWholeScene);
+        return () => window.removeEventListener('resize', measureWholeScene);
+    });
+    onDestroy(wholeScene.destroy);
     const imageFailed = $derived(Boolean(imageUrl && failedImageUrls.has(imageUrl)));
 
     function markImageFailed(url: string): void {
@@ -181,6 +203,11 @@
     function handleKeydown(event: KeyboardEvent): void {
         if (event.key === 'Escape') {
             event.preventDefault();
+            // A pinned whole scene closes first; the queue stays open.
+            if (wholeScene.pinned) {
+                wholeScene.reset();
+                return;
+            }
             onclose();
             return;
         }
@@ -266,8 +293,10 @@
         {:else if session.current}
             {@const current = session.current}
             {@const isNewSpecies = reasons?.get(current.frigate_event) === 'new_species'}
-            <div class="grid min-h-0 flex-1 gap-0 overflow-y-auto md:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] md:overflow-hidden">
-                <div class="flex min-h-0 flex-col justify-center bg-slate-950">
+            <!-- A column on phones: the media block keeps its own height and never overlaps the
+                 rail beneath it. The two-column grid only applies where there is room. -->
+            <div class="flex min-h-0 flex-1 flex-col overflow-y-auto md:grid md:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)] md:overflow-hidden">
+                <div class="flex shrink-0 flex-col bg-slate-950 md:min-h-0 md:justify-center">
                     {#if imageFailed}
                         <div class="flex items-center justify-center py-16 text-slate-600">
                             <svg class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
@@ -275,37 +304,54 @@
                             </svg>
                         </div>
                     {:else}
-                        <img
-                            src={imageUrl}
-                            alt={$_('dashboard.review_session.image_alt', {
-                                values: { camera: current.camera_name },
-                                default: 'Unidentified detection on {camera}'
-                            })}
-                            class="max-h-[52vh] w-full object-contain"
-                            onerror={() => markImageFailed(imageUrl)}
-                        />
-                    {/if}
-                    {#if crop?.thumbnail_url && fullFrame?.thumbnail_url}
-                        <div class="flex gap-1 px-4 pt-2" role="group" aria-label={$_('dashboard.review_session.view_label', { default: 'Which frame to show' })}>
-                            <button
-                                class="min-h-11 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors focus-ring {view === 'crop' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-slate-200'}"
-                                aria-pressed={view === 'crop'}
-                                onclick={() => (view = 'crop')}
-                            >
-                                {$_('dashboard.review_session.crop', { default: 'Best crop' })}
-                            </button>
-                            <button
-                                class="min-h-11 rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-colors focus-ring {view === 'full' ? 'bg-white/15 text-white' : 'text-slate-400 hover:text-slate-200'}"
-                                aria-pressed={view === 'full'}
-                                onclick={() => (view = 'full')}
-                            >
-                                {$_('dashboard.review_session.full_frame', { default: 'Full frame' })}
-                            </button>
-                            {#if crop.crop_strategy}
-                                <span class="ml-auto self-center text-[10px] text-slate-500">{crop.crop_strategy}</span>
+                        <div class="relative">
+                            <img
+                                bind:this={imageEl}
+                                src={imageUrl}
+                                alt={$_('dashboard.review_session.image_alt', {
+                                    values: { camera: current.camera_name },
+                                    default: 'Unidentified detection on {camera}'
+                                })}
+                                class="max-h-[52vh] w-full object-contain"
+                                onload={measureWholeScene}
+                                onerror={() => markImageFailed(imageUrl)}
+                            />
+                            {#if canPeek}
+                                <!-- Hover or focus peeks at the whole scene with the crop outlined; a tap or
+                                     click pins it. No switch, and no strategy name: how the crop was found is
+                                     the app's plumbing, not the reviewer's concern. -->
+                                <button
+                                    type="button"
+                                    class="absolute inset-0 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+                                    data-review-whole-scene-peek
+                                    aria-pressed={wholeScene.pinned}
+                                    aria-label={wholeScene.pinned
+                                        ? $_('detection.whole_scene_back', { default: 'Back to the crop' })
+                                        : $_('detection.whole_scene_show', { default: 'Show the whole scene' })}
+                                    onmouseenter={wholeScene.enter}
+                                    onmouseleave={wholeScene.leave}
+                                    onfocus={wholeScene.show}
+                                    onblur={wholeScene.leave}
+                                    onclick={wholeScene.toggle}
+                                ></button>
+                                {#if wholeScene.showing && wholeScene.outline}
+                                    <div
+                                        class="pointer-events-none absolute rounded-sm border-2 border-dashed border-white/85 shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]"
+                                        style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
+                                        aria-hidden="true"
+                                    ></div>
+                                {/if}
+                                {#if wholeScene.showing}
+                                    <span class="pointer-events-none absolute left-3 top-3 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm">
+                                        {wholeScene.pinned
+                                            ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
+                                            : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
+                                    </span>
+                                {/if}
                             {/if}
                         </div>
-                    {:else if !cropLoading}
+                    {/if}
+                    {#if !canPeek && !cropLoading && !crop}
                         <p class="px-4 pt-2 text-[10px] text-slate-500">
                             {$_('dashboard.review_session.no_crop', {
                                 default: 'No crop stored for this detection. Open the full record to scan for one.'
@@ -323,7 +369,7 @@
                     </p>
                 </div>
 
-                <div class="flex min-h-0 flex-col gap-3 overflow-y-auto p-4">
+                <div class="flex flex-col gap-3 p-4 md:min-h-0 md:overflow-y-auto">
                     <div>
                         <p class="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 dark:text-slate-400">
                             {$_('dashboard.review_session.what_is_it', { default: 'What is it?' })}
@@ -384,7 +430,7 @@
                             : $_('dashboard.review_session.seen_here', { default: 'Seen at this feeder' })}
                     </p>
 
-                    <ul class="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto">
+                    <ul class="flex flex-col gap-1.5 md:min-h-0 md:flex-1 md:overflow-y-auto">
                         {#each matches as label (label)}
                             <li>
                                 <button
