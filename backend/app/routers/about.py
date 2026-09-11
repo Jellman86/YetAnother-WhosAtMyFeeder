@@ -234,6 +234,10 @@ async def get_about_reel_image(
     await require_event_access(event_id, auth, lang, media="snapshot")
     path = await media_cache.get_snapshot_path(event_id)
     if path is None:
+        from app.services.archive_service import archive_service
+
+        path = await archive_service.snapshot_path(event_id)
+    if path is None:
         raise HTTPException(status_code=404, detail="Snapshot not found")
     try:
         content = await reel_image_for(path)

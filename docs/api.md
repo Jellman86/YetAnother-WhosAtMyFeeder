@@ -162,7 +162,10 @@ This is the current route map (grouped). Use OpenAPI for full schemas.
 - `DELETE /api/events/{event_id}` (owner)
 - `POST /api/events/{event_id}/hide` (owner)
 - `POST /api/events/{event_id}/favorite` (owner)
-- `DELETE /api/events/{event_id}/favorite` (owner)
+- `DELETE /api/events/{event_id}/favorite` (owner). Both return `archive_state`.
+- `GET /api/events/{event_id}/archive` (owner). What the favourite's archive holds: `state`,
+  `snapshot_state`, `clip_state`, `bytes`, `error`, `retry_at`.
+- `POST /api/events/{event_id}/archive/retry` (owner). Retries a failed archive now.
 - `POST /api/events/{event_id}/reclassify` (owner)
 - `POST /api/events/{event_id}/classify-wildlife` (owner)
 
@@ -451,7 +454,8 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `POST /api/maintenance/analyze-unknowns` (owner)
 - `GET /api/maintenance/analysis/status` (owner)
 - `DELETE /api/maintenance/feedback/clear` (owner)
-- `GET /api/cache/stats` (owner)
+- `GET /api/cache/stats` (owner). Includes `archive_count`, `archive_size_bytes` and the favourite
+  counts by archive state.
 - `GET /api/about/showcase?limit=` (guest-rate-limited). One recent crop per species for the About
   page's reel; guests see the public media window, and nothing when snapshots are not shared.
 - `GET /api/about/showcase/{event_id}.jpg` (guest-rate-limited). The stored photograph at card

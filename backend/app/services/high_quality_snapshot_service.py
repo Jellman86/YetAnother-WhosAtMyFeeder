@@ -267,6 +267,10 @@ class HighQualitySnapshotService:
         )
         if not replaced:
             return self._record_outcome(event_id, "snapshot_replace_failed")
+        # A favourite's archive follows the photograph the pipeline settles on (#178).
+        from app.services.archive_service import archive_service
+
+        await archive_service.refresh_photograph(event_id)
 
         await self._apply_classification_refinement(event_id, classification_candidates)
         log.info("High-quality snapshot replaced", event_id=event_id, size=len(image_bytes), source=snapshot_source)
@@ -388,6 +392,10 @@ class HighQualitySnapshotService:
             )
             if not replaced:
                 return self._record_outcome(event_id, "snapshot_replace_failed")
+            # A favourite's archive follows the photograph the pipeline settles on (#178).
+            from app.services.archive_service import archive_service
+
+            await archive_service.refresh_photograph(event_id)
 
             await self._apply_classification_refinement(event_id, classification_candidates)
             if event_id not in self._final_refresh_ids and (

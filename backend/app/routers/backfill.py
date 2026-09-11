@@ -440,14 +440,25 @@ async def reset_database(request: Request, _auth: AuthContext = Depends(require_
             repo = DetectionRepository(db)
             deleted_count = await repo.delete_all()
 
-        # Clear media cache
+        # Clear media cache, and the favourite archive: a reset is the one action meant to leave nothing.
         cache_stats = await media_cache.clear_all()
+        from app.services.archive_service import archive_service
 
-        log.warning("Database reset triggered by user", deleted_detections=deleted_count, cache_stats=cache_stats)
+        archive_stats = await archive_service.remove_all()
+
+        log.warning(
+            "Database reset triggered by user",
+            deleted_detections=deleted_count,
+            cache_stats=cache_stats,
+            archive_stats=archive_stats,
+        )
 
         return {
             "status": "success",
-            "message": f"Deleted {deleted_count} detections and cleared cache ({cache_stats['snapshots_deleted']} snapshots, {cache_stats['clips_deleted']} clips).",
+            "message": (
+                f"Deleted {deleted_count} detections, cleared cache ({cache_stats['snapshots_deleted']} snapshots, "
+                f"{cache_stats['clips_deleted']} clips) and removed {archive_stats['removed']} archived favourites."
+            ),
             "deleted_count": deleted_count,
             "cache_stats": cache_stats,
         }

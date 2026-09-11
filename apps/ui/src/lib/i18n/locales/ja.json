@@ -596,8 +596,8 @@
       "purge_missing_snapshots_confirm": "Frigate でスナップショットが欠落している検出をスキャンし、設定されたポリシーを適用しますか？",
       "purge_missing_scan_success": "スキャン完了: 確認 {checked}、欠落 {missing}、削除 {deleted}、欠落マーク {marked}、保持 {kept}、復元 {restored}。",
       "clear_favorites_button": "お気に入りをすべて削除",
-      "clear_favorites_desc": "検出とメディアを保持したまま、すべてのお気に入りマーカーを削除します。",
-      "clear_favorites_confirm": "すべてのお気に入りマーカーを削除しますか？この操作は元に戻せません。",
+      "clear_favorites_desc": "すべてのお気に入りマークと保管済みの写真・クリップを削除します。検出とメディアキャッシュは残ります。",
+      "clear_favorites_confirm": "すべてのお気に入りと保管済みの写真・クリップを削除しますか？訪問記録は履歴に残ります。元に戻せません。",
       "clear_favorites_success": "{count} 件のお気に入りマーカーを削除しました。",
       "clear_favorites_none": "削除するお気に入りはありません。",
       "clear_favorites_error": "お気に入りの削除に失敗しました",
@@ -616,7 +616,12 @@
       "cache_crop_fallback_ready_help": "Frigate の追跡ヒントを自動使用し、モデルのインストール後は検出器クロップも候補に加えます。",
       "batch_analysis_complete": "一括分析が完了しました",
       "advanced_title": "メンテナンスとメディア整合性",
-      "cache_advanced_title": "スナップショット品質"
+      "cache_advanced_title": "スナップショット品質",
+      "archive_usage": "保管済みのお気に入り",
+      "archive_usage_detail": "{count} 件保管、{size}",
+      "archive_failed_count": "{count} 件を保管できませんでした。訪問記録を開いて再試行してください。",
+      "per_species_minimum": "種ごとに最新を保持",
+      "per_species_minimum_help": "各種の最新の訪問記録とそのキャッシュ写真は、期間による整理でも残ります。0 で無効。クリップは対象外です。"
     },
     "security": {
       "title": "セキュリティ",
@@ -1288,10 +1293,10 @@
     "danger": {
       "title": "危険ゾーン",
       "subtitle": "破壊的な操作",
-      "reset_desc": "データベースをリセットすると、すべての検出が完全に削除され、メディアキャッシュがクリアされます。この操作は元に戻せません。",
+      "reset_desc": "データベースをリセットすると、すべての検出が完全に削除され、メディアキャッシュが消去され、保管済みのお気に入りがすべて削除されます。元に戻せません。",
       "reset_button": "DBとキャッシュをリセット",
       "resetting": "リセット中…",
-      "confirm": "危険：これによりすべての検出が削除され、メディアキャッシュがクリアされます。この操作は元に戻せません。よろしいですか？",
+      "confirm": "危険：すべての検出を削除し、メディアキャッシュを消去し、保管済みのお気に入りをすべて削除します。元に戻せません。よろしいですか？",
       "clear_feedback_button": "パーソナライズデータを消去",
       "clear_feedback_desc": "パーソナライズ用フィードバックを消去すると、AI が信頼度スコアの調整に使用している手動タグ修正がすべて削除されます。これにより分類器は初期精度に戻ります。",
       "clear_feedback_hint": "検出やメディアは削除されません。新しい手動修正を行うと再ランキングは再び学習を始めます。",
@@ -2058,7 +2063,14 @@
     "whole_scene_back": "切り抜きに戻る",
     "score_again": "再判定",
     "frame_strip_empty": "この訪問のフレームはまだ保存されていません。",
-    "frame_strip_count_one": "この訪問の 1 フレーム"
+    "frame_strip_count_one": "この訪問の 1 フレーム",
+    "archive_pending": "写真とクリップを保管中",
+    "archive_durable": "保管済み、{size}",
+    "archive_photo_only": "写真は保管済み、クリップはありません",
+    "archive_unavailable": "保管できるものが残っていません",
+    "archive_failed": "保管に失敗しました",
+    "archive_retry": "再試行",
+    "unfavorite_confirm": "お気に入りを解除しますか？保管済みの写真とクリップ（{size}）も削除されます。訪問記録は履歴に残ります。"
   },
   "events": {
     "title": "イベント",
@@ -2834,7 +2846,8 @@
     "errors_updated_minutes": "{count}分前に更新",
     "system_ram_usage": "システムRAM使用率",
     "circuit_open_detail": "{queued} 件のキュー項目が待機中です。最近の失敗: {failures}。",
-    "more_lanes": "他に {count} 件のワークレーン"
+    "more_lanes": "他に {count} 件のワークレーン",
+    "kind_favorite_archive": "お気に入りの保管"
   },
   "errors": {
     "stack_trace": "スタックトレース:"

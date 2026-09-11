@@ -596,8 +596,8 @@
       "purge_missing_snapshots_confirm": "Erkennungen scannen, deren Schnappschüsse in Frigate fehlen, und die konfigurierte Richtlinie anwenden?",
       "purge_missing_scan_success": "Scan abgeschlossen: {checked} geprüft, {missing} fehlend, {deleted} gelöscht, {marked} als fehlend markiert, {kept} behalten, {restored} wiederhergestellt.",
       "clear_favorites_button": "Alle Favoriten löschen",
-      "clear_favorites_desc": "Entfernt alle Favoritenmarkierungen, lässt Erkennungen und Medien aber erhalten.",
-      "clear_favorites_confirm": "Alle Favoritenmarkierungen entfernen? Dies kann nicht rückgängig gemacht werden.",
+      "clear_favorites_desc": "Entfernt jede Favoritenmarkierung samt archiviertem Foto und Clip. Erkennungen und zwischengespeicherte Medien bleiben.",
+      "clear_favorites_confirm": "Alle Favoritenmarkierungen samt archivierten Fotos und Clips entfernen? Die Besuche bleiben in der Historie. Das kann nicht rückgängig gemacht werden.",
       "clear_favorites_success": "{count} Favoritenmarkierungen entfernt.",
       "clear_favorites_none": "Keine Favoriten zum Entfernen.",
       "clear_favorites_error": "Favoriten konnten nicht entfernt werden",
@@ -616,7 +616,12 @@
       "cache_crop_fallback_ready_help": "Frigate-Verfolgungshinweise werden automatisch verwendet; Detektorzuschnitte kommen hinzu, sobald ein Modell installiert ist.",
       "batch_analysis_complete": "Batch-Analyse abgeschlossen",
       "advanced_title": "Wartung & Medien-Integrität",
-      "cache_advanced_title": "Snapshot-Qualität"
+      "cache_advanced_title": "Snapshot-Qualität",
+      "archive_usage": "Archivierte Favoriten",
+      "archive_usage_detail": "{count} gesichert, {size}",
+      "archive_failed_count": "{count} konnten nicht archiviert werden. Öffnen Sie den Besuch, um es erneut zu versuchen.",
+      "per_species_minimum": "Die neuesten je Art behalten",
+      "per_species_minimum_help": "Die neuesten Besuche jeder Art und ihre zwischengespeicherten Fotos überstehen die Altersbereinigung. 0 schaltet dies aus. Clips werden nicht gehalten."
     },
     "security": {
       "title": "Sicherheit",
@@ -1288,10 +1293,10 @@
     "danger": {
       "title": "Gefahrenzone",
       "subtitle": "Destruktive Aktionen",
-      "reset_desc": "Das Zurücksetzen der Datenbank löscht dauerhaft ALLE Erkennungen und leert den Medien-Cache. Diese Aktion kann nicht rückgängig gemacht werden.",
+      "reset_desc": "Das Zurücksetzen der Datenbank löscht dauerhaft ALLE Erkennungen, leert den Medien-Cache und entfernt jeden archivierten Favoriten. Das kann nicht rückgängig gemacht werden.",
       "reset_button": "Datenbank & Cache zurücksetzen",
       "resetting": "Wird zurückgesetzt…",
-      "confirm": "GEFAHR: Dies löscht ALLE Erkennungen und leert den Medien-Cache. Diese Aktion kann nicht rückgängig gemacht werden. Sind Sie sicher?",
+      "confirm": "ACHTUNG: Dies löscht ALLE Erkennungen, leert den Medien-Cache und entfernt jeden archivierten Favoriten. Das kann nicht rückgängig gemacht werden. Sind Sie sicher?",
       "clear_feedback_button": "Personalisierungsdaten löschen",
       "clear_feedback_desc": "Das Löschen des Personalisierungs-Feedbacks entfernt alle manuellen Tag-Korrekturen, die die KI zum Anpassen der Konfidenzwerte nutzt. Dadurch wird der Klassifikator auf seine Basisgenauigkeit zurückgesetzt.",
       "clear_feedback_hint": "Dadurch werden weder Erkennungen noch Medien gelöscht. Das Re-Ranking beginnt erneut zu lernen, sobald Sie neue manuelle Korrekturen vornehmen.",
@@ -2058,7 +2063,14 @@
     "whole_scene_back": "Zurück zum Ausschnitt",
     "score_again": "Erneut bewerten",
     "frame_strip_empty": "Aus diesem Besuch sind noch keine Bilder gespeichert.",
-    "frame_strip_count_one": "1 Bild aus diesem Besuch"
+    "frame_strip_count_one": "1 Bild aus diesem Besuch",
+    "archive_pending": "Foto und Clip werden archiviert",
+    "archive_durable": "Archiviert, {size}",
+    "archive_photo_only": "Foto archiviert, kein Clip vorhanden",
+    "archive_unavailable": "Nichts mehr zu archivieren",
+    "archive_failed": "Archivierung fehlgeschlagen",
+    "archive_retry": "Erneut versuchen",
+    "unfavorite_confirm": "Favorit entfernen? Das archivierte Foto und der Clip ({size}) werden mit entfernt. Der Besuch bleibt in der Historie."
   },
   "events": {
     "title": "Ereignisse",
@@ -2834,7 +2846,8 @@
     "errors_updated_minutes": "Vor {count}m aktualisiert",
     "system_ram_usage": "System-RAM-Auslastung",
     "circuit_open_detail": "{queued} Elemente warten in der Warteschlange. Letzte Fehler: {failures}.",
-    "more_lanes": "+{count} weitere Arbeitslinien"
+    "more_lanes": "+{count} weitere Arbeitslinien",
+    "kind_favorite_archive": "Favoriten-Archiv"
   },
   "errors": {
     "stack_trace": "Stack-Trace:"

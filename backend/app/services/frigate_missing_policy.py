@@ -37,6 +37,13 @@ async def apply_missing_policy(
         "source": source,
         **(extra_context or {}),
     }
+    if behavior == "delete":
+        # A favourite is the owner's promise to keep the visit, and its archive is what keeps
+        # it once Frigate has rotated the event; Frigate forgetting is the case it exists for.
+        detection = await repo.get_by_frigate_event(frigate_event)
+        if detection is not None and detection.is_favorite:
+            behavior = "mark_missing"
+            context["favorite_kept"] = True
 
     if behavior == "delete":
         if delete_cached_media:

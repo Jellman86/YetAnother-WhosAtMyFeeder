@@ -466,6 +466,14 @@ class CacheStatsResponse(BaseModel):
     cache_enabled: bool
     cache_snapshots: bool
     cache_clips: bool
+    archive_count: int = 0
+    archive_size_bytes: int = 0
+    archive_size_mb: float = 0.0
+    archive_favorites: int = 0
+    archive_durable: int = 0
+    archive_pending: int = 0
+    archive_failed: int = 0
+    archive_unavailable: int = 0
     retention_days: int
     retention_source: str
 
@@ -899,6 +907,9 @@ class SettingsUpdate(BaseModel):
         description="JPEG quality for derived high-quality event snapshots",
     )
     media_cache_retention_days: int = Field(0, ge=0, description="Days to keep cached media (0 = follow detection)")
+    media_cache_per_species_minimum: int = Field(
+        0, ge=0, le=10000, description="Newest detections per species kept out of age cleanup (0 = off)"
+    )
     # Location settings
     location_latitude: Optional[float] = Field(None, description="Latitude")
     location_longitude: Optional[float] = Field(None, description="Longitude")
@@ -1420,6 +1431,7 @@ async def get_settings(auth: AuthContext = Depends(require_owner)):
         "media_cache_high_quality_event_snapshot_bird_crop": settings.media_cache.high_quality_event_snapshot_bird_crop,
         "media_cache_high_quality_event_snapshot_jpeg_quality": settings.media_cache.high_quality_event_snapshot_jpeg_quality,
         "media_cache_retention_days": settings.media_cache.retention_days,
+        "media_cache_per_species_minimum": settings.media_cache.per_species_minimum,
         # Location settings
         "location_latitude": settings.location.latitude,
         "location_longitude": settings.location.longitude,
@@ -1823,6 +1835,8 @@ async def update_settings(
         )
     if "media_cache_retention_days" in fields_set:
         settings.media_cache.retention_days = update.media_cache_retention_days
+    if "media_cache_per_species_minimum" in fields_set:
+        settings.media_cache.per_species_minimum = update.media_cache_per_species_minimum
 
     # Location settings
     if "location_latitude" in fields_set:
@@ -2238,7 +2252,11 @@ async def get_maintenance_stats(auth: AuthContext = Depends(require_owner)):
         to_delete = 0
         if settings.maintenance.retention_days > 0:
             cutoff = datetime.now(timezone.utc) - timedelta(days=settings.maintenance.retention_days)
-            to_delete = await repo.get_count(end_date=cutoff, exclude_favorites=True)
+            to_delete = await repo.get_count(
+                end_date=cutoff,
+                exclude_favorites=True,
+                exclude_species_floor=settings.media_cache.per_species_minimum,
+            )
 
         return {
             "total_detections": total_count,
@@ -2289,7 +2307,9 @@ async def run_cleanup(auth: AuthContext = Depends(require_owner)):
 
     async with get_db() as db:
         repo = DetectionRepository(db)
-        deleted_count = await repo.delete_older_than(cutoff, preserve_favorites=True)
+        deleted_count = await repo.delete_older_than(
+            cutoff, preserve_favorites=True, species_floor=settings.media_cache.per_species_minimum
+        )
 
     log.info("Manual cleanup completed", deleted_count=deleted_count, cutoff=cutoff.isoformat())
 
@@ -2303,6 +2323,9 @@ async def clear_favorites(auth: AuthContext = Depends(require_owner)):
         repo = DetectionRepository(db)
         deleted_count = await repo.clear_all_favorites()
 
+    from app.services.archive_service import archive_service
+
+    await archive_service.remove_all()
     return {
         "status": "completed",
         "deleted_count": deleted_count,
@@ -2818,6 +2841,20 @@ async def get_analysis_status(response: Response, auth: AuthContext = Depends(re
 @router.get("/cache/stats", response_model=CacheStatsResponse)
 async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
     """Get media cache statistics. Owner only."""
+    # Archive use comes from the favourite rows, which record bytes as they are written: this
+    # endpoint is polled every minute by every owner page and must not walk a directory tree.
+    async with get_db() as db:
+        counts = await DetectionRepository(db).favorite_archive_totals()
+    archive_totals = {
+        "archive_count": counts["durable"],
+        "archive_size_bytes": counts["bytes"],
+        "archive_size_mb": round(counts["bytes"] / (1024 * 1024), 2),
+        "archive_favorites": counts["favorites"],
+        "archive_durable": counts["durable"],
+        "archive_pending": counts["pending"],
+        "archive_failed": counts["failed"],
+        "archive_unavailable": counts["unavailable"],
+    }
     stats = await media_cache.get_cache_stats()
 
     # Add retention info
@@ -2830,6 +2867,7 @@ async def get_cache_stats(auth: AuthContext = Depends(require_owner)):
         "cache_enabled": settings.media_cache.enabled,
         "cache_snapshots": settings.media_cache.cache_snapshots,
         "cache_clips": settings.media_cache.cache_clips,
+        **archive_totals,
         "retention_days": retention,
         "retention_source": "media_cache" if settings.media_cache.retention_days > 0 else "detection",
     }
@@ -2847,15 +2885,20 @@ async def run_cache_cleanup(auth: AuthContext = Depends(require_owner)):
     async with get_db() as db:
         repo = DetectionRepository(db)
         protected_ids = await repo.get_favorite_frigate_event_ids()
+        # The per-species floor keeps photographs only (#178); favourites keep everything.
+        floor_ids = await repo.get_species_floor_frigate_event_ids(settings.media_cache.per_species_minimum)
 
     # Even if retention is 0, we still run cleanup to remove empty files
-    stats = await media_cache.cleanup_old_media(retention, protected_event_ids=protected_ids)
+    stats = await media_cache.cleanup_old_media(
+        retention, protected_event_ids=protected_ids, protected_snapshot_event_ids=floor_ids
+    )
 
     # Also run orphaned media cleanup (files not in DB)
     async with get_db() as db:
         repo = DetectionRepository(db)
         valid_ids = set(await repo.get_all_frigate_event_ids())
     valid_ids.update(protected_ids)
+    valid_ids.update(floor_ids)
 
     orphan_stats = await media_cache.cleanup_orphaned_media(valid_ids)
 

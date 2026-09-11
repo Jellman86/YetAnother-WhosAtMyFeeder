@@ -712,6 +712,116 @@
         "title": "AnalyzeUnknownsResponse",
         "type": "object"
       },
+      "ArchiveStatusResponse": {
+        "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "attempts": {
+            "default": 0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "bytes": {
+            "default": 0,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "clip_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clip State"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "has_recording": {
+            "default": false,
+            "title": "Has Recording",
+            "type": "boolean"
+          },
+          "is_favorite": {
+            "title": "Is Favorite",
+            "type": "boolean"
+          },
+          "retry_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry At"
+          },
+          "snapshot_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot State"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "event_id",
+          "is_favorite"
+        ],
+        "title": "ArchiveStatusResponse",
+        "type": "object"
+      },
       "AudioContextDetectionResponse": {
         "properties": {
           "birdnet_id": {
@@ -2311,6 +2421,46 @@
       },
       "CacheStatsResponse": {
         "properties": {
+          "archive_count": {
+            "default": 0,
+            "title": "Archive Count",
+            "type": "integer"
+          },
+          "archive_durable": {
+            "default": 0,
+            "title": "Archive Durable",
+            "type": "integer"
+          },
+          "archive_failed": {
+            "default": 0,
+            "title": "Archive Failed",
+            "type": "integer"
+          },
+          "archive_favorites": {
+            "default": 0,
+            "title": "Archive Favorites",
+            "type": "integer"
+          },
+          "archive_pending": {
+            "default": 0,
+            "title": "Archive Pending",
+            "type": "integer"
+          },
+          "archive_size_bytes": {
+            "default": 0,
+            "title": "Archive Size Bytes",
+            "type": "integer"
+          },
+          "archive_size_mb": {
+            "default": 0.0,
+            "title": "Archive Size Mb",
+            "type": "number"
+          },
+          "archive_unavailable": {
+            "default": 0,
+            "title": "Archive Unavailable",
+            "type": "integer"
+          },
           "cache_clips": {
             "title": "Cache Clips",
             "type": "boolean"
@@ -3538,6 +3688,17 @@
             ],
             "title": "Ai Analysis Timestamp"
           },
+          "archive_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive State"
+          },
           "audio_confirmed": {
             "default": false,
             "title": "Audio Confirmed",
@@ -3963,6 +4124,17 @@
       },
       "DetectionListItemResponse": {
         "properties": {
+          "archive_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive State"
+          },
           "audio_confirmed": {
             "default": false,
             "title": "Audio Confirmed",
@@ -4160,6 +4332,17 @@
               }
             ],
             "title": "Ai Analysis Timestamp"
+          },
+          "archive_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive State"
           },
           "audio_confirmed": {
             "default": false,
@@ -5608,6 +5791,17 @@
       "FavoriteResponse": {
         "description": "Response for favorite/unfavorite action.",
         "properties": {
+          "archive_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive State"
+          },
           "event_id": {
             "title": "Event Id",
             "type": "string"
@@ -9952,6 +10146,11 @@
             "title": "Media Cache High Quality Event Snapshots",
             "type": "boolean"
           },
+          "media_cache_per_species_minimum": {
+            "default": 0,
+            "title": "Media Cache Per Species Minimum",
+            "type": "integer"
+          },
           "media_cache_retention_days": {
             "default": 0,
             "title": "Media Cache Retention Days",
@@ -12111,6 +12310,14 @@
             "description": "Replace cached event snapshots with a frame derived from the Frigate clip when available",
             "title": "Media Cache High Quality Event Snapshots",
             "type": "boolean"
+          },
+          "media_cache_per_species_minimum": {
+            "default": 0,
+            "description": "Newest detections per species kept out of age cleanup (0 = off)",
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Media Cache Per Species Minimum",
+            "type": "integer"
           },
           "media_cache_retention_days": {
             "default": 0,
@@ -19940,6 +20147,108 @@
         "tags": [
           "ai"
         ]
+      }
+    },
+    "/api/events/{event_id}/archive": {
+      "get": {
+        "description": "What the favourite's archive holds, per asset. Owner only.",
+        "operationId": "get_event_archive_api_events__event_id__archive_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Event Archive"
+      }
+    },
+    "/api/events/{event_id}/archive/retry": {
+      "post": {
+        "description": "Try a failed archive again now, with a clean attempt count. Owner only.",
+        "operationId": "retry_event_archive_api_events__event_id__archive_retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Retry Event Archive"
       }
     },
     "/api/events/{event_id}/classification-status": {

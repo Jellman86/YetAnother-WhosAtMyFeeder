@@ -21,6 +21,8 @@ export interface Detection {
     frigate_last_error?: string | null;
     is_hidden?: boolean;
     is_favorite?: boolean;
+    /** The favourite's archive: pending, durable, unavailable or failed; null when not a favourite (#178). */
+    archive_state?: 'pending' | 'durable' | 'unavailable' | 'failed' | null;
     frigate_score?: number;
     sub_label?: string;
     manual_tagged?: boolean;

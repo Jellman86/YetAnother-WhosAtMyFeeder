@@ -8,6 +8,18 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **A favourite is durable (#178).** Pressing the star now archives the visit's photograph and
+  clip into `/config/archive`, where no cache cleanup, cache clear or Frigate rotation reaches, and
+  the record says what the archive holds: archiving, archived with its size, photo only when
+  Frigate had no clip, nothing left to archive, or failed with a retry. Archives are written
+  atomically, finished after a restart, and removed only by unfavouriting (the confirmation names
+  the size), deleting the visit, Remove all favourites, or a database reset, all of which now say
+  so. Favourites made before this release are archived by the first reconcile pass.
+- **Keep the newest per species.** A per-species floor under Settings → Data keeps the newest N
+  visits of each species, and their cached photographs, through age cleanup. Off by default,
+  counted per canonical species, clips not held. `MEDIA_CACHE__PER_SPECIES_MINIMUM`.
+- Settings → Data shows archived favourites apart from the cache, with how many failed.
+
 - **The About page opens on this feeder's own photographs.** Two rows of recent captures, one
   crop per species, drift across the top of the page and pause under the pointer; each card
   opens the visit's record. Whole-scene photographs are left out, since at card size they are

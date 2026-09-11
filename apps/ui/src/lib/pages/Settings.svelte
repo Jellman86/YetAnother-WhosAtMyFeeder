@@ -1797,6 +1797,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             { key: 'cacheHighQualityEventSnapshots', val: cacheHighQualityEventSnapshots, store: s.media_cache_high_quality_event_snapshots ?? false },
             { key: 'cacheHighQualityEventSnapshotJpegQuality', val: cacheHighQualityEventSnapshotJpegQuality, store: s.media_cache_high_quality_event_snapshot_jpeg_quality ?? 95 },
             { key: 'cacheRetentionDays', val: cacheRetentionDays, store: s.media_cache_retention_days ?? 0 },
+            { key: 'cachePerSpeciesMinimum', val: cachePerSpeciesMinimum, store: s.media_cache_per_species_minimum ?? 0 },
             { key: 'birdweatherEnabled', val: birdweatherEnabled, store: s.birdweather_enabled ?? false },
             { key: 'birdweatherStationToken', val: birdweatherStationToken, store: normalizeSecret(s.birdweather_station_token) },
             { key: 'haWeatherEnabled', val: haWeatherEnabled, store: s.ha_weather_enabled ?? false },
@@ -1962,6 +1963,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     let cacheHighQualityEventSnapshots = $state(false);
     let cacheHighQualityEventSnapshotJpegQuality = $state(95);
     let cacheRetentionDays = $state(0);
+    let cachePerSpeciesMinimum = $state(0);
     let cacheStats = $state<CacheStats | null>(null);
     let cleaningCache = $state(false);
 
@@ -2351,7 +2353,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
     }
 
     async function handleResetDatabase() {
-        let confirmMsg = 'DANGER: This will delete ALL detections and clear the media cache. This action cannot be undone. Are you sure?';
+        let confirmMsg = 'DANGER: This will delete ALL detections, clear the media cache and remove every archived favourite. This action cannot be undone. Are you sure?';
         try {
             confirmMsg = $_('settings.danger.confirm');
         } catch (e) {
@@ -2799,6 +2801,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
             cacheHighQualityEventSnapshots = settings.media_cache_high_quality_event_snapshots ?? false;
             cacheHighQualityEventSnapshotJpegQuality = settings.media_cache_high_quality_event_snapshot_jpeg_quality ?? 95;
             cacheRetentionDays = settings.media_cache_retention_days ?? 0;
+            cachePerSpeciesMinimum = settings.media_cache_per_species_minimum ?? 0;
             // Location settings
             locationLat = settings.location_latitude ?? null;
             locationLon = settings.location_longitude ?? null;
@@ -3146,6 +3149,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                 media_cache_high_quality_event_snapshot_bird_crop: cacheHighQualityEventSnapshots,
                 media_cache_high_quality_event_snapshot_jpeg_quality: cacheHighQualityEventSnapshotJpegQuality,
                 media_cache_retention_days: cacheRetentionDays,
+                media_cache_per_species_minimum: cachePerSpeciesMinimum,
                 location_latitude: locationLat,
                 location_longitude: locationLon,
                 location_state: locationState || null,
@@ -3638,6 +3642,7 @@ Mantenha a resposta concisa (menos de 200 palavras). Sem seções extras.
                     bind:cacheHighQualityEventSnapshots
                     bind:cacheHighQualityEventSnapshotJpegQuality
                     bind:cacheRetentionDays
+                    bind:cachePerSpeciesMinimum
                     bind:backfillDateRange
                     bind:backfillStartDate
                     bind:backfillEndDate

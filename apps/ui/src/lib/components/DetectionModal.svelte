@@ -12,6 +12,9 @@
         hideDetection,
         deleteDetection,
         favoriteDetection,
+        fetchArchiveStatus,
+        retryArchive,
+        type ArchiveStatus,
         unfavoriteDetection,
         searchSpecies,
         fetchEventAudioContext,
@@ -384,6 +387,90 @@
     let updatingTag = $state(false);
     let pendingManualTagId = $state<string | null>(null);
     let favoritePending = $state(false);
+    // The favourite's archive (#178). Pending is polled briefly so the star can say when the
+    // photograph and clip are actually kept; the worker does not broadcast its progress.
+    let archiveStatus = $state<ArchiveStatus | null>(null);
+    let archiveRetrying = $state(false);
+    const ARCHIVE_POLL_MS = 4000;
+    const ARCHIVE_POLL_LIMIT = 45;
+    $effect(() => {
+        const eventId = detection?.frigate_event;
+        const wanted = !!detection?.is_favorite && authStore.hasOwnerAccess && !readOnly;
+        // Read so that a retry (which sets the record back to pending) restarts the poll.
+        void detection?.archive_state;
+        if (!eventId || !wanted) {
+            archiveStatus = null;
+            return;
+        }
+        let cancelled = false;
+        let polls = 0;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const load = async () => {
+            try {
+                const status = await fetchArchiveStatus(eventId);
+                if (cancelled) return;
+                archiveStatus = status;
+                const state = asArchiveState(status.state);
+                if (state && state !== detection.archive_state) {
+                    detection.archive_state = state;
+                    detectionsStore.updateDetection({ ...detection, archive_state: state });
+                }
+                if (status.state === 'pending' && polls < ARCHIVE_POLL_LIMIT) {
+                    polls += 1;
+                    timer = setTimeout(load, ARCHIVE_POLL_MS);
+                }
+            } catch {
+                // The star still works without the detail; the state on the record stands.
+            }
+        };
+        void load();
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    });
+    const ARCHIVE_STATE_VALUES = new Set(['pending', 'durable', 'unavailable', 'failed']);
+    function asArchiveState(value: string | null | undefined): Detection['archive_state'] {
+        return value && ARCHIVE_STATE_VALUES.has(value) ? (value as Detection['archive_state']) : null;
+    }
+    function formatArchiveSize(bytes: number): string {
+        if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+        return `${bytes} B`;
+    }
+    const archiveState = $derived(archiveStatus?.state ?? detection?.archive_state ?? null);
+    const archiveLabel = $derived.by(() => {
+        switch (archiveState) {
+            case 'durable':
+                return archiveStatus?.clip_state === 'unavailable'
+                    ? $_('detection.archive_photo_only', { default: 'Photo archived, no clip to keep' })
+                    : $_('detection.archive_durable', {
+                          values: { size: formatArchiveSize(archiveStatus?.bytes ?? 0) },
+                          default: 'Archived, {size}'
+                      });
+            case 'unavailable':
+                return $_('detection.archive_unavailable', { default: 'Nothing left to archive' });
+            case 'failed':
+                return $_('detection.archive_failed', { default: 'Archive failed' });
+            case 'pending':
+                return $_('detection.archive_pending', { default: 'Archiving photo and clip' });
+            default:
+                return '';
+        }
+    });
+    async function handleArchiveRetry() {
+        if (!detection || archiveRetrying) return;
+        archiveRetrying = true;
+        try {
+            archiveStatus = await retryArchive(detection.frigate_event);
+            detection.archive_state = asArchiveState(archiveStatus.state) ?? 'pending';
+            detectionsStore.updateDetection({ ...detection, archive_state: detection.archive_state });
+        } catch (e) {
+            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            archiveRetrying = false;
+        }
+    }
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
     let snapshotCandidatesLoading = $state(false);
@@ -1416,14 +1503,28 @@
         favoritePending = true;
         try {
             if (detection.is_favorite) {
+                // Unfavouriting removes the archive with it; say so before doing it (#178).
+                const archivedBytes = archiveStatus?.bytes ?? 0;
+                if (archivedBytes > 0) {
+                    const confirmed = window.confirm(
+                        $_('detection.unfavorite_confirm', {
+                            values: { size: formatArchiveSize(archivedBytes) },
+                            default: 'Remove the favourite? Its archived photo and clip ({size}) go with it. The visit stays in history.'
+                        })
+                    );
+                    if (!confirmed) return;
+                }
                 await unfavoriteDetection(detection.frigate_event);
                 detection.is_favorite = false;
-                detectionsStore.updateDetection({ ...detection, is_favorite: false });
+                detection.archive_state = null;
+                archiveStatus = null;
+                detectionsStore.updateDetection({ ...detection, is_favorite: false, archive_state: null });
                 toastStore.success($_('detection.favorite_removed', { default: 'Removed from favorites' }));
             } else {
-                await favoriteDetection(detection.frigate_event);
+                const result = await favoriteDetection(detection.frigate_event);
                 detection.is_favorite = true;
-                detectionsStore.updateDetection({ ...detection, is_favorite: true });
+                detection.archive_state = asArchiveState(result.archive_state) ?? 'pending';
+                detectionsStore.updateDetection({ ...detection, is_favorite: true, archive_state: detection.archive_state });
                 toastStore.success($_('detection.favorite_added', { default: 'Added to favorites' }));
             }
         } catch (e) {
@@ -2313,6 +2414,28 @@
                                                     </svg>
                                                 {/if}
                                             </button>
+                                            {#if detection.is_favorite && archiveLabel}
+                                                <span
+                                                    class="inline-flex min-h-8 items-center gap-2 rounded-full border border-white/20 bg-black/45 px-3 text-[11px] font-semibold text-white/90 backdrop-blur-sm"
+                                                    data-detection-archive-state={archiveState}
+                                                    aria-live="polite"
+                                                >
+                                                    {#if archiveState === 'pending'}
+                                                        <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true"></span>
+                                                    {/if}
+                                                    {archiveLabel}
+                                                    {#if archiveState === 'failed' && hasOwnerDetectionActions}
+                                                        <button
+                                                            type="button"
+                                                            class="rounded-full border border-white/30 px-2 py-0.5 text-[11px] font-bold text-white hover:bg-white/15 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                                            disabled={archiveRetrying}
+                                                            onclick={(e) => { e.stopPropagation(); void handleArchiveRetry(); }}
+                                                        >
+                                                            {$_('detection.archive_retry', { default: 'Try again' })}
+                                                        </button>
+                                                    {/if}
+                                                </span>
+                                            {/if}
                                         {/if}
                                         {#if canPlayVideo}
                                             <button
