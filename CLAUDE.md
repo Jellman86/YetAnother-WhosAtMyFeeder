@@ -181,7 +181,7 @@ craft rules, with authoritative sources — is [`docs/standards/ui-ux.md`](docs/
   that needs a person stated in words with amber reserved for it, small captures that open on hover
   *and* keyboard focus, and never claiming a state that has not been measured. Before changing or
   adding a screen, read
-  [`docs/standards/layout-patterns.md`](docs/standards/layout-patterns.md) — it records the three
+  [`docs/standards/layout-patterns.md`](docs/standards/layout-patterns.md) — it records the four
   page shapes, which component belongs where, the hover pop-out accessibility contract, and the
   writing rules (including no em dashes).
 

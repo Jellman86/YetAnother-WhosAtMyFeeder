@@ -56,14 +56,13 @@ describe('detection modal full-visit fetch wiring', () => {
         expect(detectionModalSource).toContain('generateHighQualityBirdCropSnapshot');
         expect(detectionModalSource).toContain('showInlineFramePicker');
         expect(detectionModalSource).toContain('data-detection-inline-frame-picker');
-        expect(detectionModalSource).toContain('previewSnapshotCandidate');
-        expect(detectionModalSource).toContain('cancelSnapshotPreview');
+        expect(detectionModalSource).toContain('handleUseMoment');
         expect(detectionModalSource).toContain('handleGenerateSnapshotCandidates');
-        expect(detectionModalSource).toContain("Save this frame");
-        expect(detectionModalSource).toContain("Regenerate snapshots");
-        expect(detectionModalSource).toContain("Preview, not saved");
-        expect(detectionModalSource).toContain("snapshot_framing_as_recorded");
         expect(detectionModalSource).toContain('handleApplySnapshot');
+        // The moment strip and its "as recorded" moment live in FrameStrip.svelte (#256).
+        expect(detectionModalSource).toContain('<FrameStrip');
+        expect(detectionModalSource).not.toContain("Save this frame");
+        expect(detectionModalSource).not.toContain("Preview, not saved");
         expect(detectionModalSource).toContain('{#if canShowFavoriteAction}');
         expect(detectionModalSource).not.toContain('snapshotRepairOpen');
         expect(detectionModalSource).not.toContain('handleSnapshotRepairToggle');

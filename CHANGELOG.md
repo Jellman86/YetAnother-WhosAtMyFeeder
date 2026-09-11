@@ -6,6 +6,25 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Changed
+
+- **One place to choose the frame and settle the species (#256).** The detection record's
+  photograph now has one strip of the visit's moments beneath it, in time order, one thumbnail
+  per moment. The "Frigate preview" and "footage extraction" split is gone, and so are the
+  framing variants of one moment sitting side by side; where a frame came from stays behind
+  Details. Hovering or focusing a thumbnail opens a pop-out with the frame at decision size,
+  what the model read in it (labelled as a read, not as the identification), and one action,
+  "Use this frame", which changes the photograph and never the identification. There is no
+  preview-then-save step any more.
+- **The Best crop / Full frame switch is gone.** It was a second route to a picture the strip
+  already offered. The photograph is always the crop; hovering or focusing it peeks at the whole
+  scene with the crop outlined, a click pins the peek, and only then is "Use the whole scene as
+  the photograph" offered, for the case where the crop cut the bird. Escape returns to the crop
+  before it closes the record.
+- **The identification's actions read Confirm, Pick a different species, Score again**, in that
+  order and in the shared button kit. "Reclassify" is now "Score again" here; the bulk action
+  keeps its name.
+
 ## [2.19.6] - 2026-09-10
 
 ### Fixed

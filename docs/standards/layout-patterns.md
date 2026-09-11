@@ -73,7 +73,7 @@ by a badge.
 
 ## 2. Page shapes
 
-Three shapes cover the app. Pick one; do not blend them.
+Four shapes cover the app. Pick one; do not blend them.
 
 ### Desk (Dashboard)
 
@@ -99,6 +99,25 @@ Chrome is a single row. Progress is shown, but it does not get a sidebar. The de
 candidates and the confirm action, and the confirm action names the thing it will do
 ("Add House Sparrow"), never "Save".
 
+### Record (a detection)
+
+```
+slim bar: subject, camera, time, close
+[ media, 1.1fr ]               [ decision rail, 1fr ]
+  photograph                     identification, stated once
+  frame strip                    confirm / pick a different species / score again
+                                 supporting analysis, facts, then Details
+```
+
+The photograph is always the crop. The whole scene is a look, not a mode: hover or focus on
+the photograph peeks at it with the crop outlined, a click pins it, and only the pinned state
+offers "Use the whole scene as the photograph". Beneath the photograph is one strip of the
+visit's moments in time order (`FrameStrip`), one thumbnail per moment; where a frame came from
+is not shown, and the framings of one moment fold into it. Each thumbnail opens a pop-out on
+hover or focus with the frame at decision size, what the model read in it (labelled as a read),
+and one action, "Use this frame", which changes the photograph and never the identification.
+There is no Best crop / Full frame switch and no preview-then-save step (#256).
+
 ### Reference (About)
 
 ```
@@ -120,6 +139,7 @@ readme and `docs/` hold the feature list.
 | `FieldLog` | Any chronological list of visits, and the Health page thread where kept visits and filtered frames share one order | Use for search results; Explorer owns those |
 | `FilteredFramePreview` | A frame the classifier rejected, which has no detection record | Use where a `Detection` exists; that is `DetectionPreview` |
 | `DetectionPreview` | Any thumbnail under ~64px | Use as a click target for navigation; click opens the record |
+| `FrameStrip` | The moments of one visit inside its record, with the comparison pop-out | Show framing variants of one moment side by side; the pop-out carries the framing |
 | `ReviewQueueCard` | Outstanding decisions | Use for notifications or job progress |
 | `DayBar` | The window label plus its headline metrics | Add a seventh metric; cut one instead |
 | `DeskContextCards` | Standing operational context | Put actions in it |
@@ -150,7 +170,7 @@ full list only once someone types.
 Any preview that opens on hover must satisfy all of this, because hover alone fails WCAG 2.2 AA:
 
 - Opens on `mouseenter` **and** on `focusin`, so keyboards reach it.
-- Stays open while the pointer travels into the panel. `DetectionPreview` uses a 120ms close grace
+- Stays open while the pointer travels into the panel. `DetectionPreview` and `FrameStrip` use a 120ms close grace
   window for exactly this (SC 1.4.13, "hoverable").
 - Dismisses on `Escape` without moving focus elsewhere unexpectedly.
 - Reuses the image already fetched. A preview must not cost a second request.
@@ -158,6 +178,8 @@ Any preview that opens on hover must satisfy all of this, because hover alone fa
 - The trigger is a real `button` with `aria-expanded` and a visible focus ring.
 
 Model any new popover on this and on `CameraStatus.svelte`, which established the pattern.
+A pop-out that holds a control (`FrameStrip`) is a `group` named for its subject, not a `tooltip`, and
+its Escape closes the pop-out before the dialog behind it.
 
 ---
 
