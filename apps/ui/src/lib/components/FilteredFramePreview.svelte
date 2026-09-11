@@ -21,6 +21,17 @@
     let rootEl = $state<HTMLElement | null>(null);
     let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
+    // Same rule as the frame strip: hover for a hovering pointer, focus for the keyboard, a tap
+    // by its click, so a touch browser's replayed mouseenter cannot swallow the tap.
+    function isKeyboardFocus(target: EventTarget | null): boolean {
+        if (!(target instanceof Element)) return true;
+        try {
+            return target.matches(':focus-visible');
+        } catch {
+            return true;
+        }
+    }
+
     function show(): void {
         if (closeTimer) {
             clearTimeout(closeTimer);
@@ -69,9 +80,9 @@
     bind:this={rootEl}
     class="relative flex items-center"
     data-filtered-frame-preview
-    onmouseenter={show}
+    onpointerenter={(event) => { if (event.pointerType !== 'touch') show(); }}
     onmouseleave={() => hide()}
-    onfocusin={show}
+    onfocusin={(event) => { if (isKeyboardFocus(event.target)) show(); }}
     onfocusout={handleFocusOut}
     onkeydown={handleKeydown}
     role="presentation"

@@ -67,10 +67,50 @@
     // a sheet at the foot of the screen, with a backdrop and its own Close.
     const SHEET_QUERY = '(max-width: 639px)';
 
+    function isSheet(): boolean {
+        return typeof window !== 'undefined' && window.matchMedia(SHEET_QUERY).matches;
+    }
+
+    // A tap is not a hover. A touch browser replays a tap as mouseenter, then (on Android and
+    // desktop Chrome, not iOS Safari, which does not focus a button on tap) focus, then click.
+    // If either of the first two opened the sheet, its backdrop would be under the finger by the
+    // time the click arrived and would close it again, so the sheet would only flicker. Hover
+    // opens the pop-out for a hovering pointer alone (a mouse or a pen held above the screen),
+    // focus opens it for the keyboard alone, and a tap opens it by its click. The sheet never
+    // opens on hover: a backdrop under a hovering pointer is a mouseleave, which would close
+    // what the mouseenter had just opened.
+    function hoverOpen(index: number, event: PointerEvent): void {
+        if (event.pointerType === 'touch' || isSheet()) return;
+        show(index);
+    }
+
+    function focusOpen(index: number, event: FocusEvent): void {
+        if (!isKeyboardFocus(event.target)) return;
+        show(index);
+    }
+
+    function isKeyboardFocus(target: EventTarget | null): boolean {
+        if (!(target instanceof Element)) return true;
+        try {
+            return target.matches(':focus-visible');
+        } catch {
+            // A browser without :focus-visible cannot tell a tap from a Tab; opening is the
+            // safer reading, and its taps close the pop-out by focusout in any case.
+            return true;
+        }
+    }
+
+    // The sheet has a backdrop, a Close and Escape; the pointer wandering off is not a
+    // dismissal there.
+    function hoverClose(): void {
+        if (anchor?.sheet) return;
+        hide();
+    }
+
     function place(index: number): void {
         const trigger = triggers[index];
         if (!trigger) return;
-        if (typeof window !== 'undefined' && window.matchMedia(SHEET_QUERY).matches) {
+        if (isSheet()) {
             anchor = { x: 0, y: 0, above: false, sheet: true };
             return;
         }
@@ -118,7 +158,14 @@
 
     function handleFocusOut(event: FocusEvent): void {
         const next = event.relatedTarget;
-        if (next instanceof Node && (rootEl?.contains(next) || panelEl?.contains(next))) return;
+        // In the sheet, focus that goes nowhere (a tap on its picture) is not focus moving on: the
+        // backdrop, Close and Escape dismiss it. A desktop pop-out closes as before, so a click
+        // on plain page or a switch away never strands it with only the record's Escape left.
+        if (!(next instanceof Node)) {
+            if (!anchor?.sheet) hide(true);
+            return;
+        }
+        if (rootEl?.contains(next) || panelEl?.contains(next)) return;
         hide(true);
     }
 
@@ -142,13 +189,16 @@
         queueMicrotask(() => panelEl?.querySelector<HTMLElement>('button, [tabindex]')?.focus());
     }
 
+    // Focus returns to the trigger before the pop-out hides: moving focus replays focusin on the
+    // trigger, and on an index that is still open that is a no-op, whereas after hiding it would
+    // reopen what Escape had just closed.
     function handlePanelKeydown(event: KeyboardEvent): void {
         if (event.key === 'Tab' || event.key === 'Escape') {
             event.preventDefault();
             event.stopPropagation();
             const index = openIndex;
-            if (event.key === 'Escape') hide(true);
             if (index !== null) triggers[index]?.focus();
+            if (event.key === 'Escape') hide(true);
         }
     }
 
@@ -267,7 +317,7 @@
     class="flex flex-col gap-1 px-3 pb-3"
     data-frame-strip
     aria-busy={loading || busy}
-    onmouseleave={() => hide()}
+    onmouseleave={hoverClose}
     onfocusout={handleFocusOut}
     onkeydown={handleKeydown}
     role="presentation"
@@ -301,8 +351,8 @@
                     {@const thumb = thumbnailFor(moment)}
                     <div
                         class="relative shrink-0"
-                        onmouseenter={() => show(index)}
-                        onfocusin={() => show(index)}
+                        onpointerenter={(event) => hoverOpen(index, event)}
+                        onfocusin={(event) => focusOpen(index, event)}
                         role="presentation"
                     >
                         <button
@@ -370,7 +420,7 @@
                                 role="presentation"
                                 data-frame-strip-panel
                                 onmouseenter={cancelScheduledClose}
-                                onmouseleave={() => hide()}
+                                onmouseleave={hoverClose}
                                 onfocusout={handleFocusOut}
                                 onkeydown={handlePanelKeydown}
                             >
@@ -386,7 +436,7 @@
                                     type="button"
                                     class="absolute right-2 top-2 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-slate-950/60 text-white backdrop-blur-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
                                     aria-label={$_('common.close', { default: 'Close' })}
-                                    onclick={(event) => { event.stopPropagation(); const current = openIndex; hide(true); if (current !== null) triggers[current]?.focus(); }}
+                                    onclick={(event) => { event.stopPropagation(); const current = openIndex; if (current !== null) triggers[current]?.focus(); hide(true); }}
                                 >
                                     <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" /></svg>
                                 </button>

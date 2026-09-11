@@ -84,6 +84,18 @@
         anchor = { x: centre, y: above ? rect.top - GAP : rect.bottom + GAP, above };
     }
 
+    // A touch browser replays a tap as mouseenter and, on Chrome, focus before the click; a
+    // pop-out that opened on either would swallow the tap (iOS) or sit under the record (Chrome).
+    // Hover is for a hovering pointer and focus is for the keyboard; a tap opens by its click.
+    function isKeyboardFocus(target: EventTarget | null): boolean {
+        if (!(target instanceof Element)) return true;
+        try {
+            return target.matches(':focus-visible');
+        } catch {
+            return true;
+        }
+    }
+
     function show(index: number): void {
         if (closeTimer) {
             clearTimeout(closeTimer);
@@ -202,8 +214,8 @@
             class:-ml-1={index > 0}
             class:hidden={index > 0}
             class:sm:block={index > 0}
-            onmouseenter={() => show(index)}
-            onfocusin={() => show(index)}
+            onpointerenter={(event) => { if (event.pointerType !== 'touch') show(index); }}
+            onfocusin={(event) => { if (isKeyboardFocus(event.target)) show(index); }}
             role="presentation"
         >
             {#snippet thumbnail(frame: Detection)}
