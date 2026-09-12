@@ -61,6 +61,19 @@ describe('review queue walk-through', () => {
         expect(modalSource).toMatch(/if \(wholeScene\.pinned\) \{\s*wholeScene\.reset\(\);\s*return;/);
     });
 
+    it('shows every frame kept from the visit in the same strip as the record, and choosing one changes only the photograph', () => {
+        expect(modalSource).toContain("import FrameStrip from './FrameStrip.svelte'");
+        expect(modalSource).toContain('groupCandidatesIntoMoments(candidates.filter((item) => item.thumbnail_url || item.image_url))');
+        expect(modalSource).toContain('data-review-frame-strip');
+        expect(modalSource).toContain('current={activeMoment}');
+        expect(modalSource).toContain("applySnapshotCandidate(eventId, { mode: 'candidate', candidate_id: candidate.candidate_id })");
+        // The photograph is whatever is chosen, crop or whole scene; the strip reflects it after a change.
+        expect(modalSource).toContain('photograph = selected ?? preferredCrop;');
+        expect(modalSource).toContain('await loadCandidates(eventId, () => session.current?.frigate_event !== eventId);');
+        // Regeneration stays on the full record, where the scan's status is shown.
+        expect(modalSource).not.toContain('onregenerate=');
+    });
+
     it('keeps the media block its own height on phones so it never overlaps the rail', () => {
         expect(modalSource).toContain('flex min-h-0 flex-1 flex-col overflow-y-auto md:grid');
         expect(modalSource).toContain('flex shrink-0 flex-col bg-slate-950 md:min-h-0 md:justify-center');

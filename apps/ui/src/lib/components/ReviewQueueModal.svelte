@@ -1,7 +1,16 @@
 <script lang="ts">
     import { onDestroy, untrack } from 'svelte';
-    import { fetchSnapshotCandidates, getThumbnailUrl } from '../api';
+    import { applySnapshotCandidate, fetchSnapshotCandidates, getThumbnailUrl } from '../api';
     import type { Detection, SnapshotCandidate } from '../api';
+    import FrameStrip from './FrameStrip.svelte';
+    import {
+        currentMoment,
+        groupCandidatesIntoMoments,
+        preferredCandidate,
+        type FrameMoment
+    } from '../utils/frame-moments';
+    import { getErrorMessage } from '../utils/error-handling';
+    import { toastStore } from '../stores/toast.svelte';
     import { advance, createReviewSession, remaining, type ReviewSession } from '../utils/review-session';
     import { formatDate, formatTime } from '../utils/datetime';
     import { trapFocus } from '../utils/focus-trap';
@@ -38,6 +47,19 @@
     let crop = $state<SnapshotCandidate | null>(null);
     let fullFrame = $state<SnapshotCandidate | null>(null);
     let cropLoading = $state(false);
+    // Every frame kept from the visit, in one strip, the same as the detection record (#256):
+    // a reviewer deciding what a blurred shape is should see every moment, not only the crop
+    // and its whole scene. Choosing one changes the photograph and nothing else.
+    let candidates = $state<SnapshotCandidate[]>([]);
+    let photograph = $state<SnapshotCandidate | null>(null);
+    let currentCandidateId = $state<string | null>(null);
+    let currentSource = $state<string | null>(null);
+    let applyingKey = $state<string | null>(null);
+    let applyPending = $state(false);
+    const moments = $derived<FrameMoment[]>(
+        groupCandidatesIntoMoments(candidates.filter((item) => item.thumbnail_url || item.image_url))
+    );
+    const activeMoment = $derived(currentMoment(moments, currentCandidateId, currentSource));
     let imageEl = $state<HTMLImageElement | null>(null);
     // The photograph is the crop; the whole scene is a look, not a mode (#256). Same
     // controller as the detection record, so the two surfaces behave alike.
@@ -68,55 +90,90 @@
         failedImageUrls = new Set();
     });
 
+    async function loadCandidates(eventId: string, isCancelled: () => boolean): Promise<void> {
+        cropLoading = true;
+        try {
+            const response = await fetchSnapshotCandidates(eventId);
+            if (isCancelled()) return;
+            const all = response.candidates ?? [];
+            const cropped = all.filter(
+                (candidate) => candidate.crop_box && (candidate.image_url || candidate.thumbnail_url)
+            );
+            const preferredCrop =
+                cropped.find((candidate) => candidate.selected) ??
+                cropped.sort((left, right) => right.ranking_score - left.ranking_score)[0] ??
+                null;
+            // The photograph is whatever is chosen, crop or whole scene; the peek needs a crop.
+            const selected = all.find((candidate) => candidate.selected && (candidate.image_url || candidate.thumbnail_url));
+            photograph = selected ?? preferredCrop;
+            crop = preferredCrop;
+            fullFrame = findMatchingFullFrameCandidate(
+                response.candidates ?? [],
+                preferredCrop?.candidate_id ?? null
+            );
+            candidates = all;
+            currentCandidateId = response.current_candidate_id ?? null;
+            currentSource = response.current_source ?? null;
+        } catch {
+            // No scan has been run for this event, so there is no crop to show.
+            if (!isCancelled()) {
+                crop = null;
+                fullFrame = null;
+                photograph = null;
+                candidates = [];
+            }
+        } finally {
+            if (!isCancelled()) cropLoading = false;
+        }
+    }
+
     $effect(() => {
         const eventId = session.current?.frigate_event;
         crop = null;
         fullFrame = null;
+        photograph = null;
+        candidates = [];
+        currentCandidateId = null;
+        currentSource = null;
         wholeScene.reset();
         if (!eventId) return;
 
         let cancelled = false;
-        cropLoading = true;
-        void (async () => {
-            try {
-                const response = await fetchSnapshotCandidates(eventId);
-                if (cancelled) return;
-                const cropped = (response.candidates ?? []).filter(
-                    (candidate) => candidate.crop_box && (candidate.image_url || candidate.thumbnail_url)
-                );
-                const preferredCrop =
-                    cropped.find((candidate) => candidate.selected) ??
-                    cropped.sort((left, right) => right.ranking_score - left.ranking_score)[0] ??
-                    null;
-                crop = preferredCrop;
-                fullFrame = findMatchingFullFrameCandidate(
-                    response.candidates ?? [],
-                    preferredCrop?.candidate_id ?? null
-                );
-            } catch {
-                // No scan has been run for this event, so there is no crop to show.
-                if (!cancelled) {
-                    crop = null;
-                    fullFrame = null;
-                }
-            } finally {
-                if (!cancelled) cropLoading = false;
-            }
-        })();
-
+        void loadCandidates(eventId, () => cancelled);
         return () => {
             cancelled = true;
         };
     });
 
+    async function useMoment(moment: FrameMoment): Promise<void> {
+        const eventId = session.current?.frigate_event;
+        const candidate = preferredCandidate(moment);
+        if (!eventId || !candidate || applyPending) return;
+        applyPending = true;
+        applyingKey = moment.key;
+        try {
+            await applySnapshotCandidate(eventId, { mode: 'candidate', candidate_id: candidate.candidate_id });
+            wholeScene.reset();
+            await loadCandidates(eventId, () => session.current?.frigate_event !== eventId);
+            toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
+        } catch (e) {
+            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            applyPending = false;
+            applyingKey = null;
+        }
+    }
+
     const imageUrl = $derived(
         wholeScene.showing && (fullFrame?.image_url || fullFrame?.thumbnail_url)
             ? (fullFrame.image_url ?? fullFrame.thumbnail_url ?? '')
-            : crop?.image_url || crop?.thumbnail_url
-              ? (crop.image_url ?? crop.thumbnail_url ?? '')
-            : session.current
-              ? getThumbnailUrl(session.current.frigate_event)
-              : ''
+            : photograph?.image_url || photograph?.thumbnail_url
+              ? (photograph.image_url ?? photograph.thumbnail_url ?? '')
+              : crop?.image_url || crop?.thumbnail_url
+                ? (crop.image_url ?? crop.thumbnail_url ?? '')
+                : session.current
+                  ? getThumbnailUrl(session.current.frigate_event)
+                  : ''
     );
     // The outline is a DOM measurement, taken once the whole scene has loaded and again when
     // the window changes size.
@@ -349,6 +406,19 @@
                                     </span>
                                 {/if}
                             {/if}
+                        </div>
+                    {/if}
+                    {#if moments.length > 0}
+                        <div class="pt-2" data-review-frame-strip>
+                            <FrameStrip
+                                {moments}
+                                current={activeMoment}
+                                primaryName={current.display_name}
+                                loading={cropLoading}
+                                {applyingKey}
+                                busy={applyPending || busy}
+                                onuse={(moment) => { void useMoment(moment); }}
+                            />
                         </div>
                     {/if}
                     {#if !canPeek && !cropLoading && !crop}

@@ -38,6 +38,10 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Changed
 
+- **The review queue shows every frame kept from a visit.** Its record showed only the crop and
+  its whole scene, so a visit with many frames read as two. The same strip as the detection
+  record now sits beneath the photograph; choosing a frame changes the photograph and nothing
+  else, and regeneration stays on the full record.
 - **One place to choose the frame and settle the species (#256).** The detection record's
   photograph now has one strip of the visit's moments beneath it, in time order, one thumbnail
   per moment. The "Frigate preview" and "footage extraction" split is gone, and so are the
