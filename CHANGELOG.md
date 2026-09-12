@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.19.7] - 2026-09-12
+
 ### Fixed
 
 - **A visit is not failed because its classifier worker was restarted.** When the video worker
