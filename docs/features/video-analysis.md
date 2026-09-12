@@ -52,6 +52,18 @@ Temporal inference always runs in a supervised subprocess; cancellation or a har
 terminates that worker, so native OpenVINO/ONNX work cannot continue invisibly after the request
 ends.
 
+The worker is not the visit. A video worker is judged alive on its own heartbeat budget
+(`CLASSIFICATION__VIDEO_WORKER_HEARTBEAT_TIMEOUT_SECONDS`, thirty seconds by default, because a
+temporal analysis is one long native job), and the video hard deadline still ends one that has truly
+hung. When a worker is replaced mid-analysis, whatever the reason, the visit in hand goes back on the
+queue after a short pause and runs again on the fresh worker, twice at most, with its durable status
+returned to **pending** so a process restart in the gap recovers it like any other queued visit.
+Work queued while the replacement loads waits for it rather than being handed to the dead worker.
+Only when those attempts are spent is the visit marked failed with the worker's reason, and a
+manual request then falls back to the retained snapshot as before. Every worker kill is logged with
+the numbers it rested on (seconds since the last heartbeat, activity and stderr, time in the
+request, restarts in the window), so a false positive can be told from a hung worker afterwards.
+
 A shorter-than-requested full-visit clip remains valid evidence when it is a real, decodable MP4.
 YA-WAMF analyzes the frames it contains instead of discarding the clip merely because Frigate could
 not provide the ideal window.

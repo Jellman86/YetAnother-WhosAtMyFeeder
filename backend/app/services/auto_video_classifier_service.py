@@ -130,6 +130,20 @@ _VIDEO_TOP_FRAMES_LIMIT = 8
 # then retry once. 60 seconds covers the common Frigate clip-finalisation lag
 # without piling up retries during a real outage.
 _PRECHECK_NO_CLIP_RETRY_DELAY_SECONDS = 60
+
+# A classifier worker restarted mid-analysis says nothing about the visit, so
+# the visit goes back on the queue once the worker has had time to come back.
+# Bounded, so a clip that reliably hangs the worker still fails in the end.
+WORKER_FAILURE_REQUEUE_REASONS: frozenset[str] = frozenset(
+    {
+        "video_worker_unavailable",
+        "video_worker_heartbeat_timeout",
+        "video_worker_startup_timeout",
+        "video_worker_circuit_open",
+    }
+)
+WORKER_FAILURE_MAX_REQUEUES = 2
+WORKER_FAILURE_REQUEUE_DELAY_SECONDS = 20.0
 _PRECHECK_NO_CLIP_MAX_RETRIES = 1
 _RETRIABLE_ON_LATE_CLIP_ERRORS: frozenset[str] = frozenset(
     {
@@ -257,6 +271,11 @@ class AutoVideoClassifierService:
         # so stop()/reset_state() can cancel them and so we never schedule a
         # second concurrent retry for the same event_id.
         self._precheck_retry_tasks: Dict[str, asyncio.Task] = {}
+        # How often each visit has gone back on the queue after its worker was
+        # lost, and the sleeping tasks that will queue them; both cleared when
+        # the visit ends one way or the other.
+        self._worker_failure_requeues: Dict[str, int] = {}
+        self._worker_failure_retry_tasks: Dict[str, asyncio.Task] = {}
 
     @property
     def _classifier(self):  # type: ignore[override]
@@ -318,6 +337,7 @@ class AutoVideoClassifierService:
         for retry_task in list(self._precheck_retry_tasks.values()):
             retry_task.cancel()
         self._precheck_retry_tasks.clear()
+        self._cancel_worker_failure_requeues()
         while not self._pending_queue.empty():
             try:
                 self._pending_queue.get_nowait()
@@ -338,7 +358,7 @@ class AutoVideoClassifierService:
         self._cleanup_completed_tasks()
         if event_id in self._active_tasks or event_id in self._pending_ids:
             return
-        if event_id in self._precheck_retry_tasks:
+        if event_id in self._precheck_retry_tasks or event_id in self._worker_failure_retry_tasks:
             return
         if self._is_circuit_open("live") and self._is_circuit_open("maintenance"):
             return
@@ -394,6 +414,7 @@ class AutoVideoClassifierService:
         for retry_task in list(self._precheck_retry_tasks.values()):
             retry_task.cancel()
         self._precheck_retry_tasks.clear()
+        self._cancel_worker_failure_requeues()
         for task in self._active_tasks.values():
             task.cancel()
         for task in list(self._active_tasks.values()):
@@ -781,6 +802,7 @@ class AutoVideoClassifierService:
             )
 
     def _record_success(self, event_id: str, *, source: JobSource = "live"):
+        self._worker_failure_requeues.pop(event_id, None)
         self._prune_failures(source)
         failure_events = cast(deque[tuple[float, str]], self._breaker_bucket(source)["failure_events"])
         failure_event_ids = cast(set[str], self._breaker_bucket(source)["failure_event_ids"])
@@ -1839,6 +1861,14 @@ class AutoVideoClassifierService:
                     return
                 except VideoClassificationWorkerError as exc:
                     reason_code = exc.reason_code
+                    if await self._requeue_after_worker_failure(
+                        frigate_event,
+                        camera,
+                        reason_code=reason_code,
+                        fallback_to_snapshot=fallback_to_snapshot,
+                        source=source,
+                    ):
+                        return
                     worker_context = {"error": reason_code}
                     if snapshot_fallback_requested():
                         worker_context["snapshot_fallback_attempted"] = True
@@ -1875,6 +1905,7 @@ class AutoVideoClassifierService:
                         severity="error",
                         context=worker_context,
                     )
+                    self._worker_failure_requeues.pop(frigate_event, None)
                     await self._update_status(frigate_event, "failed", error=reason_code, broadcast=True)
                     self._record_failure(frigate_event, reason_code, source=source)
                     await self._broadcast_reclassification_completed(
@@ -2341,6 +2372,118 @@ class AutoVideoClassifierService:
 
     async def _clip_file_valid(self, clip_path: str) -> bool:
         return await self._clip_file_error(clip_path) is None
+
+    async def _requeue_after_worker_failure(
+        self,
+        frigate_event: str,
+        camera: str,
+        *,
+        reason_code: str,
+        fallback_to_snapshot: bool,
+        source: JobSource,
+    ) -> bool:
+        """Put a visit back on the queue when its classifier worker was lost
+        mid-analysis. Returns False when the failure is the visit's own to
+        report: a reason that a fresh worker would not change, or a visit that
+        has already been queued again as often as allowed."""
+        if reason_code not in WORKER_FAILURE_REQUEUE_REASONS or not self._running:
+            return False
+        attempt = self._worker_failure_requeues.get(frigate_event, 0) + 1
+        if attempt > WORKER_FAILURE_MAX_REQUEUES:
+            return False
+        self._worker_failure_requeues[frigate_event] = attempt
+        log.warning(
+            "Video classification worker lost mid-analysis; visit queued again",
+            event_id=frigate_event,
+            reason=reason_code,
+            attempt=attempt,
+            max_attempts=WORKER_FAILURE_MAX_REQUEUES,
+            delay_seconds=WORKER_FAILURE_REQUEUE_DELAY_SECONDS,
+            source=source,
+        )
+        self._record_diagnostic(
+            frigate_event,
+            reason_code="auto_classify_retry_after_worker_failure",
+            message=(
+                "The classifier worker was restarted during this analysis; the visit is queued again "
+                "rather than marked failed."
+            ),
+            severity="warning",
+            context={
+                "prior_error": reason_code,
+                "attempt": attempt,
+                "max_attempts": WORKER_FAILURE_MAX_REQUEUES,
+                "delay_seconds": WORKER_FAILURE_REQUEUE_DELAY_SECONDS,
+            },
+        )
+        # Durable state says pending again, so a process restart in the gap
+        # recovers the visit the same way it recovers any other queued one.
+        await self._update_status(frigate_event, "pending", error=None, broadcast=False)
+        self._schedule_worker_failure_requeue(
+            frigate_event=frigate_event,
+            camera=camera,
+            reason_code=reason_code,
+            fallback_to_snapshot=fallback_to_snapshot,
+            source=source,
+        )
+        return True
+
+    def _schedule_worker_failure_requeue(
+        self,
+        *,
+        frigate_event: str,
+        camera: str,
+        reason_code: str,
+        fallback_to_snapshot: bool,
+        source: JobSource,
+    ) -> None:
+        if frigate_event in self._worker_failure_retry_tasks:
+            return
+
+        async def _delayed_requeue() -> None:
+            try:
+                await asyncio.sleep(WORKER_FAILURE_REQUEUE_DELAY_SECONDS)
+            except asyncio.CancelledError:
+                return
+            if not self._running:
+                return
+            if frigate_event in self._active_tasks or frigate_event in self._pending_ids:
+                log.debug(
+                    "Worker-failure requeue skipped; another job already owns this event",
+                    event_id=frigate_event,
+                )
+                return
+            outcome = await self.queue_classification(
+                frigate_event,
+                camera,
+                skip_delay=True,
+                fallback_to_snapshot=fallback_to_snapshot,
+                source=source,
+            )
+            if outcome in {"queued", "duplicate", "deferred"}:
+                return
+            # The queue would not take it back (its circuit is open, or it is
+            # full with no durable fallback): report the original failure honestly.
+            log.warning(
+                "Worker-failure requeue refused; marking the visit failed",
+                event_id=frigate_event,
+                reason=reason_code,
+                queue_outcome=outcome,
+            )
+            self._worker_failure_requeues.pop(frigate_event, None)
+            await self._update_status(frigate_event, "failed", error=reason_code, broadcast=True)
+            self._record_failure(frigate_event, reason_code, source=source)
+            await self._broadcast_reclassification_completed(frigate_event, [], outcome="failed", reason=reason_code)
+
+        task = create_background_task(_delayed_requeue(), name=f"video_classifier_requeue:{frigate_event}")
+        self._worker_failure_retry_tasks[frigate_event] = task
+        task.add_done_callback(lambda _t, eid=frigate_event: self._worker_failure_retry_tasks.pop(eid, None))
+
+    def _cancel_worker_failure_requeues(self) -> None:
+        for retry_task in list(self._worker_failure_retry_tasks.values()):
+            retry_task.cancel()
+        self._worker_failure_retry_tasks.clear()
+        self._worker_failure_requeues.clear()
 
     def _schedule_precheck_retry(
         self,

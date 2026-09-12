@@ -373,6 +373,11 @@ class ClassificationSettings(BaseModel):
     worker_heartbeat_timeout_seconds: float = Field(
         default=5.0, ge=0.5, le=60.0, description="Classifier worker heartbeat timeout in seconds"
     )
+    # A video analysis is one long native job; a silence that means a hung
+    # image worker is routine for it, and the hard deadline remains the backstop.
+    video_worker_heartbeat_timeout_seconds: float = Field(
+        default=30.0, ge=1.0, le=300.0, description="Video classifier worker heartbeat timeout in seconds"
+    )
     worker_hard_deadline_seconds: float = Field(
         default=60.0, ge=1.0, le=300.0, description="Hard deadline before killing a stuck classifier worker"
     )
