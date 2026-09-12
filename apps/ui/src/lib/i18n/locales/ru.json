@@ -2316,7 +2316,18 @@
     "most_detected_week": "Чаще всего за неделю",
     "most_detected_month": "Чаще всего за месяц",
     "most_detected_all": "Чаще всего за всё время",
-    "collage_counts": "{seen} визитов"
+    "showcase_reference": "Справочное фото, не с этой кормушки",
+    "showcase_reference_from": "Справочное фото ({source}), не с этой кормушки",
+    "showcase_reference_short": "Справка",
+    "showcase_on_previous": "к предыдущему периоду",
+    "showcase_bring_forward": "Показать {species} крупно",
+    "showcase_more": "ещё {count} ниже",
+    "showcase_visits": "визитов",
+    "showcase_visits_and_calls": "визитов и голосов",
+    "showcase_rank_day": "{rank}-е место сегодня",
+    "showcase_rank_week": "{rank}-е место за неделю",
+    "showcase_rank_month": "{rank}-е место за месяц",
+    "showcase_rank_all": "{rank}-е место за всё время"
   },
   "about": {
     "how_it_works": "Как это работает",

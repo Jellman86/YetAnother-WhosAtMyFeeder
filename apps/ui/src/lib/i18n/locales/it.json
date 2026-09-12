@@ -2316,7 +2316,18 @@
     "most_detected_week": "Più rilevata questa settimana",
     "most_detected_month": "Più rilevata questo mese",
     "most_detected_all": "Più rilevata di sempre",
-    "collage_counts": "{seen} visite"
+    "showcase_reference": "Foto di riferimento, non di questa mangiatoia",
+    "showcase_reference_from": "Foto di riferimento da {source}, non di questa mangiatoia",
+    "showcase_reference_short": "Riferimento",
+    "showcase_on_previous": "rispetto al periodo precedente",
+    "showcase_bring_forward": "Porta {species} in primo piano",
+    "showcase_more": "{count} altre sotto",
+    "showcase_visits": "visite",
+    "showcase_visits_and_calls": "visite e canti",
+    "showcase_rank_day": "Posizione {rank} oggi",
+    "showcase_rank_week": "Posizione {rank} questa settimana",
+    "showcase_rank_month": "Posizione {rank} questo mese",
+    "showcase_rank_all": "Posizione {rank} di sempre"
   },
   "about": {
     "how_it_works": "Come Funziona",

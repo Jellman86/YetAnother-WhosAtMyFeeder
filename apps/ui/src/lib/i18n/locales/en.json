@@ -2316,7 +2316,18 @@
     "most_detected_week": "Most detected this week",
     "most_detected_month": "Most detected this month",
     "most_detected_all": "Most detected ever",
-    "collage_counts": "{seen} visits"
+    "showcase_reference": "Reference photo, not from this feeder",
+    "showcase_reference_from": "Reference photo from {source}, not from this feeder",
+    "showcase_reference_short": "Reference",
+    "showcase_on_previous": "on the window before",
+    "showcase_bring_forward": "Bring {species} forward",
+    "showcase_more": "{count} more below",
+    "showcase_visits": "visits",
+    "showcase_visits_and_calls": "visits and calls",
+    "showcase_rank_day": "Rank {rank} today",
+    "showcase_rank_week": "Rank {rank} this week",
+    "showcase_rank_month": "Rank {rank} this month",
+    "showcase_rank_all": "Rank {rank} of all time"
   },
   "about": {
     "how_it_works": "How it works",

@@ -123,6 +123,22 @@ with; only regeneration stays on the full record.
 On a phone the comparison pop-out is a sheet at the foot of the screen with a backdrop and its
 own Close, because there is no hover to lose.
 
+### Standing (Leaderboard)
+
+```
+span bar: day, week, month, total · seen, heard, both
+showcase: the leader expanded, the rest as tiles, in the expanded-view manner of a photo library
+highlights: rising, most recent
+rankings, then analytics
+```
+
+The showcase (`SpeciesShowcase`) is the leaderboard's centrepiece. Every species is a photograph:
+this feeder's own newest crop (`/api/leaderboard/portraits`), or, where there is none, the
+species' reference image from the taxonomy cache, labelled as a reference photo and never passed
+off as the feeder's. Clicking a tile brings it forward and the one it replaces folds back into
+the grid; the two swap places rather than cutting. Under reduced motion nothing drifts or morphs.
+The last tile points at the full rankings.
+
 ### Reference (About)
 
 ```

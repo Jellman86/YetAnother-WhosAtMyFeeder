@@ -2223,3 +2223,121 @@ async def _get_wikipedia_summary(
         conservation_status=None,
         cached_at=datetime.now(),
     )
+
+
+# ---- The leaderboard's own photographs (#256 follow-up) -------------------------------------------
+
+# Nine tiles is what the showcase shows beside the leader; a caller may ask for more.
+PORTRAITS_DEFAULT_LIMIT = 9
+PORTRAIT_CANDIDATES_PER_SPECIES = 8
+PORTRAITS_CACHE_SECONDS = 300
+_portraits_cache: dict[tuple[str, int, bool], tuple[float, list[dict]]] = {}
+
+
+class LeaderboardPortraitResponse(BaseModel):
+    species: str
+    scientific_name: str | None = None
+    taxa_id: int | None = None
+    frigate_event: str
+    image_url: str
+
+
+class LeaderboardPortraitsResponse(BaseModel):
+    span: Literal["day", "week", "month", "all"]
+    portraits: list[LeaderboardPortraitResponse]
+
+
+def _portraits_window(span: str, now: datetime) -> tuple[datetime, datetime]:
+    if span == "day":
+        return now - timedelta(hours=24), now
+    if span == "week":
+        return now - timedelta(days=7), now
+    if span == "month":
+        return now - timedelta(days=30), now
+    return datetime(2000, 1, 1), now
+
+
+@router.get("/leaderboard/portraits", response_model=LeaderboardPortraitsResponse)
+@guest_rate_limit()
+async def get_leaderboard_portraits(
+    request: Request,
+    span: Literal["day", "week", "month", "all"] = Query("month", description="The leaderboard's window"),
+    limit: int = Query(PORTRAITS_DEFAULT_LIMIT, ge=1, le=24, description="Ranked species to find a photograph for"),
+    auth: AuthContext = Depends(get_auth_context_with_legacy),
+) -> LeaderboardPortraitsResponse:
+    """This feeder's own photograph of each leading species: the newest stored crop.
+
+    A whole scene at tile size is a picture of a feeder, so only crops count, decided by the
+    same provenance the classifier trusts. A species without one is left out; the page shows
+    a reference image in its place and says so. Guests see only the shared window.
+    """
+    from app.routers.about import is_crop_source
+    from app.services.media_cache import media_cache
+    from app.utils.public_access import effective_public_media_days
+
+    if not (settings.media_cache.enabled and settings.media_cache.cache_snapshots):
+        return LeaderboardPortraitsResponse(span=span, portraits=[])
+
+    is_guest = not auth.is_owner and settings.public_access.enabled
+    if is_guest and not settings.public_access.show_snapshots:
+        return LeaderboardPortraitsResponse(span=span, portraits=[])
+    cache_key = (span, limit, is_guest)
+    cached = _portraits_cache.get(cache_key)
+    if cached and (asyncio.get_running_loop().time() - cached[0]) < PORTRAITS_CACHE_SECONDS:
+        return LeaderboardPortraitsResponse(span=span, portraits=[LeaderboardPortraitResponse(**p) for p in cached[1]])
+
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    window_start, window_end = _portraits_window(span, now)
+    guest_cutoff: datetime | None = None
+    if is_guest:
+        max_days = effective_public_media_days()
+        guest_cutoff = (
+            now - timedelta(days=max_days) if max_days > 0 else now.replace(hour=0, minute=0, second=0, microsecond=0)
+        )
+
+    unknown_labels = settings.classification.unknown_bird_labels
+    async with get_db() as db:
+        repo = DetectionRepository(db)
+        rows = await repo.get_species_leaderboard_window(
+            window_start=window_start,
+            window_end=window_end,
+            prev_start=window_start - (window_end - window_start),
+            prev_end=window_start,
+        )
+        ranked = [
+            r
+            for r in rows
+            if r["window_count"] > 0
+            and r["species"] not in unknown_labels
+            and not should_hide_species_label(r["species"])
+        ][:limit]
+        recent_by_species = {
+            r["species"]: await repo.get_recent_by_species(r["species"], limit=PORTRAIT_CANDIDATES_PER_SPECIES)
+            for r in ranked
+        }
+
+    portraits: list[dict] = []
+    for r in ranked:
+        for detection in recent_by_species.get(r["species"], []):
+            if guest_cutoff is not None and detection.detection_time.replace(tzinfo=None) < guest_cutoff:
+                continue
+            metadata = await media_cache.get_snapshot_metadata(detection.frigate_event)
+            if not is_crop_source((metadata or {}).get("source")):
+                continue
+            portraits.append(
+                {
+                    "species": r["species"],
+                    "scientific_name": r.get("scientific_name"),
+                    "taxa_id": r.get("taxa_id"),
+                    "frigate_event": detection.frigate_event,
+                    "image_url": f"/api/about/showcase/{quote(detection.frigate_event, safe='')}.jpg",
+                }
+            )
+            break
+
+    _portraits_cache[cache_key] = (asyncio.get_running_loop().time(), portraits)
+    return LeaderboardPortraitsResponse(span=span, portraits=[LeaderboardPortraitResponse(**p) for p in portraits])
+
+
+def clear_portraits_cache() -> None:
+    _portraits_cache.clear()

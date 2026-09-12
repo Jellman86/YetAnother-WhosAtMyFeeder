@@ -16,6 +16,21 @@ export async function fetchLeaderboardSpecies(
     return handleResponse<LeaderboardSpeciesResponse>(response);
 }
 
+export type LeaderboardPortraitsResponse = paths['/api/leaderboard/portraits']['get']['response'];
+export type LeaderboardPortrait = LeaderboardPortraitsResponse['portraits'][number];
+
+/** This feeder's own photograph of each leading species, the newest stored crop, or none. */
+export async function fetchLeaderboardPortraits(
+    span: LeaderboardSpan = 'month',
+    signal?: AbortSignal
+): Promise<LeaderboardPortraitsResponse> {
+    const response = await apiFetch(`${API_BASE}/leaderboard/portraits?span=${encodeURIComponent(span)}`, {
+        signal,
+        timeoutMs: 15_000
+    });
+    return handleResponse<LeaderboardPortraitsResponse>(response);
+}
+
 export type DetectionsTimelineSpanResponse = paths['/api/stats/detections/timeline']['get']['response'];
 
 export type DetectionsActivityHeatmapResponse = paths['/api/stats/detections/activity-heatmap']['get']['response'];

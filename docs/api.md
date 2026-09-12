@@ -456,6 +456,8 @@ model metadata. Passing undeclared rows are reported as `declared: false` and un
 - `DELETE /api/maintenance/feedback/clear` (owner)
 - `GET /api/cache/stats` (owner). Includes `archive_count`, `archive_size_bytes` and the favourite
   counts by archive state.
+- `GET /api/leaderboard/portraits?span=&limit=` (guest-rate-limited). This feeder's newest stored
+  crop of each leading species, for the leaderboard's showcase; a species without one is absent.
 - `GET /api/about/showcase?limit=` (guest-rate-limited). One recent crop per species for the About
   page's reel; guests see the public media window, and nothing when snapshots are not shared.
 - `GET /api/about/showcase/{event_id}.jpg` (guest-rate-limited). The stored photograph at card

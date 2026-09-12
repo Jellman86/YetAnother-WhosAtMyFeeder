@@ -6870,6 +6870,78 @@
         "title": "LeaderboardAnalysisResponse",
         "type": "object"
       },
+      "LeaderboardPortraitResponse": {
+        "properties": {
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "image_url": {
+            "title": "Image Url",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "species",
+          "frigate_event",
+          "image_url"
+        ],
+        "title": "LeaderboardPortraitResponse",
+        "type": "object"
+      },
+      "LeaderboardPortraitsResponse": {
+        "properties": {
+          "portraits": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardPortraitResponse"
+            },
+            "title": "Portraits",
+            "type": "array"
+          },
+          "span": {
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "all"
+            ],
+            "title": "Span",
+            "type": "string"
+          }
+        },
+        "required": [
+          "span",
+          "portraits"
+        ],
+        "title": "LeaderboardPortraitsResponse",
+        "type": "object"
+      },
       "LeaderboardSpeciesItemResponse": {
         "properties": {
           "common_name": {
@@ -22220,6 +22292,80 @@
         "tags": [
           "ai"
         ]
+      }
+    },
+    "/api/leaderboard/portraits": {
+      "get": {
+        "description": "This feeder's own photograph of each leading species: the newest stored crop.\n\nA whole scene at tile size is a picture of a feeder, so only crops count, decided by the\nsame provenance the classifier trusts. A species without one is left out; the page shows\na reference image in its place and says so. Guests see only the shared window.",
+        "operationId": "get_leaderboard_portraits_api_leaderboard_portraits_get",
+        "parameters": [
+          {
+            "description": "The leaderboard's window",
+            "in": "query",
+            "name": "span",
+            "required": false,
+            "schema": {
+              "default": "month",
+              "description": "The leaderboard's window",
+              "enum": [
+                "day",
+                "week",
+                "month",
+                "all"
+              ],
+              "title": "Span",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ranked species to find a photograph for",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 9,
+              "description": "Ranked species to find a photograph for",
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardPortraitsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Leaderboard Portraits"
       }
     },
     "/api/leaderboard/species": {

@@ -2307,7 +2307,18 @@
     "most_detected_week": "Más detectada esta semana",
     "most_detected_month": "Más detectada este mes",
     "most_detected_all": "Más detectada de siempre",
-    "collage_counts": "{seen} visitas"
+    "showcase_reference": "Foto de referencia, no de este comedero",
+    "showcase_reference_from": "Foto de referencia de {source}, no de este comedero",
+    "showcase_reference_short": "Referencia",
+    "showcase_on_previous": "respecto al periodo anterior",
+    "showcase_bring_forward": "Traer {species} al frente",
+    "showcase_more": "{count} más abajo",
+    "showcase_visits": "visitas",
+    "showcase_visits_and_calls": "visitas y cantos",
+    "showcase_rank_day": "Puesto {rank} hoy",
+    "showcase_rank_week": "Puesto {rank} esta semana",
+    "showcase_rank_month": "Puesto {rank} este mes",
+    "showcase_rank_all": "Puesto {rank} de siempre"
   },
   "about": {
     "how_it_works": "Cómo funciona",

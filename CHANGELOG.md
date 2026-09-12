@@ -8,6 +8,11 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ### Added
 
+- **The leaderboard opens on a showcase of its species.** The leader stands expanded with its
+  count, trend, confidence and last visit; the next eight species are tiles beside it, and
+  clicking one brings it forward while the leader folds back into the grid. Every tile is this
+  feeder's own newest crop of that species; where there is none, the species' reference image
+  stands in and is labelled as such. The sliced collage banner is retired.
 - **A favourite is durable (#178).** Pressing the star now archives the visit's photograph and
   clip into `/config/archive`, where no cache cleanup, cache clear or Frigate rotation reaches, and
   the record says what the archive holds: archiving, archived with its size, photo only when
