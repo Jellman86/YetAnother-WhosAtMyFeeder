@@ -32,6 +32,15 @@ describe('the About page opens on this feeder\'s own photographs', () => {
         expect(reelSource).toContain('transform: translateX(var(--reel-shift, -50%));');
     });
 
+    it('answers hover and press on every card, and a click never makes the row jump', () => {
+        expect(reelSource).toContain('hover:-translate-y-1 hover:border-brand-400/70 hover:shadow-xl active:translate-y-0 active:scale-[0.98]');
+        expect(reelSource).toContain('group-hover:scale-[1.04]');
+        // A click focuses the card, but only keyboard focus (:focus-visible) stills the reel;
+        // stilling it on a click drops the drift's transform and the whole row jumps.
+        expect(reelSource).toContain('if (!isKeyboardFocus(target)) return;');
+        expect(reelSource).toContain("target.matches(':focus-visible')");
+    });
+
     it('stands still and scrolls while keyboard focus is inside it, so no focused card is hidden', () => {
         expect(reelSource).toContain('onfocusin={handleFocusIn}');
         expect(reelSource).toContain("target.scrollIntoView({ block: 'nearest', inline: 'nearest' })");
