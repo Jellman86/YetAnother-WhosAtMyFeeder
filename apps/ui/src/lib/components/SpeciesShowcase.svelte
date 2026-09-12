@@ -54,6 +54,15 @@
         return () => query.removeEventListener('change', sync);
     });
     const MORPH_MS = 560;
+    // The tiles rise into place once, on first paint; a tile that comes back after a swap arrives
+    // by the morph alone.
+    const INTRO_MS = 1200;
+    let introDone = $state(false);
+    $effect(() => {
+        if (introDone || rows.length === 0) return;
+        const timer = setTimeout(() => (introDone = true), INTRO_MS);
+        return () => clearTimeout(timer);
+    });
     const [send, receive] = crossfade({
         duration: () => (reduceMotion ? 0 : MORPH_MS),
         easing: cubicOut,
@@ -67,6 +76,34 @@
             };
         }
     });
+
+    /**
+     * A leaving photograph stays in the DOM until its morph ends. Left in flow it would still hold
+     * its grid cell, so the new hero would drop to a second row and the tile grid would grow a
+     * cell for half a second. Pinning it in place as an absolute box, at its layout position and
+     * size, takes it out of flow before the crossfade measures it, so nothing else moves.
+     */
+    function leave(node: HTMLElement, params: { key: string }) {
+        const parent = node.offsetParent as HTMLElement | null;
+        if (parent) {
+            let left = node.offsetLeft;
+            let top = node.offsetTop;
+            for (let ancestor = node.parentElement; ancestor && ancestor !== parent; ancestor = ancestor.parentElement) {
+                left -= ancestor.scrollLeft;
+                top -= ancestor.scrollTop;
+            }
+            Object.assign(node.style, {
+                position: 'absolute',
+                left: `${left}px`,
+                top: `${top}px`,
+                width: `${node.offsetWidth}px`,
+                height: `${node.offsetHeight}px`,
+                margin: '0',
+                pointerEvents: 'none'
+            });
+        }
+        return send(node, params);
+    }
 
     // A photograph that fails to load falls back to the next honest source, never to a hole.
     let failed = $state<Set<string>>(new Set());
@@ -99,7 +136,7 @@
 
 {#if rows.length > 0}
     <section
-        class="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]"
+        class="relative grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]"
         data-leaderboard-showcase
         aria-label={eyebrow}
     >
@@ -109,7 +146,7 @@
                 <article
                     class="showcase-hero relative min-h-[300px] overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 md:min-h-[420px] dark:border-slate-700/50"
                     in:receive={{ key: expanded.key }}
-                    out:send={{ key: expanded.key }}
+                    out:leave={{ key: expanded.key }}
                     data-showcase-hero={expanded.key}
                     data-photo-source={picture?.source ?? 'none'}
                 >
@@ -164,7 +201,11 @@
             {/key}
         {/if}
 
-        <div class="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 md:gap-2.5 md:overflow-visible md:pb-0" data-showcase-tiles>
+        <div
+            class="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 md:gap-2.5 md:overflow-visible md:pb-0"
+            class:showcase-intro={!introDone}
+            data-showcase-tiles
+        >
             {#each tiles as tile, index (tile.key)}
                 {@const picture = pictureFor(tile)}
                 <button
@@ -172,7 +213,7 @@
                     class="showcase-tile group relative h-[96px] w-[96px] shrink-0 cursor-pointer overflow-hidden rounded-xl border border-slate-200/70 bg-slate-900 text-left transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-1 hover:border-brand-400/70 hover:shadow-xl active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transform-none md:aspect-square md:h-auto md:w-auto dark:border-slate-700/50"
                     style="--showcase-order: {index}"
                     in:receive={{ key: tile.key }}
-                    out:send={{ key: tile.key }}
+                    out:leave={{ key: tile.key }}
                     animate:flip={{ duration: reduceMotion ? 0 : MORPH_MS, easing: cubicOut }}
                     aria-pressed="false"
                     aria-label={$_('leaderboard.showcase_bring_forward', { values: { species: tile.displayName }, default: 'Bring {species} forward' })}
@@ -235,7 +276,8 @@
         animation: showcase-drift 22s ease-in-out infinite alternate;
     }
 
-    /* Tiles rise into place on first paint, in rank order. */
+    /* Tiles rise into place on first paint, in rank order. The fill is backwards only: a forwards
+       fill would keep `transform: none` applied after the rise and swallow the hover lift. */
     @keyframes showcase-rise {
         from {
             opacity: 0;
@@ -247,8 +289,8 @@
         }
     }
 
-    .showcase-tile {
-        animation: showcase-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    .showcase-intro .showcase-tile {
+        animation: showcase-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
         animation-delay: calc(0.12s + var(--showcase-order, 0) * 0.05s);
     }
 
