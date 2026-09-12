@@ -769,6 +769,11 @@ async def test_process_event_records_backend_diagnostic_for_worker_failure():
 @pytest.mark.asyncio
 async def test_process_event_worker_failure_falls_back_to_snapshot_for_manual_retry():
     service = AutoVideoClassifierService()
+    # The visit has already been queued again as often as a worker failure allows;
+    # only then does a manual request fall back to the retained snapshot.
+    service._worker_failure_requeues["evt-video-worker-fallback"] = (
+        auto_video_classifier_module.WORKER_FAILURE_MAX_REQUEUES
+    )
     service._classifier = MagicMock()
     service._classifier.classify_video_async = AsyncMock(
         side_effect=VideoClassificationWorkerError("video_worker_heartbeat_timeout")
@@ -1149,3 +1154,132 @@ async def test_persist_video_top_frames_discards_unknown_frames_when_known_frame
 
     assert [frame["top_label"] for frame in persisted] == ["European Robin", "Blue Tit"]
     assert [frame["rank"] for frame in persisted] == [1, 2]
+
+
+def _service_that_loses_its_worker(reason: str) -> AutoVideoClassifierService:
+    service = AutoVideoClassifierService()
+    service._running = True
+    service._classifier = MagicMock()
+    service._classifier.classify_video_async = AsyncMock(side_effect=VideoClassificationWorkerError(reason))
+    service._update_status = AsyncMock(return_value=True)  # type: ignore[method-assign]
+    service._save_results = AsyncMock()  # type: ignore[method-assign]
+    service._auto_delete_if_missing = AsyncMock()  # type: ignore[method-assign]
+    service._wait_for_clip = AsyncMock(return_value=(True, None))  # type: ignore[method-assign]
+    service._record_failure = MagicMock()  # type: ignore[method-assign]
+    return service
+
+
+@pytest.mark.asyncio
+async def test_a_worker_lost_mid_analysis_queues_the_visit_again_instead_of_failing_it(monkeypatch):
+    """The classifier worker being restarted is not a verdict on the visit. The
+    job goes back on the queue once the worker has had time to come back, its
+    durable status returns to pending so a restart would pick it up too, and
+    nobody is told it failed."""
+    service = _service_that_loses_its_worker("video_worker_heartbeat_timeout")
+    requeue = AsyncMock(return_value="queued")
+    monkeypatch.setattr(service, "queue_classification", requeue)
+    monkeypatch.setattr(auto_video_classifier_module, "WORKER_FAILURE_REQUEUE_DELAY_SECONDS", 0.01)
+    broadcast = AsyncMock()
+    error_diagnostics_history.clear()
+
+    try:
+        with (
+            patch.object(
+                auto_video_classifier_module.frigate_client,
+                "get_event_with_error",
+                new=AsyncMock(return_value=({"has_clip": True}, None)),
+            ),
+            patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=broadcast),
+        ):
+            await service._process_event("evt-worker-lost", "cam1", skip_delay=True, source="live")
+            assert "evt-worker-lost" in service._worker_failure_retry_tasks
+            await asyncio.sleep(0.05)
+
+        failed_updates = [
+            call for call in service._update_status.await_args_list if len(call.args) > 1 and call.args[1] == "failed"
+        ]
+        assert failed_updates == []
+        service._update_status.assert_any_await("evt-worker-lost", "pending", error=None, broadcast=False)
+        service._record_failure.assert_not_called()
+        terminal = [
+            call.args[0]
+            for call in broadcast.await_args_list
+            if call.args and call.args[0].get("type") == "reclassification_completed"
+        ]
+        assert terminal == []
+
+        requeue.assert_awaited_once_with(
+            "evt-worker-lost", "cam1", skip_delay=True, fallback_to_snapshot=False, source="live"
+        )
+        assert service._worker_failure_requeues["evt-worker-lost"] == 1
+        assert "evt-worker-lost" not in service._worker_failure_retry_tasks
+
+        snapshot = error_diagnostics_history.snapshot(limit=20)
+        event = next(
+            item
+            for item in snapshot["events"]
+            if item["event_id"] == "evt-worker-lost"
+            and item["reason_code"] == "auto_classify_retry_after_worker_failure"
+        )
+        assert event["severity"] == "warning"
+        assert event["context"]["prior_error"] == "video_worker_heartbeat_timeout"
+        assert event["context"]["attempt"] == 1
+    finally:
+        error_diagnostics_history.clear()
+
+
+@pytest.mark.asyncio
+async def test_a_visit_fails_honestly_once_worker_requeues_are_spent(monkeypatch):
+    service = _service_that_loses_its_worker("video_worker_unavailable")
+    service._worker_failure_requeues["evt-worker-spent"] = auto_video_classifier_module.WORKER_FAILURE_MAX_REQUEUES
+    requeue = AsyncMock(return_value="queued")
+    monkeypatch.setattr(service, "queue_classification", requeue)
+    broadcast = AsyncMock()
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=broadcast),
+    ):
+        await service._process_event("evt-worker-spent", "cam1", skip_delay=True, source="live")
+
+    requeue.assert_not_awaited()
+    service._update_status.assert_any_await(
+        "evt-worker-spent", "failed", error="video_worker_unavailable", broadcast=True
+    )
+    service._record_failure.assert_called_once_with("evt-worker-spent", "video_worker_unavailable", source="live")
+    terminal = [
+        call.args[0]["data"]
+        for call in broadcast.await_args_list
+        if call.args and call.args[0].get("type") == "reclassification_completed"
+    ]
+    assert terminal == [
+        {"event_id": "evt-worker-spent", "results": [], "outcome": "failed", "reason": "video_worker_unavailable"}
+    ]
+    assert "evt-worker-spent" not in service._worker_failure_requeues
+
+
+@pytest.mark.asyncio
+async def test_a_stopped_service_does_not_queue_a_lost_visit_again(monkeypatch):
+    service = _service_that_loses_its_worker("video_worker_startup_timeout")
+    requeue = AsyncMock(return_value="queued")
+    monkeypatch.setattr(service, "queue_classification", requeue)
+    monkeypatch.setattr(auto_video_classifier_module, "WORKER_FAILURE_REQUEUE_DELAY_SECONDS", 0.05)
+
+    with (
+        patch.object(
+            auto_video_classifier_module.frigate_client,
+            "get_event_with_error",
+            new=AsyncMock(return_value=({"has_clip": True}, None)),
+        ),
+        patch.object(auto_video_classifier_module.broadcaster, "broadcast", new=AsyncMock()),
+    ):
+        await service._process_event("evt-worker-stop", "cam1", skip_delay=True, source="maintenance")
+        await service.stop()
+        await asyncio.sleep(0.1)
+
+    requeue.assert_not_awaited()
+    assert service._worker_failure_retry_tasks == {}

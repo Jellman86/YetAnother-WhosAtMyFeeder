@@ -118,7 +118,8 @@ settings and do not follow the `SECTION__FIELD` precedence rules above.
 | `CLASSIFICATION__BACKGROUND_WORKER_COUNT` | _(one)_ | Background-inference worker processes; unset means one. |
 | `CLASSIFICATION__LIVE_EVENT_COALESCING_ENABLED` | `true` | Coalesce rapid live events. |
 | `CLASSIFICATION__LIVE_EVENT_STALE_DROP_SECONDS` | `30.0` | Drop live events older than this. |
-| `CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS` | `5.0` | Worker heartbeat timeout. |
+| `CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS` | `5.0` | Image worker heartbeat timeout. A live or background worker silent for longer is replaced. |
+| `CLASSIFICATION__VIDEO_WORKER_HEARTBEAT_TIMEOUT_SECONDS` | `30.0` | Video worker heartbeat timeout (`1.0`–`300.0`). A video analysis is one long native job, so its worker is allowed a longer silence; the video hard deadline still ends a hung one. |
 | `CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS` | `60.0` | Live worker hard deadline, in seconds (`1.0`–`300.0`). |
 | `CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS` | `120.0` | Background worker hard deadline, in seconds (`1.0`–`600.0`). |
 | `CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS` | `60.0` | Worker start-up readiness timeout. Start-up includes hardware probes and, on an accelerator, a model compile. |

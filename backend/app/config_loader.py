@@ -85,6 +85,7 @@ CLASSIFICATION_ENV_OVERRIDES: dict[str, tuple[str, ...]] = {
     "live_worker_count": ("CLASSIFICATION__LIVE_WORKER_COUNT",),
     "background_worker_count": ("CLASSIFICATION__BACKGROUND_WORKER_COUNT",),
     "worker_heartbeat_timeout_seconds": ("CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS",),
+    "video_worker_heartbeat_timeout_seconds": ("CLASSIFICATION__VIDEO_WORKER_HEARTBEAT_TIMEOUT_SECONDS",),
     "worker_hard_deadline_seconds": ("CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS",),
     "background_worker_hard_deadline_seconds": ("CLASSIFICATION__BACKGROUND_WORKER_HARD_DEADLINE_SECONDS",),
     "worker_ready_timeout_seconds": ("CLASSIFICATION__WORKER_READY_TIMEOUT_SECONDS",),
@@ -259,6 +260,9 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         "background_worker_count": _optional_int(os.environ.get("CLASSIFICATION__BACKGROUND_WORKER_COUNT")),
         "worker_heartbeat_timeout_seconds": float(
             os.environ.get("CLASSIFICATION__WORKER_HEARTBEAT_TIMEOUT_SECONDS", "5.0")
+        ),
+        "video_worker_heartbeat_timeout_seconds": float(
+            os.environ.get("CLASSIFICATION__VIDEO_WORKER_HEARTBEAT_TIMEOUT_SECONDS", "30.0")
         ),
         "worker_hard_deadline_seconds": float(os.environ.get("CLASSIFICATION__WORKER_HARD_DEADLINE_SECONDS", "35.0")),
         "background_worker_hard_deadline_seconds": float(
