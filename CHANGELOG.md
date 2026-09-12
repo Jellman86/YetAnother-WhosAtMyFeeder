@@ -6,6 +6,8 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-09-12
+
 ### Added
 
 - **The leaderboard opens on a showcase of its species.** The leader stands expanded with its
