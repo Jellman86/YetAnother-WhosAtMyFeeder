@@ -37,13 +37,24 @@
     let setWidths = $state<number[]>([]);
 
     // A card drifting under overflow: hidden could receive keyboard focus while off screen. While
-    // focus is inside the reel the rows stand still and scroll like the reduced-motion layout, and
-    // the focused card is brought into view.
+    // keyboard focus is inside the reel the rows stand still and scroll like the reduced-motion
+    // layout, and the focused card is brought into view. A click focuses the card too, but that
+    // focus is not keyboard focus: treating it as such would drop the drift's transform and make
+    // the whole row jump under the pointer, so only :focus-visible focus stills the reel.
     let keyboardFocus = $state(false);
     let reelEl = $state<HTMLElement | null>(null);
+    function isKeyboardFocus(target: EventTarget | null): boolean {
+        if (!(target instanceof Element)) return false;
+        try {
+            return target.matches(':focus-visible');
+        } catch {
+            return true;
+        }
+    }
     function handleFocusIn(event: FocusEvent): void {
-        keyboardFocus = true;
         const target = event.target;
+        if (!isKeyboardFocus(target)) return;
+        keyboardFocus = true;
         if (target instanceof HTMLElement) {
             target.scrollIntoView({ block: 'nearest', inline: 'nearest' });
         }
@@ -96,7 +107,7 @@
                                 {@const opening = openingEvent === item.frigate_event}
                                 <button
                                     type="button"
-                                    class="cap group relative w-[168px] shrink-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 text-left shadow-card transition-colors hover:border-brand-300/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-700/60 dark:bg-slate-800/85 dark:shadow-card-dark sm:w-[216px]"
+                                    class="cap group relative w-[168px] shrink-0 cursor-pointer overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 text-left shadow-card transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-1 hover:border-brand-400/70 hover:shadow-xl active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transform-none dark:border-slate-700/60 dark:bg-slate-800/85 dark:shadow-card-dark dark:hover:border-brand-400/60 sm:w-[216px]"
                                     tabindex={loop ? -1 : 0}
                                     aria-label={label(item)}
                                     aria-busy={opening}
@@ -110,7 +121,7 @@
                                         decoding="async"
                                         width="216"
                                         height="150"
-                                        class="h-[118px] w-full bg-slate-900 object-cover sm:h-[150px]"
+                                        class="h-[118px] w-full bg-slate-900 object-cover transition-transform duration-300 ease-out group-hover:scale-[1.04] motion-reduce:transform-none sm:h-[150px]"
                                     />
                                     <div class="flex items-center justify-between gap-2 px-3 pb-2.5 pt-2">
                                         <div class="min-w-0">
