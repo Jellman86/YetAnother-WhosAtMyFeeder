@@ -135,9 +135,12 @@ rankings, then analytics
 The showcase (`SpeciesShowcase`) is the leaderboard's centrepiece. Every species is a photograph:
 this feeder's own newest crop (`/api/leaderboard/portraits`), or, where there is none, the
 species' reference image from the taxonomy cache, labelled as a reference photo and never passed
-off as the feeder's. Clicking a tile brings it forward and the one it replaces folds back into
-the grid; the two swap places rather than cutting. Under reduced motion nothing drifts or morphs.
-The last tile points at the full rankings.
+off as the feeder's. Clicking a tile brings it forward and the leader it replaces takes the slot
+the tile left, so nothing else in the grid moves; each species is one element for its whole life
+there, and the two boxes are measured before and after the change and animated between them (no
+transition pairing, which is not reliable across blocks). The grid's tracks come from the
+container's aspect ratio alone, so a box in flight never resizes a cell. Under reduced motion
+nothing drifts or morphs. The last tile points at the full rankings.
 
 ### Reference (About)
 

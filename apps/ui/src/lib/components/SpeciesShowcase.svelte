@@ -1,17 +1,20 @@
 <script lang="ts">
-    import { crossfade } from 'svelte/transition';
-    import { flip } from 'svelte/animate';
-    import { cubicOut } from 'svelte/easing';
+    import { tick } from 'svelte';
     import { _ } from 'svelte-i18n';
     import { withAuthParams } from '../api/core';
-    import type { ShowcaseRow } from '../leaderboard/showcase';
+    import { swapDisplayOrder, type ShowcaseRow } from '../leaderboard/showcase';
     import { formatDate } from '../utils/datetime';
 
     /**
      * The leaderboard's showcase: the leading species expanded, the rest as tiles, in the
      * expanded-view manner of a photo library. Click a tile and it grows into the large
-     * photograph while the one it replaces folds back into the grid; the two swap places
-     * rather than cutting.
+     * photograph while the one it replaces shrinks into the slot the tile left; nothing else
+     * in the grid moves.
+     *
+     * Every species is one element for its whole life here. Bringing one forward changes what
+     * that element is (a tile or the hero) and where the grid puts it; the movement between the
+     * two boxes is measured before and after the change and animated on the element itself, so
+     * the picture grows from exactly where it was to exactly where it ends up.
      *
      * Every photograph is honest about where it came from. A species' own tile is this
      * feeder's newest stored crop; where there is none, the species' reference image stands
@@ -40,7 +43,22 @@
         chosenKey !== null && rows.some((row) => row.key === chosenKey) ? chosenKey : (rows[0]?.key ?? null)
     );
     const expanded = $derived(rows.find((row) => row.key === expandedKey) ?? null);
-    const tiles = $derived(rows.filter((row) => row.key !== expandedKey));
+
+    // Where each species sits in the grid. Rank order until a click trades two places; an
+    // order that no longer names exactly these rows is a stale one and rank order returns.
+    let displayOrder = $state<string[] | null>(null);
+    const orderedRows = $derived.by(() => {
+        const byKey = new Map(rows.map((row) => [row.key, row]));
+        const usable =
+            displayOrder !== null &&
+            displayOrder.length === rows.length &&
+            displayOrder.every((key) => byKey.has(key));
+        const keys = usable && displayOrder !== null ? displayOrder : rows.map((row) => row.key);
+        return keys.flatMap((key) => {
+            const row = byKey.get(key);
+            return row ? [row] : [];
+        });
+    });
 
     let reduceMotion = $state(false);
     $effect(() => {
@@ -54,8 +72,8 @@
         return () => query.removeEventListener('change', sync);
     });
     const MORPH_MS = 560;
-    // The tiles rise into place once, on first paint; a tile that comes back after a swap arrives
-    // by the morph alone.
+    // The tiles rise into place once, on first paint; a species changing places later moves by
+    // the morph alone.
     const INTRO_MS = 1200;
     let introDone = $state(false);
     $effect(() => {
@@ -63,46 +81,62 @@
         const timer = setTimeout(() => (introDone = true), INTRO_MS);
         return () => clearTimeout(timer);
     });
-    const [send, receive] = crossfade({
-        duration: () => (reduceMotion ? 0 : MORPH_MS),
-        easing: cubicOut,
-        fallback(node) {
-            const style = getComputedStyle(node);
-            const transform = style.transform === 'none' ? '' : style.transform;
-            return {
-                duration: reduceMotion ? 0 : 320,
-                easing: cubicOut,
-                css: (t) => `opacity: ${t}; transform: ${transform} scale(${0.96 + 0.04 * t});`
-            };
-        }
-    });
+
+    let grid = $state<HTMLElement | null>(null);
+
+    function itemFor(key: string): HTMLElement | null {
+        return grid?.querySelector<HTMLElement>(`[data-showcase-item="${CSS.escape(key)}"]`) ?? null;
+    }
 
     /**
-     * A leaving photograph stays in the DOM until its morph ends. Left in flow it would still hold
-     * its grid cell, so the new hero would drop to a second row and the tile grid would grow a
-     * cell for half a second. Pinning it in place as an absolute box, at its layout position and
-     * size, takes it out of flow before the crossfade measures it, so nothing else moves.
+     * Move an element from the box it had to the box it has now. Width and height animate, so
+     * the photograph is re-cropped as it grows rather than stretched; the translate keeps the
+     * top-left corner on its path. The grid's tracks are fixed by the container, so a box in
+     * flight never resizes a cell.
      */
-    function leave(node: HTMLElement, params: { key: string }) {
-        const parent = node.offsetParent as HTMLElement | null;
-        if (parent) {
-            let left = node.offsetLeft;
-            let top = node.offsetTop;
-            for (let ancestor = node.parentElement; ancestor && ancestor !== parent; ancestor = ancestor.parentElement) {
-                left -= ancestor.scrollLeft;
-                top -= ancestor.scrollTop;
-            }
-            Object.assign(node.style, {
-                position: 'absolute',
-                left: `${left}px`,
-                top: `${top}px`,
-                width: `${node.offsetWidth}px`,
-                height: `${node.offsetHeight}px`,
-                margin: '0',
-                pointerEvents: 'none'
-            });
+    function morph(element: HTMLElement, from: DOMRect): void {
+        for (const running of element.getAnimations()) running.cancel();
+        const to = element.getBoundingClientRect();
+        if (from.width === 0 || to.width === 0) return;
+        element.classList.add('showcase-moving');
+        const animation = element.animate(
+            [
+                {
+                    transform: `translate(${from.left - to.left}px, ${from.top - to.top}px)`,
+                    width: `${from.width}px`,
+                    height: `${from.height}px`
+                },
+                { transform: 'none', width: `${to.width}px`, height: `${to.height}px` }
+            ],
+            { duration: MORPH_MS, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'none' }
+        );
+        const settle = () => element.classList.remove('showcase-moving');
+        animation.addEventListener('finish', settle);
+        animation.addEventListener('cancel', settle);
+    }
+
+    async function bringForward(key: string): Promise<void> {
+        const outgoing = expandedKey;
+        if (outgoing === null || key === outgoing) return;
+        const before = new Map<string, DOMRect>();
+        for (const candidate of [outgoing, key]) {
+            const element = itemFor(candidate);
+            if (element) before.set(candidate, element.getBoundingClientRect());
         }
-        return send(node, params);
+        displayOrder = swapDisplayOrder(
+            orderedRows.map((row) => row.key),
+            outgoing,
+            key
+        );
+        chosenKey = key;
+        await tick();
+        // The tile's button is gone with the tile; keyboard focus lands on the hero's own button.
+        itemFor(key)?.querySelector<HTMLElement>('button')?.focus({ preventScroll: true });
+        if (reduceMotion) return;
+        for (const [candidate, from] of before) {
+            const element = itemFor(candidate);
+            if (element) morph(element, from);
+        }
     }
 
     // A photograph that fails to load falls back to the next honest source, never to a hole.
@@ -132,136 +166,178 @@
     function rankOf(row: ShowcaseRow): number {
         return rows.findIndex((candidate) => candidate.key === row.key) + 1;
     }
+    function trendClass(row: ShowcaseRow, quiet: string): string {
+        return (row.delta ?? 0) > 0 ? 'text-accent-300' : (row.delta ?? 0) < 0 ? 'text-rose-300' : quiet;
+    }
 </script>
 
-{#if rows.length > 0}
+{#if rows.length > 0 && expanded}
     <section
-        class="relative grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]"
+        bind:this={grid}
+        class="showcase-grid relative grid gap-2 md:gap-2.5"
+        class:showcase-intro={!introDone}
         data-leaderboard-showcase
         aria-label={eyebrow}
     >
-        {#if expanded}
-            {@const picture = pictureFor(expanded)}
-            {#key expanded.key}
-                <article
-                    class="showcase-hero relative min-h-[300px] overflow-hidden rounded-2xl border border-slate-200/70 bg-slate-950 md:min-h-[420px] dark:border-slate-700/50"
-                    in:receive={{ key: expanded.key }}
-                    out:leave={{ key: expanded.key }}
-                    data-showcase-hero={expanded.key}
-                    data-photo-source={picture?.source ?? 'none'}
-                >
-                    {#if picture}
-                        <img
-                            src={picture.url}
-                            alt=""
-                            decoding="async"
-                            class="showcase-drift absolute inset-0 h-full w-full object-cover motion-reduce:animate-none"
-                            onerror={() => markFailed(expanded.photo && picture.source === 'feeder' ? expanded.photo : (expanded.reference ?? ''))}
-                        />
-                    {:else}
-                        <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 via-slate-900 to-brand-950 text-slate-600" aria-hidden="true">
-                            <svg class="h-20 w-20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
+        {#each orderedRows as row, index (row.key)}
+            {@const isHero = row.key === expandedKey}
+            {@const picture = pictureFor(row)}
+            <div
+                class="showcase-item group relative overflow-hidden border bg-slate-900 {isHero
+                    ? 'showcase-hero z-20 rounded-2xl border-slate-200/70 bg-slate-950 dark:border-slate-700/50'
+                    : 'rounded-xl border-slate-200/70 transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-1 hover:border-brand-400/70 hover:shadow-xl active:translate-y-0 active:scale-[0.98] focus-within:border-brand-400/70 motion-reduce:transform-none dark:border-slate-700/50'}"
+                style="--showcase-order: {index}"
+                data-showcase-item={row.key}
+                data-showcase-hero={isHero ? row.key : undefined}
+                data-showcase-tile={isHero ? undefined : row.key}
+                data-photo-source={picture?.source ?? 'none'}
+            >
+                {#if picture}
+                    <img
+                        src={picture.url}
+                        alt=""
+                        loading={isHero ? 'eager' : 'lazy'}
+                        decoding="async"
+                        class="absolute inset-0 h-full w-full object-cover {isHero
+                            ? 'showcase-drift motion-reduce:animate-none'
+                            : 'transition-transform duration-300 ease-out group-hover:scale-[1.05] motion-reduce:transform-none'}"
+                        onerror={() => markFailed(row.photo && picture.source === 'feeder' ? row.photo : (row.reference ?? ''))}
+                    />
+                {:else}
+                    <div class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-slate-800 via-slate-900 to-brand-950 text-slate-600" aria-hidden="true">
+                        <svg class="h-1/4 w-1/4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
+                    </div>
+                {/if}
+
+                {#if isHero}
+                    <article class="showcase-hero-copy absolute inset-0" aria-label={row.displayName}>
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/40 to-slate-950/5" aria-hidden="true"></div>
+                        <div class="absolute left-5 top-4 flex flex-wrap items-center gap-2">
+                            <span class="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80" data-showcase-eyebrow>{rankOf(row) === 1 ? eyebrow : rankEyebrow(rankOf(row))}</span>
+                            {#if picture?.source === 'reference'}
+                                <span class="rounded-full border border-white/20 bg-slate-950/60 px-2 py-0.5 text-[10px] font-semibold text-white/85 backdrop-blur-sm" data-showcase-reference-note>
+                                    {referenceLabel(row)}
+                                </span>
+                            {/if}
                         </div>
-                    {/if}
-                    <div class="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/40 to-slate-950/5" aria-hidden="true"></div>
-                    <div class="absolute left-5 top-4 flex flex-wrap items-center gap-2">
-                        <span class="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/80" data-showcase-eyebrow>{rankOf(expanded) === 1 ? eyebrow : rankEyebrow(rankOf(expanded))}</span>
+                        <div class="absolute inset-x-5 bottom-5">
+                            <h3 class="font-display text-3xl font-bold leading-none text-white drop-shadow md:text-5xl">{row.displayName}</h3>
+                            {#if row.subName}
+                                <p class="mt-1 text-sm italic text-white/70">{row.subName}</p>
+                            {/if}
+                            <dl class="mt-3 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[13px] text-white/80">
+                                <div><dd class="inline text-xl font-bold tabular-nums text-white">{row.count.toLocaleString()}</dd> <dt class="inline">{countLabel(row.count)}</dt></div>
+                                {#if row.trend}
+                                    <div><dd class="inline font-semibold tabular-nums {trendClass(row, 'text-white/70')}">{row.trend}</dd> <dt class="inline">{$_('leaderboard.showcase_on_previous', { default: 'on the window before' })}</dt></div>
+                                {/if}
+                                {#if confidence(row)}
+                                    <div><dd class="inline font-semibold tabular-nums text-white">{confidence(row)}</dd> <dt class="inline">{$_('leaderboard.avg_confidence', { default: 'Avg confidence' }).toLowerCase()}</dt></div>
+                                {/if}
+                                {#if row.lastSeen}
+                                    <div><dt class="inline">{$_('leaderboard.last_seen', { default: 'Last seen' }).toLowerCase()}</dt> <dd class="inline font-semibold tabular-nums text-white">{formatDate(row.lastSeen)}</dd></div>
+                                {/if}
+                            </dl>
+                            <button
+                                type="button"
+                                class="btn btn-secondary mt-4 min-h-10 px-4 text-xs"
+                                onclick={() => onopen(row.key)}
+                            >
+                                {$_('leaderboard.view_species', { values: { species: row.displayName }, default: 'View {species}' })}
+                            </button>
+                        </div>
+                    </article>
+                {:else}
+                    <button
+                        type="button"
+                        class="absolute inset-0 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500"
+                        aria-label={$_('leaderboard.showcase_bring_forward', { values: { species: row.displayName }, default: 'Bring {species} forward' })}
+                        onclick={() => bringForward(row.key)}
+                    >
                         {#if picture?.source === 'reference'}
-                            <span class="rounded-full border border-white/20 bg-slate-950/60 px-2 py-0.5 text-[10px] font-semibold text-white/85 backdrop-blur-sm" data-showcase-reference-note>
-                                {referenceLabel(expanded)}
+                            <span class="absolute right-1.5 top-1.5 rounded-full border border-white/20 bg-slate-950/65 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white/85" title={referenceLabel(row)} data-showcase-reference-badge>
+                                {$_('leaderboard.showcase_reference_short', { default: 'Reference' })}
                             </span>
                         {/if}
-                    </div>
-                    <div class="absolute inset-x-5 bottom-5">
-                        <h3 class="font-display text-3xl font-bold leading-none text-white drop-shadow md:text-5xl">{expanded.displayName}</h3>
-                        {#if expanded.subName}
-                            <p class="mt-1 text-sm italic text-white/70">{expanded.subName}</p>
-                        {/if}
-                        <dl class="mt-3 flex flex-wrap items-baseline gap-x-5 gap-y-1 text-[13px] text-white/80">
-                            <div><dd class="inline text-xl font-bold tabular-nums text-white">{expanded.count.toLocaleString()}</dd> <dt class="inline">{countLabel(expanded.count)}</dt></div>
-                            {#if expanded.trend}
-                                <div><dd class="inline font-semibold tabular-nums {(expanded.delta ?? 0) > 0 ? 'text-accent-300' : (expanded.delta ?? 0) < 0 ? 'text-rose-300' : 'text-white/70'}">{expanded.trend}</dd> <dt class="inline">{$_('leaderboard.showcase_on_previous', { default: 'on the window before' })}</dt></div>
-                            {/if}
-                            {#if confidence(expanded)}
-                                <div><dd class="inline font-semibold tabular-nums text-white">{confidence(expanded)}</dd> <dt class="inline">{$_('leaderboard.avg_confidence', { default: 'Avg confidence' }).toLowerCase()}</dt></div>
-                            {/if}
-                            {#if expanded.lastSeen}
-                                <div><dt class="inline">{$_('leaderboard.last_seen', { default: 'Last seen' }).toLowerCase()}</dt> <dd class="inline font-semibold tabular-nums text-white">{formatDate(expanded.lastSeen)}</dd></div>
-                            {/if}
-                        </dl>
-                        <button
-                            type="button"
-                            class="btn btn-secondary mt-4 min-h-10 px-4 text-xs"
-                            onclick={() => onopen(expanded.key)}
-                        >
-                            {$_('leaderboard.view_species', { values: { species: expanded.displayName }, default: 'View {species}' })}
-                        </button>
-                    </div>
-                </article>
-            {/key}
+                        <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-transparent px-2 pb-1.5 pt-6">
+                            <span class="block truncate text-[12px] font-semibold text-white">{row.displayName}</span>
+                            <span class="block truncate text-[11px] tabular-nums text-white/75">
+                                {rankOf(row)} · {row.count.toLocaleString()}
+                                {#if row.trend}<span class="ml-1 {trendClass(row, 'text-white/60')}">{row.trend}</span>{/if}
+                            </span>
+                        </span>
+                    </button>
+                {/if}
+            </div>
+        {/each}
+        {#if moreCount > 0}
+            <button
+                type="button"
+                class="showcase-item flex items-center justify-center rounded-xl border border-dashed border-slate-300 px-2 text-center text-xs text-slate-500 transition-colors hover:border-brand-400 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 dark:border-slate-600 dark:text-slate-400 dark:hover:text-brand-300"
+                style="--showcase-order: {orderedRows.length}"
+                onclick={() => onmore?.()}
+                data-showcase-more
+            >
+                {$_('leaderboard.showcase_more', { values: { count: moreCount }, default: '{count} more below' })}
+            </button>
         {/if}
-
-        <div
-            class="flex gap-2 overflow-x-auto pb-1 md:grid md:grid-cols-3 md:gap-2.5 md:overflow-visible md:pb-0"
-            class:showcase-intro={!introDone}
-            data-showcase-tiles
-        >
-            {#each tiles as tile, index (tile.key)}
-                {@const picture = pictureFor(tile)}
-                <button
-                    type="button"
-                    class="showcase-tile group relative h-[96px] w-[96px] shrink-0 cursor-pointer overflow-hidden rounded-xl border border-slate-200/70 bg-slate-900 text-left transition-[transform,box-shadow,border-color] duration-200 ease-out hover:-translate-y-1 hover:border-brand-400/70 hover:shadow-xl active:translate-y-0 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 motion-reduce:transform-none md:aspect-square md:h-auto md:w-auto dark:border-slate-700/50"
-                    style="--showcase-order: {index}"
-                    in:receive={{ key: tile.key }}
-                    out:leave={{ key: tile.key }}
-                    animate:flip={{ duration: reduceMotion ? 0 : MORPH_MS, easing: cubicOut }}
-                    aria-pressed="false"
-                    aria-label={$_('leaderboard.showcase_bring_forward', { values: { species: tile.displayName }, default: 'Bring {species} forward' })}
-                    data-showcase-tile={tile.key}
-                    data-photo-source={picture?.source ?? 'none'}
-                    onclick={() => (chosenKey = tile.key)}
-                >
-                    {#if picture}
-                        <img
-                            src={picture.url}
-                            alt=""
-                            loading="lazy"
-                            decoding="async"
-                            class="absolute inset-0 h-full w-full object-cover transition-transform duration-300 ease-out group-hover:scale-[1.05] motion-reduce:transform-none"
-                            onerror={() => markFailed(tile.photo && picture.source === 'feeder' ? tile.photo : (tile.reference ?? ''))}
-                        />
-                    {:else}
-                        <span class="absolute inset-0 flex items-center justify-center text-slate-600" aria-hidden="true">
-                            <svg class="h-8 w-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path stroke-linecap="round" stroke-linejoin="round" d="M20.24 4.24a6 6 0 0 0-8.49 0L5 11v9h9l6.24-6.24a6 6 0 0 0 0-8.49ZM16 8 2 22M17.5 15H9" /></svg>
-                        </span>
-                    {/if}
-                    {#if picture?.source === 'reference'}
-                        <span class="absolute right-1.5 top-1.5 rounded-full border border-white/20 bg-slate-950/65 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white/85" title={referenceLabel(tile)} data-showcase-reference-badge>
-                            {$_('leaderboard.showcase_reference_short', { default: 'Reference' })}
-                        </span>
-                    {/if}
-                    <span class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-950/90 via-slate-950/50 to-transparent px-2 pb-1.5 pt-6">
-                        <span class="block truncate text-[12px] font-semibold text-white">{tile.displayName}</span>
-                        <span class="block text-[11px] tabular-nums text-white/75">{rankOf(tile)} · {tile.count.toLocaleString()}{#if tile.trend} <span class={(tile.delta ?? 0) > 0 ? 'text-accent-300' : (tile.delta ?? 0) < 0 ? 'text-rose-300' : 'text-white/60'}>{tile.trend}</span>{/if}</span>
-                    </span>
-                </button>
-            {/each}
-            {#if moreCount > 0}
-                <button
-                    type="button"
-                    class="showcase-tile flex h-[96px] w-[96px] shrink-0 items-center justify-center rounded-xl border border-dashed border-slate-300 px-2 text-center text-xs text-slate-500 transition-colors hover:border-brand-400 hover:text-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 md:aspect-square md:h-auto md:w-auto dark:border-slate-600 dark:text-slate-400 dark:hover:text-brand-300"
-                    style="--showcase-order: {tiles.length}"
-                    onclick={() => onmore?.()}
-                    data-showcase-more
-                >
-                    {$_('leaderboard.showcase_more', { values: { count: moreCount }, default: '{count} more below' })}
-                </button>
-            {/if}
-        </div>
     </section>
 {/if}
 
 <style>
+    /*
+     * The grid's tracks come from the container alone: a fixed aspect ratio and equal
+     * fractional rows, so a box growing or shrinking between two cells never resizes a cell
+     * and nothing but the two boxes moves. Phone: the hero across three columns and two rows,
+     * tiles three to a row beneath. Wider: the hero on the left, three columns of tiles beside
+     * it, its width tuned so the tiles come out square.
+     */
+    .showcase-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-auto-rows: minmax(0, 1fr);
+        grid-auto-flow: row dense;
+        aspect-ratio: 3 / 5;
+    }
+
+    .showcase-hero {
+        grid-column: 1 / -1;
+        grid-row: 1 / span 2;
+    }
+
+    @media (min-width: 768px) {
+        .showcase-grid {
+            grid-template-columns: minmax(0, 4.05fr) repeat(3, minmax(0, 1fr));
+            aspect-ratio: 7.05 / 3;
+        }
+
+        .showcase-hero {
+            grid-column: 1;
+            grid-row: 1 / span 3;
+        }
+    }
+
+    /* A box in flight crosses other tiles; it rides above them and below the hero. */
+    .showcase-moving {
+        z-index: 10;
+    }
+
+    .showcase-hero.showcase-moving {
+        z-index: 20;
+    }
+
+    /* The hero's words arrive once the box has grown enough to hold them. */
+    @keyframes showcase-fade {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    .showcase-hero-copy {
+        animation: showcase-fade 0.32s ease-out 0.18s backwards;
+    }
+
     /* The photograph breathes: a slow drift the eye reads as life, not as movement. */
     @keyframes showcase-drift {
         from {
@@ -289,20 +365,22 @@
         }
     }
 
-    .showcase-intro .showcase-tile {
+    .showcase-intro .showcase-item {
         animation: showcase-rise 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
         animation-delay: calc(0.12s + var(--showcase-order, 0) * 0.05s);
     }
 
     @media (prefers-reduced-motion: reduce) {
         .showcase-drift,
-        .showcase-tile {
+        .showcase-hero-copy,
+        .showcase-intro .showcase-item {
             animation: none;
         }
     }
 
     :global(.reduced-motion) .showcase-drift,
-    :global(.reduced-motion) .showcase-tile {
+    :global(.reduced-motion) .showcase-hero-copy,
+    :global(.reduced-motion) .showcase-intro .showcase-item {
         animation: none;
     }
 </style>

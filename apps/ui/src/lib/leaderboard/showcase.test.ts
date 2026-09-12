@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildShowcaseRows, portraitFor, SHOWCASE_TILES } from './showcase';
+import { buildShowcaseRows, portraitFor, SHOWCASE_TILES, swapDisplayOrder } from './showcase';
 
 const portraits = [
     { species: 'Dunnock', scientific_name: 'Prunella modularis', taxa_id: 13988, frigate_event: 'd1', image_url: '/api/about/showcase/d1.jpg' },
@@ -49,5 +49,15 @@ describe('the leaderboard showcase rows', () => {
         expect(rows).toHaveLength(SHOWCASE_TILES + 1);
         expect(rows[0].key).toBe('Species 0');
         expect(rows[0].trend).toBe('+6');
+    });
+});
+
+describe('the showcase display order', () => {
+    it('lets a chosen species and the leader trade places, and moves nothing else', () => {
+        expect(swapDisplayOrder(['a', 'b', 'c', 'd'], 'a', 'c')).toEqual(['c', 'b', 'a', 'd']);
+        // Bringing the one already forward changes nothing.
+        expect(swapDisplayOrder(['c', 'b', 'a', 'd'], 'c', 'c')).toEqual(['c', 'b', 'a', 'd']);
+        // A key the order does not know cannot be swapped in.
+        expect(swapDisplayOrder(['a', 'b'], 'a', 'zz')).toEqual(['a', 'b']);
     });
 });
