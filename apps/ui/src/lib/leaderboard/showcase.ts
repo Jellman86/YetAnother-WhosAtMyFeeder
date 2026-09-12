@@ -87,3 +87,18 @@ export function buildShowcaseRows<T extends ShowcaseSource>(
         };
     });
 }
+
+/**
+ * The display order after one species is brought forward: it takes the leader's place and the
+ * leader takes the slot it vacated, so nothing else in the grid moves. An order that no longer
+ * describes the rows (a new window) is discarded by the caller, never patched.
+ */
+export function swapDisplayOrder(order: readonly string[], expanded: string, chosen: string): string[] {
+    const next = [...order];
+    const from = next.indexOf(expanded);
+    const to = next.indexOf(chosen);
+    if (from === -1 || to === -1 || from === to) return next;
+    next[from] = chosen;
+    next[to] = expanded;
+    return next;
+}
