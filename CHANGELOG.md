@@ -6,6 +6,19 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+### Fixed
+
+- **A visit is not failed because its classifier worker was restarted.** When the video worker
+  was replaced mid-analysis, the visit in hand was marked failed and so was the next one waiting,
+  which the supervisor handed to the dead worker before its replacement had loaded; that second
+  failure also spawned a duplicate worker and counted twice against the restart breaker. A slot
+  under replacement is now invisible to queued work and to the watchdog until its new worker is
+  ready, so queued work waits for it; a visit whose worker was lost goes back on the queue after
+  a short pause, twice at most, with its durable status returned to pending so a restart in the
+  gap recovers it too. The video pool is judged on its own heartbeat budget
+  (`CLASSIFICATION__VIDEO_WORKER_HEARTBEAT_TIMEOUT_SECONDS`, thirty seconds) instead of the five
+  seconds meant for image workers, and every worker kill is logged with the numbers it rested on.
+
 ## [2.19.6] - 2026-09-10
 
 ### Fixed

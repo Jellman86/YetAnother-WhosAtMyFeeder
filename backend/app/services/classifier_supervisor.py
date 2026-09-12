@@ -6,8 +6,12 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Literal
 
+import structlog
+
 from .classifier_worker_client import ClassifierWorkerClient
 from .classifier_worker_protocol import build_classify_request, build_classify_video_request
+
+log = structlog.get_logger()
 
 
 WorkPriority = Literal["live", "background", "video"]
@@ -65,6 +69,7 @@ class ClassifierSupervisor:
         video_worker_count: int = 1,
         heartbeat_timeout_seconds: float,
         hard_deadline_seconds: float,
+        video_heartbeat_timeout_seconds: float | None = None,
         background_hard_deadline_seconds: float | None = None,
         video_hard_deadline_seconds: float | None = None,
         worker_ready_timeout_seconds: float = 20.0,
@@ -81,7 +86,19 @@ class ClassifierSupervisor:
             "background": max(1, int(background_worker_count)),
             "video": max(1, int(video_worker_count)),
         }
-        self._heartbeat_timeout_seconds = max(0.01, float(heartbeat_timeout_seconds))
+        base_heartbeat_timeout_seconds = max(0.01, float(heartbeat_timeout_seconds))
+        # A video analysis is one long native job, so its worker is judged on a
+        # longer silence than an image worker; the hard deadline stays the backstop.
+        self._heartbeat_timeout_seconds: dict[WorkPriority, float] = {
+            "live": base_heartbeat_timeout_seconds,
+            "background": base_heartbeat_timeout_seconds,
+            "video": max(
+                0.01,
+                float(video_heartbeat_timeout_seconds)
+                if video_heartbeat_timeout_seconds is not None
+                else base_heartbeat_timeout_seconds,
+            ),
+        }
         base_hard_deadline_seconds = max(0.01, float(hard_deadline_seconds))
         self._hard_deadline_seconds = {
             "live": base_hard_deadline_seconds,
@@ -114,7 +131,7 @@ class ClassifierSupervisor:
         # worker has completed its first request it is judged against this
         # longer window instead of the steady-state heartbeat timeout.
         self._warmup_liveness_timeout_seconds = (
-            max(self._heartbeat_timeout_seconds, float(warmup_liveness_timeout_seconds))
+            max(max(self._heartbeat_timeout_seconds.values()), float(warmup_liveness_timeout_seconds))
             if warmup_liveness_timeout_seconds is not None
             else None
         )
@@ -126,6 +143,10 @@ class ClassifierSupervisor:
         self._worker_factory = worker_factory
         self._slots: dict[WorkPriority, list[_WorkerSlot]] = {"live": [], "background": [], "video": []}
         self._assignments: dict[str, _Assignment] = {}
+        # Workers whose replacement is under way. The dead worker keeps its slot
+        # until the new one is ready, so without this the slot looks idle to a
+        # queued request and dead to the watchdog, and both act on it again.
+        self._replacing: set[str] = set()
         self._metrics = {
             "live": {
                 "workers": 0,
@@ -482,8 +503,16 @@ class ClassifierSupervisor:
                 )
 
             for slot in self._slots[priority]:
+                if slot.worker_name in self._replacing:
+                    continue
                 if slot.worker is not None and slot.worker_name not in self._assignments:
                     return slot
+            # A slot under replacement is worth waiting for; a pool with no worker
+            # left and nothing on the way is not, and the caller queues again.
+            if not any(
+                slot.worker is not None or slot.worker_name in self._replacing for slot in self._slots[priority]
+            ):
+                raise ClassifierWorkerExitedError(f"No active workers available for {priority}")
             await self._condition.wait()
 
     async def _restore_unavailable_slots(self, priority: WorkPriority) -> None:
@@ -516,7 +545,7 @@ class ClassifierSupervisor:
                 worker = ClassifierWorkerClient(
                     worker_name=worker_name,
                     worker_generation=generation,
-                    heartbeat_timeout_seconds=self._heartbeat_timeout_seconds,
+                    heartbeat_timeout_seconds=self._heartbeat_timeout_seconds[priority],
                 )
             else:
                 worker = await self._worker_factory(
@@ -689,7 +718,7 @@ class ClassifierSupervisor:
                     continue
 
                 for index, slot in enumerate(list(self._slots[priority])):
-                    if slot.worker is None:
+                    if slot.worker is None or slot.worker_name in self._replacing:
                         continue
                     status = slot.worker.get_status()
                     exit_code = status.get("exit_code")
@@ -724,7 +753,9 @@ class ClassifierSupervisor:
                         and (slot.worker_name, slot.worker_generation) not in self._completed_once
                     )
                     liveness_budget = (
-                        self._warmup_liveness_timeout_seconds if warming_up else self._heartbeat_timeout_seconds
+                        self._warmup_liveness_timeout_seconds
+                        if warming_up
+                        else self._heartbeat_timeout_seconds[priority]
                     )
                     if now - liveness_reference > liveness_budget:
                         await self._replace_worker(
@@ -757,38 +788,99 @@ class ClassifierSupervisor:
         kill: bool,
     ) -> None:
         slot = self._slots[priority][index]
-        worker_status = slot.worker.get_status()
-        if kill:
-            await slot.worker.kill()
-        else:
-            await self._close_failed_worker(slot.worker)
-        assignment = self._assignments.pop(slot.worker_name, None)
-        if assignment is not None and not assignment.future.done():
-            assignment.future.set_exception(assignment_error)
-        self._completed_once.discard((slot.worker_name, slot.worker_generation))
-        self._metrics[priority]["restarts"] += 1
-        self._metrics[priority]["last_exit_reason"] = reason
-        self._metrics[priority]["last_stderr_excerpt"] = str(worker_status.get("recent_stderr_excerpt") or "")
-        self._metrics[priority]["last_stderr_truncated_bytes"] = int(worker_status.get("stderr_truncated_bytes") or 0)
-        self._record_restart(priority)
+        if slot.worker_name in self._replacing:
+            return
+        self._replacing.add(slot.worker_name)
         try:
-            new_slot = await self._spawn_worker(priority, index, generation=slot.worker_generation + 1)
-        except ClassifierWorkerStartupTimeoutError:
-            self._record_unavailable_slot(priority, index, "startup_timeout")
-        except Exception:
-            self._record_unavailable_slot(priority, index, "startup_failed")
-        else:
-            # DEFENSIVE: If another concurrent _replace_worker (e.g. from restart_pool)
-            # replaced this slot while we were awaiting _spawn_worker, we must kill
-            # the worker we just spawned to prevent a zombie process leak.
-            if self._slots[priority][index] is not slot:
-                await new_slot.worker.kill()
-                return
+            worker_status = slot.worker.get_status()
+            assignment = self._assignments.pop(slot.worker_name, None)
+            self._log_replacement(slot, worker_status, assignment, reason=reason, killed=kill)
+            if kill:
+                await slot.worker.kill()
+            else:
+                await self._close_failed_worker(slot.worker)
+            if assignment is not None and not assignment.future.done():
+                assignment.future.set_exception(assignment_error)
+            self._completed_once.discard((slot.worker_name, slot.worker_generation))
+            self._metrics[priority]["restarts"] += 1
+            self._metrics[priority]["last_exit_reason"] = reason
+            self._metrics[priority]["last_stderr_excerpt"] = str(worker_status.get("recent_stderr_excerpt") or "")
+            self._metrics[priority]["last_stderr_truncated_bytes"] = int(
+                worker_status.get("stderr_truncated_bytes") or 0
+            )
+            self._record_restart(priority)
+            try:
+                new_slot = await self._spawn_worker(priority, index, generation=slot.worker_generation + 1)
+            except ClassifierWorkerStartupTimeoutError:
+                self._record_unavailable_slot(priority, index, "startup_timeout")
+                log.error("Classifier worker replacement timed out", worker=slot.worker_name, pool=priority)
+            except Exception as exc:
+                self._record_unavailable_slot(priority, index, "startup_failed")
+                log.error(
+                    "Classifier worker replacement failed to start",
+                    worker=slot.worker_name,
+                    pool=priority,
+                    error=str(exc),
+                )
+            else:
+                # DEFENSIVE: If another concurrent _replace_worker (e.g. from restart_pool)
+                # replaced this slot while we were awaiting _spawn_worker, we must kill
+                # the worker we just spawned to prevent a zombie process leak.
+                if self._slots[priority][index] is not slot:
+                    await new_slot.worker.kill()
+                    return
 
-            self._slots[priority][index] = new_slot
-            self._metrics[priority]["workers"] = self._active_worker_count(priority)
-        async with self._condition:
-            self._condition.notify_all()
+                self._slots[priority][index] = new_slot
+                self._metrics[priority]["workers"] = self._active_worker_count(priority)
+                log.info(
+                    "Classifier worker replaced",
+                    worker=slot.worker_name,
+                    pool=priority,
+                    generation=new_slot.worker_generation,
+                    reason=reason,
+                )
+        finally:
+            self._replacing.discard(slot.worker_name)
+            async with self._condition:
+                self._condition.notify_all()
+
+    def _log_replacement(
+        self,
+        slot: _WorkerSlot,
+        worker_status: dict[str, Any],
+        assignment: _Assignment | None,
+        *,
+        reason: str,
+        killed: bool,
+    ) -> None:
+        """One line per kill with the numbers the decision rested on, so a false
+        positive can be told from a hung worker after the fact."""
+        now = time.monotonic()
+
+        def age(key: str) -> float | None:
+            value = worker_status.get(key)
+            return round(now - float(value), 2) if isinstance(value, (int, float)) else None
+
+        excerpt = str(worker_status.get("recent_stderr_excerpt") or "").strip()
+        log.warning(
+            "Replacing classifier worker",
+            worker=slot.worker_name,
+            pool=slot.priority,
+            generation=slot.worker_generation,
+            reason=reason,
+            killed=killed,
+            busy=bool(worker_status.get("busy")),
+            request_id=assignment.request_id if assignment is not None else None,
+            work_id=assignment.work_id if assignment is not None else None,
+            seconds_in_request=round(now - assignment.started_at, 2) if assignment is not None else None,
+            seconds_since_heartbeat=age("last_heartbeat_monotonic"),
+            seconds_since_activity=age("last_activity_monotonic"),
+            seconds_since_stderr=age("last_stderr_monotonic"),
+            liveness_budget_seconds=self._heartbeat_timeout_seconds[slot.priority],
+            restarts_in_window=len(self._restart_history[slot.priority]) + 1,
+            restart_threshold=self._restart_threshold,
+            stderr_excerpt=excerpt[-300:] if excerpt else None,
+        )
 
     def _find_slot(self, worker_name: str) -> _WorkerSlot | None:
         for priority in ("live", "background", "video"):
@@ -806,6 +898,13 @@ class ClassifierSupervisor:
         if len(history) >= self._restart_threshold:
             self._metrics[priority]["circuit_open"] = True
             self._metrics[priority]["circuit_open_until_monotonic"] = now + self._breaker_cooldown_seconds
+            log.warning(
+                "Classifier worker circuit opened",
+                pool=priority,
+                restarts_in_window=len(history),
+                window_seconds=self._restart_window_seconds,
+                cooldown_seconds=self._breaker_cooldown_seconds,
+            )
 
     def _refresh_circuit_state(self, priority: WorkPriority) -> None:
         if not self._metrics[priority]["circuit_open"]:

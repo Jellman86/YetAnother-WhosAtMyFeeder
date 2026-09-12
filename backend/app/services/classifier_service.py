@@ -2800,6 +2800,9 @@ class ClassifierService:
                 heartbeat_timeout_seconds=float(
                     getattr(settings.classification, "worker_heartbeat_timeout_seconds", 5.0) or 5.0
                 ),
+                video_heartbeat_timeout_seconds=float(
+                    getattr(settings.classification, "video_worker_heartbeat_timeout_seconds", 30.0) or 30.0
+                ),
                 hard_deadline_seconds=image_hard_deadline_seconds,
                 background_hard_deadline_seconds=background_hard_deadline_seconds,
                 video_hard_deadline_seconds=max(image_hard_deadline_seconds, video_timeout_seconds + 15.0),
