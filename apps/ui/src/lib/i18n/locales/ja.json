@@ -2307,7 +2307,18 @@
     "most_detected_week": "今週の最多",
     "most_detected_month": "今月の最多",
     "most_detected_all": "これまでの最多",
-    "collage_counts": "{seen} 回の訪問"
+    "showcase_reference": "参考写真、この餌台のものではありません",
+    "showcase_reference_from": "{source} の参考写真、この餌台のものではありません",
+    "showcase_reference_short": "参考",
+    "showcase_on_previous": "前の期間と比べて",
+    "showcase_bring_forward": "{species} を前面に",
+    "showcase_more": "他 {count} 件は下に",
+    "showcase_visits": "回の訪問",
+    "showcase_visits_and_calls": "回の訪問と鳴き声",
+    "showcase_rank_day": "今日 {rank} 位",
+    "showcase_rank_week": "今週 {rank} 位",
+    "showcase_rank_month": "今月 {rank} 位",
+    "showcase_rank_all": "歴代 {rank} 位"
   },
   "about": {
     "how_it_works": "仕組み",

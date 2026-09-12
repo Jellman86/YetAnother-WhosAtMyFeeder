@@ -2307,7 +2307,18 @@
     "most_detected_week": "本周最常出现",
     "most_detected_month": "本月最常出现",
     "most_detected_all": "历来最常出现",
-    "collage_counts": "{seen} 次到访"
+    "showcase_reference": "参考照片，非本喂食器拍摄",
+    "showcase_reference_from": "来自 {source} 的参考照片，非本喂食器拍摄",
+    "showcase_reference_short": "参考",
+    "showcase_on_previous": "较上一周期",
+    "showcase_bring_forward": "将 {species} 放大展示",
+    "showcase_more": "下方还有 {count} 种",
+    "showcase_visits": "次到访",
+    "showcase_visits_and_calls": "次到访与鸣叫",
+    "showcase_rank_day": "今日第 {rank} 位",
+    "showcase_rank_week": "本周第 {rank} 位",
+    "showcase_rank_month": "本月第 {rank} 位",
+    "showcase_rank_all": "历史第 {rank} 位"
   },
   "about": {
     "how_it_works": "工作原理",

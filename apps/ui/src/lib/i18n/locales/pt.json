@@ -2316,7 +2316,18 @@
     "most_detected_week": "Mais detetada esta semana",
     "most_detected_month": "Mais detetada este mês",
     "most_detected_all": "Mais detetada de sempre",
-    "collage_counts": "{seen} visitas"
+    "showcase_reference": "Foto de referência, não deste comedouro",
+    "showcase_reference_from": "Foto de referência de {source}, não deste comedouro",
+    "showcase_reference_short": "Referência",
+    "showcase_on_previous": "face ao período anterior",
+    "showcase_bring_forward": "Trazer {species} para a frente",
+    "showcase_more": "mais {count} abaixo",
+    "showcase_visits": "visitas",
+    "showcase_visits_and_calls": "visitas e cantos",
+    "showcase_rank_day": "Posição {rank} hoje",
+    "showcase_rank_week": "Posição {rank} esta semana",
+    "showcase_rank_month": "Posição {rank} este mês",
+    "showcase_rank_all": "Posição {rank} de sempre"
   },
   "about": {
     "how_it_works": "Como Funciona",

@@ -1000,6 +1000,17 @@ export interface components {
     analysis: string;
     analysis_timestamp: string;
 };
+    LeaderboardPortraitResponse: {
+    frigate_event: string;
+    image_url: string;
+    scientific_name?: string | null;
+    species: string;
+    taxa_id?: number | null;
+};
+    LeaderboardPortraitsResponse: {
+    portraits: Array<components['schemas']['LeaderboardPortraitResponse']>;
+    span: "day" | "week" | "month" | "all";
+};
     LeaderboardSpeciesItemResponse: {
     common_name?: string | null;
     scientific_name?: string | null;
@@ -3277,6 +3288,18 @@ export interface paths {
       query: never;
       requestBody: components['schemas']['LeaderboardAnalysisRequest'];
       response: components['schemas']['LeaderboardAnalysisResponse'];
+    };
+  };
+  "/api/leaderboard/portraits": {
+    get: {
+      operationId: "get_leaderboard_portraits_api_leaderboard_portraits_get";
+      path: never;
+      query: {
+    limit?: number;
+    span?: "day" | "week" | "month" | "all";
+};
+      requestBody: unknown;
+      response: components['schemas']['LeaderboardPortraitsResponse'];
     };
   };
   "/api/leaderboard/species": {
