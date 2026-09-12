@@ -98,8 +98,8 @@ describe('dashboard field desk layout', () => {
 
     it('opens the capture preview on hover and on keyboard focus, and dismisses it', () => {
         // Every frame in a visit previews itself, so the handlers take the frame index.
-        expect(previewSource).toContain('onmouseenter={() => show(index)}');
-        expect(previewSource).toContain('onfocusin={() => show(index)}');
+        expect(previewSource).toContain("onpointerenter={(event) => { if (event.pointerType !== 'touch') show(index); }}");
+        expect(previewSource).toContain('onfocusin={(event) => { if (isKeyboardFocus(event.target)) show(index); }}');
         expect(previewSource).toContain('let openIndex = $state<number | null>(null)');
         expect(previewSource).toContain('dashboard.field_log.preview_frame_position');
         expect(previewSource).toContain('onfocusout={handleFocusOut}');

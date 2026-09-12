@@ -12,6 +12,9 @@
         hideDetection,
         deleteDetection,
         favoriteDetection,
+        fetchArchiveStatus,
+        retryArchive,
+        type ArchiveStatus,
         unfavoriteDetection,
         searchSpecies,
         fetchEventAudioContext,
@@ -38,6 +41,9 @@
     import { withAuthParams } from '../api/core';
     import { appApiPath } from '../app/url-base';
     import ReclassificationOverlay from './ReclassificationOverlay.svelte';
+    import FrameStrip from './FrameStrip.svelte';
+    import { currentMoment, groupCandidatesIntoMoments, preferredCandidate, type FrameMoment } from '../utils/frame-moments';
+    import { WholeScenePeek } from '../utils/whole-scene-peek.svelte';
     import VideoAnalysisFilmReel from './VideoAnalysisFilmReel.svelte';
     import { detectionsStore, type ReclassificationProgress } from '../stores/detections.svelte';
     import { settingsStore } from '../stores/settings.svelte';
@@ -381,19 +387,99 @@
     let updatingTag = $state(false);
     let pendingManualTagId = $state<string | null>(null);
     let favoritePending = $state(false);
+    // The favourite's archive (#178). Pending is polled briefly so the star can say when the
+    // photograph and clip are actually kept; the worker does not broadcast its progress.
+    let archiveStatus = $state<ArchiveStatus | null>(null);
+    let archiveRetrying = $state(false);
+    const ARCHIVE_POLL_MS = 4000;
+    const ARCHIVE_POLL_LIMIT = 45;
+    $effect(() => {
+        const eventId = detection?.frigate_event;
+        const wanted = !!detection?.is_favorite && authStore.hasOwnerAccess && !readOnly;
+        // Read so that a retry (which sets the record back to pending) restarts the poll.
+        void detection?.archive_state;
+        if (!eventId || !wanted) {
+            archiveStatus = null;
+            return;
+        }
+        let cancelled = false;
+        let polls = 0;
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        const load = async () => {
+            try {
+                const status = await fetchArchiveStatus(eventId);
+                if (cancelled) return;
+                archiveStatus = status;
+                const state = asArchiveState(status.state);
+                if (state && state !== detection.archive_state) {
+                    detection.archive_state = state;
+                    detectionsStore.updateDetection({ ...detection, archive_state: state });
+                }
+                if (status.state === 'pending' && polls < ARCHIVE_POLL_LIMIT) {
+                    polls += 1;
+                    timer = setTimeout(load, ARCHIVE_POLL_MS);
+                }
+            } catch {
+                // The star still works without the detail; the state on the record stands.
+            }
+        };
+        void load();
+        return () => {
+            cancelled = true;
+            if (timer) clearTimeout(timer);
+        };
+    });
+    const ARCHIVE_STATE_VALUES = new Set(['pending', 'durable', 'unavailable', 'failed']);
+    function asArchiveState(value: string | null | undefined): Detection['archive_state'] {
+        return value && ARCHIVE_STATE_VALUES.has(value) ? (value as Detection['archive_state']) : null;
+    }
+    function formatArchiveSize(bytes: number): string {
+        if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+        if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+        return `${bytes} B`;
+    }
+    const archiveState = $derived(archiveStatus?.state ?? detection?.archive_state ?? null);
+    const archiveLabel = $derived.by(() => {
+        switch (archiveState) {
+            case 'durable':
+                return archiveStatus?.clip_state === 'unavailable'
+                    ? $_('detection.archive_photo_only', { default: 'Photo archived, no clip to keep' })
+                    : $_('detection.archive_durable', {
+                          values: { size: formatArchiveSize(archiveStatus?.bytes ?? 0) },
+                          default: 'Archived, {size}'
+                      });
+            case 'unavailable':
+                return $_('detection.archive_unavailable', { default: 'Nothing left to archive' });
+            case 'failed':
+                return $_('detection.archive_failed', { default: 'Archive failed' });
+            case 'pending':
+                return $_('detection.archive_pending', { default: 'Archiving photo and clip' });
+            default:
+                return '';
+        }
+    });
+    async function handleArchiveRetry() {
+        if (!detection || archiveRetrying) return;
+        archiveRetrying = true;
+        try {
+            archiveStatus = await retryArchive(detection.frigate_event);
+            detection.archive_state = asArchiveState(archiveStatus.state) ?? 'pending';
+            detectionsStore.updateDetection({ ...detection, archive_state: detection.archive_state });
+        } catch (e) {
+            toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
+        } finally {
+            archiveRetrying = false;
+        }
+    }
     let snapshotStatus = $state<SnapshotStatusResponse | null>(null);
     let snapshotCandidates = $state<SnapshotCandidate[]>([]);
-    // Candidate media is owner-gated, so the strip simply does not exist for a guest.
-    const snapshotOptionStrip = $derived(
-        authStore.hasOwnerAccess ? snapshotCandidates.filter((item) => item.thumbnail_url) : []
-    );
     let snapshotCandidatesLoading = $state(false);
     let snapshotApplyPending = $state(false);
     let snapshotGeneratePending = $state(false);
     let currentSnapshotCandidateId = $state<string | null>(null);
     let currentSnapshotSource = $state<string | null>(null);
-    let pendingSnapshotMode = $state<'candidate' | 'revert_original' | null>(null);
-    let pendingSnapshotCandidateId = $state<string | null>(null);
+    /** The strip moment being saved as the photograph, while the request is in flight. */
+    let applyingMomentKey = $state<string | null>(null);
     let snapshotRefreshToken = $state(Date.now());
     let tagSearchQuery = $state('');
     let searchResults = $state<SearchResult[]>([]);
@@ -651,6 +737,17 @@
     const fullFrameSnapshotCandidate = $derived(
         findMatchingFullFrameCandidate(snapshotCandidates, currentSnapshotCandidateId)
     );
+    // One thumbnail per moment of the visit; the framings of a moment fold into it (#256).
+    // Candidate media is owner-gated, so the strip simply does not exist for a guest.
+    const frameMoments = $derived<FrameMoment[]>(
+        authStore.hasOwnerAccess
+            ? groupCandidatesIntoMoments(
+                snapshotCandidates.filter((item) => item.thumbnail_url || item.image_url),
+                { asRecordedAvailable: originalFrigateSnapshotAvailable }
+            )
+            : []
+    );
+    const activeMoment = $derived(currentMoment(frameMoments, currentSnapshotCandidateId, currentSnapshotSource));
 
     /**
      * A terminal borrows the viewer's own window furniture: traffic lights on macOS, the
@@ -701,61 +798,28 @@
         };
     });
 
-    /**
-     * Shows the strip's trailing hint only while it actually overflows. The hint is a separate,
-     * pointer-transparent layer so desktop browsers never hit-test through a CSS mask.
-     * Thumbnails load lazily, so image loads are watched as well as resizes.
-     */
-    function watchOverflow(node: HTMLElement) {
-        const shell = node.closest<HTMLElement>('[data-snapshot-strip-shell]');
-        const update = () => {
-            const hasMoreToRight = node.scrollLeft + node.clientWidth < node.scrollWidth - 1;
-            shell?.style.setProperty('--strip-fade-opacity', hasMoreToRight ? '1' : '0');
-        };
-        update();
-        const resize = new ResizeObserver(update);
-        resize.observe(node);
-        // The container keeps its size when the candidate list changes, so a resize alone would
-        // leave the fade describing a strip that is no longer there.
-        const mutation = new MutationObserver(update);
-        mutation.observe(node, { childList: true });
-        node.addEventListener('load', update, true);
-        node.addEventListener('scroll', update, { passive: true });
-        return {
-            destroy() {
-                resize.disconnect();
-                mutation.disconnect();
-                shell?.style.removeProperty('--strip-fade-opacity');
-                node.removeEventListener('load', update, true);
-                node.removeEventListener('scroll', update);
-            }
-        };
-    }
-
-    // The frame rail previews a choice in place. Persisting it remains a separate, explicit action.
-    let mediaView = $state<'stored' | 'full' | 'candidate' | 'original'>('stored');
-    const canShowFullFrame = $derived(
-        authStore.hasOwnerAccess && !!(fullFrameSnapshotCandidate?.image_url ?? fullFrameSnapshotCandidate?.thumbnail_url)
+    // The photograph is always the crop. The whole scene is a look, not a mode (#256): the shared
+    // controller peeks on hover or focus with the crop outlined and pins on click, so the one
+    // rescue that needs the whole scene can be offered. Persisting anything stays a named action.
+    let heroImageEl = $state<HTMLImageElement | null>(null);
+    // Frigate's own snapshot has no candidate record, so the "matching" whole frame would be
+    // another moment's: different evidence, not a safe peek.
+    const canPeekWholeScene = $derived(
+        authStore.hasOwnerAccess
+        && currentSnapshotSource !== 'frigate_snapshot'
+        && !!(fullFrameSnapshotCandidate?.image_url ?? fullFrameSnapshotCandidate?.thumbnail_url)
     );
-    const previewedSnapshotCandidate = $derived(
-        pendingSnapshotMode === 'candidate' && pendingSnapshotCandidateId
-            ? snapshotCandidates.find((candidate) => candidate.candidate_id === pendingSnapshotCandidateId) ?? null
-            : null
+    const wholeScene = new WholeScenePeek(() => canPeekWholeScene);
+    const currentCropCandidate = $derived(
+        snapshotCandidates.find((candidate) => candidate.candidate_id === currentSnapshotCandidateId)
+            ?? snapshotCandidates.find((candidate) => candidate.selected)
+            ?? null
     );
     const mediaImageUrl = $derived.by(() => {
-        if (mediaView === 'original' && originalFrigateSnapshotAvailable) {
-            return originalFrigateSnapshotUrl;
-        }
-        if (mediaView === 'candidate' && previewedSnapshotCandidate?.image_url) {
-            return previewedSnapshotCandidate.image_url;
-        }
-        if (mediaView === 'candidate' && previewedSnapshotCandidate?.thumbnail_url) {
-            return previewedSnapshotCandidate.thumbnail_url;
-        }
-        if (mediaView === 'full' && fullFrameSnapshotCandidate?.image_url) {
+        if (wholeScene.showing && fullFrameSnapshotCandidate?.image_url) {
             return fullFrameSnapshotCandidate.image_url;
         }
-        if (mediaView === 'full' && fullFrameSnapshotCandidate?.thumbnail_url) {
+        if (wholeScene.showing && fullFrameSnapshotCandidate?.thumbnail_url) {
             return fullFrameSnapshotCandidate.thumbnail_url;
         }
         return snapshotImageUrl;
@@ -763,38 +827,23 @@
     $effect(() => {
         // A new detection starts on its own stored frame.
         void detection.frigate_event;
-        mediaView = 'stored';
-        pendingSnapshotMode = null;
-        pendingSnapshotCandidateId = null;
+        wholeScene.reset();
     });
-    const selectedSnapshotPickerCandidate = $derived.by(() => {
-        if (pendingSnapshotMode === 'revert_original') {
-            return null;
+    // The outline is a DOM measurement, taken once the whole scene has loaded and again when
+    // the window changes size.
+    function measureWholeScene() {
+        wholeScene.measure(heroImageEl, currentCropCandidate?.crop_box);
+    }
+    $effect(() => {
+        if (!wholeScene.showing) {
+            wholeScene.outline = null;
+            return;
         }
-        if (pendingSnapshotMode === 'candidate' && pendingSnapshotCandidateId) {
-            return snapshotCandidates.find((candidate) => candidate.candidate_id === pendingSnapshotCandidateId) ?? null;
-        }
-        if (currentSnapshotCandidateId) {
-            return snapshotCandidates.find((candidate) => candidate.candidate_id === currentSnapshotCandidateId) ?? null;
-        }
-        return null;
+        measureWholeScene();
+        window.addEventListener('resize', measureWholeScene);
+        return () => window.removeEventListener('resize', measureWholeScene);
     });
-    const canSaveSnapshotSelection = $derived(
-        !snapshotApplyPending
-        && !snapshotGeneratePending
-        && (
-            (
-                pendingSnapshotMode === 'revert_original'
-                && originalFrigateSnapshotAvailable
-                && currentSnapshotSource !== 'frigate_snapshot'
-            )
-            || (
-                pendingSnapshotMode === 'candidate'
-                && Boolean(pendingSnapshotCandidateId)
-                && pendingSnapshotCandidateId !== currentSnapshotCandidateId
-            )
-        )
-    );
+    onDestroy(wholeScene.destroy);
     const canGenerateSnapshotCandidates = $derived(
         !snapshotApplyPending
         && !snapshotGeneratePending
@@ -807,8 +856,7 @@
         && !reclassifyProgress
         && (
             snapshotCandidatesLoading
-            || snapshotOptionStrip.length > 0
-            || originalFrigateSnapshotAvailable
+            || frameMoments.length > 0
             || canGenerateSnapshotCandidates
         )
     );
@@ -1455,14 +1503,28 @@
         favoritePending = true;
         try {
             if (detection.is_favorite) {
+                // Unfavouriting removes the archive with it; say so before doing it (#178).
+                const archivedBytes = archiveStatus?.bytes ?? 0;
+                if (archivedBytes > 0) {
+                    const confirmed = window.confirm(
+                        $_('detection.unfavorite_confirm', {
+                            values: { size: formatArchiveSize(archivedBytes) },
+                            default: 'Remove the favourite? Its archived photo and clip ({size}) go with it. The visit stays in history.'
+                        })
+                    );
+                    if (!confirmed) return;
+                }
                 await unfavoriteDetection(detection.frigate_event);
                 detection.is_favorite = false;
-                detectionsStore.updateDetection({ ...detection, is_favorite: false });
+                detection.archive_state = null;
+                archiveStatus = null;
+                detectionsStore.updateDetection({ ...detection, is_favorite: false, archive_state: null });
                 toastStore.success($_('detection.favorite_removed', { default: 'Removed from favorites' }));
             } else {
-                await favoriteDetection(detection.frigate_event);
+                const result = await favoriteDetection(detection.frigate_event);
                 detection.is_favorite = true;
-                detectionsStore.updateDetection({ ...detection, is_favorite: true });
+                detection.archive_state = asArchiveState(result.archive_state) ?? 'pending';
+                detectionsStore.updateDetection({ ...detection, is_favorite: true, archive_state: detection.archive_state });
                 toastStore.success($_('detection.favorite_added', { default: 'Added to favorites' }));
             }
         } catch (e) {
@@ -1472,51 +1534,32 @@
         }
     }
 
-    // Which subsystem produced a frame is the app's own plumbing; the person
-    // choosing the most representative photograph cares how it is framed (#256).
-    function snapshotSourceLabel(source: string | null | undefined) {
-        const normalized = String(source || '').trim();
-        const wholeFrame = normalized === 'full_frame' || normalized === 'hq_candidate_full_frame';
-        return wholeFrame
-            ? $_('detection.snapshot_framing_whole', { default: 'Whole frame' })
-            : $_('detection.snapshot_framing_close', { default: 'Close on the bird' });
+    function resetMediaView() {
+        wholeScene.reset();
     }
 
-    function stageSnapshotCandidate(candidateId: string | null) {
-        pendingSnapshotMode = candidateId ? 'candidate' : null;
-        pendingSnapshotCandidateId = candidateId;
+    async function useWholeSceneAsPhotograph() {
+        const candidate = fullFrameSnapshotCandidate;
+        if (!candidate) return;
+        await handleApplySnapshot('candidate', candidate.candidate_id);
     }
 
-    function previewSnapshotCandidate(candidate: SnapshotCandidate) {
-        if (!hasOwnerDetectionActions) return;
-        if (candidate.candidate_id === currentSnapshotCandidateId) {
-            pendingSnapshotMode = null;
-            pendingSnapshotCandidateId = null;
-        } else {
-            stageSnapshotCandidate(candidate.candidate_id);
+    /** "Use this frame" from the strip: the photograph changes, the identification does not. */
+    async function handleUseMoment(moment: FrameMoment) {
+        if (!hasOwnerDetectionActions || snapshotApplyPending) return;
+        applyingMomentKey = moment.key;
+        try {
+            if (moment.asRecorded) {
+                if (!originalFrigateSnapshotAvailable) return;
+                await handleApplySnapshot('revert_original');
+                return;
+            }
+            const candidate = preferredCandidate(moment);
+            if (!candidate) return;
+            await handleApplySnapshot('candidate', candidate.candidate_id);
+        } finally {
+            applyingMomentKey = null;
         }
-        mediaView = candidate.candidate_id === fullFrameSnapshotCandidate?.candidate_id
-            ? 'full'
-            : 'candidate';
-    }
-
-    function stageOriginalFrigateSnapshot() {
-        if (!originalFrigateSnapshotAvailable) return;
-        pendingSnapshotMode = currentSnapshotSource === 'frigate_snapshot' ? null : 'revert_original';
-        pendingSnapshotCandidateId = null;
-        mediaView = 'original';
-    }
-
-    function cancelSnapshotPreview() {
-        pendingSnapshotMode = null;
-        pendingSnapshotCandidateId = null;
-        mediaView = 'stored';
-    }
-
-    function showFullFrameMedia() {
-        pendingSnapshotMode = null;
-        pendingSnapshotCandidateId = null;
-        mediaView = 'full';
     }
 
     async function handleApplySnapshot(
@@ -1534,7 +1577,7 @@
             snapshotRefreshToken = Date.now();
             currentSnapshotSource = result.source ?? null;
             currentSnapshotCandidateId = result.applied_candidate_id ?? null;
-            cancelSnapshotPreview();
+            resetMediaView();
             toastStore.success($_('detection.snapshot_apply_success', { default: 'Snapshot updated' }));
             await refreshSnapshotControls(detection.frigate_event);
         } catch (e) {
@@ -1555,7 +1598,7 @@
             snapshotRefreshToken = Date.now();
             await refreshSnapshotControls(eventId);
             if (!detection || detection.frigate_event !== eventId) return;
-            cancelSnapshotPreview();
+            resetMediaView();
             if (snapshotCandidates.length > 0) {
                 toastStore.success($_('detection.snapshot_generate_success', { default: 'Snapshots regenerated' }));
             } else {
@@ -1565,17 +1608,6 @@
             toastStore.error(getErrorMessage(e) || $_('common.error', { default: 'Action failed' }));
         } finally {
             snapshotGeneratePending = false;
-        }
-    }
-
-    async function handleSaveSnapshotSelection() {
-        if (pendingSnapshotMode === 'revert_original') {
-            if (!originalFrigateSnapshotAvailable) return;
-            await handleApplySnapshot('revert_original');
-            return;
-        }
-        if (selectedSnapshotPickerCandidate?.candidate_id) {
-            await handleApplySnapshot('candidate', selectedSnapshotPickerCandidate.candidate_id);
         }
     }
 
@@ -1665,25 +1697,6 @@
 
     @media (prefers-reduced-motion: reduce) {
         .terminal-caret { animation: none; opacity: 1; }
-    }
-
-    /*
-     * The options strip sits over a dark gradient on the image, where a native scrollbar is both
-     * ugly and low contrast. The bar is hidden and a pointer-transparent sibling darkens the right
-     * edge instead, so there is still a signal that more frames exist without blocking selection.
-     * Scrolling by wheel, trackpad and keyboard is unaffected.
-     */
-    .snapshot-strip {
-        scrollbar-width: none;
-        -ms-overflow-style: none;
-    }
-
-    .snapshot-strip::-webkit-scrollbar {
-        display: none;
-    }
-
-    .snapshot-strip-fade {
-        opacity: var(--strip-fade-opacity, 0);
     }
 
     .ai-surface {
@@ -2201,7 +2214,16 @@
             onClose();
         }
     }}
-    onkeydown={(e) => e.key === 'Escape' && onClose()}
+    onkeydown={(e) => {
+        if (e.key !== 'Escape') return;
+        // A pinned whole scene closes first; the record stays open.
+        if (wholeScene.pinned) {
+            e.preventDefault();
+            resetMediaView();
+            return;
+        }
+        onClose();
+    }}
     role="dialog"
     aria-modal="true"
     aria-labelledby="detection-modal-title"
@@ -2288,50 +2310,59 @@
                         <img data-detection-media-ambient src={snapshotImageUrl} alt="" aria-hidden="true" class="absolute inset-0 h-full w-full scale-110 object-cover opacity-25 blur-2xl" />
                         <div class="absolute inset-0 bg-slate-950/55" aria-hidden="true"></div>
                         <img
+                            bind:this={heroImageEl}
                             src={mediaImageUrl}
                             alt={detection.display_name}
-                            class="relative h-full w-full {mediaView === 'full' || mediaView === 'candidate' || mediaView === 'original'
+                            onload={measureWholeScene}
+                            class="relative h-full w-full {wholeScene.showing
                                 ? 'object-contain'
-                                : canShowFullFrame ? 'object-cover' : 'object-contain'}"
+                                : canPeekWholeScene ? 'object-cover' : 'object-contain'}"
                         />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent"></div>
-                        {#if canShowFullFrame}
-                            <div
-                                class="absolute left-3 top-3 z-30 max-w-[calc(100%-6rem)]"
-                            >
-                                <div class="flex max-w-full gap-1 rounded-lg bg-slate-950/55 p-1 backdrop-blur-sm" data-detection-media-toggle>
-                                        <button
-                                            type="button"
-                                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'stored'
-                                                ? 'bg-white/15 text-white'
-                                                : 'text-white/60 hover:text-white'}"
-                                            aria-pressed={mediaView === 'stored'}
-                                            onclick={(event) => { event.stopPropagation(); cancelSnapshotPreview(); }}
-                                        >
-                                            {$_('detection.media_stored', { default: 'Best crop' })}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            class="min-h-11 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {mediaView === 'full'
-                                                ? 'bg-white/15 text-white'
-                                                : 'text-white/60 hover:text-white'}"
-                                            aria-pressed={mediaView === 'full'}
-                                            onclick={(event) => {
-                                                event.stopPropagation();
-                                                showFullFrameMedia();
-                                            }}
-                                        >
-                                            {$_('detection.media_full_frame', { default: 'Full frame' })}
-                                        </button>
-                                </div>
-                            </div>
+                        {#if canPeekWholeScene}
+                            <!-- The whole scene is a look, not a mode (#256). Hover or focus peeks at it with
+                                 the crop outlined; a click pins it and offers the one rescue that needs it. -->
+                            <button
+                                type="button"
+                                class="absolute inset-0 z-10 {wholeScene.pinned ? 'cursor-zoom-out' : 'cursor-zoom-in'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+                                data-detection-whole-scene-peek
+                                aria-pressed={wholeScene.pinned}
+                                aria-label={wholeScene.pinned
+                                    ? $_('detection.whole_scene_back', { default: 'Back to the crop' })
+                                    : $_('detection.whole_scene_show', { default: 'Show the whole scene' })}
+                                onmouseenter={wholeScene.enter}
+                                onmouseleave={wholeScene.leave}
+                                onfocus={wholeScene.show}
+                                onblur={wholeScene.leave}
+                                onclick={(event) => { event.stopPropagation(); wholeScene.toggle(); }}
+                            ></button>
+                            {#if wholeScene.showing && wholeScene.outline}
+                                <div
+                                    class="pointer-events-none absolute z-10 rounded-sm border-2 border-dashed border-white/85 shadow-[0_0_0_9999px_rgba(2,6,23,0.35)]"
+                                    style="left: {wholeScene.outline.left}px; top: {wholeScene.outline.top}px; width: {wholeScene.outline.width}px; height: {wholeScene.outline.height}px;"
+                                    data-detection-whole-scene-outline
+                                    aria-hidden="true"
+                                ></div>
+                            {/if}
+                            {#if wholeScene.showing}
+                                <span
+                                    class="pointer-events-none absolute left-3 top-3 z-30 rounded-full border border-white/15 bg-slate-950/70 px-2.5 py-1 text-[11px] font-semibold text-white backdrop-blur-sm"
+                                    data-detection-whole-scene-chip
+                                >
+                                    {wholeScene.pinned
+                                        ? $_('detection.whole_scene_chip_pinned', { default: 'Whole scene, the crop is outlined' })
+                                        : $_('detection.whole_scene_chip', { default: 'Whole scene' })}
+                                </span>
+                            {/if}
                         {/if}
                         <div
                             class="absolute inset-x-0 bottom-0 z-20 flex flex-col bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent pt-12"
                             data-detection-media-footer
                         >
                             <div class="flex flex-col gap-3 px-5 {showInlineFramePicker ? 'pb-2' : 'pb-5'}">
-                                <div data-detection-media-title>
+                                <!-- On a phone the rail's "Identified as" sits right under the picture, so the
+                                     hero title would say it twice while covering the bird. -->
+                                <div class="hidden sm:block" data-detection-media-title>
                                     <h3 id="detection-modal-title" class="truncate text-xl font-bold leading-tight text-white drop-shadow-lg">{primaryName}</h3>
                                     {#if subName && subName !== primaryName}
                                         <p class="-mt-0.5 mb-0.5 truncate text-sm italic text-white/70 drop-shadow">{subName}</p>
@@ -2340,6 +2371,29 @@
                                         {formatDateTime(detection.detection_time)}
                                     </p>
                                 </div>
+
+                                {#if wholeScene.pinned && wholeScene.showing}
+                                    <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center" data-detection-whole-scene-actions>
+                                        <button
+                                            type="button"
+                                            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/25 bg-black/55 px-4 text-[11px] font-semibold text-white shadow-xl backdrop-blur-sm transition-colors hover:bg-black/70 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                            disabled={snapshotApplyPending || snapshotGeneratePending}
+                                            onclick={(event) => { event.stopPropagation(); void useWholeSceneAsPhotograph(); }}
+                                        >
+                                            {#if snapshotApplyPending}
+                                                <span class="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true"></span>
+                                            {/if}
+                                            {$_('detection.whole_scene_use', { default: 'Use the whole scene as the photograph' })}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            class="inline-flex min-h-11 items-center justify-center rounded-full border border-white/25 bg-black/40 px-4 text-[11px] font-semibold text-white/85 shadow-xl backdrop-blur-sm transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                            onclick={(event) => { event.stopPropagation(); resetMediaView(); }}
+                                        >
+                                            {$_('detection.whole_scene_back', { default: 'Back to the crop' })}
+                                        </button>
+                                    </div>
+                                {/if}
 
                                 {#if canShowFavoriteAction || canPlayVideo || showFetchFullVisitAction || isManualObservation || frigateIssueBadgeVisible}
                                     <div class="flex flex-wrap items-center gap-2" data-detection-media-actions>
@@ -2360,6 +2414,28 @@
                                                     </svg>
                                                 {/if}
                                             </button>
+                                            {#if detection.is_favorite && archiveLabel}
+                                                <span
+                                                    class="inline-flex min-h-8 items-center gap-2 rounded-full border border-white/20 bg-black/45 px-3 text-[11px] font-semibold text-white/90 backdrop-blur-sm"
+                                                    data-detection-archive-state={archiveState}
+                                                    aria-live="polite"
+                                                >
+                                                    {#if archiveState === 'pending'}
+                                                        <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true"></span>
+                                                    {/if}
+                                                    {archiveLabel}
+                                                    {#if archiveState === 'failed' && hasOwnerDetectionActions}
+                                                        <button
+                                                            type="button"
+                                                            class="rounded-full border border-white/30 px-2 py-0.5 text-[11px] font-bold text-white hover:bg-white/15 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                                                            disabled={archiveRetrying}
+                                                            onclick={(e) => { e.stopPropagation(); void handleArchiveRetry(); }}
+                                                        >
+                                                            {$_('detection.archive_retry', { default: 'Try again' })}
+                                                        </button>
+                                                    {/if}
+                                                </span>
+                                            {/if}
                                         {/if}
                                         {#if canPlayVideo}
                                             <button
@@ -2438,119 +2514,22 @@
                             </div>
 
                             {#if showInlineFramePicker}
-                    <!-- Preview and save happen here; the former full-screen snapshot picker has
-                         deliberately been removed. Every thumbnail is a real retained frame. -->
-                    <div
-                        class="flex flex-col gap-1 px-3 pb-3"
-                        data-detection-inline-frame-picker
-                        aria-busy={snapshotCandidatesLoading || snapshotApplyPending || snapshotGeneratePending}
-                    >
-                        <div class="flex min-h-4 items-center justify-between gap-2 px-1 text-[10px] font-semibold text-white/65" aria-live="polite">
-                            <span>
-                                {#if snapshotCandidatesLoading}
-                                    {$_('detection.snapshot_candidates_loading', { default: 'Loading frames...' })}
-                                {:else}
-                                    {$_('detection.snapshot_options', {
-                                        values: { count: snapshotOptionStrip.length + (originalFrigateSnapshotAvailable ? 1 : 0) },
-                                        default: '{count} snapshot options'
-                                    })}
-                                {/if}
-                            </span>
-                            {#if pendingSnapshotMode}
-                                <span>{$_('detection.snapshot_preview_unsaved', { default: 'Preview, not saved' })}</span>
-                            {/if}
-                        </div>
-                        <div class="flex min-w-0 items-center gap-1.5">
-                            <div class="snapshot-strip-shell relative min-w-0 flex-1" data-snapshot-strip-shell>
-                                <div class="snapshot-strip -my-2 flex min-w-0 gap-1.5 overflow-x-auto px-1 py-3" use:watchOverflow>
-                                    {#if originalFrigateSnapshotAvailable}
-                                        {@const originalIsSelected = pendingSnapshotMode === 'revert_original' || (!pendingSnapshotMode && currentSnapshotSource === 'frigate_snapshot')}
-                                        <button
-                                            type="button"
-                                            class="relative min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {originalIsSelected ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50' : 'opacity-70 hover:z-10 hover:-translate-y-0.5 hover:scale-105 hover:opacity-100 hover:shadow-md active:translate-y-0 active:scale-95'}"
-                                            title={$_('detection.snapshot_framing_as_recorded', { default: 'As Frigate recorded it' })}
-                                            aria-label={$_('detection.snapshot_preview_original_aria', { default: 'Preview the frame as Frigate recorded it' })}
-                                            aria-pressed={originalIsSelected}
-                                            onclick={(event) => { event.stopPropagation(); stageOriginalFrigateSnapshot(); }}
-                                        >
-                                            <img src={originalFrigateSnapshotUrl} alt="" loading="lazy" class="h-9 w-12 rounded-md object-cover" />
-                                        </button>
-                                    {/if}
-                                    {#each snapshotOptionStrip as candidate (candidate.candidate_id)}
-                                        {@const candidateIsSelected = pendingSnapshotCandidateId === candidate.candidate_id || (!pendingSnapshotMode && currentSnapshotCandidateId === candidate.candidate_id)}
-                                        <button
-                                            type="button"
-                                            class="relative min-h-11 min-w-11 shrink-0 rounded-md p-1 transition duration-200 ease-out motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 {candidateIsSelected ? 'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50' : 'opacity-70 hover:z-10 hover:-translate-y-0.5 hover:scale-105 hover:opacity-100 hover:shadow-md active:translate-y-0 active:scale-95'}"
-                                            title={candidate.classifier_label ?? snapshotSourceLabel(candidate.source_mode)}
-                                            aria-label={$_('detection.snapshot_option_aria', {
-                                                values: { source: snapshotSourceLabel(candidate.source_mode) },
-                                                default: 'Preview {source} snapshot option'
-                                            })}
-                                            aria-pressed={candidateIsSelected}
-                                            onclick={(event) => { event.stopPropagation(); previewSnapshotCandidate(candidate); }}
-                                        >
-                                            <img
-                                                src={candidate.thumbnail_url ?? undefined}
-                                                alt=""
-                                                loading="lazy"
-                                                class="h-9 w-12 rounded-md object-cover"
-                                            />
-                                        </button>
-                                    {/each}
-                                </div>
-                                <div
-                                    class="snapshot-strip-fade pointer-events-none absolute inset-y-2 right-0 w-14 bg-gradient-to-r from-transparent to-slate-950/80 transition-opacity duration-150 motion-reduce:transition-none"
-                                    data-snapshot-strip-fade
-                                    aria-hidden="true"
-                                ></div>
-                            </div>
-                            {#if pendingSnapshotMode}
-                                <button
-                                    type="button"
-                                    class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white/80 transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400"
-                                    title={$_('common.cancel', { default: 'Cancel' })}
-                                    aria-label={$_('detection.snapshot_cancel_preview', { default: 'Cancel frame preview' })}
-                                    onclick={(event) => { event.stopPropagation(); cancelSnapshotPreview(); }}
-                                >
-                                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                                        <path d="M18 6 6 18M6 6l12 12" stroke-linecap="round" />
-                                    </svg>
-                                </button>
-                                <button
-                                    type="button"
-                                    class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-500 text-slate-950 shadow-lg transition-colors hover:bg-brand-400 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-                                    disabled={!canSaveSnapshotSelection}
-                                    title={$_('detection.snapshot_save', { default: 'Save this frame' })}
-                                    aria-label={$_('detection.snapshot_save', { default: 'Save this frame' })}
-                                    onclick={(event) => { event.stopPropagation(); void handleSaveSnapshotSelection(); }}
-                                >
-                                    {#if snapshotApplyPending}
-                                        <span class="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                    {:else}
-                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-                                            <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
-                                        </svg>
-                                    {/if}
-                                </button>
-                            {:else if canGenerateSnapshotCandidates}
-                                <button
-                                    type="button"
-                                    class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-brand-300/35 bg-brand-500/15 text-brand-100 transition-colors hover:bg-brand-500/25 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-300"
-                                    disabled={snapshotGeneratePending}
-                                    title={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
-                                    aria-label={$_('detection.snapshot_regenerate', { default: 'Regenerate snapshots' })}
-                                    onclick={(event) => { event.stopPropagation(); void handleGenerateSnapshotCandidates(); }}
-                                >
-                                    {#if snapshotGeneratePending}
-                                        <span class="inline-block h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
-                                    {:else}
-                                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-                                            <path d="M20 6v5h-5M4 18v-5h5M6.1 9a7 7 0 0 1 11.5-2.6L20 11M4 13l2.4 4.6A7 7 0 0 0 17.9 15" stroke-linecap="round" stroke-linejoin="round" />
-                                        </svg>
-                                    {/if}
-                                </button>
-                            {/if}
-                        </div>
+                    <!-- One ordered strip of the visit's moments (#256). Where a frame came from is not
+                         shown; choosing one changes the photograph and nothing else. -->
+                    <div data-detection-inline-frame-picker>
+                        <FrameStrip
+                            moments={frameMoments}
+                            current={activeMoment}
+                            {primaryName}
+                            loading={snapshotCandidatesLoading}
+                            applyingKey={applyingMomentKey}
+                            busy={snapshotApplyPending || snapshotGeneratePending}
+                            asRecordedUrl={originalFrigateSnapshotAvailable ? originalFrigateSnapshotUrl : null}
+                            canRegenerate={Boolean(snapshotStatus?.can_generate_hq_bird_crop)}
+                            regeneratePending={snapshotGeneratePending}
+                            onuse={(moment) => { void handleUseMoment(moment); }}
+                            onregenerate={() => { void handleGenerateSnapshotCandidates(); }}
+                        />
                     </div>
                             {/if}
                         </div>
@@ -3687,18 +3666,12 @@
             {/if}
 
             {#if hasOwnerDetectionActions}
-                <div class="flex gap-2">
-                    {#if !isManualObservation}
-                        <button
-                            onclick={handleReclassifyClick}
-                            class="flex-1 py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors"
-                        >
-                            {$_('actions.reclassify')}
-                        </button>
-                    {/if}
-
+                <!-- The two decisions an owner makes about an identification, then the retry.
+                     Each control names its effect. -->
+                <div class="flex flex-col gap-2 sm:flex-row sm:flex-wrap" data-detection-identification-actions>
                     {#if !detection.manual_tagged && !isUnknownSpecies}
                         <button
+                            type="button"
                             onclick={() => handleManualTag({
                                 id: detection.display_name,
                                 display_name: detection.display_name,
@@ -3706,7 +3679,7 @@
                                 common_name: detection.common_name ?? null
                             } as SearchResult)}
                             disabled={updatingTag}
-                            class="flex-1 rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white transition-colors hover:bg-brand-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 disabled:opacity-50"
+                            class="btn btn-primary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"
                             data-detection-confirm
                         >
                             {updatingTag
@@ -3718,17 +3691,27 @@
                         </button>
                     {/if}
 
-                    <div class="relative flex-1">
+                    <button
+                        type="button"
+                        onclick={() => showTagDropdown = !showTagDropdown}
+                        disabled={updatingTag}
+                        class="btn btn-secondary min-h-11 w-full px-4 text-sm sm:w-auto sm:flex-1"
+                    >
+                        {updatingTag
+                            ? $_('common.saving')
+                            : $_('actions.pick_species', { default: 'Pick a different species' })}
+                    </button>
+
+                    {#if !isManualObservation}
                         <button
-                            onclick={() => showTagDropdown = !showTagDropdown}
-                            disabled={updatingTag}
-                            class="w-full py-3 px-4 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-50"
+                            type="button"
+                            onclick={handleReclassifyClick}
+                            class="btn btn-ghost min-h-11 w-full px-4 text-sm sm:w-auto"
+                            title={$_('actions.reclassify')}
                         >
-                            {updatingTag
-                                ? $_('common.saving')
-                                : $_('actions.pick_species', { default: 'Pick a different species' })}
+                            {$_('detection.score_again', { default: 'Score again' })}
                         </button>
-                    </div>
+                    {/if}
                 </div>
             {/if}
 

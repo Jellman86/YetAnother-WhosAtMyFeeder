@@ -1,12 +1,15 @@
 <script lang="ts">
-    import TopSpeciesCollage from '../components/TopSpeciesCollage.svelte';
+    import SpeciesShowcase from '../components/SpeciesShowcase.svelte';
+    import { buildShowcaseRows, SHOWCASE_TILES } from '../leaderboard/showcase';
     import { onDestroy, tick } from 'svelte';
     import {
         analyzeLeaderboardGraph,
         fetchDetectionsActivityHeatmapSpan,
         fetchDetectionsTimelineSpan,
         fetchLeaderboardAnalysis,
+        fetchLeaderboardPortraits,
         fetchLeaderboardSpecies,
+        type LeaderboardPortrait,
         fetchSpecies,
         fetchSpeciesInfo,
         fetchAudioSpeciesLeaderboard,
@@ -182,6 +185,52 @@
 
     let leaderboardRows = $derived(leaderboardTableRows(sourceMode));
     let sourceLeader = $derived(leaderboardRows[0] ?? null);
+    // This feeder's own photograph of each leading species, fetched beside the standings and
+    // never blocking them; a species without one shows its reference image, labelled.
+    let portraits = $state<LeaderboardPortrait[]>([]);
+    $effect(() => {
+        const requestedSpan = span;
+        const controller = new AbortController();
+        portraits = [];
+        void fetchLeaderboardPortraits(requestedSpan, controller.signal)
+            .then((response) => {
+                if (!controller.signal.aborted) portraits = response.portraits;
+            })
+            .catch((error) => {
+                if (controller.signal.aborted) return;
+                logger.warn('Leaderboard portraits unavailable', { message: getErrorMessage(error) });
+            });
+        return () => controller.abort();
+    });
+    let showcaseRows = $derived(
+        buildShowcaseRows(leaderboardRows, {
+            span,
+            sourceMode,
+            portraits,
+            referenceFor: (name) => ({
+                url: getCachedSpeciesInfo(name)?.thumbnail_url ?? null,
+                source: getCachedSpeciesInfo(name)?.source ?? null
+            })
+        })
+    );
+    $effect(() => {
+        // The reference image is what stands in for a species with no crop of its own.
+        for (const row of showcaseRows) void loadSpeciesInfo(row.key);
+    });
+    let showcaseEyebrow = $derived(
+        sourceMode === 'both'
+            ? $_('leaderboard.most_active', { default: 'Most active' })
+            : span === 'day'
+              ? $_('leaderboard.most_detected_day', { default: 'Most detected today' })
+              : span === 'week'
+                ? $_('leaderboard.most_detected_week', { default: 'Most detected this week' })
+                : span === 'all'
+                  ? $_('leaderboard.most_detected_all', { default: 'Most detected ever' })
+                  : $_('leaderboard.most_detected_month', { default: 'Most detected this month' })
+    );
+    function scrollToRankings(): void {
+        document.querySelector('[data-leaderboard-rankings]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
     let topByTrend = $derived(
         span === 'all'
             ? null
@@ -1552,17 +1601,22 @@
         </div>
     {:else}
         {#if sourceMode !== 'heard' && sourceLeader && sourceLeader.count > 0}
-            <TopSpeciesCollage
-                species={sourceLeader.species}
-                displayName={sourceLeader.displayName}
-                subName={sourceLeader.subName}
-                seenCount={sourceLeader.count}
-                heardCount={sourceLeader.heard_count}
-                {span}
-                sourceMode={sourceMode}
-                windowStart={leaderboardWindow?.start ?? null}
-                windowEnd={leaderboardWindow?.end ?? null}
-                onopen={() => (selectedSpecies = sourceLeader.species)}
+            <SpeciesShowcase
+                rows={showcaseRows}
+                eyebrow={showcaseEyebrow}
+                rankEyebrow={(rank) => span === 'day'
+                    ? $_('leaderboard.showcase_rank_day', { values: { rank }, default: 'Rank {rank} today' })
+                    : span === 'week'
+                      ? $_('leaderboard.showcase_rank_week', { values: { rank }, default: 'Rank {rank} this week' })
+                      : span === 'all'
+                        ? $_('leaderboard.showcase_rank_all', { values: { rank }, default: 'Rank {rank} of all time' })
+                        : $_('leaderboard.showcase_rank_month', { values: { rank }, default: 'Rank {rank} this month' })}
+                countLabel={(count) => sourceMode === 'both'
+                    ? $_('leaderboard.showcase_visits_and_calls', { values: { count }, default: 'visits and calls' })
+                    : $_('leaderboard.showcase_visits', { values: { count }, default: 'visits' })}
+                moreCount={Math.max(0, leaderboardRows.length - (SHOWCASE_TILES + 1))}
+                onopen={(key) => (selectedSpecies = key)}
+                onmore={scrollToRankings}
             />
         {/if}
 

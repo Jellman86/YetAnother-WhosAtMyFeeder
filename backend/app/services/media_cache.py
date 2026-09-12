@@ -36,6 +36,19 @@ _MIN_VALID_CLIP_BYTES = 512
 RecordingClipListener = Callable[[str], Awaitable[None]]
 
 
+def sanitize_event_id(event_id: str) -> str:
+    """An event id as a safe file name: alphanumerics, dash, underscore and dot only.
+
+    Shared by the media cache and the favourite archive so both use one rule.
+    """
+    safe_id = "".join(c for c in event_id if c.isalnum() or c in "-_.")
+    if not safe_id or safe_id in (".", ".."):
+        raise ValueError(f"Invalid event_id: {event_id}")
+    if safe_id.startswith("."):
+        raise ValueError(f"Event ID cannot start with dot: {event_id}")
+    return safe_id
+
+
 def _unlink_if_present(path: Path) -> None:
     path.unlink(missing_ok=True)
 
@@ -154,19 +167,7 @@ class MediaCacheService:
         Raises:
             ValueError: If event_id is empty or invalid after sanitization
         """
-        # Remove any path separators and parent directory references
-        # Only allow alphanumeric, dash, underscore, and dot
-        safe_id = "".join(c for c in event_id if c.isalnum() or c in "-_.")
-
-        # Reject empty strings and common traversal patterns
-        if not safe_id or safe_id in (".", ".."):
-            raise ValueError(f"Invalid event_id: {event_id}")
-
-        # Additional check: ensure no leading dots (hidden files)
-        if safe_id.startswith("."):
-            raise ValueError(f"Event ID cannot start with dot: {event_id}")
-
-        return safe_id
+        return sanitize_event_id(event_id)
 
     def _contained_path(self, base: Path, filename: str, event_id: str) -> Path:
         """Join base/filename and prove containment before any filesystem access.
@@ -330,6 +331,14 @@ class MediaCacheService:
         path = self._snapshot_metadata_path(event_id)
         encoded = json.dumps(metadata, sort_keys=True).encode("utf-8")
         await self._write_bytes_atomic(path, encoded)
+
+    async def get_snapshot_path(self, event_id: str) -> Optional[Path]:
+        """Where the stored photograph lives, or None when there is none."""
+        try:
+            path = self._snapshot_path(event_id)
+        except ValueError:
+            return None
+        return path if await aiofiles.os.path.exists(path) else None
 
     async def get_snapshot_metadata(self, event_id: str) -> Optional[dict]:
         """Read cached snapshot metadata, if present and valid."""
@@ -962,20 +971,35 @@ class MediaCacheService:
             log.info("Empty file cleanup complete", **stats)
         return stats
 
-    async def cleanup_old_media(self, retention_days: int, protected_event_ids: Optional[set[str]] = None) -> dict:
-        return await asyncio.to_thread(self._cleanup_old_media_sync, retention_days, protected_event_ids)
+    async def cleanup_old_media(
+        self,
+        retention_days: int,
+        protected_event_ids: Optional[set[str]] = None,
+        protected_snapshot_event_ids: Optional[set[str]] = None,
+    ) -> dict:
+        return await asyncio.to_thread(
+            self._cleanup_old_media_sync, retention_days, protected_event_ids, protected_snapshot_event_ids
+        )
 
-    def _cleanup_old_media_sync(self, retention_days: int, protected_event_ids: Optional[set[str]] = None) -> dict:
+    def _cleanup_old_media_sync(
+        self,
+        retention_days: int,
+        protected_event_ids: Optional[set[str]] = None,
+        protected_snapshot_event_ids: Optional[set[str]] = None,
+    ) -> dict:
         """Delete cached media older than retention period.
 
         Args:
             retention_days: Delete files older than this many days
-            protected_event_ids: Event IDs exempt from age-based media deletion
+            protected_event_ids: Event IDs exempt from age-based media deletion (favourites)
+            protected_snapshot_event_ids: Event IDs whose snapshot alone is exempt (the
+                per-species floor, #178); their clips and previews age out as usual
 
         Returns:
             Dict with cleanup stats
         """
         protected_ids = protected_event_ids or set()
+        protected_snapshot_ids = protected_ids | (protected_snapshot_event_ids or set())
 
         # Always clean up empty/corrupt files first
         empty_stats = self._cleanup_empty_files_sync()
@@ -1003,7 +1027,7 @@ class MediaCacheService:
         # Clean old snapshots
         for path in SNAPSHOTS_DIR.glob("*.jpg"):
             try:
-                if path.stem in protected_ids:
+                if path.stem in protected_snapshot_ids:
                     stats["protected_skipped"] += 1
                     continue
                 if path.stat().st_mtime < cutoff_timestamp:

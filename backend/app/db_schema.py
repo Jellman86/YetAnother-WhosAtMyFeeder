@@ -281,6 +281,14 @@ detection_favorites = Table(
     Column("detection_id", Integer, ForeignKey("detections.id", ondelete="CASCADE"), nullable=False, unique=True),
     Column("created_by", String, nullable=True),
     Column("created_at", TIMESTAMP, server_default=func.now(), nullable=False),
+    # The archive's state per asset (#178): pending, durable, unavailable, failed.
+    Column("archive_snapshot_state", String, nullable=False, server_default="pending"),
+    Column("archive_clip_state", String, nullable=False, server_default="pending"),
+    Column("archive_bytes", Integer, nullable=False, server_default="0"),
+    Column("archive_attempts", Integer, nullable=False, server_default="0"),
+    Column("archive_error", String, nullable=True),
+    Column("archived_at", TIMESTAMP, nullable=True),
+    Column("archive_updated_at", TIMESTAMP, nullable=True),
 )
 
 Index("idx_detection_favorites_detection_id", detection_favorites.c.detection_id)

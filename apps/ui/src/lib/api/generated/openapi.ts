@@ -98,6 +98,20 @@ export interface components {
     status: string;
     total_candidates?: number | null;
 };
+    ArchiveStatusResponse: {
+    archived_at?: string | null;
+    attempts?: number;
+    bytes?: number;
+    clip_state?: string | null;
+    error?: string | null;
+    event_id: string;
+    has_recording?: boolean;
+    is_favorite: boolean;
+    retry_at?: string | null;
+    snapshot_state?: string | null;
+    state?: string | null;
+    updated_at?: string | null;
+};
     AudioContextDetectionResponse: {
     birdnet_id?: number | null;
     confidence: number;
@@ -363,6 +377,14 @@ export interface components {
     status: string;
 };
     CacheStatsResponse: {
+    archive_count?: number;
+    archive_durable?: number;
+    archive_failed?: number;
+    archive_favorites?: number;
+    archive_pending?: number;
+    archive_size_bytes?: number;
+    archive_size_mb?: number;
+    archive_unavailable?: number;
     cache_clips: boolean;
     cache_enabled: boolean;
     cache_snapshots: boolean;
@@ -451,6 +473,13 @@ export interface components {
     provider_common_name?: string | null;
     scientific_name: string;
 };
+    CommunityStatsResponse: {
+    active_installs?: number | null;
+    checked_at?: string | null;
+    enabled: boolean;
+    error?: string | null;
+    total_installs?: number | null;
+};
     ConnectivityResponse: {
     frigate: components['schemas']['ConnectivityResult'];
     inaturalist: components['schemas']['ConnectivityResult'];
@@ -530,6 +559,7 @@ export interface components {
     Detection: {
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
+    archive_state?: string | null;
     audio_confirmed?: boolean;
     audio_context_species?: Array<string> | null;
     audio_score?: number | null;
@@ -576,6 +606,7 @@ export interface components {
     weather_wind_speed?: number | null;
 };
     DetectionListItemResponse: {
+    archive_state?: string | null;
     audio_confirmed?: boolean;
     audio_context_species?: Array<string> | null;
     audio_score?: number | null;
@@ -602,6 +633,7 @@ export interface components {
     DetectionResponse: {
     ai_analysis?: string | null;
     ai_analysis_timestamp?: string | null;
+    archive_state?: string | null;
     audio_confirmed?: boolean;
     audio_context_species?: Array<string> | null;
     audio_score?: number | null;
@@ -806,6 +838,7 @@ export interface components {
     filtered: boolean;
 };
     FavoriteResponse: {
+    archive_state?: string | null;
     event_id: string;
     is_favorite: boolean;
     status: string;
@@ -966,6 +999,17 @@ export interface components {
     LeaderboardAnalysisResponse: {
     analysis: string;
     analysis_timestamp: string;
+};
+    LeaderboardPortraitResponse: {
+    frigate_event: string;
+    image_url: string;
+    scientific_name?: string | null;
+    species: string;
+    taxa_id?: number | null;
+};
+    LeaderboardPortraitsResponse: {
+    portraits: Array<components['schemas']['LeaderboardPortraitResponse']>;
+    span: "day" | "week" | "month" | "all";
 };
     LeaderboardSpeciesItemResponse: {
     common_name?: string | null;
@@ -1384,6 +1428,7 @@ export interface components {
     media_cache_high_quality_event_snapshot_bird_crop?: boolean;
     media_cache_high_quality_event_snapshot_jpeg_quality?: number;
     media_cache_high_quality_event_snapshots?: boolean;
+    media_cache_per_species_minimum?: number;
     media_cache_retention_days?: number;
     media_cache_snapshots?: boolean;
     media_integrity_scan_batch_size?: number;
@@ -1583,6 +1628,7 @@ export interface components {
     media_cache_high_quality_event_snapshot_bird_crop?: boolean;
     media_cache_high_quality_event_snapshot_jpeg_quality?: number;
     media_cache_high_quality_event_snapshots?: boolean;
+    media_cache_per_species_minimum?: number;
     media_cache_retention_days?: number;
     media_cache_snapshots?: boolean;
     media_integrity_scan_batch_size?: number;
@@ -1683,6 +1729,19 @@ export interface components {
     SetupState: {
     initial_setup_complete: boolean;
     sections: Array<components['schemas']['SetupSectionState']>;
+};
+    ShowcaseItem: {
+    camera_name?: string | null;
+    common_name?: string | null;
+    detection_time: string;
+    display_name: string;
+    frigate_event: string;
+    scientific_name?: string | null;
+    score: number;
+    taxa_id?: number | null;
+};
+    ShowcaseResponse: {
+    items: Array<components['schemas']['ShowcaseItem']>;
 };
     SnapshotApplyRequest: {
     candidate_id?: string | null;
@@ -2035,6 +2094,37 @@ export interface components {
 }
 
 export interface paths {
+  "/api/about/community": {
+    get: {
+      operationId: "get_about_community_api_about_community_get";
+      path: never;
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['CommunityStatsResponse'];
+    };
+  };
+  "/api/about/showcase": {
+    get: {
+      operationId: "get_about_showcase_api_about_showcase_get";
+      path: never;
+      query: {
+    limit?: number;
+};
+      requestBody: unknown;
+      response: components['schemas']['ShowcaseResponse'];
+    };
+  };
+  "/api/about/showcase/{event_id}.jpg": {
+    get: {
+      operationId: "get_about_reel_image_api_about_showcase__event_id__jpg_get";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: unknown;
+    };
+  };
   "/api/audio/clip/{birdnet_id}": {
     get: {
       operationId: "get_audio_clip_api_audio_clip__birdnet_id__get";
@@ -2784,6 +2874,28 @@ export interface paths {
       response: components['schemas']['AIAnalysisResponse'];
     };
   };
+  "/api/events/{event_id}/archive": {
+    get: {
+      operationId: "get_event_archive_api_events__event_id__archive_get";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ArchiveStatusResponse'];
+    };
+  };
+  "/api/events/{event_id}/archive/retry": {
+    post: {
+      operationId: "retry_event_archive_api_events__event_id__archive_retry_post";
+      path: {
+    event_id: string;
+};
+      query: never;
+      requestBody: unknown;
+      response: components['schemas']['ArchiveStatusResponse'];
+    };
+  };
   "/api/events/{event_id}/classification-status": {
     get: {
       operationId: "get_event_classification_status_api_events__event_id__classification_status_get";
@@ -3176,6 +3288,18 @@ export interface paths {
       query: never;
       requestBody: components['schemas']['LeaderboardAnalysisRequest'];
       response: components['schemas']['LeaderboardAnalysisResponse'];
+    };
+  };
+  "/api/leaderboard/portraits": {
+    get: {
+      operationId: "get_leaderboard_portraits_api_leaderboard_portraits_get";
+      path: never;
+      query: {
+    limit?: number;
+    span?: "day" | "week" | "month" | "all";
+};
+      requestBody: unknown;
+      response: components['schemas']['LeaderboardPortraitsResponse'];
     };
   };
   "/api/leaderboard/species": {

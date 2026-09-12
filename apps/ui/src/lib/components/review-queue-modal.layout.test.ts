@@ -41,12 +41,43 @@ describe('review queue walk-through', () => {
         expect(modalSource).toMatch(
             /findMatchingFullFrameCandidate\(\s*response\.candidates \?\? \[\],\s*preferredCrop\?\.candidate_id \?\? null\s*\)/
         );
-        expect(modalSource).toContain('dashboard.review_session.crop');
-        expect(modalSource).toContain('dashboard.review_session.full_frame');
-        expect(modalSource).toContain('aria-pressed={view === \'crop\'}');
-        expect(modalSource).toContain("{#if crop?.thumbnail_url && fullFrame?.thumbnail_url}");
         // Crops only exist for scanned events, so their absence is stated, not hidden.
         expect(modalSource).toContain('dashboard.review_session.no_crop');
+    });
+
+    it('peeks at the whole scene like the detection record, with no switch and no strategy name (#256)', () => {
+        expect(modalSource).toContain("import { WholeScenePeek } from '../utils/whole-scene-peek.svelte'");
+        expect(modalSource).toContain('data-review-whole-scene-peek');
+        expect(modalSource).toContain('onmouseenter={wholeScene.enter}');
+        expect(modalSource).toContain('onfocus={wholeScene.show}');
+        expect(modalSource).toContain('onclick={wholeScene.toggle}');
+        expect(modalSource).toContain('wholeScene.measure(imageEl, crop?.crop_box)');
+        expect(modalSource).toContain('detection.whole_scene_chip_pinned');
+        expect(modalSource).not.toContain('dashboard.review_session.crop\'');
+        expect(modalSource).not.toContain('dashboard.review_session.full_frame');
+        // "sliced_2x2" is how the crop was found, not something a reviewer decides with.
+        expect(modalSource).not.toContain('crop_strategy');
+        // Escape unpins before it closes the queue.
+        expect(modalSource).toMatch(/if \(wholeScene\.pinned\) \{\s*wholeScene\.reset\(\);\s*return;/);
+    });
+
+    it('shows every frame kept from the visit in the same strip as the record, and choosing one changes only the photograph', () => {
+        expect(modalSource).toContain("import FrameStrip from './FrameStrip.svelte'");
+        expect(modalSource).toContain('groupCandidatesIntoMoments(candidates.filter((item) => item.thumbnail_url || item.image_url))');
+        expect(modalSource).toContain('data-review-frame-strip');
+        expect(modalSource).toContain('current={activeMoment}');
+        expect(modalSource).toContain("applySnapshotCandidate(eventId, { mode: 'candidate', candidate_id: candidate.candidate_id })");
+        // The photograph is whatever is chosen, crop or whole scene; the strip reflects it after a change.
+        expect(modalSource).toContain('photograph = selected ?? preferredCrop;');
+        expect(modalSource).toContain('await loadCandidates(eventId, () => session.current?.frigate_event !== eventId);');
+        // Regeneration stays on the full record, where the scan's status is shown.
+        expect(modalSource).not.toContain('onregenerate=');
+    });
+
+    it('keeps the media block its own height on phones so it never overlaps the rail', () => {
+        expect(modalSource).toContain('flex min-h-0 flex-1 flex-col overflow-y-auto md:grid');
+        expect(modalSource).toContain('flex shrink-0 flex-col bg-slate-950 md:min-h-0 md:justify-center');
+        expect(modalSource).toContain('flex flex-col gap-3 p-4 md:min-h-0 md:overflow-y-auto');
     });
 
     it('offers a way out of every item, including one that is not a bird', () => {

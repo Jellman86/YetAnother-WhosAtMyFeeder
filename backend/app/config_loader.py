@@ -301,6 +301,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
             os.environ.get("MEDIA_CACHE__HIGH_QUALITY_EVENT_SNAPSHOT_JPEG_QUALITY", "95")
         ),
         "retention_days": int(os.environ.get("MEDIA_CACHE__RETENTION_DAYS", "0")),
+        "per_species_minimum": int(os.environ.get("MEDIA_CACHE__PER_SPECIES_MINIMUM", "0")),
     }
 
     # Location settings
@@ -797,6 +798,7 @@ def load_settings_instance(settings_cls: type[Any], config_path: Path) -> Any:
         high_quality_event_snapshot_bird_crop=media_cache_data["high_quality_event_snapshot_bird_crop"],
         high_quality_event_snapshot_jpeg_quality=media_cache_data["high_quality_event_snapshot_jpeg_quality"],
         retention_days=media_cache_data["retention_days"],
+        per_species_minimum=media_cache_data["per_species_minimum"],
     )
     log.info("BirdWeather config", enabled=birdweather_data["enabled"])
     log.info("eBird config", enabled=ebird_data["enabled"])

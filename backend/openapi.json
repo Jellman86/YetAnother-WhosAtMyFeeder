@@ -712,6 +712,116 @@
         "title": "AnalyzeUnknownsResponse",
         "type": "object"
       },
+      "ArchiveStatusResponse": {
+        "properties": {
+          "archived_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archived At"
+          },
+          "attempts": {
+            "default": 0,
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "bytes": {
+            "default": 0,
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "clip_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clip State"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "event_id": {
+            "title": "Event Id",
+            "type": "string"
+          },
+          "has_recording": {
+            "default": false,
+            "title": "Has Recording",
+            "type": "boolean"
+          },
+          "is_favorite": {
+            "title": "Is Favorite",
+            "type": "boolean"
+          },
+          "retry_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retry At"
+          },
+          "snapshot_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snapshot State"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "event_id",
+          "is_favorite"
+        ],
+        "title": "ArchiveStatusResponse",
+        "type": "object"
+      },
       "AudioContextDetectionResponse": {
         "properties": {
           "birdnet_id": {
@@ -2311,6 +2421,46 @@
       },
       "CacheStatsResponse": {
         "properties": {
+          "archive_count": {
+            "default": 0,
+            "title": "Archive Count",
+            "type": "integer"
+          },
+          "archive_durable": {
+            "default": 0,
+            "title": "Archive Durable",
+            "type": "integer"
+          },
+          "archive_failed": {
+            "default": 0,
+            "title": "Archive Failed",
+            "type": "integer"
+          },
+          "archive_favorites": {
+            "default": 0,
+            "title": "Archive Favorites",
+            "type": "integer"
+          },
+          "archive_pending": {
+            "default": 0,
+            "title": "Archive Pending",
+            "type": "integer"
+          },
+          "archive_size_bytes": {
+            "default": 0,
+            "title": "Archive Size Bytes",
+            "type": "integer"
+          },
+          "archive_size_mb": {
+            "default": 0.0,
+            "title": "Archive Size Mb",
+            "type": "number"
+          },
+          "archive_unavailable": {
+            "default": 0,
+            "title": "Archive Unavailable",
+            "type": "integer"
+          },
           "cache_clips": {
             "title": "Cache Clips",
             "type": "boolean"
@@ -2898,6 +3048,63 @@
         "title": "CommonNameOverrideResponse",
         "type": "object"
       },
+      "CommunityStatsResponse": {
+        "properties": {
+          "active_installs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Installs"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "total_installs": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total Installs"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "CommunityStatsResponse",
+        "type": "object"
+      },
       "ConnectivityResponse": {
         "properties": {
           "frigate": {
@@ -3481,6 +3688,17 @@
             ],
             "title": "Ai Analysis Timestamp"
           },
+          "archive_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive State"
+          },
           "audio_confirmed": {
             "default": false,
             "title": "Audio Confirmed",
@@ -3906,6 +4124,17 @@
       },
       "DetectionListItemResponse": {
         "properties": {
+          "archive_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive State"
+          },
           "audio_confirmed": {
             "default": false,
             "title": "Audio Confirmed",
@@ -4103,6 +4332,17 @@
               }
             ],
             "title": "Ai Analysis Timestamp"
+          },
+          "archive_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive State"
           },
           "audio_confirmed": {
             "default": false,
@@ -5551,6 +5791,17 @@
       "FavoriteResponse": {
         "description": "Response for favorite/unfavorite action.",
         "properties": {
+          "archive_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Archive State"
+          },
           "event_id": {
             "title": "Event Id",
             "type": "string"
@@ -6617,6 +6868,78 @@
           "analysis_timestamp"
         ],
         "title": "LeaderboardAnalysisResponse",
+        "type": "object"
+      },
+      "LeaderboardPortraitResponse": {
+        "properties": {
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "image_url": {
+            "title": "Image Url",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "species": {
+            "title": "Species",
+            "type": "string"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "species",
+          "frigate_event",
+          "image_url"
+        ],
+        "title": "LeaderboardPortraitResponse",
+        "type": "object"
+      },
+      "LeaderboardPortraitsResponse": {
+        "properties": {
+          "portraits": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardPortraitResponse"
+            },
+            "title": "Portraits",
+            "type": "array"
+          },
+          "span": {
+            "enum": [
+              "day",
+              "week",
+              "month",
+              "all"
+            ],
+            "title": "Span",
+            "type": "string"
+          }
+        },
+        "required": [
+          "span",
+          "portraits"
+        ],
+        "title": "LeaderboardPortraitsResponse",
         "type": "object"
       },
       "LeaderboardSpeciesItemResponse": {
@@ -9895,6 +10218,11 @@
             "title": "Media Cache High Quality Event Snapshots",
             "type": "boolean"
           },
+          "media_cache_per_species_minimum": {
+            "default": 0,
+            "title": "Media Cache Per Species Minimum",
+            "type": "integer"
+          },
           "media_cache_retention_days": {
             "default": 0,
             "title": "Media Cache Retention Days",
@@ -12055,6 +12383,14 @@
             "title": "Media Cache High Quality Event Snapshots",
             "type": "boolean"
           },
+          "media_cache_per_species_minimum": {
+            "default": 0,
+            "description": "Newest detections per species kept out of age cleanup (0 = off)",
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Media Cache Per Species Minimum",
+            "type": "integer"
+          },
           "media_cache_retention_days": {
             "default": 0,
             "description": "Days to keep cached media (0 = follow detection)",
@@ -13104,6 +13440,94 @@
           "sections"
         ],
         "title": "SetupState",
+        "type": "object"
+      },
+      "ShowcaseItem": {
+        "properties": {
+          "camera_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Camera Name"
+          },
+          "common_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Common Name"
+          },
+          "detection_time": {
+            "title": "Detection Time",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "frigate_event": {
+            "title": "Frigate Event",
+            "type": "string"
+          },
+          "scientific_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scientific Name"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "taxa_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Taxa Id"
+          }
+        },
+        "required": [
+          "frigate_event",
+          "display_name",
+          "detection_time",
+          "score"
+        ],
+        "title": "ShowcaseItem",
+        "type": "object"
+      },
+      "ShowcaseResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShowcaseItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ShowcaseResponse",
         "type": "object"
       },
       "SnapshotApplyRequest": {
@@ -15394,10 +15818,151 @@
   },
   "info": {
     "title": "Yet Another WhosAtMyFeeder API",
-    "version": "2.19.7"
+    "version": "2.20.0"
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/about/community": {
+      "get": {
+        "description": "How many installs reported to the telemetry service this week. Cached for an hour.",
+        "operationId": "get_about_community_api_about_community_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommunityStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get About Community",
+        "tags": [
+          "about"
+        ]
+      }
+    },
+    "/api/about/showcase": {
+      "get": {
+        "description": "One recent crop per species, newest first. Guests see the same window as the Explorer.",
+        "operationId": "get_about_showcase_api_about_showcase_get",
+        "parameters": [
+          {
+            "description": "Photographs to return",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 12,
+              "description": "Photographs to return",
+              "maximum": 40,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShowcaseResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get About Showcase",
+        "tags": [
+          "about"
+        ]
+      }
+    },
+    "/api/about/showcase/{event_id}.jpg": {
+      "get": {
+        "description": "The stored photograph at card size, under the same access rules as the photograph.",
+        "operationId": "get_about_reel_image_api_about_showcase__event_id__jpg_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "maxLength": 64,
+              "minLength": 1,
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get About Reel Image",
+        "tags": [
+          "about"
+        ]
+      }
+    },
     "/api/audio/clip/{birdnet_id}": {
       "get": {
         "description": "Proxy a BirdNET-Go audio clip so the browser can play the matched\naudio inline in the detection modal.\n\nForwards the client's Range header so HTML5 ``<audio controls>`` can\nscrub. Clips are typically ~250 KB AAC/m4a; buffered in memory rather\nthan streamed because the size is bounded and the existing Frigate\nproxy uses the same shape.",
@@ -19656,6 +20221,108 @@
         ]
       }
     },
+    "/api/events/{event_id}/archive": {
+      "get": {
+        "description": "What the favourite's archive holds, per asset. Owner only.",
+        "operationId": "get_event_archive_api_events__event_id__archive_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Event Archive"
+      }
+    },
+    "/api/events/{event_id}/archive/retry": {
+      "post": {
+        "description": "Try a failed archive again now, with a clean attempt count. Owner only.",
+        "operationId": "retry_event_archive_api_events__event_id__archive_retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArchiveStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Retry Event Archive"
+      }
+    },
     "/api/events/{event_id}/classification-status": {
       "get": {
         "description": "Get current video classification status for a single event. Owner only.",
@@ -21625,6 +22292,80 @@
         "tags": [
           "ai"
         ]
+      }
+    },
+    "/api/leaderboard/portraits": {
+      "get": {
+        "description": "This feeder's own photograph of each leading species: the newest stored crop.\n\nA whole scene at tile size is a picture of a feeder, so only crops count, decided by the\nsame provenance the classifier trusts. A species without one is left out; the page shows\na reference image in its place and says so. Guests see only the shared window.",
+        "operationId": "get_leaderboard_portraits_api_leaderboard_portraits_get",
+        "parameters": [
+          {
+            "description": "The leaderboard's window",
+            "in": "query",
+            "name": "span",
+            "required": false,
+            "schema": {
+              "default": "month",
+              "description": "The leaderboard's window",
+              "enum": [
+                "day",
+                "week",
+                "month",
+                "all"
+              ],
+              "title": "Span",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Ranked species to find a photograph for",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 9,
+              "description": "Ranked species to find a photograph for",
+              "maximum": 24,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeaderboardPortraitsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get Leaderboard Portraits"
       }
     },
     "/api/leaderboard/species": {

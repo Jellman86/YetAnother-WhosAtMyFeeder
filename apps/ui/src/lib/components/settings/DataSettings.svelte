@@ -19,6 +19,7 @@
         autoPurgeMissingSnapshots = $bindable(false),
         autoAnalyzeUnknowns = $bindable(false),
         cacheRetentionDays = $bindable(0),
+        cachePerSpeciesMinimum = $bindable(0),
         cleaningUp,
         clearingFavorites,
         purgingMissingMedia,
@@ -76,6 +77,7 @@
         autoPurgeMissingSnapshots: boolean;
         autoAnalyzeUnknowns: boolean;
         cacheRetentionDays: number;
+        cachePerSpeciesMinimum: number;
         cleaningUp: boolean;
         clearingFavorites: boolean;
         purgingMissingMedia: boolean;
@@ -392,6 +394,43 @@
                     <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.cache_size')}</span>
                     <span class="text-sm font-black text-slate-900 dark:text-white">{cacheStats?.total_size_mb ?? 0} MB</span>
                 </div>
+
+                <!-- The archive is not the cache: clearing the cache leaves it alone (#178). -->
+                <div class="p-4 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-700/50 flex flex-col gap-1" data-archive-usage>
+                    <div class="flex items-center justify-between gap-3">
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">{$_('settings.data.archive_usage', { default: 'Archived favourites' })}</span>
+                        <span class="text-sm font-black text-slate-900 dark:text-white">
+                            {$_('settings.data.archive_usage_detail', {
+                                values: { count: cacheStats?.archive_durable ?? 0, size: `${cacheStats?.archive_size_mb ?? 0} MB` },
+                                default: '{count} kept, {size}'
+                            })}
+                        </span>
+                    </div>
+                    {#if (cacheStats?.archive_failed ?? 0) > 0}
+                        <p class="text-xs text-rose-600 dark:text-rose-300" data-archive-failed>
+                            {$_('settings.data.archive_failed_count', {
+                                values: { count: cacheStats?.archive_failed ?? 0 },
+                                default: '{count} could not be archived. Open the visit to try again.'
+                            })}
+                        </p>
+                    {/if}
+                </div>
+
+                <SettingsRow
+                    labelId="setting-cache-species-floor"
+                    label={$_('settings.data.per_species_minimum', { default: 'Keep the newest per species' })}
+                    description={$_('settings.data.per_species_minimum_help', { default: 'The newest visits of each species, and their cached photographs, stay through age cleanup. 0 turns this off. Clips are not held.' })}
+                >
+                    <input
+                        type="number"
+                        min="0"
+                        max="10000"
+                        step="1"
+                        bind:value={cachePerSpeciesMinimum}
+                        aria-labelledby="setting-cache-species-floor"
+                        class="w-24 rounded-xl border border-slate-200 bg-white px-3 py-2 text-right text-sm font-semibold text-slate-900 focus-ring dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    />
+                </SettingsRow>
 
                 <button
                     type="button"

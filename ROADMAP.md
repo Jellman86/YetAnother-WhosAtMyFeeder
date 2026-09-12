@@ -457,7 +457,7 @@ reading the docs; no control on that surface names a subsystem; the existing tes
 replacement and reclassification still pass unchanged.
 
 #### Durable media archive and retention floors 📚
-**Priority:** P2 | **Effort:** M | **Status:** ☐ Proposed
+**Priority:** P2 | **Effort:** M | **Status:** ✅ Shipped in `dev`; move to Delivered at the next release
 ([#178](https://github.com/Jellman86/YetAnother-WhosAtMyFeeder/issues/178))
 
 Favourites already protect their detection row and existing cached snapshot/clip from scheduled and

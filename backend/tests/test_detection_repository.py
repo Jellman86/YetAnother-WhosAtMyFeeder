@@ -64,6 +64,13 @@ async def _create_detections_table(db: aiosqlite.Connection) -> None:
             detection_id INTEGER NOT NULL UNIQUE,
             created_by TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            archive_snapshot_state TEXT NOT NULL DEFAULT 'pending',
+            archive_clip_state TEXT NOT NULL DEFAULT 'pending',
+            archive_bytes INTEGER NOT NULL DEFAULT 0,
+            archive_attempts INTEGER NOT NULL DEFAULT 0,
+            archive_error TEXT,
+            archived_at TIMESTAMP,
+            archive_updated_at TIMESTAMP,
             FOREIGN KEY (detection_id) REFERENCES detections(id) ON DELETE CASCADE
         )
     """)

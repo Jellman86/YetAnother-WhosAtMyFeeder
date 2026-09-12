@@ -58,21 +58,17 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).not.toContain('data-detection-weather-section');
     });
 
-    it('replaces the old snapshot overlay with an honest inline frame picker', () => {
+    it('replaces the old snapshot overlay with one strip of moments (#256)', () => {
         expect(detectionModalSource).toContain('data-detection-inline-frame-picker');
         // Candidates are owner-gated, so a guest gets no strip rather than an empty one.
-        expect(detectionModalSource).toContain('authStore.hasOwnerAccess ? snapshotCandidates.filter');
-        expect(detectionModalSource).toContain('previewSnapshotCandidate(candidate)');
-        expect(detectionModalSource).toContain('previewedSnapshotCandidate?.image_url');
+        expect(detectionModalSource).toContain('authStore.hasOwnerAccess\n            ? groupCandidatesIntoMoments(');
+        expect(detectionModalSource).toContain('<FrameStrip');
         expect(detectionModalSource).toContain('fullFrameSnapshotCandidate?.image_url');
-        expect(detectionModalSource).toContain('src={candidate.thumbnail_url ?? undefined}');
-        expect(detectionModalSource).toContain('handleSaveSnapshotSelection');
-        expect(detectionModalSource).toContain('stageOriginalFrigateSnapshot');
-        expect(detectionModalSource).toContain('aria-busy={snapshotCandidatesLoading || snapshotApplyPending || snapshotGeneratePending}');
-        expect(detectionModalSource).toContain('aria-live="polite"');
         expect(detectionModalSource).not.toContain('snapshotRepairOpen');
         expect(detectionModalSource).not.toContain("default: 'Crop Type'");
         expect(detectionModalSource).not.toContain("default: 'Scored Frames'");
+        // Framing variants of one moment are not offered side by side any more.
+        expect(detectionModalSource).not.toContain('snapshotOptionStrip');
     });
 
     it('keeps integration rows to measured states', () => {
@@ -95,7 +91,7 @@ describe('detection surface polish', () => {
 
     it('preserves the complete stored image when a matching full frame is unavailable', () => {
         expect(detectionModalSource).toContain('findMatchingFullFrameCandidate');
-        expect(detectionModalSource).toContain("canShowFullFrame ? 'object-cover' : 'object-contain'");
+        expect(detectionModalSource).toContain("canPeekWholeScene ? 'object-cover' : 'object-contain'");
     });
 
     it('keeps media controls and snapshot choices in one ordered footer flow', () => {
@@ -107,39 +103,21 @@ describe('detection surface polish', () => {
         expect(actionStart).toBeGreaterThan(footerStart);
         expect(pickerStart).toBeGreaterThan(actionStart);
         expect(detectionModalSource).toContain('data-detection-media-actions');
-        expect(detectionModalSource).toContain('data-detection-media-toggle');
+        // The Best crop / Full frame switch is gone (#256); the whole scene is a peek on the photograph.
+        expect(detectionModalSource).not.toContain('data-detection-media-toggle');
+        expect(detectionModalSource).toContain('data-detection-whole-scene-peek');
         expect(detectionModalSource).toContain('data-detection-media-title');
         expect(detectionModalSource).toContain('flex flex-wrap items-center gap-2');
         expect(detectionModalSource).toContain('aspect-[4/3] min-h-72');
         expect(detectionModalSource).not.toContain("absolute bottom-0 left-0 right-0 p-5 {showInlineFramePicker ? 'pb-28' : ''}");
         expect(detectionModalSource).not.toContain('absolute inset-x-0 bottom-0 z-20 flex flex-col gap-1');
-        // The comparison switch stays non-mutating. Only a filmstrip thumbnail stages a frame.
-        expect(detectionModalSource).toContain('showFullFrameMedia()');
-        expect(detectionModalSource).toContain("mediaView = 'full';");
+        // Peeking stays non-mutating. Only a named action changes the photograph.
+        expect(detectionModalSource).toContain('onfocus={wholeScene.show}');
         expect(detectionModalSource).not.toContain("canShowFullFrame ? 'top-16 left-3' : 'top-4 left-4'");
     });
 
-    it('keeps overflowing snapshot choices clickable beneath a non-interactive fade', () => {
-        // Masking the interactive scroller makes hit testing unreliable at the transparent edge
-        // in desktop browsers. The visual hint belongs in a pointer-transparent sibling layer.
-        expect(detectionModalSource).toContain('.snapshot-strip');
-        expect(detectionModalSource).toContain('scrollbar-width: none');
-        expect(detectionModalSource).toContain('node.scrollLeft + node.clientWidth < node.scrollWidth - 1');
-        expect(detectionModalSource).toContain("node.addEventListener('scroll', update, { passive: true })");
-        expect(detectionModalSource).toContain("style.setProperty('--strip-fade-opacity', hasMoreToRight ? '1' : '0')");
-        expect(detectionModalSource).toContain('data-snapshot-strip-fade');
-        expect(detectionModalSource).toContain('pointer-events-none');
-        expect(detectionModalSource).not.toContain('mask-image:');
-    });
-
-    it('lifts the selected snapshot like a dock item without using an active outline', () => {
-        expect(detectionModalSource).toContain("'z-10 -translate-y-1 scale-105 bg-white/15 opacity-100 shadow-lg shadow-black/50'");
-        expect(detectionModalSource).toContain('motion-reduce:transform-none');
-        expect(detectionModalSource).toContain('aria-pressed={candidateIsSelected}');
-        expect(detectionModalSource).toContain('aria-pressed={originalIsSelected}');
-        expect(detectionModalSource).not.toContain("originalIsSelected ? 'ring-2 ring-brand-400'");
-        expect(detectionModalSource).not.toContain("candidateIsSelected ? 'ring-2 ring-brand-400'");
-    });
+    // The strip's own overflow fade, dock-item lift and re-measurement moved with it into
+    // FrameStrip.svelte and are pinned by frame-strip.layout.test.ts.
 
     it('labels the name rather than the reference photograph beside it', () => {
         // The eyebrow sat above a row that opens with a circular reference photo, so it read as
@@ -192,11 +170,9 @@ describe('detection surface polish', () => {
         expect(detectionModalSource).toContain("bg-[#000080]");
     });
 
-    it('re-measures the options strip when the candidate list changes', () => {
-        // The container keeps its size when children change, so a resize observer alone would
-        // leave the fade describing a strip that is no longer there.
-        expect(detectionModalSource).toContain('new MutationObserver(update)');
-        expect(detectionModalSource).toContain('{ childList: true }');
+    it('keeps no strip machinery of its own now the strip is a component', () => {
+        expect(detectionModalSource).not.toContain('function watchOverflow');
+        expect(detectionModalSource).not.toContain('.snapshot-strip {');
     });
 
     it('gives the species info button real padding', () => {

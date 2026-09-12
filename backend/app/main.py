@@ -42,6 +42,7 @@ from app.services.classifier_service import (
 from app.services.event_processor import EventProcessor
 from app.services.media_cache import media_cache
 from app.services.full_visit_clip_service import full_visit_clip_service
+from app.services.archive_service import archive_service
 from app.services.broadcaster import broadcaster
 from app.services.telemetry_service import telemetry_service
 from app.services.auto_video_classifier_service import auto_video_classifier
@@ -52,6 +53,7 @@ from app.repositories.detection_repository import DetectionRepository
 from app.repositories.health_repository import HealthRepository
 from app.services.uptime import HEARTBEAT_INTERVAL_MINUTES
 from app.routers import (
+    about,
     events,
     proxy,
     settings as settings_router,
@@ -207,13 +209,17 @@ async def run_cleanup():
         now = datetime.now(timezone.utc)
         favorite_event_ids: set[str] = set()
 
+        species_floor = settings.media_cache.per_species_minimum
+
         # Detection cleanup
         if settings.maintenance.retention_days > 0 and settings.maintenance.cleanup_enabled:
             cutoff = now - timedelta(days=settings.maintenance.retention_days)
             async with get_db() as db:
                 repo = DetectionRepository(db)
                 favorite_event_ids = await repo.get_favorite_frigate_event_ids()
-                deleted_count = await repo.delete_older_than(cutoff, preserve_favorites=True)
+                deleted_count = await repo.delete_older_than(
+                    cutoff, preserve_favorites=True, species_floor=species_floor
+                )
                 deleted_audio_count = await repo.delete_audio_detections_older_than(cutoff)
             if deleted_count > 0:
                 log.info(
@@ -236,16 +242,24 @@ async def run_cleanup():
             if cache_retention == 0:
                 cache_retention = settings.maintenance.retention_days
             if cache_retention > 0:
-                if not favorite_event_ids:
-                    async with get_db() as db:
-                        repo = DetectionRepository(db)
+                async with get_db() as db:
+                    repo = DetectionRepository(db)
+                    if not favorite_event_ids:
                         favorite_event_ids = await repo.get_favorite_frigate_event_ids()
+                    # Favourites keep everything; the per-species floor keeps photographs only (#178).
+                    floor_ids = await repo.get_species_floor_frigate_event_ids(species_floor)
                 cache_stats = await media_cache.cleanup_old_media(
                     cache_retention,
                     protected_event_ids=favorite_event_ids,
+                    protected_snapshot_event_ids=floor_ids,
                 )
                 if cache_stats["snapshots_deleted"] > 0 or cache_stats["clips_deleted"] > 0:
                     log.info("Media cache cleanup completed", **cache_stats)
+
+        # The archive is never aged out; only a directory with no favourite behind it goes.
+        archive_sweep = await archive_service.orphan_sweep()
+        if archive_sweep["removed"] > 0:
+            log.info("Favourite archive orphan sweep completed", **archive_sweep)
 
         # Video share-link cleanup
         deleted_share_links = await proxy.cleanup_expired_video_share_links()
@@ -561,6 +575,14 @@ async def lifespan(app: FastAPI):
             startup_phase="starting_services",
             startup_progress=92,
         )
+        await _run_lifecycle_phase(
+            app,
+            "favorite_archive_start",
+            archive_service.start,
+            fatal=False,
+            startup_phase="starting_services",
+            startup_progress=93,
+        )
         # Intake opens only after every downstream worker can accept work.
         await _run_lifecycle_phase(
             app,
@@ -633,6 +655,7 @@ async def lifespan(app: FastAPI):
         await _run_lifecycle_phase(app, "high_quality_snapshot_stop", high_quality_snapshot_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "auto_video_classifier_stop", auto_video_classifier.stop, fatal=False)
         await _run_lifecycle_phase(app, "full_visit_clip_stop", full_visit_clip_service.stop, fatal=False)
+        await _run_lifecycle_phase(app, "favorite_archive_stop", archive_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "telemetry_stop", telemetry_service.stop, fatal=False)
         await _run_lifecycle_phase(app, "frigate_client_close", frigate_client.close, fatal=False)
         await _run_lifecycle_phase(app, "classifier_shutdown", shutdown_classifier, fatal=False)
@@ -739,6 +762,7 @@ app.include_router(auth_router.router, prefix="/api", tags=["auth"])
 
 # Public/mixed access routers - use new auth system with legacy fallback
 app.include_router(events.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
+app.include_router(about.router, prefix="/api", tags=["about"], dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(proxy.router, prefix="/api", dependencies=[Depends(proxy.get_proxy_auth_context)])
 app.include_router(species.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])
 app.include_router(classifier.router, prefix="/api", dependencies=[Depends(get_auth_context_with_legacy)])

@@ -143,7 +143,8 @@ DETECTION_SELECT_COLUMNS = """d.id, d.detection_time, d.detection_index, d.score
                       d.video_classification_provider, d.video_classification_backend, d.video_classification_model_id, d.video_result_blocked,
                       d.frigate_status, d.frigate_missing_since, d.frigate_last_checked_at, d.frigate_last_error,
                       d.video_classification_input_source, d.video_classification_diagnostics,
-                      d.species_id, d.model_artifact_id, d.model_output_index"""
+                      d.species_id, d.model_artifact_id, d.model_output_index,
+                      f.archive_snapshot_state, f.archive_clip_state"""
 
 
 @dataclass
@@ -158,6 +159,7 @@ class Detection:
     id: Optional[int] = None
     is_hidden: bool = False
     is_favorite: bool = False
+    archive_state: Optional[str] = None
     frigate_score: Optional[float] = None
     sub_label: Optional[str] = None
     manual_tagged: bool = False
@@ -468,7 +470,31 @@ def _row_to_detection(row: aiosqlite.Row) -> Detection:
         d.model_artifact_id = row[47]
         d.model_output_index = row[48]
 
+    if len(row) > 50 and d.is_favorite:
+        d.archive_state = derive_archive_state(row[49], row[50])
+
     return d
+
+
+ARCHIVE_STATES = ("pending", "durable", "unavailable", "failed")
+
+
+def derive_archive_state(snapshot_state: object, clip_state: object) -> str:
+    """One word for what a favourite's archive holds.
+
+    durable: the photograph is archived and the clip is archived or was honestly never there.
+    unavailable: neither Frigate nor the cache had anything to keep. failed: an attempt that
+    should have worked did not. pending: still to do.
+    """
+    snapshot = str(snapshot_state or "pending")
+    clip = str(clip_state or "pending")
+    if snapshot == "failed" or clip == "failed":
+        return "failed"
+    if snapshot == "pending" or clip == "pending":
+        return "pending"
+    if snapshot == "durable":
+        return "durable"
+    return "unavailable"
 
 
 class DetectionRepository:
@@ -1379,6 +1405,135 @@ class DetectionRepository:
         await self.db.commit()
         return True
 
+    async def get_favorite_archive(self, frigate_event: str) -> Optional[dict]:
+        """The favourite row's archive fields, or None when the visit is not a favourite."""
+        async with self.db.execute(
+            """
+            SELECT f.archive_snapshot_state, f.archive_clip_state, f.archive_bytes, f.archive_attempts,
+                   f.archive_error, f.archived_at, f.archive_updated_at, f.created_at, d.detection_time
+            FROM detection_favorites f
+            INNER JOIN detections d ON d.id = f.detection_id
+            WHERE d.frigate_event = ?
+            """,
+            (frigate_event,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if row is None:
+            return None
+        return {
+            "snapshot_state": row[0] or "pending",
+            "clip_state": row[1] or "pending",
+            "bytes": int(row[2] or 0),
+            "attempts": int(row[3] or 0),
+            "error": row[4],
+            "archived_at": _parse_datetime(row[5]) if row[5] else None,
+            "updated_at": _parse_datetime(row[6]) if row[6] else None,
+            "favorited_at": _parse_datetime(row[7]) if row[7] else None,
+            "detection_time": _parse_datetime(row[8]) if row[8] else None,
+            "state": derive_archive_state(row[0], row[1]),
+        }
+
+    async def update_favorite_archive(
+        self,
+        frigate_event: str,
+        *,
+        snapshot_state: str,
+        clip_state: str,
+        bytes_on_disk: int,
+        attempts: int,
+        error: Optional[str],
+        archived_at: Optional[datetime],
+        updated_at: datetime,
+    ) -> bool:
+        """Record the archive's state; False when the visit is no longer a favourite."""
+        async with self.db.execute(
+            """
+            UPDATE detection_favorites
+            SET archive_snapshot_state = ?, archive_clip_state = ?, archive_bytes = ?, archive_attempts = ?,
+                archive_error = ?, archived_at = ?, archive_updated_at = ?
+            WHERE detection_id = (SELECT id FROM detections WHERE frigate_event = ?)
+            """,
+            (
+                snapshot_state,
+                clip_state,
+                int(bytes_on_disk),
+                int(attempts),
+                error,
+                archived_at.isoformat(sep=" ") if archived_at else None,
+                updated_at.isoformat(sep=" "),
+                frigate_event,
+            ),
+        ) as cursor:
+            changed = (cursor.rowcount or 0) > 0
+        await self.db.commit()
+        return changed
+
+    async def reset_favorite_archive(self, frigate_event: str) -> bool:
+        """Back to pending with a clean attempt count, for an explicit retry."""
+        async with self.db.execute(
+            """
+            UPDATE detection_favorites
+            SET archive_snapshot_state = CASE WHEN archive_snapshot_state = 'durable' THEN 'durable' ELSE 'pending' END,
+                archive_clip_state = CASE WHEN archive_clip_state = 'durable' THEN 'durable' ELSE 'pending' END,
+                archive_attempts = 0, archive_error = NULL, archive_updated_at = NULL
+            WHERE detection_id = (SELECT id FROM detections WHERE frigate_event = ?)
+            """,
+            (frigate_event,),
+        ) as cursor:
+            changed = (cursor.rowcount or 0) > 0
+        await self.db.commit()
+        return changed
+
+    async def mark_favorite_snapshot_pending(self, frigate_event: str) -> bool:
+        """The photograph changed; a favourite's archived copy is stale until re-acquired."""
+        async with self.db.execute(
+            """
+            UPDATE detection_favorites
+            SET archive_snapshot_state = 'pending', archive_updated_at = NULL
+            WHERE detection_id = (SELECT id FROM detections WHERE frigate_event = ?)
+            """,
+            (frigate_event,),
+        ) as cursor:
+            changed = (cursor.rowcount or 0) > 0
+        await self.db.commit()
+        return changed
+
+    async def list_unfinished_favorite_archives(self) -> list[dict]:
+        """Every favourite whose archive is not at an end state, oldest favourite first."""
+        async with self.db.execute(
+            """
+            SELECT d.frigate_event, f.archive_snapshot_state, f.archive_clip_state, f.archive_attempts,
+                   f.archive_updated_at
+            FROM detection_favorites f
+            INNER JOIN detections d ON d.id = f.detection_id
+            WHERE f.archive_snapshot_state IN ('pending', 'failed') OR f.archive_clip_state IN ('pending', 'failed')
+            ORDER BY f.created_at ASC, f.id ASC
+            """
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return [
+            {
+                "frigate_event": row[0],
+                "state": derive_archive_state(row[1], row[2]),
+                "attempts": int(row[3] or 0),
+                "updated_at": _parse_datetime(row[4]) if row[4] else None,
+            }
+            for row in rows
+        ]
+
+    async def favorite_archive_totals(self) -> dict:
+        """Counts by derived state and archived bytes, for the storage line."""
+        async with self.db.execute(
+            "SELECT archive_snapshot_state, archive_clip_state, archive_bytes FROM detection_favorites"
+        ) as cursor:
+            rows = await cursor.fetchall()
+        totals = {"favorites": 0, "durable": 0, "pending": 0, "failed": 0, "unavailable": 0, "bytes": 0}
+        for snapshot_state, clip_state, bytes_on_disk in rows:
+            totals["favorites"] += 1
+            totals[derive_archive_state(snapshot_state, clip_state)] += 1
+            totals["bytes"] += int(bytes_on_disk or 0)
+        return totals
+
     async def unfavorite_detection(self, frigate_event: str) -> Optional[bool]:
         """Remove favorite marker. Returns True if detection exists, None if not found."""
         detection = await self.get_by_frigate_event(frigate_event)
@@ -2236,6 +2391,7 @@ class DetectionRepository:
         favorite_only: bool = False,
         exclude_favorites: bool = False,
         audio_confirmed_only: bool = False,
+        exclude_species_floor: int = 0,
     ) -> int:
         """Get total count of detections, optionally filtered."""
         has_taxonomy_cache = await self._table_exists("taxonomy_cache")
@@ -2313,6 +2469,8 @@ class DetectionRepository:
 
         if audio_confirmed_only:
             conditions.append("d.audio_confirmed = 1")
+        if exclude_species_floor > 0:
+            conditions.append(f"d.id NOT IN ({self._species_floor_sql(exclude_species_floor)})")
 
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
@@ -2574,6 +2732,35 @@ class DetectionRepository:
             "UPDATE detections SET manual_tagged = 1 WHERE frigate_event = ?",
             (frigate_event,),
         )
+
+    def _species_floor_sql(self, minimum: int) -> str:
+        """Ids of the newest `minimum` visible detections of each canonical species.
+
+        Partitioned by the same key that decides whether two detections are the same bird,
+        so a renamed or split taxon keeps one floor, not two. Hidden rows neither count
+        towards the floor nor are held by it.
+        """
+        key = self._canonical_key_sql(detection_alias="fl", taxonomy_alias="tcf")
+        join = self._taxonomy_join_sql(detection_alias="fl", taxonomy_alias="tcf")
+        return f"""
+            SELECT id FROM (
+                SELECT fl.id AS id,
+                       ROW_NUMBER() OVER (PARTITION BY {key} ORDER BY fl.detection_time DESC, fl.id DESC) AS rn
+                FROM detections fl
+                {join}
+                WHERE (fl.is_hidden = 0 OR fl.is_hidden IS NULL)
+            ) WHERE rn <= {int(minimum)}
+        """
+
+    async def get_species_floor_frigate_event_ids(self, minimum: int) -> set[str]:
+        """The floor as event ids, for the media cache's file-based cleanup."""
+        if minimum <= 0:
+            return set()
+        async with self.db.execute(
+            f"SELECT d.frigate_event FROM detections d WHERE d.id IN ({self._species_floor_sql(minimum)})"
+        ) as cursor:
+            rows = await cursor.fetchall()
+        return {row[0] for row in rows}
 
     async def get_favorite_frigate_event_ids(self) -> set[str]:
         """Get Frigate event IDs that are marked as favorites."""
@@ -2957,10 +3144,15 @@ class DetectionRepository:
         cutoff_date: datetime,
         chunk_size: int = 1000,
         preserve_favorites: bool = False,
+        species_floor: int = 0,
     ) -> int:
-        """Delete detections older than the cutoff date in chunks to avoid locking."""
+        """Delete detections older than the cutoff date in chunks to avoid locking.
+
+        `species_floor` keeps the newest N of each species regardless of age (#178).
+        """
         total_deleted = 0
         cutoff_str = cutoff_date.isoformat(sep=" ")
+        floor_condition = f" AND d.id NOT IN ({self._species_floor_sql(species_floor)})" if species_floor > 0 else ""
 
         while True:
             # Delete a chunk of rows
@@ -2976,6 +3168,7 @@ class DetectionRepository:
             """
             if preserve_favorites:
                 query += " AND f.detection_id IS NULL"
+            query += floor_condition
             query += """
                     LIMIT ?
                 )

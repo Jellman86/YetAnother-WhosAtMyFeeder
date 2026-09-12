@@ -9,7 +9,7 @@ import authStoreSource from './lib/stores/auth.svelte.ts?raw';
 import settingsPageSource from './lib/pages/Settings.svelte?raw';
 import accessibilityEditorSource from './lib/components/settings/AccessibilitySettings.svelte?raw';
 import footerSource from './lib/components/Footer.svelte?raw';
-import collageSource from './lib/components/TopSpeciesCollage.svelte?raw';
+import showcaseSource from './lib/components/SpeciesShowcase.svelte?raw';
 
 // Vitest stubs CSS imports, so the stylesheet is read straight from disk.
 const appCss = readFileSync(new URL('./app.css', import.meta.url), 'utf-8');
@@ -50,7 +50,7 @@ describe('accessibility choices reaching a public visitor', () => {
 
     it('reaches the scripts that gate their own motion', () => {
         expect(footerSource).toContain("classList.contains('reduced-motion')");
-        expect(collageSource).toContain("classList.contains('reduced-motion')");
+        expect(showcaseSource).toContain("classList.contains('reduced-motion')");
     });
 
     it('reads both from auth status, which a guest can load', () => {

@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import detectionModalSource from './DetectionModal.svelte?raw';
+import stripSource from './FrameStrip.svelte?raw';
 
 describe('DetectionModal snapshot regeneration', () => {
-    it('offers regeneration directly from the inline rail', () => {
+    it('offers regeneration at the end of the moment strip', () => {
         const railIndex = detectionModalSource.indexOf('data-detection-inline-frame-picker');
         expect(railIndex).toBeGreaterThan(0);
-        const railSource = detectionModalSource.slice(railIndex);
+        const railSource = detectionModalSource.slice(railIndex, railIndex + 1400);
 
-        expect(railSource).toContain('{:else if canGenerateSnapshotCandidates}');
-        expect(railSource).toContain('handleGenerateSnapshotCandidates');
-        expect(railSource).toContain('detection.snapshot_regenerate');
-        expect(railSource).toContain('Regenerate snapshots');
+        expect(railSource).toContain("canRegenerate={Boolean(snapshotStatus?.can_generate_hq_bird_crop)}");
+        expect(railSource).toContain('onregenerate={() => { void handleGenerateSnapshotCandidates(); }}');
+        expect(stripSource).toContain('{#if canRegenerate && onregenerate}');
+        expect(stripSource).toContain('detection.snapshot_regenerate');
+        expect(stripSource).toContain('Regenerate snapshots');
     });
 
     it('distinguishes regeneration success from no selectable candidates', () => {
@@ -19,7 +21,8 @@ describe('DetectionModal snapshot regeneration', () => {
     });
 
     it('exposes one regenerate control rather than duplicating it by candidate state', () => {
-        expect(detectionModalSource.match(/onclick=\{\(event\) => \{ event\.stopPropagation\(\); void handleGenerateSnapshotCandidates\(\); \}\}/g)).toHaveLength(1);
+        expect(detectionModalSource.match(/void handleGenerateSnapshotCandidates\(\)/g)).toHaveLength(1);
+        expect(stripSource.match(/onregenerate\?\.\(\)/g)).toHaveLength(1);
     });
 
     it('does not apply regeneration results to a different detection after async work', () => {

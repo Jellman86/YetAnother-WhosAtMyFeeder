@@ -209,6 +209,11 @@ interface LiveUpdateDeps {
     onConnected?: () => void;
 }
 
+const ARCHIVE_STATES = new Set(['pending', 'durable', 'unavailable', 'failed']);
+function archiveStateFrom(value: unknown): Detection['archive_state'] {
+    return typeof value === 'string' && ARCHIVE_STATES.has(value) ? (value as Detection['archive_state']) : null;
+}
+
 export function toDetection(data: SseData): Detection {
     return {
         frigate_event: String(data.frigate_event ?? ''),
@@ -220,6 +225,7 @@ export function toDetection(data: SseData): Detection {
         has_clip: data.has_clip,
         is_hidden: data.is_hidden,
         is_favorite: data.is_favorite,
+        archive_state: archiveStateFrom(data.archive_state),
         frigate_score: data.frigate_score,
         sub_label: data.sub_label,
         manual_tagged: data.manual_tagged,

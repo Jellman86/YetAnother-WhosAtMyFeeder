@@ -74,6 +74,7 @@ export interface Settings {
     media_cache_high_quality_event_snapshot_bird_crop: boolean;
     media_cache_high_quality_event_snapshot_jpeg_quality: number;
     media_cache_retention_days: number;
+    media_cache_per_species_minimum: number;
     location_latitude?: number | null;
     location_longitude?: number | null;
     location_state?: string | null;
@@ -124,6 +125,7 @@ export interface Settings {
     llm_conversation_prompt_template?: string;
     llm_chart_prompt_template?: string;
     telemetry_enabled: boolean;
+    update_check_enabled?: boolean;
     telemetry_health_enabled?: boolean;
     telemetry_installation_id?: string;
     telemetry_platform?: string;

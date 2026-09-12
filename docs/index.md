@@ -70,6 +70,7 @@ Connect YA-WAMF to the rest of your smart home and community projects.
 - [📤 Manual Observations](features/manual-observations.md) - Classify an uploaded photo or video, review the evidence, and add it to history
 - [🗂 Taxonomy & Naming](features/taxonomy.md) - Where a bird's name comes from, and the species catalogue behind it
 - [🔔 Notifications](features/notifications.md) - Discord, Pushover, Telegram, and Email, plus filters and the Notifications surface
+- [⭐ Favourites](features/favourites.md) - What the star keeps, where the archive lives, and the per-species floor
 - [📊 Telemetry](features/telemetry.md) - Transparency on anonymous usage metrics
 
 ## Troubleshooting
@@ -86,7 +87,8 @@ How the project is built and held to standard.
 - **[🧑‍💻 Code-Quality Standard](standards/code-quality.md)** - The researched code-craft bar for Python/FastAPI + Svelte 5/TypeScript, with authoritative sources.
 - **[🎨 UI/UX Standard](standards/ui-ux.md)** - Usability (Nielsen's heuristics), accessibility (WCAG 2.2 AA), and visual craft (Refactoring UI).
 - **[📣 Writing a Release](development/releasing.md)** - The human-first GitHub Release standard, template, and checklist.
-- **[🎁 YA-WAMF 2.19.7 Release Notes](releases/v2.19.7.md)** - A restarted video worker no longer costs you the visit: the job waits for the new worker, or is queued again.
+- **[🎁 YA-WAMF 2.20.0 Release Notes](releases/v2.20.0.md)** - Favourites kept for good, the About page and the leaderboard opening on your own photographs, and one strip to choose a visit's frame.
+- **[YA-WAMF 2.19.7 Release Notes](releases/v2.19.7.md)** - A restarted video worker no longer costs you the visit: the job waits for the new worker, or is queued again.
 - **[YA-WAMF 2.19.6 Release Notes](releases/v2.19.6.md)** - Release images that say they are releases, and a footer link that opens the changelog for the build you are running.
 - **[YA-WAMF 2.19.5 Release Notes](releases/v2.19.5.md)** - The refresh message that would not go away, background jobs that say when they stopped, and a backfill counted once.
 - **[YA-WAMF 2.19.4 Release Notes](releases/v2.19.4.md)** - Notifications that open the detection, a feeder that keeps classifying when a model is slow to start, and a session token that stays out of proxy logs.

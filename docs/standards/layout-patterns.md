@@ -73,7 +73,7 @@ by a badge.
 
 ## 2. Page shapes
 
-Three shapes cover the app. Pick one; do not blend them.
+Four shapes cover the app. Pick one; do not blend them.
 
 ### Desk (Dashboard)
 
@@ -99,9 +99,53 @@ Chrome is a single row. Progress is shown, but it does not get a sidebar. The de
 candidates and the confirm action, and the confirm action names the thing it will do
 ("Add House Sparrow"), never "Save".
 
+### Record (a detection)
+
+```
+slim bar: subject, camera, time, close
+[ media, 1.1fr ]               [ decision rail, 1fr ]
+  photograph                     identification, stated once
+  frame strip                    confirm / pick a different species / score again
+                                 supporting analysis, facts, then Details
+```
+
+The photograph is always the crop. The whole scene is a look, not a mode: hover or focus on
+the photograph peeks at it with the crop outlined, a click pins it, and only the pinned state
+offers "Use the whole scene as the photograph". Beneath the photograph is one strip of the
+visit's moments in time order (`FrameStrip`), one thumbnail per moment; where a frame came from
+is not shown, and the framings of one moment fold into it. Each thumbnail opens a pop-out on
+hover or focus with the frame at decision size, what the model read in it (labelled as a read),
+and one action, "Use this frame", which changes the photograph and never the identification.
+There is no Best crop / Full frame switch and no preview-then-save step (#256). The peek is
+`WholeScenePeek` in `utils/whole-scene-peek.svelte.ts`, and the review queue uses the same one, and
+the same `FrameStrip` beneath its photograph, so every frame kept from a visit is there to decide
+with; only regeneration stays on the full record.
+On a phone the comparison pop-out is a sheet at the foot of the screen with a backdrop and its
+own Close, because there is no hover to lose.
+
+### Standing (Leaderboard)
+
+```
+span bar: day, week, month, total · seen, heard, both
+showcase: the leader expanded, the rest as tiles, in the expanded-view manner of a photo library
+highlights: rising, most recent
+rankings, then analytics
+```
+
+The showcase (`SpeciesShowcase`) is the leaderboard's centrepiece. Every species is a photograph:
+this feeder's own newest crop (`/api/leaderboard/portraits`), or, where there is none, the
+species' reference image from the taxonomy cache, labelled as a reference photo and never passed
+off as the feeder's. Clicking a tile brings it forward and the leader it replaces takes the slot
+the tile left, so nothing else in the grid moves; each species is one element for its whole life
+there, and the two boxes are measured before and after the change and animated between them (no
+transition pairing, which is not reliable across blocks). The grid's tracks come from the
+container's aspect ratio alone, so a box in flight never resizes a cell. Under reduced motion
+nothing drifts or morphs. The last tile points at the full rankings.
+
 ### Reference (About)
 
 ```
+reel: this install's own photographs, one crop per species, each opening its record
 colophon: what this is, in plain sentences
 live diagram: the standard flow, annotated with this instance's state
 build detail: what to quote in an issue report
@@ -110,6 +154,13 @@ credits
 
 Sections are ordered by reader: visitor, then anyone, then owner. Do not add a feature grid; the
 readme and `docs/` hold the feature list.
+
+The reel (`CaptureReel`) drifts in two rows that run opposite ways, pauses under the pointer or
+focus, and stands still as a scrollable strip under reduced motion. Its loop is a second copy of
+each row, hidden from readers and out of the Tab order. Only stored crops are shown: a whole
+scene at card size is a picture of a feeder, so the backend leaves it out
+(`/api/about/showcase`). The install count beside the stats is a cached read of the telemetry
+worker's public summary, off with update checks, and absent rather than zero when unknown.
 
 ---
 
@@ -120,6 +171,7 @@ readme and `docs/` hold the feature list.
 | `FieldLog` | Any chronological list of visits, and the Health page thread where kept visits and filtered frames share one order | Use for search results; Explorer owns those |
 | `FilteredFramePreview` | A frame the classifier rejected, which has no detection record | Use where a `Detection` exists; that is `DetectionPreview` |
 | `DetectionPreview` | Any thumbnail under ~64px | Use as a click target for navigation; click opens the record |
+| `FrameStrip` | The moments of one visit inside its record, with the comparison pop-out | Show framing variants of one moment side by side; the pop-out carries the framing |
 | `ReviewQueueCard` | Outstanding decisions | Use for notifications or job progress |
 | `DayBar` | The window label plus its headline metrics | Add a seventh metric; cut one instead |
 | `DeskContextCards` | Standing operational context | Put actions in it |
@@ -149,8 +201,14 @@ full list only once someone types.
 
 Any preview that opens on hover must satisfy all of this, because hover alone fails WCAG 2.2 AA:
 
-- Opens on `mouseenter` **and** on `focusin`, so keyboards reach it.
-- Stays open while the pointer travels into the panel. `DetectionPreview` uses a 120ms close grace
+- Opens on hover **and** on focus, so keyboards reach it. Hover means `pointerenter` from a
+  hovering pointer (`event.pointerType !== 'touch'`), focus means keyboard focus
+  (`:focus-visible`). A touch browser replays a tap as mouseenter, then on Chrome a focus (iOS
+  Safari does not focus a button on tap), then click. A pop-out that opened on the replay is
+  either closed by the click (when it has a backdrop) or swallows the click (iOS, when a
+  mouseenter handler changes the DOM), so on touch the click alone opens it. `DetectionPreview`
+  and `FilteredFramePreview` follow the same rule.
+- Stays open while the pointer travels into the panel. `DetectionPreview` and `FrameStrip` use a 120ms close grace
   window for exactly this (SC 1.4.13, "hoverable").
 - Dismisses on `Escape` without moving focus elsewhere unexpectedly.
 - Reuses the image already fetched. A preview must not cost a second request.
@@ -158,6 +216,13 @@ Any preview that opens on hover must satisfy all of this, because hover alone fa
 - The trigger is a real `button` with `aria-expanded` and a visible focus ring.
 
 Model any new popover on this and on `CameraStatus.svelte`, which established the pattern.
+A pop-out that holds a control (`FrameStrip`) is a `group` named for its subject, not a `tooltip`, and
+its Escape closes the pop-out before the dialog behind it.
+
+Below 640px `FrameStrip`'s pop-out is a bottom sheet with a backdrop and its own Close. A sheet never
+opens on hover: its backdrop would arrive under the pointer as a `mouseleave` and close it again. It
+opens by tap or keyboard, and it closes by its backdrop, its Close, Escape, or focus moving elsewhere,
+never by the pointer drifting off the strip.
 
 ---
 

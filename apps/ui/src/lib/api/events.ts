@@ -168,6 +168,22 @@ export async function unfavoriteDetection(frigateEventId: string): Promise<Favor
     return handleResponse<FavoriteDetectionResult>(response);
 }
 
+export type ArchiveStatus = paths['/api/events/{event_id}/archive']['get']['response'];
+
+/** What a favourite's archive holds, per asset (#178). Owner only. */
+export async function fetchArchiveStatus(frigateEventId: string): Promise<ArchiveStatus> {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/archive`);
+    return handleResponse<ArchiveStatus>(response);
+}
+
+/** Try a failed archive again now. Owner only. */
+export async function retryArchive(frigateEventId: string): Promise<ArchiveStatus> {
+    const response = await apiFetch(`${API_BASE}/events/${encodeURIComponent(frigateEventId)}/archive/retry`, {
+        method: 'POST'
+    });
+    return handleResponse<ArchiveStatus>(response);
+}
+
 export async function fetchHiddenCount(): Promise<paths['/api/events/hidden-count']['get']['response']> {
     const response = await apiFetch(`${API_BASE}/events/hidden-count`);
     return handleResponse<paths['/api/events/hidden-count']['get']['response']>(response);

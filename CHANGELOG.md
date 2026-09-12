@@ -6,7 +6,74 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-09-12
+
+### Added
+
+- **The leaderboard opens on a showcase of its species.** The leader stands expanded with its
+  count, trend, confidence and last visit; the next eight species are tiles beside it, and
+  clicking one brings it forward while the leader folds back into the grid. Every tile is this
+  feeder's own newest crop of that species; where there is none, the species' reference image
+  stands in and is labelled as such. The sliced collage banner is retired.
+- **A favourite is durable (#178).** Pressing the star now archives the visit's photograph and
+  clip into `/config/archive`, where no cache cleanup, cache clear or Frigate rotation reaches, and
+  the record says what the archive holds: archiving, archived with its size, photo only when
+  Frigate had no clip, nothing left to archive, or failed with a retry. Archives are written
+  atomically, finished after a restart, and removed only by unfavouriting (the confirmation names
+  the size), deleting the visit, Remove all favourites, or a database reset, all of which now say
+  so. Favourites made before this release are archived by the first reconcile pass.
+- **Keep the newest per species.** A per-species floor under Settings → Data keeps the newest N
+  visits of each species, and their cached photographs, through age cleanup. Off by default,
+  counted per canonical species, clips not held. `MEDIA_CACHE__PER_SPECIES_MINIMUM`.
+- Settings → Data shows archived favourites apart from the cache, with how many failed.
+
+- **The About page opens on this feeder's own photographs.** Two rows of recent captures, one
+  crop per species, drift across the top of the page and pause under the pointer; each card
+  opens the visit's record. Whole-scene photographs are left out, since at card size they are
+  pictures of a feeder. Under reduced motion the rows stand still and scroll by hand. Beside
+  the stats, how many installs reported to the telemetry service this week, read once an hour
+  from its public summary and listed under "What leaves your network"; it follows the
+  update-check opt-out and is absent rather than zero when unknown.
+### Fixed
+
+- **A tap on a frame thumbnail opens the sheet on a phone.** It used to flicker and vanish: the
+  browser replays a tap as a hover first, the hover opened the sheet with its backdrop under the
+  finger, and the tap's click then landed on that backdrop and closed it. Hover now opens the
+  pop-out for a mouse alone and focus for the keyboard alone; a tap opens it by its click, and the
+  sheet closes by its backdrop, its Close, or Escape, not by the pointer drifting away.
+
+### Changed
+
+- **The review queue shows every frame kept from a visit.** Its record showed only the crop and
+  its whole scene, so a visit with many frames read as two. The same strip as the detection
+  record now sits beneath the photograph; choosing a frame changes the photograph and nothing
+  else, and regeneration stays on the full record.
+- **One place to choose the frame and settle the species (#256).** The detection record's
+  photograph now has one strip of the visit's moments beneath it, in time order, one thumbnail
+  per moment. The "Frigate preview" and "footage extraction" split is gone, and so are the
+  framing variants of one moment sitting side by side; where a frame came from stays behind
+  Details. Hovering or focusing a thumbnail opens a pop-out with the frame at decision size,
+  what the model read in it (labelled as a read, not as the identification), and one action,
+  "Use this frame", which changes the photograph and never the identification. There is no
+  preview-then-save step any more.
+- **The Best crop / Full frame switch is gone.** It was a second route to a picture the strip
+  already offered. The photograph is always the crop; hovering or focusing it peeks at the whole
+  scene with the crop outlined, a click pins the peek, and only then is "Use the whole scene as
+  the photograph" offered, for the case where the crop cut the bird. Escape returns to the crop
+  before it closes the record.
+- **The identification's actions read Confirm, Pick a different species, Score again**, in that
+  order and in the shared button kit. "Reclassify" is now "Score again" here; the bulk action
+  keeps its name.
+- **The review queue peeks at the whole scene the same way.** Its own Best crop / Full frame
+  switch is gone, along with the crop strategy name (`sliced_2x2`) that leaked beside it. On a
+  phone the picture block keeps its own height, so the date line no longer draws over the
+  "What is it?" heading.
+- **The record works on a phone.** The frame comparison opens as a sheet at the foot of the
+  screen with a backdrop and its own Close, since there is no hover to lose; the identification's
+  actions and the whole-scene actions stack full width; and the hero title, which repeated the
+  rail's "Identified as" while covering the bird, is left to the rail on small screens.
 ## [2.19.7] - 2026-09-12
+
 
 ### Fixed
 
