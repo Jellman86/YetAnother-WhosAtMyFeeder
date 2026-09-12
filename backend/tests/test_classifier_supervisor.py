@@ -114,6 +114,15 @@ class _GateReadyWorker(_FakeWorker):
         await self._gate.wait()
 
 
+class _ExitOnKillWorker(_FakeWorker):
+    """Mirrors the real client: a killed process reports an exit code afterwards,
+    which is what the watchdog sees on its next pass over the same slot."""
+
+    async def kill(self) -> None:
+        await super().kill()
+        self.exit_code = -9
+
+
 def _find_worker(created: list[_FakeWorker], worker_name: str, generation: int) -> _FakeWorker:
     for worker in created:
         if worker.worker_name == worker_name and worker.worker_generation == generation:
@@ -1378,4 +1387,196 @@ async def test_supervisor_records_the_runtime_a_worker_reports_when_it_becomes_r
         "model_id": "rope_vit_b14_inat21",
     }
     assert metrics["background"]["runtime"] is None, "only a pool that started has a runtime to report"
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_request_queued_during_a_replacement_waits_for_the_new_worker():
+    """A worker killed mid-job keeps its slot until the replacement is ready. A
+    request arriving meanwhile must wait for the fresh worker, never be handed
+    to the dead one, and the watchdog must not count the same death twice."""
+    created: list[_FakeWorker] = []
+    gate = asyncio.Event()
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        if worker_generation == 1:
+            worker: _FakeWorker = _ExitOnKillWorker(worker_name, worker_generation)
+        else:
+            worker = _GateReadyWorker(worker_name, worker_generation, gate=gate)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=0.05,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+        watchdog_interval_seconds=0.01,
+    )
+    await supervisor.start()
+
+    first = asyncio.create_task(
+        supervisor.classify(
+            priority="live",
+            work_id="live-1",
+            lease_token=1,
+            image_b64="payload",
+            camera_name="front",
+            model_id="default",
+        )
+    )
+    await asyncio.sleep(0.01)
+    dead = _find_worker(created, "live-0", 1)
+    dead.last_heartbeat_monotonic = time.monotonic() - 1.0
+    with pytest.raises(ClassifierWorkerHeartbeatTimeoutError):
+        await first
+
+    second = asyncio.create_task(
+        supervisor.classify(
+            priority="live",
+            work_id="live-2",
+            lease_token=1,
+            image_b64="payload",
+            camera_name="front",
+            model_id="default",
+        )
+    )
+    await asyncio.sleep(0.05)  # several watchdog passes while the replacement still loads
+    assert len(dead.sent_messages) == 1, "the queued request went to the dead worker"
+    assert not second.done()
+
+    gate.set()
+    await asyncio.sleep(0.02)
+    fresh = _find_worker(created, "live-0", 2)
+    assert fresh.sent_messages[0]["type"] == "classify"
+    await fresh.events.put(
+        {
+            "type": "result",
+            "worker_generation": 2,
+            "request_id": fresh.sent_messages[0]["request_id"],
+            "work_id": "live-2",
+            "lease_token": 1,
+            "results": [{"label": "Robin", "score": 0.9}],
+        }
+    )
+    results = await second
+    assert results[0]["label"] == "Robin"
+
+    metrics = supervisor.get_metrics()["live"]
+    assert metrics["restarts"] == 1
+    assert metrics["workers"] == 1
+    assert [w.worker_generation for w in created if w.worker_name == "live-0"] == [1, 2]
+
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_a_waiter_is_released_when_the_replacement_fails_to_start():
+    """Waiting for a replacement must not become waiting forever: if the new
+    worker cannot start, the queued request fails so its owner can queue again."""
+    created: list[_FakeWorker] = []
+    release_failed_spawn = asyncio.Event()
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        if worker_name == "live-0" and any(w.worker_name == "live-0" for w in created):
+            # The replacement is under way for as long as the gate holds, then never starts.
+            await release_failed_spawn.wait()
+            raise RuntimeError("no worker for you")
+        worker = _ExitOnKillWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=0.05,
+        hard_deadline_seconds=1.0,
+        worker_factory=_factory,
+        watchdog_interval_seconds=0.01,
+    )
+    await supervisor.start()
+
+    first = asyncio.create_task(
+        supervisor.classify(
+            priority="live",
+            work_id="live-1",
+            lease_token=1,
+            image_b64="payload",
+            camera_name="front",
+            model_id="default",
+        )
+    )
+    await asyncio.sleep(0.01)
+    _find_worker(created, "live-0", 1).last_heartbeat_monotonic = time.monotonic() - 1.0
+    with pytest.raises(ClassifierWorkerHeartbeatTimeoutError):
+        await first
+
+    second = asyncio.create_task(
+        supervisor.classify(
+            priority="live",
+            work_id="live-2",
+            lease_token=1,
+            image_b64="payload",
+            camera_name="front",
+            model_id="default",
+        )
+    )
+    await asyncio.sleep(0.05)
+    assert not second.done(), "the queued request must wait while the replacement is under way"
+    assert len(_find_worker(created, "live-0", 1).sent_messages) == 1
+
+    release_failed_spawn.set()
+    with pytest.raises(ClassifierWorkerExitedError):
+        await asyncio.wait_for(second, timeout=1.0)
+    assert supervisor.get_metrics()["live"]["workers"] == 0
+
+    await supervisor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_video_pool_keeps_a_busy_worker_within_its_own_heartbeat_budget():
+    """A video analysis is a long native job; a silence that would be fatal for
+    an image worker is normal for it. The video pool judges liveness by its own
+    budget while the live pool keeps the short one."""
+    created: list[_FakeWorker] = []
+
+    async def _factory(*, worker_name: str, worker_generation: int, **_kwargs):
+        worker = _FakeWorker(worker_name, worker_generation)
+        created.append(worker)
+        return worker
+
+    supervisor = ClassifierSupervisor(
+        live_worker_count=1,
+        background_worker_count=1,
+        heartbeat_timeout_seconds=0.05,
+        video_heartbeat_timeout_seconds=1.0,
+        hard_deadline_seconds=1.0,
+        video_hard_deadline_seconds=2.0,
+        worker_factory=_factory,
+        watchdog_interval_seconds=0.01,
+    )
+
+    task = asyncio.create_task(supervisor.classify_video(work_id="video-1", lease_token=1, video_path="/tmp/clip.mp4"))
+    await asyncio.sleep(0.02)
+    video_worker = _find_worker(created, "video-0", 1)
+    video_worker.last_heartbeat_monotonic = time.monotonic() - 0.3
+    await asyncio.sleep(0.05)
+    assert video_worker.killed is False
+    assert not task.done()
+
+    await video_worker.events.put(
+        {
+            "type": "result",
+            "worker_generation": 1,
+            "request_id": video_worker.sent_messages[0]["request_id"],
+            "work_id": "video-1",
+            "lease_token": 1,
+            "results": [{"label": "Dunnock", "score": 0.95}],
+        }
+    )
+    results = await task
+    assert results[0]["label"] == "Dunnock"
+    assert supervisor.get_metrics()["video"]["restarts"] == 0
+
     await supervisor.shutdown()
