@@ -131,7 +131,7 @@ async def test_proxy_clip_enabled(client: httpx.AsyncClient, mock_frigate_respon
             response = await client.get("/api/frigate/test_event_id/clip.mp4")
             assert response.status_code == 200
             assert response.headers.get("content-type") == "video/mp4"
-            assert response.headers.get("accept-ranges") == "bytes"
+            assert response.headers.get("accept-ranges") is None
         finally:
             settings.frigate.clips_enabled = original_setting
 
@@ -210,7 +210,7 @@ async def test_proxy_recording_clip_enabled(client: httpx.AsyncClient, mock_frig
             response = await client.get("/api/frigate/test_event_id/recording-clip.mp4")
             assert response.status_code == 200
             assert response.headers.get("content-type") == "video/mp4"
-            assert response.headers.get("accept-ranges") == "bytes"
+            assert response.headers.get("accept-ranges") is None
         finally:
             settings.frigate.clips_enabled = original_clips
             settings.frigate.recording_clip_enabled = original_recording

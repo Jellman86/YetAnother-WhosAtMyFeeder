@@ -159,6 +159,7 @@ _COOKIE_ROUTES = (
     re.compile(
         r"^/api/frigate/[^/]+/(snapshot\.jpg|thumbnail\.jpg|clip\.mp4|recording-clip\.mp4|clip-thumbnails\.(vtt|jpg))$"
     ),
+    re.compile(r"^/api/frigate/[^/]+/(hls|recording-hls)/[^/]+$"),
     re.compile(r"^/api/frigate/[^/]+/snapshot/(original\.jpg|candidates/[^/]+/(image|thumbnail)\.jpg)$"),
     re.compile(r"^/api/frigate/camera/[^/]+/latest\.jpg$"),
     re.compile(r"^/api/about/showcase/[^/]+\.jpg$"),

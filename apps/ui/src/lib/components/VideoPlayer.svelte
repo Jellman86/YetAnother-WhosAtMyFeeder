@@ -1,11 +1,14 @@
 <script lang="ts">
     import { onDestroy, onMount } from 'svelte';
     import { _ } from 'svelte-i18n';
+    import type Hls from 'hls.js';
     import {
         createVideoShareLink,
         fetchVideoShareInfo,
         getClipUrl,
+        getHlsUrl,
         getRecordingClipUrl,
+        getRecordingHlsUrl,
         RECORDING_CLIP_STATE_HEADER,
         listVideoShareLinks,
         revokeVideoShareLink,
@@ -68,7 +71,12 @@
         const base = getRecordingClipUrl(frigateEvent);
         return shareToken ? appendQueryParam(base, 'share', shareToken) : base;
     });
+    let hlsUrlBase = $derived.by(() => {
+        const base = recordingClipState === 'none' ? getHlsUrl(frigateEvent) : getRecordingHlsUrl(frigateEvent);
+        return shareToken ? appendQueryParam(base, 'share', shareToken) : base;
+    });
     let clipUrl = $state('');
+    let hlsUrl = $derived(retryCount > 0 ? appendQueryParam(hlsUrlBase, 'retry', String(retryCount)) : hlsUrlBase);
     let clipDownloadUrl = $derived(clipUrl ? `${clipUrl}${clipUrl.includes('?') ? '&' : '?'}download=1` : '');
     let canDownloadClip = $derived(!shareToken && (!authStore.isGuest || authStore.publicAccessAllowClipDownloads));
     let canShareClip = $derived(!authStore.isGuest);
@@ -109,6 +117,10 @@
     let initWatchdogTimer: ReturnType<typeof setTimeout> | null = null;
     let lastConfiguredKey = '';
     let autoplayMuted = $state(false);
+    let hlsInstance: Hls | null = null;
+    let activePlaybackKind: 'none' | 'hls' | 'mp4' = 'none';
+    let hlsFallbackAttempted = false;
+    let hlsMediaRecoveryAttempted = false;
 
     $effect(() => {
         if (!authStore.username) return;
@@ -482,6 +494,12 @@
     }
 
     function handleVideoError() {
+        if (activePlaybackKind === 'hls' && !hlsFallbackAttempted) {
+            hlsFallbackAttempted = true;
+            logger.warn('video_player_hls_native_error_fallback', { frigateEvent, hlsUrl: sanitizedUrl(hlsUrl) });
+            void configureMp4Fallback(configureToken);
+            return;
+        }
         videoError = true;
         initializing = false;
         logger.error('video_player_native_error', { frigateEvent, clipUrl: sanitizedUrl(clipUrl) });
@@ -522,7 +540,7 @@
             let response = await fetch(url, { method, signal: controller.signal });
             // Some proxy endpoints only expose GET and return 405 for HEAD — fall back
             // to GET so we get a real availability status rather than a method error.
-            if (response.status === 405 || response.status === 501) {
+            if (method === 'HEAD' && (response.status === 405 || response.status === 501)) {
                 logger.warn('video_player_probe_method_not_allowed', {
                     frigateEvent,
                     url: sanitizedUrl(url),
@@ -595,18 +613,118 @@
         autoplayMuted = false;
         videoError = false;
         videoForbidden = false;
+        hlsFallbackAttempted = false;
+        hlsMediaRecoveryAttempted = false;
+        destroyHlsInstance();
+        activePlaybackKind = 'none';
         logger.info('video_player_configure_start', {
             frigateEvent,
             token,
             retryCount,
             clipKind: recordingClipState === 'complete' ? 'full_visit' : recordingClipState === 'partial' ? 'partial_visit' : 'event_clip',
-            clipUrl: sanitizedUrl(clipUrl)
+            clipUrl: sanitizedUrl(clipUrl),
+            hlsUrl: sanitizedUrl(hlsUrl)
         });
 
-        const clipStatus = await probeUrl(clipUrl, clipHeadCache);
+        const hlsStatus = await probeUrl(hlsUrl, clipHeadCache, 'GET');
         if (token !== configureToken) return;
 
-        if (clipStatus === 403) {
+        if (hlsStatus === 401 || hlsStatus === 403) {
+            videoForbidden = true;
+            videoError = true;
+            initializing = false;
+            logger.warn('video_player_hls_forbidden', { frigateEvent });
+            return;
+        }
+
+        if (hlsStatus !== null && hlsStatus >= 200 && hlsStatus < 300) {
+            const configured = await configureHlsPlayback(token);
+            if (configured || token !== configureToken) return;
+        }
+
+        logger.info('video_player_hls_unavailable_fallback', { frigateEvent, status: hlsStatus });
+        await configureMp4Fallback(token, started);
+    }
+
+    function destroyHlsInstance(): void {
+        if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+        }
+    }
+
+    function resetMediaSource(media: HTMLVideoElement): void {
+        media.pause();
+        media.removeAttribute('src');
+        media.load();
+    }
+
+    async function configureHlsPlayback(token: number): Promise<boolean> {
+        const media = videoElement;
+        if (!media || token !== configureToken) return false;
+
+        if (media.canPlayType('application/vnd.apple.mpegurl')) {
+            activePlaybackKind = 'hls';
+            media.src = hlsUrl;
+            media.load();
+            bindMediaListeners(media);
+            initializing = false;
+            void attemptAutoplay(media);
+            return true;
+        }
+
+        try {
+            const { default: HlsPlayer } = await import('hls.js');
+            if (token !== configureToken || !videoElement || !HlsPlayer.isSupported()) return false;
+
+            const instance = new HlsPlayer({ enableWorker: true, lowLatencyMode: false });
+            hlsInstance = instance;
+            activePlaybackKind = 'hls';
+            instance.on(HlsPlayer.Events.MEDIA_ATTACHED, () => {
+                if (token === configureToken) instance.loadSource(hlsUrl);
+            });
+            instance.on(HlsPlayer.Events.MANIFEST_PARSED, () => {
+                if (token === configureToken && videoElement) void attemptAutoplay(videoElement);
+            });
+            instance.on(HlsPlayer.Events.ERROR, (_event, data) => {
+                if (!data.fatal || token !== configureToken) return;
+                if (data.type === HlsPlayer.ErrorTypes.MEDIA_ERROR && !hlsMediaRecoveryAttempted) {
+                    hlsMediaRecoveryAttempted = true;
+                    instance.recoverMediaError();
+                    return;
+                }
+                if (!hlsFallbackAttempted) {
+                    hlsFallbackAttempted = true;
+                    logger.warn('video_player_hls_error_fallback', {
+                        frigateEvent,
+                        type: data.type,
+                        details: data.details
+                    });
+                    void configureMp4Fallback(token);
+                }
+            });
+            instance.attachMedia(videoElement);
+            bindMediaListeners(videoElement);
+            initializing = false;
+            return true;
+        } catch (error) {
+            logger.warn('video_player_hls_loader_failed', { frigateEvent, error });
+            destroyHlsInstance();
+            activePlaybackKind = 'none';
+            return false;
+        }
+    }
+
+    async function configureMp4Fallback(token: number, started = performance.now()): Promise<void> {
+        const media = videoElement;
+        if (!media || token !== configureToken) return;
+        destroyHlsInstance();
+        activePlaybackKind = 'none';
+        resetMediaSource(media);
+
+        const clipStatus = await probeUrl(clipUrl, clipHeadCache);
+        if (token !== configureToken || !videoElement) return;
+        if (clipStatus === 401 || clipStatus === 403) {
             videoForbidden = true;
             videoError = true;
             initializing = false;
@@ -614,6 +732,7 @@
             return;
         }
 
+        activePlaybackKind = 'mp4';
         videoElement.src = clipUrl;
         videoElement.load();
         bindMediaListeners(videoElement);
@@ -622,9 +741,9 @@
         logger.info('video_player_configure_complete', {
             frigateEvent,
             token,
+            transport: 'mp4',
             duration_ms: Number((performance.now() - started).toFixed(2))
         });
-
         void attemptAutoplay(videoElement);
     }
 
@@ -635,6 +754,7 @@
             videoForbidden = false;
             initializing = true;
             clipHeadCache.delete(clipUrl);
+            clipHeadCache.delete(hlsUrl);
         }
     }
 
@@ -693,6 +813,8 @@
             detachMediaListeners();
             detachMediaListeners = null;
         }
+        destroyHlsInstance();
+        if (videoElement) resetMediaSource(videoElement);
         activeMediaElement = null;
         unlockDocumentScroll();
         logger.info('video_player_modal_close', { frigateEvent });

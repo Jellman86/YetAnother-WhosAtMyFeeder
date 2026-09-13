@@ -15,11 +15,19 @@ export function getThumbnailUrl(frigateEvent: string): string {
 }
 
 export function getClipUrl(frigateEvent: string): string {
-    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/clip.mp4`);
+    return withAuthParams(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/clip.mp4`);
 }
 
 export function getRecordingClipUrl(frigateEvent: string): string {
-    return withAuthParams(`${API_BASE}/frigate/${frigateEvent}/recording-clip.mp4`);
+    return withAuthParams(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/recording-clip.mp4`);
+}
+
+export function getHlsUrl(frigateEvent: string): string {
+    return withAuthParams(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/hls/master.m3u8`);
+}
+
+export function getRecordingHlsUrl(frigateEvent: string): string {
+    return withAuthParams(`${API_BASE}/frigate/${encodeURIComponent(frigateEvent)}/recording-hls/master.m3u8`);
 }
 
 const RECORDING_CLIP_READY_HEADER = 'X-YAWAMF-Recording-Clip-Ready';

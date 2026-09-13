@@ -68,6 +68,24 @@ def guest_rate_limit() -> Callable:
     return limiter.limit(_limit_for_key, key_func=_rate_limit_key)
 
 
+def _hls_rate_limit_key(request: Request) -> str:
+    """Keep HLS asset traffic separate from ordinary API and media requests."""
+    return f"hls:{_rate_limit_key(request)}"
+
+
+def _hls_limit_for_key(key: str) -> str:
+    if key.startswith("hls:owner:"):
+        return "1000/minute"
+    # One playback fetches a playlist, init fragment, and several media
+    # fragments. Preserve roughly the configured clip budget without making
+    # the multi-request transport exempt from abuse protection.
+    return f"{min(1000, settings.public_access.rate_limit_per_minute * 10)}/minute"
+
+
+def hls_rate_limit() -> Callable:
+    return limiter.limit(_hls_limit_for_key, key_func=_hls_rate_limit_key)
+
+
 def login_rate_limit() -> Callable:
     """
     Strict rate limiting for login endpoint to prevent brute force attacks.
