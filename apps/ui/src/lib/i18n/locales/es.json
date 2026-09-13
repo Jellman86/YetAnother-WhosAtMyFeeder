@@ -1593,6 +1593,42 @@
       "desc": "El diseño con el que empiezan los dispositivos nuevos. Las tarjetas muestran una imagen de cada visita; la lista muestra más en pantalla y alinea las horas. Cada dispositivo puede cambiarlo desde el explorador, y esa elección se mantiene allí.",
       "cards": "Tarjetas",
       "list": "Lista"
+    },
+    "system_health": {
+      "title": "Sistema",
+      "description": "Qué está haciendo este equipo y cuánto de ello es esta aplicación.",
+      "window": "Últimos 30 minutos, muestreado cada 5 s",
+      "legend": "Series",
+      "legend_cpu": "CPU, todo el equipo",
+      "cpu_now": "CPU ahora",
+      "accelerator_now": "{label} ahora",
+      "memory_now": "Esta aplicación en memoria",
+      "memory_of": "de {total}",
+      "cores": "{count} núcleos, sin límite de CPU en el contenedor",
+      "cores_limited": "{count} núcleos, limitado a {quota}",
+      "summary": "CPU media {average}, pico {peak} a las {time}",
+      "share_title": "Quién está usando la CPU ahora mismo",
+      "share_summary": "Esta aplicación {app} · resto del equipo {other} · libre {idle}",
+      "app_share": "Esta aplicación",
+      "col_process": "Proceso",
+      "col_cpu": "CPU",
+      "col_memory": "Memoria",
+      "role_main": "YA-WAMF",
+      "role_live_worker": "Trabajador en vivo",
+      "role_background_worker": "Trabajador en segundo plano",
+      "role_video_worker": "Trabajador de vídeo",
+      "role_ffmpeg": "ffmpeg",
+      "role_other_child": "Otro proceso de esta aplicación",
+      "role_other_host": "Otros en este equipo",
+      "role_other_host_note": "No es esta aplicación. No se puede nombrar sin el socket de Docker.",
+      "role_idle": "Libre",
+      "note": "Las cifras por proceso se leen de los propios procesos de este contenedor en cada muestra. Todo lo demás en el equipo se mide solo como resto; YA-WAMF no ve otros contenedores ni lo intenta.",
+      "loading": "Leyendo la última media hora…",
+      "unavailable": "El historial de carga no está disponible ahora mismo.",
+      "empty": "Las primeras muestras llegan unos segundos después del arranque.",
+      "inspect": "Inspeccionar una muestra",
+      "cpu_unmeasured": "La carga de CPU no se puede medir en este equipo; los contadores necesarios no se pueden leer desde dentro del contenedor.",
+      "no_accelerator": "En este equipo no se puede leer ningún contador de acelerador, así que solo se dibuja la CPU."
     }
   },
   "auth": {
@@ -1646,7 +1682,8 @@
     "audio_active": "Análisis de audio activo",
     "notifications_enabled": "Notificaciones habilitadas",
     "system_online": "Sistema en línea",
-    "system_offline": "Sistema desconectado"
+    "system_offline": "Sistema desconectado",
+    "open_health": "Estado del sistema"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ Video no disponible - se usó captura en su lugar",

@@ -123,6 +123,17 @@ export async function checkHealth(): Promise<HealthStatus> {
 }
 
 export type SystemTelemetry = paths['/api/system-telemetry']['get']['response'];
+export type SystemTelemetryHistory = paths['/api/system-telemetry/history']['get']['response'];
+
+/** The owner's half hour of host load and this app's share of it; kept by the server. */
+export async function fetchSystemTelemetryHistory(signal?: AbortSignal): Promise<SystemTelemetryHistory> {
+    const response = await apiFetch(`${API_BASE}/system-telemetry/history`, {
+        cache: 'no-store',
+        timeoutMs: 5_000,
+        signal
+    });
+    return handleResponse<SystemTelemetryHistory>(response);
+}
 
 export async function fetchSystemTelemetry(): Promise<SystemTelemetry> {
     const response = await apiFetch(`${API_BASE}/system-telemetry`, {

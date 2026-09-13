@@ -1593,6 +1593,42 @@
       "desc": "新设备默认使用的视图。卡片为每次到访显示图片；列表显示更多并让时间对齐。每台设备都可在浏览器中切换，该选择会保存在该设备上。",
       "cards": "卡片",
       "list": "列表"
+    },
+    "system_health": {
+      "title": "系统",
+      "description": "这台主机在做什么，其中有多少是这个应用。",
+      "window": "最近 30 分钟，每 5 秒采样",
+      "legend": "数据系列",
+      "legend_cpu": "CPU，整台主机",
+      "cpu_now": "当前 CPU",
+      "accelerator_now": "当前 {label}",
+      "memory_now": "此应用占用内存",
+      "memory_of": "/ {total}",
+      "cores": "{count} 核，容器无 CPU 限制",
+      "cores_limited": "{count} 核，限制为 {quota}",
+      "summary": "CPU 平均 {average}，峰值 {peak}（{time}）",
+      "share_title": "现在谁在使用 CPU",
+      "share_summary": "此应用 {app} · 主机其余部分 {other} · 空闲 {idle}",
+      "app_share": "此应用",
+      "col_process": "进程",
+      "col_cpu": "CPU",
+      "col_memory": "内存",
+      "role_main": "YA-WAMF",
+      "role_live_worker": "实时工作进程",
+      "role_background_worker": "后台工作进程",
+      "role_video_worker": "视频工作进程",
+      "role_ffmpeg": "ffmpeg",
+      "role_other_child": "此应用的其他进程",
+      "role_other_host": "此主机上的其他",
+      "role_other_host_note": "不是此应用。没有 Docker 套接字就无法指名。",
+      "role_idle": "空闲",
+      "note": "每个进程的数字在每次采样时从此容器自身的进程读取。主机上的其他一切只作为余量来计量；YA-WAMF 看不到其他容器，也不会尝试。",
+      "loading": "正在读取最近半小时…",
+      "unavailable": "负载历史暂时不可用。",
+      "empty": "启动几秒后会出现首批采样。",
+      "inspect": "查看采样点",
+      "cpu_unmeasured": "无法在此主机上测量 CPU 负载；所需的计数器无法从容器内读取。",
+      "no_accelerator": "此主机上没有可读取的加速器计数器，因此只绘制 CPU。"
     }
   },
   "auth": {
@@ -1646,7 +1682,8 @@
     "audio_active": "音频分析活跃",
     "notifications_enabled": "通知已启用",
     "system_online": "系统在线",
-    "system_offline": "系统离线"
+    "system_offline": "系统离线",
+    "open_health": "系统状态"
   },
   "notifications": {
     "reclassify_fallback": "⚠️ 视频不可用 - 改用快照",

@@ -14618,6 +14618,28 @@
         "title": "StreamTicketResponse",
         "type": "object"
       },
+      "SystemAcceleratorIdentity": {
+        "properties": {
+          "kind": {
+            "enum": [
+              "npu",
+              "gpu"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "label"
+        ],
+        "title": "SystemAcceleratorIdentity",
+        "type": "object"
+      },
       "SystemAcceleratorTelemetry": {
         "properties": {
           "kind": {
@@ -14685,6 +14707,252 @@
           "disk_usage"
         ],
         "title": "SystemDebugResponse",
+        "type": "object"
+      },
+      "SystemHistoryPointResponse": {
+        "properties": {
+          "accelerator_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accelerator Percent"
+          },
+          "app_cpu_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Cpu Percent"
+          },
+          "at": {
+            "title": "At",
+            "type": "number"
+          },
+          "cpu_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Percent"
+          },
+          "other_cpu_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Other Cpu Percent"
+          }
+        },
+        "required": [
+          "at"
+        ],
+        "title": "SystemHistoryPointResponse",
+        "type": "object"
+      },
+      "SystemHostFacts": {
+        "properties": {
+          "cpu_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Count"
+          },
+          "cpu_quota": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Quota"
+          },
+          "effective_cpus": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective Cpus"
+          },
+          "memory_limit_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Limit Bytes"
+          },
+          "memory_total_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Total Bytes"
+          }
+        },
+        "title": "SystemHostFacts",
+        "type": "object"
+      },
+      "SystemProcessLoadResponse": {
+        "properties": {
+          "cpu_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Percent"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "pid": {
+            "title": "Pid",
+            "type": "integer"
+          },
+          "role": {
+            "enum": [
+              "main",
+              "live_worker",
+              "background_worker",
+              "video_worker",
+              "ffmpeg",
+              "other_child"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "rss_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rss Bytes"
+          }
+        },
+        "required": [
+          "pid",
+          "role",
+          "label"
+        ],
+        "title": "SystemProcessLoadResponse",
+        "type": "object"
+      },
+      "SystemTelemetryHistoryResponse": {
+        "properties": {
+          "accelerator": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SystemAcceleratorIdentity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "app_rss_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App Rss Bytes"
+          },
+          "host": {
+            "$ref": "#/components/schemas/SystemHostFacts"
+          },
+          "interval_seconds": {
+            "title": "Interval Seconds",
+            "type": "number"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/SystemHistoryPointResponse"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "processes": {
+            "items": {
+              "$ref": "#/components/schemas/SystemProcessLoadResponse"
+            },
+            "title": "Processes",
+            "type": "array"
+          },
+          "sampled_at": {
+            "title": "Sampled At",
+            "type": "string"
+          },
+          "window_seconds": {
+            "title": "Window Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sampled_at",
+          "window_seconds",
+          "interval_seconds",
+          "host",
+          "points",
+          "processes"
+        ],
+        "title": "SystemTelemetryHistoryResponse",
         "type": "object"
       },
       "SystemTelemetryResponse": {
@@ -25201,6 +25469,39 @@
           }
         ],
         "summary": "Get System Telemetry",
+        "tags": [
+          "stats"
+        ]
+      }
+    },
+    "/api/system-telemetry/history": {
+      "get": {
+        "description": "The last half hour of host load and what this app's own processes took of it.\n\nOwner only: it names this container's processes. Anything else on the host is\nthe remainder and is never identified.",
+        "operationId": "get_system_telemetry_history_api_system_telemetry_history_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemTelemetryHistoryResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          },
+          {
+            "APIKeyHeader": []
+          },
+          {
+            "APIKeyQuery": []
+          }
+        ],
+        "summary": "Get System Telemetry History",
         "tags": [
           "stats"
         ]
